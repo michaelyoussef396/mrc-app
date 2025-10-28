@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import logo from "@/assets/Logo.png";
 
 export default function Dashboard() {
   const { signOut, user } = useAuth();
@@ -9,9 +10,11 @@ export default function Dashboard() {
       {/* Header */}
       <header className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-xl sm:text-2xl font-bold text-primary">
-            MRC Internal System
-          </h1>
+          <img 
+            src={logo} 
+            alt="Mould & Restoration Co." 
+            className="h-10 sm:h-12"
+          />
           <Button onClick={signOut} variant="outline" size="sm">
             Sign Out
           </Button>
