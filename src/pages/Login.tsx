@@ -70,11 +70,13 @@ export default function Login() {
         <div className="bg-card rounded-lg shadow-lg p-6 sm:p-8">
           {/* Company Branding */}
           <div className="text-center mb-8">
-            <img 
-              src={logoMRC} 
-              alt="Mould & Restoration Co." 
-              className="h-16 sm:h-20 mx-auto mb-4"
-            />
+            <div className="inline-block p-4 bg-background rounded-lg border border-border mb-4">
+              <img 
+                src={logoMRC} 
+                alt="Mould & Restoration Co." 
+                className="h-16 sm:h-20"
+              />
+            </div>
             <h1 className="text-xl sm:text-2xl font-bold text-primary mb-1">
               MOULD & RESTORATION CO.
             </h1>
