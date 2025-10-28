@@ -19,6 +19,10 @@ import Reports from "./pages/Reports";
 import Analytics from "./pages/Analytics";
 import ClientBooking from "./pages/ClientBooking";
 import NotFound from "./pages/NotFound";
+import ServerError from "./pages/ServerError";
+import Unauthorized from "./pages/Unauthorized";
+import SessionExpired from "./pages/SessionExpired";
+import Maintenance from "./pages/Maintenance";
 
 const queryClient = new QueryClient();
 
@@ -115,6 +119,12 @@ const App = () => (
             />
             <Route path="/book/:token" element={<ClientBooking />} />
             <Route path="/booking/:inspectionId/:token" element={<ClientBooking />} />
+            <Route path="/500" element={<ServerError />} />
+            <Route path="/error" element={<ServerError />} />
+            <Route path="/unauthorized" element={<Unauthorized />} />
+            <Route path="/403" element={<Unauthorized />} />
+            <Route path="/session-expired" element={<SessionExpired />} />
+            <Route path="/maintenance" element={<Maintenance />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
