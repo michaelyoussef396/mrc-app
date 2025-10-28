@@ -31,7 +31,7 @@ const OperatingHours = () => {
           <CardTitle>Operating Hours</CardTitle>
         </div>
         <CardDescription>
-          Set your business hours and emergency service rates
+          Set your business hours and public holiday settings
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -69,34 +69,6 @@ const OperatingHours = () => {
               </div>
             </div>
           ))}
-        </div>
-
-        <div className="space-y-4 pt-4 border-t">
-          <Label className="text-base font-semibold">Emergency Service</Label>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="emergency">Offer 24/7 emergency service</Label>
-              <p className="text-sm text-muted-foreground">
-                Accept emergency calls outside business hours
-              </p>
-            </div>
-            <Switch defaultChecked id="emergency" />
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Emergency rate multiplier</Label>
-            <Select defaultValue="1.5">
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1.5">1.5x</SelectItem>
-                <SelectItem value="2">2x</SelectItem>
-                <SelectItem value="2.5">2.5x</SelectItem>
-                <SelectItem value="3">3x</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         <div className="space-y-4 pt-4 border-t">
