@@ -9,10 +9,7 @@ import OperatingHours from "@/components/settings/OperatingHours";
 import ServiceArea from "@/components/settings/ServiceArea";
 import PricingDefaults from "@/components/settings/PricingDefaults";
 import EquipmentMaterials from "@/components/settings/EquipmentMaterials";
-import ReportBranding from "@/components/settings/ReportBranding";
 import Notifications from "@/components/settings/Notifications";
-import Integrations from "@/components/settings/Integrations";
-import QuotesInvoices from "@/components/settings/QuotesInvoices";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -43,7 +40,7 @@ const Settings = () => {
 
         {/* Settings Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-9 h-auto gap-1">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 h-auto gap-1">
             <TabsTrigger value="company" className="text-xs px-2 py-2">
               Company
             </TabsTrigger>
@@ -59,17 +56,8 @@ const Settings = () => {
             <TabsTrigger value="equipment" className="text-xs px-2 py-2">
               Equipment
             </TabsTrigger>
-            <TabsTrigger value="branding" className="text-xs px-2 py-2">
-              Branding
-            </TabsTrigger>
             <TabsTrigger value="notifications" className="text-xs px-2 py-2">
               Notifications
-            </TabsTrigger>
-            <TabsTrigger value="integrations" className="text-xs px-2 py-2">
-              Integrations
-            </TabsTrigger>
-            <TabsTrigger value="invoices" className="text-xs px-2 py-2">
-              Invoices
             </TabsTrigger>
           </TabsList>
 
@@ -93,20 +81,8 @@ const Settings = () => {
             <EquipmentMaterials />
           </TabsContent>
 
-          <TabsContent value="branding">
-            <ReportBranding />
-          </TabsContent>
-
           <TabsContent value="notifications">
             <Notifications />
-          </TabsContent>
-
-          <TabsContent value="integrations">
-            <Integrations />
-          </TabsContent>
-
-          <TabsContent value="invoices">
-            <QuotesInvoices />
           </TabsContent>
         </Tabs>
       </main>
