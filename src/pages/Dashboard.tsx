@@ -8,14 +8,14 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-card border-b border-border">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="bg-primary shadow-sm">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between text-primary-foreground">
           <img 
             src={logo} 
             alt="Mould & Restoration Co." 
             className="h-10 sm:h-12"
           />
-          <Button onClick={signOut} variant="outline" size="sm">
+          <Button onClick={signOut} variant="outline" size="sm" className="text-primary-foreground border-primary-foreground hover:bg-primary-foreground/10">
             Sign Out
           </Button>
         </div>
