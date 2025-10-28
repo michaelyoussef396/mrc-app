@@ -17,6 +17,7 @@ import Calendar from "./pages/Calendar";
 import InspectionForm from "./pages/InspectionForm";
 import Reports from "./pages/Reports";
 import Analytics from "./pages/Analytics";
+import ClientBooking from "./pages/ClientBooking";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -112,6 +113,8 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route path="/book/:token" element={<ClientBooking />} />
+            <Route path="/booking/:inspectionId/:token" element={<ClientBooking />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
