@@ -18,7 +18,6 @@ import {
   Download,
   Printer,
   Mail,
-  Calendar,
   AlertCircle,
   CheckCircle,
   Package,
@@ -921,37 +920,6 @@ export default function Analytics() {
             </Card>
           </TabsContent>
         </Tabs>
-
-        {/* Export Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Report Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                Export Full Report (PDF)
-              </Button>
-              <Button variant="outline">
-                <FileText className="mr-2 h-4 w-4" />
-                Export to Excel
-              </Button>
-              <Button variant="outline">
-                <Printer className="mr-2 h-4 w-4" />
-                Print Report
-              </Button>
-              <Button variant="outline">
-                <Mail className="mr-2 h-4 w-4" />
-                Email Report to Team
-              </Button>
-              <Button variant="outline">
-                <Calendar className="mr-2 h-4 w-4" />
-                Schedule Monthly Report
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       </main>
 
       <MobileBottomNav />
