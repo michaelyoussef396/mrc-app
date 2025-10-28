@@ -29,6 +29,7 @@ export function TopNavigation() {
     { label: "Calendar", path: "/calendar" },
     { label: "Inspections", path: "/inspections" },
     { label: "Reports", path: "/reports" },
+    { label: "Analytics", path: "/analytics" },
   ];
 
   const handleSignOut = async () => {
