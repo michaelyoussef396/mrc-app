@@ -548,11 +548,46 @@ export default function InspectionForm() {
             {/* Section 2: Area Inspection */}
             {currentSection === 2 && currentArea && (
               <div className="space-y-6">
+                {/* Areas Summary */}
+                <div className="bg-muted p-4 rounded-lg space-y-2">
+                  <h3 className="font-semibold">Areas Inspected: {areas.length}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {areas.map((area, idx) => (
+                      <div key={area.id} className="flex items-center gap-2 bg-background px-3 py-1 rounded-md border">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto p-0 hover:bg-transparent"
+                          onClick={() => setCurrentAreaIndex(idx)}
+                        >
+                          <span className={idx === currentAreaIndex ? "font-bold" : ""}>
+                            {area.areaName || `Area ${idx + 1}`}
+                          </span>
+                        </Button>
+                        {areas.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 hover:text-destructive"
+                            onClick={() => {
+                              if (areas.length > 1) {
+                                setAreas(prev => prev.filter((_, i) => i !== idx));
+                                if (currentAreaIndex >= idx && currentAreaIndex > 0) {
+                                  setCurrentAreaIndex(currentAreaIndex - 1);
+                                }
+                              }
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Area {currentAreaIndex + 1} of {areas.length}</h3>
-                  <Button onClick={addArea} variant="outline" size="sm">
-                    <Plus className="h-4 w-4" /> Add Another Area
-                  </Button>
                 </div>
 
                 <div>
@@ -995,6 +1030,46 @@ export default function InspectionForm() {
                   </div>
                 )}
 
+                <Separator className="my-8" />
+
+                {/* Area Navigation or Add New */}
+                <div className="border-2 border-dashed rounded-lg p-6 text-center space-y-4">
+                  {currentAreaIndex < areas.length - 1 ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        ✅ Area {currentAreaIndex + 1} in progress
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="w-full"
+                        onClick={() => setCurrentAreaIndex(currentAreaIndex + 1)}
+                      >
+                        Next Area ({areas[currentAreaIndex + 1].areaName || `Area ${currentAreaIndex + 2}`}) <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium">Is there another area to inspect?</p>
+                      <Button
+                        onClick={addArea}
+                        size="lg"
+                        className="w-full bg-green-600 hover:bg-green-700"
+                      >
+                        <Plus className="h-5 w-5" /> Yes - Add Another Area
+                      </Button>
+                      <Button
+                        onClick={nextSection}
+                        size="lg"
+                        variant="outline"
+                        className="w-full"
+                      >
+                        No - Continue to Subfloor Section <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+
                 {areas.length > 1 && (
                   <div className="flex gap-2">
                     {currentAreaIndex > 0 && (
@@ -1020,11 +1095,637 @@ export default function InspectionForm() {
               </div>
             )}
 
-            {/* Sections 3-8: Placeholder */}
-            {currentSection > 2 && currentSection < 8 && (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">Section {currentSection}: {sections[currentSection - 1].title}</p>
-                <p className="text-sm text-muted-foreground">Additional sections will be implemented based on specifications</p>
+            {/* Section 3: Subfloor Section */}
+            {currentSection === 3 && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <Label className="text-lg font-semibold">Subfloor Inspection Required</Label>
+                  <Switch
+                    checked={subfloorEnabled}
+                    onCheckedChange={setSubfloorEnabled}
+                  />
+                </div>
+
+                {subfloorEnabled && (
+                  <div className="space-y-6 pl-4 border-l-2">
+                    <div>
+                      <Label>Subfloor Observations (for AI)</Label>
+                      <Textarea
+                        value={subfloorObservations}
+                        onChange={(e) => setSubfloorObservations(e.target.value)}
+                        placeholder="Describe what you observe in the subfloor..."
+                        rows={3}
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label>AI-Generated Subfloor Comments</Label>
+                        <Button
+                          onClick={async () => {
+                            const comment = await generateAiComments("subfloor");
+                            setSubfloorAiComments(comment);
+                            setSubfloorAiApproved(false);
+                          }}
+                          disabled={isGeneratingAi}
+                          size="sm"
+                          variant="secondary"
+                        >
+                          {isGeneratingAi ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
+                          ) : (
+                            "Generate AI Report Text"
+                          )}
+                        </Button>
+                      </div>
+                      <Textarea
+                        value={subfloorAiComments}
+                        onChange={(e) => setSubfloorAiComments(e.target.value)}
+                        placeholder="AI will generate professional subfloor comments..."
+                        rows={6}
+                      />
+                      {subfloorAiComments && !subfloorAiApproved && (
+                        <div className="flex gap-2 mt-2">
+                          <Button size="sm" onClick={() => setSubfloorAiApproved(true)}>
+                            <Check className="h-4 w-4" /> Approve
+                          </Button>
+                          <Button size="sm" variant="outline">
+                            <Edit3 className="h-4 w-4" /> Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              const comment = await generateAiComments("subfloor");
+                              setSubfloorAiComments(comment);
+                            }}
+                          >
+                            <RefreshCw className="h-4 w-4" /> Regenerate
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label>Subfloor Landscape</Label>
+                      <Select value={subfloorLandscape} onValueChange={setSubfloorLandscape}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="flat">Flat Block</SelectItem>
+                          <SelectItem value="sloping">Sloping Block</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-4">
+                      <Label>Subfloor Readings (Moisture %)</Label>
+                      {subfloorReadings.map((reading, idx) => (
+                        <Card key={reading.id}>
+                          <CardContent className="pt-4 space-y-3">
+                            <div className="flex justify-between">
+                              <Label>Reading {idx + 1}</Label>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setSubfloorReadings(prev => prev.filter(r => r.id !== reading.id));
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <Input
+                              type="number"
+                              placeholder="Moisture %"
+                              value={reading.moisture}
+                              onChange={(e) => {
+                                const newReadings = [...subfloorReadings];
+                                newReadings[idx] = { ...reading, moisture: Number(e.target.value) };
+                                setSubfloorReadings(newReadings);
+                              }}
+                            />
+                            <Input
+                              placeholder="Location"
+                              value={reading.location}
+                              onChange={(e) => {
+                                const newReadings = [...subfloorReadings];
+                                newReadings[idx] = { ...reading, location: e.target.value };
+                                setSubfloorReadings(newReadings);
+                              }}
+                            />
+                          </CardContent>
+                        </Card>
+                      ))}
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSubfloorReadings([...subfloorReadings, {
+                            id: String(Date.now()),
+                            moisture: 0,
+                            location: ""
+                          }]);
+                        }}
+                      >
+                        <Plus className="h-4 w-4" /> Add Subfloor Reading
+                      </Button>
+                    </div>
+
+                    <div>
+                      <Label>Subfloor Photos (up to 20)</Label>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => handleFileUpload(e, (files) => {
+                          setSubfloorPhotos(prev => [...prev, ...files]);
+                        })}
+                        className="mt-2"
+                      />
+                      {subfloorPhotos.length > 0 && (
+                        <div className="grid grid-cols-4 gap-2 mt-2">
+                          {subfloorPhotos.map((photo, idx) => (
+                            <div key={idx} className="relative">
+                              <img src={photo} alt={`Subfloor ${idx + 1}`} className="w-full h-20 object-cover rounded" />
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="absolute top-0 right-0 h-5 w-5 p-0"
+                                onClick={() => {
+                                  setSubfloorPhotos(prev => prev.filter((_, i) => i !== idx));
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {subfloorPhotos.length} photos uploaded
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label>Subfloor Sanitation Required?</Label>
+                      <Switch
+                        checked={subfloorSanitation}
+                        onCheckedChange={setSubfloorSanitation}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label>Subfloor Racking Required?</Label>
+                      <Switch
+                        checked={subfloorRacking}
+                        onCheckedChange={setSubfloorRacking}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Subfloor Treatment Time (minutes)</Label>
+                      <Input
+                        type="number"
+                        value={subfloorTreatmentTime}
+                        onChange={(e) => setSubfloorTreatmentTime(Number(e.target.value))}
+                        placeholder="Enter minutes"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Section 4: Outdoor Information */}
+            {currentSection === 4 && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label>Temperature (°C)</Label>
+                    <Input
+                      type="number"
+                      value={outdoorTemp}
+                      onChange={(e) => setOutdoorTemp(Number(e.target.value))}
+                    />
+                  </div>
+                  <div>
+                    <Label>Humidity (%)</Label>
+                    <Input
+                      type="number"
+                      value={outdoorHumidity}
+                      onChange={(e) => setOutdoorHumidity(Number(e.target.value))}
+                    />
+                  </div>
+                  <div>
+                    <Label>Dew Point (°C)</Label>
+                    <Input
+                      type="number"
+                      value={outdoorDewPoint}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Outdoor Comments</Label>
+                  <Textarea
+                    value={outdoorComments}
+                    onChange={(e) => setOutdoorComments(e.target.value)}
+                    placeholder="Describe outdoor conditions..."
+                    rows={3}
+                  />
+                </div>
+
+                <Separator />
+                <h3 className="font-semibold">Property Identification Photos</h3>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Front Door Photo *</Label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(e, (files) => setFrontDoorPhoto(files[0]))}
+                      className="mt-2"
+                    />
+                    {frontDoorPhoto && (
+                      <img src={frontDoorPhoto} alt="Front door" className="w-full h-32 object-cover rounded mt-2" />
+                    )}
+                  </div>
+
+                  <div>
+                    <Label>Front of House Photo *</Label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(e, (files) => setFrontHousePhoto(files[0]))}
+                      className="mt-2"
+                    />
+                    {frontHousePhoto && (
+                      <img src={frontHousePhoto} alt="Front of house" className="w-full h-32 object-cover rounded mt-2" />
+                    )}
+                  </div>
+
+                  <div>
+                    <Label>Mailbox Photo *</Label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(e, (files) => setMailboxPhoto(files[0]))}
+                      className="mt-2"
+                    />
+                    {mailboxPhoto && (
+                      <img src={mailboxPhoto} alt="Mailbox" className="w-full h-32 object-cover rounded mt-2" />
+                    )}
+                  </div>
+
+                  <div>
+                    <Label>Street Photo *</Label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(e, (files) => setStreetPhoto(files[0]))}
+                      className="mt-2"
+                    />
+                    {streetPhoto && (
+                      <img src={streetPhoto} alt="Street" className="w-full h-32 object-cover rounded mt-2" />
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <Label>Include Navigation Photos</Label>
+                  <Switch
+                    checked={directionPhotosEnabled}
+                    onCheckedChange={setDirectionPhotosEnabled}
+                  />
+                </div>
+
+                {directionPhotosEnabled && (
+                  <div className="space-y-4 pl-4 border-l-2">
+                    {directionPhotos.map((dir, idx) => (
+                      <Card key={dir.id}>
+                        <CardContent className="pt-4 space-y-3">
+                          <Input
+                            placeholder="Caption (e.g., Turn left at traffic lights)"
+                            value={dir.caption}
+                            onChange={(e) => {
+                              const newPhotos = [...directionPhotos];
+                              newPhotos[idx] = { ...dir, caption: e.target.value };
+                              setDirectionPhotos(newPhotos);
+                            }}
+                          />
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleFileUpload(e, (files) => {
+                              const newPhotos = [...directionPhotos];
+                              newPhotos[idx] = { ...dir, photo: files[0] };
+                              setDirectionPhotos(newPhotos);
+                            })}
+                          />
+                          {dir.photo && (
+                            <img src={dir.photo} alt="Direction" className="w-full h-24 object-cover rounded" />
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setDirectionPhotos([...directionPhotos, {
+                          id: String(Date.now()),
+                          caption: "",
+                          photo: ""
+                        }]);
+                      }}
+                    >
+                      <Plus className="h-4 w-4" /> Add More Direction Photos
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Section 5: Waste Disposal */}
+            {currentSection === 5 && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <Label className="text-lg font-semibold">Waste Disposal Required</Label>
+                  <Switch
+                    checked={wasteDisposalEnabled}
+                    onCheckedChange={setWasteDisposalEnabled}
+                  />
+                </div>
+
+                {wasteDisposalEnabled && (
+                  <div>
+                    <Label>Waste Disposal Amount *</Label>
+                    <Select value={wasteDisposalAmount} onValueChange={setWasteDisposalAmount}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="small">Small (Disposal bags)</SelectItem>
+                        <SelectItem value="medium">Medium (Fill van)</SelectItem>
+                        <SelectItem value="large">Large (Fill 2 vans)</SelectItem>
+                        <SelectItem value="extra-large">Extra Large (Fill skip)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Cost will be calculated automatically based on selection
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Section 6: Work Procedures */}
+            {currentSection === 6 && (
+              <div className="space-y-6">
+                <div>
+                  <Label>Select all procedures required:</Label>
+                  <div className="space-y-2 mt-3">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="hepa" checked={hepaVac} onCheckedChange={(checked) => setHepaVac(!!checked)} />
+                      <Label htmlFor="hepa" className="font-normal">HEPA VAC</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="antimicrobial" checked={antimicrobial} onCheckedChange={(checked) => setAntimicrobial(!!checked)} />
+                      <Label htmlFor="antimicrobial" className="font-normal">Antimicrobial Treatment</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="stain" checked={stainRemoving} onCheckedChange={(checked) => setStainRemoving(!!checked)} />
+                      <Label htmlFor="stain" className="font-normal">Stain Removing Antimicrobial</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="sanitation" checked={homeSanitation} onCheckedChange={(checked) => setHomeSanitation(!!checked)} />
+                      <Label htmlFor="sanitation" className="font-normal">Home Sanitation and Fogging</Label>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <Label className="text-lg font-semibold">Drying Equipment Required?</Label>
+                  <Switch
+                    checked={dryingEquipmentEnabled}
+                    onCheckedChange={setDryingEquipmentEnabled}
+                  />
+                </div>
+
+                {dryingEquipmentEnabled && (
+                  <div className="space-y-6 pl-4 border-l-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEquipment([...equipment, {
+                          id: String(Date.now()),
+                          name: "Commercial Dehumidifier",
+                          quantity: 1,
+                          dailyRate: 132,
+                          duration: 3
+                        }]);
+                      }}
+                    >
+                      <Plus className="h-4 w-4" /> Add Equipment
+                    </Button>
+
+                    {equipment.map((eq, idx) => (
+                      <Card key={eq.id}>
+                        <CardContent className="pt-4 space-y-3">
+                          <div className="flex justify-between items-center">
+                            <Label>Equipment {idx + 1}</Label>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setEquipment(prev => prev.filter(e => e.id !== eq.id));
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <Select
+                            value={eq.name}
+                            onValueChange={(value) => {
+                              const rates: Record<string, number> = {
+                                "Commercial Dehumidifier": 132,
+                                "Air Mover": 46,
+                                "RCD Box": 5
+                              };
+                              const newEquipment = [...equipment];
+                              newEquipment[idx] = { ...eq, name: value, dailyRate: rates[value] || 0 };
+                              setEquipment(newEquipment);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Commercial Dehumidifier">Commercial Dehumidifier ($132/day)</SelectItem>
+                              <SelectItem value="Air Mover">Air Mover ($46/day)</SelectItem>
+                              <SelectItem value="RCD Box">RCD Box ($5/day)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs">Quantity</Label>
+                              <Input
+                                type="number"
+                                value={eq.quantity}
+                                onChange={(e) => {
+                                  const newEquipment = [...equipment];
+                                  newEquipment[idx] = { ...eq, quantity: Number(e.target.value) };
+                                  setEquipment(newEquipment);
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Duration (days)</Label>
+                              <Input
+                                type="number"
+                                value={eq.duration}
+                                onChange={(e) => {
+                                  const newEquipment = [...equipment];
+                                  newEquipment[idx] = { ...eq, duration: Number(e.target.value) };
+                                  setEquipment(newEquipment);
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Cost: ${(eq.quantity * eq.dailyRate * eq.duration).toFixed(2)}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
+
+                    <div className="bg-muted p-4 rounded-lg">
+                      <p className="font-semibold">Total Equipment Cost: ${equipmentCost.toFixed(2)} (ex GST)</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Section 7: Job Summary */}
+            {currentSection === 7 && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <Label>Recommend Dehumidifier for Client?</Label>
+                  <Switch
+                    checked={recommendDehumidifier}
+                    onCheckedChange={setRecommendDehumidifier}
+                  />
+                </div>
+
+                {recommendDehumidifier && (
+                  <div>
+                    <Label>Recommendation Size</Label>
+                    <Select value={dehumidifierSize} onValueChange={setDehumidifierSize}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="small">Small (1x Dehumidifier)</SelectItem>
+                        <SelectItem value="medium">Medium (2x Dehumidifier)</SelectItem>
+                        <SelectItem value="large">Large (Home Built-in Dehumidifier)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <Separator />
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label>Cause of Mould (AI Generated)</Label>
+                    <Button
+                      onClick={async () => {
+                        const cause = await generateAiComments("cause");
+                        setCauseOfMould(cause);
+                        setCauseAiApproved(false);
+                      }}
+                      disabled={isGeneratingAi}
+                      size="sm"
+                      variant="secondary"
+                    >
+                      {isGeneratingAi ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
+                      ) : (
+                        "Generate with AI"
+                      )}
+                    </Button>
+                  </div>
+                  <Textarea
+                    value={causeOfMould}
+                    onChange={(e) => setCauseOfMould(e.target.value)}
+                    placeholder="AI will analyze the entire inspection and generate cause analysis..."
+                    rows={8}
+                  />
+                  {causeOfMould && !causeAiApproved && (
+                    <div className="flex gap-2 mt-2">
+                      <Button size="sm" onClick={() => setCauseAiApproved(true)}>
+                        <Check className="h-4 w-4" /> Approve
+                      </Button>
+                      <Button size="sm" variant="outline">
+                        <Edit3 className="h-4 w-4" /> Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          const cause = await generateAiComments("cause");
+                          setCauseOfMould(cause);
+                        }}
+                      >
+                        <RefreshCw className="h-4 w-4" /> Regenerate
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label>Additional Information for Technician</Label>
+                  <Textarea
+                    value={additionalTechInfo}
+                    onChange={(e) => setAdditionalTechInfo(e.target.value)}
+                    placeholder="Client availability, access notes, special instructions..."
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <Label>Additional Equipment Comments</Label>
+                  <Textarea
+                    value={additionalEquipmentComments}
+                    onChange={(e) => setAdditionalEquipmentComments(e.target.value)}
+                    placeholder="Equipment requirements, access considerations..."
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <Label>Parking Options *</Label>
+                  <Select value={parkingOptions} onValueChange={setParkingOptions}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select parking option" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="driveway">Driveway</SelectItem>
+                      <SelectItem value="street">Street</SelectItem>
+                      <SelectItem value="carpark">Carpark</SelectItem>
+                      <SelectItem value="visitor">Visitor Carpark</SelectItem>
+                      <SelectItem value="none">No Nearby Parking</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             )}
 
