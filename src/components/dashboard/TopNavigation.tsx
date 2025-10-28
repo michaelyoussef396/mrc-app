@@ -81,7 +81,7 @@ export function TopNavigation() {
                   <User className="mr-2 h-4 w-4" />
                   <span>My Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/manage-users')}>
                   <Users className="mr-2 h-4 w-4" />
                   <span>Manage Users</span>
                 </DropdownMenuItem>
@@ -133,7 +133,14 @@ export function TopNavigation() {
                     <User className="mr-2 h-4 w-4" />
                     My Profile
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start"
+                    onClick={() => {
+                      navigate('/manage-users');
+                      setMobileMenuOpen(false);
+                    }}
+                  >
                     <Users className="mr-2 h-4 w-4" />
                     Manage Users
                   </Button>
