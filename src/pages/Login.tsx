@@ -17,6 +17,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import logoMRC from "@/assets/logoMRC.png";
+import { Copy, Info } from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -40,6 +41,15 @@ export default function Login() {
       rememberMe: false,
     },
   });
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied!",
+      description: `${label} copied to clipboard`,
+      duration: 2000,
+    });
+  };
 
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
@@ -66,7 +76,58 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md space-y-6">
+        {/* Demo Credentials Box */}
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4 sm:p-5 shadow-sm">
+          <div className="flex items-start gap-3">
+            <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-3">
+              <h3 className="font-semibold text-amber-900 text-sm sm:text-base">
+                DEMO LOGIN CREDENTIALS
+              </h3>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2 bg-white/60 rounded-lg p-2 sm:p-3">
+                  <div className="flex-1">
+                    <p className="text-xs text-amber-700 font-medium mb-1">Email</p>
+                    <p className="font-mono text-xs sm:text-sm text-amber-900">admin@mrc.com.au</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 hover:bg-amber-100"
+                    onClick={() => copyToClipboard('admin@mrc.com.au', 'Email')}
+                  >
+                    <Copy className="h-3.5 w-3.5 text-amber-600" />
+                  </Button>
+                </div>
+                
+                <div className="flex items-center justify-between gap-2 bg-white/60 rounded-lg p-2 sm:p-3">
+                  <div className="flex-1">
+                    <p className="text-xs text-amber-700 font-medium mb-1">Password</p>
+                    <p className="font-mono text-xs sm:text-sm text-amber-900">Admin123!</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 hover:bg-amber-100"
+                    onClick={() => copyToClipboard('Admin123!', 'Password')}
+                  >
+                    <Copy className="h-3.5 w-3.5 text-amber-600" />
+                  </Button>
+                </div>
+              </div>
+              
+              <p className="text-xs text-amber-700 italic">
+                (For testing purposes)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Login Card */}
         <div className="bg-card rounded-2xl shadow-2xl overflow-hidden">
           {/* Header with Primary Color */}
           <div className="bg-primary px-6 sm:px-8 py-8 sm:py-10 text-center">

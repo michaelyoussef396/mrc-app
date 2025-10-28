@@ -22,6 +22,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Seed admin user on app startup
+    const seedAdminUser = async () => {
+      try {
+        const response = await fetch(
+          'https://ecyivrxjpsmjmexqatym.supabase.co/functions/v1/seed-admin',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjeWl2cnhqcHNtam1leHFhdHltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2NDM1NzgsImV4cCI6MjA3NzIxOTU3OH0.HVM7cQcls8v3sWEbjUHOPdqpk4a-SaQ4L-zw_7W40-s'
+            }
+          }
+        );
+        const result = await response.json();
+        console.log('Admin user seed result:', result);
+      } catch (error) {
+        console.error('Failed to seed admin user:', error);
+      }
+    };
+
+    seedAdminUser();
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
