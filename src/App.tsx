@@ -13,6 +13,7 @@ import Profile from "./pages/Profile";
 import ManageUsers from "./pages/ManageUsers";
 import Settings from "./pages/Settings";
 import Leads from "./pages/Leads";
+import Calendar from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,6 +66,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Leads />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/calendar"
+              element={
+                <ProtectedRoute>
+                  <Calendar />
                 </ProtectedRoute>
               }
             />
