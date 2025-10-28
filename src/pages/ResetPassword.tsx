@@ -23,8 +23,8 @@ const resetPasswordSchema = z.object({
     .string()
     .min(8, "Password must be at least 8 characters")
     .regex(/[A-Z]/, "Password must contain at least 1 uppercase letter")
-    .regex(/[0-9]/, "Password must contain at least 1 number")
-    .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least 1 special character"),
+    .regex(/[a-z]/, "Password must contain at least 1 lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least 1 number"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -54,6 +54,7 @@ export default function ResetPassword() {
   // Password validation checks
   const hasMinLength = password.length >= 8;
   const hasUppercase = /[A-Z]/.test(password);
+  const hasLowercase = /[a-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
   const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
 
@@ -68,14 +69,10 @@ export default function ResetPassword() {
           title: "Error",
           description: error.message || "Failed to reset password",
         });
+        setIsLoading(false);
       } else {
-        toast({
-          title: "Success",
-          description: "Your password has been reset successfully",
-        });
-        setTimeout(() => {
-          navigate("/");
-        }, 1500);
+        // Redirect to password changed success page
+        navigate("/password-changed");
       }
     } catch (error) {
       toast({
@@ -83,7 +80,6 @@ export default function ResetPassword() {
         title: "Error",
         description: "An unexpected error occurred",
       });
-    } finally {
       setIsLoading(false);
     }
   };
@@ -164,6 +160,16 @@ export default function ResetPassword() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
+                      {hasLowercase ? (
+                        <Check className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <X className="h-4 w-4 text-red-600" />
+                      )}
+                      <span className={hasLowercase ? "text-green-600" : "text-muted-foreground"}>
+                        One lowercase letter
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
                       {hasNumber ? (
                         <Check className="h-4 w-4 text-green-600" />
                       ) : (
@@ -177,10 +183,10 @@ export default function ResetPassword() {
                       {hasSpecialChar ? (
                         <Check className="h-4 w-4 text-green-600" />
                       ) : (
-                        <X className="h-4 w-4 text-red-600" />
+                        <span className="h-4 w-4" />
                       )}
                       <span className={hasSpecialChar ? "text-green-600" : "text-muted-foreground"}>
-                        One special character
+                        One special character (optional)
                       </span>
                     </div>
                   </div>
@@ -223,6 +229,20 @@ export default function ResetPassword() {
                 </Button>
               </form>
             </Form>
+
+            {/* Back to Login Link */}
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => navigate("/")}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Remember your password?{" "}
+                <span className="text-primary hover:text-primary/80 font-semibold">
+                  Back to Login
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

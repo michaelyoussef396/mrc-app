@@ -26,7 +26,6 @@ type ForgotPasswordForm = z.infer<typeof forgotPasswordSchema>;
 
 export default function ForgotPassword() {
   const [isLoading, setIsLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
   const { resetPassword } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -49,12 +48,10 @@ export default function ForgotPassword() {
           title: "Error",
           description: error.message || "Failed to send reset email",
         });
+        setIsLoading(false);
       } else {
-        setEmailSent(true);
-        toast({
-          title: "Email Sent",
-          description: "Check your email for reset instructions",
-        });
+        // Redirect to check email page with email in state
+        navigate("/check-email", { state: { email: data.email } });
       }
     } catch (error) {
       toast({
@@ -62,7 +59,6 @@ export default function ForgotPassword() {
         title: "Error",
         description: "An unexpected error occurred",
       });
-    } finally {
       setIsLoading(false);
     }
   };
@@ -89,66 +85,37 @@ export default function ForgotPassword() {
           </div>
 
           <div className="p-6 sm:p-8">
+            {/* Forgot Password Form */}
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-foreground font-semibold">Email Address</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="your.email@example.com"
+                          className="h-12 sm:h-13 text-base border-2 focus:border-primary transition-colors"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            {!emailSent ? (
-              <>
-                {/* Forgot Password Form */}
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-foreground font-semibold">Email Address</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="email"
-                              placeholder="your.email@example.com"
-                              className="h-12 sm:h-13 text-base border-2 focus:border-primary transition-colors"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <Button
-                      type="submit"
-                      className="w-full h-12 sm:h-13 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? "Sending..." : "Send Reset Link"}
-                    </Button>
-                  </form>
-                </Form>
-              </>
-            ) : (
-              <div className="text-center py-6">
-                <div className="mb-4 text-green-600">
-                  <svg
-                    className="w-16 h-16 mx-auto"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  Check Your Email
-                </h3>
-                <p className="text-sm text-muted-foreground mb-6">
-                  We've sent password reset instructions to {form.getValues("email")}
-                </p>
-              </div>
-            )}
+                <Button
+                  type="submit"
+                  className="w-full h-12 sm:h-13 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Sending..." : "Send Reset Link"}
+                </Button>
+              </form>
+            </Form>
 
             {/* Back to Sign In Link */}
             <div className="mt-6 text-center">
