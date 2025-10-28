@@ -6,7 +6,6 @@ import { TopNavigation } from "@/components/dashboard/TopNavigation";
 import MobileBottomNav from "@/components/dashboard/MobileBottomNav";
 import CompanyProfile from "@/components/settings/CompanyProfile";
 import OperatingHours from "@/components/settings/OperatingHours";
-import ServiceArea from "@/components/settings/ServiceArea";
 import PricingDefaults from "@/components/settings/PricingDefaults";
 import EquipmentMaterials from "@/components/settings/EquipmentMaterials";
 import Notifications from "@/components/settings/Notifications";
@@ -40,15 +39,12 @@ const Settings = () => {
 
         {/* Settings Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 h-auto gap-1">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-5 h-auto gap-1">
             <TabsTrigger value="company" className="text-xs px-2 py-2">
               Company
             </TabsTrigger>
             <TabsTrigger value="hours" className="text-xs px-2 py-2">
               Hours
-            </TabsTrigger>
-            <TabsTrigger value="service" className="text-xs px-2 py-2">
-              Service
             </TabsTrigger>
             <TabsTrigger value="pricing" className="text-xs px-2 py-2">
               Pricing
@@ -67,10 +63,6 @@ const Settings = () => {
 
           <TabsContent value="hours">
             <OperatingHours />
-          </TabsContent>
-
-          <TabsContent value="service">
-            <ServiceArea />
           </TabsContent>
 
           <TabsContent value="pricing">
