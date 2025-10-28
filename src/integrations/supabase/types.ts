@@ -14,7 +14,120 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      company_settings: {
+        Row: {
+          abn: string | null
+          business_email: string | null
+          business_name: string | null
+          business_phone: string | null
+          created_at: string | null
+          id: string
+          postcode: string | null
+          state: string | null
+          street_address: string | null
+          suburb: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          abn?: string | null
+          business_email?: string | null
+          business_name?: string | null
+          business_phone?: string | null
+          created_at?: string | null
+          id?: string
+          postcode?: string | null
+          state?: string | null
+          street_address?: string | null
+          suburb?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          abn?: string | null
+          business_email?: string | null
+          business_name?: string | null
+          business_phone?: string | null
+          created_at?: string | null
+          id?: string
+          postcode?: string | null
+          state?: string | null
+          street_address?: string | null
+          suburb?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      operating_hours: {
+        Row: {
+          close_time: string | null
+          created_at: string | null
+          day_of_week: number
+          id: string
+          is_open: boolean | null
+          open_time: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          close_time?: string | null
+          created_at?: string | null
+          day_of_week: number
+          id?: string
+          is_open?: boolean | null
+          open_time?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          close_time?: string | null
+          created_at?: string | null
+          day_of_week?: number
+          id?: string
+          is_open?: boolean | null
+          open_time?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          onboarding_completed: boolean | null
+          onboarding_completed_at: string | null
+          onboarding_skipped: boolean | null
+          onboarding_step: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          onboarding_completed?: boolean | null
+          onboarding_completed_at?: string | null
+          onboarding_skipped?: boolean | null
+          onboarding_step?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          onboarding_completed?: boolean | null
+          onboarding_completed_at?: string | null
+          onboarding_skipped?: boolean | null
+          onboarding_step?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
