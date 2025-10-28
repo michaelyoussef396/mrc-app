@@ -15,6 +15,7 @@ import Settings from "./pages/Settings";
 import Leads from "./pages/Leads";
 import Calendar from "./pages/Calendar";
 import InspectionForm from "./pages/InspectionForm";
+import ReportPreview from "./pages/ReportPreview";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -91,6 +92,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <InspectionForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/inspection/:id/report"
+              element={
+                <ProtectedRoute>
+                  <ReportPreview />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/report/preview/:id"
+              element={
+                <ProtectedRoute>
+                  <ReportPreview />
                 </ProtectedRoute>
               }
             />
