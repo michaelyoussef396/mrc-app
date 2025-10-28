@@ -70,17 +70,14 @@ export default function Login() {
         <div className="bg-card rounded-2xl shadow-2xl overflow-hidden">
           {/* Header with Primary Color */}
           <div className="bg-primary px-6 sm:px-8 py-8 sm:py-10 text-center">
-            <div className="inline-block mb-4">
+            <div className="inline-block mb-3">
               <img 
                 src={logoMRC} 
                 alt="Mould & Restoration Co." 
                 className="h-20 sm:h-24"
               />
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-primary-foreground mb-2">
-              MOULD & RESTORATION CO.
-            </h1>
-            <p className="text-sm sm:text-base text-primary-foreground/90">Internal System</p>
+            <p className="text-base sm:text-lg text-primary-foreground font-medium">Internal System</p>
           </div>
 
           {/* Form Section */}

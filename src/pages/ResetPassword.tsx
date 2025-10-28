@@ -83,17 +83,14 @@ export default function ResetPassword() {
         <div className="bg-card rounded-2xl shadow-2xl overflow-hidden">
           {/* Header with Primary Color */}
           <div className="bg-primary px-6 sm:px-8 py-8 text-center">
-            <div className="inline-block mb-4">
+            <div className="inline-block mb-3">
               <img 
                 src={logoMRC} 
                 alt="Mould & Restoration Co." 
                 className="h-16 sm:h-20"
               />
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-primary-foreground mb-2">
-              Create New Password
-            </h1>
-            <p className="text-sm text-primary-foreground/90 mt-2">
+            <p className="text-sm sm:text-base text-primary-foreground/90">
               Enter your new password below
             </p>
           </div>
