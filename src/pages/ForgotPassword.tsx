@@ -70,94 +70,97 @@ export default function ForgotPassword() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-md">
-        <div className="bg-card rounded-lg shadow-lg p-6 sm:p-8">
-          {/* Company Branding */}
-          <div className="text-center mb-8">
-            <div className="inline-block p-4 bg-background rounded-lg border border-border mb-4">
+        <div className="bg-card rounded-2xl shadow-2xl overflow-hidden">
+          {/* Header with Primary Color */}
+          <div className="bg-primary px-6 sm:px-8 py-8 text-center">
+            <div className="inline-block mb-4">
               <img 
                 src={logoMRC} 
                 alt="Mould & Restoration Co." 
                 className="h-16 sm:h-20"
               />
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-primary mb-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-primary-foreground mb-2">
               Reset Password
             </h1>
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-sm text-primary-foreground/90 mt-2">
               Enter your email address and we'll send you a link to reset your password
             </p>
           </div>
 
-          {!emailSent ? (
-            <>
-              {/* Forgot Password Form */}
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email Address</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="email"
-                            placeholder="your.email@example.com"
-                            className="h-11 sm:h-12"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+          <div className="p-6 sm:p-8">
 
-                  <Button
-                    type="submit"
-                    className="w-full h-11 sm:h-12 text-base font-medium"
-                    disabled={isLoading}
+            {!emailSent ? (
+              <>
+                {/* Forgot Password Form */}
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-foreground font-semibold">Email Address</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="email"
+                              placeholder="your.email@example.com"
+                              className="h-12 sm:h-13 text-base border-2 focus:border-primary transition-colors"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button
+                      type="submit"
+                      className="w-full h-12 sm:h-13 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "Sending..." : "Send Reset Link"}
+                    </Button>
+                  </form>
+                </Form>
+              </>
+            ) : (
+              <div className="text-center py-6">
+                <div className="mb-4 text-green-600">
+                  <svg
+                    className="w-16 h-16 mx-auto"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    {isLoading ? "Sending..." : "Send Reset Link"}
-                  </Button>
-                </form>
-              </Form>
-            </>
-          ) : (
-            <div className="text-center py-6">
-              <div className="mb-4 text-green-600">
-                <svg
-                  className="w-16 h-16 mx-auto"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">
+                  Check Your Email
+                </h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  We've sent password reset instructions to {form.getValues("email")}
+                </p>
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                Check Your Email
-              </h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                We've sent password reset instructions to {form.getValues("email")}
-              </p>
-            </div>
-          )}
+            )}
 
-          {/* Back to Sign In Link */}
-          <div className="mt-6 text-center">
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-medium"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Sign In
-            </button>
+            {/* Back to Sign In Link */}
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => navigate("/")}
+                className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 font-semibold transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Sign In
+              </button>
+            </div>
           </div>
         </div>
       </div>

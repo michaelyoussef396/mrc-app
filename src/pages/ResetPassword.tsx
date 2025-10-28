@@ -80,77 +80,80 @@ export default function ResetPassword() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-md">
-        <div className="bg-card rounded-lg shadow-lg p-6 sm:p-8">
-          {/* Company Branding */}
-          <div className="text-center mb-8">
-            <div className="inline-block p-4 bg-background rounded-lg border border-border mb-4">
+        <div className="bg-card rounded-2xl shadow-2xl overflow-hidden">
+          {/* Header with Primary Color */}
+          <div className="bg-primary px-6 sm:px-8 py-8 text-center">
+            <div className="inline-block mb-4">
               <img 
                 src={logoMRC} 
                 alt="Mould & Restoration Co." 
                 className="h-16 sm:h-20"
               />
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-primary mb-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-primary-foreground mb-2">
               Create New Password
             </h1>
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-sm text-primary-foreground/90 mt-2">
               Enter your new password below
             </p>
           </div>
 
-          {/* Reset Password Form */}
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>New Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Enter new password"
-                        className="h-11 sm:h-12"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription className="text-xs">
-                      Must be 8+ characters with 1 uppercase letter and 1 number
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          {/* Form Section */}
+          <div className="p-6 sm:p-8">
+            {/* Reset Password Form */}
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-foreground font-semibold">New Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Enter new password"
+                          className="h-12 sm:h-13 text-base border-2 focus:border-primary transition-colors"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription className="text-xs">
+                        Must be 8+ characters with 1 uppercase letter and 1 number
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirm Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Confirm new password"
-                        className="h-11 sm:h-12"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-foreground font-semibold">Confirm Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Confirm new password"
+                          className="h-12 sm:h-13 text-base border-2 focus:border-primary transition-colors"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <Button
-                type="submit"
-                className="w-full h-11 sm:h-12 text-base font-medium"
-                disabled={isLoading}
-              >
-                {isLoading ? "Resetting..." : "Reset Password"}
-              </Button>
-            </form>
-          </Form>
+                <Button
+                  type="submit"
+                  className="w-full h-12 sm:h-13 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Resetting..." : "Reset Password"}
+                </Button>
+              </form>
+            </Form>
+          </div>
         </div>
       </div>
     </div>
