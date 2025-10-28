@@ -36,3 +36,6 @@ export function MobileBottomNav() {
     </nav>
   );
 }
+
+// Also export as default for compatibility
+export default MobileBottomNav;
