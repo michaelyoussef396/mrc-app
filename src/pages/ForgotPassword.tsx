@@ -80,6 +80,9 @@ export default function ForgotPassword() {
                 className="h-16 sm:h-20"
               />
             </div>
+            <h1 className="text-xl sm:text-2xl text-primary-foreground font-bold mb-2">
+              Reset Your Password
+            </h1>
             <p className="text-sm sm:text-base text-primary-foreground/90">
               Enter your email address and we'll send you a link to reset your password
             </p>

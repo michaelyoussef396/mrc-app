@@ -45,32 +45,54 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Create the initial admin user
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email: 'admin@mrc.com.au',
-      password: 'Admin123!',
-      email_confirm: true,
-      user_metadata: {
+    // Admin users to create
+    const adminUsers = [
+      {
+        email: 'admin@mrc.com.au',
+        password: 'Admin123!',
         full_name: 'System Administrator',
-        role: 'admin'
+        phone: null
+      },
+      {
+        email: 'michaelyoussef396@gmail.com',
+        password: 'Admin123!',
+        full_name: 'Michael Youssef',
+        phone: '0433 880 403'
       }
-    })
+    ]
 
-    if (createError) {
-      console.error('Error creating admin user:', createError)
-      throw createError
+    const createdUsers = []
+
+    // Create each admin user if they don't exist
+    for (const adminUser of adminUsers) {
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email: adminUser.email,
+        password: adminUser.password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: adminUser.full_name,
+          phone: adminUser.phone,
+          role: 'admin'
+        }
+      })
+
+      if (createError) {
+        console.error(`Error creating admin user ${adminUser.email}:`, createError)
+        throw createError
+      }
+
+      console.log('Admin user created successfully:', newUser.user.email)
+      createdUsers.push({
+        email: newUser.user.email,
+        id: newUser.user.id
+      })
     }
-
-    console.log('Admin user created successfully:', newUser.user.email)
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Admin user created successfully',
-        user: {
-          email: newUser.user.email,
-          id: newUser.user.id
-        }
+        message: `${createdUsers.length} admin user(s) created successfully`,
+        users: createdUsers
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
