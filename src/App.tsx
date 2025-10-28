@@ -15,6 +15,7 @@ import Settings from "./pages/Settings";
 import Leads from "./pages/Leads";
 import Calendar from "./pages/Calendar";
 import InspectionForm from "./pages/InspectionForm";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -91,6 +92,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <InspectionForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute>
+                  <Reports />
                 </ProtectedRoute>
               }
             />
