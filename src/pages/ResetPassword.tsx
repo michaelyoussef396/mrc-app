@@ -5,7 +5,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -13,45 +12,59 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import logoMRC from "@/assets/logoMRC.png";
 
-const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(1, "Password is required"),
-  rememberMe: z.boolean().default(false),
+const resetPasswordSchema = z.object({
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least 1 uppercase letter")
+    .regex(/[0-9]/, "Password must contain at least 1 number"),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
-type LoginForm = z.infer<typeof loginSchema>;
+type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;
 
-export default function Login() {
+export default function ResetPassword() {
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { updatePassword } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const form = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<ResetPasswordForm>({
+    resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
-      email: "",
       password: "",
-      rememberMe: false,
+      confirmPassword: "",
     },
   });
 
-  const onSubmit = async (data: LoginForm) => {
+  const onSubmit = async (data: ResetPasswordForm) => {
     setIsLoading(true);
     try {
-      const { error } = await signIn(data.email, data.password);
+      const { error } = await updatePassword(data.password);
 
       if (error) {
         toast({
           variant: "destructive",
-          title: "Login Failed",
-          description: error.message || "Invalid email or password",
+          title: "Error",
+          description: error.message || "Failed to reset password",
         });
+      } else {
+        toast({
+          title: "Success",
+          description: "Your password has been reset successfully",
+        });
+        setTimeout(() => {
+          navigate("/");
+        }, 1500);
       }
     } catch (error) {
       toast({
@@ -76,47 +89,33 @@ export default function Login() {
               className="h-16 sm:h-20 mx-auto mb-4"
             />
             <h1 className="text-xl sm:text-2xl font-bold text-primary mb-1">
-              MOULD & RESTORATION CO.
+              Create New Password
             </h1>
-            <p className="text-sm sm:text-base text-foreground">Internal System</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Enter your new password below
+            </p>
           </div>
 
-          {/* Login Form */}
+          {/* Reset Password Form */}
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email Address</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="your.email@example.com"
-                        className="h-11 sm:h-12"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               <FormField
                 control={form.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>New Password</FormLabel>
                     <FormControl>
                       <Input
                         type="password"
-                        placeholder="Enter your password"
+                        placeholder="Enter new password"
                         className="h-11 sm:h-12"
                         {...field}
                       />
                     </FormControl>
+                    <FormDescription className="text-xs">
+                      Must be 8+ characters with 1 uppercase letter and 1 number
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -124,18 +123,19 @@ export default function Login() {
 
               <FormField
                 control={form.control}
-                name="rememberMe"
+                name="confirmPassword"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                  <FormItem>
+                    <FormLabel>Confirm Password</FormLabel>
                     <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
+                      <Input
+                        type="password"
+                        placeholder="Confirm new password"
+                        className="h-11 sm:h-12"
+                        {...field}
                       />
                     </FormControl>
-                    <FormLabel className="text-sm font-normal cursor-pointer">
-                      Remember me
-                    </FormLabel>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -145,21 +145,10 @@ export default function Login() {
                 className="w-full h-11 sm:h-12 text-base font-medium"
                 disabled={isLoading}
               >
-                {isLoading ? "Signing In..." : "Sign In"}
+                {isLoading ? "Resetting..." : "Reset Password"}
               </Button>
             </form>
           </Form>
-
-          {/* Forgot Password Link */}
-          <div className="mt-6 text-center">
-            <button
-              type="button"
-              onClick={() => navigate("/forgot-password")}
-              className="text-sm text-primary hover:underline font-medium"
-            >
-              Forgot password?
-            </button>
-          </div>
         </div>
       </div>
     </div>
