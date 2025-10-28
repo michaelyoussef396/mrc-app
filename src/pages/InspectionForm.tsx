@@ -373,25 +373,69 @@ export default function InspectionForm() {
   };
 
   const handleComplete = () => {
-    // Validate required fields
-    if (!propertyOccupation || !dwellingType) {
+    // Comprehensive validation
+    const errors: string[] = [];
+    
+    // Section 1 validation
+    if (!propertyOccupation) errors.push("Property Occupation (Section 1)");
+    if (!dwellingType) errors.push("Dwelling Type (Section 1)");
+    
+    // Section 2 validation
+    if (areas.length === 0) errors.push("At least one area inspection (Section 2)");
+    areas.forEach((area, idx) => {
+      if (!area.areaName) errors.push(`Area ${idx + 1}: Area Name (Section 2)`);
+      if (area.roomPhotos.length < 3) errors.push(`Area ${idx + 1}: Need 3 room photos (currently ${area.roomPhotos.length}) (Section 2)`);
+      if (area.timeWithoutDemo === 0) errors.push(`Area ${idx + 1}: Time for job required (Section 2)`);
+      if (!area.aiApproved && area.aiComments) errors.push(`Area ${idx + 1}: Please approve AI comments (Section 2)`);
+    });
+    
+    // Section 4 validation
+    if (!frontDoorPhoto) errors.push("Front Door Photo (Section 4)");
+    if (!frontHousePhoto) errors.push("Front of House Photo (Section 4)");
+    if (!mailboxPhoto) errors.push("Mailbox Photo (Section 4)");
+    if (!streetPhoto) errors.push("Street Photo (Section 4)");
+    
+    // Section 7 validation
+    if (!parkingOptions) errors.push("Parking Options (Section 7)");
+    
+    if (errors.length > 0) {
       toast({
-        title: "Required fields missing",
-        description: "Please complete all required fields before submitting",
+        title: "⚠️ Incomplete Inspection",
+        description: (
+          <div className="mt-2 space-y-1">
+            <p className="font-semibold">Please complete the following:</p>
+            <ul className="list-disc list-inside text-sm space-y-1 mt-2">
+              {errors.slice(0, 5).map((error, idx) => (
+                <li key={idx}>{error}</li>
+              ))}
+              {errors.length > 5 && <li>...and {errors.length - 5} more</li>}
+            </ul>
+          </div>
+        ),
         variant: "destructive",
+        duration: 8000,
       });
       return;
     }
 
     toast({
-      title: "Inspection Complete!",
-      description: "Report will be generated and sent to client",
+      title: "✅ Inspection Complete!",
+      description: "Report is being generated and will be sent to client with booking link",
+      duration: 3000,
     });
+    
+    // Show completion modal with summary
+    setTimeout(() => {
+      toast({
+        title: `📋 Report MRC-${jobNumber}`,
+        description: `Total: $${total.toFixed(2)} (inc GST) for ${areas.length} area${areas.length > 1 ? 's' : ''}`,
+      });
+    }, 1000);
     
     // In real app: generate PDF, send email with booking link
     setTimeout(() => {
-      navigate("/calendar");
-    }, 2000);
+      navigate("/leads");
+    }, 3000);
   };
 
   const currentArea = areas[currentAreaIndex];
@@ -434,6 +478,46 @@ export default function InspectionForm() {
 
       {/* Form Content */}
       <div className="max-w-4xl mx-auto px-4 py-6">
+        {/* Section Progress Overview */}
+        {currentSection >= 2 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-base">Inspection Progress</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {sections.map((section) => {
+                  const isComplete = section.id < currentSection;
+                  const isCurrent = section.id === currentSection;
+                  const SectionIcon = section.icon;
+                  
+                  return (
+                    <div 
+                      key={section.id}
+                      className={`flex items-center gap-3 p-2 rounded ${
+                        isCurrent ? 'bg-primary/10 border border-primary/20' : ''
+                      }`}
+                    >
+                      {isComplete ? (
+                        <Check className="h-4 w-4 text-green-600" />
+                      ) : isCurrent ? (
+                        <Loader2 className="h-4 w-4 text-primary animate-pulse" />
+                      ) : (
+                        <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" />
+                      )}
+                      <SectionIcon className={`h-4 w-4 ${isCurrent ? 'text-primary' : isComplete ? 'text-green-600' : 'text-muted-foreground'}`} />
+                      <span className={`text-sm ${isCurrent ? 'font-semibold' : isComplete ? 'text-muted-foreground' : 'text-muted-foreground/60'}`}>
+                        {section.title}
+                        {section.id === 2 && areas.length > 0 && ` (${areas.length} area${areas.length > 1 ? 's' : ''})`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -549,45 +633,82 @@ export default function InspectionForm() {
             {currentSection === 2 && currentArea && (
               <div className="space-y-6">
                 {/* Areas Summary */}
-                <div className="bg-muted p-4 rounded-lg space-y-2">
-                  <h3 className="font-semibold">Areas Inspected: {areas.length}</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {areas.map((area, idx) => (
-                      <div key={area.id} className="flex items-center gap-2 bg-background px-3 py-1 rounded-md border">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-auto p-0 hover:bg-transparent"
-                          onClick={() => setCurrentAreaIndex(idx)}
+                <div className="bg-muted/50 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">Areas Inspected: {areas.length}</h3>
+                    <Button
+                      onClick={addArea}
+                      size="sm"
+                      variant="outline"
+                      className="text-green-600 border-green-600 hover:bg-green-50"
+                    >
+                      <Plus className="h-4 w-4" /> Add Area
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {areas.map((area, idx) => {
+                      const isComplete = area.areaName && area.roomPhotos.length >= 3 && area.timeWithoutDemo > 0;
+                      return (
+                        <div 
+                          key={area.id} 
+                          className={`flex items-center justify-between gap-2 bg-background px-3 py-2 rounded-md border-2 ${
+                            idx === currentAreaIndex ? 'border-primary' : 'border-border'
+                          }`}
                         >
-                          <span className={idx === currentAreaIndex ? "font-bold" : ""}>
-                            {area.areaName || `Area ${idx + 1}`}
-                          </span>
-                        </Button>
-                        {areas.length > 1 && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-4 w-4 p-0 hover:text-destructive"
-                            onClick={() => {
-                              if (areas.length > 1) {
-                                setAreas(prev => prev.filter((_, i) => i !== idx));
-                                if (currentAreaIndex >= idx && currentAreaIndex > 0) {
-                                  setCurrentAreaIndex(currentAreaIndex - 1);
-                                }
-                              }
-                            }}
+                            className="h-auto p-0 hover:bg-transparent flex-1 justify-start"
+                            onClick={() => setCurrentAreaIndex(idx)}
                           >
-                            <X className="h-3 w-3" />
+                            <div className="flex items-center gap-2">
+                              {isComplete ? (
+                                <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 flex-shrink-0" />
+                              )}
+                              <span className={idx === currentAreaIndex ? "font-bold" : ""}>
+                                {area.areaName || `Area ${idx + 1}`}
+                              </span>
+                            </div>
                           </Button>
-                        )}
-                      </div>
-                    ))}
+                          {areas.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => {
+                                if (confirm(`Delete ${area.areaName || `Area ${idx + 1}`}?`)) {
+                                  setAreas(prev => prev.filter((_, i) => i !== idx));
+                                  if (currentAreaIndex >= idx && currentAreaIndex > 0) {
+                                    setCurrentAreaIndex(currentAreaIndex - 1);
+                                  }
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Area {currentAreaIndex + 1} of {areas.length}</h3>
+                  <div className="text-sm text-muted-foreground">
+                    {(() => {
+                      const isComplete = currentArea.areaName && currentArea.roomPhotos.length >= 3 && currentArea.timeWithoutDemo > 0;
+                      return isComplete ? (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <Check className="h-4 w-4" /> Complete
+                        </span>
+                      ) : (
+                        <span>In Progress</span>
+                      );
+                    })()}
+                  </div>
                 </div>
 
                 <div>
@@ -1033,42 +1154,49 @@ export default function InspectionForm() {
                 <Separator className="my-8" />
 
                 {/* Area Navigation or Add New */}
-                <div className="border-2 border-dashed rounded-lg p-6 text-center space-y-4">
-                  {currentAreaIndex < areas.length - 1 ? (
-                    <>
-                      <p className="text-sm text-muted-foreground">
-                        ✅ Area {currentAreaIndex + 1} in progress
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="w-full"
-                        onClick={() => setCurrentAreaIndex(currentAreaIndex + 1)}
-                      >
-                        Next Area ({areas[currentAreaIndex + 1].areaName || `Area ${currentAreaIndex + 2}`}) <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <p className="font-medium">Is there another area to inspect?</p>
-                      <Button
-                        onClick={addArea}
-                        size="lg"
-                        className="w-full bg-green-600 hover:bg-green-700"
-                      >
-                        <Plus className="h-5 w-5" /> Yes - Add Another Area
-                      </Button>
-                      <Button
-                        onClick={nextSection}
-                        size="lg"
-                        variant="outline"
-                        className="w-full"
-                      >
-                        No - Continue to Subfloor Section <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </>
-                  )}
-                </div>
+                <Card className="border-2 border-dashed border-primary/30 bg-gradient-to-r from-background to-accent/20">
+                  <CardContent className="pt-6 pb-6 text-center space-y-4">
+                    {currentAreaIndex < areas.length - 1 ? (
+                      <>
+                        <p className="text-sm text-muted-foreground">
+                          ✅ Area {currentAreaIndex + 1} recorded
+                        </p>
+                        <Button
+                          variant="default"
+                          size="lg"
+                          className="w-full sm:w-auto min-w-[200px]"
+                          onClick={() => setCurrentAreaIndex(currentAreaIndex + 1)}
+                        >
+                          Continue to Next Area <ChevronRight className="h-5 w-5 ml-2" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="space-y-2">
+                          <p className="font-semibold text-lg">📋 Is there another area to inspect?</p>
+                          <p className="text-sm text-muted-foreground">Add as many areas as you need (bedrooms, bathrooms, hallways, etc.)</p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                          <Button
+                            onClick={addArea}
+                            size="lg"
+                            className="bg-green-600 hover:bg-green-700 min-h-[50px] text-base"
+                          >
+                            <Plus className="h-5 w-5 mr-2" /> Yes - Add Another Area
+                          </Button>
+                          <Button
+                            onClick={nextSection}
+                            size="lg"
+                            variant="outline"
+                            className="min-h-[50px] text-base"
+                          >
+                            No - Continue to Subfloor Section <ChevronRight className="h-5 w-5 ml-2" />
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {areas.length > 1 && (
                   <div className="flex gap-2">
@@ -1732,44 +1860,168 @@ export default function InspectionForm() {
             {/* Section 8: Cost Calculation */}
             {currentSection === 8 && (
               <div className="space-y-6">
-                <div className="bg-muted p-6 rounded-lg space-y-4">
-                  <h3 className="font-semibold text-lg">Cost Breakdown</h3>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Labor Cost:</span>
-                      <span className="font-semibold">${laborCost.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Equipment Hire:</span>
-                      <span className="font-semibold">${equipmentCost.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Waste Disposal:</span>
-                      <span className="font-semibold">${wasteDisposalCost.toFixed(2)}</span>
-                    </div>
+                {/* Time Breakdown */}
+                <Card className="bg-muted">
+                  <CardHeader>
+                    <CardTitle className="text-base">Total Time Calculation</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {areas.map((area, idx) => (
+                      <div key={area.id} className="space-y-1">
+                        <div className="font-medium">Area {idx + 1}: {area.areaName || "Unnamed"}</div>
+                        <div className="text-sm text-muted-foreground pl-4">
+                          <div>• Job time: {area.timeWithoutDemo} mins</div>
+                          {area.demoRequired && <div>• Demo time: {area.demoTime} mins</div>}
+                          <div className="font-semibold">• Subtotal: {area.timeWithoutDemo + (area.demoRequired ? area.demoTime : 0)} mins</div>
+                        </div>
+                      </div>
+                    ))}
+                    {subfloorEnabled && (
+                      <div className="space-y-1">
+                        <div className="font-medium">Subfloor Treatment: {subfloorTreatmentTime} mins</div>
+                      </div>
+                    )}
                     <Separator />
-                    <div className="flex justify-between">
-                      <span>Subtotal (ex GST):</span>
-                      <span className="font-semibold">${subtotal.toFixed(2)}</span>
+                    <div className="flex justify-between font-bold">
+                      <span>TOTAL TIME:</span>
+                      <span>
+                        {(() => {
+                          let total = 0;
+                          areas.forEach(a => {
+                            total += a.timeWithoutDemo + (a.demoRequired ? a.demoTime : 0);
+                          });
+                          if (subfloorEnabled) total += subfloorTreatmentTime;
+                          const hours = Math.ceil(total / 60);
+                          return `${total} minutes = ${(total / 60).toFixed(2)} hours (Rounded to ${hours} hour${hours > 1 ? 's' : ''})`;
+                        })()}
+                      </span>
                     </div>
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>GST (10%):</span>
-                      <span>${gst.toFixed(2)}</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between text-lg font-bold">
-                      <span>TOTAL (inc GST):</span>
-                      <span>${total.toFixed(2)}</span>
-                    </div>
-                  </div>
+                  </CardContent>
+                </Card>
 
-                  <p className="text-xs text-muted-foreground mt-4">
-                    Quote Valid: 30 days | Payment Terms: 14 days from completion
-                  </p>
+                {/* Job Type Selection */}
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold">Job Type Determination</Label>
+                  <Card className="bg-accent/50">
+                    <CardContent className="pt-4 space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className={subfloorEnabled ? "text-green-600 font-semibold" : "text-muted-foreground"}>
+                          {subfloorEnabled ? "✓" : "○"} Subfloor work
+                        </span>
+                        {subfloorEnabled && <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Highest tier - $2,334.69/8h</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={areas.some(a => a.demoRequired) ? "text-blue-600 font-semibold" : "text-muted-foreground"}>
+                          {areas.some(a => a.demoRequired) ? "✓" : "○"} Demolition work
+                        </span>
+                        {areas.some(a => a.demoRequired) && !subfloorEnabled && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">$1,798.90/8h</span>}
+                      </div>
+                      <div className="text-muted-foreground">○ Construction work</div>
+                      <div className="text-muted-foreground">○ Surface treatment only</div>
+                    </CardContent>
+                  </Card>
                 </div>
 
-                <Button onClick={handleComplete} size="lg" className="w-full">
+                {/* Cost Breakdown */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Quote Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-medium">Labor Costs:</div>
+                          <div className="text-sm text-muted-foreground">
+                            {(() => {
+                              let total = 0;
+                              areas.forEach(a => {
+                                total += a.timeWithoutDemo + (a.demoRequired ? a.demoTime : 0);
+                              });
+                              if (subfloorEnabled) total += subfloorTreatmentTime;
+                              const hours = Math.ceil(total / 60);
+                              const jobType = subfloorEnabled ? "Subfloor" : areas.some(a => a.demoRequired) ? "Demo" : "No Demolition";
+                              return `${jobType} (${hours} hours)`;
+                            })()}
+                          </div>
+                        </div>
+                        <span className="font-semibold text-lg">${laborCost.toFixed(2)}</span>
+                      </div>
+
+                      {equipment.length > 0 && (
+                        <>
+                          <Separator />
+                          <div>
+                            <div className="font-medium mb-2">Equipment Hire:</div>
+                            <div className="space-y-1 pl-4">
+                              {equipment.map((eq, idx) => (
+                                <div key={eq.id} className="flex justify-between text-sm">
+                                  <span>{eq.quantity}x {eq.name} ({eq.duration} days)</span>
+                                  <span>${(eq.quantity * eq.dailyRate * eq.duration).toFixed(2)}</span>
+                                </div>
+                              ))}
+                              <div className="flex justify-between font-semibold text-sm pt-1">
+                                <span>Equipment Subtotal:</span>
+                                <span>${equipmentCost.toFixed(2)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {wasteDisposalEnabled && (
+                        <>
+                          <Separator />
+                          <div className="flex justify-between">
+                            <div>
+                              <div className="font-medium">Waste Disposal:</div>
+                              <div className="text-sm text-muted-foreground capitalize">
+                                {wasteDisposalAmount.replace("-", " ")}
+                              </div>
+                            </div>
+                            <span className="font-semibold">${wasteDisposalCost.toFixed(2)}</span>
+                          </div>
+                        </>
+                      )}
+
+                      <Separator className="my-4" />
+                      
+                      <div className="flex justify-between text-lg">
+                        <span>Subtotal (ex GST):</span>
+                        <span className="font-semibold">${subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>GST (10%):</span>
+                        <span>${gst.toFixed(2)}</span>
+                      </div>
+                      
+                      <Separator className="my-4" />
+                      
+                      <div className="flex justify-between text-2xl font-bold">
+                        <span>TOTAL (inc GST):</span>
+                        <span className="text-primary">${total.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-accent/30 p-4 rounded-lg space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span>Quote Valid:</span>
+                        <span className="font-medium">30 days</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Payment Terms:</span>
+                        <span className="font-medium">14 days from completion</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Button 
+                  onClick={handleComplete} 
+                  size="lg" 
+                  className="w-full h-14 text-lg"
+                >
+                  <Check className="h-5 w-5 mr-2" />
                   Complete Inspection & Generate Report
                 </Button>
               </div>
