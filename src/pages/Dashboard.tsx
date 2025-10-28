@@ -1,40 +1,51 @@
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
-import logo from "@/assets/Logo.png";
+import { Plus } from "lucide-react";
+import { TopNavigation } from "@/components/dashboard/TopNavigation";
+import { MobileBottomNav } from "@/components/dashboard/MobileBottomNav";
+import { ActionsRequired } from "@/components/dashboard/ActionsRequired";
+import { TodaysSchedule } from "@/components/dashboard/TodaysSchedule";
+import { RevenueOverview } from "@/components/dashboard/RevenueOverview";
+import { LeadPipeline } from "@/components/dashboard/LeadPipeline";
+import { RecentActivity } from "@/components/dashboard/RecentActivity";
 
 export default function Dashboard() {
-  const { signOut, user } = useAuth();
-
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-primary shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between text-primary-foreground">
-          <img 
-            src={logo} 
-            alt="Mould & Restoration Co." 
-            className="h-10 sm:h-12"
-          />
-          <Button onClick={signOut} variant="outline" size="sm" className="text-primary-foreground border-primary-foreground hover:bg-primary-foreground/10">
-            Sign Out
-          </Button>
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
+      <TopNavigation />
+
+      {/* Page Header */}
+      <div className="bg-card border-b border-border">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+            <Button size="lg" className="w-full sm:w-auto">
+              <Plus className="mr-2 h-5 w-5" />
+              New Lead
+            </Button>
+          </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="bg-card rounded-lg shadow p-6 sm:p-8 text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">
-            Dashboard
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            Welcome, {user?.email}
-          </p>
-          <p className="text-lg text-foreground">
-            More features coming soon...
-          </p>
+      <main className="container mx-auto px-4 py-8 space-y-8">
+        {/* Actions Required */}
+        <ActionsRequired />
+
+        {/* Today's Schedule and Recent Activity */}
+        <div className="grid gap-8 lg:grid-cols-2">
+          <TodaysSchedule />
+          <RecentActivity />
         </div>
+
+        {/* Revenue Overview */}
+        <RevenueOverview />
+
+        {/* Lead Pipeline */}
+        <LeadPipeline />
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
     </div>
   );
 }
