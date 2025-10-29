@@ -13021,8 +13021,8 @@ a.contact-value:hover {
 }
 
 .sidebar-tab:hover {
-  background: rgba(18, 29, 115, 0.05);
-  color: #121D73;
+  background: rgba(18, 29, 115, 0.08);
+  color: #0f172a;
   transform: translateX(4px);
 }
 
@@ -13032,8 +13032,13 @@ a.contact-value:hover {
 
 .sidebar-tab.active {
   background: linear-gradient(135deg, #121D73 0%, #1e3a8a 100%);
-  color: white;
+  color: white !important;
   box-shadow: 0 4px 12px rgba(18, 29, 115, 0.3);
+}
+
+.sidebar-tab.active .tab-label,
+.sidebar-tab.active .tab-icon {
+  color: white !important;
 }
 
 .sidebar-tab.active::before {
