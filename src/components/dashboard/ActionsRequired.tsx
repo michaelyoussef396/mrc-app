@@ -1,62 +1,183 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, DollarSign, FileText } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate } from "react-router-dom";
+import { Phone, Calendar, MapPin, Eye, Send, CheckCircle, DollarSign, Star } from "lucide-react";
+import { STATUS_FLOW, type LeadStatus } from "@/lib/statusFlow";
+import { formatDistanceToNow } from "date-fns";
+
+interface ActionItem {
+  type: string;
+  title: string;
+  priority: 'urgent' | 'today' | 'pending';
+  lead: any;
+  time?: Date;
+  waitingDays?: number;
+  actions: string[];
+}
 
 export function ActionsRequired() {
-  const { data: actionCounts, isLoading } = useQuery({
-    queryKey: ["actionItems"],
+  const navigate = useNavigate();
+
+  const { data: actionsData, isLoading } = useQuery({
+    queryKey: ["actionsRequired"],
     queryFn: async () => {
-      const twoDaysAgo = new Date();
-      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+      const now = new Date();
+      const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
-      // Leads needing follow-up
-      const { data: followUpLeads, error: leadsError } = await supabase
+      // Get all leads that need action
+      const { data: leads, error } = await supabase
         .from("leads")
-        .select("id")
-        .eq("status", "contacted")
-        .lt("updated_at", twoDaysAgo.toISOString());
+        .select(`
+          *,
+          calendar_events!inner(start_datetime, end_datetime)
+        `)
+        .neq("status", "finished")
+        .order("created_at", { ascending: true });
 
-      // Quotes awaiting response (leads with quoted_amount but not yet accepted)
-      const { data: quotes, error: quotesError } = await supabase
-        .from("leads")
-        .select("id, quoted_amount")
-        .not("quoted_amount", "is", null)
-        .in("status", ["inspection_report_pdf_completed", "inspection_completed"]);
+      if (error) throw error;
 
-      // Pending reports
-      const { data: pendingReports, error: reportsError } = await supabase
-        .from("inspections")
-        .select("id, job_number")
-        .eq("report_generated", true)
-        .is("report_sent_date", null);
+      const actions: ActionItem[] = [];
 
-      if (leadsError || quotesError || reportsError) {
-        throw new Error("Failed to load action items");
-      }
+      leads?.forEach((lead) => {
+        let action: ActionItem | null = null;
+        const leadCreated = new Date(lead.created_at);
+        const leadUpdated = new Date(lead.updated_at);
 
-      const totalQuoteValue = quotes?.reduce(
-        (sum, q) => sum + (q.quoted_amount || 0),
-        0
-      );
+        switch (lead.status as LeadStatus) {
+          case "new_lead":
+            action = {
+              type: "call_and_book",
+              title: "📞 CALL & BOOK INSPECTION",
+              priority: leadCreated < fourHoursAgo ? "urgent" : "pending",
+              lead: lead,
+              actions: ["call", "book", "view"],
+            };
+            break;
 
-      return {
-        followUpCount: followUpLeads?.length || 0,
-        quotesCount: quotes?.length || 0,
-        quotesTotal: totalQuoteValue || 0,
-        reportsCount: pendingReports?.length || 0,
-        firstReportNumber: pendingReports?.[0]?.job_number || null,
-      };
+          case "contacted":
+            if (lead.calendar_events?.[0]?.start_datetime) {
+              const inspectionDate = new Date(lead.calendar_events[0].start_datetime);
+              if (inspectionDate >= startOfToday && inspectionDate < endOfToday) {
+                action = {
+                  type: "inspection_today",
+                  title: "📋 START INSPECTION",
+                  priority: "today",
+                  lead: lead,
+                  time: inspectionDate,
+                  actions: ["directions", "start", "view"],
+                };
+              }
+            }
+            break;
+
+          case "inspection_waiting":
+            action = {
+              type: "start_inspection",
+              title: "📋 START INSPECTION",
+              priority: "today",
+              lead: lead,
+              actions: ["on_way", "start", "view"],
+            };
+            break;
+
+          case "inspection_completed":
+            action = {
+              type: "approve_report",
+              title: "✅ APPROVE & SEND REPORT",
+              priority: "pending",
+              lead: lead,
+              actions: ["preview", "approve", "view"],
+            };
+            break;
+
+          case "inspection_report_pdf_completed":
+            action = {
+              type: "send_report",
+              title: "📧 SEND REPORT TO CUSTOMER",
+              priority: "pending",
+              lead: lead,
+              actions: ["send", "pdf", "view"],
+            };
+            break;
+
+          case "job_waiting":
+            const waitingDays = Math.floor(
+              (now.getTime() - leadUpdated.getTime()) / (1000 * 60 * 60 * 24)
+            );
+            action = {
+              type: "follow_up_job",
+              title: "📞 FOLLOW UP - JOB NOT BOOKED",
+              priority: waitingDays > 7 ? "urgent" : "pending",
+              lead: lead,
+              waitingDays: waitingDays,
+              actions: ["call", "resend", "view"],
+            };
+            break;
+
+          case "job_completed":
+            if (lead.calendar_events?.[0]?.start_datetime) {
+              const jobDate = new Date(lead.calendar_events[0].start_datetime);
+              if (jobDate >= startOfToday && jobDate < endOfToday) {
+                action = {
+                  type: "job_today",
+                  title: "🛠️ JOB SCHEDULED",
+                  priority: "today",
+                  lead: lead,
+                  time: jobDate,
+                  actions: ["on_way", "start", "view"],
+                };
+              }
+            }
+            break;
+
+          case "paid":
+            action = {
+              type: "mark_paid",
+              title: "💰 MARK PAYMENT RECEIVED",
+              priority: "pending",
+              lead: lead,
+              actions: ["mark_paid", "follow_up", "view"],
+            };
+            break;
+
+          case "google_review":
+            action = {
+              type: "request_review",
+              title: "⭐ REQUEST GOOGLE REVIEW",
+              priority: "pending",
+              lead: lead,
+              actions: ["send", "done", "view"],
+            };
+            break;
+        }
+
+        if (action) {
+          actions.push(action);
+        }
+      });
+
+      // Sort by priority
+      const priorityOrder = { urgent: 1, today: 2, pending: 3 };
+      actions.sort((a, b) => {
+        if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+          return priorityOrder[a.priority] - priorityOrder[b.priority];
+        }
+        if (a.priority === "today" && a.time && b.time) {
+          return a.time.getTime() - b.time.getTime();
+        }
+        return new Date(a.lead.created_at).getTime() - new Date(b.lead.created_at).getTime();
+      });
+
+      return actions;
     },
   });
-
-  const totalActions =
-    (actionCounts?.followUpCount || 0) +
-    (actionCounts?.quotesCount || 0) +
-    (actionCounts?.reportsCount || 0);
 
   if (isLoading) {
     return (
@@ -65,15 +186,15 @@ export function ActionsRequired() {
           <h2 className="text-xl font-bold text-foreground">⚡ Actions Required</h2>
           <Skeleton className="h-6 w-8 rounded-full" />
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="p-5">
-              <div className="flex items-start gap-3">
-                <Skeleton className="h-6 w-6 rounded" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-5 w-full" />
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-9 w-full" />
+            <Card key={i} className="p-4">
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-9 w-20" />
+                  <Skeleton className="h-9 w-20" />
                 </div>
               </div>
             </Card>
@@ -83,73 +204,214 @@ export function ActionsRequired() {
     );
   }
 
-  const actions = [
-    {
-      icon: AlertCircle,
-      iconColor: "text-red-600",
-      title: `${actionCounts?.followUpCount || 0} leads need follow-up`,
-      subtext: "(Contacted 2+ days ago)",
-      buttonText: "Review Now",
-      count: actionCounts?.followUpCount || 0,
-    },
-    {
-      icon: DollarSign,
-      iconColor: "text-amber-600",
-      title: `${actionCounts?.quotesCount || 0} quotes awaiting response`,
-      subtext: `Total: $${(actionCounts?.quotesTotal || 0).toLocaleString()}`,
-      buttonText: "Follow Up",
-      count: actionCounts?.quotesCount || 0,
-    },
-    {
-      icon: FileText,
-      iconColor: "text-blue-600",
-      title: `${actionCounts?.reportsCount || 0} report${
-        actionCounts?.reportsCount !== 1 ? "s" : ""
-      } pending delivery`,
-      subtext: actionCounts?.firstReportNumber || "No reports pending",
-      buttonText: "Send Now",
-      count: actionCounts?.reportsCount || 0,
-    },
-  ];
+  const actions = actionsData || [];
+  const displayActions = actions.slice(0, 5);
+  const totalActions = actions.length;
+
+  const getPriorityBadge = (priority: string) => {
+    switch (priority) {
+      case "urgent":
+        return <Badge variant="destructive">🔴 URGENT</Badge>;
+      case "today":
+        return <Badge className="bg-yellow-500">🟡 TODAY</Badge>;
+      case "pending":
+        return <Badge className="bg-green-500">🟢 PENDING</Badge>;
+      default:
+        return null;
+    }
+  };
+
+  const handleAction = (action: ActionItem, actionType: string) => {
+    switch (actionType) {
+      case "call":
+        window.location.href = `tel:${action.lead.phone}`;
+        break;
+      case "view":
+        navigate(`/leads/${action.lead.id}`);
+        break;
+      case "book":
+      case "start":
+      case "directions":
+      case "approve":
+      case "send":
+      case "mark_paid":
+      case "done":
+        navigate(`/leads/${action.lead.id}`);
+        break;
+    }
+  };
+
+  if (totalActions === 0) {
+    return (
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="text-xl font-bold text-foreground">⚡ Actions Required</h2>
+          <Badge variant="outline">0</Badge>
+        </div>
+        <Card className="p-8 text-center">
+          <div className="text-4xl mb-2">🎉</div>
+          <p className="text-lg font-semibold text-foreground mb-1">
+            All caught up! No actions required.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Great work keeping on top of leads!
+          </p>
+        </Card>
+      </section>
+    );
+  }
 
   return (
     <section>
-      <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-xl font-bold text-foreground">⚡ Actions Required</h2>
-        {totalActions > 0 && (
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-bold text-foreground">⚡ Actions Required</h2>
           <Badge variant="destructive" className="rounded-full">
             {totalActions}
           </Badge>
+        </div>
+        {totalActions > 5 && (
+          <Button variant="link" onClick={() => navigate("/leads")}>
+            View All Actions →
+          </Button>
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {actions.map((action, index) => {
-          const Icon = action.icon;
-          return (
-            <Card key={index} className="p-5 hover:shadow-lg transition-shadow">
-              <div className="flex items-start gap-3">
-                <Icon className={`h-6 w-6 mt-1 ${action.iconColor}`} />
+      <div className="space-y-3">
+        {displayActions.map((action, index) => (
+          <Card
+            key={index}
+            className="p-4 hover:shadow-md transition-shadow border-l-4"
+            style={{
+              borderLeftColor:
+                action.priority === "urgent"
+                  ? "#ef4444"
+                  : action.priority === "today"
+                  ? "#eab308"
+                  : "#22c55e",
+            }}
+          >
+            <div className="flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-2">
                 <div className="flex-1">
-                  <p className="font-semibold text-foreground mb-1">
-                    {action.title}
+                  <div className="flex items-center gap-2 mb-1">
+                    {getPriorityBadge(action.priority)}
+                    <span className="text-xs text-muted-foreground">
+                      {action.lead.lead_number}
+                    </span>
+                  </div>
+                  <h3 className="font-semibold text-foreground mb-1">{action.title}</h3>
+                  <p className="text-sm font-medium text-foreground mb-1">
+                    {action.lead.full_name}
                   </p>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {action.subtext}
-                  </p>
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    disabled={action.count === 0}
-                  >
-                    {action.buttonText}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {action.lead.property_address_suburb}, {action.lead.property_address_state}
+                    </span>
+                    <span>
+                      {action.time
+                        ? `🕐 Today at ${action.time.toLocaleTimeString("en-AU", {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}`
+                        : action.waitingDays
+                        ? `⏱️ Waiting ${action.waitingDays} days`
+                        : `⏱️ ${formatDistanceToNow(new Date(action.lead.created_at), {
+                            addSuffix: true,
+                          })}`}
+                    </span>
+                  </div>
+                  {action.lead.quoted_amount && (
+                    <p className="text-sm font-semibold text-primary mt-1">
+                      💰 Quote: ${action.lead.quoted_amount.toLocaleString()} inc GST
+                    </p>
+                  )}
                 </div>
               </div>
-            </Card>
-          );
-        })}
+
+              <div className="flex flex-wrap gap-2">
+                {action.actions.includes("call") && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleAction(action, "call")}
+                  >
+                    <Phone className="h-4 w-4 mr-1" />
+                    Call
+                  </Button>
+                )}
+                {action.actions.includes("book") && (
+                  <Button size="sm" onClick={() => handleAction(action, "book")}>
+                    <Calendar className="h-4 w-4 mr-1" />
+                    Book
+                  </Button>
+                )}
+                {action.actions.includes("start") && (
+                  <Button size="sm" onClick={() => handleAction(action, "start")}>
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Start
+                  </Button>
+                )}
+                {action.actions.includes("directions") && (
+                  <Button size="sm" variant="outline" onClick={() => handleAction(action, "directions")}>
+                    <MapPin className="h-4 w-4 mr-1" />
+                    Directions
+                  </Button>
+                )}
+                {action.actions.includes("preview") && (
+                  <Button size="sm" variant="outline" onClick={() => handleAction(action, "view")}>
+                    <Eye className="h-4 w-4 mr-1" />
+                    Preview
+                  </Button>
+                )}
+                {action.actions.includes("approve") && (
+                  <Button size="sm" onClick={() => handleAction(action, "approve")}>
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Approve & Send
+                  </Button>
+                )}
+                {action.actions.includes("send") && (
+                  <Button size="sm" onClick={() => handleAction(action, "send")}>
+                    <Send className="h-4 w-4 mr-1" />
+                    Send
+                  </Button>
+                )}
+                {action.actions.includes("mark_paid") && (
+                  <Button size="sm" onClick={() => handleAction(action, "mark_paid")}>
+                    <DollarSign className="h-4 w-4 mr-1" />
+                    Mark Paid
+                  </Button>
+                )}
+                {action.actions.includes("done") && (
+                  <Button size="sm" onClick={() => handleAction(action, "done")}>
+                    <Star className="h-4 w-4 mr-1" />
+                    Review Received
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleAction(action, "view")}
+                >
+                  View Lead →
+                </Button>
+              </div>
+            </div>
+          </Card>
+        ))}
       </div>
+
+      {totalActions > 5 && (
+        <div className="mt-3 text-center">
+          <p className="text-sm text-muted-foreground">
+            Showing 5 of {totalActions} actions •{" "}
+            <Button variant="link" className="p-0 h-auto" onClick={() => navigate("/leads")}>
+              View All Actions →
+            </Button>
+          </p>
+        </div>
+      )}
     </section>
   );
 }
