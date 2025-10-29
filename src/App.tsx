@@ -1,11 +1,13 @@
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { GlobalLoader, ProgressBar, PageTransition } from "@/components/loading";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import CheckEmail from "./pages/CheckEmail";
@@ -32,54 +34,81 @@ import Maintenance from "./pages/Maintenance";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            {/* Public routes (no layout) */}
-            <Route path="/" element={<Login />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/check-email" element={<CheckEmail />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/password-changed" element={<PasswordChanged />} />
-            <Route path="/book/:token" element={<ClientBooking />} />
-            <Route path="/booking/:inspectionId/:token" element={<ClientBooking />} />
-            <Route path="/request-inspection" element={<RequestInspection />} />
-            <Route path="/request-inspection/success" element={<InspectionSuccess />} />
-            <Route path="/contact" element={<RequestInspection />} />
-            <Route path="/get-quote" element={<RequestInspection />} />
-            <Route path="/500" element={<ServerError />} />
-            <Route path="/error" element={<ServerError />} />
-            <Route path="/unauthorized" element={<Unauthorized />} />
-            <Route path="/403" element={<Unauthorized />} />
-            <Route path="/session-expired" element={<SessionExpired />} />
-            <Route path="/maintenance" element={<Maintenance />} />
-            
-            {/* Protected routes (with AppLayout) */}
-            <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/manage-users" element={<ManageUsers />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/leads" element={<Leads />} />
-              <Route path="/leads/:id" element={<LeadDetail />} />
-              <Route path="/calendar" element={<Calendar />} />
-              <Route path="/inspection/new" element={<InspectionForm />} />
-              <Route path="/inspection/:id" element={<InspectionForm />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/analytics" element={<Analytics />} />
-            </Route>
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const AppContent = () => {
+  const location = useLocation();
+  
+  return (
+    <>
+      <ProgressBar />
+      <PageTransition location={location.pathname}>
+        <Routes>
+          {/* Public routes (no layout) */}
+          <Route path="/" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/check-email" element={<CheckEmail />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/password-changed" element={<PasswordChanged />} />
+          <Route path="/book/:token" element={<ClientBooking />} />
+          <Route path="/booking/:inspectionId/:token" element={<ClientBooking />} />
+          <Route path="/request-inspection" element={<RequestInspection />} />
+          <Route path="/request-inspection/success" element={<InspectionSuccess />} />
+          <Route path="/contact" element={<RequestInspection />} />
+          <Route path="/get-quote" element={<RequestInspection />} />
+          <Route path="/500" element={<ServerError />} />
+          <Route path="/error" element={<ServerError />} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
+          <Route path="/403" element={<Unauthorized />} />
+          <Route path="/session-expired" element={<SessionExpired />} />
+          <Route path="/maintenance" element={<Maintenance />} />
+          
+          {/* Protected routes (with AppLayout) */}
+          <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/manage-users" element={<ManageUsers />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/leads" element={<Leads />} />
+            <Route path="/leads/:id" element={<LeadDetail />} />
+            <Route path="/calendar" element={<Calendar />} />
+            <Route path="/inspection/new" element={<InspectionForm />} />
+            <Route path="/inspection/:id" element={<InspectionForm />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/analytics" element={<Analytics />} />
+          </Route>
+          
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </PageTransition>
+    </>
+  );
+};
+
+const App = () => {
+  const [initialLoading, setInitialLoading] = useState(true);
+  
+  useEffect(() => {
+    // Simulate initial app load
+    const timer = setTimeout(() => {
+      setInitialLoading(false);
+    }, 1500);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <GlobalLoader loading={initialLoading} />
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
