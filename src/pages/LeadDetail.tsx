@@ -428,10 +428,10 @@ export default function LeadDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden max-w-full">
+    <div className="min-h-screen bg-background overflow-x-hidden w-full max-w-[100vw]">
       {/* Header */}
-      <div className="bg-card border-b overflow-x-hidden">
-        <div className="container mx-auto px-4 py-6 max-w-full overflow-x-hidden">
+      <div className="bg-card border-b overflow-x-hidden w-full">
+        <div className="container mx-auto px-4 py-4 sm:py-6 max-w-full overflow-x-hidden w-full">
           <Button
             variant="ghost"
             size="sm"
@@ -442,21 +442,25 @@ export default function LeadDetail() {
             Back to Pipeline
           </Button>
 
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold">
+          <div className="space-y-2 overflow-x-hidden w-full">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold break-words">
               {lead.lead_number} - {lead.full_name}
             </h1>
-            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-                {lead.property_address_street}, {lead.property_address_suburb} {lead.property_address_state} {lead.property_address_postcode}
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm text-muted-foreground w-full">
+              <span className="flex items-center gap-1 break-words overflow-hidden">
+                <MapPin className="h-4 w-4 flex-shrink-0" />
+                <span className="break-words">
+                  {lead.property_address_street}, {lead.property_address_suburb} {lead.property_address_state} {lead.property_address_postcode}
+                </span>
+              </span>
+              <span className="flex items-center gap-1 break-all overflow-hidden">
+                <Mail className="h-4 w-4 flex-shrink-0" />
+                <span className="break-all overflow-wrap-anywhere">
+                  {lead.email}
+                </span>
               </span>
               <span className="flex items-center gap-1">
-                <Mail className="h-4 w-4" />
-                {lead.email}
-              </span>
-              <span className="flex items-center gap-1">
-                <Phone className="h-4 w-4" />
+                <Phone className="h-4 w-4 flex-shrink-0" />
                 {lead.phone}
               </span>
             </div>
@@ -465,15 +469,15 @@ export default function LeadDetail() {
       </div>
 
       {/* Status Card */}
-      <div className="container mx-auto px-4 py-6 max-w-full overflow-x-hidden">
-        <Card className="border-l-4 overflow-x-hidden" style={{ borderLeftColor: statusConfig.color }}>
+      <div className="container mx-auto px-4 py-4 sm:py-6 max-w-full overflow-x-hidden w-full">
+        <Card className="border-l-4 overflow-x-hidden w-full" style={{ borderLeftColor: statusConfig.color }}>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl md:text-2xl break-words">
                 <span>{statusConfig.icon}</span>
-                <span>CURRENT STATUS: {statusConfig.title.toUpperCase()}</span>
+                <span className="break-words">CURRENT STATUS: {statusConfig.title.toUpperCase()}</span>
               </CardTitle>
-              <Badge variant="outline" style={{ borderColor: statusConfig.color, color: statusConfig.color }}>
+              <Badge variant="outline" className="self-start sm:self-center flex-shrink-0" style={{ borderColor: statusConfig.color, color: statusConfig.color }}>
                 {statusConfig.title}
               </Badge>
             </div>
@@ -495,15 +499,17 @@ export default function LeadDetail() {
       </div>
 
       {/* Tabs */}
-      <div className="container mx-auto px-4 pb-8 max-w-full overflow-x-hidden">
+      <div className="container mx-auto px-4 pb-8 max-w-full overflow-x-hidden w-full">
         <Tabs defaultValue="overview">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="timeline">Timeline</TabsTrigger>
-            <TabsTrigger value="inspection">Inspection</TabsTrigger>
-            <TabsTrigger value="invoice">Invoice</TabsTrigger>
-            <TabsTrigger value="files">Files</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
+            <TabsList className="w-full sm:w-auto inline-flex">
+              <TabsTrigger value="overview" className="flex-shrink-0">Overview</TabsTrigger>
+              <TabsTrigger value="timeline" className="flex-shrink-0">Timeline</TabsTrigger>
+              <TabsTrigger value="inspection" className="flex-shrink-0">Inspection</TabsTrigger>
+              <TabsTrigger value="invoice" className="flex-shrink-0">Invoice</TabsTrigger>
+              <TabsTrigger value="files" className="flex-shrink-0">Files</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="overview" className="space-y-6 mt-6">
             <Card>
@@ -511,22 +517,24 @@ export default function LeadDetail() {
                 <CardTitle>Customer Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-muted-foreground">Full Name</p>
-                    <p>{lead.full_name}</p>
+                    <p className="break-words">{lead.full_name}</p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-muted-foreground">Email</p>
-                    <p>{lead.email}</p>
+                    <p className="break-all overflow-wrap-anywhere text-sm">{lead.email}</p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-muted-foreground">Phone</p>
-                    <p>{lead.phone}</p>
+                    <p className="break-words">
+                      <a href={`tel:${lead.phone}`} className="hover:underline">{lead.phone}</a>
+                    </p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-muted-foreground">Lead Source</p>
-                    <p>{lead.lead_source || "Not specified"}</p>
+                    <p className="break-words">{lead.lead_source || "Not specified"}</p>
                   </div>
                 </div>
               </CardContent>
@@ -537,14 +545,14 @@ export default function LeadDetail() {
                 <CardTitle>Property Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-muted-foreground">Address</p>
-                  <p>{lead.property_address_street}</p>
-                  <p>{lead.property_address_suburb} {lead.property_address_state} {lead.property_address_postcode}</p>
+                  <p className="break-words">{lead.property_address_street}</p>
+                  <p className="break-words">{lead.property_address_suburb} {lead.property_address_state} {lead.property_address_postcode}</p>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-muted-foreground">Property Type</p>
-                  <p>{lead.property_type || "Not specified"}</p>
+                  <p className="break-words">{lead.property_type || "Not specified"}</p>
                 </div>
               </CardContent>
             </Card>
@@ -555,7 +563,7 @@ export default function LeadDetail() {
                   <CardTitle>Issue Description</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p>{lead.issue_description}</p>
+                  <p className="break-words whitespace-pre-wrap">{lead.issue_description}</p>
                 </CardContent>
               </Card>
             )}

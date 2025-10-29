@@ -112,4 +112,25 @@ All colors MUST be HSL.
     max-width: 100vw;
     width: 100%;
   }
+
+  /* Hide scrollbar for tabs while maintaining functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Ensure all text can wrap properly */
+  .overflow-wrap-anywhere {
+    overflow-wrap: anywhere;
+  }
+
+  /* Ensure images don't overflow */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
 }
