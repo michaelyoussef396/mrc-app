@@ -95,9 +95,9 @@ export default function Dashboard() {
               <p className="page-subtitle">Here's what's happening with your leads today</p>
             </div>
             
-            <button className="btn-primary btn-new-inspection" onClick={() => navigate('/inspection')}>
+            <button className="btn-primary btn-new-lead" onClick={() => navigate('/lead/new')}>
               <span>➕</span>
-              <span>New Inspection</span>
+              <span>New Lead</span>
             </button>
           </div>
 
@@ -145,7 +145,7 @@ export default function Dashboard() {
             <h2 className="section-title">Quick Actions</h2>
             
             <div className="quick-actions-grid">
-              <button className="action-card" onClick={() => navigate('/inspection')}>
+              <button className="action-card" onClick={() => navigate('/inspection/select-lead')}>
                 <div className="action-icon blue">📝</div>
                 <div className="action-content">
                   <h3 className="action-title">Start Inspection</h3>
@@ -218,7 +218,7 @@ export default function Dashboard() {
                     <td>Today, 10:30 AM</td>
                     <td className="value-cell">$2,400</td>
                     <td>
-                      <button className="btn-action">View</button>
+                      <button className="btn-action" onClick={() => navigate('/client/1')}>View</button>
                     </td>
                   </tr>
 
@@ -239,7 +239,7 @@ export default function Dashboard() {
                     <td>Yesterday, 2:15 PM</td>
                     <td className="value-cell">$3,200</td>
                     <td>
-                      <button className="btn-action">View</button>
+                      <button className="btn-action" onClick={() => navigate('/client/2')}>View</button>
                     </td>
                   </tr>
 
@@ -260,7 +260,7 @@ export default function Dashboard() {
                     <td>Oct 27, 11:00 AM</td>
                     <td className="value-cell">$4,500</td>
                     <td>
-                      <button className="btn-action">View</button>
+                      <button className="btn-action" onClick={() => navigate('/client/3')}>View</button>
                     </td>
                   </tr>
                 </tbody>
