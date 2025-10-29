@@ -13076,17 +13076,18 @@ a.contact-value:hover {
 }
 
 .section-title {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 700;
-  color: hsl(var(--foreground));
+  color: #0f172a;
   margin-bottom: 8px;
   letter-spacing: -0.02em;
 }
 
 .section-subtitle {
-  font-size: 14px;
-  color: hsl(var(--muted-foreground));
+  font-size: 16px;
+  color: #64748b;
   font-weight: 500;
+  line-height: 1.5;
 }
 
 /* ============================================
@@ -13096,9 +13097,9 @@ a.contact-value:hover {
 .settings-card {
   background: hsl(var(--card));
   border-radius: 20px;
-  padding: 28px;
+  padding: 32px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  border: 1px solid hsl(var(--border));
+  border: 1px solid rgba(0, 0, 0, 0.06);
   margin-bottom: 24px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -13110,12 +13111,20 @@ a.contact-value:hover {
 }
 
 .card-title {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
-  color: hsl(var(--foreground));
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 2px solid hsl(var(--border));
+  color: #111827;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.08);
+  letter-spacing: -0.01em;
+}
+
+/* Make sure notification section titles are very visible */
+.settings-section h3.card-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .card-header-actions {
@@ -13282,7 +13291,7 @@ a.contact-value:hover {
 }
 
 /* ============================================
-   TOGGLE SWITCHES - FIXED
+   TOGGLE SWITCHES - FULLY FIXED
    ============================================ */
 
 .toggle-list {
@@ -13296,28 +13305,30 @@ a.contact-value:hover {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.02);
-  border: 2px solid transparent;
+  padding: 18px;
+  background: white;
+  border: 2px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
   transition: all 0.2s ease;
 }
 
 .toggle-item:hover {
-  background: rgba(0, 0, 0, 0.04);
-  border-color: rgba(18, 29, 115, 0.1);
+  background: rgba(18, 29, 115, 0.02);
+  border-color: rgba(18, 29, 115, 0.15);
   transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .toggle-info {
   flex: 1;
+  min-width: 0;
 }
 
 .toggle-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
-  color: hsl(var(--foreground));
-  margin-bottom: 4px;
+  color: #111827;
+  margin-bottom: 6px;
   transition: color 0.2s ease;
 }
 
@@ -13326,15 +13337,16 @@ a.contact-value:hover {
 }
 
 .toggle-description {
-  font-size: 13px;
-  color: hsl(var(--muted-foreground));
+  font-size: 14px;
+  color: #4b5563;
   font-weight: 500;
+  line-height: 1.4;
 }
 
-/* FIXED TOGGLE SWITCH */
+/* TOGGLE SWITCH - FIXED TO GO ALL THE WAY RIGHT */
 .toggle-switch {
   position: relative;
-  width: 56px;
+  width: 60px;  /* Increased from 56px */
   height: 32px;
   flex-shrink: 0;
   cursor: pointer;
@@ -13354,15 +13366,14 @@ a.contact-value:hover {
   left: 0;
   right: 0;
   bottom: 0;
-  background: #d1d5db;
+  background: #cbd5e1;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 32px;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .toggle-slider:hover {
-  background: #b5bac4;
-  transform: scale(1.05);
+  background: #94a3b8;
 }
 
 .toggle-slider:before {
@@ -13375,40 +13386,42 @@ a.contact-value:hover {
   background: white;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
-/* CHECKED STATE - BALL GOES ALL THE WAY RIGHT */
+/* CHECKED STATE - BALL GOES ALL THE WAY TO THE RIGHT */
 .toggle-switch input:checked + .toggle-slider {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
-  transform: translateX(24px); /* FIXED: Was 22px, now 24px for full right */
+  transform: translateX(28px); /* FIXED: Now goes all the way right! */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .toggle-switch input:checked + .toggle-slider:hover {
   background: linear-gradient(135deg, #059669 0%, #047857 100%);
-  box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.15);
+  box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.2);
 }
 
-/* Focus state for accessibility */
+/* Focus state */
 .toggle-switch input:focus + .toggle-slider {
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
 }
 
 .toggle-switch input:checked:focus + .toggle-slider {
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25);
 }
 
-/* Active/clicking animation */
+/* Active/pressing animation */
 .toggle-switch:active .toggle-slider:before {
-  width: 30px;
+  width: 32px;
 }
 
 .toggle-switch input:checked:active + .toggle-slider:before {
-  transform: translateX(20px);
+  transform: translateX(24px);
+  width: 32px;
 }
 
 /* ============================================
@@ -13850,6 +13863,44 @@ a.contact-value:hover {
     font-size: 24px;
   }
 
+  .section-subtitle {
+    font-size: 14px;
+  }
+
+  .card-title {
+    font-size: 18px;
+  }
+
+  .toggle-title {
+    font-size: 15px;
+  }
+
+  .toggle-description {
+    font-size: 13px;
+  }
+
+  .toggle-item {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    padding: 16px;
+  }
+
+  .toggle-switch {
+    align-self: center;
+    width: 56px;
+    height: 30px;
+  }
+
+  .toggle-slider:before {
+    height: 24px;
+    width: 24px;
+  }
+
+  .toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+  }
+
   .settings-card {
     padding: 20px;
   }
@@ -13879,16 +13930,6 @@ a.contact-value:hover {
   .member-actions {
     width: 100%;
     justify-content: center;
-  }
-
-  .toggle-item {
-    flex-direction: column;
-    align-items: stretch;
-    text-align: center;
-  }
-
-  .toggle-switch {
-    align-self: center;
   }
 }
 
