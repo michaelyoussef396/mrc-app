@@ -13,7 +13,44 @@ const Calendar = () => {
 
   useEffect(() => {
     loadEvents()
-  }, [currentDate])
+  }, [])
+
+  // Navigate to today
+  const goToToday = () => {
+    const today = new Date()
+    setCurrentDate(today)
+    setSelectedDate(today)
+  }
+
+  // Navigate period based on current view
+  const navigatePeriod = (direction) => {
+    const newDate = new Date(currentDate)
+    
+    if (view === 'day') {
+      newDate.setDate(currentDate.getDate() + direction)
+    } else if (view === 'week') {
+      newDate.setDate(currentDate.getDate() + (direction * 7))
+    } else {
+      newDate.setMonth(currentDate.getMonth() + direction)
+    }
+    
+    setCurrentDate(newDate)
+  }
+
+  // Get week dates
+  const getWeekDates = (date) => {
+    const week = []
+    const startOfWeek = new Date(date)
+    startOfWeek.setDate(date.getDate() - date.getDay()) // Start from Sunday
+    
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(startOfWeek)
+      day.setDate(startOfWeek.getDate() + i)
+      week.push(day)
+    }
+    
+    return week
+  }
 
   // Helper functions
   const formatDate = (date) => {
@@ -517,29 +554,30 @@ const Calendar = () => {
           {/* Calendar Header */}
           <div className="calendar-header">
             <div className="header-left">
-              <h1 className="month-title">{monthName}</h1>
-              <button 
-                className="btn-today"
-                onClick={() => {
-                  setCurrentDate(new Date())
-                  setSelectedDate(new Date())
-                }}
-              >
+              <h1 className="month-title">
+                {view === 'day' && currentDate.toLocaleDateString('en-AU', { 
+                  weekday: 'long', 
+                  month: 'long', 
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+                {view === 'week' && `Week of ${currentDate.toLocaleDateString('en-AU', { 
+                  month: 'long', 
+                  day: 'numeric',
+                  year: 'numeric'
+                })}`}
+                {view === 'month' && monthName}
+              </h1>
+              <button className="btn-today" onClick={goToToday}>
                 Today
               </button>
             </div>
 
             <div className="header-center">
-              <button 
-                className="month-nav-btn"
-                onClick={() => navigateMonth(-1)}
-              >
+              <button className="month-nav-btn" onClick={() => navigatePeriod(-1)}>
                 <span>←</span>
               </button>
-              <button 
-                className="month-nav-btn"
-                onClick={() => navigateMonth(1)}
-              >
+              <button className="month-nav-btn" onClick={() => navigatePeriod(1)}>
                 <span>→</span>
               </button>
             </div>
@@ -569,6 +607,110 @@ const Calendar = () => {
           </div>
 
           <div className="calendar-body">
+
+            {/* DAY VIEW */}
+            {view === 'day' && (
+              <div className="day-view">
+                <div className="day-view-content">
+                  <div className="day-view-header">
+                    <h2 className="day-view-title">
+                      {currentDate.toLocaleDateString('en-AU', {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </h2>
+                    {getEventsForDate(currentDate).length > 0 && (
+                      <span className="event-count">
+                        {getEventsForDate(currentDate).length} event{getEventsForDate(currentDate).length !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+
+                  {getEventsForDate(currentDate).length === 0 ? (
+                    <div className="no-events">
+                      <div className="no-events-icon">📭</div>
+                      <p className="no-events-text">No events scheduled for this day</p>
+                    </div>
+                  ) : (
+                    <div className="day-timeline">
+                      {['7 AM', '8 AM', '9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM'].map(hour => (
+                        <div key={hour} className="timeline-hour">
+                          <span className="hour-label">{hour}</span>
+                          <div className="hour-line"></div>
+                        </div>
+                      ))}
+
+                      <div className="day-events-overlay">
+                        {getEventsForDate(currentDate).map(event => (
+                          <div key={event.id} className="day-event-item" onClick={() => setSelectedEvent(event)}>
+                            <div className="event-time-badge">{event.time}</div>
+                            <div className="event-info">
+                              <h3 className="event-title">{event.title}</h3>
+                              <p className="event-client">{event.client}</p>
+                              <p className="event-address">{event.address}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* WEEK VIEW */}
+            {view === 'week' && (
+              <div className="week-view">
+                <div className="week-days-header">
+                  {getWeekDates(currentDate).map((date, index) => (
+                    <div 
+                      key={index} 
+                      className={`week-day-header ${isToday(date) ? 'today' : ''}`}
+                      onClick={() => {
+                        setSelectedDate(date)
+                        setView('day')
+                        setCurrentDate(date)
+                      }}
+                    >
+                      <span className="week-day-name">
+                        {date.toLocaleDateString('en-AU', { weekday: 'short' })}
+                      </span>
+                      <span className="week-day-number">
+                        {date.getDate()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="week-events-grid">
+                  {getWeekDates(currentDate).map((date, index) => {
+                    const dayEvents = getEventsForDate(date)
+                    return (
+                      <div key={index} className="week-day-column">
+                        {dayEvents.map(event => (
+                          <div 
+                            key={event.id}
+                            className="week-event-card"
+                            style={{ borderLeftColor: event.color }}
+                            onClick={() => setSelectedEvent(event)}
+                          >
+                            <div className="week-event-time">{event.time}</div>
+                            <div className="week-event-title">{event.title}</div>
+                            <div className="week-event-client">{event.client}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* MONTH VIEW */}
+            {view === 'month' && (
+              <>
             
             {/* Calendar Grid */}
             <div className="calendar-grid-section">
@@ -728,6 +870,9 @@ const Calendar = () => {
                 </div>
               </div>
             </div>
+            </>
+            )}
+
           </div>
 
         </div>

@@ -451,22 +451,7 @@ const ClientDetail = () => {
             </div>
           </div>
 
-          {/* If job-in-progress, show complete button */}
-          {lead.status === 'job_report_pdf_sent' && !editMode && (
-            <div className="action-card">
-              <h2 className="card-title">Complete This Job</h2>
-              <p className="card-subtitle">
-                Mark this job as complete when all work is finished
-              </p>
-              <button
-                className="btn-primary btn-large"
-                onClick={() => handleCompleteJob(lead.id)}
-              >
-                <span>✓</span>
-                <span>Mark Job as Complete</span>
-              </button>
-            </div>
-          )}
+          {/* Job completion handled from Leads Management and Calendar only */}
 
         </div>
       </main>
