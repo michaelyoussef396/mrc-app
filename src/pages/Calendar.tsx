@@ -15,52 +15,194 @@ const Calendar = () => {
     loadEvents()
   }, [currentDate])
 
+  // Helper functions
+  const formatDate = (date) => {
+    return date.toISOString().split('T')[0]
+  }
+
+  const addDays = (date, days) => {
+    const result = new Date(date)
+    result.setDate(result.getDate() + days)
+    return result
+  }
+
   const loadEvents = () => {
-    // TODO: Load from Supabase
+    // SEED DATA - Multiple events across different dates
+    const today = new Date()
     const mockEvents = [
+      // This week
       {
         id: 1,
         title: 'Mould Inspection - Smith Residence',
-        date: '2025-10-30',
+        date: formatDate(today),
         time: '9:00 AM',
         duration: '2 hours',
         type: 'inspection',
         status: 'scheduled',
         leadId: 123,
         client: 'John Smith',
-        address: '123 Smith St, Melbourne',
+        address: '123 Smith St, Melbourne VIC 3000',
         technician: 'Tech 1',
         color: '#3b82f6'
       },
       {
         id: 2,
         title: 'Job Day 1 - Johnson Property',
-        date: '2025-10-31',
+        date: formatDate(addDays(today, 1)),
         time: '7:00 AM',
         duration: '8 hours',
         type: 'job',
-        status: 'in-progress',
+        status: 'scheduled',
         leadId: 124,
         client: 'Sarah Johnson',
-        address: '456 Main Rd, Glen Waverley',
+        address: '456 Main Rd, Glen Waverley VIC 3150',
         technician: 'Tech 2',
         color: '#f97316'
       },
       {
         id: 3,
+        title: 'Job Day 2 - Johnson Property',
+        date: formatDate(addDays(today, 2)),
+        time: '7:00 AM',
+        duration: '8 hours',
+        type: 'job',
+        status: 'scheduled',
+        leadId: 124,
+        client: 'Sarah Johnson',
+        address: '456 Main Rd, Glen Waverley VIC 3150',
+        technician: 'Tech 2',
+        color: '#f97316'
+      },
+      {
+        id: 4,
         title: 'Follow-up Inspection - Lee House',
-        date: '2025-11-01',
+        date: formatDate(addDays(today, 3)),
         time: '2:00 PM',
         duration: '1 hour',
         type: 'follow-up',
         status: 'scheduled',
         leadId: 125,
         client: 'Michelle Lee',
-        address: '789 Park Ave, Richmond',
+        address: '789 Park Ave, Richmond VIC 3121',
         technician: 'Tech 1',
         color: '#8b5cf6'
+      },
+      {
+        id: 5,
+        title: 'Inspection - Brown Apartment',
+        date: formatDate(addDays(today, 5)),
+        time: '10:30 AM',
+        duration: '2 hours',
+        type: 'inspection',
+        status: 'scheduled',
+        leadId: 126,
+        client: 'David Brown',
+        address: '321 High St, Kew VIC 3101',
+        technician: 'Tech 1',
+        color: '#3b82f6'
+      },
+      {
+        id: 6,
+        title: 'Job Day 1 - Wilson Home',
+        date: formatDate(addDays(today, 7)),
+        time: '8:00 AM',
+        duration: '6 hours',
+        type: 'job',
+        status: 'scheduled',
+        leadId: 127,
+        client: 'Emma Wilson',
+        address: '555 Beach Rd, Brighton VIC 3186',
+        technician: 'Tech 2',
+        color: '#f97316'
+      },
+      // Next week
+      {
+        id: 7,
+        title: 'Inspection - Taylor Property',
+        date: formatDate(addDays(today, 10)),
+        time: '11:00 AM',
+        duration: '2 hours',
+        type: 'inspection',
+        status: 'scheduled',
+        leadId: 128,
+        client: 'James Taylor',
+        address: '88 Chapel St, South Yarra VIC 3141',
+        technician: 'Tech 1',
+        color: '#3b82f6'
+      },
+      {
+        id: 8,
+        title: 'Job Day 1 - Anderson Townhouse',
+        date: formatDate(addDays(today, 12)),
+        time: '7:30 AM',
+        duration: '8 hours',
+        type: 'job',
+        status: 'scheduled',
+        leadId: 129,
+        client: 'Lisa Anderson',
+        address: '99 Collins St, Melbourne VIC 3000',
+        technician: 'Tech 1',
+        color: '#f97316'
+      },
+      {
+        id: 9,
+        title: 'Job Day 2 - Anderson Townhouse',
+        date: formatDate(addDays(today, 13)),
+        time: '7:30 AM',
+        duration: '8 hours',
+        type: 'job',
+        status: 'scheduled',
+        leadId: 129,
+        client: 'Lisa Anderson',
+        address: '99 Collins St, Melbourne VIC 3000',
+        technician: 'Tech 1',
+        color: '#f97316'
+      },
+      {
+        id: 10,
+        title: 'Follow-up - Martinez House',
+        date: formatDate(addDays(today, 15)),
+        time: '3:00 PM',
+        duration: '1 hour',
+        type: 'follow-up',
+        status: 'scheduled',
+        leadId: 130,
+        client: 'Carlos Martinez',
+        address: '77 Bridge Rd, Richmond VIC 3121',
+        technician: 'Tech 2',
+        color: '#8b5cf6'
+      },
+      // Later in month
+      {
+        id: 11,
+        title: 'Inspection - Davis Residence',
+        date: formatDate(addDays(today, 18)),
+        time: '9:30 AM',
+        duration: '2 hours',
+        type: 'inspection',
+        status: 'scheduled',
+        leadId: 131,
+        client: 'Robert Davis',
+        address: '234 Toorak Rd, South Yarra VIC 3141',
+        technician: 'Tech 2',
+        color: '#3b82f6'
+      },
+      {
+        id: 12,
+        title: 'Emergency Inspection',
+        date: formatDate(addDays(today, 20)),
+        time: '2:00 PM',
+        duration: '1 hour',
+        type: 'inspection',
+        status: 'scheduled',
+        leadId: 132,
+        client: 'Sophie Chen',
+        address: '456 Lonsdale St, Melbourne VIC 3000',
+        technician: 'Tech 1',
+        color: '#ef4444'
       }
     ]
+    
     setEvents(mockEvents)
   }
 
