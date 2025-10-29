@@ -1,511 +1,514 @@
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Star, Check } from "lucide-react";
-import { formatPhoneNumber, cleanPhoneNumber, calculatePropertyZone } from "@/lib/leadUtils";
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
-const formSchema = z.object({
-  full_name: z.string().min(2, "Please enter your full name"),
-  email: z.string().email("Please enter a valid email address"),
-  phone: z.string().min(10, "Please enter a valid phone number"),
-  best_time_to_call: z.string().optional(),
-  property_address_street: z.string().min(1, "Please enter your property address"),
-  property_address_suburb: z.string().min(1, "Please enter suburb"),
-  property_address_postcode: z.string().regex(/^\d{4}$/, "Please enter a valid 4-digit postcode"),
-  property_type: z.string().optional(),
-  issue_description: z.string().min(10, "Please describe where you see mould"),
-  urgency: z.string().default("medium"),
-  marketing_source: z.string().optional(),
-  consent: z.boolean().refine((val) => val === true, "You must agree to be contacted"),
-});
+const RequestInspection = () => {
+  const navigate = useNavigate()
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    property: '',
+    suburb: '',
+    state: 'VIC',
+    postcode: '',
+    issueDescription: '',
+    urgency: 'medium',
+    preferredDate: '',
+    preferredTime: '',
+    source: 'Website'
+  })
 
-type FormValues = z.infer<typeof formSchema>;
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
 
-export default function RequestInspection() {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      full_name: "",
-      email: "",
-      phone: "",
-      best_time_to_call: "anytime",
-      property_address_street: "",
-      property_address_suburb: "",
-      property_address_postcode: "",
-      property_type: "",
-      issue_description: "",
-      urgency: "medium",
-      marketing_source: "",
-      consent: false,
-    },
-  });
-
-  const onSubmit = async (values: FormValues) => {
-    setIsSubmitting(true);
-
-    try {
-      // Generate lead number
-      const { data: leadNumberData } = await supabase.rpc('generate_lead_number');
-      const leadNumber = leadNumberData as string;
-
-      // Calculate property zone
-      const propertyZone = calculatePropertyZone(values.property_address_suburb);
-
-      // Clean phone number
-      const cleanedPhone = cleanPhoneNumber(values.phone);
-
-      // Create notes field with additional info
-      const notes = [
-        values.best_time_to_call && `Best time to call: ${values.best_time_to_call}`,
-        values.marketing_source && `Additional source info: ${values.marketing_source}`,
-      ].filter(Boolean).join('\n');
-
-      // Insert lead with lead_source automatically set to "Website Form"
-      const { data: lead, error: leadError } = await supabase
-        .from("leads")
-        .insert({
-          lead_number: leadNumber,
-          status: "new_lead",
-          full_name: values.full_name,
-          email: values.email,
-          phone: cleanedPhone,
-          property_address_street: values.property_address_street,
-          property_address_suburb: values.property_address_suburb,
-          property_address_state: "VIC",
-          property_address_postcode: values.property_address_postcode,
-          property_zone: propertyZone,
-          property_type: values.property_type || null,
-          lead_source: "Website Form", // AUTOMATIC!
-          issue_description: values.issue_description,
-          urgency: values.urgency,
-          notes: notes || null,
-        })
-        .select()
-        .single();
-
-      if (leadError) throw leadError;
-
-      // Create activity log
-      await supabase.from("activities").insert({
-        lead_id: lead.id,
-        activity_type: "lead_created",
-        title: "Web Lead Received",
-        description: "New inquiry submitted via website form",
-      });
-
-      // Navigate to success page with lead number
-      navigate(`/request-inspection/success?ref=${leadNumber}&email=${values.email}`);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to submit request. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }))
     }
-  };
+  }
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneNumber(e.target.value);
-    form.setValue("phone", formatted);
-  };
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {}
+
+    if (!formData.name.trim()) newErrors.name = 'Name is required'
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required'
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Email is invalid'
+    }
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Phone is required'
+    } else if (!/^04\d{8}$/.test(formData.phone.replace(/\s/g, ''))) {
+      newErrors.phone = 'Phone must be a valid Australian mobile (04XX XXX XXX)'
+    }
+    if (!formData.property.trim()) newErrors.property = 'Address is required'
+    if (!formData.suburb.trim()) newErrors.suburb = 'Suburb is required'
+    if (!formData.postcode.trim()) {
+      newErrors.postcode = 'Postcode is required'
+    } else if (!/^\d{4}$/.test(formData.postcode)) {
+      newErrors.postcode = 'Postcode must be 4 digits'
+    }
+    if (!formData.issueDescription.trim()) {
+      newErrors.issueDescription = 'Please describe the issue'
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!validateForm()) {
+      // Scroll to first error
+      const firstError = document.querySelector('.form-error')
+      if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+      return
+    }
+
+    setSubmitting(true)
+
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1500))
+
+    // TODO: Save to Supabase
+    console.log('Submitting inspection request:', formData)
+
+    setSubmitting(false)
+    setSubmitted(true)
+
+    // Scroll to success message
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  if (submitted) {
+    return (
+      <div className="request-inspection-page">
+        <div className="success-container">
+          <div className="success-content">
+            <div className="success-icon">✓</div>
+            <h1 className="success-title">Request Received!</h1>
+            <p className="success-message">
+              Thank you for contacting Mould & Restoration Co. We've received your inspection request and will be in touch within 24 hours.
+            </p>
+            <div className="success-details">
+              <div className="detail-row">
+                <span className="detail-label">Name:</span>
+                <span className="detail-value">{formData.name}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Email:</span>
+                <span className="detail-value">{formData.email}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Phone:</span>
+                <span className="detail-value">{formData.phone}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Property:</span>
+                <span className="detail-value">{formData.property}, {formData.suburb} {formData.state} {formData.postcode}</span>
+              </div>
+            </div>
+            <div className="success-actions">
+              <button 
+                className="btn-primary btn-large"
+                onClick={() => {
+                  setSubmitted(false)
+                  setFormData({
+                    name: '',
+                    email: '',
+                    phone: '',
+                    property: '',
+                    suburb: '',
+                    state: 'VIC',
+                    postcode: '',
+                    issueDescription: '',
+                    urgency: 'medium',
+                    preferredDate: '',
+                    preferredTime: '',
+                    source: 'Website'
+                  })
+                }}
+              >
+                Submit Another Request
+              </button>
+              <button 
+                className="btn-secondary btn-large"
+                onClick={() => navigate('/')}
+              >
+                Return to Home
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+    <div className="request-inspection-page">
+      
       {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-center">
-            <img
-              src="/placeholder.svg"
-              alt="MRC Logo"
-              className="h-12"
-            />
+      <header className="inspection-header">
+        <div className="header-container">
+          <div className="logo">
+            <span className="logo-icon">🏠</span>
+            <span className="logo-text">MRC</span>
+          </div>
+          <div className="header-contact">
+            <a href="tel:1300123456" className="contact-link">
+              <span className="contact-icon">📞</span>
+              <span className="contact-text">1300 123 456</span>
+            </a>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <div className="bg-primary text-primary-foreground py-12">
-        <div className="container mx-auto px-4 text-center space-y-6">
-          <h1 className="text-4xl md:text-5xl font-bold">
-            Get Your Free Mould Inspection Quote
-          </h1>
-          
-          <div className="flex items-center justify-center gap-2 text-lg">
-            <div className="flex">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-              ))}
+      <section className="hero-section">
+        <div className="hero-container">
+          <div className="hero-content">
+            <div className="hero-badge">
+              <span className="badge-icon">⚡</span>
+              <span className="badge-text">24 Hour Response Time</span>
             </div>
-            <span>5.0 Rating • 150+ Happy Customers</span>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto text-sm md:text-base">
-            <div className="flex items-center justify-center gap-2">
-              <Check className="h-5 w-5" />
-              <span>Fast Response</span>
-            </div>
-            <div className="flex items-center justify-center gap-2">
-              <Check className="h-5 w-5" />
-              <span>Licensed & Insured</span>
-            </div>
-            <div className="flex items-center justify-center gap-2">
-              <Check className="h-5 w-5" />
-              <span>No-Obligation Quote</span>
-            </div>
-            <div className="flex items-center justify-center gap-2">
-              <Check className="h-5 w-5" />
-              <span>Same-Day Service</span>
+            <h1 className="hero-title">
+              Professional Mould Inspection & Restoration
+            </h1>
+            <p className="hero-subtitle">
+              Melbourne's trusted mould specialists. Book your free inspection today and protect your home from harmful mould.
+            </p>
+            <div className="hero-features">
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span className="feature-text">Free Inspection</span>
+              </div>
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span className="feature-text">Licensed & Insured</span>
+              </div>
+              <div className="feature-item">
+                <span className="feature-icon">✓</span>
+                <span className="feature-text">Same Day Service</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Form Section */}
-      <div className="container mx-auto px-4 py-12 max-w-2xl">
-        <div className="bg-card border rounded-lg shadow-lg p-6 md:p-8">
-          <h2 className="text-2xl font-bold mb-6">Request Your Free Inspection</h2>
+      <section className="form-section">
+        <div className="form-container">
+          
+          <div className="form-header">
+            <h2 className="form-title">Request Your Free Inspection</h2>
+            <p className="form-subtitle">Fill out the form below and we'll contact you within 24 hours</p>
+          </div>
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              {/* YOUR DETAILS */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Your Details</h3>
-
-                <FormField
-                  control={form.control}
-                  name="full_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Full Name *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="John Smith" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email Address *</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="john.smith@email.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number *</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="tel"
-                          placeholder="0412 345 678"
-                          {...field}
-                          onChange={handlePhoneChange}
-                        />
-                      </FormControl>
-                      <p className="text-sm text-muted-foreground">We'll call you to schedule</p>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="best_time_to_call"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Best Time to Call</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="morning">Morning (8am-12pm)</SelectItem>
-                          <SelectItem value="afternoon">Afternoon (12pm-5pm)</SelectItem>
-                          <SelectItem value="evening">Evening (5pm-7pm)</SelectItem>
-                          <SelectItem value="anytime">Anytime</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          <form onSubmit={handleSubmit} className="inspection-form">
+            
+            {/* Personal Information */}
+            <div className="form-section-group">
+              <h3 className="section-group-title">Your Information</h3>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    className={`form-input ${errors.name ? 'error' : ''}`}
+                    placeholder="John Smith"
+                  />
+                  {errors.name && <span className="form-error">{errors.name}</span>}
+                </div>
               </div>
 
-              {/* PROPERTY INFORMATION */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Property Information</h3>
-
-                <FormField
-                  control={form.control}
-                  name="property_address_street"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Property Address *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="45 High Street" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="property_address_suburb"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Suburb *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Croydon" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className={`form-input ${errors.email ? 'error' : ''}`}
+                    placeholder="john@email.com"
                   />
+                  {errors.email && <span className="form-error">{errors.email}</span>}
+                </div>
 
-                  <FormField
-                    control={form.control}
-                    name="property_address_postcode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Postcode *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="3136" maxLength={4} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                <div className="form-group">
+                  <label className="form-label">
+                    Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className={`form-input ${errors.phone ? 'error' : ''}`}
+                    placeholder="04XX XXX XXX"
+                  />
+                  {errors.phone && <span className="form-error">{errors.phone}</span>}
+                </div>
+              </div>
+            </div>
+
+            {/* Property Information */}
+            <div className="form-section-group">
+              <h3 className="section-group-title">Property Details</h3>
+              
+              <div className="form-row">
+                <div className="form-group full-width">
+                  <label className="form-label">
+                    Street Address *
+                  </label>
+                  <input
+                    type="text"
+                    name="property"
+                    value={formData.property}
+                    onChange={handleChange}
+                    className={`form-input ${errors.property ? 'error' : ''}`}
+                    placeholder="123 Main Street"
+                  />
+                  {errors.property && <span className="form-error">{errors.property}</span>}
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">
+                    Suburb *
+                  </label>
+                  <input
+                    type="text"
+                    name="suburb"
+                    value={formData.suburb}
+                    onChange={handleChange}
+                    className={`form-input ${errors.suburb ? 'error' : ''}`}
+                    placeholder="Melbourne"
+                  />
+                  {errors.suburb && <span className="form-error">{errors.suburb}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">
+                    State *
+                  </label>
+                  <select
+                    name="state"
+                    value={formData.state}
+                    onChange={handleChange}
+                    className="form-select"
+                  >
+                    <option value="VIC">VIC</option>
+                    <option value="NSW">NSW</option>
+                    <option value="QLD">QLD</option>
+                    <option value="SA">SA</option>
+                    <option value="WA">WA</option>
+                    <option value="TAS">TAS</option>
+                    <option value="NT">NT</option>
+                    <option value="ACT">ACT</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">
+                    Postcode *
+                  </label>
+                  <input
+                    type="text"
+                    name="postcode"
+                    value={formData.postcode}
+                    onChange={handleChange}
+                    className={`form-input ${errors.postcode ? 'error' : ''}`}
+                    placeholder="3000"
+                    maxLength={4}
+                  />
+                  {errors.postcode && <span className="form-error">{errors.postcode}</span>}
+                </div>
+              </div>
+            </div>
+
+            {/* Issue Information */}
+            <div className="form-section-group">
+              <h3 className="section-group-title">Tell Us About Your Issue</h3>
+              
+              <div className="form-row">
+                <div className="form-group full-width">
+                  <label className="form-label">
+                    Issue Description *
+                  </label>
+                  <textarea
+                    name="issueDescription"
+                    value={formData.issueDescription}
+                    onChange={handleChange}
+                    className={`form-textarea ${errors.issueDescription ? 'error' : ''}`}
+                    placeholder="Please describe where you've noticed mould, how long it's been present, any water damage, etc."
+                    rows={5}
+                  />
+                  {errors.issueDescription && <span className="form-error">{errors.issueDescription}</span>}
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">
+                    Urgency Level
+                  </label>
+                  <select
+                    name="urgency"
+                    value={formData.urgency}
+                    onChange={handleChange}
+                    className="form-select"
+                  >
+                    <option value="low">Low - Can wait a few days</option>
+                    <option value="medium">Medium - Within a week</option>
+                    <option value="high">High - As soon as possible</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Scheduling Preferences */}
+            <div className="form-section-group">
+              <h3 className="section-group-title">Scheduling Preferences (Optional)</h3>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">
+                    Preferred Date
+                  </label>
+                  <input
+                    type="date"
+                    name="preferredDate"
+                    value={formData.preferredDate}
+                    onChange={handleChange}
+                    className="form-input"
+                    min={new Date().toISOString().split('T')[0]}
                   />
                 </div>
 
-                <FormField
-                  control={form.control}
-                  name="property_type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Property Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type..." />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="residential_house">Residential House</SelectItem>
-                          <SelectItem value="residential_apartment">Residential Apartment</SelectItem>
-                          <SelectItem value="commercial">Commercial Property</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="form-group">
+                  <label className="form-label">
+                    Preferred Time
+                  </label>
+                  <select
+                    name="preferredTime"
+                    value={formData.preferredTime}
+                    onChange={handleChange}
+                    className="form-select"
+                  >
+                    <option value="">Any time</option>
+                    <option value="morning">Morning (7am - 12pm)</option>
+                    <option value="afternoon">Afternoon (12pm - 5pm)</option>
+                    <option value="evening">Evening (5pm - 7pm)</option>
+                  </select>
+                </div>
               </div>
+            </div>
 
-              {/* TELL US ABOUT THE ISSUE */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Tell Us About the Issue</h3>
-
-                <FormField
-                  control={form.control}
-                  name="issue_description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Where do you see mould? *</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="e.g., Bathroom ceiling, bedroom walls..."
-                          className="min-h-[120px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="urgency"
-                  render={({ field }) => (
-                    <FormItem className="space-y-3">
-                      <FormLabel>How urgent is this?</FormLabel>
-                      <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          className="flex flex-col space-y-2"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="low" id="low" />
-                            <label htmlFor="low" className="cursor-pointer">
-                              Not urgent (can wait weeks)
-                            </label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="medium" id="medium" />
-                            <label htmlFor="medium" className="cursor-pointer">
-                              Somewhat urgent (within days)
-                            </label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="high" id="high" />
-                            <label htmlFor="high" className="cursor-pointer">
-                              Very urgent (ASAP)
-                            </label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="emergency" id="emergency" />
-                            <label htmlFor="emergency" className="cursor-pointer">
-                              Emergency (same day if possible)
-                            </label>
-                          </div>
-                        </RadioGroup>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="marketing_source"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>How did you hear about us? (Optional)</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select..." />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="google_search">Google Search</SelectItem>
-                          <SelectItem value="facebook">Facebook/Social Media</SelectItem>
-                          <SelectItem value="referral">Friend/Family Referral</SelectItem>
-                          <SelectItem value="google_ads">Google Ads</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* CONSENT */}
-              <FormField
-                control={form.control}
-                name="consent"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 border-t pt-4">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>
-                        I agree to be contacted about my inquiry *
-                      </FormLabel>
-                      <FormMessage />
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              {/* SUBMIT BUTTON */}
-              <Button
-                type="submit"
-                size="lg"
-                className="w-full"
-                disabled={isSubmitting}
+            {/* Submit Button */}
+            <div className="form-actions">
+              <button 
+                type="submit" 
+                className="btn-submit"
+                disabled={submitting}
               >
-                {isSubmitting && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-                Get My Free Quote
-              </Button>
-            </form>
-          </Form>
+                {submitting ? (
+                  <>
+                    <div className="btn-spinner"></div>
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>📋</span>
+                    <span>Request Free Inspection</span>
+                  </>
+                )}
+              </button>
+              <p className="form-disclaimer">
+                By submitting this form, you agree to be contacted by Mould & Restoration Co. regarding your inspection request.
+              </p>
+            </div>
 
-          {/* Contact Info */}
-          <div className="mt-8 pt-8 border-t text-center space-y-2 text-sm text-muted-foreground">
-            <p>📞 Or call us now: <strong>1300 665 673</strong></p>
-            <p>📧 Email: info@mrc.com.au</p>
-            <p>🕐 Mon-Sat 7am-7pm</p>
+          </form>
+
+        </div>
+      </section>
+
+      {/* Trust Section */}
+      <section className="trust-section">
+        <div className="trust-container">
+          <h3 className="trust-title">Why Choose Us?</h3>
+          <div className="trust-grid">
+            <div className="trust-card">
+              <div className="trust-icon">🏆</div>
+              <h4 className="trust-card-title">10+ Years Experience</h4>
+              <p className="trust-card-text">Trusted by thousands of Melbourne homeowners</p>
+            </div>
+            <div className="trust-card">
+              <div className="trust-icon">⚡</div>
+              <h4 className="trust-card-title">Fast Response</h4>
+              <p className="trust-card-text">24-hour response time guaranteed</p>
+            </div>
+            <div className="trust-card">
+              <div className="trust-icon">✅</div>
+              <h4 className="trust-card-title">Licensed & Insured</h4>
+              <p className="trust-card-text">Fully certified mould remediation specialists</p>
+            </div>
+            <div className="trust-card">
+              <div className="trust-icon">💯</div>
+              <h4 className="trust-card-title">100% Satisfaction</h4>
+              <p className="trust-card-text">Money-back guarantee on all services</p>
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* Trust Indicators */}
-        <div className="mt-12 grid grid-cols-2 md:grid-cols-5 gap-4 text-center text-sm">
-          <div className="flex flex-col items-center gap-2">
-            <Star className="h-6 w-6 fill-yellow-400 text-yellow-400" />
-            <span>5.0 Google Rating<br />150+ Reviews</span>
+      {/* Footer */}
+      <footer className="inspection-footer">
+        <div className="footer-container">
+          <div className="footer-content">
+            <div className="footer-section">
+              <h4 className="footer-title">Mould & Restoration Co.</h4>
+              <p className="footer-text">Melbourne's trusted mould specialists</p>
+            </div>
+            <div className="footer-section">
+              <h4 className="footer-title">Contact</h4>
+              <p className="footer-text">Phone: 1300 123 456</p>
+              <p className="footer-text">Email: info@mouldrestoration.com.au</p>
+            </div>
+            <div className="footer-section">
+              <h4 className="footer-title">Hours</h4>
+              <p className="footer-text">Mon-Sun: 7:00 AM - 7:00 PM</p>
+              <p className="footer-text">Emergency service available</p>
+            </div>
           </div>
-          <div className="flex flex-col items-center gap-2">
-            <Check className="h-6 w-6 text-green-500" />
-            <span>Licensed<br />& Insured</span>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <Check className="h-6 w-6 text-green-500" />
-            <span>24-Hour<br />Response Time</span>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <Check className="h-6 w-6 text-green-500" />
-            <span>Free, No-Obligation<br />Quotes</span>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <Check className="h-6 w-6 text-green-500" />
-            <span>10+ Years<br />Experience</span>
+          <div className="footer-bottom">
+            <p className="footer-copyright">
+              © 2025 Mould & Restoration Co. All rights reserved.
+            </p>
           </div>
         </div>
-      </div>
+      </footer>
+
     </div>
-  );
+  )
 }
+
+export default RequestInspection
