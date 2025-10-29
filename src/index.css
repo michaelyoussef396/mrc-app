@@ -7299,7 +7299,7 @@ a.contact-value:hover {
 }
 
 /* ============================================
-   QUICK ACTIONS
+   QUICK ACTIONS - IMPROVED ICONS
    ============================================ */
 
 .quick-actions-section {
@@ -7321,57 +7321,95 @@ a.contact-value:hover {
 }
 
 .action-card {
-  background: white;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 16px;
-  padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
+  padding: 20px;
+  background: white;
+  border: 2px solid transparent;
+  border-radius: 16px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s ease;
   text-align: left;
+  width: 100%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .action-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-  border-color: rgba(18, 29, 115, 0.2);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-.action-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+/* Icon wrapper with colored backgrounds */
+.action-icon-wrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
   flex-shrink: 0;
+  transition: all 0.3s ease;
 }
 
-.action-icon.blue {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+.action-icon-wrapper.blue {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.1) 100%);
+  color: #2563eb;
 }
 
-.action-icon.green {
-  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+.action-icon-wrapper.green {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%);
+  color: #059669;
 }
 
-.action-icon.purple {
-  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+.action-icon-wrapper.purple {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(124, 58, 237, 0.1) 100%);
+  color: #7c3aed;
 }
 
-.action-icon.orange {
-  background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+.action-icon-wrapper.orange {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.15) 0%, rgba(234, 88, 12, 0.1) 100%);
+  color: #ea580c;
 }
 
+.action-icon-svg {
+  width: 28px;
+  height: 28px;
+}
+
+/* Hover effects for icon wrappers */
+.action-card-blue:hover .action-icon-wrapper.blue {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+}
+
+.action-card-green:hover .action-icon-wrapper.green {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+}
+
+.action-card-purple:hover .action-icon-wrapper.purple {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  box-shadow: 0 8px 20px rgba(139, 92, 246, 0.4);
+}
+
+.action-card-orange:hover .action-icon-wrapper.orange {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: white;
+  box-shadow: 0 8px 20px rgba(249, 115, 22, 0.4);
+}
+
+/* Action content */
 .action-content {
   flex: 1;
+  min-width: 0;
 }
 
 .action-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: #111827;
   margin-bottom: 4px;
@@ -7381,6 +7419,27 @@ a.contact-value:hover {
   font-size: 13px;
   color: #6b7280;
   font-weight: 500;
+}
+
+/* Hover effects for card borders */
+.action-card-blue:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.02);
+}
+
+.action-card-green:hover {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.02);
+}
+
+.action-card-purple:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+  background: rgba(139, 92, 246, 0.02);
+}
+
+.action-card-orange:hover {
+  border-color: rgba(249, 115, 22, 0.3);
+  background: rgba(249, 115, 22, 0.02);
 }
 
 /* ============================================
@@ -7565,6 +7624,28 @@ a.contact-value:hover {
     grid-template-columns: 1fr;
   }
   
+  .action-card {
+    padding: 16px;
+  }
+
+  .action-icon-wrapper {
+    width: 48px;
+    height: 48px;
+  }
+
+  .action-icon-svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .action-title {
+    font-size: 15px;
+  }
+
+  .action-description {
+    font-size: 12px;
+  }
+  
   .nav-container {
     padding: 0 16px;
   }
@@ -7587,6 +7668,23 @@ a.contact-value:hover {
   
   .leads-table {
     font-size: 12px;
+  }
+}
+
+@media (max-width: 400px) {
+  .action-card {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .action-icon-wrapper {
+    width: 44px;
+    height: 44px;
+  }
+
+  .action-icon-svg {
+    width: 22px;
+    height: 22px;
   }
 }
 
