@@ -76,9 +76,9 @@ const LeadsManagement = () => {
       label: 'Job In Progress', 
       icon: '🔧', 
       color: '#f97316',
-      description: 'Technicians on site doing work',
-      nextActions: ['Monitor progress', 'Update client'],
-      availableButtons: ['viewProgress', 'updateStatus', 'completeJob', 'viewDetails']
+      description: 'Technicians currently on site doing work',
+      nextActions: ['Complete the job when finished'],
+      availableButtons: ['viewDetails', 'completeJob']
     },
     { 
       value: 'inspection_report_pdf_completed', 
@@ -209,7 +209,18 @@ const LeadsManagement = () => {
     },
     
     completeJob: async (leadId: number) => {
-      await updateLeadStatus(leadId, 'job-complete');
+      const confirmed = window.confirm(
+        'Mark this job as complete?\n\nThis will update the status to "Job Complete" and notify the client.'
+      );
+      
+      if (confirmed) {
+        await updateLeadStatus(leadId, 'inspection_report_pdf_completed');
+        
+        // TODO: Send client notification
+        // await sendClientNotification(leadId, 'job-completed');
+        
+        alert('Job marked as complete! Status updated.');
+      }
     },
     
     sendInvoice: (leadId: number) => {
@@ -415,18 +426,6 @@ const LeadsManagement = () => {
         label: 'Start Job',
         onClick: () => stageActions.startJob(lead.id),
         style: 'success'
-      },
-      viewProgress: {
-        icon: '📊',
-        label: 'Progress',
-        onClick: () => stageActions.viewProgress(lead.id),
-        style: 'secondary'
-      },
-      updateStatus: {
-        icon: '🔄',
-        label: 'Update',
-        onClick: () => stageActions.updateStatus(lead.id),
-        style: 'secondary'
       },
       completeJob: {
         icon: '✅',
