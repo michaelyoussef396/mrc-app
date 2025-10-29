@@ -52,7 +52,7 @@ const formSchema = z.object({
   lead_source: z.string().optional(),
   issue_description: z.string().max(1000).optional(),
   urgency: z.string().optional(),
-  assigned_to: z.string().uuid().optional().or(z.literal("")).nullable(),
+  assigned_to: z.string().uuid().optional().or(z.literal("unassigned")).nullable(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -176,7 +176,7 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
           lead_source: values.lead_source,
           issue_description: values.issue_description || null,
           urgency: values.urgency || null,
-          assigned_to: values.assigned_to && values.assigned_to !== "" ? values.assigned_to : null,
+          assigned_to: values.assigned_to === "unassigned" ? null : values.assigned_to || null,
         })
         .select()
         .single();
@@ -481,11 +481,11 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Unassigned</SelectItem>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
                         {technicians.length === 0 ? (
-                          <SelectItem value="" disabled>
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
                             No technicians available
-                          </SelectItem>
+                          </div>
                         ) : (
                           technicians.map((tech) => (
                             <SelectItem key={tech.id} value={tech.id}>
