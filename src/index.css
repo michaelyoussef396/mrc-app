@@ -1193,6 +1193,285 @@
   }
 
   /* ============================================
+     FORGOT PASSWORD PAGE - APPLE STYLE
+     ============================================ */
+
+  .forgot-password-page {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: linear-gradient(135deg, hsl(var(--blue-50)) 0%, hsl(var(--blue-100)) 100%);
+    animation: pageEnter 0.5s ease-out;
+  }
+
+  .forgot-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .forgot-container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 480px;
+    padding: 24px;
+  }
+
+  .forgot-card {
+    padding: 40px;
+    animation: slideUpLogin 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .forgot-header {
+    position: relative;
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .back-button {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: hsl(var(--gray-600));
+    cursor: pointer;
+    border-radius: 12px;
+    transition: all var(--transition-base);
+  }
+
+  .back-button:hover {
+    background: rgba(0, 0, 0, 0.04);
+    color: hsl(var(--gray-900));
+  }
+
+  .back-button svg {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .back-button:hover svg {
+    transform: translateX(-4px);
+  }
+
+  .icon-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+    margin-bottom: 24px;
+  }
+
+  .forgot-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 
+      0 8px 24px rgba(245, 158, 11, 0.3),
+      0 0 0 0.5px rgba(255, 255, 255, 0.1) inset;
+    animation: iconFloat 3s ease-in-out infinite;
+  }
+
+  @keyframes iconFloat {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  .forgot-title {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: hsl(var(--gray-900));
+    margin-bottom: 12px;
+  }
+
+  .forgot-subtitle {
+    font-size: 15px;
+    color: hsl(var(--gray-600));
+    font-weight: 500;
+    line-height: 1.6;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  .forgot-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .form-input-forgot {
+    width: 100%;
+    padding: 16px;
+    padding-left: 48px;
+    font-size: 15px;
+    font-weight: 500;
+    color: hsl(var(--gray-900));
+    background: rgba(255, 255, 255, 0.5);
+    border: 1.5px solid hsl(var(--gray-200));
+    border-radius: 12px;
+    transition: all var(--transition-base);
+    font-family: var(--font-family);
+    height: auto;
+  }
+
+  .form-input-forgot::placeholder {
+    color: hsl(var(--gray-400));
+  }
+
+  .form-input-forgot:focus {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: hsl(var(--blue-primary));
+    box-shadow: 
+      0 0 0 4px rgba(18, 29, 115, 0.1),
+      0 1px 2px rgba(0, 0, 0, 0.04);
+    outline: none;
+  }
+
+  .input-icon-svg {
+    position: absolute;
+    left: 16px;
+    width: 20px;
+    height: 20px;
+    color: hsl(var(--gray-500));
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .btn-submit {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px;
+    margin-top: 8px;
+    font-size: 17px;
+  }
+
+  .btn-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .forgot-footer {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    text-align: center;
+  }
+
+  .footer-text {
+    font-size: 13px;
+    color: hsl(var(--gray-600));
+    font-weight: 500;
+  }
+
+  .footer-link {
+    color: hsl(var(--blue-primary));
+    font-weight: 600;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .footer-link:hover {
+    background: rgba(18, 29, 115, 0.05);
+  }
+
+  /* Mobile Responsive */
+  @media (max-width: 640px) {
+    .forgot-container {
+      padding: 16px;
+    }
+    
+    .forgot-card {
+      padding: 24px;
+    }
+    
+    .back-button {
+      position: static;
+      margin-bottom: 16px;
+    }
+    
+    .forgot-icon {
+      width: 64px;
+      height: 64px;
+    }
+    
+    .forgot-icon svg {
+      width: 32px;
+      height: 32px;
+    }
+    
+    .forgot-title {
+      font-size: 20px;
+    }
+    
+    .forgot-subtitle {
+      font-size: 13px;
+    }
+  }
+
+  /* Dark Mode */
+  .dark .forgot-password-page {
+    background: linear-gradient(135deg, #0f1419 0%, #1a1d29 100%);
+  }
+  
+  .dark .forgot-title {
+    color: hsl(var(--foreground));
+  }
+  
+  .dark .forgot-subtitle,
+  .dark .footer-text {
+    color: hsl(var(--gray-400));
+  }
+  
+  .dark .form-input-forgot {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: hsl(var(--foreground));
+  }
+  
+  .dark .form-input-forgot:focus {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: hsl(var(--blue-light));
+  }
+
+  .dark .back-button {
+    color: hsl(var(--gray-400));
+  }
+
+  .dark .back-button:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: hsl(var(--foreground));
+  }
+
+  /* ============================================
      LOADING SYSTEM - APPLE ANIMATIONS
      ============================================ */
 
