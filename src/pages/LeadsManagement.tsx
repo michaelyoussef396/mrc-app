@@ -456,8 +456,9 @@ const LeadsManagement = () => {
   const loadLeads = async () => {
     setLoading(true);
     
-    // Mock data for now - replace with Supabase query later
+    // Mock data covering ALL 12 pipeline stages
     const mockLeads = [
+      // 1. NEW_LEAD - Brand new inquiry from website
       {
         id: 1,
         name: 'John Doe',
@@ -467,16 +468,35 @@ const LeadsManagement = () => {
         suburb: 'Melbourne',
         state: 'VIC',
         postcode: '3000',
-        status: 'new',
+        status: 'new_lead',
         urgency: 'high',
-        source: 'Google Ads',
+        source: 'Website Form',
         dateCreated: '2025-01-29T10:30:00',
         lastContact: null,
-        estimatedValue: 2400,
-        issueDescription: 'Visible black mould in bathroom and bedroom ceiling'
+        estimatedValue: null,
+        issueDescription: 'Visible black mould in bathroom around shower area and on bedroom ceiling near window'
       },
       {
         id: 2,
+        name: 'Emma Wilson',
+        email: 'emma@email.com',
+        phone: '0434 567 890',
+        property: '67 High Street',
+        suburb: 'Preston',
+        state: 'VIC',
+        postcode: '3072',
+        status: 'new_lead',
+        urgency: 'medium',
+        source: 'Google Ads',
+        dateCreated: '2025-01-29T08:15:00',
+        lastContact: null,
+        estimatedValue: null,
+        issueDescription: 'Musty smell in laundry room and visible spots on walls'
+      },
+      
+      // 2. INSPECTION_WAITING - Inspection has been scheduled
+      {
+        id: 3,
         name: 'Sarah Miller',
         email: 'sarah@email.com',
         phone: '0423 456 789',
@@ -484,34 +504,37 @@ const LeadsManagement = () => {
         suburb: 'Richmond',
         state: 'VIC',
         postcode: '3121',
-        status: 'contacted',
-        urgency: 'medium',
+        status: 'inspection_waiting',
+        urgency: 'high',
         source: 'Referral',
         dateCreated: '2025-01-28T14:15:00',
-        lastContact: '2025-01-28T16:30:00',
-        estimatedValue: 3200,
-        issueDescription: 'Roof leak causing mould growth in multiple rooms'
-      },
-      {
-        id: 3,
-        name: 'Emily Watson',
-        email: 'emily@email.com',
-        phone: '0445 678 901',
-        property: '12 Chapel Street',
-        suburb: 'Windsor',
-        state: 'VIC',
-        postcode: '3181',
-        status: 'inspection-scheduled',
-        urgency: 'high',
-        source: 'Website',
-        dateCreated: '2025-01-27T09:45:00',
-        lastContact: '2025-01-28T11:00:00',
-        scheduledDate: '2025-01-29T14:00:00',
-        estimatedValue: 4500,
-        issueDescription: 'Black mould in bathroom - health concerns'
+        lastContact: '2025-01-29T09:30:00',
+        scheduledDate: '2025-01-30T14:00:00',
+        estimatedValue: null,
+        issueDescription: 'Roof leak causing mould growth in multiple rooms - urgent'
       },
       {
         id: 4,
+        name: 'Peter Thompson',
+        email: 'peter@email.com',
+        phone: '0445 123 456',
+        property: '78 Station Road',
+        suburb: 'Box Hill',
+        state: 'VIC',
+        postcode: '3128',
+        status: 'inspection_waiting',
+        urgency: 'medium',
+        source: 'Website Form',
+        dateCreated: '2025-01-27T16:45:00',
+        lastContact: '2025-01-28T10:00:00',
+        scheduledDate: '2025-01-31T10:00:00',
+        estimatedValue: null,
+        issueDescription: 'Black mould in bathroom after recent flooding'
+      },
+      
+      // 3. QUOTED - Initial quote provided (before inspection)
+      {
+        id: 5,
         name: 'Michael Chen',
         email: 'michael@email.com',
         phone: '0456 789 012',
@@ -525,10 +548,32 @@ const LeadsManagement = () => {
         dateCreated: '2025-01-26T16:20:00',
         lastContact: '2025-01-27T10:00:00',
         estimatedValue: 1800,
-        issueDescription: 'Musty smell in basement, possible mould'
+        issueDescription: 'Musty smell in basement, possible mould - wants rough quote first'
       },
+      
+      // 4. INSPECTION_SCHEDULED - Ready to start inspection
       {
-        id: 5,
+        id: 6,
+        name: 'Emily Watson',
+        email: 'emily@email.com',
+        phone: '0445 678 901',
+        property: '12 Chapel Street',
+        suburb: 'Windsor',
+        state: 'VIC',
+        postcode: '3181',
+        status: 'inspection-scheduled',
+        urgency: 'high',
+        source: 'Website Form',
+        dateCreated: '2025-01-27T09:45:00',
+        lastContact: '2025-01-28T11:00:00',
+        scheduledDate: '2025-01-29T14:00:00',
+        estimatedValue: null,
+        issueDescription: 'Black mould in bathroom - health concerns for young children'
+      },
+      
+      // 5. INSPECTION_COMPLETE - Inspection done, preparing report
+      {
+        id: 7,
         name: 'David Brown',
         email: 'david@email.com',
         phone: '0467 890 123',
@@ -542,10 +587,67 @@ const LeadsManagement = () => {
         dateCreated: '2025-01-25T11:20:00',
         lastContact: '2025-01-27T15:30:00',
         estimatedValue: 5600,
-        issueDescription: 'Commercial office - multiple rooms with mould'
+        issueDescription: 'Commercial office - multiple rooms with mould contamination'
       },
       {
-        id: 6,
+        id: 8,
+        name: 'Lisa Anderson',
+        email: 'lisa@email.com',
+        phone: '0478 234 567',
+        property: '34 Park Avenue',
+        suburb: 'Hawthorn',
+        state: 'VIC',
+        postcode: '3122',
+        status: 'inspection-complete',
+        urgency: 'high',
+        source: 'Referral',
+        dateCreated: '2025-01-26T08:30:00',
+        lastContact: '2025-01-27T14:00:00',
+        estimatedValue: 3400,
+        issueDescription: 'Extensive mould in subfloor and crawl space'
+      },
+      
+      // 6. QUOTE_SENT - Full quote sent after inspection
+      {
+        id: 9,
+        name: 'Robert Davis',
+        email: 'robert@email.com',
+        phone: '0489 123 456',
+        property: '23 Beach Road',
+        suburb: 'Sandringham',
+        state: 'VIC',
+        postcode: '3191',
+        status: 'quote-sent',
+        urgency: 'medium',
+        source: 'Website Form',
+        dateCreated: '2025-01-24T10:15:00',
+        lastContact: '2025-01-26T16:00:00',
+        estimatedValue: 4200,
+        issueDescription: 'Mould in bedroom walls and ceiling - needs full remediation'
+      },
+      
+      // 7. AWAITING_APPROVAL - Waiting for client decision
+      {
+        id: 10,
+        name: 'Jennifer White',
+        email: 'jennifer@email.com',
+        phone: '0456 345 678',
+        property: '45 Collins Street',
+        suburb: 'Essendon',
+        state: 'VIC',
+        postcode: '3040',
+        status: 'awaiting-approval',
+        urgency: 'low',
+        source: 'Google Ads',
+        dateCreated: '2025-01-23T14:45:00',
+        lastContact: '2025-01-25T11:00:00',
+        estimatedValue: 2800,
+        issueDescription: 'Bathroom and ensuite mould - waiting on insurance approval'
+      },
+      
+      // 8. JOB_BOOKED - Client approved, job scheduled
+      {
+        id: 11,
         name: 'Jessica Taylor',
         email: 'jessica@email.com',
         phone: '0478 901 234',
@@ -556,11 +658,139 @@ const LeadsManagement = () => {
         status: 'job-booked',
         urgency: 'high',
         source: 'Referral',
-        dateCreated: '2025-01-24T13:45:00',
+        dateCreated: '2025-01-22T13:45:00',
         lastContact: '2025-01-26T09:00:00',
         scheduledDate: '2025-01-31T09:00:00',
         estimatedValue: 6700,
-        issueDescription: 'Extensive mould remediation needed'
+        issueDescription: 'Extensive mould remediation - multiple rooms and subfloor treatment'
+      },
+      {
+        id: 12,
+        name: 'Andrew Martin',
+        email: 'andrew@email.com',
+        phone: '0467 567 890',
+        property: '89 Main Street',
+        suburb: 'Eltham',
+        state: 'VIC',
+        postcode: '3095',
+        status: 'job-booked',
+        urgency: 'medium',
+        source: 'Website Form',
+        dateCreated: '2025-01-21T09:30:00',
+        lastContact: '2025-01-24T15:00:00',
+        scheduledDate: '2025-02-03T08:00:00',
+        estimatedValue: 3900,
+        issueDescription: 'Kitchen and bathroom mould removal and sanitization'
+      },
+      
+      // 9. JOB_IN_PROGRESS - Work currently being done
+      {
+        id: 13,
+        name: 'Michelle Lee',
+        email: 'michelle@email.com',
+        phone: '0423 789 012',
+        property: '56 Railway Parade',
+        suburb: 'Glen Waverley',
+        state: 'VIC',
+        postcode: '3150',
+        status: 'job-in-progress',
+        urgency: 'high',
+        source: 'Referral',
+        dateCreated: '2025-01-20T11:00:00',
+        lastContact: '2025-01-29T08:00:00',
+        estimatedValue: 5200,
+        issueDescription: 'Full house mould treatment - day 2 of 3'
+      },
+      
+      // 10. JOB_COMPLETE - Work finished, awaiting payment
+      {
+        id: 14,
+        name: 'Daniel Green',
+        email: 'daniel@email.com',
+        phone: '0434 890 123',
+        property: '12 River Street',
+        suburb: 'Kew',
+        state: 'VIC',
+        postcode: '3101',
+        status: 'job-complete',
+        urgency: 'low',
+        source: 'Google Ads',
+        dateCreated: '2025-01-18T14:20:00',
+        lastContact: '2025-01-27T16:00:00',
+        estimatedValue: 4100,
+        issueDescription: 'Bathroom and laundry mould remediation - completed yesterday'
+      },
+      {
+        id: 15,
+        name: 'Sophie Clarke',
+        email: 'sophie@email.com',
+        phone: '0445 234 567',
+        property: '78 Garden Road',
+        suburb: 'Malvern',
+        state: 'VIC',
+        postcode: '3144',
+        status: 'job-complete',
+        urgency: 'medium',
+        source: 'Referral',
+        dateCreated: '2025-01-19T10:45:00',
+        lastContact: '2025-01-28T11:00:00',
+        estimatedValue: 3600,
+        issueDescription: 'Bedroom and wardrobe mould treatment - job completed'
+      },
+      
+      // 11. PAID_CLOSED - Payment received, job closed
+      {
+        id: 16,
+        name: 'William Johnson',
+        email: 'william@email.com',
+        phone: '0456 678 901',
+        property: '23 Hill Street',
+        suburb: 'Thornbury',
+        state: 'VIC',
+        postcode: '3071',
+        status: 'paid-closed',
+        urgency: 'low',
+        source: 'Website Form',
+        dateCreated: '2025-01-15T09:00:00',
+        lastContact: '2025-01-26T14:00:00',
+        estimatedValue: 2900,
+        issueDescription: 'Kitchen mould removal - paid and closed'
+      },
+      {
+        id: 17,
+        name: 'Olivia Harris',
+        email: 'olivia@email.com',
+        phone: '0467 789 012',
+        property: '45 Forest Drive',
+        suburb: 'Doncaster',
+        state: 'VIC',
+        postcode: '3108',
+        status: 'paid-closed',
+        urgency: 'low',
+        source: 'Referral',
+        dateCreated: '2025-01-14T13:30:00',
+        lastContact: '2025-01-25T10:00:00',
+        estimatedValue: 5800,
+        issueDescription: 'Multiple rooms mould remediation - fully paid'
+      },
+      
+      // 12. LOST - Client didn't proceed
+      {
+        id: 18,
+        name: 'Thomas Wright',
+        email: 'thomas@email.com',
+        phone: '0478 890 123',
+        property: '67 Church Street',
+        suburb: 'Brighton',
+        state: 'VIC',
+        postcode: '3186',
+        status: 'lost',
+        urgency: 'low',
+        source: 'Facebook',
+        dateCreated: '2025-01-20T15:45:00',
+        lastContact: '2025-01-24T09:00:00',
+        estimatedValue: 3200,
+        issueDescription: 'Bathroom mould - decided to go with another company'
       }
     ];
     
