@@ -1,13 +1,94 @@
 import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function LeadPipeline() {
+  const { data: pipelineData, isLoading } = useQuery({
+    queryKey: ["leadPipeline"],
+    queryFn: async () => {
+      const { data: leads, error } = await supabase
+        .from("leads")
+        .select("status");
+
+      if (error) throw error;
+
+      const statusCounts = leads?.reduce((acc, lead) => {
+        acc[lead.status] = (acc[lead.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const totalLeads = leads?.length || 0;
+
+      return {
+        newLeads: statusCounts?.["new_lead"] || 0,
+        contacted: statusCounts?.["contacted"] || 0,
+        inspectionWaiting: statusCounts?.["inspection_waiting"] || 0,
+        jobWaiting: statusCounts?.["job_waiting"] || 0,
+        totalLeads,
+      };
+    },
+  });
+
   const stages = [
-    { label: "NEW LEADS", count: 12, percentage: 60, color: "bg-blue-500" },
-    { label: "CONTACTED", count: 8, percentage: 40, color: "bg-purple-500" },
-    { label: "QUALIFIED", count: 5, percentage: 25, color: "bg-amber-500" },
-    { label: "BOOKED", count: 3, percentage: 15, color: "bg-green-500" },
+    {
+      label: "NEW LEADS",
+      count: pipelineData?.newLeads || 0,
+      percentage:
+        ((pipelineData?.newLeads || 0) / (pipelineData?.totalLeads || 1)) * 100,
+      color: "bg-blue-500",
+    },
+    {
+      label: "CONTACTED",
+      count: pipelineData?.contacted || 0,
+      percentage:
+        ((pipelineData?.contacted || 0) / (pipelineData?.totalLeads || 1)) * 100,
+      color: "bg-purple-500",
+    },
+    {
+      label: "INSPECTION BOOKED",
+      count: pipelineData?.inspectionWaiting || 0,
+      percentage:
+        ((pipelineData?.inspectionWaiting || 0) /
+          (pipelineData?.totalLeads || 1)) *
+        100,
+      color: "bg-amber-500",
+    },
+    {
+      label: "JOB BOOKED",
+      count: pipelineData?.jobWaiting || 0,
+      percentage:
+        ((pipelineData?.jobWaiting || 0) / (pipelineData?.totalLeads || 1)) * 100,
+      color: "bg-green-500",
+    },
   ];
+
+  if (isLoading) {
+    return (
+      <section>
+        <h2 className="text-xl font-bold text-foreground mb-4">📊 Lead Pipeline</h2>
+        <Card className="p-6">
+          <div className="space-y-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-8" />
+                </div>
+                <Skeleton className="h-3 w-full rounded-full" />
+              </div>
+            ))}
+          </div>
+        </Card>
+      </section>
+    );
+  }
+
+  const conversionRate = pipelineData?.totalLeads
+    ? Math.round(
+        ((pipelineData.jobWaiting || 0) / pipelineData.totalLeads) * 100
+      )
+    : 0;
 
   return (
     <section>
@@ -39,11 +120,15 @@ export function LeadPipeline() {
           <div className="pt-4 border-t space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Conversion Rate:</span>
-              <span className="font-semibold text-foreground">25%</span>
+              <span className="font-semibold text-foreground">
+                {conversionRate}%
+              </span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Avg Time to Book:</span>
-              <span className="font-semibold text-foreground">4.2 days</span>
+              <span className="text-muted-foreground">Total Leads:</span>
+              <span className="font-semibold text-foreground">
+                {pipelineData?.totalLeads || 0}
+              </span>
             </div>
           </div>
         </div>
