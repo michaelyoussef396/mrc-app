@@ -78,6 +78,7 @@ const AppContent = () => {
             <Route path="/leads" element={<Leads />} />
             <Route path="/leads/:id" element={<LeadDetail />} />
             <Route path="/calendar" element={<Calendar />} />
+            <Route path="/inspection" element={<InspectionForm />} />
             <Route path="/inspection/new" element={<InspectionForm />} />
             <Route path="/inspection/:id" element={<InspectionForm />} />
             <Route path="/reports" element={<Reports />} />
