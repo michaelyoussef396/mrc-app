@@ -761,7 +761,7 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    background: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 100%);
+    background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
     animation: pageEnter 0.5s ease-out;
   }
 
@@ -779,34 +779,34 @@
   .gradient-orb {
     position: absolute;
     border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.6;
+    filter: blur(100px);
+    opacity: 0.5;
     animation: float 20s ease-in-out infinite;
   }
 
   .orb-1 {
-    width: 500px;
-    height: 500px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    top: -10%;
-    left: -10%;
+    width: 600px;
+    height: 600px;
+    background: linear-gradient(135deg, #121D73 0%, #1e40af 100%);
+    top: -15%;
+    left: -15%;
     animation-delay: 0s;
   }
 
   .orb-2 {
-    width: 400px;
-    height: 400px;
-    background: linear-gradient(135deg, #121D73 0%, #1e3a8a 100%);
-    bottom: -10%;
+    width: 500px;
+    height: 500px;
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    bottom: -15%;
     right: -10%;
     animation-delay: 7s;
   }
 
   .orb-3 {
-    width: 300px;
-    height: 300px;
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    top: 50%;
+    width: 400px;
+    height: 400px;
+    background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
+    top: 40%;
     left: 50%;
     transform: translate(-50%, -50%);
     animation-delay: 14s;
@@ -1164,7 +1164,12 @@
 
   /* Dark Mode */
   .dark .login-page {
-    background: linear-gradient(135deg, #0f1419 0%, #1a1d29 100%);
+    background: linear-gradient(135deg, #0c1330 0%, #111827 100%);
+  }
+  
+  .dark .gradient-orb {
+    opacity: 0.3;
+    filter: blur(120px);
   }
   
   .dark .login-title {
@@ -1203,7 +1208,7 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    background: linear-gradient(135deg, hsl(var(--blue-50)) 0%, hsl(var(--blue-100)) 100%);
+    background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
     animation: pageEnter 0.5s ease-out;
   }
 
@@ -1439,7 +1444,7 @@
 
   /* Dark Mode */
   .dark .forgot-password-page {
-    background: linear-gradient(135deg, #0f1419 0%, #1a1d29 100%);
+    background: linear-gradient(135deg, #0c1330 0%, #111827 100%);
   }
   
   .dark .forgot-title {
