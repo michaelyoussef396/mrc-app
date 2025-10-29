@@ -112,7 +112,7 @@ export default function ForgotPassword() {
                         <Input
                           type="email"
                           placeholder="your@email.com"
-                          className="form-input-forgot"
+                          className="form-input-forgot pl-16"
                           autoFocus
                           {...field}
                         />
