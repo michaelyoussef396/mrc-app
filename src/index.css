@@ -982,7 +982,7 @@
     width: 100%;
   }
 
-  /* ICON - ABSOLUTE POSITION ON LEFT WITH SPACE */
+  /* LEFT ICON (LOCK/EMAIL) - ABSOLUTE POSITION INSIDE INPUT */
   .login-page .input-icon {
     position: absolute;
     left: 20px;
@@ -993,7 +993,7 @@
     z-index: 2;
   }
 
-  /* INPUT - WITH LEFT PADDING FOR ICON SPACE */
+  /* INPUT FIELD - WITH PADDING FOR LEFT ICON */
   .login-page .form-input {
     width: 100%;
     padding: 14px 20px 14px 60px;
@@ -1009,6 +1009,12 @@
     box-sizing: border-box;
   }
 
+  /* PASSWORD INPUT - EXTRA RIGHT PADDING FOR EYE ICON */
+  .login-page input[type="password"],
+  .login-page input[type="text"][class*="password"] {
+    padding-right: 60px;
+  }
+
   .login-page .form-input::placeholder {
     color: hsl(var(--gray-400));
   }
@@ -1019,7 +1025,7 @@
     box-shadow: 0 0 0 4px rgba(18, 29, 115, 0.1);
   }
 
-  /* PASSWORD TOGGLE - ABSOLUTE POSITION ON RIGHT */
+  /* PASSWORD TOGGLE BUTTON - ABSOLUTE POSITION INSIDE INPUT */
   .login-page .password-toggle {
     position: absolute;
     right: 15px;
@@ -1033,11 +1039,18 @@
     padding: 8px;
     border-radius: 6px;
     z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .login-page .password-toggle:hover {
     color: hsl(var(--primary));
     background: hsl(var(--primary) / 0.05);
+  }
+
+  .login-page .password-toggle:active {
+    transform: translateY(-50%) scale(0.95);
   }
 
   .form-input::placeholder {
@@ -3697,7 +3710,11 @@ a.contact-value:hover {
     .login-page .form-input {
       font-size: 16px; /* Prevent iOS zoom */
       padding-left: 60px;
-      padding-right: 20px;
+    }
+    
+    .login-page input[type="password"],
+    .login-page input[type="text"][class*="password"] {
+      padding-right: 60px;
     }
     
     .login-page .input-icon {
