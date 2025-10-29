@@ -107,12 +107,12 @@ export default function ForgotPassword() {
                   <FormItem>
                     <FormLabel className="form-label">Email Address</FormLabel>
                     <FormControl>
-                      <div className="input-wrapper">
-                        <Mail className="input-icon-svg" />
+                      <div className="email-input-container">
+                        <Mail className="email-icon-svg" />
                         <Input
                           type="email"
                           placeholder="your@email.com"
-                          className="form-input-forgot pl-16"
+                          className="email-input-field"
                           autoFocus
                           {...field}
                         />

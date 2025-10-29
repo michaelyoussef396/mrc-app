@@ -3958,42 +3958,62 @@ a.contact-value:hover {
     gap: 20px;
   }
 
-  .form-input-forgot {
+  /* Email input container with icon inside */
+  .email-input-container {
+    position: relative;
     width: 100%;
-    padding: 16px;
-    padding-left: 64px;
-    font-size: 15px;
-    font-weight: 500;
-    color: hsl(var(--gray-900));
+    display: flex;
+    align-items: center;
     background: rgba(255, 255, 255, 0.5);
     border: 1.5px solid hsl(var(--gray-200));
     border-radius: 12px;
     transition: all var(--transition-base);
-    font-family: var(--font-family);
-    height: auto;
+    height: 52px;
   }
 
-  .form-input-forgot::placeholder {
-    color: hsl(var(--gray-400));
+  .email-input-container:hover {
+    background: rgba(255, 255, 255, 0.65);
+    border-color: hsl(var(--gray-300));
   }
 
-  .form-input-forgot:focus {
+  .email-input-container:focus-within {
     background: rgba(255, 255, 255, 0.8);
-    border-color: hsl(var(--blue-primary));
+    border-color: hsl(var(--primary));
     box-shadow: 
       0 0 0 4px rgba(18, 29, 115, 0.1),
       0 1px 2px rgba(0, 0, 0, 0.04);
-    outline: none;
   }
 
-  .input-icon-svg {
+  /* Email icon positioned inside on left */
+  .email-icon-svg {
     position: absolute;
-    left: 20px;
-    width: 22px;
-    height: 22px;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
     color: hsl(var(--gray-500));
     pointer-events: none;
     z-index: 2;
+    flex-shrink: 0;
+  }
+
+  /* Email input field */
+  .email-input-field {
+    flex: 1;
+    height: 100%;
+    padding-left: 50px;
+    padding-right: 20px;
+    border: none;
+    background: transparent;
+    font-size: 15px;
+    font-weight: 500;
+    color: hsl(var(--gray-900));
+    outline: none;
+  }
+
+  .email-input-field::placeholder {
+    color: hsl(var(--gray-400));
   }
 
   .btn-submit {
