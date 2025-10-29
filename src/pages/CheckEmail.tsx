@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CheckCircle2, Mail, RefreshCw, Info } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ArrowRight, RefreshCw, Info } from "lucide-react";
 
 export default function CheckEmail() {
   const [isResending, setIsResending] = useState(false);
@@ -36,13 +36,13 @@ export default function CheckEmail() {
         toast({
           variant: "destructive",
           title: "Error",
-          description: error.message || "Failed to resend email",
+          description: error.message || "Failed to resend code",
         });
       } else {
         setResent(true);
         toast({
-          title: "Email Sent!",
-          description: "We've sent a new password reset link to your email.",
+          title: "Code Sent!",
+          description: "We've sent a new verification code to your email.",
         });
         
         // Reset the "resent" state after 3 seconds
@@ -57,6 +57,11 @@ export default function CheckEmail() {
     } finally {
       setIsResending(false);
     }
+  };
+
+  const handleContinue = () => {
+    // Navigate to verify code page (to be created)
+    navigate(`/verify-code`, { state: { email } });
   };
 
   return (
@@ -102,7 +107,7 @@ export default function CheckEmail() {
           <div className="check-email-header">
             <h1 className="check-email-title">Check Your Email</h1>
             <p className="check-email-subtitle">
-              We've sent password reset instructions to
+              We've sent a verification code to
             </p>
             <p className="check-email-address">{email}</p>
           </div>
@@ -116,7 +121,7 @@ export default function CheckEmail() {
               <div className="step-content">
                 <h3 className="step-title">Check your inbox</h3>
                 <p className="step-description">
-                  Look for an email from MRC (check spam folder too)
+                  Look for an email from MRC with a 6-digit code
                 </p>
               </div>
             </div>
@@ -126,9 +131,9 @@ export default function CheckEmail() {
                 <span>2</span>
               </div>
               <div className="step-content">
-                <h3 className="step-title">Click the reset link</h3>
+                <h3 className="step-title">Enter the code</h3>
                 <p className="step-description">
-                  The link will expire in 1 hour for security
+                  The code will expire in 10 minutes for security
                 </p>
               </div>
             </div>
@@ -146,11 +151,37 @@ export default function CheckEmail() {
             </div>
           </div>
           
+          {/* Code Preview Box */}
+          <div className="code-preview-box">
+            <div className="code-preview-icon">✉️</div>
+            <div className="code-preview-content">
+              <p className="code-preview-title">Your code will look like this:</p>
+              <div className="code-preview-example">
+                <span className="code-digit">1</span>
+                <span className="code-digit">2</span>
+                <span className="code-digit">3</span>
+                <span className="code-digit">4</span>
+                <span className="code-digit">5</span>
+                <span className="code-digit">6</span>
+              </div>
+            </div>
+          </div>
+          
           {/* Actions */}
           <div className="check-email-actions">
             <Button
+              onClick={handleContinue}
+              className="btn-continue btn-primary-gradient w-full"
+              size="lg"
+            >
+              <span>I Have My Code</span>
+              <ArrowRight className="w-5 h-5 btn-arrow" />
+            </Button>
+            
+            <Button
               onClick={() => navigate("/")}
-              className="btn-back-login btn-primary-gradient w-full"
+              variant="outline"
+              className="btn-back-login w-full"
               size="lg"
             >
               <ArrowLeft className="w-5 h-5 back-arrow" />
@@ -158,7 +189,7 @@ export default function CheckEmail() {
             </Button>
             
             <div className="resend-section">
-              <p className="resend-text">Didn't receive the email?</p>
+              <p className="resend-text">Didn't receive the code?</p>
               <Button
                 onClick={handleResend}
                 disabled={isResending || resent}
@@ -174,12 +205,12 @@ export default function CheckEmail() {
                 ) : resent ? (
                   <>
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Email Sent!</span>
+                    <span>Code Sent!</span>
                   </>
                 ) : (
                   <>
                     <RefreshCw className="w-4 h-4" />
-                    <span>Resend Email</span>
+                    <span>Resend Code</span>
                   </>
                 )}
               </Button>
@@ -191,9 +222,9 @@ export default function CheckEmail() {
             <div className="footer-note">
               <Info className="note-icon-svg" />
               <p className="note-text">
-                If you continue to have problems, please contact support at{' '}
+                Check your spam folder if you don't see the email. Need help?{' '}
                 <a href="mailto:support@mrc.com.au" className="support-link">
-                  support@mrc.com.au
+                  Contact support
                 </a>
               </p>
             </div>

@@ -2229,6 +2229,69 @@
   }
 
   /* ============================================
+     CODE PREVIEW BOX
+     ============================================ */
+
+  .code-preview-box {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border: 1.5px solid rgba(59, 130, 246, 0.2);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    animation: fadeInSlide 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.6s backwards;
+  }
+
+  .code-preview-icon {
+    font-size: 32px;
+    flex-shrink: 0;
+    animation: bounceEmail 2s ease-in-out infinite;
+  }
+
+  @keyframes bounceEmail {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+
+  .code-preview-content {
+    flex: 1;
+  }
+
+  .code-preview-title {
+    font-size: 13px;
+    color: hsl(var(--gray-600));
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+
+  .code-preview-example {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .code-digit {
+    width: 36px;
+    height: 44px;
+    background: white;
+    border: 2px solid rgba(59, 130, 246, 0.3);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 700;
+    color: hsl(var(--primary));
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  /* ============================================
      ACTIONS
      ============================================ */
 
@@ -2237,6 +2300,22 @@
     flex-direction: column;
     gap: 16px;
     margin-bottom: 24px;
+  }
+
+  .btn-continue {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 17px;
+  }
+
+  .btn-continue .btn-arrow {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .btn-continue:hover .btn-arrow {
+    transform: translateX(4px);
   }
 
   .btn-back-login {
@@ -2416,7 +2495,25 @@
       font-size: 12px;
     }
     
-    .btn-back-login {
+    .code-preview-box {
+      flex-direction: column;
+      text-align: center;
+      padding: 16px;
+      gap: 12px;
+    }
+    
+    .code-digit {
+      width: 32px;
+      height: 40px;
+      font-size: 15px;
+    }
+    
+    .code-preview-example {
+      gap: 6px;
+    }
+    
+    .btn-back-login,
+    .btn-continue {
       font-size: 15px;
       padding: 14px 20px;
     }
@@ -2481,5 +2578,20 @@
 
   .dark .check-email-address {
     background: rgba(18, 29, 115, 0.2);
+  }
+
+  .dark .code-preview-box {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+  }
+  
+  .dark .code-preview-title {
+    color: hsl(var(--gray-400));
+  }
+  
+  .dark .code-digit {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: white;
   }
 }
