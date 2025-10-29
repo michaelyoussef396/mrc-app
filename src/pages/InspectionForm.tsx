@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
+import { calculateDewPoint, generateJobNumber, calculateJobCost, formatCurrency } from '@/lib/inspectionUtils'
+import type { InspectionFormData, InspectionArea, MoistureReading, SubfloorReading, Photo } from '@/types/inspection'
+import { Sparkles } from 'lucide-react'
 
 const InspectionForm = () => {
   const navigate = useNavigate()
@@ -14,103 +17,119 @@ const InspectionForm = () => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   
-  const [formData, setFormData] = useState({
-    leadId: leadId,
-    clientName: '',
-    propertyAddress: '',
+  const [formData, setFormData] = useState<InspectionFormData>({
+    jobNumber: generateJobNumber(),
+    triage: '',
+    address: '',
+    inspector: '',
+    requestedBy: '',
+    attentionTo: '',
     inspectionDate: new Date().toISOString().split('T')[0],
-    technicianName: '',
-    propertyAccess: '',
-    accessNotes: '',
-    propertyOccupied: '',
-    occupantsPresentDuringInspection: '',
-    propertySize: '',
-    numberOfLevels: '',
-    propertyAge: '',
-    photos: [] as any[],
-    affectedAreas: [] as string[],
-    primaryConcernArea: '',
-    affectedAreaPhotos: [] as any[],
-    moistureReadings: [] as any[],
-    moistureMeterType: '',
-    moisturePhotos: [] as any[],
-    mouldType: '',
-    mouldSeverity: '',
-    mouldColor: [] as string[],
-    mouldPattern: '',
-    affectedMaterials: [] as string[],
-    mouldPhotos: [] as any[],
-    ventilationAdequate: '',
-    exhaustFans: [] as string[],
-    windowsOperable: '',
-    airflow: '',
-    ventilationPhotos: [] as any[],
-    waterSources: [] as string[],
-    activeLeaks: '',
-    leakLocations: '',
-    plumbingIssues: [] as string[],
-    waterSourcePhotos: [] as any[],
-    hvacType: '',
-    hvacCondition: '',
-    hvacLastServiced: '',
-    ductworkCondition: '',
-    hvacPhotos: [] as any[],
-    roofCondition: '',
-    guttersCondition: '',
-    windowsCondition: '',
-    doorsCondition: '',
-    foundationCondition: '',
-    envelopePhotos: [] as any[],
-    thermalImagingUsed: '',
-    thermalFindings: '',
-    thermalPhotos: [] as any[],
-    mustyOdor: '',
-    odorSeverity: '',
-    visibleCondensation: '',
-    airQualityNotes: '',
-    healthSymptoms: [] as string[],
-    symptomsNotes: '',
-    vulnerableOccupants: '',
-    previousRemediation: '',
-    remediationDate: '',
-    remediationDetails: '',
-    remediationEffective: '',
-    immediateActions: [] as string[],
-    longTermActions: [] as string[],
-    professionalReferrals: [] as string[],
-    urgencyLevel: '',
-    estimatedCost: 0,
-    equipmentNeeded: [] as string[],
-    laborHours: 0,
-    materialsCost: 0,
-    additionalNotes: '',
-    followUpRequired: '',
-    followUpDate: '',
-    inspectionSummary: ''
+    propertyOccupation: '',
+    dwellingType: '',
+    areas: [{
+      id: crypto.randomUUID(),
+      areaName: '',
+      mouldVisibility: [],
+      commentsForReport: '',
+      temperature: '',
+      humidity: '',
+      dewPoint: '',
+      moistureReadingsEnabled: false,
+      moistureReadings: [],
+      internalNotes: '',
+      roomViewPhotos: [],
+      infraredEnabled: false,
+      infraredPhoto: null,
+      naturalInfraredPhoto: null,
+      infraredObservations: [],
+      timeWithoutDemo: 0,
+      demolitionRequired: false,
+      demolitionTime: 0,
+      demolitionDescription: ''
+    }],
+    subfloorEnabled: false,
+    subfloorObservations: '',
+    subfloorLandscape: '',
+    subfloorComments: '',
+    subfloorReadings: [],
+    subfloorPhotos: [],
+    subfloorSanitation: false,
+    subfloorRacking: false,
+    subfloorTreatmentTime: 0,
+    outdoorTemperature: '',
+    outdoorHumidity: '',
+    outdoorDewPoint: '',
+    outdoorComments: '',
+    frontDoorPhoto: null,
+    frontHousePhoto: null,
+    mailboxPhoto: null,
+    streetPhoto: null,
+    directionPhotosEnabled: false,
+    directionPhotos: [],
+    wasteDisposalEnabled: false,
+    wasteDisposalAmount: '',
+    hepaVac: false,
+    antimicrobial: false,
+    stainRemovingAntimicrobial: false,
+    homeSanitationFogging: false,
+    dryingEquipmentEnabled: false,
+    commercialDehumidifierEnabled: false,
+    commercialDehumidifierQty: 0,
+    airMoversEnabled: false,
+    airMoversQty: 0,
+    rcdBoxEnabled: false,
+    rcdBoxQty: 0,
+    recommendDehumidifier: false,
+    dehumidifierSize: '',
+    causeOfMould: '',
+    additionalInfoForTech: '',
+    additionalEquipmentComments: '',
+    parkingOptions: '',
+    estimatedDays: 1,
+    laborCost: 0,
+    equipmentCost: 0,
+    subtotal: 0,
+    gst: 0,
+    totalCost: 0
   })
 
   const sections = [
-    { id: 0, title: 'Lead Information', icon: '👤' },
-    { id: 1, title: 'Property Access', icon: '🏠' },
-    { id: 2, title: 'Affected Areas', icon: '📍' },
-    { id: 3, title: 'Moisture Detection', icon: '💧' },
-    { id: 4, title: 'Mould Assessment', icon: '🔬' },
-    { id: 5, title: 'Ventilation', icon: '💨' },
-    { id: 6, title: 'Water Sources', icon: '🚿' },
-    { id: 7, title: 'HVAC System', icon: '❄️' },
-    { id: 8, title: 'Building Envelope', icon: '🏗️' },
-    { id: 9, title: 'Thermal Imaging', icon: '🌡️' },
-    { id: 10, title: 'Air Quality', icon: '🌫️' },
-    { id: 11, title: 'Health Concerns', icon: '🏥' },
-    { id: 12, title: 'Previous Work', icon: '🔧' },
-    { id: 13, title: 'Recommendations', icon: '📋' },
-    { id: 14, title: 'Cost Estimate', icon: '💰' },
-    { id: 15, title: 'Final Notes', icon: '📝' }
+    { id: 0, title: 'Basic Information', icon: '📋' },
+    { id: 1, title: 'Property Details', icon: '🏠' },
+    { id: 2, title: 'Area Inspection', icon: '📍' },
+    { id: 3, title: 'Subfloor', icon: '⬇️' },
+    { id: 4, title: 'Outdoor Info', icon: '🌤️' },
+    { id: 5, title: 'Waste Disposal', icon: '🗑️' },
+    { id: 6, title: 'Work Procedure', icon: '🔧' },
+    { id: 7, title: 'Job Summary', icon: '📝' },
+    { id: 8, title: 'Cost Estimate', icon: '💰' }
   ]
 
   useEffect(() => {
     loadLeadData()
   }, [leadId])
+
+  useEffect(() => {
+    // Auto-save every 30 seconds
+    const interval = setInterval(() => {
+      autoSave()
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [formData])
+
+  useEffect(() => {
+    // Recalculate cost whenever relevant fields change
+    recalculateCost()
+  }, [
+    formData.areas,
+    formData.subfloorEnabled,
+    formData.subfloorTreatmentTime,
+    formData.commercialDehumidifierQty,
+    formData.airMoversQty,
+    formData.rcdBoxQty,
+    formData.estimatedDays
+  ])
 
   const loadLeadData = async () => {
     if (!leadId) {
@@ -119,70 +138,303 @@ const InspectionForm = () => {
     }
 
     setLoading(true)
+    // TODO: Load from Supabase
     const mockLead = {
       id: leadId,
       name: 'John Doe',
       email: 'john@email.com',
       phone: '0412 345 678',
       property: '123 Smith Street, Melbourne VIC 3000',
+      issueDescription: 'Black mould visible in bathroom around shower area and bedroom ceiling',
       scheduledDate: '2025-01-29T14:00:00'
     }
     
     setLead(mockLead)
     setFormData(prev => ({
       ...prev,
-      clientName: mockLead.name,
-      propertyAddress: mockLead.property
+      triage: mockLead.issueDescription,
+      address: mockLead.property,
+      requestedBy: mockLead.name
     }))
     setLoading(false)
   }
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
-    autoSave()
   }
 
-  const handleArrayToggle = (field: string, value: string) => {
+  const handleAreaChange = (areaId: string, field: keyof InspectionArea, value: any) => {
     setFormData(prev => ({
       ...prev,
-      [field]: (prev[field as keyof typeof prev] as string[]).includes(value)
-        ? (prev[field as keyof typeof prev] as string[]).filter(item => item !== value)
-        : [...(prev[field as keyof typeof prev] as string[]), value]
+      areas: prev.areas.map(area => 
+        area.id === areaId ? { ...area, [field]: value } : area
+      )
     }))
-    autoSave()
   }
 
-  const handlePhotoCapture = async (field: string) => {
+  const handleAreaArrayToggle = (areaId: string, field: 'mouldVisibility' | 'infraredObservations', value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      areas: prev.areas.map(area => {
+        if (area.id !== areaId) return area
+        const array = area[field] as string[]
+        return {
+          ...area,
+          [field]: array.includes(value)
+            ? array.filter(item => item !== value)
+            : [...array, value]
+        }
+      })
+    }))
+  }
+
+  const addArea = () => {
+    const newArea: InspectionArea = {
+      id: crypto.randomUUID(),
+      areaName: '',
+      mouldVisibility: [],
+      commentsForReport: '',
+      temperature: '',
+      humidity: '',
+      dewPoint: '',
+      moistureReadingsEnabled: false,
+      moistureReadings: [],
+      internalNotes: '',
+      roomViewPhotos: [],
+      infraredEnabled: false,
+      infraredPhoto: null,
+      naturalInfraredPhoto: null,
+      infraredObservations: [],
+      timeWithoutDemo: 0,
+      demolitionRequired: false,
+      demolitionTime: 0,
+      demolitionDescription: ''
+    }
+    setFormData(prev => ({ ...prev, areas: [...prev.areas, newArea] }))
+    toast({ title: 'Area added', description: 'New inspection area created' })
+  }
+
+  const removeArea = (areaId: string) => {
+    if (formData.areas.length === 1) {
+      toast({ title: 'Cannot remove', description: 'At least one area is required', variant: 'destructive' })
+      return
+    }
+    setFormData(prev => ({
+      ...prev,
+      areas: prev.areas.filter(area => area.id !== areaId)
+    }))
+    toast({ title: 'Area removed' })
+  }
+
+  const addMoistureReading = (areaId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      areas: prev.areas.map(area => {
+        if (area.id !== areaId) return area
+        const newReading: MoistureReading = {
+          id: crypto.randomUUID(),
+          title: '',
+          reading: '',
+          images: []
+        }
+        return {
+          ...area,
+          moistureReadings: [...area.moistureReadings, newReading]
+        }
+      })
+    }))
+  }
+
+  const removeMoistureReading = (areaId: string, readingId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      areas: prev.areas.map(area => {
+        if (area.id !== areaId) return area
+        return {
+          ...area,
+          moistureReadings: area.moistureReadings.filter(r => r.id !== readingId)
+        }
+      })
+    }))
+  }
+
+  const updateMoistureReading = (areaId: string, readingId: string, field: keyof MoistureReading, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      areas: prev.areas.map(area => {
+        if (area.id !== areaId) return area
+        return {
+          ...area,
+          moistureReadings: area.moistureReadings.map(r =>
+            r.id === readingId ? { ...r, [field]: value } : r
+          )
+        }
+      })
+    }))
+  }
+
+  const addSubfloorReading = () => {
+    const newReading: SubfloorReading = {
+      id: crypto.randomUUID(),
+      reading: '',
+      location: ''
+    }
+    setFormData(prev => ({
+      ...prev,
+      subfloorReadings: [...prev.subfloorReadings, newReading]
+    }))
+  }
+
+  const removeSubfloorReading = (readingId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      subfloorReadings: prev.subfloorReadings.filter(r => r.id !== readingId)
+    }))
+  }
+
+  const updateSubfloorReading = (readingId: string, field: keyof SubfloorReading, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      subfloorReadings: prev.subfloorReadings.map(r =>
+        r.id === readingId ? { ...r, [field]: value } : r
+      )
+    }))
+  }
+
+  const handlePhotoCapture = async (type: string, areaId?: string, readingId?: string) => {
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'image/*'
-    input.multiple = true
+    input.multiple = type !== 'single'
     
     input.onchange = async (e: any) => {
       const files = Array.from(e.target.files) as File[]
-      
-      const newPhotos = files.map(f => ({
+      const newPhotos: Photo[] = files.map(f => ({
+        id: crypto.randomUUID(),
         name: f.name,
         url: URL.createObjectURL(f),
         timestamp: new Date().toISOString()
       }))
       
-      setFormData(prev => ({
-        ...prev,
-        [field]: [...(prev[field as keyof typeof prev] as any[]), ...newPhotos]
-      }))
+      if (areaId && readingId) {
+        // Moisture reading photos
+        updateMoistureReading(areaId, readingId, 'images', [
+          ...(formData.areas.find(a => a.id === areaId)?.moistureReadings.find(r => r.id === readingId)?.images || []),
+          ...newPhotos
+        ])
+      } else if (areaId && type === 'roomView') {
+        // Room view photos (limit 3)
+        const currentArea = formData.areas.find(a => a.id === areaId)
+        const currentPhotos = currentArea?.roomViewPhotos || []
+        if (currentPhotos.length + newPhotos.length > 3) {
+          toast({ title: 'Photo limit', description: 'Room view limited to 3 photos', variant: 'destructive' })
+          return
+        }
+        handleAreaChange(areaId, 'roomViewPhotos', [...currentPhotos, ...newPhotos])
+      } else if (areaId && type === 'infrared') {
+        handleAreaChange(areaId, 'infraredPhoto', newPhotos[0])
+      } else if (areaId && type === 'naturalInfrared') {
+        handleAreaChange(areaId, 'naturalInfraredPhoto', newPhotos[0])
+      } else if (type === 'subfloor') {
+        setFormData(prev => ({
+          ...prev,
+          subfloorPhotos: [...prev.subfloorPhotos, ...newPhotos]
+        }))
+      } else if (type === 'direction') {
+        setFormData(prev => ({
+          ...prev,
+          directionPhotos: [...prev.directionPhotos, ...newPhotos]
+        }))
+      } else if (type === 'frontDoor' || type === 'frontHouse' || type === 'mailbox' || type === 'street') {
+        setFormData(prev => ({
+          ...prev,
+          [`${type}Photo`]: newPhotos[0]
+        }))
+      }
       
-      toast({
-        title: 'Photos added',
-        description: `${files.length} photo(s) captured successfully`
-      })
+      toast({ title: 'Photos added', description: `${files.length} photo(s) uploaded` })
     }
     
     input.click()
   }
 
+  const removePhoto = (type: string, photoId: string, areaId?: string, readingId?: string) => {
+    if (areaId && readingId) {
+      const area = formData.areas.find(a => a.id === areaId)
+      const reading = area?.moistureReadings.find(r => r.id === readingId)
+      if (reading) {
+        updateMoistureReading(areaId, readingId, 'images', reading.images.filter(p => p.id !== photoId))
+      }
+    } else if (areaId && type === 'roomView') {
+      const area = formData.areas.find(a => a.id === areaId)
+      if (area) {
+        handleAreaChange(areaId, 'roomViewPhotos', area.roomViewPhotos.filter(p => p.id !== photoId))
+      }
+    } else if (type === 'subfloor') {
+      setFormData(prev => ({
+        ...prev,
+        subfloorPhotos: prev.subfloorPhotos.filter(p => p.id !== photoId)
+      }))
+    } else if (type === 'direction') {
+      setFormData(prev => ({
+        ...prev,
+        directionPhotos: prev.directionPhotos.filter(p => p.id !== photoId)
+      }))
+    }
+  }
+
+  const calculateAreaDewPoint = (areaId: string) => {
+    const area = formData.areas.find(a => a.id === areaId)
+    if (area && area.temperature && area.humidity) {
+      const temp = parseFloat(area.temperature)
+      const hum = parseFloat(area.humidity)
+      const dewPoint = calculateDewPoint(temp, hum)
+      handleAreaChange(areaId, 'dewPoint', dewPoint.toString())
+    }
+  }
+
+  const calculateOutdoorDewPoint = () => {
+    if (formData.outdoorTemperature && formData.outdoorHumidity) {
+      const temp = parseFloat(formData.outdoorTemperature)
+      const hum = parseFloat(formData.outdoorHumidity)
+      const dewPoint = calculateDewPoint(temp, hum)
+      handleInputChange('outdoorDewPoint', dewPoint.toString())
+    }
+  }
+
+  const recalculateCost = () => {
+    const costResult = calculateJobCost({
+      areas: formData.areas.map(a => ({
+        timeWithoutDemo: a.timeWithoutDemo,
+        demolitionTime: a.demolitionTime,
+        demolitionRequired: a.demolitionRequired
+      })),
+      subfloorTime: formData.subfloorTreatmentTime,
+      hasSubfloor: formData.subfloorEnabled,
+      dehumidifierQty: formData.commercialDehumidifierQty,
+      airMoverQty: formData.airMoversQty,
+      rcdQty: formData.rcdBoxQty,
+      estimatedDays: formData.estimatedDays
+    })
+
+    setFormData(prev => ({
+      ...prev,
+      laborCost: costResult.laborCost,
+      equipmentCost: costResult.equipmentCost,
+      subtotal: costResult.subtotal,
+      gst: costResult.gst,
+      totalCost: costResult.total
+    }))
+  }
+
+  const generateWithAI = async (type: string, areaId?: string) => {
+    toast({ title: 'AI Generation', description: 'Coming soon! This will generate professional text based on your inspection data.' })
+    // TODO: Implement AI generation using Lovable AI
+  }
+
   const autoSave = () => {
     setSaving(true)
+    // TODO: Save to Supabase
     setTimeout(() => setSaving(false), 1000)
   }
 
@@ -201,6 +453,13 @@ const InspectionForm = () => {
   }
 
   const handleSubmit = async () => {
+    // Validation
+    if (!formData.inspector) {
+      toast({ title: 'Required field', description: 'Inspector name is required', variant: 'destructive' })
+      setCurrentSection(0)
+      return
+    }
+
     setSaving(true)
     
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -235,9 +494,11 @@ const InspectionForm = () => {
         <div className="gradient-orb orb-2"></div>
       </div>
 
+      {/* Sticky Navigation */}
       <nav className="inspection-nav">
         <div className="nav-container">
           <button 
+            type="button"
             className="back-btn"
             onClick={() => {
               if (window.confirm('Are you sure? Unsaved changes will be lost.')) {
@@ -250,7 +511,7 @@ const InspectionForm = () => {
           </button>
           
           <div className="nav-info">
-            <span className="nav-title">Inspection</span>
+            <span className="nav-title">{formData.jobNumber}</span>
             {saving && <span className="save-indicator">💾 Saving...</span>}
           </div>
         </div>
@@ -268,8 +529,10 @@ const InspectionForm = () => {
         </div>
       </nav>
 
+      {/* Main Content */}
       <main className="inspection-main">
         <div className="inspection-container">
+          {/* Section Header */}
           <div className="section-header-card">
             <div className="section-icon-large">
               {sections[currentSection].icon}
@@ -280,30 +543,75 @@ const InspectionForm = () => {
             </p>
           </div>
 
+          {/* Dynamic Section Content */}
           <div className="form-content">
+            
+            {/* SECTION 1: BASIC INFORMATION */}
             {currentSection === 0 && (
               <div className="form-section">
-                <h2 className="subsection-title">Lead Information</h2>
+                <h2 className="subsection-title">Basic Information</h2>
                 
                 <div className="form-group">
-                  <label className="form-label">Client Name</label>
+                  <label className="form-label">Job Number</label>
                   <input
                     type="text"
-                    value={formData.clientName}
-                    onChange={(e) => handleInputChange('clientName', e.target.value)}
+                    value={formData.jobNumber}
                     className="form-input"
                     readOnly
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Property Address</label>
+                  <label className="form-label">Triage (Job Description)</label>
+                  <textarea
+                    value={formData.triage}
+                    className="form-textarea"
+                    rows={3}
+                    readOnly
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Address</label>
                   <input
                     type="text"
-                    value={formData.propertyAddress}
-                    onChange={(e) => handleInputChange('propertyAddress', e.target.value)}
+                    value={formData.address}
                     className="form-input"
                     readOnly
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Inspector *</label>
+                  <select
+                    value={formData.inspector}
+                    onChange={(e) => handleInputChange('inspector', e.target.value)}
+                    className="form-select"
+                  >
+                    <option value="">Select inspector...</option>
+                    <option value="Tech 1">Technician 1</option>
+                    <option value="Tech 2">Technician 2</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Requested By</label>
+                  <input
+                    type="text"
+                    value={formData.requestedBy}
+                    className="form-input"
+                    readOnly
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Attention To</label>
+                  <input
+                    type="text"
+                    value={formData.attentionTo}
+                    onChange={(e) => handleInputChange('attentionTo', e.target.value)}
+                    placeholder="Company or person name"
+                    className="form-input"
                   />
                 </div>
 
@@ -316,652 +624,1142 @@ const InspectionForm = () => {
                     className="form-input"
                   />
                 </div>
+              </div>
+            )}
+
+            {/* SECTION 2: PROPERTY DETAILS */}
+            {currentSection === 1 && (
+              <div className="form-section">
+                <h2 className="subsection-title">Property Details</h2>
+                
+                <div className="form-group">
+                  <label className="form-label">Property Occupation *</label>
+                  <select
+                    value={formData.propertyOccupation}
+                    onChange={(e) => handleInputChange('propertyOccupation', e.target.value)}
+                    className="form-select"
+                  >
+                    <option value="">Select occupation type...</option>
+                    <option value="Tenanted">Tenanted</option>
+                    <option value="Vacant">Vacant</option>
+                    <option value="Owner Occupied">Owner Occupied</option>
+                    <option value="Tenants Vacating">Tenants Vacating</option>
+                  </select>
+                </div>
 
                 <div className="form-group">
-                  <label className="form-label">Technician Name *</label>
-                  <input
-                    type="text"
-                    value={formData.technicianName}
-                    onChange={(e) => handleInputChange('technicianName', e.target.value)}
-                    placeholder="Your name"
-                    className="form-input"
-                  />
+                  <label className="form-label">Dwelling Type *</label>
+                  <select
+                    value={formData.dwellingType}
+                    onChange={(e) => handleInputChange('dwellingType', e.target.value)}
+                    className="form-select"
+                  >
+                    <option value="">Select dwelling type...</option>
+                    <option value="House">House</option>
+                    <option value="Units">Units</option>
+                    <option value="Apartment">Apartment</option>
+                    <option value="Duplex">Duplex</option>
+                    <option value="Townhouse">Townhouse</option>
+                    <option value="Commercial">Commercial</option>
+                    <option value="Construction">Construction</option>
+                    <option value="Industrial">Industrial</option>
+                  </select>
                 </div>
               </div>
             )}
 
-            {currentSection === 1 && (
+            {/* SECTION 3: AREA INSPECTION (REPEATABLE) */}
+            {currentSection === 2 && (
               <div className="form-section">
-                <h2 className="subsection-title">Property Access & Overview</h2>
-                
-                <div className="form-group">
-                  <label className="form-label">Property Access *</label>
-                  <div className="radio-group">
-                    {['Full Access', 'Limited Access', 'Restricted Areas'].map(option => (
-                      <label key={option} className="radio-option">
+                <h2 className="subsection-title">Area Inspection</h2>
+                <p className="field-hint">Inspect each area/room and record findings. You can add multiple areas.</p>
+
+                {formData.areas.map((area, areaIndex) => (
+                  <div key={area.id} className="area-inspection-card">
+                    <div className="area-header">
+                      <span className="area-number">Area {areaIndex + 1}</span>
+                      {formData.areas.length > 1 && (
+                        <button
+                          type="button"
+                          className="btn-remove-area"
+                          onClick={() => removeArea(area.id)}
+                        >
+                          ✕ Remove Area
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Area Name */}
+                    <div className="form-group">
+                      <label className="form-label">Area Name *</label>
+                      <input
+                        type="text"
+                        value={area.areaName}
+                        onChange={(e) => handleAreaChange(area.id, 'areaName', e.target.value)}
+                        placeholder="e.g., Master Bedroom, Bathroom, Living Room"
+                        className="form-input"
+                      />
+                    </div>
+
+                    {/* Mould Visibility */}
+                    <div className="form-group">
+                      <label className="form-label">Mould Visibility (select all that apply)</label>
+                      <div className="checkbox-grid">
+                        {[
+                          'Ceiling', 'Cornice', 'Windows', 'Window Furnishings',
+                          'Walls', 'Skirting', 'Flooring', 'Wardrobe',
+                          'Cupboard', 'Contents', 'Grout/Silicone', 'No Mould Visible'
+                        ].map(option => (
+                          <label key={option} className="checkbox-option">
+                            <input
+                              type="checkbox"
+                              checked={area.mouldVisibility.includes(option)}
+                              onChange={() => handleAreaArrayToggle(area.id, 'mouldVisibility', option)}
+                            />
+                            <span className="checkbox-custom"></span>
+                            <span className="checkbox-label">{option}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Comments Shown in Report */}
+                    <div className="form-group">
+                      <label className="form-label">Comments Shown in Report</label>
+                      <textarea
+                        value={area.commentsForReport}
+                        onChange={(e) => handleAreaChange(area.id, 'commentsForReport', e.target.value)}
+                        placeholder="Professional paragraph describing mould conditions..."
+                        className="form-textarea"
+                        rows={4}
+                      />
+                      <button
+                        type="button"
+                        className="btn-ai"
+                        onClick={() => generateWithAI('areaComments', area.id)}
+                      >
+                        <Sparkles size={16} />
+                        <span>Generate with AI</span>
+                      </button>
+                    </div>
+
+                    {/* Temperature, Humidity, Dew Point */}
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label className="form-label">Temperature (°C)</label>
                         <input
-                          type="radio"
-                          name="propertyAccess"
-                          value={option}
-                          checked={formData.propertyAccess === option}
-                          onChange={(e) => handleInputChange('propertyAccess', e.target.value)}
+                          type="number"
+                          step="0.1"
+                          value={area.temperature}
+                          onChange={(e) => {
+                            handleAreaChange(area.id, 'temperature', e.target.value)
+                            calculateAreaDewPoint(area.id)
+                          }}
+                          className="form-input"
                         />
-                        <span className="radio-custom"></span>
-                        <span className="radio-label">{option}</span>
-                      </label>
-                    ))}
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Humidity (%)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={area.humidity}
+                          onChange={(e) => {
+                            handleAreaChange(area.id, 'humidity', e.target.value)
+                            calculateAreaDewPoint(area.id)
+                          }}
+                          className="form-input"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Dew Point (°C)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={area.dewPoint}
+                          className="form-input"
+                          readOnly
+                        />
+                      </div>
+                    </div>
+
+                    {/* Moisture Readings Toggle */}
+                    <div className="form-group">
+                      <div className="toggle-section-header">
+                        <label className="form-label">Moisture Readings</label>
+                        <button
+                          type="button"
+                          className={`toggle-switch ${area.moistureReadingsEnabled ? 'active' : ''}`}
+                          onClick={() => handleAreaChange(area.id, 'moistureReadingsEnabled', !area.moistureReadingsEnabled)}
+                        >
+                          <span className="toggle-slider"></span>
+                        </button>
+                      </div>
+
+                      {area.moistureReadingsEnabled && (
+                        <div className="moisture-readings-section">
+                          {area.moistureReadings.map((reading, idx) => (
+                            <div key={reading.id} className="reading-item">
+                              <div className="reading-header">
+                                <span className="reading-number">Reading {idx + 1}</span>
+                                <button
+                                  type="button"
+                                  className="btn-remove"
+                                  onClick={() => removeMoistureReading(area.id, reading.id)}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+
+                              <div className="reading-inputs">
+                                <input
+                                  type="text"
+                                  placeholder="Location (e.g., Wall behind shower)"
+                                  value={reading.title}
+                                  onChange={(e) => updateMoistureReading(area.id, reading.id, 'title', e.target.value)}
+                                  className="form-input"
+                                />
+
+                                <input
+                                  type="text"
+                                  placeholder="Reading value"
+                                  value={reading.reading}
+                                  onChange={(e) => updateMoistureReading(area.id, reading.id, 'reading', e.target.value)}
+                                  className="form-input"
+                                />
+
+                                <button
+                                  type="button"
+                                  className="btn-photo-small"
+                                  onClick={() => handlePhotoCapture('moistureReading', area.id, reading.id)}
+                                >
+                                  📷 Add Photos
+                                </button>
+
+                                {reading.images.length > 0 && (
+                                  <div className="photo-grid-small">
+                                    {reading.images.map(photo => (
+                                      <div key={photo.id} className="photo-item-small">
+                                        <img src={photo.url} alt="Moisture reading" />
+                                        <button
+                                          type="button"
+                                          className="photo-remove-small"
+                                          onClick={() => removePhoto('moistureReading', photo.id, area.id, reading.id)}
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+
+                          <button
+                            type="button"
+                            className="btn-secondary btn-add"
+                            onClick={() => addMoistureReading(area.id)}
+                          >
+                            <span>+</span>
+                            <span>Add Moisture Reading</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Internal Office Notes */}
+                    <div className="form-group">
+                      <label className="form-label">Internal Office Notes</label>
+                      <p className="field-hint internal-note">⚠️ These notes are ONLY for admin - not shown in report</p>
+                      <textarea
+                        value={area.internalNotes}
+                        onChange={(e) => handleAreaChange(area.id, 'internalNotes', e.target.value)}
+                        placeholder="Private notes for technicians and office staff only..."
+                        className="form-textarea internal-notes"
+                        rows={3}
+                      />
+                    </div>
+
+                    {/* Room View Photos (3 required) */}
+                    <div className="form-group">
+                      <label className="form-label">Room View Photos (3 required) *</label>
+                      <p className="field-hint">Upload exactly 3 photos showing the room from different angles</p>
+                      <button
+                        type="button"
+                        className="btn-photo"
+                        onClick={() => handlePhotoCapture('roomView', area.id)}
+                        disabled={area.roomViewPhotos.length >= 3}
+                      >
+                        <span>📷</span>
+                        <span>Attach from Photo Library</span>
+                      </button>
+
+                      {area.roomViewPhotos.length > 0 && (
+                        <div className="photo-grid">
+                          {area.roomViewPhotos.map(photo => (
+                            <div key={photo.id} className="photo-item">
+                              <img src={photo.url} alt="Room view" />
+                              <button
+                                type="button"
+                                className="photo-remove"
+                                onClick={() => removePhoto('roomView', photo.id, area.id)}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <p className="photo-count">{area.roomViewPhotos.length} / 3 photos</p>
+                    </div>
+
+                    {/* Infrared View Toggle */}
+                    <div className="form-group">
+                      <div className="toggle-section-header">
+                        <label className="form-label">Infrared View</label>
+                        <button
+                          type="button"
+                          className={`toggle-switch ${area.infraredEnabled ? 'active' : ''}`}
+                          onClick={() => handleAreaChange(area.id, 'infraredEnabled', !area.infraredEnabled)}
+                        >
+                          <span className="toggle-slider"></span>
+                        </button>
+                      </div>
+
+                      {area.infraredEnabled && (
+                        <div className="infrared-section">
+                          <div className="form-group">
+                            <label className="form-label">Infrared View Photo</label>
+                            <button
+                              type="button"
+                              className="btn-photo"
+                              onClick={() => handlePhotoCapture('infrared', area.id)}
+                            >
+                              <span>📷</span>
+                              <span>Upload Infrared Photo</span>
+                            </button>
+                            {area.infraredPhoto && (
+                              <div className="single-photo">
+                                <img src={area.infraredPhoto.url} alt="Infrared" />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="form-group">
+                            <label className="form-label">Natural Infrared View Photo</label>
+                            <button
+                              type="button"
+                              className="btn-photo"
+                              onClick={() => handlePhotoCapture('naturalInfrared', area.id)}
+                            >
+                              <span>📷</span>
+                              <span>Upload Natural Infrared Photo</span>
+                            </button>
+                            {area.naturalInfraredPhoto && (
+                              <div className="single-photo">
+                                <img src={area.naturalInfraredPhoto.url} alt="Natural infrared" />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="form-group">
+                            <label className="form-label">Infrared Observations</label>
+                            <div className="checkbox-grid">
+                              {[
+                                'No Active Water Intrusion Detected',
+                                'Evidence of Water Infiltration Present',
+                                'Indications of Past Water Ingress',
+                                'Possible Condensation-Related Thermal Variations',
+                                'Suspected Missing Insulation Detected'
+                              ].map(option => (
+                                <label key={option} className="checkbox-option">
+                                  <input
+                                    type="checkbox"
+                                    checked={area.infraredObservations.includes(option)}
+                                    onChange={() => handleAreaArrayToggle(area.id, 'infraredObservations', option)}
+                                  />
+                                  <span className="checkbox-custom"></span>
+                                  <span className="checkbox-label">{option}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Time for Job (Without Demolition) */}
+                    <div className="form-group">
+                      <label className="form-label">Time for Job (Without Demolition) - Minutes *</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={area.timeWithoutDemo}
+                        onChange={(e) => handleAreaChange(area.id, 'timeWithoutDemo', parseInt(e.target.value) || 0)}
+                        className="form-input"
+                        placeholder="Enter time in minutes"
+                      />
+                    </div>
+
+                    {/* Demolition Required Toggle */}
+                    <div className="form-group">
+                      <div className="toggle-section-header">
+                        <label className="form-label">Is Demolition Required?</label>
+                        <button
+                          type="button"
+                          className={`toggle-switch ${area.demolitionRequired ? 'active' : ''}`}
+                          onClick={() => handleAreaChange(area.id, 'demolitionRequired', !area.demolitionRequired)}
+                        >
+                          <span className="toggle-slider"></span>
+                        </button>
+                      </div>
+
+                      {area.demolitionRequired && (
+                        <div className="demolition-section">
+                          <div className="form-group">
+                            <label className="form-label">Time for Demolition - Minutes *</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={area.demolitionTime}
+                              onChange={(e) => handleAreaChange(area.id, 'demolitionTime', parseInt(e.target.value) || 0)}
+                              className="form-input"
+                              placeholder="Enter demolition time in minutes"
+                            />
+                          </div>
+
+                          <div className="form-group">
+                            <label className="form-label">What Demolition Would You Like to Do?</label>
+                            <textarea
+                              value={area.demolitionDescription}
+                              onChange={(e) => handleAreaChange(area.id, 'demolitionDescription', e.target.value)}
+                              placeholder="• Removal of damaged drywall&#10;• Removal of carpet and underlay&#10;• Removal of wet insulation"
+                              className="form-textarea"
+                              rows={4}
+                            />
+                            <button
+                              type="button"
+                              className="btn-ai"
+                              onClick={() => generateWithAI('demolition', area.id)}
+                            >
+                              <Sparkles size={16} />
+                              <span>Generate Demolition List with AI</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Add Another Area */}
+                <button
+                  type="button"
+                  className="btn-primary btn-add-area"
+                  onClick={addArea}
+                >
+                  <span>+</span>
+                  <span>Add Another Area</span>
+                </button>
+              </div>
+            )}
+
+            {/* SECTION 4: SUBFLOOR */}
+            {currentSection === 3 && (
+              <div className="form-section">
+                <h2 className="subsection-title">Subfloor</h2>
+
+                <div className="toggle-section-main">
+                  <div className="toggle-section-header">
+                    <label className="form-label">Enable Subfloor Section</label>
+                    <button
+                      type="button"
+                      className={`toggle-switch ${formData.subfloorEnabled ? 'active' : ''}`}
+                      onClick={() => handleInputChange('subfloorEnabled', !formData.subfloorEnabled)}
+                    >
+                      <span className="toggle-slider"></span>
+                    </button>
+                  </div>
+
+                  {formData.subfloorEnabled && (
+                    <div className="subfloor-content">
+                      <div className="form-group">
+                        <label className="form-label">Subfloor Observations</label>
+                        <p className="field-hint">Raw notes - will be used to generate professional report text</p>
+                        <textarea
+                          value={formData.subfloorObservations}
+                          onChange={(e) => handleInputChange('subfloorObservations', e.target.value)}
+                          placeholder="Note any observations about subfloor condition, moisture, ventilation..."
+                          className="form-textarea"
+                          rows={4}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Subfloor Landscape</label>
+                        <div className="toggle-group">
+                          {['Flat Block', 'Sloping Block'].map(option => (
+                            <button
+                              key={option}
+                              type="button"
+                              className={`toggle-btn ${formData.subfloorLandscape === option ? 'active' : ''}`}
+                              onClick={() => handleInputChange('subfloorLandscape', option)}
+                            >
+                              {option}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Subfloor Comments (for report)</label>
+                        <textarea
+                          value={formData.subfloorComments}
+                          onChange={(e) => handleInputChange('subfloorComments', e.target.value)}
+                          placeholder="Professional paragraph for report..."
+                          className="form-textarea"
+                          rows={4}
+                        />
+                        <button
+                          type="button"
+                          className="btn-ai"
+                          onClick={() => generateWithAI('subfloorComments')}
+                        >
+                          <Sparkles size={16} />
+                          <span>Generate with AI</span>
+                        </button>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Subfloor Moisture Readings</label>
+                        {formData.subfloorReadings.map((reading, idx) => (
+                          <div key={reading.id} className="reading-item">
+                            <div className="reading-header">
+                              <span className="reading-number">Reading {idx + 1}</span>
+                              <button
+                                type="button"
+                                className="btn-remove"
+                                onClick={() => removeSubfloorReading(reading.id)}
+                              >
+                                ✕
+                              </button>
+                            </div>
+
+                            <div className="reading-inputs">
+                              <input
+                                type="text"
+                                placeholder="Reading value"
+                                value={reading.reading}
+                                onChange={(e) => updateSubfloorReading(reading.id, 'reading', e.target.value)}
+                                className="form-input"
+                              />
+
+                              <input
+                                type="text"
+                                placeholder="Location"
+                                value={reading.location}
+                                onChange={(e) => updateSubfloorReading(reading.id, 'location', e.target.value)}
+                                className="form-input"
+                              />
+                            </div>
+                          </div>
+                        ))}
+
+                        <button
+                          type="button"
+                          className="btn-secondary btn-add"
+                          onClick={addSubfloorReading}
+                        >
+                          <span>+</span>
+                          <span>Add Subfloor Reading</span>
+                        </button>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">Subfloor Photos (up to 20)</label>
+                        <button
+                          type="button"
+                          className="btn-photo"
+                          onClick={() => handlePhotoCapture('subfloor')}
+                        >
+                          <span>📷</span>
+                          <span>Attach from Photo Library</span>
+                        </button>
+
+                        {formData.subfloorPhotos.length > 0 && (
+                          <div className="photo-grid">
+                            {formData.subfloorPhotos.map(photo => (
+                              <div key={photo.id} className="photo-item">
+                                <img src={photo.url} alt="Subfloor" />
+                                <button
+                                  type="button"
+                                  className="photo-remove"
+                                  onClick={() => removePhoto('subfloor', photo.id)}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <p className="photo-count">{formData.subfloorPhotos.length} / 20 photos</p>
+                      </div>
+
+                      <div className="form-group">
+                        <div className="toggle-section-header">
+                          <label className="form-label">Subfloor Sanitation</label>
+                          <button
+                            type="button"
+                            className={`toggle-switch ${formData.subfloorSanitation ? 'active' : ''}`}
+                            onClick={() => handleInputChange('subfloorSanitation', !formData.subfloorSanitation)}
+                          >
+                            <span className="toggle-slider"></span>
+                          </button>
+                        </div>
+                        {formData.subfloorSanitation && (
+                          <p className="field-hint">✓ Pre-made sanitation page will be added to PDF report</p>
+                        )}
+                      </div>
+
+                      {formData.subfloorSanitation && (
+                        <div className="form-group">
+                          <div className="toggle-section-header">
+                            <label className="form-label">Subfloor Racking</label>
+                            <button
+                              type="button"
+                              className={`toggle-switch ${formData.subfloorRacking ? 'active' : ''}`}
+                              onClick={() => handleInputChange('subfloorRacking', !formData.subfloorRacking)}
+                            >
+                              <span className="toggle-slider"></span>
+                            </button>
+                          </div>
+                          {formData.subfloorRacking && (
+                            <p className="field-hint">✓ Pre-made racking page will be added to PDF report</p>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="form-group">
+                        <label className="form-label">Subfloor Treatment Time (Minutes)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formData.subfloorTreatmentTime}
+                          onChange={(e) => handleInputChange('subfloorTreatmentTime', parseInt(e.target.value) || 0)}
+                          className="form-input"
+                          placeholder="Enter time in minutes"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* SECTION 5: OUTDOOR INFORMATION */}
+            {currentSection === 4 && (
+              <div className="form-section">
+                <h2 className="subsection-title">Outdoor Information</h2>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Temperature (°C)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.outdoorTemperature}
+                      onChange={(e) => {
+                        handleInputChange('outdoorTemperature', e.target.value)
+                        calculateOutdoorDewPoint()
+                      }}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Humidity (%)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.outdoorHumidity}
+                      onChange={(e) => {
+                        handleInputChange('outdoorHumidity', e.target.value)
+                        calculateOutdoorDewPoint()
+                      }}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Dew Point (°C)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.outdoorDewPoint}
+                      className="form-input"
+                      readOnly
+                    />
                   </div>
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Access Notes</label>
+                  <label className="form-label">Outdoor Comments</label>
                   <textarea
-                    value={formData.accessNotes}
-                    onChange={(e) => handleInputChange('accessNotes', e.target.value)}
-                    placeholder="Any special notes about property access..."
+                    value={formData.outdoorComments}
+                    onChange={(e) => handleInputChange('outdoorComments', e.target.value)}
+                    placeholder="General outdoor observations..."
+                    className="form-textarea"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="outdoor-photos-grid">
+                  <div className="form-group">
+                    <label className="form-label">Front Door Photo</label>
+                    <button
+                      type="button"
+                      className="btn-photo"
+                      onClick={() => handlePhotoCapture('frontDoor')}
+                    >
+                      <span>📷</span>
+                      <span>Capture Front Door</span>
+                    </button>
+                    {formData.frontDoorPhoto && (
+                      <div className="single-photo">
+                        <img src={formData.frontDoorPhoto.url} alt="Front door" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Front of House Photo</label>
+                    <button
+                      type="button"
+                      className="btn-photo"
+                      onClick={() => handlePhotoCapture('frontHouse')}
+                    >
+                      <span>📷</span>
+                      <span>Capture Front House</span>
+                    </button>
+                    {formData.frontHousePhoto && (
+                      <div className="single-photo">
+                        <img src={formData.frontHousePhoto.url} alt="Front house" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Mailbox Photo</label>
+                    <button
+                      type="button"
+                      className="btn-photo"
+                      onClick={() => handlePhotoCapture('mailbox')}
+                    >
+                      <span>📷</span>
+                      <span>Capture Mailbox</span>
+                    </button>
+                    {formData.mailboxPhoto && (
+                      <div className="single-photo">
+                        <img src={formData.mailboxPhoto.url} alt="Mailbox" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Street Photo</label>
+                    <button
+                      type="button"
+                      className="btn-photo"
+                      onClick={() => handlePhotoCapture('street')}
+                    >
+                      <span>📷</span>
+                      <span>Capture Street View</span>
+                    </button>
+                    {formData.streetPhoto && (
+                      <div className="single-photo">
+                        <img src={formData.streetPhoto.url} alt="Street" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <div className="toggle-section-header">
+                    <label className="form-label">Direction Photos (for navigation)</label>
+                    <button
+                      type="button"
+                      className={`toggle-switch ${formData.directionPhotosEnabled ? 'active' : ''}`}
+                      onClick={() => handleInputChange('directionPhotosEnabled', !formData.directionPhotosEnabled)}
+                    >
+                      <span className="toggle-slider"></span>
+                    </button>
+                  </div>
+                  <p className="field-hint">For technicians to find the house again</p>
+
+                  {formData.directionPhotosEnabled && (
+                    <>
+                      <button
+                        type="button"
+                        className="btn-photo"
+                        onClick={() => handlePhotoCapture('direction')}
+                      >
+                        <span>📷</span>
+                        <span>Add Direction Photos</span>
+                      </button>
+
+                      {formData.directionPhotos.length > 0 && (
+                        <div className="photo-grid">
+                          {formData.directionPhotos.map(photo => (
+                            <div key={photo.id} className="photo-item">
+                              <img src={photo.url} alt="Direction" />
+                              <button
+                                type="button"
+                                className="photo-remove"
+                                onClick={() => removePhoto('direction', photo.id)}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* SECTION 6: WASTE DISPOSAL */}
+            {currentSection === 5 && (
+              <div className="form-section">
+                <h2 className="subsection-title">Waste Disposal</h2>
+
+                <div className="toggle-section-main">
+                  <div className="toggle-section-header">
+                    <label className="form-label">Enable Waste Disposal</label>
+                    <button
+                      type="button"
+                      className={`toggle-switch ${formData.wasteDisposalEnabled ? 'active' : ''}`}
+                      onClick={() => handleInputChange('wasteDisposalEnabled', !formData.wasteDisposalEnabled)}
+                    >
+                      <span className="toggle-slider"></span>
+                    </button>
+                  </div>
+
+                  {formData.wasteDisposalEnabled && (
+                    <div className="form-group">
+                      <label className="form-label">Waste Disposal Amount *</label>
+                      <select
+                        value={formData.wasteDisposalAmount}
+                        onChange={(e) => handleInputChange('wasteDisposalAmount', e.target.value)}
+                        className="form-select"
+                      >
+                        <option value="">Select amount...</option>
+                        <option value="Small (Disposal Bags)">Small (Disposal Bags)</option>
+                        <option value="Medium (Fill Van)">Medium (Fill Van)</option>
+                        <option value="Large (Fill 2 Vans)">Large (Fill 2 Vans)</option>
+                        <option value="Extra Large (Fill Skip)">Extra Large (Fill Skip)</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* SECTION 7: WORK PROCEDURE */}
+            {currentSection === 6 && (
+              <div className="form-section">
+                <h2 className="subsection-title">Work Procedure</h2>
+
+                <div className="procedures-list">
+                  <div className="procedure-item">
+                    <div className="toggle-section-header">
+                      <label className="form-label">HEPA VAC</label>
+                      <button
+                        type="button"
+                        className={`toggle-switch ${formData.hepaVac ? 'active' : ''}`}
+                        onClick={() => handleInputChange('hepaVac', !formData.hepaVac)}
+                      >
+                        <span className="toggle-slider"></span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="procedure-item">
+                    <div className="toggle-section-header">
+                      <label className="form-label">Antimicrobial</label>
+                      <button
+                        type="button"
+                        className={`toggle-switch ${formData.antimicrobial ? 'active' : ''}`}
+                        onClick={() => handleInputChange('antimicrobial', !formData.antimicrobial)}
+                      >
+                        <span className="toggle-slider"></span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="procedure-item">
+                    <div className="toggle-section-header">
+                      <label className="form-label">Stain Removing Antimicrobial</label>
+                      <button
+                        type="button"
+                        className={`toggle-switch ${formData.stainRemovingAntimicrobial ? 'active' : ''}`}
+                        onClick={() => handleInputChange('stainRemovingAntimicrobial', !formData.stainRemovingAntimicrobial)}
+                      >
+                        <span className="toggle-slider"></span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="procedure-item">
+                    <div className="toggle-section-header">
+                      <label className="form-label">Home Sanitation and Fogging</label>
+                      <button
+                        type="button"
+                        className={`toggle-switch ${formData.homeSanitationFogging ? 'active' : ''}`}
+                        onClick={() => handleInputChange('homeSanitationFogging', !formData.homeSanitationFogging)}
+                      >
+                        <span className="toggle-slider"></span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="procedure-item">
+                    <div className="toggle-section-header">
+                      <label className="form-label">Drying Equipment</label>
+                      <button
+                        type="button"
+                        className={`toggle-switch ${formData.dryingEquipmentEnabled ? 'active' : ''}`}
+                        onClick={() => handleInputChange('dryingEquipmentEnabled', !formData.dryingEquipmentEnabled)}
+                      >
+                        <span className="toggle-slider"></span>
+                      </button>
+                    </div>
+
+                    {formData.dryingEquipmentEnabled && (
+                      <div className="equipment-details">
+                        <div className="equipment-item">
+                          <div className="toggle-section-header">
+                            <label className="form-label">Commercial Dehumidifier</label>
+                            <button
+                              type="button"
+                              className={`toggle-switch ${formData.commercialDehumidifierEnabled ? 'active' : ''}`}
+                              onClick={() => handleInputChange('commercialDehumidifierEnabled', !formData.commercialDehumidifierEnabled)}
+                            >
+                              <span className="toggle-slider"></span>
+                            </button>
+                          </div>
+                          {formData.commercialDehumidifierEnabled && (
+                            <input
+                              type="number"
+                              min="0"
+                              value={formData.commercialDehumidifierQty}
+                              onChange={(e) => handleInputChange('commercialDehumidifierQty', parseInt(e.target.value) || 0)}
+                              placeholder="Quantity"
+                              className="form-input"
+                            />
+                          )}
+                        </div>
+
+                        <div className="equipment-item">
+                          <div className="toggle-section-header">
+                            <label className="form-label">Air Movers</label>
+                            <button
+                              type="button"
+                              className={`toggle-switch ${formData.airMoversEnabled ? 'active' : ''}`}
+                              onClick={() => handleInputChange('airMoversEnabled', !formData.airMoversEnabled)}
+                            >
+                              <span className="toggle-slider"></span>
+                            </button>
+                          </div>
+                          {formData.airMoversEnabled && (
+                            <input
+                              type="number"
+                              min="0"
+                              value={formData.airMoversQty}
+                              onChange={(e) => handleInputChange('airMoversQty', parseInt(e.target.value) || 0)}
+                              placeholder="Quantity"
+                              className="form-input"
+                            />
+                          )}
+                        </div>
+
+                        <div className="equipment-item">
+                          <div className="toggle-section-header">
+                            <label className="form-label">RCD Box</label>
+                            <button
+                              type="button"
+                              className={`toggle-switch ${formData.rcdBoxEnabled ? 'active' : ''}`}
+                              onClick={() => handleInputChange('rcdBoxEnabled', !formData.rcdBoxEnabled)}
+                            >
+                              <span className="toggle-slider"></span>
+                            </button>
+                          </div>
+                          {formData.rcdBoxEnabled && (
+                            <input
+                              type="number"
+                              min="0"
+                              value={formData.rcdBoxQty}
+                              onChange={(e) => handleInputChange('rcdBoxQty', parseInt(e.target.value) || 0)}
+                              placeholder="Quantity"
+                              className="form-input"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SECTION 8: JOB SUMMARY */}
+            {currentSection === 7 && (
+              <div className="form-section">
+                <h2 className="subsection-title">Job Summary</h2>
+
+                <div className="form-group">
+                  <div className="toggle-section-header">
+                    <label className="form-label">Recommend Dehumidifier?</label>
+                    <button
+                      type="button"
+                      className={`toggle-switch ${formData.recommendDehumidifier ? 'active' : ''}`}
+                      onClick={() => handleInputChange('recommendDehumidifier', !formData.recommendDehumidifier)}
+                    >
+                      <span className="toggle-slider"></span>
+                    </button>
+                  </div>
+
+                  {formData.recommendDehumidifier && (
+                    <select
+                      value={formData.dehumidifierSize}
+                      onChange={(e) => handleInputChange('dehumidifierSize', e.target.value)}
+                      className="form-select"
+                    >
+                      <option value="">Select size...</option>
+                      <option value="Small (1 Dehumidifier)">Small (1 Dehumidifier)</option>
+                      <option value="Medium (2 Dehumidifiers)">Medium (2 Dehumidifiers)</option>
+                      <option value="Large (Home Built-in Dehumidifier)">Large (Home Built-in Dehumidifier)</option>
+                    </select>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Cause of Mould</label>
+                  <textarea
+                    value={formData.causeOfMould}
+                    onChange={(e) => handleInputChange('causeOfMould', e.target.value)}
+                    placeholder="Professional description of what caused the mould..."
+                    className="form-textarea"
+                    rows={4}
+                  />
+                  <button
+                    type="button"
+                    className="btn-ai"
+                    onClick={() => generateWithAI('causeOfMould')}
+                  >
+                    <Sparkles size={16} />
+                    <span>Generate with AI</span>
+                  </button>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Additional Information for Technician</label>
+                  <textarea
+                    value={formData.additionalInfoForTech}
+                    onChange={(e) => handleInputChange('additionalInfoForTech', e.target.value)}
+                    placeholder="Internal notes for job execution..."
                     className="form-textarea"
                     rows={3}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Property Occupied? *</label>
-                  <div className="toggle-group">
-                    {['Yes', 'No', 'Vacant'].map(option => (
-                      <button
-                        key={option}
-                        type="button"
-                        className={`toggle-btn ${formData.propertyOccupied === option ? 'active' : ''}`}
-                        onClick={() => handleInputChange('propertyOccupied', option)}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
+                  <label className="form-label">Additional Equipment Comments for Technicians</label>
+                  <textarea
+                    value={formData.additionalEquipmentComments}
+                    onChange={(e) => handleInputChange('additionalEquipmentComments', e.target.value)}
+                    placeholder="Equipment-specific notes..."
+                    className="form-textarea"
+                    rows={3}
+                  />
                 </div>
 
-                {formData.propertyOccupied === 'Yes' && (
-                  <div className="form-group">
-                    <label className="form-label">Occupants Present During Inspection?</label>
-                    <div className="toggle-group">
-                      {['Yes', 'No', 'Partial'].map(option => (
-                        <button
-                          key={option}
-                          type="button"
-                          className={`toggle-btn ${formData.occupantsPresentDuringInspection === option ? 'active' : ''}`}
-                          onClick={() => handleInputChange('occupantsPresentDuringInspection', option)}
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 <div className="form-group">
-                  <label className="form-label">Property Size (approx.)</label>
+                  <label className="form-label">Parking Options</label>
                   <select
-                    value={formData.propertySize}
-                    onChange={(e) => handleInputChange('propertySize', e.target.value)}
+                    value={formData.parkingOptions}
+                    onChange={(e) => handleInputChange('parkingOptions', e.target.value)}
                     className="form-select"
                   >
-                    <option value="">Select size...</option>
-                    <option value="Small (<100 sqm)">Small (&lt;100 sqm)</option>
-                    <option value="Medium (100-200 sqm)">Medium (100-200 sqm)</option>
-                    <option value="Large (200-300 sqm)">Large (200-300 sqm)</option>
-                    <option value="Very Large (>300 sqm)">Very Large (&gt;300 sqm)</option>
+                    <option value="">Select parking option...</option>
+                    <option value="Driveway">Driveway</option>
+                    <option value="Street">Street</option>
+                    <option value="Carpark">Carpark</option>
+                    <option value="Visitor Carpark">Visitor Carpark</option>
+                    <option value="No Nearby Parking">No Nearby Parking</option>
                   </select>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Number of Levels</label>
-                  <div className="toggle-group">
-                    {['Single Story', 'Two Story', 'Multi-Level'].map(option => (
-                      <button
-                        key={option}
-                        type="button"
-                        className={`toggle-btn ${formData.numberOfLevels === option ? 'active' : ''}`}
-                        onClick={() => handleInputChange('numberOfLevels', option)}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Property Age (approx.)</label>
-                  <select
-                    value={formData.propertyAge}
-                    onChange={(e) => handleInputChange('propertyAge', e.target.value)}
-                    className="form-select"
-                  >
-                    <option value="">Select age...</option>
-                    <option value="<5 years">&lt;5 years</option>
-                    <option value="5-10 years">5-10 years</option>
-                    <option value="10-20 years">10-20 years</option>
-                    <option value="20-50 years">20-50 years</option>
-                    <option value=">50 years">&gt;50 years</option>
-                  </select>
-                </div>
-
-                <div className="photo-section">
-                  <label className="form-label">Property Overview Photos</label>
-                  <button 
-                    type="button"
-                    className="btn-photo"
-                    onClick={() => handlePhotoCapture('photos')}
-                  >
-                    <span>📷</span>
-                    <span>Take Photos</span>
-                  </button>
-                  
-                  {formData.photos.length > 0 && (
-                    <div className="photo-grid">
-                      {formData.photos.map((photo, index) => (
-                        <div key={index} className="photo-item">
-                          <img src={photo.url} alt={`Photo ${index + 1}`} />
-                          <button 
-                            type="button"
-                            className="photo-remove"
-                            onClick={() => {
-                              setFormData(prev => ({
-                                ...prev,
-                                photos: prev.photos.filter((_, i) => i !== index)
-                              }))
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
             )}
 
-            {currentSection === 2 && (
-              <div className="form-section">
-                <h2 className="subsection-title">Affected Areas Identification</h2>
-                
-                <div className="form-group">
-                  <label className="form-label">Select All Affected Areas *</label>
-                  <div className="checkbox-grid">
-                    {[
-                      'Bathroom', 'Kitchen', 'Laundry', 'Bedroom', 
-                      'Living Room', 'Basement', 'Attic', 'Garage',
-                      'Exterior Walls', 'Roof Space', 'Crawl Space', 'Other'
-                    ].map(area => (
-                      <label key={area} className="checkbox-option">
-                        <input
-                          type="checkbox"
-                          checked={formData.affectedAreas.includes(area)}
-                          onChange={() => handleArrayToggle('affectedAreas', area)}
-                        />
-                        <span className="checkbox-custom"></span>
-                        <span className="checkbox-label">{area}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Primary Concern Area *</label>
-                  <select
-                    value={formData.primaryConcernArea}
-                    onChange={(e) => handleInputChange('primaryConcernArea', e.target.value)}
-                    className="form-select"
-                  >
-                    <option value="">Select primary area...</option>
-                    {formData.affectedAreas.map(area => (
-                      <option key={area} value={area}>{area}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="photo-section">
-                  <label className="form-label">Affected Areas Photos *</label>
-                  <p className="field-hint">Take photos of each affected area</p>
-                  <button 
-                    type="button"
-                    className="btn-photo"
-                    onClick={() => handlePhotoCapture('affectedAreaPhotos')}
-                  >
-                    <span>📷</span>
-                    <span>Take Photos</span>
-                  </button>
-                  
-                  {formData.affectedAreaPhotos.length > 0 && (
-                    <div className="photo-grid">
-                      {formData.affectedAreaPhotos.map((photo, index) => (
-                        <div key={index} className="photo-item">
-                          <img src={photo.url} alt={`Affected area ${index + 1}`} />
-                          <button 
-                            type="button"
-                            className="photo-remove"
-                            onClick={() => {
-                              setFormData(prev => ({
-                                ...prev,
-                                affectedAreaPhotos: prev.affectedAreaPhotos.filter((_, i) => i !== index)
-                              }))
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {currentSection === 3 && (
-              <div className="form-section">
-                <h2 className="subsection-title">Moisture Detection</h2>
-                
-                <div className="form-group">
-                  <label className="form-label">Moisture Meter Type</label>
-                  <select
-                    value={formData.moistureMeterType}
-                    onChange={(e) => handleInputChange('moistureMeterType', e.target.value)}
-                    className="form-select"
-                  >
-                    <option value="">Select meter type...</option>
-                    <option value="Pin-type">Pin-type</option>
-                    <option value="Pinless">Pinless</option>
-                    <option value="Both">Both</option>
-                    <option value="None Used">None Used</option>
-                  </select>
-                </div>
-
-                <div className="readings-section">
-                  <label className="form-label">Moisture Readings</label>
-                  <p className="field-hint">Add moisture readings for each affected area</p>
-                  
-                  <button 
-                    type="button"
-                    className="btn-secondary btn-add"
-                    onClick={() => {
-                      setFormData(prev => ({
-                        ...prev,
-                        moistureReadings: [
-                          ...prev.moistureReadings,
-                          { location: '', reading: '', material: '', timestamp: new Date().toISOString() }
-                        ]
-                      }))
-                    }}
-                  >
-                    <span>+</span>
-                    <span>Add Reading</span>
-                  </button>
-
-                  {formData.moistureReadings.map((reading, index) => (
-                    <div key={index} className="reading-item">
-                      <div className="reading-header">
-                        <span className="reading-number">Reading {index + 1}</span>
-                        <button 
-                          type="button"
-                          className="btn-remove"
-                          onClick={() => {
-                            setFormData(prev => ({
-                              ...prev,
-                              moistureReadings: prev.moistureReadings.filter((_, i) => i !== index)
-                            }))
-                          }}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      
-                      <div className="reading-inputs">
-                        <input
-                          type="text"
-                          placeholder="Location (e.g., Bathroom wall)"
-                          value={reading.location}
-                          onChange={(e) => {
-                            const newReadings = [...formData.moistureReadings]
-                            newReadings[index].location = e.target.value
-                            setFormData(prev => ({ ...prev, moistureReadings: newReadings }))
-                          }}
-                          className="form-input"
-                        />
-                        
-                        <input
-                          type="text"
-                          placeholder="Reading (%)"
-                          value={reading.reading}
-                          onChange={(e) => {
-                            const newReadings = [...formData.moistureReadings]
-                            newReadings[index].reading = e.target.value
-                            setFormData(prev => ({ ...prev, moistureReadings: newReadings }))
-                          }}
-                          className="form-input"
-                        />
-                        
-                        <select
-                          value={reading.material}
-                          onChange={(e) => {
-                            const newReadings = [...formData.moistureReadings]
-                            newReadings[index].material = e.target.value
-                            setFormData(prev => ({ ...prev, moistureReadings: newReadings }))
-                          }}
-                          className="form-select"
-                        >
-                          <option value="">Material type...</option>
-                          <option value="Drywall">Drywall</option>
-                          <option value="Wood">Wood</option>
-                          <option value="Concrete">Concrete</option>
-                          <option value="Tile">Tile</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="photo-section">
-                  <label className="form-label">Moisture Detection Photos</label>
-                  <button 
-                    type="button"
-                    className="btn-photo"
-                    onClick={() => handlePhotoCapture('moisturePhotos')}
-                  >
-                    <span>📷</span>
-                    <span>Take Photos</span>
-                  </button>
-                  
-                  {formData.moisturePhotos.length > 0 && (
-                    <div className="photo-grid">
-                      {formData.moisturePhotos.map((photo, index) => (
-                        <div key={index} className="photo-item">
-                          <img src={photo.url} alt={`Moisture ${index + 1}`} />
-                          <button 
-                            type="button"
-                            className="photo-remove"
-                            onClick={() => {
-                              setFormData(prev => ({
-                                ...prev,
-                                moisturePhotos: prev.moisturePhotos.filter((_, i) => i !== index)
-                              }))
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {currentSection === 4 && (
-              <div className="form-section">
-                <h2 className="subsection-title">Visual Mould Assessment</h2>
-                
-                <div className="form-group">
-                  <label className="form-label">Mould Type (if identifiable)</label>
-                  <select
-                    value={formData.mouldType}
-                    onChange={(e) => handleInputChange('mouldType', e.target.value)}
-                    className="form-select"
-                  >
-                    <option value="">Select type...</option>
-                    <option value="Appears to be surface mould">Appears to be surface mould</option>
-                    <option value="Penetrating mould">Penetrating mould</option>
-                    <option value="Mixed/Unknown">Mixed/Unknown</option>
-                    <option value="Requires lab testing">Requires lab testing</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Mould Severity *</label>
-                  <div className="severity-scale">
-                    {[
-                      { value: 'Minor', label: 'Minor', color: '#10b981', desc: '<10 sqft' },
-                      { value: 'Moderate', label: 'Moderate', color: '#f59e0b', desc: '10-100 sqft' },
-                      { value: 'Extensive', label: 'Extensive', color: '#ef4444', desc: '>100 sqft' }
-                    ].map(option => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={`severity-btn ${formData.mouldSeverity === option.value ? 'active' : ''}`}
-                        onClick={() => handleInputChange('mouldSeverity', option.value)}
-                        style={{
-                          borderColor: formData.mouldSeverity === option.value ? option.color : 'transparent'
-                        }}
-                      >
-                        <span className="severity-label">{option.label}</span>
-                        <span className="severity-desc">{option.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Mould Color(s)</label>
-                  <div className="checkbox-grid">
-                    {['Black', 'Green', 'White', 'Brown', 'Yellow', 'Orange'].map(color => (
-                      <label key={color} className="checkbox-option">
-                        <input
-                          type="checkbox"
-                          checked={formData.mouldColor.includes(color)}
-                          onChange={() => handleArrayToggle('mouldColor', color)}
-                        />
-                        <span className="checkbox-custom"></span>
-                        <span className="checkbox-label">{color}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Growth Pattern</label>
-                  <div className="toggle-group">
-                    {['Patchy', 'Widespread', 'Concentrated', 'Linear'].map(option => (
-                      <button
-                        key={option}
-                        type="button"
-                        className={`toggle-btn ${formData.mouldPattern === option ? 'active' : ''}`}
-                        onClick={() => handleInputChange('mouldPattern', option)}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Affected Materials</label>
-                  <div className="checkbox-grid">
-                    {[
-                      'Drywall', 'Wood', 'Ceiling', 'Carpet', 
-                      'Tile Grout', 'Paint', 'Wallpaper', 'Insulation'
-                    ].map(material => (
-                      <label key={material} className="checkbox-option">
-                        <input
-                          type="checkbox"
-                          checked={formData.affectedMaterials.includes(material)}
-                          onChange={() => handleArrayToggle('affectedMaterials', material)}
-                        />
-                        <span className="checkbox-custom"></span>
-                        <span className="checkbox-label">{material}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="photo-section">
-                  <label className="form-label">Mould Photos *</label>
-                  <p className="field-hint">Take close-up photos of mould growth</p>
-                  <button 
-                    type="button"
-                    className="btn-photo"
-                    onClick={() => handlePhotoCapture('mouldPhotos')}
-                  >
-                    <span>📷</span>
-                    <span>Take Photos</span>
-                  </button>
-                  
-                  {formData.mouldPhotos.length > 0 && (
-                    <div className="photo-grid">
-                      {formData.mouldPhotos.map((photo, index) => (
-                        <div key={index} className="photo-item">
-                          <img src={photo.url} alt={`Mould ${index + 1}`} />
-                          <button 
-                            type="button"
-                            className="photo-remove"
-                            onClick={() => {
-                              setFormData(prev => ({
-                                ...prev,
-                                mouldPhotos: prev.mouldPhotos.filter((_, i) => i !== index)
-                              }))
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {currentSection === 14 && (
+            {/* SECTION 9: COST ESTIMATE */}
+            {currentSection === 8 && (
               <div className="form-section">
                 <h2 className="subsection-title">Cost Estimate</h2>
-                
+
+                <div className="form-group">
+                  <label className="form-label">Estimated Days for Equipment Hire</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.estimatedDays}
+                    onChange={(e) => handleInputChange('estimatedDays', parseInt(e.target.value) || 1)}
+                    className="form-input"
+                    placeholder="Number of days"
+                  />
+                </div>
+
                 <div className="cost-summary-card">
-                  <div className="cost-item">
-                    <span className="cost-label">Labor Hours</span>
-                    <input
-                      type="number"
-                      value={formData.laborHours}
-                      onChange={(e) => handleInputChange('laborHours', parseFloat(e.target.value) || 0)}
-                      className="cost-input"
-                      min="0"
-                      step="0.5"
-                    />
+                  <h3 className="cost-title">Cost Breakdown</h3>
+
+                  <div className="cost-row">
+                    <span className="cost-label">Labor Cost:</span>
+                    <span className="cost-value">{formatCurrency(formData.laborCost)}</span>
                   </div>
 
-                  <div className="cost-item">
-                    <span className="cost-label">Materials Cost</span>
-                    <input
-                      type="number"
-                      value={formData.materialsCost}
-                      onChange={(e) => handleInputChange('materialsCost', parseFloat(e.target.value) || 0)}
-                      className="cost-input"
-                      min="0"
-                      step="10"
-                    />
+                  <div className="cost-row">
+                    <span className="cost-label">Equipment Hire:</span>
+                    <span className="cost-value">{formatCurrency(formData.equipmentCost)}</span>
                   </div>
 
-                  <div className="cost-total">
-                    <span className="cost-label">Estimated Total</span>
-                    <span className="cost-value">
-                      ${(formData.laborHours * 120 + formData.materialsCost).toLocaleString()}
-                    </span>
+                  <div className="cost-row subtotal">
+                    <span className="cost-label">Subtotal (Ex GST):</span>
+                    <span className="cost-value">{formatCurrency(formData.subtotal)}</span>
+                  </div>
+
+                  <div className="cost-row">
+                    <span className="cost-label">GST (10%):</span>
+                    <span className="cost-value">{formatCurrency(formData.gst)}</span>
+                  </div>
+
+                  <div className="cost-row total">
+                    <span className="cost-label">TOTAL (Inc GST):</span>
+                    <span className="cost-value">{formatCurrency(formData.totalCost)}</span>
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Equipment Needed</label>
-                  <div className="checkbox-grid">
-                    {[
-                      'Dehumidifier', 'Air Scrubber', 'HEPA Vacuum',
-                      'Containment Barriers', 'PPE Equipment', 'Moisture Meter'
-                    ].map(equipment => (
-                      <label key={equipment} className="checkbox-option">
-                        <input
-                          type="checkbox"
-                          checked={formData.equipmentNeeded.includes(equipment)}
-                          onChange={() => handleArrayToggle('equipmentNeeded', equipment)}
-                        />
-                        <span className="checkbox-custom"></span>
-                        <span className="checkbox-label">{equipment}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {currentSection === 15 && (
-              <div className="form-section">
-                <h2 className="subsection-title">Final Notes & Summary</h2>
-                
-                <div className="form-group">
-                  <label className="form-label">Additional Notes</label>
-                  <textarea
-                    value={formData.additionalNotes}
-                    onChange={(e) => handleInputChange('additionalNotes', e.target.value)}
-                    placeholder="Any additional observations, concerns, or recommendations..."
-                    className="form-textarea"
-                    rows={5}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Inspection Summary *</label>
-                  <textarea
-                    value={formData.inspectionSummary}
-                    onChange={(e) => handleInputChange('inspectionSummary', e.target.value)}
-                    placeholder="Brief summary of findings and recommended next steps..."
-                    className="form-textarea"
-                    rows={6}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Follow-up Required?</label>
-                  <div className="toggle-group">
-                    {['Yes', 'No', 'Maybe'].map(option => (
-                      <button
-                        key={option}
-                        type="button"
-                        className={`toggle-btn ${formData.followUpRequired === option ? 'active' : ''}`}
-                        onClick={() => handleInputChange('followUpRequired', option)}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {formData.followUpRequired === 'Yes' && (
-                  <div className="form-group">
-                    <label className="form-label">Follow-up Date</label>
-                    <input
-                      type="date"
-                      value={formData.followUpDate}
-                      onChange={(e) => handleInputChange('followUpDate', e.target.value)}
-                      className="form-input"
-                      min={new Date().toISOString().split('T')[0]}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {(currentSection >= 5 && currentSection <= 13) && (
-              <div className="form-section">
-                <h2 className="subsection-title">{sections[currentSection].title}</h2>
-                <div className="placeholder-section">
-                  <div className="placeholder-icon">{sections[currentSection].icon}</div>
-                  <p className="placeholder-text">
-                    This section is under development.
-                  </p>
-                  <p className="placeholder-hint">
-                    Continue to the next section to complete your inspection.
-                  </p>
+                <div className="cost-note">
+                  <p>💡 This is an automated calculation based on your inspection data. The cost updates in real-time as you fill in the form.</p>
                 </div>
               </div>
             )}
           </div>
 
+          {/* Navigation Buttons */}
           <div className="form-navigation">
             {currentSection > 0 && (
               <button 
@@ -1005,6 +1803,7 @@ const InspectionForm = () => {
             )}
           </div>
 
+          {/* Quick Section Navigation */}
           <div className="section-dots">
             {sections.map((section, index) => (
               <button
