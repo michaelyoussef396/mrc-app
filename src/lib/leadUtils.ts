@@ -98,24 +98,24 @@ export function isLeadUrgent(createdAt: Date | string, status: string): boolean 
  * Lead source options organized by category
  */
 export const leadSourceOptions = [
-  { label: '── DIGITAL ──', value: '', disabled: true },
+  { label: '── DIGITAL ──', value: 'header_digital', disabled: true },
   { label: 'Website Form', value: 'Website Form' },
   { label: 'Google Search (Organic)', value: 'Google Search (Organic)' },
   { label: 'Google Ads', value: 'Google Ads' },
   { label: 'Facebook/Instagram', value: 'Facebook/Instagram' },
   { label: 'LinkedIn', value: 'LinkedIn' },
   { label: 'Other Social Media', value: 'Other Social Media' },
-  { label: '── REFERRAL ──', value: '', disabled: true },
+  { label: '── REFERRAL ──', value: 'header_referral', disabled: true },
   { label: 'Customer Referral', value: 'Customer Referral' },
   { label: 'Real Estate Agent', value: 'Real Estate Agent' },
   { label: 'Property Manager', value: 'Property Manager' },
   { label: 'Strata Manager', value: 'Strata Manager' },
   { label: 'Insurance Company', value: 'Insurance Company' },
-  { label: '── TRADITIONAL ──', value: '', disabled: true },
+  { label: '── TRADITIONAL ──', value: 'header_traditional', disabled: true },
   { label: 'Phone Call (Direct)', value: 'Phone Call (Direct)' },
   { label: 'Email Inquiry', value: 'Email Inquiry' },
   { label: 'Walk-in', value: 'Walk-in' },
-  { label: '── OTHER ──', value: '', disabled: true },
+  { label: '── OTHER ──', value: 'header_other', disabled: true },
   { label: 'Repeat Customer', value: 'Repeat Customer' },
   { label: 'Trade Show/Event', value: 'Trade Show/Event' },
   { label: 'Other', value: 'Other' },
@@ -125,7 +125,6 @@ export const leadSourceOptions = [
  * Property type options
  */
 export const propertyTypeOptions = [
-  { label: 'Select property type...', value: '' },
   { label: 'Residential House', value: 'residential_house' },
   { label: 'Residential Apartment', value: 'residential_apartment' },
   { label: 'Commercial Office', value: 'commercial_office' },
@@ -138,7 +137,6 @@ export const propertyTypeOptions = [
  * Urgency level options
  */
 export const urgencyOptions = [
-  { label: 'Select urgency...', value: '' },
   { label: 'Low (Can wait weeks)', value: 'low' },
   { label: 'Medium (Within days)', value: 'medium' },
   { label: 'High (ASAP)', value: 'high' },

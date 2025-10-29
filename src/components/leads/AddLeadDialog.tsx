@@ -325,7 +325,7 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
                       </FormControl>
                       <SelectContent>
                         {propertyTypeOptions.map((type) => (
-                          <SelectItem key={type.value} value={type.value} disabled={!type.value}>
+                          <SelectItem key={type.value} value={type.value}>
                             {type.label}
                           </SelectItem>
                         ))}
@@ -409,7 +409,7 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
                       </FormControl>
                       <SelectContent>
                         {urgencyOptions.map((urgency) => (
-                          <SelectItem key={urgency.value} value={urgency.value} disabled={!urgency.value}>
+                          <SelectItem key={urgency.value} value={urgency.value}>
                             {urgency.label}
                           </SelectItem>
                         ))}
