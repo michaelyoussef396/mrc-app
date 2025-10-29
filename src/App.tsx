@@ -56,6 +56,7 @@ const AppContent = () => {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/password-changed" element={<PasswordChanged />} />
           <Route path="/book/:token" element={<ClientBooking />} />
+          <Route path="/book/demo" element={<ClientBooking />} />
           <Route path="/booking/:inspectionId/:token" element={<ClientBooking />} />
           <Route path="/request-inspection" element={<RequestInspection />} />
           <Route path="/request-inspection/success" element={<InspectionSuccess />} />
