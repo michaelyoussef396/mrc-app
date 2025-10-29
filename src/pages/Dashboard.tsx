@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { TopNavigation } from "@/components/dashboard/TopNavigation";
-import { MobileBottomNav } from "@/components/dashboard/MobileBottomNav";
 import { ActionsRequired } from "@/components/dashboard/ActionsRequired";
 import { TodaysSchedule } from "@/components/dashboard/TodaysSchedule";
 import { RevenueOverview } from "@/components/dashboard/RevenueOverview";
@@ -15,8 +13,6 @@ export default function Dashboard() {
   const [showAddLead, setShowAddLead] = useState(false);
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <TopNavigation />
-
       {/* Page Header */}
       <div className="bg-card border-b border-border">
         <div className="container mx-auto px-4 py-6">
@@ -50,9 +46,6 @@ export default function Dashboard() {
         {/* Lead Pipeline */}
         <LeadPipeline />
       </main>
-
-      {/* Mobile Bottom Navigation */}
-      <MobileBottomNav />
 
       {/* Add Lead Dialog */}
       <AddLeadDialog open={showAddLead} onOpenChange={setShowAddLead} />

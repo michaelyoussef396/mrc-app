@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,14 +20,15 @@ import logo from "@/assets/Logo.png";
 
 export function TopNavigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const navLinks = [
     { label: "Dashboard", path: "/dashboard" },
     { label: "Leads", path: "/leads" },
     { label: "Calendar", path: "/calendar" },
-    { label: "Inspections", path: "/inspections" },
+    { label: "Inspections", path: "/inspection" },
     { label: "Reports", path: "/reports" },
     { label: "Analytics", path: "/analytics" },
   ];
@@ -35,6 +36,10 @@ export function TopNavigation() {
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
+  };
+
+  const isActive = (path: string) => {
+    return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
   return (
@@ -53,7 +58,7 @@ export function TopNavigation() {
                 key={link.path}
                 to={link.path}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  link.path === "/dashboard"
+                  isActive(link.path)
                     ? "bg-primary-foreground/20 text-primary-foreground"
                     : "hover:bg-primary-foreground/10"
                 }`}
@@ -71,12 +76,12 @@ export function TopNavigation() {
                   variant="ghost"
                   className="text-primary-foreground hover:bg-primary-foreground/10"
                 >
-                  System Administrator
+                  {user?.email || 'System Administrator'}
                   <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>System Administrator</DropdownMenuLabel>
+              <DropdownMenuContent align="end" className="w-56 bg-card">
+                <DropdownMenuLabel>{user?.email || 'System Administrator'}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate('/profile')}>
                   <User className="mr-2 h-4 w-4" />
@@ -114,7 +119,7 @@ export function TopNavigation() {
                     to={link.path}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`px-4 py-3 rounded-md text-sm font-medium transition-colors ${
-                      link.path === "/dashboard"
+                      isActive(link.path)
                         ? "bg-primary text-primary-foreground"
                         : "hover:bg-muted"
                     }`}
