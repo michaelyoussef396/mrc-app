@@ -10,10 +10,6 @@ import ForgotPassword from "./pages/ForgotPassword";
 import CheckEmail from "./pages/CheckEmail";
 import ResetPassword from "./pages/ResetPassword";
 import PasswordChanged from "./pages/PasswordChanged";
-import Welcome from "./pages/Welcome";
-import Setup from "./pages/Setup";
-import Tour from "./pages/Tour";
-import GetStarted from "./pages/GetStarted";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import ManageUsers from "./pages/ManageUsers";
@@ -47,38 +43,6 @@ const App = () => (
             <Route path="/check-email" element={<CheckEmail />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/password-changed" element={<PasswordChanged />} />
-            <Route
-              path="/welcome"
-              element={
-                <ProtectedRoute>
-                  <Welcome />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/setup"
-              element={
-                <ProtectedRoute>
-                  <Setup />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tour"
-              element={
-                <ProtectedRoute>
-                  <Tour />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/get-started"
-              element={
-                <ProtectedRoute>
-                  <GetStarted />
-                </ProtectedRoute>
-              }
-            />
             <Route
               path="/dashboard"
               element={

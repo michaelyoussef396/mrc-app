@@ -411,7 +411,7 @@ export function LeadSourceAnalytics() {
                   <li>• Consider increasing investment in top-performing channels</li>
                   <li>• Develop referral incentive program to boost word-of-mouth</li>
                   <li>• Test new marketing channels (e.g., LinkedIn, local partnerships)</li>
-                  <li>• Improve response time for website leads (<4 hours)</li>
+                  <li>• Improve response time for website leads (&lt;4 hours)</li>
                 </ul>
               </div>
             </div>
