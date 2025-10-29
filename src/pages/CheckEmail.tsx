@@ -5,10 +5,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import logoMRC from "@/assets/logoMRC.png";
 import { ArrowLeft, Mail } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 export default function CheckEmail() {
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [expiryCountdown, setExpiryCountdown] = useState(600); // 10 minutes in seconds
   const [isResending, setIsResending] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [code, setCode] = useState("");
   const { resetPassword } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -28,12 +32,64 @@ export default function CheckEmail() {
     setResendCooldown(60);
   }, [location.state, navigate]);
 
+  // Resend cooldown timer
   useEffect(() => {
     if (resendCooldown > 0) {
       const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
       return () => clearTimeout(timer);
     }
   }, [resendCooldown]);
+
+  // Expiry countdown timer
+  useEffect(() => {
+    if (expiryCountdown > 0) {
+      const timer = setTimeout(() => setExpiryCountdown(expiryCountdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [expiryCountdown]);
+
+  // Auto-submit when 6 digits entered
+  useEffect(() => {
+    if (code.length === 6) {
+      handleVerifyCode();
+    }
+  }, [code]);
+
+  const handleVerifyCode = async () => {
+    if (code.length !== 6) return;
+    if (expiryCountdown <= 0) {
+      toast({
+        variant: "destructive",
+        title: "Code Expired",
+        description: "This code has expired. Please request a new one.",
+      });
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      // TODO: Implement code verification with backend
+      // For now, simulate verification
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // If valid, redirect to reset password
+      navigate("/reset-password", { state: { email: location.state?.email, codeVerified: true } });
+      
+      toast({
+        title: "Code Verified",
+        description: "Please enter your new password",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Code",
+        description: error.message || "The code you entered is invalid. Please try again.",
+      });
+      setCode("");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const handleResend = async () => {
     if (resendCooldown > 0) return;
@@ -46,14 +102,16 @@ export default function CheckEmail() {
         toast({
           variant: "destructive",
           title: "Error",
-          description: error.message || "Failed to resend reset email",
+          description: error.message || "Failed to resend code",
         });
       } else {
         toast({
-          title: "Email Sent",
-          description: "We've sent another reset link to your email",
+          title: "Code Sent",
+          description: "We've sent a new 6-digit code to your email",
         });
         setResendCooldown(60);
+        setExpiryCountdown(600); // Reset expiry to 10 minutes
+        setCode(""); // Clear the input
       }
     } catch (error) {
       toast({
@@ -64,6 +122,12 @@ export default function CheckEmail() {
     } finally {
       setIsResending(false);
     }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -96,31 +160,71 @@ export default function CheckEmail() {
             <div className="space-y-6">
               <div className="text-center">
                 <p className="text-sm text-muted-foreground mb-2">
-                  We've sent a password reset link to:
+                  We've sent a 6-digit code to:
                 </p>
-                <p className="text-base font-semibold text-foreground mb-4">
+                <p className="text-base font-semibold text-foreground mb-6">
                   {email}
                 </p>
               </div>
 
-              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                <p className="text-sm text-foreground font-medium">
-                  The link will expire in 1 hour for security reasons.
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  If you don't see the email:
-                </p>
-                <ul className="text-sm text-muted-foreground space-y-1 ml-4">
-                  <li>• Check your spam folder</li>
-                  <li>• Make sure the email address is correct</li>
-                  <li>• Wait a few minutes and check again</li>
-                </ul>
+              {/* Code Input */}
+              <div className="space-y-4">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Enter the code below:
+                  </p>
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={code}
+                      onChange={(value) => setCode(value)}
+                      disabled={isVerifying || expiryCountdown <= 0}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                </div>
+
+                {/* Verify Button */}
+                <Button
+                  onClick={handleVerifyCode}
+                  disabled={code.length !== 6 || isVerifying || expiryCountdown <= 0}
+                  className="w-full"
+                  size="lg"
+                >
+                  {isVerifying ? "Verifying..." : "Verify Code"}
+                </Button>
+              </div>
+
+              {/* Timer and Status */}
+              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-1">
+                    Code expires in:
+                  </p>
+                  <p className={`text-lg font-bold ${expiryCountdown < 60 ? 'text-destructive' : 'text-foreground'}`}>
+                    {formatTime(expiryCountdown)}
+                  </p>
+                </div>
+                
+                {expiryCountdown <= 0 && (
+                  <p className="text-sm text-destructive text-center font-medium">
+                    Code expired. Please request a new one.
+                  </p>
+                )}
               </div>
 
               {/* Resend Button */}
               <div className="text-center">
                 <p className="text-sm text-muted-foreground mb-3">
-                  Didn't receive the email?
+                  Didn't receive the code?
                 </p>
                 <Button
                   onClick={handleResend}
@@ -132,7 +236,7 @@ export default function CheckEmail() {
                     ? "Sending..."
                     : resendCooldown > 0
                     ? `Resend in ${resendCooldown}s`
-                    : "Resend Reset Link"}
+                    : "Resend Code"}
                 </Button>
               </div>
 
