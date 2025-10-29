@@ -10189,6 +10189,326 @@ a.contact-value:hover {
   background: #f8fafc;
 }
 
+/* Help Text */
+.customer-booking-page .help-text {
+  text-align: center;
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 16px;
+}
+
+.customer-booking-page .help-text a {
+  color: #121D73;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.customer-booking-page .help-text a:hover {
+  text-decoration: underline;
+}
+
+/* Contact Confirmation Card */
+.customer-booking-page .contact-confirm-card {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(5, 150, 105, 0.02) 100%);
+  border: 2px solid rgba(16, 185, 129, 0.2);
+  border-radius: 20px;
+  padding: 28px;
+  margin-bottom: 24px;
+}
+
+.customer-booking-page .contact-confirm-card h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #065f46;
+  margin-bottom: 8px;
+}
+
+.customer-booking-page .card-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+.customer-booking-page .contact-display {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.customer-booking-page .contact-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  background: white;
+  border-radius: 12px;
+  border: 2px solid rgba(16, 185, 129, 0.1);
+}
+
+.customer-booking-page .contact-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.customer-booking-page .contact-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.customer-booking-page .contact-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.customer-booking-page .contact-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.customer-booking-page .confirm-checkbox {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: white;
+  border-radius: 12px;
+  border: 2px solid rgba(16, 185, 129, 0.2);
+}
+
+.customer-booking-page .checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.customer-booking-page .checkbox-label input[type="checkbox"] {
+  display: none;
+}
+
+.customer-booking-page .checkbox-custom {
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(16, 185, 129, 0.3);
+  border-radius: 8px;
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.customer-booking-page .checkbox-label input:checked + .checkbox-custom {
+  background: #10b981;
+  border-color: #10b981;
+}
+
+.customer-booking-page .checkbox-label input:checked + .checkbox-custom::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.customer-booking-page .checkbox-text {
+  font-size: 15px;
+  color: #065f46;
+  font-weight: 700;
+}
+
+.customer-booking-page .btn-link {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.customer-booking-page .btn-link:hover {
+  color: #2563eb;
+}
+
+.customer-booking-page .btn-edit {
+  align-self: flex-start;
+  margin-left: 40px;
+}
+
+/* Access & Requests Cards */
+.customer-booking-page .access-card,
+.customer-booking-page .requests-card {
+  background: white;
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  margin-bottom: 24px;
+}
+
+.customer-booking-page .access-card h3,
+.customer-booking-page .requests-card h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.customer-booking-page .form-textarea {
+  width: 100%;
+  padding: 14px 16px;
+  background: white;
+  border: 2px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #111827;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 120px;
+  transition: all 0.2s ease;
+}
+
+.customer-booking-page .form-textarea:focus {
+  outline: none;
+  border-color: #121D73;
+  box-shadow: 0 0 0 4px rgba(18, 29, 115, 0.1);
+}
+
+.customer-booking-page .field-hint {
+  font-size: 12px;
+  color: #f59e0b;
+  font-weight: 600;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Terms Card */
+.customer-booking-page .terms-card {
+  padding: 20px;
+  background: rgba(59, 130, 246, 0.05);
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  border-radius: 16px;
+  margin-bottom: 32px;
+}
+
+.customer-booking-page .terms-card .checkbox-text a {
+  color: #1e40af;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.customer-booking-page .terms-card .checkbox-text a:hover {
+  text-decoration: underline;
+}
+
+/* Edit Contact Modal */
+.customer-booking-page .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.customer-booking-page .modal-content {
+  background: white;
+  border-radius: 24px;
+  padding: 32px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.customer-booking-page .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.06);
+}
+
+.customer-booking-page .modal-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.customer-booking-page .modal-close {
+  width: 32px;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  border-radius: 8px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.customer-booking-page .modal-close:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.customer-booking-page .modal-body {
+  text-align: center;
+}
+
+.customer-booking-page .modal-message {
+  font-size: 15px;
+  color: #6b7280;
+  font-weight: 500;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.customer-booking-page .modal-note {
+  font-size: 13px;
+  color: #9ca3af;
+  font-weight: 500;
+  margin-top: 16px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .customer-booking-page .contact-row {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  
+  .customer-booking-page .btn-edit {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+}
+
 /* ============================================
    NOTIFICATION BELL
    ============================================ */

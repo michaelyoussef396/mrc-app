@@ -17,6 +17,8 @@ const CustomerBooking = () => {
   const [accessInstructions, setAccessInstructions] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [detailsConfirmed, setDetailsConfirmed] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -370,10 +372,12 @@ const CustomerBooking = () => {
       {/* Step 3: Confirm & Details */}
       {step === 3 && (
         <div className="step-content">
-          <h2 className="step-title">Final Details</h2>
-          <p className="step-subtitle">Please provide access information and confirm your booking</p>
-
-          {/* Booking Summary */}
+          <h2 className="step-title">Confirm Your Details</h2>
+          <p className="step-subtitle">
+            Please confirm your information is correct and provide access details for our technicians.
+          </p>
+          
+          {/* BOOKING SUMMARY */}
           <div className="booking-summary">
             <h3 className="section-title">Booking Summary</h3>
             <div className="summary-grid">
@@ -406,37 +410,117 @@ const CustomerBooking = () => {
             </div>
           </div>
 
+          {/* CONTACT DETAILS - PRE-FILLED FROM SYSTEM */}
+          <div className="contact-confirm-card">
+            <h3>👤 Your Contact Information</h3>
+            <p className="card-subtitle">
+              We'll use these details to contact you about your service
+            </p>
+            
+            <div className="contact-display">
+              <div className="contact-row">
+                <div className="contact-icon">👤</div>
+                <div className="contact-info">
+                  <span className="contact-label">Name</span>
+                  <span className="contact-value">{bookingData.clientName}</span>
+                </div>
+              </div>
+              
+              <div className="contact-row">
+                <div className="contact-icon">📱</div>
+                <div className="contact-info">
+                  <span className="contact-label">Phone</span>
+                  <span className="contact-value">{bookingData.phone}</span>
+                </div>
+              </div>
+              
+              <div className="contact-row">
+                <div className="contact-icon">📧</div>
+                <div className="contact-info">
+                  <span className="contact-label">Email</span>
+                  <span className="contact-value">{bookingData.email}</span>
+                </div>
+              </div>
+              
+              <div className="contact-row">
+                <div className="contact-icon">📍</div>
+                <div className="contact-info">
+                  <span className="contact-label">Property Address</span>
+                  <span className="contact-value">
+                    {bookingData.property}, {bookingData.suburb} VIC {bookingData.postcode}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* CONFIRM DETAILS CHECKBOX */}
+            <div className="confirm-checkbox">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={detailsConfirmed}
+                  onChange={(e) => setDetailsConfirmed(e.target.checked)}
+                />
+                <span className="checkbox-custom"></span>
+                <span className="checkbox-text">
+                  ✓ These details are correct
+                </span>
+              </label>
+              <button 
+                className="btn-link btn-edit"
+                onClick={() => setShowEditModal(true)}
+              >
+                Need to update? Click here
+              </button>
+            </div>
+          </div>
+
           {/* Access Instructions */}
-          <div className="form-section">
-            <label className="form-label">
-              Access Instructions <span className="required">*</span>
-            </label>
+          <div className="form-section access-card">
+            <h3>🔑 Access Instructions</h3>
+            <p className="card-subtitle">
+              How should our technicians access your property on service day?
+            </p>
             <textarea
               className="form-textarea"
-              placeholder="Please provide details on how our team can access your property (e.g., key location, gate code, pet information, parking instructions)"
+              placeholder="Examples:
+• Key under doormat
+• Ring doorbell - someone will be home
+• Gate code: 1234
+• Park on street, side entrance
+• Lockbox code: 5678"
               value={accessInstructions}
               onChange={(e) => setAccessInstructions(e.target.value)}
-              rows={4}
+              rows={5}
               required
             />
+            <p className="field-hint">
+              ⚠️ Required - Our technicians need to know how to enter the property
+            </p>
           </div>
 
           {/* Special Requests */}
-          <div className="form-section">
-            <label className="form-label">
-              Special Requests <span className="optional">(Optional)</span>
-            </label>
+          <div className="form-section requests-card">
+            <h3>💬 Special Requests (Optional)</h3>
+            <p className="card-subtitle">
+              Any specific requirements or important information?
+            </p>
             <textarea
               className="form-textarea"
-              placeholder="Any special requirements or requests for our technicians?"
+              placeholder="Examples:
+• Please park on street (driveway blocked)
+• Dog on property (friendly, secure in backyard)
+• Call 10 minutes before arriving
+• Use side entrance, front door broken
+• Allergies to certain cleaning products"
               value={specialRequests}
               onChange={(e) => setSpecialRequests(e.target.value)}
-              rows={3}
+              rows={5}
             />
           </div>
 
           {/* Terms & Conditions */}
-          <div className="terms-section">
+          <div className="terms-section terms-card">
             <label className="checkbox-label">
               <input
                 type="checkbox"
@@ -444,7 +528,8 @@ const CustomerBooking = () => {
                 onChange={(e) => setAgreeToTerms(e.target.checked)}
                 required
               />
-              <span>
+              <span className="checkbox-custom"></span>
+              <span className="checkbox-text">
                 I agree to the <a href="/terms" target="_blank">Terms & Conditions</a> and understand that:
               </span>
             </label>
@@ -466,10 +551,38 @@ const CustomerBooking = () => {
             <button 
               className="btn-primary btn-confirm"
               onClick={handleSubmitBooking}
-              disabled={!accessInstructions || !agreeToTerms || submitting}
+              disabled={!detailsConfirmed || !accessInstructions || !agreeToTerms || submitting}
             >
               {submitting ? 'Processing...' : '✓ Confirm Booking'}
             </button>
+          </div>
+
+          <p className="help-text">
+            Need to change your details? Call us at <a href="tel:1300665673">1300 665 673</a>
+          </p>
+        </div>
+      )}
+
+      {/* EDIT CONTACT MODAL */}
+      {showEditModal && (
+        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Update Contact Details</h2>
+              <button className="modal-close" onClick={() => setShowEditModal(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <p className="modal-message">
+                To update your contact information, please call us directly at:
+              </p>
+              <a href="tel:1300665673" className="btn-primary btn-large">
+                <span>📞</span>
+                <span>Call 1300 665 673</span>
+              </a>
+              <p className="modal-note">
+                Our team will update your details and resend the booking link.
+              </p>
+            </div>
           </div>
         </div>
       )}
