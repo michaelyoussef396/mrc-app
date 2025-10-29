@@ -761,7 +761,7 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     animation: pageEnter 0.5s ease-out;
   }
 
@@ -935,30 +935,31 @@
     letter-spacing: -0.2px;
   }
 
-  .input-wrapper {
+  .login-page .input-wrapper {
     position: relative;
-    display: flex;
-    align-items: center;
+    width: 100%;
+    display: block;
   }
 
-  .input-icon {
+  .login-page .input-icon {
     position: absolute;
-    left: 18px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: hsl(var(--gray-400));
-    pointer-events: none;
-    z-index: 2;
-    width: 20px;
-    height: 20px;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
+    color: hsl(var(--gray-400));
+    pointer-events: none;
+    z-index: 2;
   }
 
-  .form-input {
+  .login-page .form-input {
     width: 100%;
-    padding: 16px 54px 16px 54px;
+    padding-left: 50px !important;
+    padding-right: 20px !important;
+    height: 52px;
     font-size: 15px;
     font-weight: 500;
     color: hsl(var(--foreground));
@@ -967,6 +968,7 @@
     border-radius: 12px;
     transition: all var(--transition-base);
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+    box-sizing: border-box;
   }
 
   .form-input::placeholder {
@@ -983,26 +985,28 @@
       0 2px 4px hsl(0 0% 0% / 0.04);
   }
 
-  .input-toggle {
+  .login-page .password-toggle {
     position: absolute;
-    right: 16px;
-    top: 50%;
-    transform: translateY(-50%);
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 50px;
     background: none;
     border: none;
     color: hsl(var(--gray-500));
     cursor: pointer;
-    padding: 8px;
-    border-radius: 8px;
+    padding: 0;
+    border-radius: 0 10px 10px 0;
     transition: all var(--transition-fast);
     z-index: 2;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  
-  .input-toggle:active {
-    transform: translateY(-50%) scale(0.95);
+
+  .login-page .password-toggle:hover {
+    color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.05);
   }
 
   .input-toggle:hover {
@@ -3621,17 +3625,19 @@ a.contact-value:hover {
       font-size: 20px;
     }
     
-    .form-input {
-      padding: 14px 50px 14px 50px;
+    .login-page .form-input {
+      padding: 14px 50px 14px 50px !important;
       font-size: 16px; /* Prevent iOS zoom */
     }
     
-    .input-icon {
-      left: 16px;
+    .login-page .input-icon {
+      left: 0;
+      width: 50px;
     }
     
-    .input-toggle {
-      right: 14px;
+    .login-page .password-toggle {
+      right: 0;
+      width: 50px;
     }
     
     .gradient-orb {
