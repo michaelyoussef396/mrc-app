@@ -2,6 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
+interface StatusOption {
+  value: string;
+  label: string;
+  icon: string;
+  color: string;
+  description?: string;
+  nextActions?: string[];
+  availableButtons?: string[];
+}
+
 const LeadsManagement = () => {
   const navigate = useNavigate();
   
@@ -13,17 +23,425 @@ const LeadsManagement = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
 
-  const statusOptions = [
-    { value: 'all', label: 'All Leads', icon: '📋', color: '#6b7280' },
-    { value: 'new', label: 'New', icon: '✨', color: '#3b82f6' },
-    { value: 'contacted', label: 'Contacted', icon: '📞', color: '#8b5cf6' },
-    { value: 'quoted', label: 'Quoted', icon: '💰', color: '#f59e0b' },
-    { value: 'inspection-scheduled', label: 'Inspection Scheduled', icon: '📅', color: '#10b981' },
-    { value: 'inspection-complete', label: 'Inspection Complete', icon: '✓', color: '#059669' },
-    { value: 'job-booked', label: 'Job Booked', icon: '🔨', color: '#0ea5e9' },
-    { value: 'completed', label: 'Completed', icon: '🎉', color: '#22c55e' },
-    { value: 'lost', label: 'Lost', icon: '✕', color: '#ef4444' }
+  // COMPLETE 12-STAGE PIPELINE
+  const statusOptions: StatusOption[] = [
+    { 
+      value: 'all', 
+      label: 'All Leads', 
+      icon: '📋', 
+      color: '#6b7280',
+      description: 'View all leads regardless of stage'
+    },
+    { 
+      value: 'new', 
+      label: 'New Lead', 
+      icon: '🌟', 
+      color: '#3b82f6',
+      description: 'Initial inquiry received',
+      nextActions: ['Contact lead', 'Schedule call'],
+      availableButtons: ['call', 'email', 'markContacted', 'viewDetails']
+    },
+    { 
+      value: 'contacted', 
+      label: 'Contacted', 
+      icon: '📞', 
+      color: '#8b5cf6',
+      description: 'First contact made with lead',
+      nextActions: ['Follow up', 'Send initial quote', 'Book inspection'],
+      availableButtons: ['call', 'email', 'sendQuote', 'scheduleInspection', 'viewDetails']
+    },
+    { 
+      value: 'quoted', 
+      label: 'Quoted', 
+      icon: '💰', 
+      color: '#f59e0b',
+      description: 'Initial quote provided (before inspection)',
+      nextActions: ['Follow up on quote', 'Book inspection'],
+      availableButtons: ['call', 'email', 'scheduleInspection', 'resendQuote', 'viewDetails']
+    },
+    { 
+      value: 'inspection-scheduled', 
+      label: 'Inspection Scheduled', 
+      icon: '📅', 
+      color: '#10b981',
+      description: 'Inspection appointment booked',
+      nextActions: ['Prepare for inspection', 'Confirm appointment'],
+      availableButtons: ['startInspection', 'reschedule', 'viewDetails', 'call', 'email']
+    },
+    { 
+      value: 'inspection-complete', 
+      label: 'Inspection Complete', 
+      icon: '✓', 
+      color: '#059669',
+      description: 'Inspection finished, report being prepared',
+      nextActions: ['Generate report', 'Prepare quote'],
+      availableButtons: ['viewInspection', 'generateReport', 'sendQuote', 'viewDetails']
+    },
+    { 
+      value: 'quote-sent', 
+      label: 'Quote Sent', 
+      icon: '📄', 
+      color: '#0ea5e9',
+      description: 'Full quote sent after inspection',
+      nextActions: ['Follow up on quote', 'Answer questions'],
+      availableButtons: ['call', 'email', 'resendQuote', 'viewQuote', 'viewDetails']
+    },
+    { 
+      value: 'awaiting-approval', 
+      label: 'Awaiting Approval', 
+      icon: '⏳', 
+      color: '#f59e0b',
+      description: 'Waiting for client to approve quote',
+      nextActions: ['Follow up', 'Check decision timeline'],
+      availableButtons: ['call', 'email', 'viewQuote', 'markApproved', 'viewDetails']
+    },
+    { 
+      value: 'job-booked', 
+      label: 'Job Booked', 
+      icon: '🔨', 
+      color: '#8b5cf6',
+      description: 'Client approved, job scheduled',
+      nextActions: ['Prepare equipment', 'Confirm start date'],
+      availableButtons: ['viewSchedule', 'startJob', 'reschedule', 'call', 'viewDetails']
+    },
+    { 
+      value: 'job-in-progress', 
+      label: 'Job In Progress', 
+      icon: '🔧', 
+      color: '#f97316',
+      description: 'Technicians on site doing work',
+      nextActions: ['Monitor progress', 'Update client'],
+      availableButtons: ['viewProgress', 'updateStatus', 'completeJob', 'viewDetails']
+    },
+    { 
+      value: 'job-complete', 
+      label: 'Job Complete', 
+      icon: '✅', 
+      color: '#22c55e',
+      description: 'Work finished, awaiting payment/sign-off',
+      nextActions: ['Send invoice', 'Request payment', 'Get sign-off'],
+      availableButtons: ['sendInvoice', 'markPaid', 'requestFeedback', 'viewDetails']
+    },
+    { 
+      value: 'paid-closed', 
+      label: 'Paid & Closed', 
+      icon: '💚', 
+      color: '#10b981',
+      description: 'Payment received, job fully closed',
+      nextActions: ['Request review', 'Archive'],
+      availableButtons: ['requestReview', 'viewHistory', 'archive']
+    },
+    { 
+      value: 'lost', 
+      label: 'Lost', 
+      icon: '❌', 
+      color: '#ef4444',
+      description: 'Client didn\'t proceed',
+      nextActions: ['Document reason', 'Follow up later'],
+      availableButtons: ['viewHistory', 'addNotes', 'reactivate']
+    }
   ];
+
+  // STAGE-SPECIFIC ACTION FUNCTIONS
+  const stageActions = {
+    markContacted: async (leadId: number) => {
+      await updateLeadStatus(leadId, 'contacted');
+    },
+    
+    sendQuote: (leadId: number) => {
+      navigate(`/quote/create?leadId=${leadId}`);
+    },
+    
+    scheduleInspection: (leadId: number) => {
+      navigate(`/inspection/schedule?leadId=${leadId}`);
+    },
+    
+    resendQuote: async (leadId: number) => {
+      console.log('Resending quote for lead:', leadId);
+    },
+    
+    startInspection: (leadId: number) => {
+      navigate(`/inspection?leadId=${leadId}`);
+    },
+    
+    reschedule: (leadId: number) => {
+      navigate(`/inspection/schedule?leadId=${leadId}&reschedule=true`);
+    },
+    
+    viewInspection: (leadId: number) => {
+      navigate(`/inspection/view?leadId=${leadId}`);
+    },
+    
+    generateReport: async (leadId: number) => {
+      console.log('Generating report for lead:', leadId);
+      navigate(`/report/generate?leadId=${leadId}`);
+    },
+    
+    viewQuote: (leadId: number) => {
+      navigate(`/quote/view?leadId=${leadId}`);
+    },
+    
+    markApproved: async (leadId: number) => {
+      await updateLeadStatus(leadId, 'job-booked');
+    },
+    
+    viewSchedule: (leadId: number) => {
+      navigate(`/calendar?leadId=${leadId}`);
+    },
+    
+    startJob: async (leadId: number) => {
+      await updateLeadStatus(leadId, 'job-in-progress');
+    },
+    
+    viewProgress: (leadId: number) => {
+      navigate(`/job/progress?leadId=${leadId}`);
+    },
+    
+    updateStatus: (leadId: number) => {
+      console.log('Update status for lead:', leadId);
+    },
+    
+    completeJob: async (leadId: number) => {
+      await updateLeadStatus(leadId, 'job-complete');
+    },
+    
+    sendInvoice: (leadId: number) => {
+      navigate(`/invoice/create?leadId=${leadId}`);
+    },
+    
+    markPaid: async (leadId: number) => {
+      await updateLeadStatus(leadId, 'paid-closed');
+    },
+    
+    requestFeedback: async (leadId: number) => {
+      console.log('Requesting feedback for lead:', leadId);
+    },
+    
+    requestReview: async (leadId: number) => {
+      console.log('Requesting review for lead:', leadId);
+    },
+    
+    viewHistory: (leadId: number) => {
+      navigate(`/client/${leadId}/history`);
+    },
+    
+    archive: async (leadId: number) => {
+      console.log('Archiving lead:', leadId);
+    },
+    
+    addNotes: (leadId: number) => {
+      navigate(`/client/${leadId}?addNotes=true`);
+    },
+    
+    reactivate: async (leadId: number) => {
+      await updateLeadStatus(leadId, 'contacted');
+    },
+    
+    call: (phone: string) => {
+      window.location.href = `tel:${phone}`;
+    },
+    
+    email: (email: string) => {
+      window.location.href = `mailto:${email}`;
+    },
+    
+    viewDetails: (leadId: number) => {
+      navigate(`/client/${leadId}`);
+    }
+  };
+
+  const updateLeadStatus = async (leadId: number, newStatus: string) => {
+    setLeads(prev => prev.map(lead => 
+      lead.id === leadId ? { ...lead, status: newStatus } : lead
+    ));
+  };
+
+  const getAvailableActions = (lead: any) => {
+    const statusConfig = statusOptions.find(opt => opt.value === lead.status);
+    return statusConfig?.availableButtons || [];
+  };
+
+  const renderActionButtons = (lead: any) => {
+    const availableActions = getAvailableActions(lead);
+    
+    const buttonConfig: any = {
+      call: {
+        icon: '📞',
+        label: 'Call',
+        onClick: () => stageActions.call(lead.phone),
+        style: 'primary'
+      },
+      email: {
+        icon: '📧',
+        label: 'Email',
+        onClick: () => stageActions.email(lead.email),
+        style: 'primary'
+      },
+      viewDetails: {
+        icon: '👁️',
+        label: 'View',
+        onClick: () => stageActions.viewDetails(lead.id),
+        style: 'secondary'
+      },
+      markContacted: {
+        icon: '✓',
+        label: 'Contacted',
+        onClick: () => stageActions.markContacted(lead.id),
+        style: 'success'
+      },
+      sendQuote: {
+        icon: '💰',
+        label: 'Quote',
+        onClick: () => stageActions.sendQuote(lead.id),
+        style: 'primary'
+      },
+      scheduleInspection: {
+        icon: '📅',
+        label: 'Schedule',
+        onClick: () => stageActions.scheduleInspection(lead.id),
+        style: 'success'
+      },
+      resendQuote: {
+        icon: '📄',
+        label: 'Resend',
+        onClick: () => stageActions.resendQuote(lead.id),
+        style: 'secondary'
+      },
+      startInspection: {
+        icon: '📝',
+        label: 'Start',
+        onClick: () => stageActions.startInspection(lead.id),
+        style: 'success'
+      },
+      reschedule: {
+        icon: '🔄',
+        label: 'Reschedule',
+        onClick: () => stageActions.reschedule(lead.id),
+        style: 'secondary'
+      },
+      viewInspection: {
+        icon: '📋',
+        label: 'View',
+        onClick: () => stageActions.viewInspection(lead.id),
+        style: 'secondary'
+      },
+      generateReport: {
+        icon: '📄',
+        label: 'Generate',
+        onClick: () => stageActions.generateReport(lead.id),
+        style: 'primary'
+      },
+      viewQuote: {
+        icon: '💰',
+        label: 'View',
+        onClick: () => stageActions.viewQuote(lead.id),
+        style: 'secondary'
+      },
+      markApproved: {
+        icon: '✓',
+        label: 'Approved',
+        onClick: () => stageActions.markApproved(lead.id),
+        style: 'success'
+      },
+      viewSchedule: {
+        icon: '📅',
+        label: 'Schedule',
+        onClick: () => stageActions.viewSchedule(lead.id),
+        style: 'secondary'
+      },
+      startJob: {
+        icon: '🔨',
+        label: 'Start',
+        onClick: () => stageActions.startJob(lead.id),
+        style: 'success'
+      },
+      viewProgress: {
+        icon: '📊',
+        label: 'Progress',
+        onClick: () => stageActions.viewProgress(lead.id),
+        style: 'secondary'
+      },
+      updateStatus: {
+        icon: '🔄',
+        label: 'Update',
+        onClick: () => stageActions.updateStatus(lead.id),
+        style: 'secondary'
+      },
+      completeJob: {
+        icon: '✅',
+        label: 'Complete',
+        onClick: () => stageActions.completeJob(lead.id),
+        style: 'success'
+      },
+      sendInvoice: {
+        icon: '💵',
+        label: 'Invoice',
+        onClick: () => stageActions.sendInvoice(lead.id),
+        style: 'primary'
+      },
+      markPaid: {
+        icon: '💚',
+        label: 'Paid',
+        onClick: () => stageActions.markPaid(lead.id),
+        style: 'success'
+      },
+      requestFeedback: {
+        icon: '⭐',
+        label: 'Feedback',
+        onClick: () => stageActions.requestFeedback(lead.id),
+        style: 'secondary'
+      },
+      requestReview: {
+        icon: '⭐',
+        label: 'Review',
+        onClick: () => stageActions.requestReview(lead.id),
+        style: 'secondary'
+      },
+      viewHistory: {
+        icon: '📜',
+        label: 'History',
+        onClick: () => stageActions.viewHistory(lead.id),
+        style: 'secondary'
+      },
+      archive: {
+        icon: '📦',
+        label: 'Archive',
+        onClick: () => stageActions.archive(lead.id),
+        style: 'secondary'
+      },
+      addNotes: {
+        icon: '📝',
+        label: 'Notes',
+        onClick: () => stageActions.addNotes(lead.id),
+        style: 'secondary'
+      },
+      reactivate: {
+        icon: '🔄',
+        label: 'Reactivate',
+        onClick: () => stageActions.reactivate(lead.id),
+        style: 'success'
+      }
+    };
+
+    return availableActions.map(actionKey => {
+      const config = buttonConfig[actionKey];
+      if (!config) return null;
+
+      return (
+        <button
+          key={actionKey}
+          className={`action-btn action-btn-${config.style}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            config.onClick();
+          }}
+        >
+          <span className="action-icon">{config.icon}</span>
+          <span className="action-label">{config.label}</span>
+        </button>
+      );
+    });
+  };
 
   useEffect(() => {
     loadLeads();
@@ -49,8 +467,7 @@ const LeadsManagement = () => {
         dateCreated: '2025-01-29T10:30:00',
         lastContact: null,
         estimatedValue: 2400,
-        issueDescription: 'Visible black mould in bathroom and bedroom ceiling',
-        nextAction: 'Contact to schedule inspection'
+        issueDescription: 'Visible black mould in bathroom and bedroom ceiling'
       },
       {
         id: 2,
@@ -67,8 +484,7 @@ const LeadsManagement = () => {
         dateCreated: '2025-01-28T14:15:00',
         lastContact: '2025-01-28T16:30:00',
         estimatedValue: 3200,
-        issueDescription: 'Roof leak causing mould growth in multiple rooms',
-        nextAction: 'Follow up on inspection booking'
+        issueDescription: 'Roof leak causing mould growth in multiple rooms'
       },
       {
         id: 3,
@@ -86,8 +502,7 @@ const LeadsManagement = () => {
         lastContact: '2025-01-28T11:00:00',
         scheduledDate: '2025-01-29T14:00:00',
         estimatedValue: 4500,
-        issueDescription: 'Black mould in bathroom - health concerns',
-        nextAction: 'Inspection tomorrow at 2pm'
+        issueDescription: 'Black mould in bathroom - health concerns'
       },
       {
         id: 4,
@@ -104,8 +519,7 @@ const LeadsManagement = () => {
         dateCreated: '2025-01-26T16:20:00',
         lastContact: '2025-01-27T10:00:00',
         estimatedValue: 1800,
-        issueDescription: 'Musty smell in basement, possible mould',
-        nextAction: 'Waiting for client approval on quote'
+        issueDescription: 'Musty smell in basement, possible mould'
       },
       {
         id: 5,
@@ -122,8 +536,7 @@ const LeadsManagement = () => {
         dateCreated: '2025-01-25T11:20:00',
         lastContact: '2025-01-27T15:30:00',
         estimatedValue: 5600,
-        issueDescription: 'Commercial office - multiple rooms with mould',
-        nextAction: 'Send quote for remediation work'
+        issueDescription: 'Commercial office - multiple rooms with mould'
       },
       {
         id: 6,
@@ -141,8 +554,7 @@ const LeadsManagement = () => {
         lastContact: '2025-01-26T09:00:00',
         scheduledDate: '2025-01-31T09:00:00',
         estimatedValue: 6700,
-        issueDescription: 'Extensive mould remediation needed',
-        nextAction: 'Job scheduled for Jan 31st'
+        issueDescription: 'Extensive mould remediation needed'
       }
     ];
     
@@ -285,6 +697,7 @@ const LeadsManagement = () => {
                     // @ts-ignore
                     '--status-color': status.color
                   }}
+                  title={status.description}
                 >
                   <span className="status-tab-icon">{status.icon}</span>
                   <div className="status-tab-content">
@@ -468,35 +881,19 @@ const LeadsManagement = () => {
                     </div>
                   </div>
 
-                  {lead.nextAction && (
+                  {/* NEXT ACTION INDICATOR */}
+                  {statusOptions.find(opt => opt.value === lead.status)?.nextActions && (
                     <div className="lead-next-action">
                       <span className="next-action-icon">→</span>
-                      <span className="next-action-text">{lead.nextAction}</span>
+                      <span className="next-action-text">
+                        Next: {statusOptions.find(opt => opt.value === lead.status)?.nextActions?.[0]}
+                      </span>
                     </div>
                   )}
 
+                  {/* STAGE-SPECIFIC ACTION BUTTONS */}
                   <div className="lead-actions" onClick={(e) => e.stopPropagation()}>
-                    <button 
-                      className="action-btn"
-                      onClick={() => window.location.href = `tel:${lead.phone}`}
-                    >
-                      <span className="action-icon">📞</span>
-                      <span className="action-label">Call</span>
-                    </button>
-                    <button 
-                      className="action-btn"
-                      onClick={() => window.location.href = `mailto:${lead.email}`}
-                    >
-                      <span className="action-icon">📧</span>
-                      <span className="action-label">Email</span>
-                    </button>
-                    <button 
-                      className="action-btn"
-                      onClick={() => navigate(`/client/${lead.id}`)}
-                    >
-                      <span className="action-icon">👁️</span>
-                      <span className="action-label">View</span>
-                    </button>
+                    {renderActionButtons(lead)}
                   </div>
                 </div>
               ))}
