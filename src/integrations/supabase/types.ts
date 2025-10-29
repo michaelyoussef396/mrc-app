@@ -177,45 +177,45 @@ export type Database = {
       company_settings: {
         Row: {
           abn: string | null
-          business_email: string | null
-          business_name: string | null
-          business_phone: string | null
+          address_postcode: string | null
+          address_state: string | null
+          address_street: string | null
+          address_suburb: string | null
+          business_name: string
           created_at: string | null
+          email: string | null
           id: string
-          postcode: string | null
-          state: string | null
-          street_address: string | null
-          suburb: string | null
+          logo_url: string | null
+          phone: string | null
           updated_at: string | null
-          user_id: string
         }
         Insert: {
           abn?: string | null
-          business_email?: string | null
-          business_name?: string | null
-          business_phone?: string | null
+          address_postcode?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_suburb?: string | null
+          business_name?: string
           created_at?: string | null
+          email?: string | null
           id?: string
-          postcode?: string | null
-          state?: string | null
-          street_address?: string | null
-          suburb?: string | null
+          logo_url?: string | null
+          phone?: string | null
           updated_at?: string | null
-          user_id: string
         }
         Update: {
           abn?: string | null
-          business_email?: string | null
-          business_name?: string | null
-          business_phone?: string | null
+          address_postcode?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_suburb?: string | null
+          business_name?: string
           created_at?: string | null
+          email?: string | null
           id?: string
-          postcode?: string | null
-          state?: string | null
-          street_address?: string | null
-          suburb?: string | null
+          logo_url?: string | null
+          phone?: string | null
           updated_at?: string | null
-          user_id?: string
         }
         Relationships: []
       }
@@ -1071,6 +1071,54 @@ export type Database = {
         }
         Relationships: []
       }
+      users: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string
+          full_name: string
+          id: string
+          is_active: boolean | null
+          last_login: string | null
+          onboarding_completed: boolean | null
+          onboarding_step: string | null
+          password_hash: string
+          phone: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email: string
+          full_name: string
+          id?: string
+          is_active?: boolean | null
+          last_login?: string | null
+          onboarding_completed?: boolean | null
+          onboarding_step?: string | null
+          password_hash: string
+          phone?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean | null
+          last_login?: string | null
+          onboarding_completed?: boolean | null
+          onboarding_step?: string | null
+          password_hash?: string
+          phone?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1141,6 +1189,7 @@ export type Database = {
         | "tenants_vacating"
       report_status: "draft" | "sent" | "confirmed" | "job_booked"
       subfloor_landscape: "flat_block" | "sloping_block"
+      user_role: "admin" | "technician" | "manager"
       waste_disposal_size: "small" | "medium" | "large" | "extra_large"
     }
     CompositeTypes: {
@@ -1313,6 +1362,7 @@ export const Constants = {
       ],
       report_status: ["draft", "sent", "confirmed", "job_booked"],
       subfloor_landscape: ["flat_block", "sloping_block"],
+      user_role: ["admin", "technician", "manager"],
       waste_disposal_size: ["small", "medium", "large", "extra_large"],
     },
   },
