@@ -18,6 +18,7 @@ import Dashboard from "./pages/Dashboard";
 import NewLead from "./pages/NewLead";
 import InspectionSelectLead from "./pages/InspectionSelectLead";
 import ClientDetail from "./pages/ClientDetail";
+import LeadsManagement from "./pages/LeadsManagement";
 import Profile from "./pages/Profile";
 import ManageUsers from "./pages/ManageUsers";
 import Settings from "./pages/Settings";
@@ -75,7 +76,8 @@ const AppContent = () => {
             <Route path="/profile" element={<Profile />} />
             <Route path="/manage-users" element={<ManageUsers />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/leads" element={<Leads />} />
+            <Route path="/leads" element={<LeadsManagement />} />
+            <Route path="/leads-pipeline" element={<Leads />} />
             <Route path="/leads/:id" element={<LeadDetail />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/inspection" element={<InspectionForm />} />
