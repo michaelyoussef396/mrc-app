@@ -1323,7 +1323,7 @@
   .form-input-forgot {
     width: 100%;
     padding: 16px;
-    padding-left: 48px;
+    padding-left: 56px;
     font-size: 15px;
     font-weight: 500;
     color: hsl(var(--gray-900));
