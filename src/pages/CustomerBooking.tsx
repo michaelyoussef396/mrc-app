@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Calendar } from '@/components/ui/calendar';
 import { format, addDays } from 'date-fns';
+import Logo from '@/components/Logo';
 
 const CustomerBooking = () => {
   const [searchParams] = useSearchParams();
@@ -188,7 +189,7 @@ const CustomerBooking = () => {
       {/* Header */}
       <header className="booking-header">
         <div className="company-logo">
-          <span className="logo-icon">🏠</span>
+          <Logo size="medium" />
           <div className="logo-text">
             <h1>Mould & Restoration Co.</h1>
             <p>Professional Mould Remediation</p>

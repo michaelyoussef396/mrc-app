@@ -6,6 +6,7 @@ import * as z from "zod";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Mail, Lock, ArrowRight, User, Wrench } from "lucide-react";
+import Logo from "@/components/Logo";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -79,7 +80,7 @@ export default function Login() {
           <div className="login-header">
             <div className="logo-container">
               <div className="logo-circle">
-                <span className="logo-text">MRC</span>
+                <Logo size="large" />
               </div>
             </div>
             <h1 className="login-title">Mould & Restoration Co.</h1>

@@ -872,17 +872,24 @@
   }
 
   .logo-circle {
-    width: 80px;
-    height: 80px;
+    width: 100px;
+    height: 100px;
     border-radius: 20px;
     background: linear-gradient(135deg, #121D73 0%, #1e3a8a 100%);
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 16px;
     box-shadow: 
       0 8px 24px rgba(18, 29, 115, 0.3),
       0 0 0 0.5px rgba(255, 255, 255, 0.1) inset;
     animation: logoFloat 3s ease-in-out infinite;
+  }
+
+  .logo-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 
   @keyframes logoFloat {
@@ -894,12 +901,46 @@
     }
   }
 
-  .logo-text {
-    font-size: 32px;
-    font-weight: 700;
-    color: #ffffff;
-    letter-spacing: -1px;
+/* ============================================
+   GLOBAL LOGO STYLES
+   ============================================ */
+
+.mrc-logo {
+  transition: all 0.3s ease;
+  display: block;
+}
+
+/* Login page logo styling */
+.login-page .logo-circle {
+  width: 100px;
+  height: 100px;
+  padding: 20px;
+}
+
+.login-page .logo-circle img {
+  filter: brightness(0) invert(1);
+}
+
+/* Request Inspection logo */
+.inspection-header .logo img,
+.success-header .logo img {
+  width: 40px;
+  height: 40px;
+}
+
+@media (max-width: 768px) {
+  .inspection-header .logo img,
+  .success-header .logo img {
+    width: 32px;
+    height: 32px;
   }
+  
+  .login-page .logo-circle {
+    width: 80px;
+    height: 80px;
+    padding: 16px;
+  }
+}
 
   .login-title {
     font-size: 24px;
@@ -10384,16 +10425,10 @@ a.contact-value:hover {
   gap: 16px;
 }
 
-.logo-icon {
+.company-logo img {
   width: 56px;
   height: 56px;
-  background: linear-gradient(135deg, #121D73 0%, #1e3a8a 100%);
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  box-shadow: 0 4px 12px rgba(18, 29, 115, 0.3);
+  object-fit: contain;
 }
 
 .logo-text h1 {
@@ -14041,8 +14076,10 @@ a.contact-value:hover {
   gap: 12px;
 }
 
-.logo-icon {
-  font-size: 32px;
+.logo img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
 }
 
 .logo-text {

@@ -17,7 +17,7 @@ import {
 import { Menu, ChevronDown, User, Users, Settings, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import NotificationBell from "./NotificationBell";
-import logo from "@/assets/Logo.png";
+import logo from "@/assets/logo-small.png";
 
 export function TopNavigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Logo from '@/components/Logo'
 
 const RequestInspection = () => {
   const navigate = useNavigate()
@@ -159,7 +160,7 @@ const RequestInspection = () => {
       <header className="inspection-header">
         <div className="header-container">
           <div className="logo">
-            <span className="logo-icon">🏠</span>
+            <Logo size="medium" />
             <span className="logo-text">MRC</span>
           </div>
           <div className="header-contact">
