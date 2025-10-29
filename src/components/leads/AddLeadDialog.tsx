@@ -41,15 +41,15 @@ import {
 } from "@/lib/leadUtils";
 
 const formSchema = z.object({
-  full_name: z.string().min(2, "Please enter customer's full name"),
-  email: z.string().email("Please enter a valid email address"),
-  phone: z.string().min(10, "Please enter a valid Australian phone number"),
-  property_address_street: z.string().min(1, "Please enter street address"),
-  property_address_suburb: z.string().min(1, "Please enter suburb"),
+  full_name: z.string().optional(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  property_address_street: z.string().optional(),
+  property_address_suburb: z.string().optional(),
   property_address_state: z.string().default("VIC"),
-  property_address_postcode: z.string().regex(/^\d{4}$/, "Please enter a valid 4-digit postcode"),
+  property_address_postcode: z.string().optional(),
   property_type: z.string().optional(),
-  lead_source: z.string().min(1, "Please select how they heard about us"),
+  lead_source: z.string().optional(),
   issue_description: z.string().max(1000).optional(),
   urgency: z.string().optional(),
   assigned_to: z.string().uuid().optional().nullable(),
