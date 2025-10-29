@@ -1,0 +1,494 @@
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Phone, Mail, MapPin, Calendar, User, FileText, DollarSign, Clock } from "lucide-react";
+import { STATUS_FLOW, LeadStatus } from "@/lib/statusFlow";
+import { useState } from "react";
+import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
+import { toast } from "sonner";
+
+export default function LeadDetail() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [showBookingModal, setShowBookingModal] = useState(false);
+
+  const { data: lead, isLoading } = useQuery({
+    queryKey: ["lead", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: activities } = useQuery({
+    queryKey: ["activities", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("activities")
+        .select("*")
+        .eq("lead_id", id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p>Loading lead details...</p>
+      </div>
+    );
+  }
+
+  if (!lead) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p>Lead not found</p>
+      </div>
+    );
+  }
+
+  const statusConfig = STATUS_FLOW[lead.status as LeadStatus];
+
+  const renderActionButtons = () => {
+    const status = lead.status as LeadStatus;
+
+    switch (status) {
+      case "new_lead":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" variant="outline" onClick={() => window.location.href = `tel:${lead.phone}`}>
+              <Phone className="h-4 w-4 mr-2" /> Call Customer
+            </Button>
+            <Button size="lg" onClick={() => setShowBookingModal(true)}>
+              <Calendar className="h-4 w-4 mr-2" /> Book Inspection
+            </Button>
+          </div>
+        );
+
+      case "contacted":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" variant="outline">
+              <MapPin className="h-4 w-4 mr-2" /> Get Directions
+            </Button>
+            <Button size="lg" variant="outline">
+              <FileText className="h-4 w-4 mr-2" /> View Booking
+            </Button>
+            <Button size="lg">
+              <Phone className="h-4 w-4 mr-2" /> Send Reminder
+            </Button>
+          </div>
+        );
+
+      case "inspection_waiting":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" variant="outline">
+              🚗 I'm On My Way
+            </Button>
+            <Button size="lg" onClick={() => navigate(`/inspection/${lead.id}`)}>
+              📋 Start Inspection
+            </Button>
+          </div>
+        );
+
+      case "inspection_completed":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" variant="outline">
+              👁️ Preview Report
+            </Button>
+            <Button size="lg" variant="outline">
+              ✏️ Edit Inspection
+            </Button>
+            <Button size="lg">
+              ✅ Approve & Send Report
+            </Button>
+          </div>
+        );
+
+      case "inspection_report_pdf_completed":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" variant="outline">
+              📄 Download PDF
+            </Button>
+            <Button size="lg" variant="outline">
+              🔗 Copy Booking Link
+            </Button>
+            <Button size="lg">
+              📧 Send Report to Customer
+            </Button>
+          </div>
+        );
+
+      case "job_waiting":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" variant="outline">
+              🔗 Resend Booking Link
+            </Button>
+            <Button size="lg" variant="outline">
+              📞 Follow Up Call
+            </Button>
+            <Button size="lg">
+              ✏️ Manual Job Booking
+            </Button>
+          </div>
+        );
+
+      case "job_completed":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" variant="outline">
+              🚗 I'm On My Way
+            </Button>
+            <Button size="lg" variant="outline">
+              📋 Start Job
+            </Button>
+            <Button size="lg">
+              ✅ Complete Job
+            </Button>
+          </div>
+        );
+
+      case "job_report_pdf_sent":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" variant="outline">
+              📄 Preview Report
+            </Button>
+            <Button size="lg">
+              📧 Send Completion Report
+            </Button>
+          </div>
+        );
+
+      case "invoicing_sent":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" variant="outline">
+              📄 View Invoice
+            </Button>
+            <Button size="lg" variant="outline">
+              🔗 Copy Payment Link
+            </Button>
+            <Button size="lg">
+              💳 Send Invoice
+            </Button>
+          </div>
+        );
+
+      case "paid":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" variant="outline">
+              🔔 Send Reminder
+            </Button>
+            <Button size="lg" variant="outline">
+              📞 Call Customer
+            </Button>
+            <Button size="lg">
+              💰 Mark as Paid
+            </Button>
+          </div>
+        );
+
+      case "google_review":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" variant="outline">
+              👁️ Check Review Status
+            </Button>
+            <Button size="lg">
+              ⭐ Send Review Request
+            </Button>
+            <Button size="lg" variant="secondary">
+              ✅ Review Received
+            </Button>
+            <Button size="lg" variant="outline">
+              ⏭️ Skip Review
+            </Button>
+          </div>
+        );
+
+      case "finished":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" variant="outline">
+              📊 View Summary
+            </Button>
+            <Button size="lg" variant="outline">
+              📄 Download All Reports
+            </Button>
+            <Button size="lg" variant="secondary">
+              🔄 Reopen Job
+            </Button>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const renderTimeline = () => {
+    const allStatuses = Object.keys(STATUS_FLOW) as LeadStatus[];
+    const currentStatusIndex = allStatuses.indexOf(lead.status as LeadStatus);
+
+    return (
+      <div className="space-y-6">
+        {allStatuses.map((status, index) => {
+          const config = STATUS_FLOW[status];
+          const isCompleted = index < currentStatusIndex;
+          const isCurrent = index === currentStatusIndex;
+          const isPending = index > currentStatusIndex;
+
+          return (
+            <div key={status} className="flex gap-4">
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${
+                    isCurrent
+                      ? "bg-primary text-primary-foreground"
+                      : isCompleted
+                      ? "bg-green-500 text-white"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {isCompleted ? "✅" : isCurrent ? "🔵" : "⏳"}
+                </div>
+                {index < allStatuses.length - 1 && (
+                  <div
+                    className={`w-0.5 h-12 ${
+                      isCompleted ? "bg-green-500" : "bg-border"
+                    }`}
+                  />
+                )}
+              </div>
+
+              <div className={`flex-1 pb-6 ${isCurrent ? "bg-accent p-4 rounded-lg" : ""}`}>
+                <h3 className={`font-semibold ${isCurrent ? "text-lg" : ""}`}>
+                  {config.title}
+                </h3>
+                {isCurrent && (
+                  <>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {config.nextAction}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Action required
+                    </p>
+                  </>
+                )}
+                {isCompleted && activities && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Completed
+                  </p>
+                )}
+                {isPending && (
+                  <p className="text-xs text-muted-foreground mt-1">Pending...</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="bg-card border-b">
+        <div className="container mx-auto px-4 py-6">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/leads")}
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Pipeline
+          </Button>
+
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold">
+              {lead.lead_number} - {lead.full_name}
+            </h1>
+            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
+                {lead.property_address_street}, {lead.property_address_suburb} {lead.property_address_state} {lead.property_address_postcode}
+              </span>
+              <span className="flex items-center gap-1">
+                <Mail className="h-4 w-4" />
+                {lead.email}
+              </span>
+              <span className="flex items-center gap-1">
+                <Phone className="h-4 w-4" />
+                {lead.phone}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Status Card */}
+      <div className="container mx-auto px-4 py-6">
+        <Card className="border-l-4" style={{ borderLeftColor: statusConfig.color }}>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-2xl">
+                <span>{statusConfig.icon}</span>
+                <span>CURRENT STATUS: {statusConfig.title.toUpperCase()}</span>
+              </CardTitle>
+              <Badge variant="outline" style={{ borderColor: statusConfig.color, color: statusConfig.color }}>
+                {statusConfig.title}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-muted-foreground mb-2">📋 Next Action Required:</p>
+              <p className="text-lg">{statusConfig.nextAction}</p>
+            </div>
+
+            {renderActionButtons()}
+
+            <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2">
+              <Clock className="h-4 w-4" />
+              Lead created {new Date(lead.created_at).toLocaleDateString()}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabs */}
+      <div className="container mx-auto px-4 pb-8">
+        <Tabs defaultValue="overview">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="inspection">Inspection</TabsTrigger>
+            <TabsTrigger value="invoice">Invoice</TabsTrigger>
+            <TabsTrigger value="files">Files</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Customer Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-muted-foreground">Full Name</p>
+                    <p>{lead.full_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-muted-foreground">Email</p>
+                    <p>{lead.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-muted-foreground">Phone</p>
+                    <p>{lead.phone}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-muted-foreground">Lead Source</p>
+                    <p>{lead.lead_source || "Not specified"}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Property Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground">Address</p>
+                  <p>{lead.property_address_street}</p>
+                  <p>{lead.property_address_suburb} {lead.property_address_state} {lead.property_address_postcode}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground">Property Type</p>
+                  <p>{lead.property_type || "Not specified"}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {lead.issue_description && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Issue Description</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>{lead.issue_description}</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="timeline" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Lead Timeline</CardTitle>
+              </CardHeader>
+              <CardContent>{renderTimeline()}</CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="inspection" className="mt-6">
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                Inspection details will appear here once inspection is scheduled
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="invoice" className="mt-6">
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                Invoice details will appear here once created
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="files" className="mt-6">
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                Files and documents will appear here
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Booking Modal */}
+      <BookInspectionModal
+        open={showBookingModal}
+        onOpenChange={setShowBookingModal}
+        leadId={lead.id}
+        leadNumber={lead.lead_number || ""}
+        customerName={lead.full_name}
+        propertyAddress={`${lead.property_address_street}, ${lead.property_address_suburb}`}
+      />
+    </div>
+  );
+}

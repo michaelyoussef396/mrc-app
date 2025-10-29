@@ -15,6 +15,7 @@ import Profile from "./pages/Profile";
 import ManageUsers from "./pages/ManageUsers";
 import Settings from "./pages/Settings";
 import Leads from "./pages/Leads";
+import LeadDetail from "./pages/LeadDetail";
 import Calendar from "./pages/Calendar";
 import InspectionForm from "./pages/InspectionForm";
 import Reports from "./pages/Reports";
@@ -80,6 +81,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Leads />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/leads/:id"
+              element={
+                <ProtectedRoute>
+                  <LeadDetail />
                 </ProtectedRoute>
               }
             />

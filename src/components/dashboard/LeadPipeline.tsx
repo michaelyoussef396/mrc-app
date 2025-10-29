@@ -24,7 +24,15 @@ export function LeadPipeline() {
         newLeads: statusCounts?.["new_lead"] || 0,
         contacted: statusCounts?.["contacted"] || 0,
         inspectionWaiting: statusCounts?.["inspection_waiting"] || 0,
+        inspectionCompleted: statusCounts?.["inspection_completed"] || 0,
+        reportPdfReady: statusCounts?.["inspection_report_pdf_completed"] || 0,
         jobWaiting: statusCounts?.["job_waiting"] || 0,
+        jobCompleted: statusCounts?.["job_completed"] || 0,
+        jobReportSent: statusCounts?.["job_report_pdf_sent"] || 0,
+        invoicingSent: statusCounts?.["invoicing_sent"] || 0,
+        paid: statusCounts?.["paid"] || 0,
+        googleReview: statusCounts?.["google_review"] || 0,
+        finished: statusCounts?.["finished"] || 0,
         totalLeads,
       };
     },
@@ -32,34 +40,70 @@ export function LeadPipeline() {
 
   const stages = [
     {
-      label: "NEW LEADS",
+      label: "🆕 New Leads",
       count: pipelineData?.newLeads || 0,
-      percentage:
-        ((pipelineData?.newLeads || 0) / (pipelineData?.totalLeads || 1)) * 100,
+      percentage: ((pipelineData?.newLeads || 0) / (pipelineData?.totalLeads || 1)) * 100,
       color: "bg-blue-500",
     },
     {
-      label: "CONTACTED",
+      label: "✅ Contacted",
       count: pipelineData?.contacted || 0,
-      percentage:
-        ((pipelineData?.contacted || 0) / (pipelineData?.totalLeads || 1)) * 100,
-      color: "bg-purple-500",
+      percentage: ((pipelineData?.contacted || 0) / (pipelineData?.totalLeads || 1)) * 100,
+      color: "bg-green-500",
     },
     {
-      label: "INSPECTION BOOKED",
+      label: "⏳ Inspections Waiting",
       count: pipelineData?.inspectionWaiting || 0,
-      percentage:
-        ((pipelineData?.inspectionWaiting || 0) /
-          (pipelineData?.totalLeads || 1)) *
-        100,
+      percentage: ((pipelineData?.inspectionWaiting || 0) / (pipelineData?.totalLeads || 1)) * 100,
       color: "bg-amber-500",
     },
     {
-      label: "JOB BOOKED",
+      label: "📝 Inspections Done",
+      count: pipelineData?.inspectionCompleted || 0,
+      percentage: ((pipelineData?.inspectionCompleted || 0) / (pipelineData?.totalLeads || 1)) * 100,
+      color: "bg-indigo-500",
+    },
+    {
+      label: "📄 Reports Ready",
+      count: pipelineData?.reportPdfReady || 0,
+      percentage: ((pipelineData?.reportPdfReady || 0) / (pipelineData?.totalLeads || 1)) * 100,
+      color: "bg-purple-500",
+    },
+    {
+      label: "📅 Jobs Waiting",
       count: pipelineData?.jobWaiting || 0,
-      percentage:
-        ((pipelineData?.jobWaiting || 0) / (pipelineData?.totalLeads || 1)) * 100,
-      color: "bg-green-500",
+      percentage: ((pipelineData?.jobWaiting || 0) / (pipelineData?.totalLeads || 1)) * 100,
+      color: "bg-orange-500",
+    },
+    {
+      label: "🛠️ Jobs In Progress",
+      count: pipelineData?.jobCompleted || 0,
+      percentage: ((pipelineData?.jobCompleted || 0) / (pipelineData?.totalLeads || 1)) * 100,
+      color: "bg-green-600",
+    },
+    {
+      label: "💰 Invoiced",
+      count: pipelineData?.invoicingSent || 0,
+      percentage: ((pipelineData?.invoicingSent || 0) / (pipelineData?.totalLeads || 1)) * 100,
+      color: "bg-yellow-500",
+    },
+    {
+      label: "✅ Paid",
+      count: pipelineData?.paid || 0,
+      percentage: ((pipelineData?.paid || 0) / (pipelineData?.totalLeads || 1)) * 100,
+      color: "bg-emerald-500",
+    },
+    {
+      label: "⭐ Review Stage",
+      count: pipelineData?.googleReview || 0,
+      percentage: ((pipelineData?.googleReview || 0) / (pipelineData?.totalLeads || 1)) * 100,
+      color: "bg-amber-400",
+    },
+    {
+      label: "🎉 Finished",
+      count: pipelineData?.finished || 0,
+      percentage: ((pipelineData?.finished || 0) / (pipelineData?.totalLeads || 1)) * 100,
+      color: "bg-green-700",
     },
   ];
 
