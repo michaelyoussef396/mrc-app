@@ -36,7 +36,7 @@ export function ActionsRequired() {
         .from("leads")
         .select(`
           *,
-          calendar_events!inner(start_datetime, end_datetime)
+          calendar_events(start_datetime, end_datetime)
         `)
         .neq("status", "finished")
         .order("created_at", { ascending: true });
