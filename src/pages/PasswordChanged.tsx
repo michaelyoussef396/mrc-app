@@ -1,100 +1,167 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import logoMRC from "@/assets/logoMRC.png";
-import { CheckCircle2, Lock, Shield, Key } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function PasswordChanged() {
-  const [countdown, setCountdown] = useState(5);
   const navigate = useNavigate();
-
+  const [countdown, setCountdown] = useState(5);
+  const [autoRedirect, setAutoRedirect] = useState(true);
+  
   useEffect(() => {
-    // Countdown timer
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    } else {
-      // Auto-redirect when countdown reaches 0
-      navigate("/");
-    }
-  }, [countdown, navigate]);
-
+    if (!autoRedirect || countdown === 0) return;
+    
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          navigate('/');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [countdown, autoRedirect, navigate]);
+  
   const handleLoginNow = () => {
-    navigate("/");
+    setAutoRedirect(false);
+    navigate('/');
   };
-
+  
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
-      <div className="w-full max-w-md">
-        <div className="bg-card rounded-2xl shadow-2xl overflow-hidden">
-          {/* Header */}
-          <div className="bg-primary px-6 sm:px-8 py-8 text-center">
-            <div className="inline-block mb-3">
-              <img 
-                src={logoMRC} 
-                alt="Mould & Restoration Co." 
-                className="h-16 sm:h-20"
-              />
+    <div className="password-changed-page">
+      {/* Blue Animated Background */}
+      <div className="password-changed-background">
+        <div className="gradient-orb orb-1"></div>
+        <div className="gradient-orb orb-2"></div>
+        <div className="gradient-orb orb-3"></div>
+        <div className="gradient-orb orb-4"></div>
+      </div>
+      
+      {/* Celebration Confetti (CSS) */}
+      <div className="confetti-container">
+        {[...Array(20)].map((_, i) => (
+          <div key={i} className={`confetti confetti-${i + 1}`}></div>
+        ))}
+      </div>
+      
+      {/* Content Card */}
+      <div className="password-changed-container">
+        <div className="password-changed-card glass-card">
+          {/* Success Icon */}
+          <div className="success-icon-wrapper">
+            <div className="success-icon-circle">
+              <div className="success-checkmark">
+                <svg 
+                  className="checkmark-svg" 
+                  viewBox="0 0 52 52"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle 
+                    className="checkmark-circle" 
+                    cx="26" 
+                    cy="26" 
+                    r="25" 
+                    fill="none"
+                  />
+                  <path 
+                    className="checkmark-check" 
+                    fill="none" 
+                    d="M14.1 27.2l7.1 7.2 16.7-16.8"
+                  />
+                </svg>
+              </div>
             </div>
           </div>
-
-          <div className="p-6 sm:p-8">
-            {/* Success Icon with Animation */}
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/20 mb-4 animate-in zoom-in duration-500">
-                <CheckCircle2 className="w-12 h-12 text-green-600 dark:text-green-500" />
+          
+          {/* Header */}
+          <div className="password-changed-header">
+            <h1 className="success-title">Password Changed!</h1>
+            <p className="success-message">
+              Your password has been successfully updated. You can now sign in with your new password.
+            </p>
+          </div>
+          
+          {/* Success Details */}
+          <div className="success-details">
+            <div className="detail-item">
+              <span className="detail-icon">✅</span>
+              <span className="detail-text">Password successfully updated</span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-icon">🔒</span>
+              <span className="detail-text">Your account is secure</span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-icon">🔑</span>
+              <span className="detail-text">Use your new password to login</span>
+            </div>
+          </div>
+          
+          {/* Actions */}
+          <div className="password-changed-actions">
+            <button 
+              className="btn-primary btn-login-now"
+              onClick={handleLoginNow}
+            >
+              <span>Sign In Now</span>
+              <span className="btn-arrow">→</span>
+            </button>
+            
+            {/* Auto-redirect Indicator */}
+            {autoRedirect && countdown > 0 && (
+              <div className="auto-redirect-notice">
+                <div className="countdown-circle">
+                  <svg className="countdown-ring" viewBox="0 0 36 36">
+                    <path
+                      className="countdown-background"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      className="countdown-progress"
+                      strokeDasharray={`${(countdown / 5) * 100}, 100`}
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                  </svg>
+                  <span className="countdown-number">{countdown}</span>
+                </div>
+                <p className="redirect-text">
+                  Redirecting to login in {countdown} second{countdown !== 1 ? 's' : ''}...
+                </p>
+                <button 
+                  className="cancel-redirect-btn"
+                  onClick={() => setAutoRedirect(false)}
+                >
+                  Cancel auto-redirect
+                </button>
               </div>
-              <h1 className="text-2xl font-bold text-foreground mb-2">
-                Password Successfully Changed
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Your password has been updated!
+            )}
+          </div>
+          
+          {/* Security Tip */}
+          <div className="security-tip">
+            <div className="tip-icon">💡</div>
+            <div className="tip-content">
+              <h3 className="tip-title">Security Tip</h3>
+              <p className="tip-text">
+                Make sure to use a unique password that you don't use on other websites. Consider using a password manager to keep track of your passwords securely.
               </p>
             </div>
-
-            {/* Content */}
-            <div className="space-y-6">
-              <div className="text-center">
-                <p className="text-base text-foreground mb-6">
-                  You can now log in with your new password.
-                </p>
-              </div>
-
-              {/* Security Tips */}
-              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-primary" />
-                  For your security:
-                </p>
-                <ul className="text-sm text-muted-foreground space-y-2">
-                  <li className="flex items-start gap-2">
-                    <Lock className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                    <span>Keep your password secure and don't share it</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Key className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                    <span>Use a unique password for this account</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Shield className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                    <span>Consider using a password manager</span>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Login Button */}
-              <Button
-                onClick={handleLoginNow}
-                className="w-full h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
-              >
-                Log In Now
-              </Button>
-
-              {/* Auto-redirect Message */}
-              <p className="text-center text-sm text-muted-foreground">
-                Auto-redirecting to login in {countdown} second{countdown !== 1 ? 's' : ''}...
-              </p>
-            </div>
+          </div>
+          
+          {/* Footer Links */}
+          <div className="password-changed-footer">
+            <a href="/" className="footer-link">
+              Go to Login
+            </a>
+            <span className="footer-divider">•</span>
+            <a href="/dashboard" className="footer-link">
+              Go to Dashboard
+            </a>
+            <span className="footer-divider">•</span>
+            <a href="/contact" className="footer-link">
+              Need Help?
+            </a>
           </div>
         </div>
       </div>

@@ -106,9 +106,9 @@ export default function ResetPassword() {
         description: "Your password has been successfully reset.",
       });
       
-      // Redirect to login after 2 seconds
+      // Redirect to password-changed page
       setTimeout(() => {
-        navigate("/");
+        navigate("/password-changed");
       }, 2000);
     } catch (err: any) {
       setError(err.message || "Failed to reset password");

@@ -3817,3 +3817,587 @@
     color: hsl(var(--gray-300));
   }
 }
+
+/* ============================================
+   PASSWORD CHANGED PAGE - APPLE STYLE
+   ============================================ */
+
+.password-changed-page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
+  animation: pageEnter 0.5s ease-out;
+}
+
+/* Blue Animated Background */
+.password-changed-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.password-changed-background .gradient-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.5;
+  animation: float 20s ease-in-out infinite;
+}
+
+.password-changed-background .orb-1 {
+  width: 600px;
+  height: 600px;
+  background: linear-gradient(135deg, #121D73 0%, #1e40af 100%);
+  top: -15%;
+  left: -15%;
+  animation-delay: 0s;
+}
+
+.password-changed-background .orb-2 {
+  width: 500px;
+  height: 500px;
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  bottom: -15%;
+  right: -10%;
+  animation-delay: 7s;
+}
+
+.password-changed-background .orb-3 {
+  width: 400px;
+  height: 400px;
+  background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation-delay: 14s;
+}
+
+.password-changed-background .orb-4 {
+  width: 350px;
+  height: 350px;
+  background: linear-gradient(135deg, #0ea5e9 0%, #7dd3fc 100%);
+  top: 20%;
+  right: 15%;
+  animation-delay: 21s;
+}
+
+/* ============================================
+   CONFETTI ANIMATION
+   ============================================ */
+
+.confetti-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.confetti {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  top: -10px;
+  opacity: 0;
+  animation: confettiFall 3s ease-out forwards;
+}
+
+@keyframes confettiFall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100vh) rotate(720deg);
+  }
+}
+
+/* Different confetti styles */
+.confetti-1 { left: 10%; background: #10b981; animation-delay: 0.1s; }
+.confetti-2 { left: 20%; background: #3b82f6; animation-delay: 0.2s; }
+.confetti-3 { left: 30%; background: #8b5cf6; animation-delay: 0.3s; }
+.confetti-4 { left: 40%; background: #ec4899; animation-delay: 0.4s; }
+.confetti-5 { left: 50%; background: #f59e0b; animation-delay: 0.5s; }
+.confetti-6 { left: 60%; background: #10b981; animation-delay: 0.2s; }
+.confetti-7 { left: 70%; background: #3b82f6; animation-delay: 0.4s; }
+.confetti-8 { left: 80%; background: #8b5cf6; animation-delay: 0.1s; }
+.confetti-9 { left: 90%; background: #ec4899; animation-delay: 0.3s; }
+.confetti-10 { left: 15%; background: #f59e0b; animation-delay: 0.5s; }
+.confetti-11 { left: 25%; background: #10b981; animation-delay: 0.6s; }
+.confetti-12 { left: 35%; background: #3b82f6; animation-delay: 0.1s; }
+.confetti-13 { left: 45%; background: #8b5cf6; animation-delay: 0.4s; }
+.confetti-14 { left: 55%; background: #ec4899; animation-delay: 0.2s; }
+.confetti-15 { left: 65%; background: #f59e0b; animation-delay: 0.5s; }
+.confetti-16 { left: 75%; background: #10b981; animation-delay: 0.3s; }
+.confetti-17 { left: 85%; background: #3b82f6; animation-delay: 0.6s; }
+.confetti-18 { left: 95%; background: #8b5cf6; animation-delay: 0.2s; }
+.confetti-19 { left: 5%; background: #ec4899; animation-delay: 0.4s; }
+.confetti-20 { left: 50%; background: #f59e0b; animation-delay: 0.1s; }
+
+/* Container */
+.password-changed-container {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 560px;
+  padding: var(--space-6);
+}
+
+/* Card */
+.password-changed-card {
+  padding: var(--space-10);
+  animation: celebrationZoom 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes celebrationZoom {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ============================================
+   SUCCESS ICON
+   ============================================ */
+
+.success-icon-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-8);
+}
+
+.success-icon-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 30px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 
+    0 20px 40px rgba(16, 185, 129, 0.4),
+    0 0 0 0.5px rgba(255, 255, 255, 0.1) inset;
+  animation: successBounce 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes successBounce {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-180deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(10deg);
+  }
+  70% {
+    transform: scale(0.9) rotate(-5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+/* Animated SVG Checkmark */
+.checkmark-svg {
+  width: 64px;
+  height: 64px;
+}
+
+.checkmark-circle {
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-width: 2;
+  stroke-dasharray: 166;
+  stroke-dashoffset: 166;
+  animation: drawCircle 0.8s cubic-bezier(0.65, 0, 0.45, 1) 0.3s forwards;
+}
+
+.checkmark-check {
+  stroke: #ffffff;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: drawCheck 0.5s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+}
+
+@keyframes drawCircle {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes drawCheck {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+
+.password-changed-header {
+  text-align: center;
+  margin-bottom: var(--space-8);
+}
+
+.success-title {
+  font-size: var(--text-4xl);
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-gray-900);
+  margin-bottom: var(--space-4);
+  animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.3s backwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.success-message {
+  font-size: var(--text-base);
+  color: var(--color-gray-600);
+  font-weight: var(--font-medium);
+  line-height: 1.6;
+  max-width: 400px;
+  margin: 0 auto;
+  animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.4s backwards;
+}
+
+/* ============================================
+   SUCCESS DETAILS
+   ============================================ */
+
+.success-details {
+  background: rgba(16, 185, 129, 0.05);
+  border: 1.5px solid rgba(16, 185, 129, 0.2);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  margin-bottom: var(--space-8);
+  animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.5s backwards;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.detail-item:last-child {
+  margin-bottom: 0;
+}
+
+.detail-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.detail-text {
+  font-size: var(--text-sm);
+  color: var(--color-gray-700);
+  font-weight: var(--font-medium);
+}
+
+/* ============================================
+   ACTIONS
+   ============================================ */
+
+.password-changed-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
+  animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.6s backwards;
+}
+
+.btn-login-now {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  font-size: var(--text-xl);
+}
+
+.btn-arrow {
+  font-size: 24px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-login-now:hover .btn-arrow {
+  transform: translateX(6px);
+}
+
+/* Auto-redirect Notice */
+.auto-redirect-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: var(--radius-lg);
+}
+
+/* Countdown Circle */
+.countdown-circle {
+  position: relative;
+  width: 48px;
+  height: 48px;
+}
+
+.countdown-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.countdown-background {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.06);
+  stroke-width: 3;
+}
+
+.countdown-progress {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 1s linear;
+}
+
+.countdown-number {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--color-primary);
+}
+
+.redirect-text {
+  font-size: var(--text-sm);
+  color: var(--color-gray-600);
+  font-weight: var(--font-medium);
+  text-align: center;
+}
+
+.cancel-redirect-btn {
+  padding: var(--space-2) var(--space-4);
+  background: none;
+  border: none;
+  font-size: var(--text-xs);
+  color: var(--color-gray-500);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-base);
+  text-decoration: underline;
+}
+
+.cancel-redirect-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--color-gray-700);
+}
+
+/* ============================================
+   SECURITY TIP
+   ============================================ */
+
+.security-tip {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-6);
+  animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.7s backwards;
+}
+
+.tip-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.tip-content {
+  flex: 1;
+}
+
+.tip-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: var(--color-gray-900);
+  margin-bottom: var(--space-2);
+}
+
+.tip-text {
+  font-size: var(--text-xs);
+  color: var(--color-gray-600);
+  font-weight: var(--font-medium);
+  line-height: 1.6;
+}
+
+/* ============================================
+   FOOTER
+   ============================================ */
+
+.password-changed-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding-top: var(--space-6);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.8s backwards;
+}
+
+.footer-link {
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+  font-weight: var(--font-semibold);
+  text-decoration: none;
+  transition: var(--transition-fast);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.footer-link:hover {
+  background: rgba(18, 29, 115, 0.05);
+}
+
+.footer-divider {
+  color: var(--color-gray-300);
+  font-size: var(--text-sm);
+}
+
+/* ============================================
+   MOBILE RESPONSIVE
+   ============================================ */
+
+@media (max-width: 640px) {
+  .password-changed-container {
+    padding: var(--space-4);
+  }
+  
+  .password-changed-card {
+    padding: var(--space-6);
+  }
+  
+  .success-icon-circle {
+    width: 96px;
+    height: 96px;
+  }
+  
+  .checkmark-svg {
+    width: 52px;
+    height: 52px;
+  }
+  
+  .success-title {
+    font-size: var(--text-3xl);
+  }
+  
+  .success-message {
+    font-size: var(--text-sm);
+  }
+  
+  .btn-login-now {
+    font-size: var(--text-lg);
+    padding: var(--space-4);
+  }
+  
+  .success-details {
+    padding: var(--space-4);
+  }
+  
+  .security-tip {
+    flex-direction: column;
+    text-align: center;
+    padding: var(--space-4);
+  }
+  
+  .password-changed-footer {
+    flex-wrap: wrap;
+  }
+}
+
+/* ============================================
+   DARK MODE
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  .password-changed-page {
+    background: linear-gradient(135deg, #0c1330 0%, #111827 100%);
+  }
+  
+  .password-changed-background .gradient-orb {
+    opacity: 0.3;
+    filter: blur(120px);
+  }
+  
+  .success-title,
+  .tip-title {
+    color: var(--color-white);
+  }
+  
+  .success-message,
+  .detail-text,
+  .redirect-text,
+  .tip-text {
+    color: var(--color-gray-400);
+  }
+  
+  .success-details {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.3);
+  }
+  
+  .auto-redirect-notice {
+    background: rgba(255, 255, 255, 0.03);
+  }
+  
+  .countdown-background {
+    stroke: rgba(255, 255, 255, 0.1);
+  }
+  
+  .security-tip {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.25);
+  }
+  
+  .footer-divider {
+    color: var(--color-gray-700);
+  }
+}
