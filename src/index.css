@@ -10035,9 +10035,13 @@ a.contact-value:hover {
    CUSTOMER BOOKING PAGE
    ============================================ */
 
+/* ============================================
+   CUSTOMER BOOKING PAGE - PREMIUM REDESIGN
+   ============================================ */
+
 .customer-booking-page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .booking-loading,
@@ -10148,15 +10152,41 @@ a.contact-value:hover {
   box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
 }
 
-/* Progress Indicator */
+/* Progress Header - Sticky */
+.booking-progress-header {
+  background: rgba(255, 255, 255, 0.98);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 24px 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(20px);
+}
+
+.booking-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Progress Indicator - 4 Steps */
 .booking-progress {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 40px 20px;
-  max-width: 600px;
+  justify-content: space-between;
+  max-width: 800px;
   margin: 0 auto;
+  position: relative;
+}
+
+.booking-progress::before {
+  content: '';
+  position: absolute;
+  top: 24px;
+  left: 60px;
+  right: 60px;
+  height: 2px;
+  background: #e5e7eb;
+  z-index: 0;
 }
 
 .progress-step {
@@ -10164,20 +10194,21 @@ a.contact-value:hover {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
 }
 
 .step-number {
   width: 48px;
   height: 48px;
-  background: rgba(0, 0, 0, 0.06);
-  color: #9ca3af;
   border-radius: 50%;
+  background: #e5e7eb;
+  color: #9ca3af;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
   font-weight: 700;
+  font-size: 18px;
   transition: all 0.3s ease;
 }
 
@@ -10188,22 +10219,19 @@ a.contact-value:hover {
 }
 
 .progress-step.completed .step-number {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: #10b981;
   color: white;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
 .step-label {
   font-size: 12px;
   font-weight: 700;
   color: #9ca3af;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
-.progress-step.active .step-label,
-.progress-step.completed .step-label {
-  color: #111827;
+.progress-step.active .step-label {
+  color: #121D73;
 }
 
 .progress-line {
@@ -10213,19 +10241,31 @@ a.contact-value:hover {
   border-radius: 2px;
 }
 
-/* Step Content */
+/* Main Content */
 .step-content {
   max-width: 900px;
-  margin: 0 auto;
-  padding: 0 32px 80px;
+  margin: 48px auto;
+  padding: 0 24px 80px;
+}
+
+.step-content .step-card {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 48px;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.3),
+    0 0 1px rgba(0, 0, 0, 0.1);
+  animation: fadeInUp 0.4s ease-out;
 }
 
 .step-title {
   font-size: 32px;
   font-weight: 700;
   color: #111827;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   text-align: center;
+  letter-spacing: -0.02em;
 }
 
 .step-subtitle {
@@ -10234,6 +10274,358 @@ a.contact-value:hover {
   font-weight: 500;
   text-align: center;
   margin-bottom: 40px;
+}
+
+/* ============================================
+   STEP 1: DETAILS CONFIRMATION
+   ============================================ */
+
+.details-card {
+  background: #f9fafb;
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 32px;
+}
+
+.detail-item {
+  display: flex;
+  gap: 16px;
+  padding: 20px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.detail-item:last-child {
+  border-bottom: none;
+}
+
+.detail-icon {
+  width: 48px;
+  height: 48px;
+  background: white;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.detail-content {
+  flex: 1;
+}
+
+.detail-content label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.detail-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.btn-edit-details {
+  width: 100%;
+  height: 48px;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 24px;
+}
+
+.btn-edit-details:hover {
+  border-color: #121D73;
+  color: #121D73;
+  background: rgba(18, 29, 115, 0.02);
+}
+
+/* Edit Form */
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 14px 16px;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #111827;
+  transition: all 0.2s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #121D73;
+  box-shadow: 0 0 0 4px rgba(18, 29, 115, 0.1);
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+/* ============================================
+   STEP 2: REPORT SUMMARY
+   ============================================ */
+
+.report-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.summary-card {
+  background: #f9fafb;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 2px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.summary-card:hover {
+  border-color: #121D73;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(18, 29, 115, 0.1);
+}
+
+.highlight-card {
+  background: linear-gradient(135deg, rgba(18, 29, 115, 0.05) 0%, rgba(30, 58, 138, 0.05) 100%);
+  border-color: #121D73;
+}
+
+.card-header {
+  padding: 20px;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.card-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.card-content {
+  padding: 20px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.info-value {
+  font-size: 14px;
+  color: #111827;
+  font-weight: 600;
+  text-align: right;
+}
+
+.total-row {
+  padding-top: 16px;
+  margin-top: 8px;
+  border-top: 2px solid #121D73;
+}
+
+.total-row .info-label,
+.total-row .info-value {
+  font-size: 16px;
+  color: #121D73;
+  font-weight: 700;
+}
+
+/* Services Included Card */
+.services-included-card {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 32px;
+  border: 2px solid #e5e7eb;
+}
+
+.services-included-card .section-title {
+  font-size: 16px;
+  color: #111827;
+  margin-bottom: 20px;
+}
+
+.services-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.services-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.check-icon {
+  width: 24px;
+  height: 24px;
+  background: #10b981;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   BUTTONS & ACTIONS
+   ============================================ */
+
+.step-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-top: 32px;
+}
+
+.btn-continue,
+.btn-confirm {
+  flex: 1;
+  height: 56px;
+  background: linear-gradient(135deg, #121D73 0%, #1e3a8a 100%);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 24px rgba(18, 29, 115, 0.3);
+}
+
+.btn-continue:hover,
+.btn-confirm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(18, 29, 115, 0.4);
+}
+
+.btn-continue:disabled,
+.btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-back {
+  height: 56px;
+  padding: 0 32px;
+  background: white;
+  color: #374151;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-back:hover {
+  border-color: #121D73;
+  color: #121D73;
+}
+
+.btn-secondary {
+  flex: 1;
+  height: 48px;
+  background: white;
+  color: #374151;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  border-color: #374151;
+}
+
+.btn-primary {
+  flex: 1;
+  height: 48px;
+  background: linear-gradient(135deg, #121D73 0%, #1e3a8a 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Quote Card */
@@ -10424,8 +10816,94 @@ a.contact-value:hover {
   margin-bottom: 32px;
 }
 
+/* Calendar Section */
+.calendar-section {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 32px;
+  border: 2px solid #e5e7eb;
+}
+
 .booking-calendar {
   margin: 0 auto;
+  max-width: 500px;
+}
+
+.selected-dates-preview {
+  margin-top: 24px;
+  padding: 20px;
+  background: rgba(16, 185, 129, 0.05);
+  border-radius: 12px;
+  border: 2px solid rgba(16, 185, 129, 0.2);
+}
+
+.selected-dates-preview h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #10b981;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.scheduled-day {
+  padding: 10px 12px;
+  background: white;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Time Slots */
+.timeslots-section {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 32px;
+  border: 2px solid #e5e7eb;
+}
+
+.timeslots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.timeslot-btn {
+  height: 60px;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.timeslot-btn:hover {
+  border-color: #121D73;
+  background: rgba(18, 29, 115, 0.02);
+}
+
+.timeslot-btn.selected {
+  background: linear-gradient(135deg, #121D73 0%, #1e3a8a 100%);
+  border-color: #121D73;
+  color: white;
+}
+
+.time-icon {
+  font-size: 20px;
+}
+
+.time-label {
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .selected-dates-preview {

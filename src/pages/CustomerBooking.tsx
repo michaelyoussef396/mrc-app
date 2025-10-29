@@ -19,8 +19,16 @@ const CustomerBooking = () => {
   const [specialRequests, setSpecialRequests] = useState('');
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [detailsConfirmed, setDetailsConfirmed] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Editable client details
+  const [editedDetails, setEditedDetails] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: ''
+  });
 
   useEffect(() => {
     if (token) {
@@ -52,7 +60,7 @@ const CustomerBooking = () => {
         return;
       }
 
-      setBookingData({
+      const bookingInfo = {
         leadId: tokenData.lead_id,
         tokenId: tokenData.id,
         clientName: tokenData.leads.full_name,
@@ -72,6 +80,14 @@ const CustomerBooking = () => {
           'Post-treatment verification testing',
           '12-month warranty on treated areas'
         ]
+      };
+      
+      setBookingData(bookingInfo);
+      setEditedDetails({
+        name: tokenData.leads.full_name || '',
+        email: tokenData.leads.email || '',
+        phone: tokenData.leads.phone || '',
+        address: `${tokenData.leads.property_address_street}, ${tokenData.leads.property_address_suburb} VIC ${tokenData.leads.property_address_postcode}`
       });
       
       setLoading(false);
@@ -139,7 +155,7 @@ const CustomerBooking = () => {
         }
       }
 
-      setStep(4); // Success screen
+      setStep(5); // Success screen
     } catch (error) {
       console.error('Error submitting booking:', error);
       alert('There was an error processing your booking. Please try again or call us.');
@@ -200,117 +216,266 @@ const CustomerBooking = () => {
         </a>
       </header>
 
-      {/* Progress Indicator */}
-      <div className="booking-progress">
-        <div className={`progress-step ${step >= 1 ? 'active' : ''} ${step > 1 ? 'completed' : ''}`}>
-          <div className="step-number">{step > 1 ? '✓' : '1'}</div>
-          <div className="step-label">Review</div>
-        </div>
-        <div className="progress-line"></div>
-        <div className={`progress-step ${step >= 2 ? 'active' : ''} ${step > 2 ? 'completed' : ''}`}>
-          <div className="step-number">{step > 2 ? '✓' : '2'}</div>
-          <div className="step-label">Date & Time</div>
-        </div>
-        <div className="progress-line"></div>
-        <div className={`progress-step ${step >= 3 ? 'active' : ''} ${step > 3 ? 'completed' : ''}`}>
-          <div className="step-number">{step > 3 ? '✓' : '3'}</div>
-          <div className="step-label">Confirm</div>
+      {/* Progress Indicator - 4 Steps */}
+      <div className="booking-progress-header">
+        <div className="booking-container">
+          <div className="booking-progress">
+            <div className={`progress-step ${step >= 1 ? 'active' : ''} ${step > 1 ? 'completed' : ''}`}>
+              <div className="step-number">{step > 1 ? '✓' : '1'}</div>
+              <div className="step-label">Your Details</div>
+            </div>
+            <div className="progress-line"></div>
+            <div className={`progress-step ${step >= 2 ? 'active' : ''} ${step > 2 ? 'completed' : ''}`}>
+              <div className="step-number">{step > 2 ? '✓' : '2'}</div>
+              <div className="step-label">Review Report</div>
+            </div>
+            <div className="progress-line"></div>
+            <div className={`progress-step ${step >= 3 ? 'active' : ''} ${step > 3 ? 'completed' : ''}`}>
+              <div className="step-number">{step > 3 ? '✓' : '3'}</div>
+              <div className="step-label">Select Date</div>
+            </div>
+            <div className="progress-line"></div>
+            <div className={`progress-step ${step >= 4 ? 'active' : ''} ${step > 4 ? 'completed' : ''}`}>
+              <div className="step-number">{step > 4 ? '✓' : '4'}</div>
+              <div className="step-label">Select Time</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Step 1: Review Quote */}
+      {/* Step 1: Confirm Your Details */}
       {step === 1 && (
         <div className="step-content">
-          <h2 className="step-title">Review Your Quote</h2>
-          <p className="step-subtitle">Please review the details of your mould remediation service</p>
+          <h2 className="step-title">Confirm Your Details</h2>
+          <p className="step-subtitle">Please verify your information is correct before booking</p>
 
-          <div className="quote-card">
-            {/* Client Info */}
-            <div className="quote-section">
-              <h3 className="section-title">Client Information</h3>
-              <div className="info-grid">
-                <div className="info-item">
-                  <span className="info-icon">👤</span>
-                  <div>
-                    <div className="info-label">Name</div>
-                    <div className="info-value">{bookingData.clientName}</div>
+          <div className="details-card">
+            {!isEditingDetails ? (
+              <>
+                <div className="detail-item">
+                  <div className="detail-icon">👤</div>
+                  <div className="detail-content">
+                    <label>Full Name</label>
+                    <div className="detail-value">{editedDetails.name}</div>
                   </div>
                 </div>
-                <div className="info-item">
-                  <span className="info-icon">📞</span>
-                  <div>
-                    <div className="info-label">Phone</div>
-                    <div className="info-value">{bookingData.phone}</div>
+
+                <div className="detail-item">
+                  <div className="detail-icon">📧</div>
+                  <div className="detail-content">
+                    <label>Email Address</label>
+                    <div className="detail-value">{editedDetails.email}</div>
                   </div>
                 </div>
-                <div className="info-item">
-                  <span className="info-icon">📧</span>
-                  <div>
-                    <div className="info-label">Email</div>
-                    <div className="info-value">{bookingData.email}</div>
+
+                <div className="detail-item">
+                  <div className="detail-icon">📱</div>
+                  <div className="detail-content">
+                    <label>Phone Number</label>
+                    <div className="detail-value">{editedDetails.phone}</div>
                   </div>
+                </div>
+
+                <div className="detail-item">
+                  <div className="detail-icon">🏠</div>
+                  <div className="detail-content">
+                    <label>Property Address</label>
+                    <div className="detail-value">{editedDetails.address}</div>
+                  </div>
+                </div>
+
+                <button 
+                  className="btn-edit-details"
+                  onClick={() => setIsEditingDetails(true)}
+                >
+                  <span>✏️</span> Edit Details
+                </button>
+              </>
+            ) : (
+              <div className="edit-form">
+                <div className="form-group">
+                  <label>Full Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editedDetails.name}
+                    onChange={(e) => setEditedDetails({...editedDetails, name: e.target.value})}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Email Address</label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    value={editedDetails.email}
+                    onChange={(e) => setEditedDetails({...editedDetails, email: e.target.value})}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Phone Number</label>
+                  <input
+                    type="tel"
+                    className="form-input"
+                    value={editedDetails.phone}
+                    onChange={(e) => setEditedDetails({...editedDetails, phone: e.target.value})}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Property Address</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editedDetails.address}
+                    onChange={(e) => setEditedDetails({...editedDetails, address: e.target.value})}
+                  />
+                </div>
+
+                <div className="form-actions">
+                  <button 
+                    className="btn-secondary"
+                    onClick={() => setIsEditingDetails(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="btn-primary"
+                    onClick={() => setIsEditingDetails(false)}
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {!isEditingDetails && (
+            <div className="step-actions">
+              <button 
+                className="btn-continue"
+                onClick={() => setStep(2)}
+              >
+                Details are Correct - Continue
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M7.5 15l5-5-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Step 2: Review Inspection Report */}
+      {step === 2 && (
+        <div className="step-content">
+          <h2 className="step-title">Your Inspection Report</h2>
+          <p className="step-subtitle">Review the details before selecting your booking date</p>
+
+          <div className="report-summary-grid">
+            {/* Report Info Card */}
+            <div className="summary-card">
+              <div className="card-header">
+                <h3>Report Information</h3>
+              </div>
+              <div className="card-content">
+                <div className="info-row">
+                  <span className="info-label">Client Name</span>
+                  <span className="info-value">{bookingData.clientName}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Property Type</span>
+                  <span className="info-value">Residential</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Contact</span>
+                  <span className="info-value">{bookingData.phone}</span>
                 </div>
               </div>
             </div>
 
-            {/* Property Info */}
-            <div className="quote-section">
-              <h3 className="section-title">Property</h3>
-              <div className="property-address">
-                <span className="address-icon">📍</span>
-                <div>
-                  <div className="address-text">{bookingData.property}</div>
-                  <div className="address-text">{bookingData.suburb}, VIC {bookingData.postcode}</div>
+            {/* Property Card */}
+            <div className="summary-card">
+              <div className="card-header">
+                <h3>Property Details</h3>
+              </div>
+              <div className="card-content">
+                <div className="info-row">
+                  <span className="info-label">Address</span>
+                  <span className="info-value">{bookingData.property}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Suburb</span>
+                  <span className="info-value">{bookingData.suburb} VIC</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Postcode</span>
+                  <span className="info-value">{bookingData.postcode}</span>
                 </div>
               </div>
             </div>
 
-            {/* Work Description */}
-            <div className="quote-section">
-              <h3 className="section-title">Issue Description</h3>
-              <p className="work-description">{bookingData.workDescription}</p>
-            </div>
-
-            {/* Services Included */}
-            <div className="quote-section">
-              <h3 className="section-title">What's Included</h3>
-              <ul className="services-list">
-                {bookingData.includedServices.map((service: string, index: number) => (
-                  <li key={index}>
-                    <span className="check-icon">✓</span>
-                    {service}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Totals */}
-            <div className="quote-totals">
-              <div className="total-row">
-                <span>Estimated Duration</span>
-                <span className="total-value">{bookingData.estimatedDays} days</span>
+            {/* Quote Summary Card */}
+            <div className="summary-card highlight-card">
+              <div className="card-header">
+                <h3>Quote Summary</h3>
               </div>
-              <div className="total-row total-amount">
-                <span>Total Investment</span>
-                <span className="amount-value">${bookingData.quoteAmount.toLocaleString()} INC GST</span>
+              <div className="card-content">
+                <div className="info-row">
+                  <span className="info-label">Job Duration</span>
+                  <span className="info-value">{bookingData.estimatedDays} days</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Equipment Required</span>
+                  <span className="info-value">3-5 days</span>
+                </div>
+                <div className="info-row total-row">
+                  <span className="info-label">Total Investment</span>
+                  <span className="info-value">${bookingData.quoteAmount.toLocaleString()} INC GST</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <button 
-            className="btn-primary btn-large"
-            onClick={() => setStep(2)}
-          >
-            Continue to Schedule →
-          </button>
+          {/* Services Included */}
+          <div className="services-included-card">
+            <h3 className="section-title">What's Included</h3>
+            <ul className="services-list">
+              {bookingData.includedServices.map((service: string, index: number) => (
+                <li key={index}>
+                  <span className="check-icon">✓</span>
+                  {service}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="step-actions">
+            <button 
+              className="btn-back"
+              onClick={() => setStep(1)}
+            >
+              ← Back
+            </button>
+            <button 
+              className="btn-continue"
+              onClick={() => setStep(3)}
+            >
+              Continue to Calendar
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M7.5 15l5-5-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Step 2: Select Date & Time */}
-      {step === 2 && (
+      {/* Step 3: Select Date */}
+      {step === 3 && (
         <div className="step-content">
-          <h2 className="step-title">Select Your Preferred Date</h2>
-          <p className="step-subtitle">This job requires {bookingData.estimatedDays} consecutive business days</p>
+          <h2 className="step-title">Select Your Date</h2>
+          <p className="step-subtitle">Choose a convenient date for your remediation work (requires {bookingData.estimatedDays} consecutive business days)</p>
 
           <div className="calendar-section">
             <Calendar
@@ -334,147 +499,84 @@ const CustomerBooking = () => {
             )}
           </div>
 
-          {selectedDate && (
-            <div className="timeslots-section">
-              <h3 className="section-title">Select Start Time</h3>
-              <div className="timeslots-grid">
-                {timeSlots.map((slot) => (
-                  <button
-                    key={slot}
-                    className={`timeslot-btn ${selectedTimeSlot === slot ? 'selected' : ''}`}
-                    onClick={() => setSelectedTimeSlot(slot)}
-                  >
-                    <span className="time-icon">🕐</span>
-                    <span className="time-label">{slot}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div className="step-actions">
             <button 
-              className="btn-secondary"
-              onClick={() => setStep(1)}
+              className="btn-back"
+              onClick={() => setStep(2)}
             >
               ← Back
             </button>
             <button 
-              className="btn-primary"
-              onClick={() => setStep(3)}
-              disabled={!selectedDate || !selectedTimeSlot}
+              className="btn-continue"
+              onClick={() => setStep(4)}
+              disabled={!selectedDate}
             >
-              Continue to Confirm →
+              Continue to Time Selection
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M7.5 15l5-5-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </button>
           </div>
         </div>
       )}
 
-      {/* Step 3: Confirm & Details */}
-      {step === 3 && (
+      {/* Step 4: Select Time & Confirm */}
+      {step === 4 && (
         <div className="step-content">
-          <h2 className="step-title">Confirm Your Details</h2>
-          <p className="step-subtitle">
-            Please confirm your information is correct and provide access details for our technicians.
-          </p>
+          <h2 className="step-title">Select Your Time & Confirm</h2>
+          <p className="step-subtitle">Choose your preferred start time and provide access details</p>
           
+          {/* TIME SLOTS */}
+          <div className="timeslots-section">
+            <h3 className="section-title">Select Start Time</h3>
+            <div className="timeslots-grid">
+              {timeSlots.map((slot) => (
+                <button
+                  key={slot}
+                  className={`timeslot-btn ${selectedTimeSlot === slot ? 'selected' : ''}`}
+                  onClick={() => setSelectedTimeSlot(slot)}
+                >
+                  <span className="time-icon">🕐</span>
+                  <span className="time-label">{slot}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* BOOKING SUMMARY */}
-          <div className="booking-summary">
-            <h3 className="section-title">Booking Summary</h3>
-            <div className="summary-grid">
-              <div className="summary-item">
-                <div className="summary-label">Property</div>
-                <div className="summary-value">
-                  {bookingData.property}, {bookingData.suburb}
+          {selectedTimeSlot && (
+            <div className="booking-summary">
+              <h3 className="section-title">Booking Summary</h3>
+              <div className="summary-grid">
+                <div className="summary-item">
+                  <div className="summary-label">Property</div>
+                  <div className="summary-value">
+                    {bookingData.property}, {bookingData.suburb}
+                  </div>
                 </div>
-              </div>
-              <div className="summary-item">
-                <div className="summary-label">Start Date</div>
-                <div className="summary-value">
-                  {selectedDate && format(selectedDate, 'EEEE, MMMM d, yyyy')}
+                <div className="summary-item">
+                  <div className="summary-label">Start Date</div>
+                  <div className="summary-value">
+                    {selectedDate && format(selectedDate, 'EEEE, MMMM d, yyyy')}
+                  </div>
                 </div>
-              </div>
-              <div className="summary-item">
-                <div className="summary-label">Start Time</div>
-                <div className="summary-value">{selectedTimeSlot}</div>
-              </div>
-              <div className="summary-item">
-                <div className="summary-label">Duration</div>
-                <div className="summary-value">{bookingData.estimatedDays} days</div>
-              </div>
-              <div className="summary-item">
-                <div className="summary-label">Total</div>
-                <div className="summary-value summary-amount">
-                  ${bookingData.quoteAmount.toLocaleString()} INC GST
+                <div className="summary-item">
+                  <div className="summary-label">Start Time</div>
+                  <div className="summary-value">{selectedTimeSlot}</div>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* CONTACT DETAILS - PRE-FILLED FROM SYSTEM */}
-          <div className="contact-confirm-card">
-            <h3>👤 Your Contact Information</h3>
-            <p className="card-subtitle">
-              We'll use these details to contact you about your service
-            </p>
-            
-            <div className="contact-display">
-              <div className="contact-row">
-                <div className="contact-icon">👤</div>
-                <div className="contact-info">
-                  <span className="contact-label">Name</span>
-                  <span className="contact-value">{bookingData.clientName}</span>
+                <div className="summary-item">
+                  <div className="summary-label">Duration</div>
+                  <div className="summary-value">{bookingData.estimatedDays} days</div>
                 </div>
-              </div>
-              
-              <div className="contact-row">
-                <div className="contact-icon">📱</div>
-                <div className="contact-info">
-                  <span className="contact-label">Phone</span>
-                  <span className="contact-value">{bookingData.phone}</span>
-                </div>
-              </div>
-              
-              <div className="contact-row">
-                <div className="contact-icon">📧</div>
-                <div className="contact-info">
-                  <span className="contact-label">Email</span>
-                  <span className="contact-value">{bookingData.email}</span>
-                </div>
-              </div>
-              
-              <div className="contact-row">
-                <div className="contact-icon">📍</div>
-                <div className="contact-info">
-                  <span className="contact-label">Property Address</span>
-                  <span className="contact-value">
-                    {bookingData.property}, {bookingData.suburb} VIC {bookingData.postcode}
-                  </span>
+                <div className="summary-item">
+                  <div className="summary-label">Total</div>
+                  <div className="summary-value summary-amount">
+                    ${bookingData.quoteAmount.toLocaleString()} INC GST
+                  </div>
                 </div>
               </div>
             </div>
-
-            {/* CONFIRM DETAILS CHECKBOX */}
-            <div className="confirm-checkbox">
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={detailsConfirmed}
-                  onChange={(e) => setDetailsConfirmed(e.target.checked)}
-                />
-                <span className="checkbox-custom"></span>
-                <span className="checkbox-text">
-                  ✓ These details are correct
-                </span>
-              </label>
-              <button 
-                className="btn-link btn-edit"
-                onClick={() => setShowEditModal(true)}
-              >
-                Need to update? Click here
-              </button>
-            </div>
-          </div>
+          )}
 
           {/* Access Instructions */}
           <div className="form-section access-card">
@@ -544,52 +646,35 @@ const CustomerBooking = () => {
 
           <div className="step-actions">
             <button 
-              className="btn-secondary"
-              onClick={() => setStep(2)}
+              className="btn-back"
+              onClick={() => setStep(3)}
             >
               ← Back
             </button>
             <button 
-              className="btn-primary btn-confirm"
+              className="btn-confirm"
               onClick={handleSubmitBooking}
-              disabled={!detailsConfirmed || !accessInstructions || !agreeToTerms || submitting}
+              disabled={!selectedTimeSlot || !accessInstructions || !agreeToTerms || submitting}
             >
-              {submitting ? 'Processing...' : '✓ Confirm Booking'}
+              {submitting ? 'Processing...' : (
+                <>
+                  Confirm Booking
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M16.7 4.7l-9.4 9.4-4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </>
+              )}
             </button>
           </div>
 
           <p className="help-text">
-            Need to change your details? Call us at <a href="tel:1300665673">1300 665 673</a>
+            Need help? Call us at <a href="tel:1300665673">1300 665 673</a>
           </p>
         </div>
       )}
 
-      {/* EDIT CONTACT MODAL */}
-      {showEditModal && (
-        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Update Contact Details</h2>
-              <button className="modal-close" onClick={() => setShowEditModal(false)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <p className="modal-message">
-                To update your contact information, please call us directly at:
-              </p>
-              <a href="tel:1300665673" className="btn-primary btn-large">
-                <span>📞</span>
-                <span>Call 1300 665 673</span>
-              </a>
-              <p className="modal-note">
-                Our team will update your details and resend the booking link.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Step 4: Success */}
-      {step === 4 && (
+      {/* Step 5: Success */}
+      {step === 5 && (
         <div className="step-content success-content">
           <div className="success-animation">
             <div className="success-checkmark">✓</div>
