@@ -1944,4 +1944,542 @@
       transform: none;
     }
   }
+
+  /* ============================================
+     CHECK EMAIL PAGE - APPLE STYLE
+     ============================================ */
+
+  .check-email-page {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
+    animation: pageEnter 0.5s ease-out;
+  }
+
+  /* Blue Animated Background */
+  .check-email-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .check-email-background .gradient-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.5;
+    animation: float 20s ease-in-out infinite;
+  }
+
+  .check-email-background .orb-1 {
+    width: 600px;
+    height: 600px;
+    background: linear-gradient(135deg, #121D73 0%, #1e40af 100%);
+    top: -15%;
+    left: -15%;
+    animation-delay: 0s;
+  }
+
+  .check-email-background .orb-2 {
+    width: 500px;
+    height: 500px;
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    bottom: -15%;
+    right: -10%;
+    animation-delay: 7s;
+  }
+
+  .check-email-background .orb-3 {
+    width: 400px;
+    height: 400px;
+    background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation-delay: 14s;
+  }
+
+  .check-email-background .orb-4 {
+    width: 350px;
+    height: 350px;
+    background: linear-gradient(135deg, #0ea5e9 0%, #7dd3fc 100%);
+    top: 20%;
+    right: 15%;
+    animation-delay: 21s;
+  }
+
+  /* Container */
+  .check-email-container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 520px;
+    padding: 24px;
+  }
+
+  /* Card */
+  .check-email-card {
+    padding: 40px;
+    animation: slideUpCheck 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes slideUpCheck {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* ============================================
+     SUCCESS ICON WITH ANIMATED CHECKMARK
+     ============================================ */
+
+  .success-icon-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 32px;
+  }
+
+  .success-icon-circle {
+    width: 96px;
+    height: 96px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 
+      0 12px 32px rgba(16, 185, 129, 0.3),
+      0 0 0 0.5px rgba(255, 255, 255, 0.1) inset;
+    animation: successZoomIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes successZoomIn {
+    0% {
+      opacity: 0;
+      transform: scale(0.5) rotate(-45deg);
+    }
+    60% {
+      transform: scale(1.1) rotate(5deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+  }
+
+  /* Animated SVG Checkmark */
+  .checkmark-svg {
+    width: 56px;
+    height: 56px;
+  }
+
+  .checkmark-circle {
+    stroke: rgba(255, 255, 255, 0.3);
+    stroke-width: 2;
+    stroke-dasharray: 166;
+    stroke-dashoffset: 166;
+    animation: drawCircle 0.6s cubic-bezier(0.65, 0, 0.45, 1) 0.2s forwards;
+  }
+
+  .checkmark-check {
+    stroke: #ffffff;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: drawCheck 0.4s cubic-bezier(0.65, 0, 0.45, 1) 0.6s forwards;
+  }
+
+  @keyframes drawCircle {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes drawCheck {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* ============================================
+     HEADER
+     ============================================ */
+
+  .check-email-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .check-email-title {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: hsl(var(--gray-900));
+    margin-bottom: 12px;
+  }
+
+  .check-email-subtitle {
+    font-size: 15px;
+    color: hsl(var(--gray-600));
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+
+  .check-email-address {
+    font-size: 17px;
+    font-weight: 700;
+    color: hsl(var(--primary));
+    word-break: break-word;
+    padding: 12px 16px;
+    background: rgba(18, 29, 115, 0.05);
+    border-radius: 12px;
+    display: inline-block;
+    max-width: 100%;
+  }
+
+  /* ============================================
+     INSTRUCTIONS
+     ============================================ */
+
+  .email-instructions {
+    background: rgba(255, 255, 255, 0.5);
+    border: 1.5px solid rgba(0, 0, 0, 0.06);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+
+  .instruction-step {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    animation: fadeInSlide 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    animation-fill-mode: backwards;
+  }
+
+  .instruction-step:nth-child(1) { animation-delay: 0.3s; }
+  .instruction-step:nth-child(2) { animation-delay: 0.4s; }
+  .instruction-step:nth-child(3) { animation-delay: 0.5s; }
+
+  .instruction-step:last-child {
+    margin-bottom: 0;
+  }
+
+  @keyframes fadeInSlide {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .step-number {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-light)) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 17px;
+    font-weight: 700;
+    box-shadow: 
+      0 4px 12px rgba(18, 29, 115, 0.2),
+      0 0 0 0.5px rgba(255, 255, 255, 0.1) inset;
+  }
+
+  .step-content {
+    flex: 1;
+    padding-top: 2px;
+  }
+
+  .step-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: hsl(var(--gray-900));
+    margin-bottom: 4px;
+    letter-spacing: -0.2px;
+  }
+
+  .step-description {
+    font-size: 13px;
+    color: hsl(var(--gray-600));
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  /* ============================================
+     ACTIONS
+     ============================================ */
+
+  .check-email-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .btn-back-login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 17px;
+  }
+
+  .btn-back-login .back-arrow {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .btn-back-login:hover .back-arrow {
+    transform: translateX(-4px);
+  }
+
+  /* Resend Section */
+  .resend-section {
+    text-align: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 12px;
+  }
+
+  .resend-text {
+    font-size: 13px;
+    color: hsl(var(--gray-600));
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+
+  .btn-resend {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1.5px solid hsl(var(--gray-200));
+    font-size: 13px;
+    font-weight: 600;
+    color: hsl(var(--gray-700));
+    cursor: pointer;
+    transition: all var(--transition-base);
+    min-width: 140px;
+  }
+
+  .btn-resend:hover:not(:disabled) {
+    background: white;
+    border-color: hsl(var(--primary));
+    color: hsl(var(--primary));
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn-resend:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .loading-spinner-small {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-top-color: hsl(var(--primary));
+    border-radius: 50%;
+    animation: spinSmall 0.8s linear infinite;
+  }
+
+  @keyframes spinSmall {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* ============================================
+     FOOTER NOTE
+     ============================================ */
+
+  .check-email-footer {
+    padding-top: 24px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .footer-note {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(59, 130, 246, 0.05);
+    border: 1px solid rgba(59, 130, 246, 0.1);
+    border-radius: 12px;
+  }
+
+  .note-icon-svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: hsl(var(--primary));
+    margin-top: 2px;
+  }
+
+  .note-text {
+    font-size: 13px;
+    color: hsl(var(--gray-600));
+    font-weight: 500;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .support-link {
+    color: hsl(var(--primary));
+    font-weight: 600;
+    text-decoration: none;
+    transition: var(--transition-fast);
+    padding: 1px 2px;
+    border-radius: 2px;
+  }
+
+  .support-link:hover {
+    background: rgba(18, 29, 115, 0.1);
+  }
+
+  /* ============================================
+     MOBILE RESPONSIVE
+     ============================================ */
+
+  @media (max-width: 640px) {
+    .check-email-container {
+      padding: 16px;
+    }
+    
+    .check-email-card {
+      padding: 24px;
+    }
+    
+    .success-icon-circle {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+    }
+    
+    .checkmark-svg {
+      width: 48px;
+      height: 48px;
+    }
+    
+    .check-email-title {
+      font-size: 24px;
+    }
+    
+    .check-email-subtitle {
+      font-size: 13px;
+    }
+    
+    .check-email-address {
+      font-size: 15px;
+      padding: 10px 14px;
+    }
+    
+    .email-instructions {
+      padding: 16px;
+    }
+    
+    .step-number {
+      width: 36px;
+      height: 36px;
+      font-size: 15px;
+    }
+    
+    .step-title {
+      font-size: 13px;
+    }
+    
+    .step-description {
+      font-size: 12px;
+    }
+    
+    .btn-back-login {
+      font-size: 15px;
+      padding: 14px 20px;
+    }
+
+    .instruction-step {
+      gap: 12px;
+    }
+  }
+
+  /* ============================================
+     DARK MODE
+     ============================================ */
+
+  .dark .check-email-page {
+    background: linear-gradient(135deg, #0c1330 0%, #111827 100%);
+  }
+  
+  .dark .check-email-background .gradient-orb {
+    opacity: 0.3;
+    filter: blur(120px);
+  }
+  
+  .dark .check-email-title,
+  .dark .step-title {
+    color: white;
+  }
+  
+  .dark .check-email-subtitle,
+  .dark .resend-text,
+  .dark .note-text {
+    color: hsl(var(--gray-400));
+  }
+  
+  .dark .step-description {
+    color: hsl(var(--gray-500));
+  }
+  
+  .dark .email-instructions {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .dark .resend-section {
+    background: rgba(255, 255, 255, 0.03);
+  }
+  
+  .dark .btn-resend {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: white;
+  }
+
+  .dark .btn-resend:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: hsl(var(--primary));
+  }
+  
+  .dark .footer-note {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.2);
+  }
+
+  .dark .check-email-address {
+    background: rgba(18, 29, 115, 0.2);
+  }
 }
