@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -86,19 +86,27 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
     },
   });
 
-  // Load technicians
-  useState(() => {
+  // Load technicians when dialog opens
+  useEffect(() => {
     const loadTechnicians = async () => {
-      const { data } = await supabase
+      if (!open) return;
+
+      const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .order("full_name", { ascending: true });
       
-      if (data) setTechnicians(data);
+      if (error) {
+        console.error("Error loading technicians:", error);
+        setTechnicians([]);
+      } else {
+        setTechnicians(data || []);
+      }
     };
     
-    if (open) loadTechnicians();
-  });
+    loadTechnicians();
+  }, [open]);
 
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
@@ -136,7 +144,7 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
           lead_source: values.lead_source,
           issue_description: values.issue_description || null,
           urgency: values.urgency || null,
-          assigned_to: values.assigned_to || null,
+          assigned_to: values.assigned_to === "null" ? null : values.assigned_to || null,
         })
         .select()
         .single();
@@ -441,7 +449,7 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        <SelectItem value="null">Unassigned</SelectItem>
                         {technicians.map((tech) => (
                           <SelectItem key={tech.id} value={tech.id}>
                             {tech.full_name}
