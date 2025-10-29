@@ -11,6 +11,7 @@ import { GlobalLoader, ProgressBar, PageTransition } from "@/components/loading"
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import CheckEmail from "./pages/CheckEmail";
+import VerifyCode from "./pages/VerifyCode";
 import ResetPassword from "./pages/ResetPassword";
 import PasswordChanged from "./pages/PasswordChanged";
 import Dashboard from "./pages/Dashboard";
@@ -46,6 +47,7 @@ const AppContent = () => {
           <Route path="/" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/check-email" element={<CheckEmail />} />
+          <Route path="/verify-code" element={<VerifyCode />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/password-changed" element={<PasswordChanged />} />
           <Route path="/book/:token" element={<ClientBooking />} />
