@@ -1323,7 +1323,7 @@
   .form-input-forgot {
     width: 100%;
     padding: 16px;
-    padding-left: 56px;
+    padding-left: 64px;
     font-size: 15px;
     font-weight: 500;
     color: hsl(var(--gray-900));
@@ -1350,9 +1350,9 @@
 
   .input-icon-svg {
     position: absolute;
-    left: 16px;
-    width: 20px;
-    height: 20px;
+    left: 20px;
+    width: 22px;
+    height: 22px;
     color: hsl(var(--gray-500));
     pointer-events: none;
     z-index: 2;
