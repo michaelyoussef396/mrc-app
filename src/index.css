@@ -146,4 +146,345 @@ All colors MUST be HSL.
     max-width: 100%;
     height: auto;
   }
+
+  /* ═══════════════════════════════════════════════ */
+  /* APPLE-INSPIRED BOTTOM NAVIGATION WITH FAB        */
+  /* ═══════════════════════════════════════════════ */
+
+  /* Bottom Navigation Bar */
+  .bottom-navbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 72px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-top: 0.5px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.06);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 12px 8px 12px;
+    z-index: 100;
+  }
+
+  /* Dark mode support */
+  .dark .bottom-navbar {
+    background: rgba(28, 28, 30, 0.95);
+    border-top: 0.5px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* Regular Nav Items */
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 8px 4px 4px 4px;
+    text-decoration: none;
+    color: hsl(var(--muted-foreground));
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    border-radius: 12px;
+    gap: 4px;
+    max-width: 80px;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .nav-item:active {
+    transform: scale(0.95);
+  }
+
+  .nav-item.active {
+    color: hsl(var(--primary));
+  }
+
+  .nav-item.active .nav-icon {
+    transform: scale(1.1);
+  }
+
+  .nav-icon {
+    width: 24px;
+    height: 24px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .nav-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-align: center;
+    letter-spacing: -0.2px;
+  }
+
+  /* FLOATING ACTION BUTTON (CENTER) */
+  .fab-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+    width: 64px;
+    height: 80px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    margin: 0 4px;
+    padding-bottom: 4px;
+    gap: 4px;
+  }
+
+  /* FAB Icon Container (Elevated Circle) */
+  .fab-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 100%);
+    box-shadow: 
+      0 4px 12px hsla(var(--primary), 0.3),
+      0 8px 24px hsla(var(--primary), 0.2),
+      0 0 0 0.5px rgba(255, 255, 255, 0.1) inset;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Shine effect on FAB */
+  .fab-icon::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      45deg,
+      transparent,
+      rgba(255, 255, 255, 0.1),
+      transparent
+    );
+    transform: rotate(45deg);
+    animation: shine 3s infinite;
+  }
+
+  @keyframes shine {
+    0%, 100% {
+      transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+    50% {
+      transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+  }
+
+  /* Plus Icon */
+  .plus-icon {
+    width: 28px;
+    height: 28px;
+    color: #ffffff;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 1;
+  }
+
+  /* FAB Hover/Active States */
+  .fab-button:hover .fab-icon {
+    transform: scale(1.05) translateY(-2px);
+    box-shadow: 
+      0 6px 16px hsla(var(--primary), 0.4),
+      0 12px 32px hsla(var(--primary), 0.25);
+  }
+
+  .fab-button:active .fab-icon {
+    transform: scale(0.95);
+  }
+
+  .fab-button.active .plus-icon {
+    transform: rotate(45deg);
+  }
+
+  .fab-button .nav-label {
+    color: hsl(var(--primary));
+    font-weight: 600;
+  }
+
+  /* FAB Backdrop (Overlay when menu open) */
+  .fab-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 90;
+    animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* QUICK ACTIONS MENU (Appears above FAB) */
+  .quick-actions-menu {
+    position: fixed;
+    bottom: 88px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-radius: 24px;
+    box-shadow: 
+      0 10px 40px rgba(0, 0, 0, 0.12),
+      0 2px 8px rgba(0, 0, 0, 0.08),
+      0 0 0 0.5px rgba(0, 0, 0, 0.04);
+    z-index: 95;
+    animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 280px;
+    max-width: 90vw;
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(20px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0) scale(1);
+    }
+  }
+
+  .dark .quick-actions-menu {
+    background: rgba(44, 44, 46, 0.95);
+    box-shadow: 
+      0 10px 40px rgba(0, 0, 0, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Quick Action Items */
+  .quick-action-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-align: left;
+    width: 100%;
+  }
+
+  .quick-action-item:hover {
+    background: rgba(0, 0, 0, 0.04);
+    transform: translateX(4px);
+  }
+
+  .quick-action-item:active {
+    transform: scale(0.98) translateX(4px);
+  }
+
+  .dark .quick-action-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  /* Action Icon (Colorful gradient circles) */
+  .action-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    flex-shrink: 0;
+  }
+
+  .action-emoji {
+    font-size: 24px;
+    line-height: 1;
+  }
+
+  /* Action Label */
+  .action-label {
+    font-size: 16px;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    letter-spacing: -0.3px;
+  }
+
+  /* Tablet/Desktop - Hide bottom nav */
+  @media (min-width: 769px) {
+    .bottom-navbar,
+    .fab-backdrop,
+    .quick-actions-menu {
+      display: none;
+    }
+  }
+
+  /* Small phones - Adjust sizing */
+  @media (max-width: 375px) {
+    .bottom-navbar {
+      padding: 0 8px 8px 8px;
+    }
+    
+    .fab-icon {
+      width: 52px;
+      height: 52px;
+    }
+    
+    .nav-icon {
+      width: 22px;
+      height: 22px;
+    }
+    
+    .quick-actions-menu {
+      min-width: 260px;
+    }
+  }
+
+  /* Notch safety (iPhone X and newer) */
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .bottom-navbar {
+      padding-bottom: calc(8px + env(safe-area-inset-bottom));
+      height: calc(72px + env(safe-area-inset-bottom));
+    }
+  }
+
+  /* Haptic feedback effect (visual) */
+  @media (hover: none) {
+    .fab-button:active .fab-icon {
+      animation: haptic 0.3s ease;
+    }
+  }
+
+  @keyframes haptic {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(0.92);
+    }
+  }
 }
