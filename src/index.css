@@ -14672,7 +14672,26 @@ a.contact-value:hover {
 
 .success-page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 50%, #f9fafb 100%);
+  position: relative;
+  overflow-x: hidden;
+}
+
+.success-page::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.success-page > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* ============================================
@@ -14745,14 +14764,14 @@ a.contact-value:hover {
 
 @keyframes successPop {
   0% {
-    transform: scale(0);
+    transform: scale(0) rotate(-45deg);
     opacity: 0;
   }
   50% {
-    transform: scale(1.1);
+    transform: scale(1.15) rotate(5deg);
   }
   100% {
-    transform: scale(1);
+    transform: scale(1) rotate(0deg);
     opacity: 1;
   }
 }
@@ -14769,6 +14788,29 @@ a.contact-value:hover {
   font-size: 56px;
   font-weight: 700;
   box-shadow: 0 12px 40px rgba(16, 185, 129, 0.4);
+  position: relative;
+}
+
+.success-icon::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  opacity: 0.2;
+  z-index: -1;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.1;
+    transform: scale(1.1);
+  }
 }
 
 .success-title {
@@ -14777,6 +14819,7 @@ a.contact-value:hover {
   color: #111827;
   margin-bottom: 16px;
   letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
 .success-subtitle {
@@ -15209,73 +15252,370 @@ a.contact-value:hover {
 }
 
 /* ============================================
-   MOBILE RESPONSIVE - SUCCESS PAGE
+   TABLET RESPONSIVE - SUCCESS PAGE
    ============================================ */
 
-@media (max-width: 768px) {
-  .phone-text {
-    display: none;
-  }
-
-  .success-main {
-    padding: 40px 0 60px;
+@media (max-width: 1024px) {
+  .header-container {
+    padding: 0 24px;
   }
 
   .success-container {
-    padding: 0 16px;
+    padding: 0 24px;
   }
 
   .success-title {
-    font-size: 36px;
+    font-size: 42px;
   }
 
-  .success-subtitle {
-    font-size: 16px;
+  .success-icon {
+    width: 90px;
+    height: 90px;
+    font-size: 50px;
   }
 
   .confirmation-card,
   .next-steps-card,
   .actions-card {
-    padding: 24px;
+    padding: 36px;
+  }
+}
+
+/* ============================================
+   MOBILE RESPONSIVE - SUCCESS PAGE
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* Header */
+  .success-header {
+    padding: 16px 0;
+  }
+
+  .header-container {
+    padding: 0 20px;
+  }
+
+  .logo-icon {
+    font-size: 28px;
+  }
+
+  .logo-text {
+    font-size: 20px;
+  }
+
+  .header-phone {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+
+  .phone-text {
+    display: none;
+  }
+
+  .phone-icon {
+    font-size: 18px;
+  }
+
+  /* Main Content */
+  .success-main {
+    padding: 32px 0 60px;
+  }
+
+  .success-container {
+    padding: 0 20px;
+  }
+
+  /* Success Hero */
+  .success-hero {
+    margin-bottom: 32px;
+  }
+
+  .success-icon-wrapper {
+    margin-bottom: 24px;
+  }
+
+  .success-icon {
+    width: 80px;
+    height: 80px;
+    font-size: 44px;
+  }
+
+  .success-title {
+    font-size: 32px;
+    margin-bottom: 12px;
+  }
+
+  .success-subtitle {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  /* Confirmation Card */
+  .confirmation-card {
+    padding: 24px 20px;
+    margin-bottom: 24px;
+    border-radius: 20px;
   }
 
   .confirmation-header {
     flex-direction: column;
     align-items: flex-start;
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+    gap: 16px;
+  }
+
+  .confirmation-title {
+    font-size: 20px;
   }
 
   .confirmation-number {
     align-items: flex-start;
+    width: 100%;
+  }
+
+  .number-label {
+    font-size: 11px;
+  }
+
+  .number-value {
+    font-size: 18px;
+    padding: 6px 12px;
+  }
+
+  .confirmation-details {
+    gap: 24px;
+  }
+
+  .detail-section {
+    gap: 12px;
+  }
+
+  .detail-section-title {
+    font-size: 14px;
   }
 
   .detail-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .detail-item {
+    padding: 14px;
+    border-radius: 10px;
+  }
+
+  .detail-icon {
+    font-size: 22px;
+  }
+
+  .detail-label {
+    font-size: 11px;
+  }
+
+  .detail-value {
+    font-size: 15px;
+  }
+
+  /* Next Steps Card */
+  .next-steps-card {
+    padding: 24px 20px;
+    margin-bottom: 24px;
+    border-radius: 20px;
+  }
+
+  .next-steps-title {
+    font-size: 20px;
+    margin-bottom: 24px;
+  }
+
+  .steps-timeline {
+    gap: 20px;
   }
 
   .steps-timeline::before {
     left: 19px;
+    top: 42px;
+    bottom: 42px;
+  }
+
+  .timeline-step {
+    gap: 16px;
   }
 
   .step-number {
     width: 40px;
     height: 40px;
-    font-size: 18px;
+    font-size: 16px;
+  }
+
+  .step-content {
+    padding-bottom: 4px;
   }
 
   .step-title {
     font-size: 16px;
+    margin-bottom: 6px;
   }
 
   .step-description {
     font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 6px;
+  }
+
+  .step-time {
+    font-size: 12px;
+    padding: 3px 10px;
+  }
+
+  /* Actions Card */
+  .actions-card {
+    padding: 24px 20px;
+    margin-bottom: 24px;
+    border-radius: 20px;
+  }
+
+  .actions-title {
+    font-size: 20px;
+    margin-bottom: 20px;
   }
 
   .actions-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
+  .action-button {
+    padding: 16px;
+    gap: 12px;
+    border-radius: 14px;
+  }
+
+  .action-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
+    border-radius: 10px;
+  }
+
+  .action-label {
+    font-size: 11px;
+  }
+
+  .action-value {
+    font-size: 15px;
+  }
+
+  /* Navigation Actions */
   .navigation-actions {
     flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .btn-large {
+    padding: 14px 24px;
+    font-size: 15px;
+    width: 100%;
+  }
+
+  .btn-text {
+    padding: 10px 20px;
+    font-size: 14px;
+    width: 100%;
+  }
+
+  /* Email Notice */
+  .email-notice {
+    padding: 20px;
+    gap: 12px;
+    border-radius: 14px;
+  }
+
+  .notice-icon {
+    font-size: 28px;
+  }
+
+  .notice-title {
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .notice-text {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /* Footer */
+  .success-footer {
+    padding: 40px 0 24px;
+    margin-top: 40px;
+  }
+
+  .footer-container {
+    padding: 0 20px;
+  }
+
+  .footer-content {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+
+  .footer-section {
+    gap: 8px;
+  }
+
+  .footer-title {
+    font-size: 16px;
+    margin-bottom: 6px;
+  }
+
+  .footer-text {
+    font-size: 13px;
+  }
+
+  .footer-text-small {
+    font-size: 12px;
+  }
+
+  .footer-bottom {
+    padding-top: 24px;
+  }
+
+  .footer-copyright {
+    font-size: 13px;
+  }
+}
+
+/* ============================================
+   SMALL MOBILE (< 375px)
+   ============================================ */
+
+@media (max-width: 374px) {
+  .success-title {
+    font-size: 28px;
+  }
+
+  .success-icon {
+    width: 70px;
+    height: 70px;
+    font-size: 38px;
+  }
+
+  .confirmation-card,
+  .next-steps-card,
+  .actions-card {
+    padding: 20px 16px;
+  }
+
+  .detail-item {
+    padding: 12px;
+  }
+
+  .number-value {
+    font-size: 16px;
   }
 }
 
