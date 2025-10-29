@@ -33,22 +33,22 @@ const LeadsManagement = () => {
       description: 'View all leads regardless of stage'
     },
     { 
-      value: 'new', 
+      value: 'new_lead', 
       label: 'New Lead', 
       icon: '🌟', 
       color: '#3b82f6',
-      description: 'Initial inquiry received',
-      nextActions: ['Contact lead', 'Schedule call'],
-      availableButtons: ['call', 'email', 'markContacted', 'viewDetails']
+      description: 'Initial inquiry received from website',
+      nextActions: ['Review inquiry', 'Schedule inspection'],
+      availableButtons: ['call', 'viewDetails']
     },
     { 
-      value: 'contacted', 
-      label: 'Contacted', 
-      icon: '📞', 
+      value: 'inspection_waiting', 
+      label: 'Awaiting Inspection', 
+      icon: '📅', 
       color: '#8b5cf6',
-      description: 'First contact made with lead',
-      nextActions: ['Follow up', 'Send initial quote', 'Book inspection'],
-      availableButtons: ['call', 'email', 'sendQuote', 'scheduleInspection', 'viewDetails']
+      description: 'Inspection has been scheduled, waiting for appointment',
+      nextActions: ['Prepare for inspection', 'Confirm appointment'],
+      availableButtons: ['call', 'email', 'startInspection', 'reschedule', 'viewDetails']
     },
     { 
       value: 'quoted', 
@@ -245,8 +245,14 @@ const LeadsManagement = () => {
       window.location.href = `mailto:${email}`;
     },
     
-    viewDetails: (leadId: number) => {
-      navigate(`/client/${leadId}`);
+    viewDetails: (leadId: number, status?: string) => {
+      // If lead is NEW, go to simplified new lead view
+      if (status === 'new_lead') {
+        navigate(`/lead/new/${leadId}`);
+      } else {
+        // Otherwise, go to full client detail page
+        navigate(`/client/${leadId}`);
+      }
     }
   };
 
@@ -280,7 +286,7 @@ const LeadsManagement = () => {
       viewDetails: {
         icon: '👁️',
         label: 'View',
-        onClick: () => stageActions.viewDetails(lead.id),
+        onClick: () => stageActions.viewDetails(lead.id, lead.status),
         style: 'secondary'
       },
       markContacted: {
