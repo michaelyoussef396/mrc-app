@@ -26,11 +26,225 @@ const Calendar = () => {
     return result
   }
 
+  // Handle event actions
+  const handleAction = (action, event, e) => {
+    if (e) e.stopPropagation()
+    
+    switch(action) {
+      case 'startInspection':
+        navigate(`/inspection?leadId=${event.leadId}`)
+        break
+      case 'viewInspection':
+        navigate(`/inspection/view/${event.leadId}`)
+        break
+      case 'directions':
+        window.open(
+          `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(event.address)}`,
+          '_blank'
+        )
+        break
+      case 'call':
+        window.location.href = `tel:${event.phone || '0400000000'}`
+        break
+      case 'viewLead':
+        navigate(`/client/${event.leadId}`)
+        break
+      case 'startJob':
+        if (window.confirm('Start this job now?')) {
+          console.log('Starting job:', event.id)
+          alert('Job started!')
+        }
+        break
+      case 'completeJob':
+        if (window.confirm('Mark this job as complete?')) {
+          console.log('Completing job:', event.id)
+          alert('Job completed!')
+        }
+        break
+      default:
+        break
+    }
+  }
+
+  // Render dynamic action buttons based on event type and status
+  const renderEventActions = (event) => {
+    // INSPECTION TYPE BUTTONS
+    if (event.type === 'inspection' || event.type === 'follow-up') {
+      if (event.status === 'completed') {
+        return (
+          <>
+            <button 
+              className="event-action-btn btn-view"
+              onClick={(e) => handleAction('viewInspection', event, e)}
+            >
+              <span>📋</span>
+              <span>View Inspection</span>
+            </button>
+            <button 
+              className="event-action-btn btn-directions"
+              onClick={(e) => handleAction('directions', event, e)}
+            >
+              <span>🗺️</span>
+              <span>Directions</span>
+            </button>
+            <button 
+              className="event-action-btn btn-call"
+              onClick={(e) => handleAction('call', event, e)}
+            >
+              <span>📞</span>
+              <span>Call</span>
+            </button>
+            <button 
+              className="event-action-btn btn-view-lead"
+              onClick={(e) => handleAction('viewLead', event, e)}
+            >
+              <span>👁️</span>
+              <span>View Lead</span>
+            </button>
+          </>
+        )
+      } else {
+        // Scheduled inspection
+        return (
+          <>
+            <button 
+              className="event-action-btn btn-start"
+              onClick={(e) => handleAction('startInspection', event, e)}
+            >
+              <span>📝</span>
+              <span>Start Inspection</span>
+            </button>
+            <button 
+              className="event-action-btn btn-directions"
+              onClick={(e) => handleAction('directions', event, e)}
+            >
+              <span>🗺️</span>
+              <span>Directions</span>
+            </button>
+            <button 
+              className="event-action-btn btn-call"
+              onClick={(e) => handleAction('call', event, e)}
+            >
+              <span>📞</span>
+              <span>Call</span>
+            </button>
+            <button 
+              className="event-action-btn btn-view-lead"
+              onClick={(e) => handleAction('viewLead', event, e)}
+            >
+              <span>👁️</span>
+              <span>View</span>
+            </button>
+          </>
+        )
+      }
+    }
+
+    // JOB TYPE BUTTONS
+    if (event.type === 'job') {
+      if (event.status === 'in-progress') {
+        // Job in progress - only View + Complete
+        return (
+          <>
+            <button 
+              className="event-action-btn btn-view-lead"
+              onClick={(e) => handleAction('viewLead', event, e)}
+            >
+              <span>👁️</span>
+              <span>View Lead</span>
+            </button>
+            <button 
+              className="event-action-btn btn-complete"
+              onClick={(e) => handleAction('completeJob', event, e)}
+            >
+              <span>✓</span>
+              <span>Complete Job</span>
+            </button>
+          </>
+        )
+      } else if (event.status === 'completed') {
+        // Job completed - only View + Call
+        return (
+          <>
+            <button 
+              className="event-action-btn btn-view-lead"
+              onClick={(e) => handleAction('viewLead', event, e)}
+            >
+              <span>👁️</span>
+              <span>View Lead</span>
+            </button>
+            <button 
+              className="event-action-btn btn-call"
+              onClick={(e) => handleAction('call', event, e)}
+            >
+              <span>📞</span>
+              <span>Call</span>
+            </button>
+          </>
+        )
+      } else {
+        // Job scheduled/booked - Directions + Start + Call + View
+        return (
+          <>
+            <button 
+              className="event-action-btn btn-directions"
+              onClick={(e) => handleAction('directions', event, e)}
+            >
+              <span>🗺️</span>
+              <span>Directions</span>
+            </button>
+            <button 
+              className="event-action-btn btn-start"
+              onClick={(e) => handleAction('startJob', event, e)}
+            >
+              <span>🚀</span>
+              <span>Start Job</span>
+            </button>
+            <button 
+              className="event-action-btn btn-call"
+              onClick={(e) => handleAction('call', event, e)}
+            >
+              <span>📞</span>
+              <span>Call</span>
+            </button>
+            <button 
+              className="event-action-btn btn-view-lead"
+              onClick={(e) => handleAction('viewLead', event, e)}
+            >
+              <span>👁️</span>
+              <span>View</span>
+            </button>
+          </>
+        )
+      }
+    }
+
+    // DEFAULT BUTTONS (for any other type)
+    return (
+      <>
+        <button 
+          className="event-action-btn btn-view-lead"
+          onClick={(e) => handleAction('viewLead', event, e)}
+        >
+          <span>👁️</span>
+          <span>View Lead</span>
+        </button>
+        <button 
+          className="event-action-btn btn-call"
+          onClick={(e) => handleAction('call', event, e)}
+        >
+          <span>📞</span>
+          <span>Call</span>
+        </button>
+      </>
+    )
+  }
+
   const loadEvents = () => {
     // SEED DATA - Multiple events across different dates
     const today = new Date()
     const mockEvents = [
-      // This week
+      // TODAY - Scheduled Inspection
       {
         id: 1,
         title: 'Mould Inspection - Smith Residence',
@@ -42,9 +256,11 @@ const Calendar = () => {
         leadId: 123,
         client: 'John Smith',
         address: '123 Smith St, Melbourne VIC 3000',
+        phone: '0412 345 678',
         technician: 'Tech 1',
         color: '#3b82f6'
       },
+      // TOMORROW - Job In Progress
       {
         id: 2,
         title: 'Job Day 1 - Johnson Property',
@@ -52,13 +268,15 @@ const Calendar = () => {
         time: '7:00 AM',
         duration: '8 hours',
         type: 'job',
-        status: 'scheduled',
+        status: 'in-progress',
         leadId: 124,
         client: 'Sarah Johnson',
         address: '456 Main Rd, Glen Waverley VIC 3150',
+        phone: '0423 789 012',
         technician: 'Tech 2',
         color: '#f97316'
       },
+      // DAY 2 - Scheduled Job
       {
         id: 3,
         title: 'Job Day 2 - Johnson Property',
@@ -70,9 +288,11 @@ const Calendar = () => {
         leadId: 124,
         client: 'Sarah Johnson',
         address: '456 Main Rd, Glen Waverley VIC 3150',
+        phone: '0423 789 012',
         technician: 'Tech 2',
         color: '#f97316'
       },
+      // DAY 3 - Completed Follow-up
       {
         id: 4,
         title: 'Follow-up Inspection - Lee House',
@@ -80,13 +300,15 @@ const Calendar = () => {
         time: '2:00 PM',
         duration: '1 hour',
         type: 'follow-up',
-        status: 'scheduled',
+        status: 'completed',
         leadId: 125,
         client: 'Michelle Lee',
         address: '789 Park Ave, Richmond VIC 3121',
+        phone: '0434 567 890',
         technician: 'Tech 1',
-        color: '#8b5cf6'
+        color: '#10b981'
       },
+      // DAY 5 - Scheduled Inspection
       {
         id: 5,
         title: 'Inspection - Brown Apartment',
@@ -98,9 +320,11 @@ const Calendar = () => {
         leadId: 126,
         client: 'David Brown',
         address: '321 High St, Kew VIC 3101',
+        phone: '0445 123 456',
         technician: 'Tech 1',
         color: '#3b82f6'
       },
+      // DAY 7 - Completed Job
       {
         id: 6,
         title: 'Job Day 1 - Wilson Home',
@@ -108,14 +332,15 @@ const Calendar = () => {
         time: '8:00 AM',
         duration: '6 hours',
         type: 'job',
-        status: 'scheduled',
+        status: 'completed',
         leadId: 127,
         client: 'Emma Wilson',
         address: '555 Beach Rd, Brighton VIC 3186',
+        phone: '0456 789 012',
         technician: 'Tech 2',
-        color: '#f97316'
+        color: '#10b981'
       },
-      // Next week
+      // DAY 10 - Scheduled Inspection
       {
         id: 7,
         title: 'Inspection - Taylor Property',
@@ -127,6 +352,7 @@ const Calendar = () => {
         leadId: 128,
         client: 'James Taylor',
         address: '88 Chapel St, South Yarra VIC 3141',
+        phone: '0467 890 123',
         technician: 'Tech 1',
         color: '#3b82f6'
       },
@@ -141,6 +367,7 @@ const Calendar = () => {
         leadId: 129,
         client: 'Lisa Anderson',
         address: '99 Collins St, Melbourne VIC 3000',
+        phone: '0478 901 234',
         technician: 'Tech 1',
         color: '#f97316'
       },
@@ -155,6 +382,7 @@ const Calendar = () => {
         leadId: 129,
         client: 'Lisa Anderson',
         address: '99 Collins St, Melbourne VIC 3000',
+        phone: '0478 901 234',
         technician: 'Tech 1',
         color: '#f97316'
       },
@@ -169,6 +397,7 @@ const Calendar = () => {
         leadId: 130,
         client: 'Carlos Martinez',
         address: '77 Bridge Rd, Richmond VIC 3121',
+        phone: '0489 012 345',
         technician: 'Tech 2',
         color: '#8b5cf6'
       },
@@ -184,6 +413,7 @@ const Calendar = () => {
         leadId: 131,
         client: 'Robert Davis',
         address: '234 Toorak Rd, South Yarra VIC 3141',
+        phone: '0490 234 567',
         technician: 'Tech 2',
         color: '#3b82f6'
       },
@@ -198,6 +428,7 @@ const Calendar = () => {
         leadId: 132,
         client: 'Sophie Chen',
         address: '456 Lonsdale St, Melbourne VIC 3000',
+        phone: '0401 345 678',
         technician: 'Tech 1',
         color: '#ef4444'
       }
@@ -466,26 +697,7 @@ const Calendar = () => {
                         </div>
 
                         <div className="event-actions">
-                          <button 
-                            className="event-action-btn"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              navigate(`/client/${event.leadId}`)
-                            }}
-                          >
-                            <span>👁️</span>
-                            <span>View Lead</span>
-                          </button>
-                          <button 
-                            className="event-action-btn"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.address)}`, '_blank')
-                            }}
-                          >
-                            <span>🗺️</span>
-                            <span>Directions</span>
-                          </button>
+                          {renderEventActions(event)}
                         </div>
                       </div>
                     </div>
@@ -590,19 +802,93 @@ const Calendar = () => {
               </div>
 
               <div className="modal-actions">
+                {selectedEvent.type === 'inspection' && selectedEvent.status !== 'completed' && (
+                  <button 
+                    className="btn-primary"
+                    onClick={() => navigate(`/inspection?leadId=${selectedEvent.leadId}`)}
+                  >
+                    <span>📝</span>
+                    <span>Start Inspection</span>
+                  </button>
+                )}
+
+                {selectedEvent.type === 'inspection' && selectedEvent.status === 'completed' && (
+                  <button 
+                    className="btn-primary"
+                    onClick={() => navigate(`/inspection/view/${selectedEvent.leadId}`)}
+                  >
+                    <span>📋</span>
+                    <span>View Inspection</span>
+                  </button>
+                )}
+
+                {selectedEvent.type === 'follow-up' && selectedEvent.status !== 'completed' && (
+                  <button 
+                    className="btn-primary"
+                    onClick={() => navigate(`/inspection?leadId=${selectedEvent.leadId}`)}
+                  >
+                    <span>📝</span>
+                    <span>Start Inspection</span>
+                  </button>
+                )}
+
+                {selectedEvent.type === 'follow-up' && selectedEvent.status === 'completed' && (
+                  <button 
+                    className="btn-primary"
+                    onClick={() => navigate(`/inspection/view/${selectedEvent.leadId}`)}
+                  >
+                    <span>📋</span>
+                    <span>View Inspection</span>
+                  </button>
+                )}
+
+                {selectedEvent.type === 'job' && selectedEvent.status === 'scheduled' && (
+                  <button 
+                    className="btn-primary"
+                    onClick={() => {
+                      if (window.confirm('Start this job now?')) {
+                        console.log('Starting job')
+                        setSelectedEvent(null)
+                      }
+                    }}
+                  >
+                    <span>🚀</span>
+                    <span>Start Job</span>
+                  </button>
+                )}
+
+                {selectedEvent.type === 'job' && selectedEvent.status === 'in-progress' && (
+                  <button 
+                    className="btn-primary"
+                    onClick={() => {
+                      if (window.confirm('Mark this job as complete?')) {
+                        console.log('Completing job')
+                        setSelectedEvent(null)
+                      }
+                    }}
+                  >
+                    <span>✓</span>
+                    <span>Complete Job</span>
+                  </button>
+                )}
+
                 <button 
-                  className="btn-primary"
+                  className="btn-secondary"
+                  onClick={() => window.open(
+                    `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedEvent.address)}`,
+                    '_blank'
+                  )}
+                >
+                  <span>🗺️</span>
+                  <span>Get Directions</span>
+                </button>
+
+                <button 
+                  className="btn-secondary"
                   onClick={() => navigate(`/client/${selectedEvent.leadId}`)}
                 >
                   <span>👁️</span>
                   <span>View Full Lead</span>
-                </button>
-                <button 
-                  className="btn-secondary"
-                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedEvent.address)}`, '_blank')}
-                >
-                  <span>🗺️</span>
-                  <span>Get Directions</span>
                 </button>
               </div>
             </div>

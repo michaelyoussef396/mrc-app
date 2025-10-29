@@ -12141,6 +12141,92 @@ a.contact-value:hover {
 }
 
 /* ============================================
+   EVENT ACTION BUTTON VARIANTS
+   ============================================ */
+
+.event-action-btn.btn-start {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
+  border-color: rgba(16, 185, 129, 0.2);
+  color: #059669;
+}
+
+.event-action-btn.btn-start:active {
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.event-action-btn.btn-directions {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.05) 100%);
+  border-color: rgba(59, 130, 246, 0.2);
+  color: #2563eb;
+}
+
+.event-action-btn.btn-directions:active {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.event-action-btn.btn-call {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(124, 58, 237, 0.05) 100%);
+  border-color: rgba(139, 92, 246, 0.2);
+  color: #7c3aed;
+}
+
+.event-action-btn.btn-call:active {
+  background: rgba(139, 92, 246, 0.15);
+}
+
+.event-action-btn.btn-view,
+.event-action-btn.btn-view-lead {
+  background: linear-gradient(135deg, rgba(107, 114, 128, 0.1) 0%, rgba(75, 85, 99, 0.05) 100%);
+  border-color: rgba(107, 114, 128, 0.2);
+  color: #374151;
+}
+
+.event-action-btn.btn-view:active,
+.event-action-btn.btn-view-lead:active {
+  background: rgba(107, 114, 128, 0.15);
+}
+
+.event-action-btn.btn-complete {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #059669;
+  font-weight: 700;
+}
+
+.event-action-btn.btn-complete:active {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+/* Adjust grid for different button counts */
+.event-actions:has(.event-action-btn:nth-child(2):last-child) {
+  grid-template-columns: 1fr 1fr;
+}
+
+.event-actions:has(.event-action-btn:nth-child(3)) {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.event-actions:has(.event-action-btn:nth-child(4)) {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (max-width: 768px) {
+  /* Stack buttons on very small screens if 4 buttons */
+  .event-actions:has(.event-action-btn:nth-child(4)) {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .event-action-btn {
+    font-size: 10px;
+    padding: 8px 6px;
+  }
+  
+  .event-action-btn span:first-child {
+    font-size: 14px;
+  }
+}
+
+/* ============================================
    CALENDAR LEGEND
    ============================================ */
 
