@@ -33,6 +33,7 @@ const CustomerBooking = () => {
   const { token } = useParams();
   const isDemoMode = token === 'demo' || !token;
   
+  const [showBookingFlow, setShowBookingFlow] = useState(false);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(!isDemoMode);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -208,6 +209,34 @@ const CustomerBooking = () => {
           <a href="tel:1300665673" className="btn-primary">
             📞 Call 1300 665 673
           </a>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error page first in demo mode
+  if (isDemoMode && !showBookingFlow) {
+    return (
+      <div className="customer-booking-page">
+        <div className="booking-error">
+          <div className="error-icon">⚠️</div>
+          <h2>Booking Link Expired</h2>
+          <p>This booking link has expired or has already been used.</p>
+          <p>Please contact us directly to schedule your service:</p>
+          <a href="tel:1300665673" className="btn-primary">
+            📞 Call 1300 665 673
+          </a>
+          
+          {/* Demo Access Button */}
+          <div className="demo-access">
+            <p className="demo-label">DEMO MODE</p>
+            <button
+              className="btn-demo"
+              onClick={() => setShowBookingFlow(true)}
+            >
+              🎨 View Booking Flow Design
+            </button>
+          </div>
         </div>
       </div>
     );

@@ -10096,6 +10096,39 @@ a.contact-value:hover {
   text-decoration: none;
 }
 
+/* Demo Access Section */
+.demo-access {
+  margin-top: 32px;
+  padding-top: 32px;
+  border-top: 2px dashed #e5e7eb;
+  text-align: center;
+}
+
+.demo-label {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-bottom: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.btn-demo {
+  padding: 12px 24px;
+  background: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-demo:hover {
+  background: #4b5563;
+  transform: translateY(-1px);
+}
+
 /* Booking Header */
 .booking-header {
   display: flex;
