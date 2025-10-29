@@ -943,7 +943,7 @@
 
   .input-icon {
     position: absolute;
-    left: 16px;
+    left: 18px;
     color: hsl(var(--gray-400));
     pointer-events: none;
     z-index: 2;
@@ -952,8 +952,8 @@
   .form-input {
     width: 100%;
     padding: 16px;
-    padding-left: 48px;
-    padding-right: 48px;
+    padding-left: 54px;
+    padding-right: 54px;
     font-size: 15px;
     font-weight: 500;
     color: hsl(var(--foreground));
