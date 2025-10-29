@@ -21,7 +21,6 @@ const RequestInspection = () => {
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -78,78 +77,22 @@ const RequestInspection = () => {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500))
 
-    // TODO: Save to Supabase
+    // TODO: Save to Supabase and get confirmation number
+    const confirmationNumber = 'INS-' + Math.random().toString(36).substr(2, 9).toUpperCase()
+
     console.log('Submitting inspection request:', formData)
 
     setSubmitting(false)
-    setSubmitted(true)
 
-    // Scroll to success message
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  if (submitted) {
-    return (
-      <div className="request-inspection-page">
-        <div className="success-container">
-          <div className="success-content">
-            <div className="success-icon">✓</div>
-            <h1 className="success-title">Request Received!</h1>
-            <p className="success-message">
-              Thank you for contacting Mould & Restoration Co. We've received your inspection request and will be in touch within 24 hours.
-            </p>
-            <div className="success-details">
-              <div className="detail-row">
-                <span className="detail-label">Name:</span>
-                <span className="detail-value">{formData.name}</span>
-              </div>
-              <div className="detail-row">
-                <span className="detail-label">Email:</span>
-                <span className="detail-value">{formData.email}</span>
-              </div>
-              <div className="detail-row">
-                <span className="detail-label">Phone:</span>
-                <span className="detail-value">{formData.phone}</span>
-              </div>
-              <div className="detail-row">
-                <span className="detail-label">Property:</span>
-                <span className="detail-value">{formData.property}, {formData.suburb} {formData.state} {formData.postcode}</span>
-              </div>
-            </div>
-            <div className="success-actions">
-              <button 
-                className="btn-primary btn-large"
-                onClick={() => {
-                  setSubmitted(false)
-                  setFormData({
-                    name: '',
-                    email: '',
-                    phone: '',
-                    property: '',
-                    suburb: '',
-                    state: 'VIC',
-                    postcode: '',
-                    issueDescription: '',
-                    urgency: 'medium',
-                    preferredDate: '',
-                    preferredTime: '',
-                    source: 'Website'
-                  })
-                }}
-              >
-                Submit Another Request
-              </button>
-              <button 
-                className="btn-secondary btn-large"
-                onClick={() => navigate('/')}
-              >
-                Return to Home
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+    // Navigate to success page with data
+    navigate('/request-inspection/success', {
+      state: {
+        submissionData: {
+          ...formData,
+          confirmationNumber
+        }
+      }
+    })
   }
 
   return (
