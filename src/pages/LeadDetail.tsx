@@ -251,8 +251,8 @@ export default function LeadDetail() {
       case "inspection_report_pdf_completed":
         return (
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline" onClick={handleCopyBookingLink}>
-              🔗 Copy Booking Link
+            <Button size="lg" variant="outline" onClick={() => navigate(`/inspection/${lead.id}`)}>
+              📄 Review Inspection Report PDF
             </Button>
             <Button size="lg" onClick={handleSendReportToCustomer}>
               📧 Send Report to Customer
