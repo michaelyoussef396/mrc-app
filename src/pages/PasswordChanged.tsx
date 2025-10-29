@@ -38,39 +38,37 @@ export default function PasswordChanged() {
         <div className="gradient-orb orb-4"></div>
       </div>
       
-      {/* Celebration Confetti (CSS) */}
+      {/* Celebration Confetti */}
       <div className="confetti-container">
-        {[...Array(20)].map((_, i) => (
-          <div key={i} className={`confetti confetti-${i + 1}`}></div>
+        {[...Array(30)].map((_, i) => (
+          <div key={i} className={`confetti confetti-${(i % 10) + 1}`}></div>
         ))}
       </div>
       
       {/* Content Card */}
       <div className="password-changed-container">
         <div className="password-changed-card glass-card">
-          {/* Success Icon */}
+          {/* Large Success Icon */}
           <div className="success-icon-wrapper">
             <div className="success-icon-circle">
-              <div className="success-checkmark">
-                <svg 
-                  className="checkmark-svg" 
-                  viewBox="0 0 52 52"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <circle 
-                    className="checkmark-circle" 
-                    cx="26" 
-                    cy="26" 
-                    r="25" 
-                    fill="none"
-                  />
-                  <path 
-                    className="checkmark-check" 
-                    fill="none" 
-                    d="M14.1 27.2l7.1 7.2 16.7-16.8"
-                  />
-                </svg>
-              </div>
+              <svg 
+                className="checkmark-svg" 
+                viewBox="0 0 52 52"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle 
+                  className="checkmark-circle" 
+                  cx="26" 
+                  cy="26" 
+                  r="25" 
+                  fill="none"
+                />
+                <path 
+                  className="checkmark-check" 
+                  fill="none" 
+                  d="M14.1 27.2l7.1 7.2 16.7-16.8"
+                />
+              </svg>
             </div>
           </div>
           
@@ -85,15 +83,21 @@ export default function PasswordChanged() {
           {/* Success Details */}
           <div className="success-details">
             <div className="detail-item">
-              <span className="detail-icon">✅</span>
+              <div className="detail-icon-circle green">
+                <span>✓</span>
+              </div>
               <span className="detail-text">Password successfully updated</span>
             </div>
             <div className="detail-item">
-              <span className="detail-icon">🔒</span>
+              <div className="detail-icon-circle blue">
+                <span>🔒</span>
+              </div>
               <span className="detail-text">Your account is secure</span>
             </div>
             <div className="detail-item">
-              <span className="detail-icon">🔑</span>
+              <div className="detail-icon-circle purple">
+                <span>🔑</span>
+              </div>
               <span className="detail-text">Use your new password to login</span>
             </div>
           </div>
@@ -111,29 +115,33 @@ export default function PasswordChanged() {
             {/* Auto-redirect Indicator */}
             {autoRedirect && countdown > 0 && (
               <div className="auto-redirect-notice">
-                <div className="countdown-circle">
-                  <svg className="countdown-ring" viewBox="0 0 36 36">
-                    <path
-                      className="countdown-background"
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                    <path
-                      className="countdown-progress"
-                      strokeDasharray={`${(countdown / 5) * 100}, 100`}
-                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    />
-                  </svg>
-                  <span className="countdown-number">{countdown}</span>
+                <div className="countdown-wrapper">
+                  <div className="countdown-circle">
+                    <svg className="countdown-ring" viewBox="0 0 36 36">
+                      <path
+                        className="countdown-background"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                      <path
+                        className="countdown-progress"
+                        strokeDasharray={`${(countdown / 5) * 100}, 100`}
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                    </svg>
+                    <span className="countdown-number">{countdown}</span>
+                  </div>
+                  <div className="redirect-content">
+                    <p className="redirect-text">
+                      Redirecting to login in {countdown} second{countdown !== 1 ? 's' : ''}
+                    </p>
+                    <button 
+                      className="cancel-redirect-btn"
+                      onClick={() => setAutoRedirect(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-                <p className="redirect-text">
-                  Redirecting to login in {countdown} second{countdown !== 1 ? 's' : ''}...
-                </p>
-                <button 
-                  className="cancel-redirect-btn"
-                  onClick={() => setAutoRedirect(false)}
-                >
-                  Cancel auto-redirect
-                </button>
               </div>
             )}
           </div>
@@ -151,17 +159,13 @@ export default function PasswordChanged() {
           
           {/* Footer Links */}
           <div className="password-changed-footer">
-            <a href="/" className="footer-link">
+            <button onClick={() => navigate('/')} className="footer-link">
               Go to Login
-            </a>
+            </button>
             <span className="footer-divider">•</span>
-            <a href="/dashboard" className="footer-link">
+            <button onClick={() => navigate('/dashboard')} className="footer-link">
               Go to Dashboard
-            </a>
-            <span className="footer-divider">•</span>
-            <a href="/contact" className="footer-link">
-              Need Help?
-            </a>
+            </button>
           </div>
         </div>
       </div>
