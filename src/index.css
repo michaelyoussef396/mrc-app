@@ -944,16 +944,21 @@
   .input-icon {
     position: absolute;
     left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
     color: hsl(var(--gray-400));
     pointer-events: none;
     z-index: 2;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .form-input {
     width: 100%;
-    padding: 16px;
-    padding-left: 54px;
-    padding-right: 54px;
+    padding: 16px 54px 16px 54px;
     font-size: 15px;
     font-weight: 500;
     color: hsl(var(--foreground));
@@ -981,6 +986,8 @@
   .input-toggle {
     position: absolute;
     right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
     background: none;
     border: none;
     color: hsl(var(--gray-500));
@@ -992,6 +999,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+  
+  .input-toggle:active {
+    transform: translateY(-50%) scale(0.95);
   }
 
   .input-toggle:hover {
@@ -3608,6 +3619,19 @@ a.contact-value:hover {
     
     .login-title {
       font-size: 20px;
+    }
+    
+    .form-input {
+      padding: 14px 50px 14px 50px;
+      font-size: 16px; /* Prevent iOS zoom */
+    }
+    
+    .input-icon {
+      left: 16px;
+    }
+    
+    .input-toggle {
+      right: 14px;
     }
     
     .gradient-orb {
