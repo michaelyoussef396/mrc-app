@@ -77,26 +77,26 @@ export default function CheckEmail() {
       {/* Content Card */}
       <div className="check-email-container">
         <div className="check-email-card glass-card">
-          {/* Success Icon with Animated Checkmark */}
+          {/* Success Icon - Professional Design */}
           <div className="success-icon-wrapper">
-            <div className="success-icon-circle">
-              <div className="success-checkmark">
+            <div className="success-icon-container">
+              <div className="success-icon-circle">
                 <svg 
-                  className="checkmark-svg" 
-                  viewBox="0 0 52 52"
+                  className="success-checkmark"
+                  viewBox="0 0 52 52" 
                   xmlns="http://www.w3.org/2000/svg"
                 >
                   <circle 
                     className="checkmark-circle" 
                     cx="26" 
                     cy="26" 
-                    r="25" 
+                    r="24" 
                     fill="none"
                   />
                   <path 
                     className="checkmark-check" 
                     fill="none" 
-                    d="M14.1 27.2l7.1 7.2 16.7-16.8"
+                    d="M14 27l7 7 16-16"
                   />
                 </svg>
               </div>
