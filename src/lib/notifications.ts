@@ -136,3 +136,34 @@ export const generateBookingToken = async (leadId: string): Promise<string> => {
     throw error;
   }
 };
+
+export const sendClientNotification = async (leadId: string, type: 'job-started' | 'job-completed') => {
+  try {
+    // Load client details
+    const { data: lead } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('id', leadId)
+      .single();
+
+    if (!lead) return;
+
+    if (type === 'job-started') {
+      // TODO: Implement SMS notification
+      console.log(`Sending job started notification to ${lead.full_name}`);
+      
+      // TODO: Send email notification via edge function
+      // await sendEmail({
+      //   to: lead.email,
+      //   subject: 'Your Mould Remediation Service Has Started',
+      //   template: 'job-started-client',
+      //   data: {
+      //     clientName: lead.full_name,
+      //     property: lead.property_address_street,
+      //   }
+      // });
+    }
+  } catch (error) {
+    console.error('Error sending client notification:', error);
+  }
+};

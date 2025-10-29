@@ -67,9 +67,9 @@ const LeadsManagement = () => {
       label: 'Job Booked', 
       icon: '🔨', 
       color: '#8b5cf6',
-      description: 'Client approved, job scheduled',
-      nextActions: ['Prepare equipment', 'Confirm start date'],
-      availableButtons: ['viewSchedule', 'startJob', 'reschedule', 'call', 'viewDetails']
+      description: 'Client approved, job scheduled by customer',
+      nextActions: ['Navigate to property', 'Start the job'],
+      availableButtons: ['directions', 'startJob', 'call', 'viewDetails']
     },
     { 
       value: 'job_report_pdf_sent', 
@@ -184,7 +184,20 @@ const LeadsManagement = () => {
     },
     
     startJob: async (leadId: number) => {
-      await updateLeadStatus(leadId, 'job-in-progress');
+      const confirmed = window.confirm(
+        'Start this job now?\n\nThis will update the status to "Job In Progress" and notify the client.'
+      );
+      
+      if (confirmed) {
+        // Update lead status
+        await updateLeadStatus(leadId, 'job_report_pdf_sent');
+        
+        // TODO: Send notification to client
+        // await sendClientNotification(leadId, 'job-started');
+        
+        // Show success message
+        alert('Job started! Status updated to "In Progress"');
+      }
     },
     
     viewProgress: (leadId: number) => {
@@ -383,9 +396,23 @@ const LeadsManagement = () => {
         onClick: () => stageActions.viewSchedule(lead.id),
         style: 'secondary'
       },
+      directions: {
+        icon: '🗺️',
+        label: 'Directions',
+        onClick: () => {
+          const address = encodeURIComponent(
+            `${lead.property}, ${lead.suburb} ${lead.state} ${lead.postcode}`
+          );
+          window.open(
+            `https://www.google.com/maps/dir/?api=1&destination=${address}`,
+            '_blank'
+          );
+        },
+        style: 'primary'
+      },
       startJob: {
-        icon: '🔨',
-        label: 'Start',
+        icon: '🚀',
+        label: 'Start Job',
         onClick: () => stageActions.startJob(lead.id),
         style: 'success'
       },
@@ -620,7 +647,11 @@ const LeadsManagement = () => {
         lastContact: '2025-01-24T15:00:00',
         scheduledDate: '2025-02-03T08:00:00',
         estimatedValue: 3900,
-        issueDescription: 'Kitchen and bathroom mould removal and sanitization'
+        issueDescription: 'Kitchen and bathroom mould removal and sanitization',
+        scheduled_dates: ['2025-02-03', '2025-02-04', '2025-02-05'],
+        scheduled_time: '9:00 AM',
+        access_instructions: 'Key under doormat at front entrance. Please park on street.',
+        booked_at: '2025-01-27T15:30:00'
       },
       
       // 5. JOB_REPORT_PDF_SENT - Job In Progress
@@ -1081,6 +1112,55 @@ const LeadsManagement = () => {
                     <span className="issue-icon">💬</span>
                     <p className="issue-text">{lead.issueDescription}</p>
                   </div>
+
+                  {/* SCHEDULE INFO BANNER FOR JOB BOOKED */}
+                  {lead.status === 'job_completed' && lead.scheduled_dates && (
+                    <div className="schedule-info-banner">
+                      <div className="schedule-icon">📅</div>
+                      <div className="schedule-details">
+                        <div className="schedule-title">Scheduled Service</div>
+                        <div className="schedule-dates">
+                          {lead.scheduled_dates.length === 1 ? (
+                            <span className="date-item">
+                              {new Date(lead.scheduled_dates[0]).toLocaleDateString('en-AU', {
+                                weekday: 'long',
+                                month: 'long', 
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </span>
+                          ) : (
+                            <div className="multi-day-schedule">
+                              {lead.scheduled_dates.slice(0, 3).map((date: string, index: number) => (
+                                <span key={date} className="date-item">
+                                  Day {index + 1}: {new Date(date).toLocaleDateString('en-AU', {
+                                    weekday: 'short',
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })}
+                                </span>
+                              ))}
+                              {lead.scheduled_dates.length > 3 && (
+                                <span className="date-item">+{lead.scheduled_dates.length - 3} more days</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        {lead.scheduled_time && (
+                          <div className="schedule-time">
+                            <span className="time-icon">🕐</span>
+                            <span className="time-text">Start: {lead.scheduled_time}</span>
+                          </div>
+                        )}
+                        {lead.access_instructions && (
+                          <div className="access-preview">
+                            <span className="access-icon">🔑</span>
+                            <span className="access-text">{lead.access_instructions}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="lead-meta">
                     <div className="meta-item">
