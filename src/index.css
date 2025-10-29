@@ -935,40 +935,85 @@
     letter-spacing: -0.2px;
   }
 
+  /* INPUT WRAPPER - THIS CREATES THE INPUT "BOX" WITH BORDER */
   .login-page .input-wrapper {
     position: relative;
+    display: flex;
+    align-items: center;
+    background: white;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    height: 52px;
     width: 100%;
-    display: block;
   }
 
+  .login-page .input-wrapper:hover {
+    border-color: rgba(18, 29, 115, 0.3);
+  }
+
+  .login-page .input-wrapper:focus-within {
+    border-color: #121D73;
+    box-shadow: 0 0 0 4px rgba(18, 29, 115, 0.1);
+  }
+
+  .login-page .input-wrapper.error {
+    border-color: #ef4444;
+  }
+
+  .login-page .input-wrapper.error:focus-within {
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
+  }
+
+  /* ICON - INSIDE THE INPUT BOX ON LEFT */
   .login-page .input-icon {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
+    flex-shrink: 0;
     width: 50px;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
     color: hsl(var(--gray-400));
     pointer-events: none;
-    z-index: 2;
   }
 
+  /* INPUT - NO BORDER, FILLS REMAINING SPACE */
   .login-page .form-input {
-    width: 100%;
-    padding-left: 50px !important;
-    padding-right: 20px !important;
-    height: 52px;
+    flex: 1;
+    height: 100%;
+    padding: 0 16px;
+    background: transparent;
+    border: none;
+    outline: none;
     font-size: 15px;
     font-weight: 500;
     color: hsl(var(--foreground));
-    background: rgba(255, 255, 255, 0.5);
-    border: 1.5px solid hsl(var(--border));
-    border-radius: 12px;
-    transition: all var(--transition-base);
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
-    box-sizing: border-box;
+  }
+
+  .login-page .form-input::placeholder {
+    color: hsl(var(--gray-400));
+  }
+
+  /* PASSWORD TOGGLE - INSIDE THE INPUT BOX ON RIGHT */
+  .login-page .password-toggle {
+    flex-shrink: 0;
+    width: 50px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: hsl(var(--gray-500));
+    transition: all 0.2s ease;
+    border-radius: 0 10px 10px 0;
+  }
+
+  .login-page .password-toggle:hover {
+    color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.05);
   }
 
   .form-input::placeholder {
@@ -3626,18 +3671,15 @@ a.contact-value:hover {
     }
     
     .login-page .form-input {
-      padding: 14px 50px 14px 50px !important;
       font-size: 16px; /* Prevent iOS zoom */
     }
     
     .login-page .input-icon {
-      left: 0;
-      width: 50px;
+      width: 44px;
     }
     
     .login-page .password-toggle {
-      right: 0;
-      width: 50px;
+      width: 44px;
     }
     
     .gradient-orb {

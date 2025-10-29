@@ -91,8 +91,8 @@ export default function Login() {
             {/* Email Field */}
             <div className="form-group">
               <label className="form-label">Email</label>
-              <div className="input-wrapper">
-                <Mail className="input-icon" size={18} />
+              <div className={`input-wrapper ${form.formState.errors.email ? 'error' : ''}`}>
+                <Mail className="input-icon" size={20} />
                 <input
                   type="email"
                   className="form-input"
@@ -108,8 +108,8 @@ export default function Login() {
             {/* Password Field */}
             <div className="form-group">
               <label className="form-label">Password</label>
-              <div className="input-wrapper">
-                <Lock className="input-icon" size={18} />
+              <div className={`input-wrapper ${form.formState.errors.password ? 'error' : ''}`}>
+                <Lock className="input-icon" size={20} />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   className="form-input"
@@ -118,10 +118,10 @@ export default function Login() {
                 />
                 <button
                   type="button"
-                  className="input-toggle"
+                  className="password-toggle"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
               {form.formState.errors.password && (
