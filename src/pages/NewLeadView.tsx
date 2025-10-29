@@ -20,17 +20,44 @@ const NewLeadView = () => {
   const loadLeadData = async () => {
     setLoading(true)
     
-    try {
-      const { data, error } = await supabase
-        .from('leads')
-        .select('*')
-        .eq('id', id)
-        .single()
-      
-      if (error) throw error
-      setLead(data)
-    } catch (error) {
-      console.error('Error loading lead:', error)
+    // Mock data matching LeadsManagement - replace with real Supabase query later
+    const mockLeads = [
+      {
+        id: 1,
+        full_name: 'John Doe',
+        email: 'john@email.com',
+        phone: '0412 345 678',
+        property_address_street: '123 Smith Street',
+        property_address_suburb: 'Melbourne',
+        property_address_state: 'VIC',
+        property_address_postcode: '3000',
+        status: 'new_lead',
+        urgency: 'high',
+        lead_source: 'Website Form',
+        created_at: '2025-01-29T10:30:00',
+        issue_description: 'Visible black mould in bathroom around shower area and on bedroom ceiling near window'
+      },
+      {
+        id: 2,
+        full_name: 'Emma Wilson',
+        email: 'emma@email.com',
+        phone: '0434 567 890',
+        property_address_street: '67 High Street',
+        property_address_suburb: 'Preston',
+        property_address_state: 'VIC',
+        property_address_postcode: '3072',
+        status: 'new_lead',
+        urgency: 'medium',
+        lead_source: 'Google Ads',
+        created_at: '2025-01-29T08:15:00',
+        issue_description: 'Musty smell in laundry room and visible spots on walls'
+      }
+    ]
+    
+    const leadData = mockLeads.find(l => l.id === parseInt(id || '0'))
+    
+    if (leadData) {
+      setLead(leadData)
     }
     
     setLoading(false)
