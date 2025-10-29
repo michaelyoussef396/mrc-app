@@ -60,9 +60,9 @@ export default function Leads() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden max-w-full">
       {/* Header */}
-      <div className="bg-card border-b">
+      <div className="bg-card border-b overflow-x-hidden">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -80,9 +80,9 @@ export default function Leads() {
       </div>
 
       {/* Desktop: Horizontal Pipeline with Scroll Buttons */}
-      <div className="hidden md:block">
-        <div className="container mx-auto px-4 py-6">
-          <div className="relative">
+      <div className="hidden md:block overflow-x-hidden">
+        <div className="container mx-auto px-4 py-6 max-w-full">
+          <div className="relative overflow-x-hidden">
             {/* Left Scroll Button */}
             <Button
               variant="outline"

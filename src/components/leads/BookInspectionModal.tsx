@@ -31,7 +31,6 @@ export function BookInspectionModal({
   const [formData, setFormData] = useState({
     inspectionDate: "",
     inspectionTime: "09:00",
-    duration: "2",
     assignedTo: "",
     notes: "",
     sendSMS: true,
@@ -44,9 +43,9 @@ export function BookInspectionModal({
     setLoading(true);
 
     try {
-      // Combine date and time
+      // Combine date and time - Fixed 1 hour duration (system) but tell customer 45 mins
       const startDateTime = new Date(`${formData.inspectionDate}T${formData.inspectionTime}:00`);
-      const endDateTime = new Date(startDateTime.getTime() + parseInt(formData.duration) * 60 * 60 * 1000);
+      const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000); // Always 1 hour
 
       // Create calendar event
       const { error: calendarError } = await supabase
@@ -157,21 +156,14 @@ export function BookInspectionModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="duration">Duration</Label>
-            <Select
-              value={formData.duration}
-              onValueChange={(value) => setFormData({ ...formData, duration: value })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">1 hour</SelectItem>
-                <SelectItem value="2">2 hours</SelectItem>
-                <SelectItem value="3">3 hours</SelectItem>
-                <SelectItem value="4">4 hours</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="bg-muted/50 p-3 rounded-md border">
+              <p className="text-sm text-muted-foreground">
+                ℹ️ <strong>Duration:</strong> 1 hour (system booking)
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                💬 Customer told: Approximately 45 minutes
+              </p>
+            </div>
           </div>
 
           <div className="space-y-2">

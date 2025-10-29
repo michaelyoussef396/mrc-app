@@ -62,6 +62,140 @@ export default function LeadDetail() {
 
   const statusConfig = STATUS_FLOW[lead.status as LeadStatus];
 
+  const handleGetDirections = () => {
+    const address = encodeURIComponent(
+      `${lead.property_address_street}, ${lead.property_address_suburb}, VIC ${lead.property_address_postcode}`
+    );
+    window.open(`https://www.google.com/maps/search/?api=1&query=${address}`, '_blank');
+  };
+
+  const handleApproveReport = async () => {
+    const { error } = await supabase
+      .from('leads')
+      .update({ status: 'inspection_report_pdf_completed' })
+      .eq('id', lead.id);
+
+    if (error) {
+      toast.error('Failed to update status');
+      return;
+    }
+
+    await supabase.from('activities').insert({
+      lead_id: lead.id,
+      activity_type: 'report_approved',
+      title: 'Report Approved',
+      description: 'Inspection report approved and ready to send',
+    });
+
+    toast.success('✅ Report approved! Ready to send to customer.');
+    window.location.reload();
+  };
+
+  const handleSendReportToCustomer = async () => {
+    const { error } = await supabase
+      .from('leads')
+      .update({ status: 'job_waiting' })
+      .eq('id', lead.id);
+
+    if (error) {
+      toast.error('Failed to send report');
+      return;
+    }
+
+    await supabase.from('activities').insert({
+      lead_id: lead.id,
+      activity_type: 'report_sent',
+      title: 'Report Sent to Customer',
+      description: 'Inspection report emailed to customer with booking link',
+    });
+
+    toast.success('✅ Report sent to customer!');
+    window.location.reload();
+  };
+
+  const handleCopyBookingLink = () => {
+    const bookingUrl = `${window.location.origin}/book/${lead.id}`;
+    navigator.clipboard.writeText(bookingUrl);
+    toast.success('📋 Booking link copied to clipboard!');
+  };
+
+  const handleMarkAsPaid = async () => {
+    const { error } = await supabase
+      .from('leads')
+      .update({ status: 'google_review' })
+      .eq('id', lead.id);
+
+    if (error) {
+      toast.error('Failed to mark as paid');
+      return;
+    }
+
+    await supabase.from('activities').insert({
+      lead_id: lead.id,
+      activity_type: 'payment_received',
+      title: 'Payment Received',
+      description: 'Job marked as paid',
+    });
+
+    toast.success('✅ Marked as paid!');
+    window.location.reload();
+  };
+
+  const handleSendReviewRequest = async () => {
+    await supabase.from('activities').insert({
+      lead_id: lead.id,
+      activity_type: 'review_requested',
+      title: 'Review Request Sent',
+      description: 'Google review request sent to customer',
+    });
+
+    toast.success('⭐ Review request sent!');
+  };
+
+  const handleReviewReceived = async () => {
+    const { error } = await supabase
+      .from('leads')
+      .update({ status: 'finished' })
+      .eq('id', lead.id);
+
+    if (error) {
+      toast.error('Failed to update status');
+      return;
+    }
+
+    await supabase.from('activities').insert({
+      lead_id: lead.id,
+      activity_type: 'review_received',
+      title: 'Review Received',
+      description: 'Customer left a Google review',
+    });
+
+    toast.success('✅ Review received! Job finished.');
+    window.location.reload();
+  };
+
+  const handleSkipReview = async () => {
+    const { error } = await supabase
+      .from('leads')
+      .update({ status: 'finished' })
+      .eq('id', lead.id);
+
+    if (error) {
+      toast.error('Failed to update status');
+      return;
+    }
+
+    await supabase.from('activities').insert({
+      lead_id: lead.id,
+      activity_type: 'review_skipped',
+      title: 'Review Skipped',
+      description: 'Review request skipped',
+    });
+
+    toast.success('⏭️ Review skipped. Job finished.');
+    window.location.reload();
+  };
+
   const renderActionButtons = () => {
     const status = lead.status as LeadStatus;
 
@@ -81,14 +215,11 @@ export default function LeadDetail() {
       case "contacted":
         return (
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline">
+            <Button size="lg" variant="outline" onClick={handleGetDirections}>
               <MapPin className="h-4 w-4 mr-2" /> Get Directions
             </Button>
-            <Button size="lg" variant="outline">
-              <FileText className="h-4 w-4 mr-2" /> View Booking
-            </Button>
-            <Button size="lg">
-              <Phone className="h-4 w-4 mr-2" /> Send Reminder
+            <Button size="lg" variant="outline" onClick={() => window.location.href = `tel:${lead.phone}`}>
+              <Phone className="h-4 w-4 mr-2" /> Call Customer
             </Button>
           </div>
         );
@@ -96,8 +227,8 @@ export default function LeadDetail() {
       case "inspection_waiting":
         return (
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline">
-              🚗 I'm On My Way
+            <Button size="lg" variant="outline" onClick={handleGetDirections}>
+              <MapPin className="h-4 w-4 mr-2" /> Get Directions
             </Button>
             <Button size="lg" onClick={() => navigate(`/inspection/${lead.id}`)}>
               📋 Start Inspection
@@ -108,13 +239,10 @@ export default function LeadDetail() {
       case "inspection_completed":
         return (
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline">
+            <Button size="lg" variant="outline" onClick={() => navigate(`/inspection/${lead.id}`)}>
               👁️ Preview Report
             </Button>
-            <Button size="lg" variant="outline">
-              ✏️ Edit Inspection
-            </Button>
-            <Button size="lg">
+            <Button size="lg" onClick={handleApproveReport}>
               ✅ Approve & Send Report
             </Button>
           </div>
@@ -123,13 +251,10 @@ export default function LeadDetail() {
       case "inspection_report_pdf_completed":
         return (
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline">
-              📄 Download PDF
-            </Button>
-            <Button size="lg" variant="outline">
+            <Button size="lg" variant="outline" onClick={handleCopyBookingLink}>
               🔗 Copy Booking Link
             </Button>
-            <Button size="lg">
+            <Button size="lg" onClick={handleSendReportToCustomer}>
               📧 Send Report to Customer
             </Button>
           </div>
@@ -138,14 +263,11 @@ export default function LeadDetail() {
       case "job_waiting":
         return (
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline">
-              🔗 Resend Booking Link
-            </Button>
-            <Button size="lg" variant="outline">
+            <Button size="lg" variant="outline" onClick={() => window.location.href = `tel:${lead.phone}`}>
               📞 Follow Up Call
             </Button>
-            <Button size="lg">
-              ✏️ Manual Job Booking
+            <Button size="lg" variant="outline" onClick={handleCopyBookingLink}>
+              🔗 Copy Booking Link
             </Button>
           </div>
         );
@@ -195,13 +317,10 @@ export default function LeadDetail() {
       case "paid":
         return (
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline">
-              🔔 Send Reminder
-            </Button>
-            <Button size="lg" variant="outline">
+            <Button size="lg" variant="outline" onClick={() => window.location.href = `tel:${lead.phone}`}>
               📞 Call Customer
             </Button>
-            <Button size="lg">
+            <Button size="lg" onClick={handleMarkAsPaid}>
               💰 Mark as Paid
             </Button>
           </div>
@@ -210,16 +329,13 @@ export default function LeadDetail() {
       case "google_review":
         return (
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline">
-              👁️ Check Review Status
-            </Button>
-            <Button size="lg">
+            <Button size="lg" onClick={handleSendReviewRequest}>
               ⭐ Send Review Request
             </Button>
-            <Button size="lg" variant="secondary">
+            <Button size="lg" variant="secondary" onClick={handleReviewReceived}>
               ✅ Review Received
             </Button>
-            <Button size="lg" variant="outline">
+            <Button size="lg" variant="outline" onClick={handleSkipReview}>
               ⏭️ Skip Review
             </Button>
           </div>
@@ -312,10 +428,10 @@ export default function LeadDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden max-w-full">
       {/* Header */}
-      <div className="bg-card border-b">
-        <div className="container mx-auto px-4 py-6">
+      <div className="bg-card border-b overflow-x-hidden">
+        <div className="container mx-auto px-4 py-6 max-w-full overflow-x-hidden">
           <Button
             variant="ghost"
             size="sm"
@@ -349,8 +465,8 @@ export default function LeadDetail() {
       </div>
 
       {/* Status Card */}
-      <div className="container mx-auto px-4 py-6">
-        <Card className="border-l-4" style={{ borderLeftColor: statusConfig.color }}>
+      <div className="container mx-auto px-4 py-6 max-w-full overflow-x-hidden">
+        <Card className="border-l-4 overflow-x-hidden" style={{ borderLeftColor: statusConfig.color }}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-2xl">
@@ -379,7 +495,7 @@ export default function LeadDetail() {
       </div>
 
       {/* Tabs */}
-      <div className="container mx-auto px-4 pb-8">
+      <div className="container mx-auto px-4 pb-8 max-w-full overflow-x-hidden">
         <Tabs defaultValue="overview">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
