@@ -8506,6 +8506,16 @@ a.contact-value:hover {
   min-height: 100vh;
   background: #f8fafc;
   position: relative;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+.leads-container,
+.leads-main {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .leads-background {
@@ -9381,6 +9391,29 @@ a.contact-value:hover {
   font-size: 18px;
 }
 
+/* ============================================
+   MOBILE RESPONSIVE - CRITICAL FIXES
+   ============================================ */
+
+/* Prevent text overflow globally for lead cards */
+.lead-card * {
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Ensure long emails/URLs break properly */
+.contact-link,
+.info-value,
+.property-text,
+.issue-text,
+.access-text {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+/* Tablet breakpoint */
 @media (max-width: 1024px) {
   .leads-container {
     padding: 0 20px;
@@ -9395,83 +9428,407 @@ a.contact-value:hover {
   }
 }
 
-  @media (max-width: 768px) {
-    .page-title {
-      font-size: 28px;
-    }
-    
-    .leads-grid.cards {
-      grid-template-columns: 1fr;
-    }
-    
-    .filter-row {
-      flex-direction: column;
-    }
-    
-    .filter-group {
-      width: 100%;
-    }
-    
-    .view-toggle {
-      width: 100%;
-      justify-content: stretch;
-    }
-
-    .view-btn {
-      flex: 1;
-      min-width: 0;
-    }
-    
-    .lead-meta {
-      grid-template-columns: 1fr;
-    }
-    
-    .lead-contact-row {
-      flex-direction: column;
-    }
-
-    .action-btn {
-      padding: 12px 10px;
-    }
-    
-    .action-icon {
-      font-size: 20px;
-    }
-    
-    .action-label {
-      font-size: 9px;
-    }
-    
-    .lead-actions {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .btn-new-lead span:last-child {
-      display: none;
-    }
-    
-    .nav-title span:last-child {
-      display: none;
-    }
+/* Mobile breakpoint - Main fixes */
+@media (max-width: 768px) {
+  /* Container padding */
+  .leads-container {
+    padding: 0 16px;
   }
 
-  @media (max-width: 480px) {
-    .lead-actions {
-      flex-direction: column;
-    }
-    
-    .action-btn {
-      flex-direction: row;
-      justify-content: flex-start;
-      padding: 12px 16px;
-      gap: 10px;
-    }
-    
-    .action-label {
-      font-size: 13px;
-      text-transform: none;
-    }
+  /* Page header */
+  .page-header {
+    margin-bottom: 24px;
   }
+
+  .page-title {
+    font-size: 24px;
+  }
+
+  .page-subtitle {
+    font-size: 14px;
+  }
+
+  /* Status tabs - horizontal scroll */
+  .status-tabs-scroll {
+    margin-left: -16px;
+    margin-right: -16px;
+    padding: 0 16px;
+  }
+
+  .status-tabs {
+    min-width: max-content;
+  }
+
+  .status-tab {
+    min-width: 120px;
+    padding: 10px 12px;
+  }
+
+  .status-tab-label {
+    font-size: 12px;
+  }
+
+  .status-tab-count {
+    font-size: 10px;
+  }
+
+  /* Controls section */
+  .controls-section {
+    margin-bottom: 24px;
+  }
+
+  .search-bar {
+    margin-bottom: 16px;
+  }
+
+  .search-input {
+    padding: 12px 44px 12px 44px;
+    font-size: 16px !important; /* Prevents iOS zoom */
+  }
+
+  .filter-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .filter-group {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .filter-select {
+    width: 100%;
+    font-size: 16px !important; /* Prevents iOS zoom */
+  }
+
+  .view-toggle {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .view-btn {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Lead cards grid */
+  .leads-grid {
+    gap: 16px;
+  }
+
+  .leads-grid.cards {
+    grid-template-columns: 1fr;
+  }
+
+  /* Individual lead card */
+  .lead-card {
+    padding: 16px;
+    border-radius: 16px;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  /* Card header */
+  .lead-card-header {
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .lead-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 16px;
+    border-radius: 12px;
+  }
+
+  .lead-header-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .lead-name {
+    font-size: 16px;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .lead-badges {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .status-badge,
+  .urgency-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
+  /* Property info */
+  .lead-property {
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+
+  .property-icon {
+    font-size: 14px;
+    margin-top: 0;
+  }
+
+  .property-text {
+    font-size: 13px;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  /* Contact row - stack vertically */
+  .lead-contact-row {
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .contact-item {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .contact-icon {
+    font-size: 13px;
+  }
+
+  .contact-link {
+    font-size: 12px;
+    word-break: break-all;
+  }
+
+  /* Issue preview */
+  .lead-issue {
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+
+  .issue-icon {
+    font-size: 14px;
+  }
+
+  .issue-text {
+    font-size: 12px;
+    -webkit-line-clamp: 3;
+  }
+
+  /* Meta info - single column */
+  .lead-meta {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding-top: 10px;
+  }
+
+  .meta-label {
+    font-size: 9px;
+  }
+
+  .meta-value {
+    font-size: 12px;
+  }
+
+  /* Schedule info banner */
+  .schedule-info-banner {
+    padding: 12px;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .schedule-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  .schedule-title {
+    font-size: 10px;
+  }
+
+  .date-item,
+  .time-text {
+    font-size: 12px;
+  }
+
+  .access-text {
+    font-size: 11px;
+    -webkit-line-clamp: 2;
+  }
+
+  /* Next action */
+  .lead-next-action {
+    padding: 8px 10px;
+    margin-bottom: 10px;
+  }
+
+  .next-action-icon {
+    font-size: 12px;
+  }
+
+  .next-action-text {
+    font-size: 11px;
+  }
+
+  /* Action buttons - grid layout */
+  .lead-actions {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding-top: 10px;
+  }
+
+  .action-btn {
+    padding: 12px 8px;
+    min-height: 60px;
+    min-width: 44px;
+  }
+
+  .action-icon {
+    font-size: 20px;
+  }
+
+  .action-label {
+    font-size: 10px;
+    word-break: break-word;
+    text-align: center;
+  }
+
+  /* Results summary */
+  .results-summary {
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+
+  .results-text,
+  .results-value {
+    font-size: 13px;
+  }
+
+  /* Empty/Loading states */
+  .loading-state,
+  .empty-state {
+    padding: 60px 16px;
+  }
+
+  .empty-icon {
+    width: 64px;
+    height: 64px;
+    font-size: 32px;
+  }
+
+  .empty-state h3 {
+    font-size: 18px;
+  }
+
+  .empty-state p {
+    font-size: 14px;
+  }
+
+  /* Navigation - Mobile fix */
+  .nav-container {
+    padding: 0 16px;
+    height: 64px;
+    gap: 12px;
+  }
+
+  .back-btn {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  .back-arrow {
+    font-size: 16px;
+  }
+
+  .nav-title {
+    font-size: 16px;
+    gap: 8px;
+  }
+
+  .nav-icon {
+    font-size: 18px;
+  }
+
+  .btn-new-lead {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  /* Hide text on small screens */
+  .btn-new-lead span:last-child {
+    display: none;
+  }
+
+  .nav-title span:last-child {
+    display: none;
+  }
+
+  /* Touch targets - minimum 44x44px */
+  .action-btn,
+  .status-tab,
+  .view-btn,
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Ensure clickable area is large enough */
+  .lead-card {
+    cursor: pointer;
+    -webkit-tap-highlight-color: rgba(18, 29, 115, 0.1);
+  }
+
+  /* Prevent zoom on input focus (iOS) */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Extra small devices (< 400px) */
+@media (max-width: 400px) {
+  .leads-container {
+    padding: 0 12px;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
+
+  .lead-card {
+    padding: 12px;
+  }
+
+  .lead-name {
+    font-size: 15px;
+  }
+
+  .property-text {
+    font-size: 12px;
+  }
+
+  .action-btn {
+    padding: 10px 6px;
+    min-height: 56px;
+  }
+
+  .action-label {
+    font-size: 9px;
+  }
+}
+
+/* Safe area insets (for iPhone notch etc) */
+@supports (padding: max(0px)) {
+  .leads-main {
+    padding-bottom: max(80px, env(safe-area-inset-bottom));
+  }
+
+  .leads-nav {
+    padding-top: env(safe-area-inset-top);
+  }
+}
 
 @keyframes float {
   0%, 100% {
