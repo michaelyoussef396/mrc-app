@@ -60,22 +60,20 @@ export default function Leads() {
   }
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden max-w-full">
-      {/* Header */}
-      <div className="bg-card border-b overflow-x-hidden">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <h1 className="text-3xl font-bold">Lead Pipeline</h1>
-            </div>
-            <Button onClick={() => setShowAddLead(true)}>
-              <Plus className="mr-2 h-5 w-5" />
-              Add New Lead
-            </Button>
+    <div className="w-full max-w-[100vw] overflow-x-hidden">
+      {/* Page Header */}
+      <div className="bg-card border-b px-4 sm:px-6 py-4 sm:py-6">
+        <div className="max-w-[1920px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">Lead Pipeline</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Manage your leads through the sales pipeline
+            </p>
           </div>
+          <Button onClick={() => setShowAddLead(true)} size="lg">
+            <Plus className="h-4 w-4 mr-2" />
+            Add New Lead
+          </Button>
         </div>
       </div>
 

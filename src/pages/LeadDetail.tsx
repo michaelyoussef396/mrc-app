@@ -428,10 +428,10 @@ export default function LeadDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden w-full max-w-[100vw]">
-      {/* Header */}
-      <div className="bg-card border-b overflow-x-hidden w-full">
-        <div className="container mx-auto px-4 py-4 sm:py-6 max-w-full overflow-x-hidden w-full">
+    <div className="w-full max-w-[100vw] overflow-x-hidden">
+      {/* Page Header */}
+      <div className="bg-card border-b px-4 sm:px-6 py-4 sm:py-6">
+        <div className="max-w-[1920px] mx-auto">
           <Button
             variant="ghost"
             size="sm"
@@ -469,7 +469,8 @@ export default function LeadDetail() {
       </div>
 
       {/* Status Card */}
-      <div className="container mx-auto px-4 py-4 sm:py-6 max-w-full overflow-x-hidden w-full">
+      <div className="px-4 sm:px-6 py-4 sm:py-6">
+        <div className="max-w-[1920px] mx-auto">
         <Card className="border-l-4 overflow-x-hidden w-full" style={{ borderLeftColor: statusConfig.color }}>
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -496,10 +497,12 @@ export default function LeadDetail() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="container mx-auto px-4 pb-8 max-w-full overflow-x-hidden w-full">
+      <div className="px-4 sm:px-6 pb-8">
+        <div className="max-w-[1920px] mx-auto">
         <Tabs defaultValue="overview">
           <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
             <TabsList className="w-full sm:w-auto inline-flex">
@@ -602,6 +605,7 @@ export default function LeadDetail() {
             </Card>
           </TabsContent>
         </Tabs>
+        </div>
       </div>
 
       {/* Booking Modal */}
