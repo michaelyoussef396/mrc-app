@@ -91,7 +91,7 @@ export default function Login() {
             {/* Email Field */}
             <div className="form-group">
               <label className="form-label">Email</label>
-              <div className={`input-wrapper ${form.formState.errors.email ? 'error' : ''}`}>
+              <div className="input-wrapper">
                 <Mail className="input-icon" size={20} />
                 <input
                   type="email"
@@ -108,7 +108,7 @@ export default function Login() {
             {/* Password Field */}
             <div className="form-group">
               <label className="form-label">Password</label>
-              <div className={`input-wrapper ${form.formState.errors.password ? 'error' : ''}`}>
+              <div className="input-wrapper">
                 <Lock className="input-icon" size={20} />
                 <input
                   type={showPassword ? 'text' : 'password'}
