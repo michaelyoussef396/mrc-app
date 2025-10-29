@@ -2,41 +2,82 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* ============================================
+   MRC DESIGN SYSTEM - APPLE INSPIRED
+   Premium glassmorphic interface with smooth animations
+   ============================================ */
 
 @layer base {
   :root {
-    --background: 0 0% 96.1%; /* #F5F5F5 light gray */
-    --foreground: 0 0% 14.5%; /* #252525 dark gray */
+    /* === SHADCN COMPATIBILITY (HSL) === */
+    --background: 210 20% 98%; /* #f9fafb - Apple light background */
+    --foreground: 222 47% 11%; /* #111827 - Near black text */
 
-    --card: 0 0% 100%; /* #FFFFFF white */
-    --card-foreground: 0 0% 14.5%;
+    --card: 0 0% 100%; /* #FFFFFF - Pure white cards */
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 14.5%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 230 71% 28%; /* #121D73 MRC dark blue */
-    --primary-foreground: 0 0% 100%; /* white text on primary */
+    --primary: 230 71% 28%; /* #121D73 - MRC dark blue */
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 221 83% 32%; /* #1e3a8a */
+    --primary-dark: 230 80% 20%; /* #0f1654 */
+    --primary-ultra-light: 214 100% 97%; /* #eff6ff */
 
-    --secondary: 0 0% 96.1%;
+    --secondary: 210 20% 98%;
     --secondary-foreground: 230 71% 28%;
 
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 46%;
+    --muted: 210 20% 98%;
+    --muted-foreground: 220 9% 46%;
 
-    --accent: 0 0% 96.1%;
+    --accent: 214 100% 97%;
     --accent-foreground: 230 71% 28%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
+    --border: 220 13% 91%; /* #e5e7eb */
+    --input: 220 13% 91%;
     --ring: 230 71% 28%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem; /* 12px - Apple standard */
+
+    /* === APPLE DESIGN TOKENS === */
+    /* Neutrals (full spectrum) */
+    --gray-50: 210 20% 98%; /* #f9fafb */
+    --gray-100: 220 14% 96%; /* #f3f4f6 */
+    --gray-200: 220 13% 91%; /* #e5e7eb */
+    --gray-300: 216 12% 84%; /* #d1d5db */
+    --gray-400: 218 11% 65%; /* #9ca3af */
+    --gray-500: 220 9% 46%; /* #6b7280 */
+    --gray-600: 215 14% 34%; /* #4b5563 */
+    --gray-700: 217 19% 27%; /* #374151 */
+    --gray-800: 215 28% 17%; /* #1f2937 */
+    --gray-900: 222 47% 11%; /* #111827 */
+
+    /* Semantic Colors */
+    --success: 158 64% 52%; /* #10b981 - Emerald */
+    --warning: 38 92% 50%; /* #f59e0b - Amber */
+    --error: 0 84% 60%; /* #ef4444 - Red */
+    --info: 217 91% 60%; /* #3b82f6 - Blue */
+
+    /* Glassmorphism */
+    --glass-bg: 0 0% 100% / 0.7; /* rgba(255, 255, 255, 0.7) */
+    --glass-border: 0 0% 100% / 0.18; /* rgba(255, 255, 255, 0.18) */
+    --glass-shadow: 0 0% 0% / 0.08; /* rgba(0, 0, 0, 0.08) */
+
+    /* Shadows (layered depth) */
+    --shadow-xs: 0 1px 2px hsl(var(--glass-shadow));
+    --shadow-sm: 0 1px 2px hsl(var(--glass-shadow)), 0 2px 4px hsl(var(--glass-shadow));
+    --shadow-md: 0 4px 6px hsl(0 0% 0% / 0.05), 0 10px 15px hsl(0 0% 0% / 0.08);
+    --shadow-lg: 0 10px 24px hsl(0 0% 0% / 0.08), 0 20px 48px hsl(0 0% 0% / 0.12);
+    --shadow-xl: 0 20px 40px hsl(0 0% 0% / 0.1), 0 30px 60px hsl(0 0% 0% / 0.15);
+
+    /* Transitions (Apple easing) */
+    --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 
     --sidebar-background: 0 0% 98%;
 
@@ -56,41 +97,46 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 220 13% 11%; /* #1c1c1e - Apple dark */
     --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    --card: 216 12% 17%; /* #2c2c2e - Apple card dark */
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 84% 4.9%;
+    --popover: 216 12% 17%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 230 71% 28%; /* Keep MRC blue in dark mode */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 216 12% 17%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 216 12% 17%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 220 17% 23%; /* #3a3a3c - Apple elevated */
     --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --border: 220 17% 23%;
+    --input: 220 17% 23%;
+    --ring: 230 71% 28%;
+
+    /* Dark mode glassmorphism */
+    --glass-bg: 220 13% 11% / 0.7; /* rgba(28, 28, 30, 0.7) */
+    --glass-border: 0 0% 100% / 0.1; /* rgba(255, 255, 255, 0.1) */
+    
+    --sidebar-background: 240 6% 10%;
+    --sidebar-foreground: 240 5% 96%;
+    --sidebar-primary: 224 76% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 240 4% 16%;
+    --sidebar-accent-foreground: 240 5% 96%;
+    --sidebar-border: 240 4% 16%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
@@ -99,9 +145,20 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  html,
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+    letter-spacing: -0.2px;
+    line-height: 1.5;
     overflow-x: hidden;
     max-width: 100vw;
     width: 100%;
@@ -145,6 +202,211 @@ All colors MUST be HSL.
   img {
     max-width: 100%;
     height: auto;
+  }
+
+  /* ═══════════════════════════════════════════════ */
+  /* APPLE DESIGN UTILITY CLASSES                     */
+  /* ═══════════════════════════════════════════════ */
+
+  /* Glass Card (Glassmorphism) */
+  .glass-card {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 0.5px solid hsl(var(--glass-border));
+    border-radius: 20px;
+    box-shadow: 
+      0 8px 32px hsl(var(--glass-shadow)),
+      0 0 0 0.5px hsl(0 0% 100% / 0.5) inset;
+    transition: all var(--transition-base);
+  }
+
+  .glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+      0 10px 40px hsl(var(--glass-shadow)),
+      0 0 0 0.5px hsl(0 0% 100% / 0.5) inset;
+  }
+
+  /* Premium Buttons */
+  .btn-primary-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-light)) 100%);
+    color: hsl(var(--primary-foreground));
+    border: none;
+    border-radius: 12px;
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    cursor: pointer;
+    transition: all var(--transition-base);
+    box-shadow: 
+      0 4px 12px hsl(var(--primary) / 0.2),
+      0 0 0 0.5px hsl(0 0% 100% / 0.1) inset;
+  }
+
+  .btn-primary-gradient:hover {
+    transform: translateY(-1px);
+    box-shadow: 
+      0 6px 16px hsl(var(--primary) / 0.3),
+      0 0 0 0.5px hsl(0 0% 100% / 0.1) inset;
+  }
+
+  .btn-primary-gradient:active {
+    transform: scale(0.98);
+  }
+
+  .btn-glass {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(8px) saturate(150%);
+    -webkit-backdrop-filter: blur(8px) saturate(150%);
+    color: hsl(var(--foreground));
+    border: 1.5px solid hsl(var(--border));
+    border-radius: 12px;
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-base);
+  }
+
+  .btn-glass:hover {
+    background: hsl(var(--card));
+    border-color: hsl(var(--gray-300));
+    transform: translateY(-1px);
+  }
+
+  .btn-glass:active {
+    transform: scale(0.98);
+  }
+
+  /* Page Container */
+  .page-container {
+    width: 100%;
+    max-width: 1920px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  @media (max-width: 768px) {
+    .page-container {
+      padding: 16px;
+    }
+  }
+
+  /* Section Headers */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .section-title {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: hsl(var(--foreground));
+  }
+
+  /* Grid Layouts */
+  .grid-responsive-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+
+  .grid-responsive-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+
+  .grid-responsive-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+  }
+
+  @media (max-width: 1024px) {
+    .grid-responsive-3,
+    .grid-responsive-4 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .grid-responsive-2,
+    .grid-responsive-3,
+    .grid-responsive-4 {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Status Badges */
+  .badge-apple {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+  }
+
+  .badge-primary {
+    background: hsl(var(--primary-ultra-light));
+    color: hsl(var(--primary));
+  }
+
+  .badge-success {
+    background: hsl(152 69% 89%);
+    color: hsl(159 91% 20%);
+  }
+
+  .badge-warning {
+    background: hsl(48 96% 89%);
+    color: hsl(32 95% 29%);
+  }
+
+  .badge-error {
+    background: hsl(0 93% 94%);
+    color: hsl(0 84% 40%);
+  }
+
+  /* Loading Skeleton */
+  .skeleton-apple {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--gray-200)) 25%,
+      hsl(var(--gray-100)) 50%,
+      hsl(var(--gray-200)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 12px;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  /* Smooth Scroll */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Focus Styles (Apple-like) */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+    border-radius: 8px;
   }
 
   /* ═══════════════════════════════════════════════ */
