@@ -55,6 +55,44 @@ export type Database = {
           },
         ]
       }
+      booking_tokens: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          id: string
+          lead_id: string
+          token: string
+          used: boolean | null
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          lead_id: string
+          token: string
+          used?: boolean | null
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          lead_id?: string
+          token?: string
+          used?: boolean | null
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_events: {
         Row: {
           all_day: boolean | null
@@ -633,7 +671,9 @@ export type Database = {
       }
       leads: {
         Row: {
+          access_instructions: string | null
           assigned_to: string | null
+          booked_at: string | null
           created_at: string | null
           email: string
           full_name: string
@@ -657,12 +697,17 @@ export type Database = {
           property_type: string | null
           property_zone: number | null
           quoted_amount: number | null
+          scheduled_dates: string[] | null
+          scheduled_time: string | null
+          special_requests: string | null
           status: Database["public"]["Enums"]["lead_status"]
           updated_at: string | null
           urgency: string | null
         }
         Insert: {
+          access_instructions?: string | null
           assigned_to?: string | null
+          booked_at?: string | null
           created_at?: string | null
           email: string
           full_name: string
@@ -686,12 +731,17 @@ export type Database = {
           property_type?: string | null
           property_zone?: number | null
           quoted_amount?: number | null
+          scheduled_dates?: string[] | null
+          scheduled_time?: string | null
+          special_requests?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string | null
           urgency?: string | null
         }
         Update: {
+          access_instructions?: string | null
           assigned_to?: string | null
+          booked_at?: string | null
           created_at?: string | null
           email?: string
           full_name?: string
@@ -715,6 +765,9 @@ export type Database = {
           property_type?: string | null
           property_zone?: number | null
           quoted_amount?: number | null
+          scheduled_dates?: string[] | null
+          scheduled_time?: string | null
+          special_requests?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string | null
           urgency?: string | null
@@ -762,6 +815,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notifications: {
+        Row: {
+          action_url: string | null
+          created_at: string | null
+          id: string
+          message: string
+          priority: string | null
+          read: boolean | null
+          title: string
+          type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          action_url?: string | null
+          created_at?: string | null
+          id?: string
+          message: string
+          priority?: string | null
+          read?: boolean | null
+          title: string
+          type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          action_url?: string | null
+          created_at?: string | null
+          id?: string
+          message?: string
+          priority?: string | null
+          read?: boolean | null
+          title?: string
+          type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       operating_hours: {
         Row: {

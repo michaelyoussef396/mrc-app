@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sheet";
 import { Menu, ChevronDown, User, Users, Settings, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import NotificationBell from "./NotificationBell";
 import logo from "@/assets/Logo.png";
 
 export function TopNavigation() {
@@ -69,7 +70,8 @@ export function TopNavigation() {
           </nav>
 
           {/* Desktop Profile Dropdown */}
-          <div className="hidden md:block">
+          <div className="hidden md:flex items-center gap-4">
+            <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
