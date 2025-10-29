@@ -52,7 +52,7 @@ const formSchema = z.object({
   lead_source: z.string().optional(),
   issue_description: z.string().max(1000).optional(),
   urgency: z.string().optional(),
-  assigned_to: z.string().uuid().optional().or(z.literal("unassigned")).nullable(),
+  assigned_to: z.string().uuid().nullable().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -176,7 +176,7 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
           lead_source: values.lead_source,
           issue_description: values.issue_description || null,
           urgency: values.urgency || null,
-          assigned_to: values.assigned_to === "unassigned" ? null : values.assigned_to || null,
+          assigned_to: null, // Always null - technician assignment handled separately
         })
         .select()
         .single();
@@ -194,7 +194,7 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
 
       toast({
         title: "Success",
-        description: `✅ New lead created: ${leadNumber}`,
+        description: `✅ Lead created successfully! Lead #: ${leadNumber}`,
       });
 
       queryClient.invalidateQueries({ queryKey: ["leads"] });
@@ -461,40 +461,35 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
               />
             </div>
 
-            {/* ASSIGNMENT */}
+            {/* ASSIGNMENT - Optional for now */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">Assignment</h3>
+              <h3 className="text-lg font-semibold border-b pb-2">
+                Assignment <span className="text-sm font-normal text-muted-foreground">(Optional)</span>
+              </h3>
 
               <FormField
                 control={form.control}
                 name="assigned_to"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Assign to Technician</FormLabel>
+                    <FormLabel>Assign to Technician (Optional)</FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       value={field.value || undefined}
+                      disabled
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select technician..." />
+                          <SelectValue placeholder="Unassigned - will be assigned later" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {technicians.length === 0 ? (
-                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                            No technicians available
-                          </div>
-                        ) : (
-                          technicians.map((tech) => (
-                            <SelectItem key={tech.id} value={tech.id}>
-                              {tech.full_name}
-                            </SelectItem>
-                          ))
-                        )}
                       </SelectContent>
                     </Select>
+                    <p className="text-sm text-muted-foreground">
+                      Technician assignment will be handled separately
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}
