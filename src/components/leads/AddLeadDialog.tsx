@@ -52,7 +52,7 @@ const formSchema = z.object({
   lead_source: z.string().optional(),
   issue_description: z.string().max(1000).optional(),
   urgency: z.string().optional(),
-  assigned_to: z.string().uuid().optional().nullable(),
+  assigned_to: z.string().uuid().optional().or(z.literal("")).nullable(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -91,22 +91,54 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
     const loadTechnicians = async () => {
       if (!open) return;
 
+      console.log('🔍 Loading technicians from database...');
+
+      // Query profiles table and join with user_roles to get technicians
+      const { data: userRoles, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "technician");
+      
+      if (rolesError) {
+        console.error("Error loading technician roles:", rolesError);
+        setTechnicians([]);
+        return;
+      }
+
+      const technicianIds = userRoles?.map(r => r.user_id) || [];
+      
+      if (technicianIds.length === 0) {
+        console.warn('No technicians found');
+        setTechnicians([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name")
+        .in("id", technicianIds)
         .eq("is_active", true)
         .order("full_name", { ascending: true });
       
+      console.log('✅ Technicians data:', data);
+      console.log('❌ Error:', error);
+      
       if (error) {
         console.error("Error loading technicians:", error);
+        toast({
+          title: "Warning",
+          description: "Failed to load technicians",
+          variant: "destructive",
+        });
         setTechnicians([]);
       } else {
         setTechnicians(data || []);
+        console.log(`✅ Loaded ${data?.length || 0} technicians`);
       }
     };
     
     loadTechnicians();
-  }, [open]);
+  }, [open, toast]);
 
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
@@ -144,7 +176,7 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
           lead_source: values.lead_source,
           issue_description: values.issue_description || null,
           urgency: values.urgency || null,
-          assigned_to: values.assigned_to === "null" ? null : values.assigned_to || null,
+          assigned_to: values.assigned_to && values.assigned_to !== "" ? values.assigned_to : null,
         })
         .select()
         .single();
@@ -449,12 +481,18 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="null">Unassigned</SelectItem>
-                        {technicians.map((tech) => (
-                          <SelectItem key={tech.id} value={tech.id}>
-                            {tech.full_name}
+                        <SelectItem value="">Unassigned</SelectItem>
+                        {technicians.length === 0 ? (
+                          <SelectItem value="" disabled>
+                            No technicians available
                           </SelectItem>
-                        ))}
+                        ) : (
+                          technicians.map((tech) => (
+                            <SelectItem key={tech.id} value={tech.id}>
+                              {tech.full_name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
