@@ -22,8 +22,11 @@ const LeadsManagement = () => {
   const [urgencyFilter, setUrgencyFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
+  const [showRemoveReasonModal, setShowRemoveReasonModal] = useState(false);
+  const [removeReason, setRemoveReason] = useState('');
+  const [selectedLeadForRemoval, setSelectedLeadForRemoval] = useState<any>(null);
 
-  // COMPLETE 12-STAGE PIPELINE
+  // SIMPLIFIED 9-STAGE PIPELINE
   const statusOptions: StatusOption[] = [
     { 
       value: 'all', 
@@ -47,56 +50,29 @@ const LeadsManagement = () => {
       icon: '📅', 
       color: '#8b5cf6',
       description: 'Inspection has been scheduled, waiting for appointment',
-      nextActions: ['Prepare for inspection', 'Confirm appointment'],
-      availableButtons: ['call', 'email', 'startInspection', 'reschedule', 'viewDetails']
+      nextActions: ['Start inspection or remove lead'],
+      availableButtons: ['call', 'email', 'startInspection', 'removeLead', 'viewDetails']
     },
     { 
-      value: 'quoted', 
-      label: 'Quoted', 
-      icon: '💰', 
-      color: '#f59e0b',
-      description: 'Initial quote provided (before inspection)',
-      nextActions: ['Follow up on quote', 'Book inspection'],
-      availableButtons: ['call', 'email', 'scheduleInspection', 'resendQuote', 'viewDetails']
-    },
-    { 
-      value: 'inspection-scheduled', 
-      label: 'Inspection Scheduled', 
-      icon: '📅', 
-      color: '#10b981',
-      description: 'Inspection appointment booked',
-      nextActions: ['Prepare for inspection', 'Confirm appointment'],
-      availableButtons: ['startInspection', 'reschedule', 'viewDetails', 'call', 'email']
-    },
-    { 
-      value: 'inspection-complete', 
-      label: 'Inspection Complete', 
-      icon: '✓', 
-      color: '#059669',
-      description: 'Inspection finished, report being prepared',
-      nextActions: ['Generate report', 'Prepare quote'],
-      availableButtons: ['viewInspection', 'generateReport', 'sendQuote', 'viewDetails']
-    },
-    { 
-      value: 'quote-sent', 
+      value: 'quote_sent', 
       label: 'Quote Sent', 
       icon: '📄', 
       color: '#0ea5e9',
-      description: 'Full quote sent after inspection',
+      description: 'Quote sent after inspection',
       nextActions: ['Follow up on quote', 'Answer questions'],
       availableButtons: ['call', 'email', 'resendQuote', 'viewQuote', 'viewDetails']
     },
     { 
-      value: 'awaiting-approval', 
+      value: 'job_waiting', 
       label: 'Awaiting Approval', 
       icon: '⏳', 
       color: '#f59e0b',
       description: 'Waiting for client to approve quote',
       nextActions: ['Follow up', 'Check decision timeline'],
-      availableButtons: ['call', 'email', 'viewQuote', 'markApproved', 'viewDetails']
+      availableButtons: ['call', 'email', 'viewQuote', 'markApproved', 'removeLead', 'viewDetails']
     },
     { 
-      value: 'job-booked', 
+      value: 'job_completed', 
       label: 'Job Booked', 
       icon: '🔨', 
       color: '#8b5cf6',
@@ -105,7 +81,7 @@ const LeadsManagement = () => {
       availableButtons: ['viewSchedule', 'startJob', 'reschedule', 'call', 'viewDetails']
     },
     { 
-      value: 'job-in-progress', 
+      value: 'job_report_pdf_sent', 
       label: 'Job In Progress', 
       icon: '🔧', 
       color: '#f97316',
@@ -114,7 +90,7 @@ const LeadsManagement = () => {
       availableButtons: ['viewProgress', 'updateStatus', 'completeJob', 'viewDetails']
     },
     { 
-      value: 'job-complete', 
+      value: 'invoicing_sent', 
       label: 'Job Complete', 
       icon: '✅', 
       color: '#22c55e',
@@ -123,7 +99,7 @@ const LeadsManagement = () => {
       availableButtons: ['sendInvoice', 'markPaid', 'requestFeedback', 'viewDetails']
     },
     { 
-      value: 'paid-closed', 
+      value: 'paid', 
       label: 'Paid & Closed', 
       icon: '💚', 
       color: '#10b981',
@@ -133,10 +109,10 @@ const LeadsManagement = () => {
     },
     { 
       value: 'lost', 
-      label: 'Lost', 
+      label: 'Not Landed', 
       icon: '❌', 
       color: '#ef4444',
-      description: 'Client didn\'t proceed',
+      description: 'Lead removed or client didn\'t proceed',
       nextActions: ['Document reason', 'Follow up later'],
       availableButtons: ['viewHistory', 'addNotes', 'reactivate']
     }
@@ -245,6 +221,30 @@ const LeadsManagement = () => {
       window.location.href = `mailto:${email}`;
     },
     
+    removeLead: (lead: any) => {
+      const confirmed = window.confirm(
+        `Are you sure you want to remove "${lead.name}" from active leads?\n\nThis will mark the lead as "Not Landed" and remove it from the active pipeline.`
+      );
+      
+      if (confirmed) {
+        setSelectedLeadForRemoval(lead);
+        setShowRemoveReasonModal(true);
+      }
+    },
+    
+    confirmRemoveLead: async () => {
+      if (selectedLeadForRemoval) {
+        // TODO: Update in Supabase
+        await updateLeadStatus(selectedLeadForRemoval.id, 'lost');
+        
+        setShowRemoveReasonModal(false);
+        setSelectedLeadForRemoval(null);
+        setRemoveReason('');
+        
+        alert('Lead has been removed and marked as "Not Landed"');
+      }
+    },
+    
     viewDetails: (leadId: number, status?: string) => {
       // If lead is NEW, go to simplified new lead view
       if (status === 'new_lead') {
@@ -282,6 +282,12 @@ const LeadsManagement = () => {
         label: 'Email',
         onClick: () => stageActions.email(lead.email),
         style: 'primary'
+      },
+      removeLead: {
+        icon: '❌',
+        label: 'Remove Lead',
+        onClick: () => stageActions.removeLead(lead),
+        style: 'danger'
       },
       viewDetails: {
         icon: '👁️',
@@ -441,6 +447,7 @@ const LeadsManagement = () => {
             e.stopPropagation();
             config.onClick();
           }}
+          title={config.label}
         >
           <span className="action-icon">{config.icon}</span>
           <span className="action-label">{config.label}</span>
@@ -456,7 +463,7 @@ const LeadsManagement = () => {
   const loadLeads = async () => {
     setLoading(true);
     
-    // Mock data covering ALL 12 pipeline stages
+    // Mock data covering ALL 9 pipeline stages
     const mockLeads = [
       // 1. NEW_LEAD - Brand new inquiry from website
       {
@@ -532,84 +539,9 @@ const LeadsManagement = () => {
         issueDescription: 'Black mould in bathroom after recent flooding'
       },
       
-      // 3. QUOTED - Initial quote provided (before inspection)
+      // 3. QUOTE_SENT - Quote sent after inspection
       {
         id: 5,
-        name: 'Michael Chen',
-        email: 'michael@email.com',
-        phone: '0456 789 012',
-        property: '89 Brunswick Street',
-        suburb: 'Fitzroy',
-        state: 'VIC',
-        postcode: '3065',
-        status: 'quoted',
-        urgency: 'low',
-        source: 'Facebook',
-        dateCreated: '2025-01-26T16:20:00',
-        lastContact: '2025-01-27T10:00:00',
-        estimatedValue: 1800,
-        issueDescription: 'Musty smell in basement, possible mould - wants rough quote first'
-      },
-      
-      // 4. INSPECTION_SCHEDULED - Ready to start inspection
-      {
-        id: 6,
-        name: 'Emily Watson',
-        email: 'emily@email.com',
-        phone: '0445 678 901',
-        property: '12 Chapel Street',
-        suburb: 'Windsor',
-        state: 'VIC',
-        postcode: '3181',
-        status: 'inspection-scheduled',
-        urgency: 'high',
-        source: 'Website Form',
-        dateCreated: '2025-01-27T09:45:00',
-        lastContact: '2025-01-28T11:00:00',
-        scheduledDate: '2025-01-29T14:00:00',
-        estimatedValue: null,
-        issueDescription: 'Black mould in bathroom - health concerns for young children'
-      },
-      
-      // 5. INSPECTION_COMPLETE - Inspection done, preparing report
-      {
-        id: 7,
-        name: 'David Brown',
-        email: 'david@email.com',
-        phone: '0467 890 123',
-        property: '56 Bourke Street',
-        suburb: 'Melbourne CBD',
-        state: 'VIC',
-        postcode: '3000',
-        status: 'inspection-complete',
-        urgency: 'medium',
-        source: 'Google Ads',
-        dateCreated: '2025-01-25T11:20:00',
-        lastContact: '2025-01-27T15:30:00',
-        estimatedValue: 5600,
-        issueDescription: 'Commercial office - multiple rooms with mould contamination'
-      },
-      {
-        id: 8,
-        name: 'Lisa Anderson',
-        email: 'lisa@email.com',
-        phone: '0478 234 567',
-        property: '34 Park Avenue',
-        suburb: 'Hawthorn',
-        state: 'VIC',
-        postcode: '3122',
-        status: 'inspection-complete',
-        urgency: 'high',
-        source: 'Referral',
-        dateCreated: '2025-01-26T08:30:00',
-        lastContact: '2025-01-27T14:00:00',
-        estimatedValue: 3400,
-        issueDescription: 'Extensive mould in subfloor and crawl space'
-      },
-      
-      // 6. QUOTE_SENT - Full quote sent after inspection
-      {
-        id: 9,
         name: 'Robert Davis',
         email: 'robert@email.com',
         phone: '0489 123 456',
@@ -617,7 +549,7 @@ const LeadsManagement = () => {
         suburb: 'Sandringham',
         state: 'VIC',
         postcode: '3191',
-        status: 'quote-sent',
+        status: 'quote_sent',
         urgency: 'medium',
         source: 'Website Form',
         dateCreated: '2025-01-24T10:15:00',
@@ -626,9 +558,9 @@ const LeadsManagement = () => {
         issueDescription: 'Mould in bedroom walls and ceiling - needs full remediation'
       },
       
-      // 7. AWAITING_APPROVAL - Waiting for client decision
+      // 4. JOB_WAITING - Awaiting Approval
       {
-        id: 10,
+        id: 6,
         name: 'Jennifer White',
         email: 'jennifer@email.com',
         phone: '0456 345 678',
@@ -636,7 +568,7 @@ const LeadsManagement = () => {
         suburb: 'Essendon',
         state: 'VIC',
         postcode: '3040',
-        status: 'awaiting-approval',
+        status: 'job_waiting',
         urgency: 'low',
         source: 'Google Ads',
         dateCreated: '2025-01-23T14:45:00',
@@ -645,9 +577,9 @@ const LeadsManagement = () => {
         issueDescription: 'Bathroom and ensuite mould - waiting on insurance approval'
       },
       
-      // 8. JOB_BOOKED - Client approved, job scheduled
+      // 5. JOB_COMPLETED - Job Booked
       {
-        id: 11,
+        id: 7,
         name: 'Jessica Taylor',
         email: 'jessica@email.com',
         phone: '0478 901 234',
@@ -655,7 +587,7 @@ const LeadsManagement = () => {
         suburb: 'Carlton',
         state: 'VIC',
         postcode: '3053',
-        status: 'job-booked',
+        status: 'job_completed',
         urgency: 'high',
         source: 'Referral',
         dateCreated: '2025-01-22T13:45:00',
@@ -665,7 +597,7 @@ const LeadsManagement = () => {
         issueDescription: 'Extensive mould remediation - multiple rooms and subfloor treatment'
       },
       {
-        id: 12,
+        id: 8,
         name: 'Andrew Martin',
         email: 'andrew@email.com',
         phone: '0467 567 890',
@@ -673,7 +605,7 @@ const LeadsManagement = () => {
         suburb: 'Eltham',
         state: 'VIC',
         postcode: '3095',
-        status: 'job-booked',
+        status: 'job_completed',
         urgency: 'medium',
         source: 'Website Form',
         dateCreated: '2025-01-21T09:30:00',
@@ -683,9 +615,9 @@ const LeadsManagement = () => {
         issueDescription: 'Kitchen and bathroom mould removal and sanitization'
       },
       
-      // 9. JOB_IN_PROGRESS - Work currently being done
+      // 6. JOB_REPORT_PDF_SENT - Job In Progress
       {
-        id: 13,
+        id: 9,
         name: 'Michelle Lee',
         email: 'michelle@email.com',
         phone: '0423 789 012',
@@ -693,7 +625,7 @@ const LeadsManagement = () => {
         suburb: 'Glen Waverley',
         state: 'VIC',
         postcode: '3150',
-        status: 'job-in-progress',
+        status: 'job_report_pdf_sent',
         urgency: 'high',
         source: 'Referral',
         dateCreated: '2025-01-20T11:00:00',
@@ -702,9 +634,9 @@ const LeadsManagement = () => {
         issueDescription: 'Full house mould treatment - day 2 of 3'
       },
       
-      // 10. JOB_COMPLETE - Work finished, awaiting payment
+      // 7. INVOICING_SENT - Job Complete
       {
-        id: 14,
+        id: 10,
         name: 'Daniel Green',
         email: 'daniel@email.com',
         phone: '0434 890 123',
@@ -712,7 +644,7 @@ const LeadsManagement = () => {
         suburb: 'Kew',
         state: 'VIC',
         postcode: '3101',
-        status: 'job-complete',
+        status: 'invoicing_sent',
         urgency: 'low',
         source: 'Google Ads',
         dateCreated: '2025-01-18T14:20:00',
@@ -721,7 +653,7 @@ const LeadsManagement = () => {
         issueDescription: 'Bathroom and laundry mould remediation - completed yesterday'
       },
       {
-        id: 15,
+        id: 11,
         name: 'Sophie Clarke',
         email: 'sophie@email.com',
         phone: '0445 234 567',
@@ -729,7 +661,7 @@ const LeadsManagement = () => {
         suburb: 'Malvern',
         state: 'VIC',
         postcode: '3144',
-        status: 'job-complete',
+        status: 'invoicing_sent',
         urgency: 'medium',
         source: 'Referral',
         dateCreated: '2025-01-19T10:45:00',
@@ -738,9 +670,9 @@ const LeadsManagement = () => {
         issueDescription: 'Bedroom and wardrobe mould treatment - job completed'
       },
       
-      // 11. PAID_CLOSED - Payment received, job closed
+      // 8. PAID - Paid & Closed
       {
-        id: 16,
+        id: 12,
         name: 'William Johnson',
         email: 'william@email.com',
         phone: '0456 678 901',
@@ -748,7 +680,7 @@ const LeadsManagement = () => {
         suburb: 'Thornbury',
         state: 'VIC',
         postcode: '3071',
-        status: 'paid-closed',
+        status: 'paid',
         urgency: 'low',
         source: 'Website Form',
         dateCreated: '2025-01-15T09:00:00',
@@ -757,7 +689,7 @@ const LeadsManagement = () => {
         issueDescription: 'Kitchen mould removal - paid and closed'
       },
       {
-        id: 17,
+        id: 13,
         name: 'Olivia Harris',
         email: 'olivia@email.com',
         phone: '0467 789 012',
@@ -765,7 +697,7 @@ const LeadsManagement = () => {
         suburb: 'Doncaster',
         state: 'VIC',
         postcode: '3108',
-        status: 'paid-closed',
+        status: 'paid',
         urgency: 'low',
         source: 'Referral',
         dateCreated: '2025-01-14T13:30:00',
@@ -774,9 +706,9 @@ const LeadsManagement = () => {
         issueDescription: 'Multiple rooms mould remediation - fully paid'
       },
       
-      // 12. LOST - Client didn't proceed
+      // 9. LOST - Not Landed
       {
-        id: 18,
+        id: 14,
         name: 'Thomas Wright',
         email: 'thomas@email.com',
         phone: '0478 890 123',
@@ -1149,6 +1081,96 @@ const LeadsManagement = () => {
           )}
         </div>
       </main>
+
+      {/* Remove Lead Reason Modal */}
+      {showRemoveReasonModal && selectedLeadForRemoval && (
+        <div className="modal-overlay" onClick={() => setShowRemoveReasonModal(false)}>
+          <div className="modal-content modal-warning" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-header-icon warning">⚠️</div>
+              <div>
+                <h2 className="modal-title">Remove Lead</h2>
+                <p className="modal-subtitle">
+                  Why is this lead being removed?
+                </p>
+              </div>
+              <button 
+                className="modal-close"
+                onClick={() => setShowRemoveReasonModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="lead-removal-info">
+                <p className="removal-lead-name">
+                  <strong>{selectedLeadForRemoval.name}</strong>
+                </p>
+                <p className="removal-lead-property">
+                  📍 {selectedLeadForRemoval.property}, {selectedLeadForRemoval.suburb}
+                </p>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Reason for Removal *</label>
+                <select
+                  value={removeReason}
+                  onChange={(e) => setRemoveReason(e.target.value)}
+                  className="form-select"
+                >
+                  <option value="">Select reason...</option>
+                  <option value="too-expensive">Too Expensive</option>
+                  <option value="went-with-competitor">Went with Competitor</option>
+                  <option value="not-interested">No Longer Interested</option>
+                  <option value="no-response">No Response from Client</option>
+                  <option value="duplicate">Duplicate Lead</option>
+                  <option value="outside-service-area">Outside Service Area</option>
+                  <option value="timing-issue">Wrong Timing</option>
+                  <option value="decided-not-to-proceed">Decided Not to Proceed</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              {removeReason === 'other' && (
+                <div className="form-group">
+                  <label className="form-label">Additional Details</label>
+                  <textarea
+                    placeholder="Please provide more details..."
+                    className="form-textarea"
+                    rows={3}
+                  />
+                </div>
+              )}
+
+              <div className="warning-box">
+                <span className="warning-icon">ℹ️</span>
+                <p className="warning-text">
+                  This lead will be moved to "Not Landed" and removed from the active pipeline. 
+                  You can reactivate it later if needed.
+                </p>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button 
+                className="btn-secondary"
+                onClick={() => setShowRemoveReasonModal(false)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn-danger"
+                onClick={() => stageActions.confirmRemoveLead()}
+                disabled={!removeReason}
+              >
+                <span className="btn-icon">❌</span>
+                <span className="btn-label">Remove Lead</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
