@@ -17,6 +17,7 @@ import PasswordChanged from "./pages/PasswordChanged";
 import Dashboard from "./pages/Dashboard";
 import NewLead from "./pages/NewLead";
 import InspectionSelectLead from "./pages/InspectionSelectLead";
+import ClientDetail from "./pages/ClientDetail";
 import Profile from "./pages/Profile";
 import ManageUsers from "./pages/ManageUsers";
 import Settings from "./pages/Settings";
@@ -70,6 +71,7 @@ const AppContent = () => {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/lead/new" element={<NewLead />} />
             <Route path="/inspection/select-lead" element={<InspectionSelectLead />} />
+            <Route path="/client/:id" element={<ClientDetail />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/manage-users" element={<ManageUsers />} />
             <Route path="/settings" element={<Settings />} />
