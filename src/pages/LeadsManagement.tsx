@@ -350,16 +350,16 @@ const LeadsManagement = () => {
                 <button
                   className={`view-btn ${viewMode === 'cards' ? 'active' : ''}`}
                   onClick={() => setViewMode('cards')}
-                  title="Card View"
                 >
-                  ▦
+                  <span className="view-icon">▦</span>
+                  <span className="view-label">Cards</span>
                 </button>
                 <button
                   className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
                   onClick={() => setViewMode('list')}
-                  title="List View"
                 >
-                  ☰
+                  <span className="view-icon">☰</span>
+                  <span className="view-label">List</span>
                 </button>
               </div>
             </div>
@@ -479,23 +479,23 @@ const LeadsManagement = () => {
                     <button 
                       className="action-btn"
                       onClick={() => window.location.href = `tel:${lead.phone}`}
-                      title="Call"
                     >
-                      📞
+                      <span className="action-icon">📞</span>
+                      <span className="action-label">Call</span>
                     </button>
                     <button 
                       className="action-btn"
                       onClick={() => window.location.href = `mailto:${lead.email}`}
-                      title="Email"
                     >
-                      📧
+                      <span className="action-icon">📧</span>
+                      <span className="action-label">Email</span>
                     </button>
                     <button 
                       className="action-btn"
                       onClick={() => navigate(`/client/${lead.id}`)}
-                      title="View Details"
                     >
-                      👁️
+                      <span className="action-icon">👁️</span>
+                      <span className="action-label">View</span>
                     </button>
                   </div>
                 </div>
