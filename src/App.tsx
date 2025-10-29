@@ -24,6 +24,8 @@ import InspectionForm from "./pages/InspectionForm";
 import Reports from "./pages/Reports";
 import Analytics from "./pages/Analytics";
 import ClientBooking from "./pages/ClientBooking";
+import RequestInspection from "./pages/RequestInspection";
+import InspectionSuccess from "./pages/InspectionSuccess";
 import NotFound from "./pages/NotFound";
 import ServerError from "./pages/ServerError";
 import Unauthorized from "./pages/Unauthorized";
@@ -159,6 +161,10 @@ const App = () => (
             />
             <Route path="/book/:token" element={<ClientBooking />} />
             <Route path="/booking/:inspectionId/:token" element={<ClientBooking />} />
+            <Route path="/request-inspection" element={<RequestInspection />} />
+            <Route path="/request-inspection/success" element={<InspectionSuccess />} />
+            <Route path="/contact" element={<RequestInspection />} />
+            <Route path="/get-quote" element={<RequestInspection />} />
             <Route path="/500" element={<ServerError />} />
             <Route path="/error" element={<ServerError />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
