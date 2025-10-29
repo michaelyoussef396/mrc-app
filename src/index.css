@@ -12888,8 +12888,13 @@ a.contact-value:hover {
 }
 
 .btn-save:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-save:active:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
 .btn-save:disabled {
@@ -12997,19 +13002,42 @@ a.contact-value:hover {
   font-weight: 600;
   color: hsl(var(--muted-foreground));
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
+  position: relative;
+}
+
+.sidebar-tab::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 0;
+  background: linear-gradient(135deg, #121D73 0%, #1e3a8a 100%);
+  border-radius: 0 4px 4px 0;
+  transition: height 0.3s ease;
 }
 
 .sidebar-tab:hover {
-  background: hsl(var(--accent));
-  color: hsl(var(--foreground));
+  background: rgba(18, 29, 115, 0.05);
+  color: #121D73;
+  transform: translateX(4px);
+}
+
+.sidebar-tab:hover::before {
+  height: 60%;
 }
 
 .sidebar-tab.active {
   background: linear-gradient(135deg, #121D73 0%, #1e3a8a 100%);
   color: white;
   box-shadow: 0 4px 12px rgba(18, 29, 115, 0.3);
+}
+
+.sidebar-tab.active::before {
+  height: 0;
 }
 
 .tab-icon {
@@ -13072,6 +13100,13 @@ a.contact-value:hover {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   border: 1px solid hsl(var(--border));
   margin-bottom: 24px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.settings-card:hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+  border-color: rgba(18, 29, 115, 0.1);
 }
 
 .card-title {
@@ -13136,7 +13171,13 @@ a.contact-value:hover {
   font-weight: 500;
   color: hsl(var(--foreground));
   font-family: inherit;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.form-input:hover,
+.form-select:hover {
+  border-color: rgba(18, 29, 115, 0.2);
+  background: rgba(18, 29, 115, 0.01);
 }
 
 .form-input:focus,
@@ -13144,6 +13185,7 @@ a.contact-value:hover {
   outline: none;
   border-color: hsl(var(--primary));
   box-shadow: 0 0 0 4px hsl(var(--primary) / 0.1);
+  background: hsl(var(--background));
 }
 
 /* ============================================
@@ -13203,12 +13245,17 @@ a.contact-value:hover {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .btn-upload:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+}
+
+.btn-upload:active {
+  transform: translateY(-1px) scale(1);
 }
 
 .btn-remove {
@@ -13220,16 +13267,22 @@ a.contact-value:hover {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-remove:hover {
   background: rgba(239, 68, 68, 0.1);
   border-color: #ef4444;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.btn-remove:active {
+  transform: translateY(0);
 }
 
 /* ============================================
-   TOGGLE SWITCHES
+   TOGGLE SWITCHES - FIXED
    ============================================ */
 
 .toggle-list {
@@ -13244,8 +13297,16 @@ a.contact-value:hover {
   justify-content: space-between;
   gap: 20px;
   padding: 16px;
-  background: hsl(var(--accent));
+  background: rgba(0, 0, 0, 0.02);
+  border: 2px solid transparent;
   border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.toggle-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(18, 29, 115, 0.1);
+  transform: translateX(4px);
 }
 
 .toggle-info {
@@ -13257,6 +13318,11 @@ a.contact-value:hover {
   font-weight: 700;
   color: hsl(var(--foreground));
   margin-bottom: 4px;
+  transition: color 0.2s ease;
+}
+
+.toggle-item:hover .toggle-title {
+  color: #121D73;
 }
 
 .toggle-description {
@@ -13265,17 +13331,20 @@ a.contact-value:hover {
   font-weight: 500;
 }
 
+/* FIXED TOGGLE SWITCH */
 .toggle-switch {
   position: relative;
-  width: 52px;
-  height: 30px;
+  width: 56px;
+  height: 32px;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .toggle-switch input {
   opacity: 0;
   width: 0;
   height: 0;
+  position: absolute;
 }
 
 .toggle-slider {
@@ -13285,30 +13354,61 @@ a.contact-value:hover {
   left: 0;
   right: 0;
   bottom: 0;
-  background: hsl(var(--muted));
-  transition: 0.3s;
-  border-radius: 30px;
+  background: #d1d5db;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 32px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-slider:hover {
+  background: #b5bac4;
+  transform: scale(1.05);
 }
 
 .toggle-slider:before {
   position: absolute;
   content: "";
-  height: 24px;
-  width: 24px;
+  height: 26px;
+  width: 26px;
   left: 3px;
   bottom: 3px;
   background: white;
-  transition: 0.3s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
+/* CHECKED STATE - BALL GOES ALL THE WAY RIGHT */
 .toggle-switch input:checked + .toggle-slider {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
-  transform: translateX(22px);
+  transform: translateX(24px); /* FIXED: Was 22px, now 24px for full right */
+}
+
+.toggle-switch input:checked + .toggle-slider:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.15);
+}
+
+/* Focus state for accessibility */
+.toggle-switch input:focus + .toggle-slider {
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+}
+
+.toggle-switch input:checked:focus + .toggle-slider {
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+}
+
+/* Active/clicking animation */
+.toggle-switch:active .toggle-slider:before {
+  width: 30px;
+}
+
+.toggle-switch input:checked:active + .toggle-slider:before {
+  transform: translateX(20px);
 }
 
 /* ============================================
@@ -13329,12 +13429,14 @@ a.contact-value:hover {
   background: hsl(var(--accent));
   border-radius: 14px;
   border: 2px solid hsl(var(--border));
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .team-member-card:hover {
-  background: hsl(var(--accent) / 0.8);
-  border-color: hsl(var(--border));
+  background: hsl(var(--card));
+  border-color: rgba(18, 29, 115, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transform: translateX(4px);
 }
 
 .member-avatar {
@@ -13407,15 +13509,21 @@ a.contact-value:hover {
   border-radius: 10px;
   font-size: 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .btn-icon:hover {
-  background: hsl(var(--accent));
-  border-color: hsl(var(--border));
+  background: rgba(18, 29, 115, 0.05);
+  border-color: #121D73;
+  transform: translateY(-2px) rotate(5deg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-icon:active {
+  transform: translateY(0) rotate(0deg);
 }
 
 /* ============================================
@@ -13437,12 +13545,17 @@ a.contact-value:hover {
   border: 2px solid hsl(var(--border));
   border-radius: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .integration-card:hover {
-  border-color: hsl(var(--border));
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border-color: rgba(18, 29, 115, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-4px);
+}
+
+.integration-card:hover .integration-icon {
+  transform: scale(1.1) rotate(5deg);
 }
 
 .integration-icon {
@@ -13455,6 +13568,7 @@ a.contact-value:hover {
   justify-content: center;
   font-size: 28px;
   flex-shrink: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .integration-info {
@@ -13531,14 +13645,21 @@ a.contact-value:hover {
   border: 2px solid hsl(var(--border));
   border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
   text-align: left;
 }
 
 .action-item:hover {
-  background: hsl(var(--accent) / 0.8);
-  border-color: hsl(var(--border));
+  background: hsl(var(--card));
+  border-color: rgba(18, 29, 115, 0.2);
+  transform: translateX(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.action-item:hover .action-arrow {
+  transform: translateX(4px);
+  color: #121D73;
 }
 
 .action-item.danger {
@@ -13547,8 +13668,13 @@ a.contact-value:hover {
 }
 
 .action-item.danger:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.05);
   border-color: rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2);
+}
+
+.action-item.danger:hover .action-title {
+  color: #ef4444;
 }
 
 .action-icon {
@@ -13584,6 +13710,7 @@ a.contact-value:hover {
 .action-arrow {
   font-size: 18px;
   color: hsl(var(--muted-foreground));
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .danger-card {
@@ -13611,13 +13738,38 @@ a.contact-value:hover {
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 4px 16px hsl(var(--primary) / 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.6s ease, height 0.6s ease;
+}
+
+.btn-primary:hover::before {
+  width: 300px;
+  height: 300px;
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   box-shadow: 0 8px 24px hsl(var(--primary) / 0.4);
+}
+
+.btn-primary:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px hsl(var(--primary) / 0.3);
 }
 
 .btn-primary.btn-sm {
@@ -13638,12 +13790,20 @@ a.contact-value:hover {
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-secondary:hover {
-  background: hsl(var(--accent));
-  border-color: hsl(var(--border));
+  background: rgba(18, 29, 115, 0.05);
+  border-color: #121D73;
+  color: #121D73;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* ============================================
