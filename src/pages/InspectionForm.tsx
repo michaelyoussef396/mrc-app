@@ -794,7 +794,9 @@ const InspectionForm = () => {
                           className={`toggle-switch ${area.moistureReadingsEnabled ? 'active' : ''}`}
                           onClick={() => handleAreaChange(area.id, 'moistureReadingsEnabled', !area.moistureReadingsEnabled)}
                         >
-                          <span className="toggle-slider"></span>
+                          <span className="toggle-label">
+                            {area.moistureReadingsEnabled ? 'Enabled' : 'Disabled'}
+                          </span>
                         </button>
                       </div>
 
@@ -925,7 +927,9 @@ const InspectionForm = () => {
                           className={`toggle-switch ${area.infraredEnabled ? 'active' : ''}`}
                           onClick={() => handleAreaChange(area.id, 'infraredEnabled', !area.infraredEnabled)}
                         >
-                          <span className="toggle-slider"></span>
+                          <span className="toggle-label">
+                            {area.infraredEnabled ? 'Enabled' : 'Disabled'}
+                          </span>
                         </button>
                       </div>
 
@@ -1013,7 +1017,9 @@ const InspectionForm = () => {
                           className={`toggle-switch ${area.demolitionRequired ? 'active' : ''}`}
                           onClick={() => handleAreaChange(area.id, 'demolitionRequired', !area.demolitionRequired)}
                         >
-                          <span className="toggle-slider"></span>
+                          <span className="toggle-label">
+                            {area.demolitionRequired ? 'Yes' : 'No'}
+                          </span>
                         </button>
                       </div>
 
@@ -1080,7 +1086,9 @@ const InspectionForm = () => {
                       className={`toggle-switch ${formData.subfloorEnabled ? 'active' : ''}`}
                       onClick={() => handleInputChange('subfloorEnabled', !formData.subfloorEnabled)}
                     >
-                      <span className="toggle-slider"></span>
+                      <span className="toggle-label">
+                        {formData.subfloorEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
                     </button>
                   </div>
 
@@ -1216,7 +1224,9 @@ const InspectionForm = () => {
                             className={`toggle-switch ${formData.subfloorSanitation ? 'active' : ''}`}
                             onClick={() => handleInputChange('subfloorSanitation', !formData.subfloorSanitation)}
                           >
-                            <span className="toggle-slider"></span>
+                            <span className="toggle-label">
+                              {formData.subfloorSanitation ? 'Yes' : 'No'}
+                            </span>
                           </button>
                         </div>
                         {formData.subfloorSanitation && (
@@ -1233,7 +1243,9 @@ const InspectionForm = () => {
                               className={`toggle-switch ${formData.subfloorRacking ? 'active' : ''}`}
                               onClick={() => handleInputChange('subfloorRacking', !formData.subfloorRacking)}
                             >
-                              <span className="toggle-slider"></span>
+                              <span className="toggle-label">
+                                {formData.subfloorRacking ? 'Yes' : 'No'}
+                              </span>
                             </button>
                           </div>
                           {formData.subfloorRacking && (
@@ -1394,7 +1406,9 @@ const InspectionForm = () => {
                       className={`toggle-switch ${formData.directionPhotosEnabled ? 'active' : ''}`}
                       onClick={() => handleInputChange('directionPhotosEnabled', !formData.directionPhotosEnabled)}
                     >
-                      <span className="toggle-slider"></span>
+                      <span className="toggle-label">
+                        {formData.directionPhotosEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
                     </button>
                   </div>
                   <p className="field-hint">For technicians to find the house again</p>
@@ -1445,7 +1459,9 @@ const InspectionForm = () => {
                       className={`toggle-switch ${formData.wasteDisposalEnabled ? 'active' : ''}`}
                       onClick={() => handleInputChange('wasteDisposalEnabled', !formData.wasteDisposalEnabled)}
                     >
-                      <span className="toggle-slider"></span>
+                      <span className="toggle-label">
+                        {formData.wasteDisposalEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
                     </button>
                   </div>
 
@@ -1535,7 +1551,9 @@ const InspectionForm = () => {
                         className={`toggle-switch ${formData.dryingEquipmentEnabled ? 'active' : ''}`}
                         onClick={() => handleInputChange('dryingEquipmentEnabled', !formData.dryingEquipmentEnabled)}
                       >
-                        <span className="toggle-slider"></span>
+                        <span className="toggle-label">
+                          {formData.dryingEquipmentEnabled ? 'Enabled' : 'Disabled'}
+                        </span>
                       </button>
                     </div>
 
@@ -1629,7 +1647,9 @@ const InspectionForm = () => {
                       className={`toggle-switch ${formData.recommendDehumidifier ? 'active' : ''}`}
                       onClick={() => handleInputChange('recommendDehumidifier', !formData.recommendDehumidifier)}
                     >
-                      <span className="toggle-slider"></span>
+                      <span className="toggle-label">
+                        {formData.recommendDehumidifier ? 'Yes' : 'No'}
+                      </span>
                     </button>
                   </div>
 
