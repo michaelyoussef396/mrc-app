@@ -26,7 +26,7 @@ const LeadsManagement = () => {
   const [removeReason, setRemoveReason] = useState('');
   const [selectedLeadForRemoval, setSelectedLeadForRemoval] = useState<any>(null);
 
-  // SIMPLIFIED 9-STAGE PIPELINE
+  // UPDATED 10-STAGE PIPELINE
   const statusOptions: StatusOption[] = [
     { 
       value: 'all', 
@@ -49,18 +49,9 @@ const LeadsManagement = () => {
       label: 'Awaiting Inspection', 
       icon: '📅', 
       color: '#8b5cf6',
-      description: 'Inspection has been scheduled, waiting for appointment',
+      description: 'Inspection scheduled, waiting for appointment',
       nextActions: ['Start inspection or remove lead'],
       availableButtons: ['call', 'email', 'startInspection', 'removeLead', 'viewDetails']
-    },
-    { 
-      value: 'quote_sent', 
-      label: 'Quote Sent', 
-      icon: '📄', 
-      color: '#0ea5e9',
-      description: 'Quote sent after inspection',
-      nextActions: ['Follow up on quote', 'Answer questions'],
-      availableButtons: ['call', 'email', 'resendQuote', 'viewQuote', 'viewDetails']
     },
     { 
       value: 'job_waiting', 
@@ -90,22 +81,49 @@ const LeadsManagement = () => {
       availableButtons: ['viewProgress', 'updateStatus', 'completeJob', 'viewDetails']
     },
     { 
-      value: 'invoicing_sent', 
+      value: 'inspection_report_pdf_completed', 
       label: 'Job Complete', 
       icon: '✅', 
       color: '#22c55e',
-      description: 'Work finished, awaiting payment/sign-off',
-      nextActions: ['Send invoice', 'Request payment', 'Get sign-off'],
-      availableButtons: ['sendInvoice', 'markPaid', 'requestFeedback', 'viewDetails']
+      description: 'Work finished, ready for invoicing',
+      nextActions: ['Send invoice'],
+      availableButtons: ['sendInvoice', 'viewDetails']
+    },
+    { 
+      value: 'invoicing_sent', 
+      label: 'Quote Sent', 
+      icon: '💰', 
+      color: '#0ea5e9',
+      description: 'Invoice/quote sent to client',
+      nextActions: ['Wait for payment'],
+      availableButtons: ['resendQuote', 'markPaid', 'viewDetails']
     },
     { 
       value: 'paid', 
-      label: 'Paid & Closed', 
+      label: 'Paid', 
       icon: '💚', 
       color: '#10b981',
-      description: 'Payment received, job fully closed',
-      nextActions: ['Request review', 'Archive'],
-      availableButtons: ['requestReview', 'viewHistory', 'archive']
+      description: 'Payment received',
+      nextActions: ['Request Google review'],
+      availableButtons: ['requestReview', 'viewDetails']
+    },
+    { 
+      value: 'google_review', 
+      label: 'Google Review', 
+      icon: '⭐', 
+      color: '#f59e0b',
+      description: 'Requesting/awaiting Google review',
+      nextActions: ['Close job'],
+      availableButtons: ['markClosed', 'viewDetails']
+    },
+    { 
+      value: 'finished', 
+      label: 'Closed', 
+      icon: '🎉', 
+      color: '#059669',
+      description: 'Job fully closed',
+      nextActions: [],
+      availableButtons: ['viewHistory', 'archive']
     },
     { 
       value: 'lost', 
@@ -210,7 +228,11 @@ const LeadsManagement = () => {
     },
     
     reactivate: async (leadId: number) => {
-      await updateLeadStatus(leadId, 'contacted');
+      await updateLeadStatus(leadId, 'inspection_waiting');
+    },
+    
+    markClosed: async (leadId: number) => {
+      await updateLeadStatus(leadId, 'finished');
     },
     
     call: (phone: string) => {
@@ -427,6 +449,12 @@ const LeadsManagement = () => {
         onClick: () => stageActions.addNotes(lead.id),
         style: 'secondary'
       },
+      markClosed: {
+        icon: '🎉',
+        label: 'Close',
+        onClick: () => stageActions.markClosed(lead.id),
+        style: 'success'
+      },
       reactivate: {
         icon: '🔄',
         label: 'Reactivate',
@@ -538,29 +566,9 @@ const LeadsManagement = () => {
         estimatedValue: null,
         issueDescription: 'Black mould in bathroom after recent flooding'
       },
-      
-      // 3. QUOTE_SENT - Quote sent after inspection
+      // 3. JOB_WAITING - Awaiting Approval
       {
         id: 5,
-        name: 'Robert Davis',
-        email: 'robert@email.com',
-        phone: '0489 123 456',
-        property: '23 Beach Road',
-        suburb: 'Sandringham',
-        state: 'VIC',
-        postcode: '3191',
-        status: 'quote_sent',
-        urgency: 'medium',
-        source: 'Website Form',
-        dateCreated: '2025-01-24T10:15:00',
-        lastContact: '2025-01-26T16:00:00',
-        estimatedValue: 4200,
-        issueDescription: 'Mould in bedroom walls and ceiling - needs full remediation'
-      },
-      
-      // 4. JOB_WAITING - Awaiting Approval
-      {
-        id: 6,
         name: 'Jennifer White',
         email: 'jennifer@email.com',
         phone: '0456 345 678',
@@ -577,9 +585,9 @@ const LeadsManagement = () => {
         issueDescription: 'Bathroom and ensuite mould - waiting on insurance approval'
       },
       
-      // 5. JOB_COMPLETED - Job Booked
+      // 4. JOB_COMPLETED - Job Booked
       {
-        id: 7,
+        id: 6,
         name: 'Jessica Taylor',
         email: 'jessica@email.com',
         phone: '0478 901 234',
@@ -597,7 +605,7 @@ const LeadsManagement = () => {
         issueDescription: 'Extensive mould remediation - multiple rooms and subfloor treatment'
       },
       {
-        id: 8,
+        id: 7,
         name: 'Andrew Martin',
         email: 'andrew@email.com',
         phone: '0467 567 890',
@@ -615,9 +623,9 @@ const LeadsManagement = () => {
         issueDescription: 'Kitchen and bathroom mould removal and sanitization'
       },
       
-      // 6. JOB_REPORT_PDF_SENT - Job In Progress
+      // 5. JOB_REPORT_PDF_SENT - Job In Progress
       {
-        id: 9,
+        id: 8,
         name: 'Michelle Lee',
         email: 'michelle@email.com',
         phone: '0423 789 012',
@@ -634,9 +642,9 @@ const LeadsManagement = () => {
         issueDescription: 'Full house mould treatment - day 2 of 3'
       },
       
-      // 7. INVOICING_SENT - Job Complete
+      // 6. INSPECTION_REPORT_PDF_COMPLETED - Job Complete
       {
-        id: 10,
+        id: 9,
         name: 'Daniel Green',
         email: 'daniel@email.com',
         phone: '0434 890 123',
@@ -644,13 +652,32 @@ const LeadsManagement = () => {
         suburb: 'Kew',
         state: 'VIC',
         postcode: '3101',
-        status: 'invoicing_sent',
+        status: 'inspection_report_pdf_completed',
         urgency: 'low',
         source: 'Google Ads',
         dateCreated: '2025-01-18T14:20:00',
         lastContact: '2025-01-27T16:00:00',
         estimatedValue: 4100,
-        issueDescription: 'Bathroom and laundry mould remediation - completed yesterday'
+        issueDescription: 'Bathroom and laundry mould remediation - work completed'
+      },
+      
+      // 7. INVOICING_SENT - Quote Sent (after job complete)
+      {
+        id: 10,
+        name: 'Robert Davis',
+        email: 'robert@email.com',
+        phone: '0489 123 456',
+        property: '23 Beach Road',
+        suburb: 'Sandringham',
+        state: 'VIC',
+        postcode: '3191',
+        status: 'invoicing_sent',
+        urgency: 'medium',
+        source: 'Website Form',
+        dateCreated: '2025-01-24T10:15:00',
+        lastContact: '2025-01-26T16:00:00',
+        estimatedValue: 4200,
+        issueDescription: 'Mould remediation complete - invoice sent'
       },
       {
         id: 11,
@@ -667,10 +694,10 @@ const LeadsManagement = () => {
         dateCreated: '2025-01-19T10:45:00',
         lastContact: '2025-01-28T11:00:00',
         estimatedValue: 3600,
-        issueDescription: 'Bedroom and wardrobe mould treatment - job completed'
+        issueDescription: 'Bedroom mould treatment complete - awaiting payment'
       },
       
-      // 8. PAID - Paid & Closed
+      // 8. PAID - Payment received
       {
         id: 12,
         name: 'William Johnson',
@@ -686,8 +713,10 @@ const LeadsManagement = () => {
         dateCreated: '2025-01-15T09:00:00',
         lastContact: '2025-01-26T14:00:00',
         estimatedValue: 2900,
-        issueDescription: 'Kitchen mould removal - paid and closed'
+        issueDescription: 'Kitchen mould removal - paid'
       },
+      
+      // 9. GOOGLE_REVIEW - Awaiting review
       {
         id: 13,
         name: 'Olivia Harris',
@@ -697,18 +726,37 @@ const LeadsManagement = () => {
         suburb: 'Doncaster',
         state: 'VIC',
         postcode: '3108',
-        status: 'paid',
+        status: 'google_review',
         urgency: 'low',
         source: 'Referral',
         dateCreated: '2025-01-14T13:30:00',
         lastContact: '2025-01-25T10:00:00',
         estimatedValue: 5800,
-        issueDescription: 'Multiple rooms mould remediation - fully paid'
+        issueDescription: 'Multiple rooms remediation - awaiting Google review'
       },
       
-      // 9. LOST - Not Landed
+      // 10. FINISHED - Closed
       {
         id: 14,
+        name: 'Sarah Johnson',
+        email: 'sarah.j@email.com',
+        phone: '0411 222 333',
+        property: '12 Ocean Drive',
+        suburb: 'Frankston',
+        state: 'VIC',
+        postcode: '3199',
+        status: 'finished',
+        urgency: 'low',
+        source: 'Website Form',
+        dateCreated: '2025-01-10T09:00:00',
+        lastContact: '2025-01-22T14:00:00',
+        estimatedValue: 3400,
+        issueDescription: 'Bathroom mould - fully closed with positive review'
+      },
+      
+      // 11. LOST - Not Landed
+      {
+        id: 15,
         name: 'Thomas Wright',
         email: 'thomas@email.com',
         phone: '0478 890 123',
