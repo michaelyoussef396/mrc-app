@@ -3100,4 +3100,720 @@
     background: rgba(255, 255, 255, 0.05);
     color: white;
   }
+
+  /* ============================================
+     RESET PASSWORD PAGE - APPLE STYLE
+     ============================================ */
+
+  .reset-password-page {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
+    animation: pageEnter 0.5s ease-out;
+  }
+
+  /* Blue Animated Background (reuse) */
+  .reset-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  .reset-background .gradient-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.5;
+    animation: float 20s ease-in-out infinite;
+  }
+
+  .reset-background .orb-1 {
+    width: 600px;
+    height: 600px;
+    background: linear-gradient(135deg, #121D73 0%, #1e40af 100%);
+    top: -15%;
+    left: -15%;
+    animation-delay: 0s;
+  }
+
+  .reset-background .orb-2 {
+    width: 500px;
+    height: 500px;
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    bottom: -15%;
+    right: -10%;
+    animation-delay: 7s;
+  }
+
+  .reset-background .orb-3 {
+    width: 400px;
+    height: 400px;
+    background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation-delay: 14s;
+  }
+
+  .reset-background .orb-4 {
+    width: 350px;
+    height: 350px;
+    background: linear-gradient(135deg, #0ea5e9 0%, #7dd3fc 100%);
+    top: 20%;
+    right: 15%;
+    animation-delay: 21s;
+  }
+
+  /* Container */
+  .reset-container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 520px;
+    padding: 24px;
+  }
+
+  /* Card */
+  .reset-card {
+    padding: 40px;
+    animation: slideUpReset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes slideUpReset {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Icon */
+  .reset-icon-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 24px;
+  }
+
+  .reset-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 
+      0 8px 24px rgba(16, 185, 129, 0.3),
+      0 0 0 0.5px rgba(255, 255, 255, 0.1) inset;
+    animation: iconFloatReset 3s ease-in-out infinite;
+  }
+
+  @keyframes iconFloatReset {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  /* Header */
+  .reset-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .reset-title {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: hsl(var(--gray-900));
+    margin-bottom: 12px;
+  }
+
+  .reset-subtitle {
+    font-size: 13px;
+    color: hsl(var(--gray-600));
+    font-weight: 500;
+    line-height: 1.6;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  /* Form */
+  .reset-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Form Group */
+  .form-group-reset {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-label-reset {
+    font-size: 13px;
+    font-weight: 600;
+    color: hsl(var(--gray-700));
+    letter-spacing: -0.2px;
+  }
+
+  .input-wrapper-reset {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .input-icon-reset {
+    position: absolute;
+    left: 16px;
+    font-size: 18px;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .form-input-reset {
+    width: 100%;
+    padding: 16px;
+    padding-left: 52px;
+    padding-right: 52px;
+    font-size: 15px;
+    font-weight: 500;
+    color: hsl(var(--gray-900));
+    background: rgba(255, 255, 255, 0.5);
+    border: 1.5px solid hsl(var(--gray-200));
+    border-radius: 12px;
+    transition: all var(--transition-base);
+    font-family: var(--font-family);
+  }
+
+  .form-input-reset::placeholder {
+    color: hsl(var(--gray-400));
+  }
+
+  .form-input-reset:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.8);
+    border-color: hsl(var(--primary));
+    box-shadow: 
+      0 0 0 4px rgba(18, 29, 115, 0.1),
+      0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .input-toggle-reset {
+    position: absolute;
+    right: 16px;
+    background: none;
+    border: none;
+    color: hsl(var(--gray-500));
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    transition: all var(--transition-fast);
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .input-toggle-reset:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: hsl(var(--gray-700));
+  }
+
+  /* ============================================
+     PASSWORD STRENGTH METER
+     ============================================ */
+
+  .password-strength {
+    margin-top: 8px;
+    animation: fadeInStrength 0.3s ease-out;
+  }
+
+  @keyframes fadeInStrength {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .strength-bar-container {
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .strength-bar {
+    height: 100%;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 999px;
+  }
+
+  .strength-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-align: right;
+    transition: color 0.3s ease;
+  }
+
+  /* ============================================
+     MATCH INDICATOR
+     ============================================ */
+
+  .match-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 8px;
+    animation: fadeInMatch 0.3s ease-out;
+  }
+
+  @keyframes fadeInMatch {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .match-indicator.match {
+    background: rgba(16, 185, 129, 0.1);
+    color: #065f46;
+  }
+
+  .match-indicator.no-match {
+    background: rgba(239, 68, 68, 0.1);
+    color: #991b1b;
+  }
+
+  .match-icon {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  /* ============================================
+     PASSWORD REQUIREMENTS
+     ============================================ */
+
+  .password-requirements {
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .requirements-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: hsl(var(--gray-700));
+    margin-bottom: 12px;
+  }
+
+  .requirements-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .requirements-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: hsl(var(--gray-600));
+    font-weight: 500;
+    transition: all 0.3s ease;
+  }
+
+  .requirements-list li.met {
+    color: #065f46;
+  }
+
+  .check-icon-req {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+    background: rgba(0, 0, 0, 0.06);
+    color: hsl(var(--gray-400));
+  }
+
+  .requirements-list li.met .check-icon-req {
+    background: #10b981;
+    color: white;
+    transform: scale(1.1);
+  }
+
+  /* Error Message */
+  .error-message-reset {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1.5px solid rgba(239, 68, 68, 0.3);
+    border-radius: 12px;
+    color: #991b1b;
+    font-size: 13px;
+    font-weight: 500;
+    animation: slideDownErrorReset 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes slideDownErrorReset {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* ============================================
+     SUBMIT BUTTON
+     ============================================ */
+
+  .btn-reset-submit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 17px;
+    margin-top: 8px;
+  }
+
+  .btn-reset-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  .btn-arrow-reset {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .btn-reset-submit:hover:not(:disabled) .btn-arrow-reset {
+    transform: translateX(4px);
+  }
+
+  .loading-spinner-reset {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spinReset 0.8s linear infinite;
+  }
+
+  @keyframes spinReset {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* ============================================
+     FOOTER
+     ============================================ */
+
+  .reset-footer {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    text-align: center;
+  }
+
+  .btn-back-login-reset {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: hsl(var(--gray-600));
+    transition: all var(--transition-base);
+  }
+
+  .btn-back-login-reset:hover {
+    color: hsl(var(--gray-900));
+  }
+
+  .back-arrow-reset {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .btn-back-login-reset:hover .back-arrow-reset {
+    transform: translateX(-4px);
+  }
+
+  /* ============================================
+     SUCCESS STATE
+     ============================================ */
+
+  .success-state {
+    text-align: center;
+    animation: scaleInSuccess 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes scaleInSuccess {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .success-icon-circle-reset {
+    width: 96px;
+    height: 96px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 
+      0 12px 32px rgba(16, 185, 129, 0.3),
+      0 0 0 0.5px rgba(255, 255, 255, 0.1) inset;
+    animation: successZoomInReset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes successZoomInReset {
+    0% {
+      opacity: 0;
+      transform: scale(0.5) rotate(-45deg);
+    }
+    60% {
+      transform: scale(1.1) rotate(5deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+  }
+
+  .success-title-reset {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: hsl(var(--gray-900));
+    margin-bottom: 12px;
+  }
+
+  .success-message-reset {
+    font-size: 15px;
+    color: hsl(var(--gray-600));
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+
+  .success-redirect {
+    font-size: 13px;
+    color: hsl(var(--primary));
+    font-weight: 600;
+    margin-bottom: 24px;
+  }
+
+  /* Redirect Progress Bar */
+  .redirect-loader {
+    width: 100%;
+    max-width: 200px;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 0 auto;
+  }
+
+  .loader-bar {
+    height: 100%;
+    background: linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--primary-light)) 100%);
+    border-radius: 999px;
+    animation: progressBar 2s ease-out forwards;
+  }
+
+  @keyframes progressBar {
+    from {
+      width: 0%;
+    }
+    to {
+      width: 100%;
+    }
+  }
+
+  /* ============================================
+     MOBILE RESPONSIVE
+     ============================================ */
+
+  @media (max-width: 640px) {
+    .reset-container {
+      padding: 16px;
+    }
+    
+    .reset-card {
+      padding: 24px;
+    }
+    
+    .reset-icon,
+    .success-icon-circle-reset {
+      width: 64px;
+      height: 64px;
+    }
+    
+    .icon-emoji {
+      font-size: 28px;
+    }
+    
+    .reset-title,
+    .success-title-reset {
+      font-size: 24px;
+    }
+    
+    .reset-subtitle {
+      font-size: 12px;
+    }
+    
+    .form-input-reset {
+      padding: 12px;
+      padding-left: 48px;
+      padding-right: 48px;
+    }
+    
+    .password-requirements {
+      padding: 12px;
+    }
+  }
+
+  /* ============================================
+     DARK MODE
+     ============================================ */
+
+  .dark .reset-password-page {
+    background: linear-gradient(135deg, #0c1330 0%, #111827 100%);
+  }
+  
+  .dark .reset-background .gradient-orb {
+    opacity: 0.3;
+    filter: blur(120px);
+  }
+  
+  .dark .reset-title,
+  .dark .success-title-reset,
+  .dark .requirements-title {
+    color: white;
+  }
+  
+  .dark .reset-subtitle,
+  .dark .success-message-reset {
+    color: hsl(var(--gray-400));
+  }
+  
+  .dark .form-input-reset {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: white;
+  }
+  
+  .dark .form-input-reset:focus {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: hsl(var(--primary-light));
+  }
+  
+  .dark .strength-bar-container {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .dark .password-requirements {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .dark .requirements-list li {
+    color: hsl(var(--gray-400));
+  }
+  
+  .dark .requirements-list li .check-icon-req {
+    background: rgba(255, 255, 255, 0.1);
+    color: hsl(var(--gray-500));
+  }
+
+  .dark .requirements-list li.met .check-icon-req {
+    background: #10b981;
+    color: white;
+  }
+  
+  .dark .match-indicator.match {
+    background: rgba(16, 185, 129, 0.15);
+    color: #6ee7b7;
+  }
+  
+  .dark .match-indicator.no-match {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+  }
+  
+  .dark .error-message-reset {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+  }
+
+  .dark .input-toggle-reset {
+    color: hsl(var(--gray-400));
+  }
+
+  .dark .input-toggle-reset:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+  }
+
+  .dark .btn-back-login-reset {
+    color: hsl(var(--gray-400));
+  }
+
+  .dark .btn-back-login-reset:hover {
+    color: white;
+  }
+
+  .dark .form-label-reset {
+    color: hsl(var(--gray-300));
+  }
 }
