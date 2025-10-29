@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Search, Edit, Trash2, UserX, Info, Shield, Mail, Phone, Calendar, Clock } from "lucide-react";
+import { ArrowLeft, Plus, Search, Edit, Trash2, UserX, Info, Shield, Mail, Phone, Calendar, Clock, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,6 +58,8 @@ export default function ManageUsers() {
   const [activeTab, setActiveTab] = useState("active");
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Modal states
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -70,38 +73,55 @@ export default function ManageUsers() {
     name: "",
     email: "",
     phone: "",
-    role: "administrator",
+    role: "technician",
     password: "",
     sendWelcomeEmail: true,
   });
 
   // Users data
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: "1",
-      name: "System Administrator",
-      email: "admin@mrc.com.au",
-      phone: "0412 345 678",
-      role: "Administrator",
-      joined: "15 Jan 2025",
-      lastLogin: "Today at 9:15 AM",
-      status: "active",
-      initials: "SA",
-      avatarColor: "bg-blue-600",
-    },
-    {
-      id: "2",
-      name: "Sarah Martinez",
-      email: "sarah@mrc.com.au",
-      phone: "0423 456 789",
-      role: "Administrator",
-      joined: "15 Jan 2025",
-      lastLogin: "Yesterday at 3:30 PM",
-      status: "active",
-      initials: "SM",
-      avatarColor: "bg-purple-600",
-    },
-  ]);
+  const [users, setUsers] = useState<User[]>([]);
+
+  // Load users from Supabase
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    setIsLoading(true);
+    try {
+      const { data: profiles, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, phone, is_active, created_at")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      if (profiles) {
+        const formattedUsers: User[] = profiles.map((profile) => ({
+          id: profile.id,
+          name: profile.full_name || "Unknown",
+          email: profile.email || "",
+          phone: profile.phone || "",
+          role: "Technician",
+          joined: new Date(profile.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }),
+          lastLogin: "N/A",
+          status: profile.is_active ? "active" : "deactivated",
+          initials: (profile.full_name || "U").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2),
+          avatarColor: `bg-${["blue", "purple", "green", "orange", "pink"][Math.floor(Math.random() * 5)]}-600`,
+        }));
+        setUsers(formattedUsers);
+      }
+    } catch (error) {
+      console.error("Error loading users:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load users",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const activeUsers = users.filter((u) => u.status === "active");
   const deactivatedUsers = users.filter((u) => u.status === "deactivated");
@@ -119,7 +139,7 @@ export default function ManageUsers() {
     });
   };
 
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (!formData.name || !formData.email || !formData.password) {
       toast({
         variant: "destructive",
@@ -129,20 +149,65 @@ export default function ManageUsers() {
       return;
     }
 
-    toast({
-      title: "Success",
-      description: `User created successfully!`,
-    });
+    setIsSubmitting(true);
 
-    if (formData.sendWelcomeEmail) {
-      toast({
-        title: "Email Sent",
-        description: `Welcome email sent to ${formData.email}`,
+    try {
+      // Create user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.name,
+          },
+          emailRedirectTo: window.location.origin,
+        },
       });
-    }
 
-    setAddModalOpen(false);
-    resetForm();
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Update profile with additional info
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({
+            full_name: formData.name,
+            phone: formData.phone,
+          })
+          .eq("id", authData.user.id);
+
+        if (profileError) throw profileError;
+
+        // Assign technician role
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .insert({
+            user_id: authData.user.id,
+            role: formData.role === "administrator" ? "admin" : "technician",
+          });
+
+        if (roleError) throw roleError;
+
+        toast({
+          title: "Success",
+          description: `${formData.name} has been added as a technician!`,
+        });
+
+        // Reload users list
+        await loadUsers();
+        setAddModalOpen(false);
+        resetForm();
+      }
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to create user. Please try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEditUser = () => {
@@ -186,7 +251,7 @@ export default function ManageUsers() {
       name: "",
       email: "",
       phone: "",
-      role: "administrator",
+      role: "technician",
       password: "",
       sendWelcomeEmail: true,
     });
@@ -285,7 +350,12 @@ export default function ManageUsers() {
 
           {/* Active Users */}
           <TabsContent value="active" className="mt-6">
-            {activeUsers.length === 0 ? (
+            {isLoading ? (
+              <div className="text-center py-12 bg-card rounded-lg">
+                <Loader2 className="h-12 w-12 text-muted-foreground mx-auto mb-3 animate-spin" />
+                <p className="text-sm text-muted-foreground">Loading users...</p>
+              </div>
+            ) : activeUsers.length === 0 ? (
               <div className="text-center py-12 bg-card rounded-lg">
                 <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                 <h3 className="text-lg font-semibold text-foreground mb-1">No active users</h3>
@@ -456,8 +526,8 @@ export default function ManageUsers() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="administrator">Administrator (full access)</SelectItem>
-                  <SelectItem value="technician" disabled>
-                    Technician (limited access - coming soon)
+                  <SelectItem value="technician">
+                    Technician (field inspector)
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -498,10 +568,19 @@ export default function ManageUsers() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddModalOpen(false)}>
+            <Button variant="outline" onClick={() => setAddModalOpen(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button onClick={handleAddUser}>Create Account</Button>
+            <Button onClick={handleAddUser} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Account"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
