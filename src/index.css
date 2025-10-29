@@ -13401,7 +13401,7 @@ a.contact-value:hover {
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
-  transform: translateX(28px); /* FIXED: Now goes all the way right! */
+  transform: translateX(29px); /* FIXED: Moved even closer to right edge! */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
@@ -13903,7 +13903,7 @@ a.contact-value:hover {
   }
 
   .toggle-switch input:checked + .toggle-slider:before {
-    transform: translateX(26px);
+    transform: translateX(27px);
   }
 
   .settings-card {
