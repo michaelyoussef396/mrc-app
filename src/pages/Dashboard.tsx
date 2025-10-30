@@ -100,7 +100,7 @@ export default function Dashboard() {
                   />
                   
                   {/* Dropdown Panel */}
-                  <div className="absolute top-14 left-0 w-80 sm:w-96 max-h-[480px] bg-white rounded-2xl shadow-2xl z-50 overflow-hidden">
+                  <div className="absolute top-14 -left-20 w-80 sm:w-96 max-h-[480px] bg-white rounded-2xl shadow-2xl z-50 overflow-hidden">
                     {/* Header */}
                     <div className="px-5 py-4 border-b border-gray-200 flex justify-between items-center">
                       <h3 className="text-base font-bold text-gray-900">Notifications</h3>
