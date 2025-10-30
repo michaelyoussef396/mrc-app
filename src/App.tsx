@@ -29,7 +29,6 @@ import LeadDetail from "./pages/LeadDetail";
 import Calendar from "./pages/Calendar";
 import InspectionForm from "./pages/InspectionForm";
 import { ReportsPage } from "./pages/ReportsPage";
-import Analytics from "./pages/Analytics";
 import CustomerBooking from "./pages/CustomerBooking";
 import { BookingFlow } from "./pages/BookingFlow";
 import { BookingConfirmed } from "./pages/BookingConfirmed";
@@ -90,7 +89,6 @@ const AppContent = () => {
             <Route path="/inspection/new" element={<InspectionForm />} />
             <Route path="/inspection/:id" element={<InspectionForm />} />
             <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/analytics" element={<Analytics />} />
           </Route>
           
           <Route path="*" element={<NotFound />} />
