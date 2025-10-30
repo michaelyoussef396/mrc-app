@@ -97,7 +97,7 @@ export default function Dashboard() {
             
             <button className="btn-primary btn-new-lead" onClick={() => navigate('/lead/new')}>
               <span>➕</span>
-              <span>New Lead</span>
+              <span>New Inspection/Lead</span>
             </button>
           </div>
 
