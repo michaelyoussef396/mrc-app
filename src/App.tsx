@@ -28,7 +28,6 @@ import Leads from "./pages/Leads";
 import LeadDetail from "./pages/LeadDetail";
 import Calendar from "./pages/Calendar";
 import InspectionForm from "./pages/InspectionForm";
-import { InspectionNew } from "./pages/InspectionNew";
 import Reports from "./pages/Reports";
 import Analytics from "./pages/Analytics";
 import CustomerBooking from "./pages/CustomerBooking";
@@ -88,8 +87,7 @@ const AppContent = () => {
             <Route path="/leads/:id" element={<LeadDetail />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/inspection" element={<InspectionForm />} />
-            <Route path="/inspection/new" element={<InspectionNew />} />
-            <Route path="/inspection/form/:leadId" element={<InspectionForm />} />
+            <Route path="/inspection/new" element={<InspectionForm />} />
             <Route path="/inspection/:id" element={<InspectionForm />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/analytics" element={<Analytics />} />
