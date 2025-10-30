@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import { calculateDewPoint, generateJobNumber, calculateJobCost, formatCurrency } from '@/lib/inspectionUtils'
@@ -8,9 +8,12 @@ import { Sparkles } from 'lucide-react'
 
 const InspectionForm = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { toast } = useToast()
   const [searchParams] = useSearchParams()
   const leadId = searchParams.get('leadId')
+  const passedLead = location.state?.lead
+  
   
   const [currentSection, setCurrentSection] = useState(0)
   const [lead, setLead] = useState<any>(null)
@@ -132,13 +135,65 @@ const InspectionForm = () => {
   ])
 
   const loadLeadData = async () => {
-    if (!leadId) {
+    if (!leadId && !passedLead) {
       navigate('/inspection/select-lead')
       return
     }
 
     setLoading(true)
-    // TODO: Load from Supabase
+    
+    // Use passed lead data from SelectLead page if available
+    if (passedLead) {
+      const leadData = {
+        id: passedLead.id,
+        name: passedLead.customerName,
+        email: passedLead.customerEmail,
+        phone: passedLead.customerPhone,
+        property: `${passedLead.propertyAddress}, ${passedLead.propertySuburb} VIC ${passedLead.propertyPostcode}`,
+        issueDescription: passedLead.problemDescription,
+        scheduledDate: `${passedLead.inspectionDate}T${passedLead.inspectionTime}:00`,
+        affectedAreas: passedLead.affectedAreas,
+        propertyType: passedLead.propertyType,
+        urgency: passedLead.urgency
+      }
+      
+      setLead(leadData)
+      setFormData(prev => ({
+        ...prev,
+        triage: leadData.issueDescription,
+        address: leadData.property,
+        requestedBy: leadData.name,
+        dwellingType: leadData.propertyType,
+        // Pre-fill first area with affected areas from lead
+        areas: leadData.affectedAreas && leadData.affectedAreas.length > 0 
+          ? [{
+              id: crypto.randomUUID(),
+              areaName: leadData.affectedAreas[0],
+              mouldVisibility: [],
+              commentsForReport: leadData.issueDescription,
+              temperature: '',
+              humidity: '',
+              dewPoint: '',
+              moistureReadingsEnabled: false,
+              moistureReadings: [],
+              internalNotes: '',
+              roomViewPhotos: [],
+              infraredEnabled: false,
+              infraredPhoto: null,
+              naturalInfraredPhoto: null,
+              infraredObservations: [],
+              timeWithoutDemo: 0,
+              demolitionRequired: false,
+              demolitionTime: 0,
+              demolitionDescription: ''
+            }]
+          : prev.areas
+      }))
+      setLoading(false)
+      return
+    }
+    
+    // TODO: Load from Supabase if no passed data
     const mockLead = {
       id: leadId,
       name: 'John Doe',
@@ -542,6 +597,52 @@ const InspectionForm = () => {
               Section {currentSection + 1} of {sections.length}
             </p>
           </div>
+
+          {/* Lead Summary Card */}
+          {lead && (
+            <div className="lead-summary-card">
+              <h3 className="summary-title">Customer & Property Information</h3>
+              <div className="summary-grid">
+                <div className="summary-item">
+                  <span className="summary-label">Customer</span>
+                  <span className="summary-value">{lead.name}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Phone</span>
+                  <span className="summary-value">{lead.phone}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Email</span>
+                  <span className="summary-value">{lead.email}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Property</span>
+                  <span className="summary-value">{lead.property}</span>
+                </div>
+                {lead.urgency && (
+                  <div className="summary-item">
+                    <span className="summary-label">Urgency</span>
+                    <span className={`urgency-badge-mini ${lead.urgency.toLowerCase()}`}>
+                      {lead.urgency}
+                    </span>
+                  </div>
+                )}
+                {lead.scheduledDate && (
+                  <div className="summary-item">
+                    <span className="summary-label">Scheduled</span>
+                    <span className="summary-value">
+                      {new Date(lead.scheduledDate).toLocaleString('en-AU', { 
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Dynamic Section Content */}
           <div className="form-content">

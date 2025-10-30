@@ -147,8 +147,27 @@ export const SelectLead = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelectLead = (leadId: number) => {
-    navigate(`/inspection/${leadId}`);
+  const handleSelectLead = (lead: typeof leads[0]) => {
+    // Navigate to inspection form with lead data
+    navigate(`/inspection/new?leadId=${lead.id}`, { 
+      state: { 
+        lead: {
+          id: lead.id,
+          customerName: lead.customerName,
+          customerEmail: lead.customerEmail,
+          customerPhone: lead.customerPhone,
+          propertyAddress: lead.propertyAddress,
+          propertySuburb: lead.propertySuburb,
+          propertyPostcode: lead.propertyPostcode,
+          propertyType: lead.propertyType,
+          problemDescription: lead.problemDescription,
+          affectedAreas: lead.affectedAreas,
+          urgency: lead.urgency,
+          inspectionDate: lead.inspectionDate,
+          inspectionTime: lead.inspectionTime
+        }
+      } 
+    });
   };
 
   const formatDate = (dateString: string) => {
@@ -356,7 +375,7 @@ export const SelectLead = () => {
               <div 
                 key={lead.id} 
                 className="lead-card"
-                onClick={() => handleSelectLead(lead.id)}
+                onClick={() => handleSelectLead(lead)}
               >
                 
                 {/* Card Header */}
@@ -437,7 +456,13 @@ export const SelectLead = () => {
                 </div>
 
                 {/* Select Button */}
-                <button className="select-button">
+                <button 
+                  className="select-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelectLead(lead);
+                  }}
+                >
                   <span>Start Inspection</span>
                   <ChevronRight size={20} strokeWidth={2} />
                 </button>
