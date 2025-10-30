@@ -97,11 +97,11 @@ export default function Dashboard() {
             </div>
             
             <button 
-              className="flex items-center gap-2 w-12 h-12 sm:w-auto sm:h-12 p-0 sm:px-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-[15px] font-semibold rounded-full sm:rounded-xl border-0 cursor-pointer transition-all duration-300 shadow-md hover:-translate-y-0.5 hover:shadow-lg justify-center sm:justify-start"
+              className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-[15px] font-semibold rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
               onClick={() => navigate('/lead/new')}
             >
               <Plus size={20} strokeWidth={2.5} />
-              <span className="hidden sm:inline">New Inspection/Lead</span>
+              <span>New Inspection/Lead</span>
             </button>
           </div>
 
