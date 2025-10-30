@@ -52,7 +52,7 @@ export default function Profile() {
       <div className="flex items-center justify-between px-5 py-5 bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <button 
           className="w-10 h-10 rounded-xl bg-gray-100 border-0 text-gray-700 flex items-center justify-center cursor-pointer transition-all hover:bg-gray-200 hover:text-gray-900"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/dashboard')}
         >
           <ArrowLeft size={22} strokeWidth={2} />
         </button>
