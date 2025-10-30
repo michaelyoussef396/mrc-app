@@ -265,9 +265,9 @@ export const SelectLead = () => {
                   
                   {/* Urgency Badge */}
                   <div className={`urgency-badge ${lead.urgency.toLowerCase()}`}>
-                    {lead.urgency === 'Emergency' && <Zap size={14} strokeWidth={2} />}
-                    {lead.urgency === 'Urgent' && <AlertCircle size={14} strokeWidth={2} />}
-                    {lead.urgency}
+                    {lead.urgency === 'Emergency' && <Zap size={12} strokeWidth={2.5} />}
+                    {lead.urgency === 'Urgent' && <AlertCircle size={12} strokeWidth={2.5} />}
+                    <span className="urgency-text">{lead.urgency}</span>
                   </div>
                 </div>
 
