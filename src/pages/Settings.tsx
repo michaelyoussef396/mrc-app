@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft,
   User,
+  Users,
+  UserPlus,
   Bell,
   Shield,
   Globe,
@@ -104,6 +106,47 @@ export default function Settings() {
                 <div className="flex-1">
                   <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Notifications</h3>
                   <p className="text-sm text-gray-600 m-0">Manage notification preferences</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+          </div>
+        </div>
+
+        {/* User Management Section (Admin Only) */}
+        <div className="mb-8">
+          <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3 ml-1">User Management</h2>
+          
+          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+            
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full border-b border-gray-100 bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => navigate('/manage-users')}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-100 to-amber-200 text-amber-600 flex items-center justify-center flex-shrink-0">
+                  <Users size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Manage Users</h3>
+                  <p className="text-sm text-gray-600 m-0">Add or remove technicians and admins</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => navigate('/manage-users?action=add')}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-100 to-amber-200 text-amber-600 flex items-center justify-center flex-shrink-0">
+                  <UserPlus size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Add New User</h3>
+                  <p className="text-sm text-gray-600 m-0">Add a new technician or administrator</p>
                 </div>
               </div>
               <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />

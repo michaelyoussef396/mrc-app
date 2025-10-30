@@ -1,768 +1,317 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Search, Edit, Trash2, UserX, Info, Shield, Mail, Phone, Calendar, Clock, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
-import { TopNavigation } from "@/components/dashboard/TopNavigation";
-import { MobileBottomNav } from "@/components/dashboard/MobileBottomNav";
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { 
+  ArrowLeft, 
+  Users, 
+  UserPlus,
+  Edit2,
+  Trash2,
+  Shield,
+  User,
+  Mail,
+  Phone,
+  Key,
+  Eye,
+  EyeOff,
+  X,
+  Check,
+  AlertCircle
+} from 'lucide-react';
+import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
 
-interface User {
-  id: string;
-  name: string;
+interface UserType {
+  id: number;
+  firstName: string;
+  lastName: string;
   email: string;
   phone: string;
   role: string;
-  joined: string;
-  lastLogin: string;
-  status: "active" | "deactivated";
-  initials: string;
-  avatarColor: string;
+  status: string;
+  joinDate: string;
 }
 
 export default function ManageUsers() {
   const navigate = useNavigate();
-  const { toast } = useToast();
-
-  // State
-  const [activeTab, setActiveTab] = useState("active");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [showAddModal, setShowAddModal] = useState(false);
   
-  // Modal states
-  const [addModalOpen, setAddModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  useEffect(() => {
+    if (searchParams.get('action') === 'add') {
+      setShowAddModal(true);
+    }
+  }, [searchParams]);
 
-  // Form states
+  const [users, setUsers] = useState<UserType[]>([
+    {
+      id: 1,
+      firstName: 'Admin',
+      lastName: 'User',
+      email: 'admin@mrc.com.au',
+      phone: '0400 000 000',
+      role: 'Administrator',
+      status: 'Active',
+      joinDate: '2024-01-15',
+    },
+    {
+      id: 2,
+      firstName: 'John',
+      lastName: 'Smith',
+      email: 'john@mrc.com.au',
+      phone: '0400 111 222',
+      role: 'Technician',
+      status: 'Active',
+      joinDate: '2024-02-20',
+    },
+  ]);
+
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    role: "technician",
-    password: "",
-    sendWelcomeEmail: true,
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    role: 'Technician',
+    password: '',
+    confirmPassword: '',
   });
 
-  // Users data
-  const [users, setUsers] = useState<User[]>([]);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Load users from Supabase
-  useEffect(() => {
-    loadUsers();
-  }, []);
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    if (!formData.firstName.trim()) errors.firstName = 'First name is required';
+    if (!formData.lastName.trim()) errors.lastName = 'Last name is required';
+    if (!formData.email.trim()) errors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.email = 'Email is invalid';
+    if (!formData.phone.trim()) errors.phone = 'Phone number is required';
+    else if (!/^04\d{8}$/.test(formData.phone.replace(/\s/g, ''))) errors.phone = 'Invalid Australian mobile number (e.g., 0400 000 000)';
+    if (!formData.password) errors.password = 'Password is required';
+    else if (formData.password.length < 8) errors.password = 'Password must be at least 8 characters';
+    if (formData.password !== formData.confirmPassword) errors.confirmPassword = 'Passwords do not match';
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
-  const loadUsers = async () => {
-    setIsLoading(true);
-    try {
-      const { data: profiles, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, phone, is_active, created_at")
-        .order("created_at", { ascending: false });
+  const handleAddUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+    
+    const newUser: UserType = {
+      id: users.length + 1,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      role: formData.role,
+      status: 'Active',
+      joinDate: new Date().toISOString().split('T')[0],
+    };
+    
+    setUsers([...users, newUser]);
+    setFormData({ firstName: '', lastName: '', email: '', phone: '', role: 'Technician', password: '', confirmPassword: '' });
+    setFormErrors({});
+    setShowAddModal(false);
+    alert('User added successfully!');
+  };
 
-      if (error) throw error;
-
-      if (profiles) {
-        const formattedUsers: User[] = profiles.map((profile) => ({
-          id: profile.id,
-          name: profile.full_name || "Unknown",
-          email: profile.email || "",
-          phone: profile.phone || "",
-          role: "Technician",
-          joined: new Date(profile.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }),
-          lastLogin: "N/A",
-          status: profile.is_active ? "active" : "deactivated",
-          initials: (profile.full_name || "U").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2),
-          avatarColor: `bg-${["blue", "purple", "green", "orange", "pink"][Math.floor(Math.random() * 5)]}-600`,
-        }));
-        setUsers(formattedUsers);
-      }
-    } catch (error) {
-      console.error("Error loading users:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to load users",
-      });
-    } finally {
-      setIsLoading(false);
+  const handleDeleteUser = (userId: number) => {
+    if (confirm('Are you sure you want to remove this user? This action cannot be undone.')) {
+      setUsers(users.filter(user => user.id !== userId));
+      alert('User removed successfully!');
     }
-  };
-
-  const activeUsers = users.filter((u) => u.status === "active");
-  const deactivatedUsers = users.filter((u) => u.status === "deactivated");
-
-  const handleGeneratePassword = () => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
-    let password = "Temp2025!";
-    for (let i = 0; i < 3; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setFormData({ ...formData, password });
-    toast({
-      title: "Password Generated",
-      description: "Temporary password has been generated",
-    });
-  };
-
-  const handleAddUser = async () => {
-    if (!formData.name || !formData.email || !formData.password) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please fill in all required fields",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      // Create user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.name,
-          },
-          emailRedirectTo: window.location.origin,
-        },
-      });
-
-      if (authError) throw authError;
-
-      if (authData.user) {
-        // Update profile with additional info
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .update({
-            full_name: formData.name,
-            phone: formData.phone,
-          })
-          .eq("id", authData.user.id);
-
-        if (profileError) throw profileError;
-
-        // Assign technician role
-        const { error: roleError } = await supabase
-          .from("user_roles")
-          .insert({
-            user_id: authData.user.id,
-            role: formData.role === "administrator" ? "admin" : "technician",
-          });
-
-        if (roleError) throw roleError;
-
-        toast({
-          title: "Success",
-          description: `${formData.name} has been added as a technician!`,
-        });
-
-        // Reload users list
-        await loadUsers();
-        setAddModalOpen(false);
-        resetForm();
-      }
-    } catch (error: any) {
-      console.error("Error creating user:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to create user. Please try again.",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleEditUser = () => {
-    toast({
-      title: "Success",
-      description: "User updated successfully",
-    });
-    setEditModalOpen(false);
-    setSelectedUser(null);
-  };
-
-  const handleDeactivateUser = () => {
-    toast({
-      title: "User Deactivated",
-      description: `${selectedUser?.name}'s account has been deactivated`,
-    });
-    setDeleteDialogOpen(false);
-    setSelectedUser(null);
-  };
-
-  const handleDeleteUser = () => {
-    toast({
-      variant: "destructive",
-      title: "User Deleted",
-      description: `${selectedUser?.name}'s account has been permanently deleted`,
-    });
-    setPermanentDeleteOpen(false);
-    setDeleteDialogOpen(false);
-    setSelectedUser(null);
-  };
-
-  const handleResetPassword = () => {
-    toast({
-      title: "Password Reset Email Sent",
-      description: `Reset email sent to ${selectedUser?.email}`,
-    });
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      role: "technician",
-      password: "",
-      sendWelcomeEmail: true,
-    });
-  };
-
-  const openEditModal = (user: User) => {
-    setSelectedUser(user);
-    setFormData({
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      role: user.role.toLowerCase(),
-      password: "",
-      sendWelcomeEmail: false,
-    });
-    setEditModalOpen(true);
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Desktop Navigation */}
-      <div className="hidden md:block">
-        <TopNavigation />
-      </div>
-
-      {/* Mobile Header */}
-      <div className="md:hidden bg-primary text-primary-foreground px-4 py-4 flex items-center gap-3">
-        <button onClick={() => navigate("/dashboard")} className="p-1">
-          <ArrowLeft className="h-6 w-6" />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 pb-24">
+      <div className="flex items-center justify-between px-5 py-5 bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <button className="w-10 h-10 rounded-xl bg-gray-100 border-0 text-gray-700 flex items-center justify-center cursor-pointer transition-all hover:bg-gray-200" onClick={() => navigate(-1)}>
+          <ArrowLeft size={22} strokeWidth={2} />
         </button>
-        <h1 className="text-lg font-semibold">Manage Users</h1>
+        <h1 className="text-xl font-bold text-gray-900 m-0">Manage Users</h1>
+        <button className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 flex items-center justify-center cursor-pointer transition-all hover:scale-105" onClick={() => setShowAddModal(true)}>
+          <UserPlus size={20} strokeWidth={2} />
+        </button>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 py-6 pb-24 md:pb-8">
-        {/* Info Box */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start gap-3">
-          <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-blue-900">
-            You are viewing all system users. Only administrators can access this page.
-          </p>
-        </div>
-
-        {/* Page Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">Manage Users</h2>
-            <p className="text-sm text-muted-foreground mt-1">Add and manage technician accounts</p>
+      <div className="max-w-3xl mx-auto px-5 py-6">
+        <div className="grid grid-cols-3 gap-3 mb-5 bg-white p-5 rounded-2xl shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600 flex items-center justify-center">
+              <Users size={20} strokeWidth={2} />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-900">{users.length}</div>
+              <div className="text-xs text-gray-600 font-semibold">Total</div>
+            </div>
           </div>
-          <Button onClick={() => setAddModalOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add Technician</span>
-            <span className="sm:hidden">Add</span>
-          </Button>
-        </div>
-
-        {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-100 to-green-200 text-green-600 flex items-center justify-center">
+              <Shield size={20} strokeWidth={2} />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-900">{users.filter(u => u.role === 'Administrator').length}</div>
+              <div className="text-xs text-gray-600 font-semibold">Admins</div>
+            </div>
           </div>
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Filter by role" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Roles</SelectItem>
-              <SelectItem value="administrator">Administrators</SelectItem>
-              <SelectItem value="technician">Technicians</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 text-orange-600 flex items-center justify-center">
+              <User size={20} strokeWidth={2} />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-900">{users.filter(u => u.role === 'Technician').length}</div>
+              <div className="text-xs text-gray-600 font-semibold">Techs</div>
+            </div>
+          </div>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="active" className="gap-2">
-              Active Users
-              <Badge variant="secondary" className="rounded-full">
-                {activeUsers.length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="deactivated" className="gap-2">
-              Deactivated Users
-              <Badge variant="secondary" className="rounded-full">
-                {deactivatedUsers.length}
-              </Badge>
-            </TabsTrigger>
-          </TabsList>
+        <button className="w-full h-14 flex items-center justify-center gap-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-base font-semibold border-0 rounded-2xl cursor-pointer transition-all mb-5 shadow-md hover:-translate-y-0.5" onClick={() => setShowAddModal(true)}>
+          <UserPlus size={20} strokeWidth={2} />Add New User
+        </button>
 
-          {/* Active Users */}
-          <TabsContent value="active" className="mt-6">
-            {isLoading ? (
-              <div className="text-center py-12 bg-card rounded-lg">
-                <Loader2 className="h-12 w-12 text-muted-foreground mx-auto mb-3 animate-spin" />
-                <p className="text-sm text-muted-foreground">Loading users...</p>
-              </div>
-            ) : activeUsers.length === 0 ? (
-              <div className="text-center py-12 bg-card rounded-lg">
-                <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-foreground mb-1">No active users</h3>
-                <p className="text-sm text-muted-foreground">Add your first technician to get started</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {activeUsers.map((user) => (
-                  <div key={user.id} className="bg-card rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow">
-                    {/* Mobile View */}
-                    <div className="md:hidden">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className={`w-12 h-12 rounded-full ${user.avatarColor} text-white flex items-center justify-center text-lg font-bold flex-shrink-0`}>
-                          {user.initials}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-foreground truncate">{user.name}</h3>
-                          <p className="text-sm text-muted-foreground truncate">{user.email}</p>
-                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                            <span>{user.role}</span>
-                            <span>•</span>
-                            <span>{user.joined}</span>
-                          </div>
-                          <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            <span>Last login: {user.lastLogin}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => openEditModal(user)}
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 text-destructive hover:text-destructive"
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setDeleteDialogOpen(true);
-                          }}
-                        >
-                          <UserX className="h-4 w-4 mr-1" />
-                          Deactivate
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Desktop View */}
-                    <div className="hidden md:flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-full ${user.avatarColor} text-white flex items-center justify-center text-lg font-bold flex-shrink-0`}>
-                        {user.initials}
-                      </div>
-                      <div className="flex-1 grid grid-cols-5 gap-4 items-center">
-                        <div>
-                          <h3 className="font-semibold text-foreground">{user.name}</h3>
-                          <p className="text-xs text-muted-foreground">{user.phone}</p>
-                        </div>
-                        <div className="col-span-2">
-                          <p className="text-sm text-foreground">{user.email}</p>
-                          <p className="text-xs text-muted-foreground">Last: {user.lastLogin}</p>
-                        </div>
-                        <div>
-                          <Badge variant="secondary">{user.role}</Badge>
-                          <p className="text-xs text-muted-foreground mt-1">{user.joined}</p>
-                        </div>
-                        <div className="flex gap-2 justify-end">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditModal(user)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => {
-                              setSelectedUser(user);
-                              setDeleteDialogOpen(true);
-                            }}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+        <div className="flex flex-col gap-3">
+          {users.map(user => (
+            <div key={user.id} className="flex items-center gap-4 p-4 bg-white border-2 border-gray-200 rounded-2xl transition-all hover:border-blue-500">
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold text-white ${user.role === 'Administrator' ? 'bg-gradient-to-br from-green-500 to-green-600' : 'bg-gradient-to-br from-blue-500 to-blue-600'}`}>
+                  {user.firstName[0]}{user.lastName[0]}
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-gray-900 mb-1.5">{user.firstName} {user.lastName}</h3>
+                  <div className="flex flex-col gap-1">
+                    <span className="flex items-center gap-1.5 text-sm text-gray-600"><Mail size={14} />{user.email}</span>
+                    <span className="flex items-center gap-1.5 text-sm text-gray-600"><Phone size={14} />{user.phone}</span>
                   </div>
-                ))}
+                </div>
               </div>
-            )}
-          </TabsContent>
-
-          {/* Deactivated Users */}
-          <TabsContent value="deactivated" className="mt-6">
-            <div className="text-center py-12 bg-card rounded-lg">
-              <UserX className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-foreground mb-1">No deactivated users</h3>
-              <p className="text-sm text-muted-foreground">Deactivated users will appear here</p>
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${user.role === 'Administrator' ? 'bg-gradient-to-br from-green-100 to-green-200 text-green-700' : 'bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700'}`}>
+                {user.role === 'Administrator' ? <Shield size={14} /> : <User size={14} />}{user.role}
+              </div>
+              <div className="flex gap-2">
+                <button className="w-10 h-10 rounded-xl bg-gray-100 text-blue-600 border-0 flex items-center justify-center cursor-pointer transition-all hover:bg-blue-100" onClick={() => alert('Edit user functionality coming soon!')}>
+                  <Edit2 size={18} />
+                </button>
+                <button className={`w-10 h-10 rounded-xl border-0 flex items-center justify-center ${user.id === 1 ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-red-50 text-red-600 cursor-pointer hover:bg-red-100'}`} onClick={() => user.id !== 1 && handleDeleteUser(user.id)} disabled={user.id === 1}>
+                  <Trash2 size={18} />
+                </button>
+              </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          ))}
+        </div>
       </div>
 
-      {/* Add User Modal */}
-      <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add New Technician</DialogTitle>
-            <DialogDescription>Create a new user account for a technician</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="name">
-                Full Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="name"
-                placeholder="e.g., John Smith"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="mt-2"
-              />
+      {showAddModal && (
+        <>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[998]" onClick={() => setShowAddModal(false)} />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] max-w-[calc(100vw-32px)] max-h-[calc(100vh-80px)] bg-white rounded-3xl shadow-2xl z-[999] overflow-hidden">
+            <div className="flex justify-between items-center px-6 py-6 border-b border-gray-200 bg-gray-50">
+              <h2 className="text-xl font-bold text-gray-900 m-0">Add New User</h2>
+              <button className="w-9 h-9 rounded-lg bg-transparent border-0 text-gray-600 flex items-center justify-center cursor-pointer hover:bg-gray-200" onClick={() => setShowAddModal(false)}>
+                <X size={24} />
+              </button>
             </div>
-
-            <div>
-              <Label htmlFor="email">
-                Email Address <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="e.g., john@mrc.com.au"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="mt-2"
-              />
-              <p className="text-xs text-muted-foreground mt-1">This will be their login email</p>
-            </div>
-
-            <div>
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                placeholder="04XX XXX XXX"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="mt-2"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Australian mobile number</p>
-            </div>
-
-            <div>
-              <Label htmlFor="role">
-                Role <span className="text-destructive">*</span>
-              </Label>
-              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-                <SelectTrigger className="mt-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="administrator">Administrator (full access)</SelectItem>
-                  <SelectItem value="technician">
-                    Technician (field inspector)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="password">
-                Temporary Password <span className="text-destructive">*</span>
-              </Label>
-              <div className="flex gap-2 mt-2">
-                <Input
-                  id="password"
-                  type="text"
-                  placeholder="Enter temporary password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="flex-1"
-                />
-                <Button type="button" variant="outline" onClick={handleGeneratePassword}>
-                  Generate
-                </Button>
+            <form onSubmit={handleAddUser} className="px-6 py-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+              <div className="mb-7">
+                <h3 className="text-[15px] font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200">Personal Information</h3>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">First Name *</label>
+                    <input type="text" className={`w-full h-11 px-3.5 bg-gray-50 border-2 rounded-xl ${formErrors.firstName ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} placeholder="John" />
+                    {formErrors.firstName && <span className="block text-xs text-red-500 mt-1">{formErrors.firstName}</span>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Last Name *</label>
+                    <input type="text" className={`w-full h-11 px-3.5 bg-gray-50 border-2 rounded-xl ${formErrors.lastName ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} placeholder="Smith" />
+                    {formErrors.lastName && <span className="block text-xs text-red-500 mt-1">{formErrors.lastName}</span>}
+                  </div>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address *</label>
+                  <div className="relative">
+                    <Mail size={18} strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input type="email" className={`w-full h-11 pl-11 pr-3.5 bg-gray-50 border-2 rounded-xl ${formErrors.email ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="john.smith@mrc.com.au" />
+                  </div>
+                  {formErrors.email && <span className="block text-xs text-red-500 mt-1">{formErrors.email}</span>}
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number *</label>
+                  <div className="relative">
+                    <Phone size={18} strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input type="tel" className={`w-full h-11 pl-11 pr-3.5 bg-gray-50 border-2 rounded-xl ${formErrors.phone ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="0400 000 000" />
+                  </div>
+                  {formErrors.phone && <span className="block text-xs text-red-500 mt-1">{formErrors.phone}</span>}
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">User will be asked to change on first login</p>
-            </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="welcomeEmail"
-                checked={formData.sendWelcomeEmail}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, sendWelcomeEmail: checked as boolean })
-                }
-              />
-              <Label htmlFor="welcomeEmail" className="text-sm cursor-pointer">
-                Send welcome email with login instructions
-              </Label>
-            </div>
+              <div className="mb-7">
+                <h3 className="text-[15px] font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200">User Role</h3>
+                <div className="flex flex-col gap-3">
+                  <label className={`block cursor-pointer`}>
+                    <input type="radio" name="role" value="Technician" checked={formData.role === 'Technician'} onChange={(e) => setFormData({ ...formData, role: e.target.value })} className="hidden" />
+                    <div className={`flex gap-3.5 p-4 bg-gray-50 border-2 rounded-xl transition-all ${formData.role === 'Technician' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                      <div className="w-13 h-13 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600 flex items-center justify-center flex-shrink-0">
+                        <User size={24} strokeWidth={2} />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-base font-semibold text-gray-900 mb-1">Technician</h4>
+                        <p className="text-sm text-gray-600 m-0 leading-snug">Can perform inspections, manage leads, and generate reports</p>
+                      </div>
+                    </div>
+                  </label>
+                  <label className={`block cursor-pointer`}>
+                    <input type="radio" name="role" value="Administrator" checked={formData.role === 'Administrator'} onChange={(e) => setFormData({ ...formData, role: e.target.value })} className="hidden" />
+                    <div className={`flex gap-3.5 p-4 bg-gray-50 border-2 rounded-xl transition-all ${formData.role === 'Administrator' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                      <div className="w-13 h-13 rounded-xl bg-gradient-to-br from-green-100 to-green-200 text-green-600 flex items-center justify-center flex-shrink-0">
+                        <Shield size={24} strokeWidth={2} />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-base font-semibold text-gray-900 mb-1">Administrator</h4>
+                        <p className="text-sm text-gray-600 m-0 leading-snug">Full access including user management and system settings</p>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="mb-7">
+                <h3 className="text-[15px] font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200">Password Setup</h3>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Password *</label>
+                  <div className="relative">
+                    <Key size={18} strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input type={showPassword ? 'text' : 'password'} className={`w-full h-11 pl-11 pr-11 bg-gray-50 border-2 rounded-xl ${formErrors.password ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Minimum 8 characters" />
+                    <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-0 text-gray-400 cursor-pointer p-1 hover:text-gray-600" onClick={() => setShowPassword(!showPassword)}>
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {formErrors.password && <span className="block text-xs text-red-500 mt-1">{formErrors.password}</span>}
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm Password *</label>
+                  <div className="relative">
+                    <Key size={18} strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input type={showConfirmPassword ? 'text' : 'password'} className={`w-full h-11 pl-11 pr-11 bg-gray-50 border-2 rounded-xl ${formErrors.confirmPassword ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} placeholder="Re-enter password" />
+                    <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-0 text-gray-400 cursor-pointer p-1 hover:text-gray-600" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {formErrors.confirmPassword && <span className="block text-xs text-red-500 mt-1">{formErrors.confirmPassword}</span>}
+                </div>
+                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-xl text-sm text-blue-600">
+                  <AlertCircle size={16} strokeWidth={2} />
+                  <span>Password must be at least 8 characters long</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-6 border-t border-gray-200">
+                <button type="button" className="flex-1 h-12 bg-gray-100 text-gray-700 border-0 rounded-xl font-semibold cursor-pointer hover:bg-gray-200 transition-all" onClick={() => setShowAddModal(false)}>Cancel</button>
+                <button type="submit" className="flex-1 h-12 bg-gradient-to-r from-green-500 to-green-600 text-white border-0 rounded-xl font-semibold flex items-center justify-center gap-2 cursor-pointer hover:-translate-y-0.5 transition-all shadow-md"><Check size={20} />Add User</button>
+              </div>
+            </form>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddModalOpen(false)} disabled={isSubmitting}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddUser} disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Account"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit User Modal */}
-      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit User - {selectedUser?.name}</DialogTitle>
-            <DialogDescription>Update user account information</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="edit-name">Full Name</Label>
-              <Input
-                id="edit-name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="edit-email">Email Address</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="edit-phone">Phone Number</Label>
-              <Input
-                id="edit-phone"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="edit-role">Role</Label>
-              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-                <SelectTrigger className="mt-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="administrator">Administrator</SelectItem>
-                  <SelectItem value="technician" disabled>
-                    Technician (coming soon)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="pt-4 border-t">
-              <Button variant="outline" className="w-full" onClick={handleResetPassword}>
-                <Mail className="h-4 w-4 mr-2" />
-                Send Password Reset Email
-              </Button>
-            </div>
-
-            <div className="pt-2 border-t border-destructive/20">
-              <p className="text-sm font-semibold text-foreground mb-2">Danger Zone</p>
-              <Button
-                variant="outline"
-                className="w-full text-destructive hover:text-destructive"
-                onClick={() => {
-                  setEditModalOpen(false);
-                  setDeleteDialogOpen(true);
-                }}
-              >
-                <UserX className="h-4 w-4 mr-2" />
-                Deactivate Account
-              </Button>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleEditUser}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Deactivate/Delete Confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <div className="flex items-center gap-2 text-amber-600 mb-2">
-              <UserX className="h-6 w-6" />
-              <AlertDialogTitle>Deactivate User Account?</AlertDialogTitle>
-            </div>
-            <AlertDialogDescription>
-              Are you sure you want to deactivate <strong>{selectedUser?.name}</strong>'s account?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <div className="py-4">
-            <p className="text-sm font-semibold text-foreground mb-2">This will:</p>
-            <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
-              <li>Prevent user from logging in</li>
-              <li>Keep all their data intact</li>
-              <li>Can be reactivated later</li>
-            </ul>
-            <p className="text-sm text-muted-foreground mt-4">
-              <strong>Alternative:</strong> You can delete the account permanently, but this cannot be undone.
-            </p>
-          </div>
-
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeactivateUser}
-              className="bg-amber-600 hover:bg-amber-700"
-            >
-              Deactivate
-            </AlertDialogAction>
-            <button
-              onClick={() => {
-                setDeleteDialogOpen(false);
-                setPermanentDeleteOpen(true);
-              }}
-              className="text-sm text-destructive hover:underline"
-            >
-              Delete Permanently Instead
-            </button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Permanent Delete Confirmation */}
-      <AlertDialog open={permanentDeleteOpen} onOpenChange={setPermanentDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <div className="flex items-center gap-2 text-destructive mb-2">
-              <Trash2 className="h-6 w-6" />
-              <AlertDialogTitle>Delete {selectedUser?.name}'s Account Permanently?</AlertDialogTitle>
-            </div>
-            <AlertDialogDescription className="text-destructive font-semibold">
-              This CANNOT be undone!
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <div className="py-4">
-            <p className="text-sm font-semibold text-foreground mb-2">This will:</p>
-            <ul className="text-sm text-muted-foreground space-y-1 ml-4">
-              <li>• Remove user from system</li>
-              <li>• Past inspections remain</li>
-              <li>• Reports remain unchanged</li>
-            </ul>
-          </div>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => {
-                setPermanentDeleteOpen(false);
-                setDeleteDialogOpen(true);
-              }}
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteUser}
-              className="bg-destructive hover:bg-destructive/90"
-            >
-              Delete Account
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Mobile Bottom Navigation */}
-      <div className="md:hidden">
-        <MobileBottomNav />
-      </div>
+        </>
+      )}
+      <MobileBottomNav />
     </div>
   );
 }
