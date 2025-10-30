@@ -6,7 +6,26 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { 
+  Plus, 
+  ArrowLeft, 
+  ChevronLeft, 
+  ChevronRight,
+  MapPin,
+  Calendar,
+  DollarSign,
+  Sparkles,
+  CheckCircle,
+  CheckCircle2,
+  Clock,
+  FileText,
+  FileCheck,
+  Wrench,
+  Send,
+  Star,
+  PartyPopper,
+  Loader2
+} from "lucide-react";
 import { STATUS_FLOW, ALL_STATUSES, LeadStatus } from "@/lib/statusFlow";
 import { AddLeadDialog } from "@/components/leads/AddLeadDialog";
 import {
@@ -15,6 +34,22 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+
+// Icon mapping
+const iconMap: Record<string, any> = {
+  Sparkles,
+  CheckCircle,
+  CheckCircle2,
+  Clock,
+  FileText,
+  FileCheck,
+  Calendar,
+  Wrench,
+  Send,
+  DollarSign,
+  Star,
+  PartyPopper,
+};
 
 export default function Leads() {
   const navigate = useNavigate();
@@ -53,212 +88,229 @@ export default function Leads() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p>Loading pipeline...</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F5F5F7' }}>
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#007AFF' }} />
+          <p className="text-sm font-medium" style={{ color: '#86868B' }}>Loading pipeline...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-[100vw] overflow-x-hidden">
+    <div className="leads-pipeline-page">
       {/* Page Header */}
-      <div className="bg-card border-b px-4 sm:px-6 py-4 sm:py-6">
-        <div className="max-w-[1920px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Lead Pipeline</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Manage your leads through the sales pipeline
-            </p>
+      <div className="pipeline-header">
+        <div className="header-container">
+          <div className="header-content">
+            <button 
+              className="back-btn-apple"
+              onClick={() => navigate(-1)}
+            >
+              <ArrowLeft size={20} strokeWidth={2} />
+            </button>
+            <div className="header-title-group">
+              <h1 className="page-title-apple">Lead Pipeline</h1>
+              <p className="page-subtitle-apple">
+                Manage your leads through the sales pipeline
+              </p>
+            </div>
           </div>
-          <Button onClick={() => setShowAddLead(true)} size="lg">
-            <Plus className="h-4 w-4 mr-2" />
+          <Button 
+            onClick={() => setShowAddLead(true)} 
+            className="add-lead-btn-apple"
+          >
+            <Plus className="h-5 w-5 mr-2" strokeWidth={2} />
             Add New Lead
           </Button>
         </div>
       </div>
 
       {/* Desktop: Horizontal Pipeline with Scroll Buttons */}
-      <div className="hidden md:block overflow-x-hidden">
-        <div className="container mx-auto px-4 py-6 max-w-full">
-          <div className="relative overflow-x-hidden">
+      <div className="hidden md:block pipeline-desktop">
+        <div className="pipeline-container">
+          <div className="pipeline-scroll-wrapper">
             {/* Left Scroll Button */}
-            <Button
-              variant="outline"
-              size="icon"
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 shadow-lg"
+            <button
+              className="scroll-btn scroll-btn-left"
               onClick={scrollLeft}
             >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
+              <ChevronLeft size={20} strokeWidth={2} />
+            </button>
 
             {/* Pipeline Container */}
             <div
               ref={scrollContainerRef}
-              className="overflow-x-auto overflow-y-hidden scroll-smooth"
-              style={{ scrollbarWidth: "thin" }}
+              className="pipeline-columns-wrapper"
             >
-              <div className="flex gap-4 pb-4 px-12" style={{ minWidth: "max-content" }}>
+              <div className="pipeline-columns">
                 {ALL_STATUSES.map((status) => {
                   const config = STATUS_FLOW[status];
                   const statusLeads = groupedLeads[status] || [];
+                  const IconComponent = iconMap[config.iconName];
 
                   return (
-                    <Card
+                    <div
                       key={status}
-                      className="w-80 flex-shrink-0 border-t-4"
+                      className="pipeline-column"
                       style={{ borderTopColor: config.color }}
                     >
-                      <div className="p-4 border-b bg-muted/50">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xl">{config.icon}</span>
-                            <h2 className="font-bold text-sm uppercase tracking-wide">
-                              {config.shortTitle}
-                            </h2>
+                      <div className="column-header" style={{ background: config.bgColor }}>
+                        <div className="column-header-content">
+                          <div className="column-icon-wrapper" style={{ background: config.color }}>
+                            {IconComponent && <IconComponent size={18} strokeWidth={2} />}
                           </div>
-                          <Badge
-                            variant="secondary"
-                            style={{
-                              backgroundColor: config.bgColor,
-                              color: config.color,
-                            }}
-                          >
-                            {statusLeads.length}
-                          </Badge>
+                          <h2 className="column-title">
+                            {config.shortTitle}
+                          </h2>
                         </div>
+                        <Badge
+                          className="column-badge"
+                          style={{
+                            backgroundColor: config.color,
+                            color: 'white',
+                          }}
+                        >
+                          {statusLeads.length}
+                        </Badge>
                       </div>
 
-                      <ScrollArea className="h-[calc(100vh-280px)]">
-                        <div className="p-4 space-y-3">
+                      <ScrollArea className="column-scroll-area">
+                        <div className="column-leads">
                           {statusLeads.length === 0 ? (
-                            <div className="text-center py-8">
-                              <div className="text-3xl mb-2 opacity-30">{config.icon}</div>
-                              <p className="text-sm text-muted-foreground">No leads</p>
+                            <div className="empty-column">
+                              <div className="empty-icon-wrapper" style={{ color: config.color, opacity: 0.3 }}>
+                                {IconComponent && <IconComponent size={32} strokeWidth={1.5} />}
+                              </div>
+                              <p className="empty-text">No leads</p>
                             </div>
                           ) : (
                             statusLeads.map((lead) => (
-                              <Card
+                              <div
                                 key={lead.id}
-                                className="p-4 hover:shadow-md transition-shadow cursor-pointer border-l-4"
+                                className="lead-card"
                                 style={{ borderLeftColor: config.color }}
                                 onClick={() => navigate(`/leads/${lead.id}`)}
                               >
-                                <div className="space-y-2">
-                                  <div className="flex items-start justify-between">
-                                    <span className="text-xs font-mono text-muted-foreground">
-                                      {lead.lead_number}
-                                    </span>
+                                <div className="lead-card-content">
+                                  <span className="lead-number">
+                                    {lead.lead_number}
+                                  </span>
+                                  <h3 className="lead-name">{lead.full_name}</h3>
+                                  <div className="lead-info">
+                                    <MapPin size={12} strokeWidth={2} />
+                                    <span>{lead.property_address_suburb}, {lead.property_address_state}</span>
                                   </div>
-                                  <h3 className="font-semibold text-sm">{lead.full_name}</h3>
-                                  <p className="text-xs text-muted-foreground">
-                                    📍 {lead.property_address_suburb}, {lead.property_address_state}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    📅 {new Date(lead.created_at).toLocaleDateString()}
-                                  </p>
+                                  <div className="lead-info">
+                                    <Calendar size={12} strokeWidth={2} />
+                                    <span>{new Date(lead.created_at).toLocaleDateString()}</span>
+                                  </div>
                                   {lead.quoted_amount && (
-                                    <p className="text-xs font-semibold text-primary">
-                                      💰 ${lead.quoted_amount.toLocaleString()}
-                                    </p>
+                                    <div className="lead-amount">
+                                      <DollarSign size={12} strokeWidth={2} />
+                                      <span>${lead.quoted_amount.toLocaleString()}</span>
+                                    </div>
                                   )}
-                                  <Button size="sm" variant="ghost" className="w-full mt-2">
+                                  <button className="view-details-btn">
                                     View Details →
-                                  </Button>
+                                  </button>
                                 </div>
-                              </Card>
+                              </div>
                             ))
                           )}
                         </div>
                       </ScrollArea>
-                    </Card>
+                    </div>
                   );
                 })}
               </div>
             </div>
 
             {/* Right Scroll Button */}
-            <Button
-              variant="outline"
-              size="icon"
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 shadow-lg"
+            <button
+              className="scroll-btn scroll-btn-right"
               onClick={scrollRight}
             >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
+              <ChevronRight size={20} strokeWidth={2} />
+            </button>
           </div>
         </div>
       </div>
 
       {/* Mobile: Vertical Accordion */}
-      <div className="md:hidden px-4 py-6">
+      <div className="md:hidden pipeline-mobile">
         <Accordion type="single" collapsible className="w-full">
           {ALL_STATUSES.map((status) => {
             const config = STATUS_FLOW[status];
             const statusLeads = groupedLeads[status] || [];
+            const IconComponent = iconMap[config.iconName];
 
             return (
-              <AccordionItem key={status} value={status}>
-                <AccordionTrigger className="hover:no-underline">
-                  <div className="flex items-center justify-between w-full pr-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl">{config.icon}</span>
-                      <div className="text-left">
-                        <div className="font-bold text-sm uppercase tracking-wide">
+              <AccordionItem key={status} value={status} className="mobile-accordion-item">
+                <AccordionTrigger className="mobile-accordion-trigger">
+                  <div className="mobile-trigger-content">
+                    <div className="mobile-trigger-left">
+                      <div className="mobile-icon-wrapper" style={{ background: config.color }}>
+                        {IconComponent && <IconComponent size={16} strokeWidth={2} />}
+                      </div>
+                      <div className="mobile-title-group">
+                        <div className="mobile-title">
                           {config.shortTitle}
                         </div>
-                        <div className="text-xs text-muted-foreground font-normal">
+                        <div className="mobile-subtitle">
                           {config.title}
                         </div>
                       </div>
                     </div>
                     <Badge
-                      variant="secondary"
+                      className="mobile-badge"
                       style={{
-                        backgroundColor: config.bgColor,
-                        color: config.color,
+                        backgroundColor: config.color,
+                        color: 'white',
                       }}
                     >
                       {statusLeads.length}
                     </Badge>
                   </div>
                 </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-3 pt-2">
+                <AccordionContent className="mobile-accordion-content">
+                  <div className="mobile-leads-list">
                     {statusLeads.length === 0 ? (
-                      <div className="text-center py-6">
-                        <p className="text-sm text-muted-foreground">No leads in this stage</p>
+                      <div className="mobile-empty-state">
+                        <p>No leads in this stage</p>
                       </div>
                     ) : (
                       statusLeads.map((lead) => (
-                        <Card
+                        <div
                           key={lead.id}
-                          className="p-4 hover:shadow-md transition-shadow cursor-pointer border-l-4"
+                          className="mobile-lead-card"
                           style={{ borderLeftColor: config.color }}
                           onClick={() => navigate(`/leads/${lead.id}`)}
                         >
-                          <div className="space-y-2">
-                            <div className="flex items-start justify-between">
-                              <span className="text-xs font-mono text-muted-foreground">
-                                {lead.lead_number}
-                              </span>
+                          <div className="mobile-lead-content">
+                            <span className="mobile-lead-number">
+                              {lead.lead_number}
+                            </span>
+                            <h3 className="mobile-lead-name">{lead.full_name}</h3>
+                            <div className="mobile-lead-info">
+                              <MapPin size={12} strokeWidth={2} />
+                              <span>{lead.property_address_suburb}, {lead.property_address_state}</span>
                             </div>
-                            <h3 className="font-semibold">{lead.full_name}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              📍 {lead.property_address_suburb}, {lead.property_address_state}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              📅 {new Date(lead.created_at).toLocaleDateString()}
-                            </p>
+                            <div className="mobile-lead-info">
+                              <Calendar size={12} strokeWidth={2} />
+                              <span>{new Date(lead.created_at).toLocaleDateString()}</span>
+                            </div>
                             {lead.quoted_amount && (
-                              <p className="text-sm font-semibold text-primary">
-                                💰 ${lead.quoted_amount.toLocaleString()} inc GST
-                              </p>
+                              <div className="mobile-lead-amount">
+                                <DollarSign size={12} strokeWidth={2} />
+                                <span>${lead.quoted_amount.toLocaleString()} inc GST</span>
+                              </div>
                             )}
-                            <Button size="sm" variant="outline" className="w-full mt-2">
+                            <button className="mobile-view-btn">
                               View Details →
-                            </Button>
+                            </button>
                           </div>
-                        </Card>
+                        </div>
                       ))
                     )}
                   </div>

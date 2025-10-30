@@ -1,3 +1,4 @@
+import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,11 +6,45 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Phone, Mail, MapPin, Calendar, User, FileText, DollarSign, Clock } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Phone, 
+  Mail, 
+  MapPin, 
+  Calendar, 
+  User, 
+  FileText, 
+  DollarSign, 
+  Clock,
+  Sparkles,
+  CheckCircle,
+  CheckCircle2,
+  FileCheck,
+  Wrench,
+  Send,
+  Star,
+  PartyPopper
+} from "lucide-react";
 import { STATUS_FLOW, LeadStatus } from "@/lib/statusFlow";
 import { useState } from "react";
 import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
 import { toast } from "sonner";
+
+// Icon mapping
+const iconMap: Record<string, any> = {
+  Sparkles,
+  CheckCircle,
+  CheckCircle2,
+  Clock,
+  FileText,
+  FileCheck,
+  Calendar,
+  Wrench,
+  Send,
+  DollarSign,
+  Star,
+  PartyPopper,
+};
 
 export default function LeadDetail() {
   const { id } = useParams<{ id: string }>();
@@ -475,7 +510,9 @@ export default function LeadDetail() {
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <CardTitle className="flex items-center gap-2 text-lg sm:text-xl md:text-2xl break-words">
-                <span>{statusConfig.icon}</span>
+                {iconMap[statusConfig.iconName] && 
+                  React.createElement(iconMap[statusConfig.iconName], { size: 24, strokeWidth: 2 })
+                }
                 <span className="break-words">CURRENT STATUS: {statusConfig.title.toUpperCase()}</span>
               </CardTitle>
               <Badge variant="outline" className="self-start sm:self-center flex-shrink-0" style={{ borderColor: statusConfig.color, color: statusConfig.color }}>
