@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { 
+  Circle, 
+  AlertTriangle, 
+  Zap, 
+  ChevronDown,
+  Search,
+  X,
+  MapPin,
+  Phone,
+  Mail,
+  MessageSquare
+} from 'lucide-react';
 
 interface StatusOption {
   value: string;
@@ -957,7 +969,7 @@ const LeadsManagement = () => {
 
           <div className="controls-section">
             <div className="search-bar">
-              <span className="search-icon">🔍</span>
+              <Search size={18} strokeWidth={2} className="search-icon-leads" />
               <input
                 type="text"
                 placeholder="Search by name, property, suburb, email, or phone..."
@@ -970,39 +982,45 @@ const LeadsManagement = () => {
                   className="clear-search"
                   onClick={() => setSearchQuery('')}
                 >
-                  ✕
+                  <X size={16} strokeWidth={2} />
                 </button>
               )}
             </div>
 
             <div className="filter-row">
               <div className="filter-group">
-                <label className="filter-label">Urgency</label>
-                <select
-                  value={urgencyFilter}
-                  onChange={(e) => setUrgencyFilter(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="all">All</option>
-                  <option value="high">🔴 High</option>
-                  <option value="medium">🟡 Medium</option>
-                  <option value="low">🟢 Low</option>
-                </select>
+                <label className="filter-label">URGENCY</label>
+                <div className="filter-select-wrapper">
+                  <select
+                    value={urgencyFilter}
+                    onChange={(e) => setUrgencyFilter(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="all">All Priorities</option>
+                    <option value="high">High Priority</option>
+                    <option value="medium">Medium Priority</option>
+                    <option value="low">Low Priority</option>
+                  </select>
+                  <ChevronDown size={16} className="filter-select-arrow" />
+                </div>
               </div>
 
               <div className="filter-group">
-                <label className="filter-label">Sort By</label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="value-high">Value: High to Low</option>
-                  <option value="value-low">Value: Low to High</option>
-                  <option value="name">Name A-Z</option>
-                </select>
+                <label className="filter-label">SORT BY</label>
+                <div className="filter-select-wrapper">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="value-high">Value: High to Low</option>
+                    <option value="value-low">Value: Low to High</option>
+                    <option value="name">Name A-Z</option>
+                  </select>
+                  <ChevronDown size={16} className="filter-select-arrow" />
+                </div>
               </div>
 
               <div className="view-toggle">
@@ -1078,7 +1096,20 @@ const LeadsManagement = () => {
                         </span>
                         {lead.urgency === 'high' && (
                           <span className="urgency-badge high">
-                            🔴 Urgent
+                            <AlertTriangle size={12} strokeWidth={2.5} />
+                            Urgent
+                          </span>
+                        )}
+                        {lead.urgency === 'medium' && (
+                          <span className="urgency-badge medium">
+                            <Circle size={12} strokeWidth={2.5} />
+                            Medium
+                          </span>
+                        )}
+                        {lead.urgency === 'low' && (
+                          <span className="urgency-badge low">
+                            <Circle size={12} strokeWidth={2.5} />
+                            Low
                           </span>
                         )}
                       </div>
@@ -1086,7 +1117,7 @@ const LeadsManagement = () => {
                   </div>
 
                   <div className="lead-property">
-                    <span className="property-icon">📍</span>
+                    <MapPin size={14} strokeWidth={2} className="property-icon-leads" />
                     <span className="property-text">
                       {lead.property}, {lead.suburb} {lead.state} {lead.postcode}
                     </span>
@@ -1094,13 +1125,13 @@ const LeadsManagement = () => {
 
                   <div className="lead-contact-row">
                     <div className="contact-item">
-                      <span className="contact-icon">📱</span>
+                      <Phone size={14} strokeWidth={2} className="contact-icon-leads" />
                       <a href={`tel:${lead.phone}`} className="contact-link" onClick={(e) => e.stopPropagation()}>
                         {lead.phone}
                       </a>
                     </div>
                     <div className="contact-item">
-                      <span className="contact-icon">📧</span>
+                      <Mail size={14} strokeWidth={2} className="contact-icon-leads" />
                       <a href={`mailto:${lead.email}`} className="contact-link" onClick={(e) => e.stopPropagation()}>
                         {lead.email}
                       </a>
@@ -1108,7 +1139,7 @@ const LeadsManagement = () => {
                   </div>
 
                   <div className="lead-issue">
-                    <span className="issue-icon">💬</span>
+                    <MessageSquare size={14} strokeWidth={2} className="issue-icon-leads" />
                     <p className="issue-text">{lead.issueDescription}</p>
                   </div>
 
