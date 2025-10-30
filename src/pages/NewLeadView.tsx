@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
+import { 
+  ArrowLeft, Phone, Mail, MapPin, Calendar, Clock, 
+  FileText, AlertTriangle, Sparkles, Globe, CheckCircle,
+  X, User, Home
+} from 'lucide-react'
 
 const NewLeadView = () => {
   const navigate = useNavigate()
@@ -126,12 +131,12 @@ const NewLeadView = () => {
       <nav className="new-lead-nav">
         <div className="nav-container">
           <button className="back-btn" onClick={() => navigate('/leads')}>
-            <span className="back-arrow">←</span>
+            <ArrowLeft size={20} strokeWidth={2} />
             <span>Back to Leads</span>
           </button>
           
           <div className="nav-title">
-            <span className="nav-icon">🌟</span>
+            <Sparkles size={20} strokeWidth={2} className="nav-icon" />
             <span>New Lead</span>
           </div>
 
@@ -140,7 +145,7 @@ const NewLeadView = () => {
               className="btn-icon-label"
               onClick={() => window.location.href = `tel:${lead.phone}`}
             >
-              <span className="btn-icon">📞</span>
+              <Phone size={18} strokeWidth={2} />
               <span className="btn-label">Call</span>
             </button>
           </div>
@@ -152,21 +157,41 @@ const NewLeadView = () => {
         <div className="new-lead-container">
           {/* Status Banner */}
           <div className="status-banner">
-            <span className="status-icon">🌟</span>
+            <div className="status-icon-wrapper">
+              <div className="status-icon">
+                <Sparkles size={32} strokeWidth={2} />
+              </div>
+            </div>
             <div className="status-info">
-              <h3 className="status-title">New Lead - Initial Inquiry</h3>
+              <div className="status-header">
+                <h3 className="status-title">New Lead - Initial Inquiry</h3>
+                <span className="status-badge">Active</span>
+              </div>
               <p className="status-desc">
                 This lead was submitted via website form. Review the information and schedule an inspection.
               </p>
+              <div className="status-meta">
+                <div className="meta-item">
+                  <Clock size={14} strokeWidth={2} />
+                  <span>Received {new Date(lead.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}</span>
+                </div>
+                <div className="meta-item">
+                  <Globe size={14} strokeWidth={2} />
+                  <span>{lead.lead_source || 'Website Form'}</span>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Lead Information Card */}
           <div className="info-card">
             <div className="card-header">
-              <h2 className="card-title">Lead Information</h2>
+              <h2 className="card-title">
+                <User size={24} strokeWidth={2} />
+                Lead Information
+              </h2>
               <span className="source-badge">
-                <span className="source-icon">🌐</span>
+                <Globe size={16} strokeWidth={2} />
                 <span>{lead.lead_source || 'Website Form'}</span>
               </span>
             </div>
@@ -182,13 +207,15 @@ const NewLeadView = () => {
                 <div className="info-item">
                   <span className="info-label">Phone</span>
                   <a href={`tel:${lead.phone}`} className="info-value info-link">
-                    📱 {lead.phone}
+                    <Phone size={16} strokeWidth={2} />
+                    {lead.phone}
                   </a>
                 </div>
                 <div className="info-item">
                   <span className="info-label">Email</span>
                   <a href={`mailto:${lead.email}`} className="info-value info-link">
-                    📧 {lead.email}
+                    <Mail size={16} strokeWidth={2} />
+                    {lead.email}
                   </a>
                 </div>
               </div>
@@ -196,9 +223,14 @@ const NewLeadView = () => {
 
             {/* Property Details */}
             <div className="info-section">
-              <h3 className="section-title">Property Information</h3>
+              <h3 className="section-title">
+                <Home size={18} strokeWidth={2} />
+                Property Information
+              </h3>
               <div className="property-address">
-                <span className="address-icon">📍</span>
+                <div className="address-icon">
+                  <MapPin size={24} strokeWidth={2} />
+                </div>
                 <div className="address-details">
                   <p className="address-line">{lead.property_address_street}</p>
                   <p className="address-line">
@@ -214,7 +246,7 @@ const NewLeadView = () => {
                 rel="noopener noreferrer"
                 className="btn-secondary btn-map"
               >
-                <span className="btn-icon">🗺️</span>
+                <MapPin size={18} strokeWidth={2} />
                 <span className="btn-label">View on Google Maps</span>
               </a>
             </div>
@@ -222,9 +254,14 @@ const NewLeadView = () => {
             {/* Issue Description */}
             {lead.issue_description && (
               <div className="info-section">
-                <h3 className="section-title">Issue Description</h3>
+                <h3 className="section-title">
+                  <FileText size={18} strokeWidth={2} />
+                  Issue Description
+                </h3>
                 <div className="issue-box">
-                  <span className="issue-icon">💬</span>
+                  <div className="issue-icon">
+                    <AlertTriangle size={20} strokeWidth={2} />
+                  </div>
                   <p className="issue-text">{lead.issue_description}</p>
                 </div>
               </div>
@@ -232,21 +269,26 @@ const NewLeadView = () => {
 
             {/* Urgency & Timeline */}
             <div className="info-section">
-              <h3 className="section-title">Urgency & Timeline</h3>
+              <h3 className="section-title">
+                <Clock size={18} strokeWidth={2} />
+                Urgency & Timeline
+              </h3>
               <div className="info-grid">
                 {lead.urgency && (
                   <div className="info-item">
                     <span className="info-label">Urgency Level</span>
                     <span className={`urgency-tag ${lead.urgency}`}>
-                      {lead.urgency === 'high' && '🔴 High Priority'}
-                      {lead.urgency === 'medium' && '🟡 Medium Priority'}
-                      {lead.urgency === 'low' && '🟢 Low Priority'}
+                      <AlertTriangle size={16} strokeWidth={2} />
+                      {lead.urgency === 'high' && 'High Priority'}
+                      {lead.urgency === 'medium' && 'Medium Priority'}
+                      {lead.urgency === 'low' && 'Low Priority'}
                     </span>
                   </div>
                 )}
                 <div className="info-item">
                   <span className="info-label">Submitted</span>
                   <span className="info-value">
+                    <Clock size={16} strokeWidth={2} />
                     {new Date(lead.created_at).toLocaleDateString('en-AU', {
                       weekday: 'long',
                       year: 'numeric',
@@ -264,20 +306,24 @@ const NewLeadView = () => {
           {/* Action Card */}
           <div className="action-card">
             <div className="action-header">
-              <div>
-                <h3 className="action-title">Next Step</h3>
-                <p className="action-desc">
-                  Schedule an inspection to assess the mould issue and provide a detailed quote
-                </p>
+              <div className="action-content">
+                <div className="action-icon-large">
+                  <Calendar size={32} strokeWidth={2} />
+                </div>
+                <div>
+                  <h3 className="action-title">Next Step</h3>
+                  <p className="action-desc">
+                    Schedule an inspection to assess the mould issue and provide a detailed quote
+                  </p>
+                </div>
               </div>
-              <span className="action-icon-large">📅</span>
             </div>
             
             <button 
               className="btn-primary btn-schedule"
               onClick={() => setShowScheduleModal(true)}
             >
-              <span className="btn-icon">📅</span>
+              <Calendar size={20} strokeWidth={2} />
               <span className="btn-label">Schedule Inspection</span>
             </button>
           </div>
@@ -289,20 +335,32 @@ const NewLeadView = () => {
         <div className="modal-overlay" onClick={() => setShowScheduleModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Schedule Inspection</h2>
+              <h2 className="modal-title">
+                <Calendar size={24} strokeWidth={2} />
+                Schedule Inspection
+              </h2>
               <button 
                 className="modal-close"
                 onClick={() => setShowScheduleModal(false)}
               >
-                ✕
+                <X size={20} strokeWidth={2} />
               </button>
             </div>
 
             <div className="modal-body">
               <div className="client-info-summary">
-                <h4>Client: {lead.full_name}</h4>
-                <p>📍 {lead.property_address_street}, {lead.property_address_suburb}</p>
-                <p>📞 {lead.phone}</p>
+                <h4>
+                  <User size={18} strokeWidth={2} />
+                  Client: {lead.full_name}
+                </h4>
+                <p>
+                  <MapPin size={14} strokeWidth={2} />
+                  {lead.property_address_street}, {lead.property_address_suburb}
+                </p>
+                <p>
+                  <Phone size={14} strokeWidth={2} />
+                  {lead.phone}
+                </p>
               </div>
 
               <div className="form-group">
@@ -363,7 +421,7 @@ const NewLeadView = () => {
                 className="btn-primary"
                 onClick={handleScheduleInspection}
               >
-                <span className="btn-icon">✓</span>
+                <CheckCircle size={18} strokeWidth={2} />
                 <span className="btn-label">Confirm Schedule</span>
               </button>
             </div>
