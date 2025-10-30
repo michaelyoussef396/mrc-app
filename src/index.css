@@ -1770,7 +1770,7 @@
     justify-content: space-around;
     align-items: center;
     padding: 0 12px 8px 12px;
-    z-index: 100;
+    z-index: 200; /* CRITICAL: Above all page content */
   }
 
   /* Dark mode support */
@@ -2573,6 +2573,9 @@
   min-height: 100vh;
   background: #f8fafc;
   position: relative;
+  padding-bottom: 140px; /* CRITICAL: Space for bottom nav + extra padding */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .new-lead-background {
@@ -2647,7 +2650,7 @@
 .new-lead-main {
   position: relative;
   z-index: 1;
-  padding: 40px 0 80px;
+  padding: 40px 0 40px; /* Reduced bottom padding - page handles it now */
 }
 
 .new-lead-container {
@@ -2898,6 +2901,9 @@
   border-radius: 24px;
   padding: 32px;
   box-shadow: 0 8px 24px rgba(18, 29, 115, 0.3);
+  margin-bottom: 40px; /* CRITICAL: Extra space before mobile nav */
+  position: relative;
+  z-index: 1; /* Below mobile nav */
 }
 
 .action-header {
@@ -2939,12 +2945,27 @@
   background: white;
   color: #121D73;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  position: relative; /* NOT fixed */
+  z-index: 1; /* Below mobile nav */
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .btn-schedule:hover {
   background: #f8fafc;
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.btn-schedule:active {
+  transform: translateY(0);
 }
 
 /* Modal Styles */
@@ -2971,27 +2992,140 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  .new-lead-view {
+    padding-bottom: 120px; /* Adjusted for mobile nav */
+  }
+  
   .new-lead-container {
     padding: 0 20px;
+  }
+  
+  .new-lead-main {
+    padding: 24px 0 20px;
   }
   
   .status-banner {
     flex-direction: column;
     text-align: center;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  
+  .status-icon {
+    width: 56px;
+    height: 56px;
+    font-size: 28px;
+  }
+  
+  .status-title {
+    font-size: 18px;
+  }
+  
+  .info-card {
+    padding: 24px 20px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+  }
+  
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
   
   .info-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .action-card {
+    padding: 24px 20px;
+    margin-bottom: 30px;
   }
   
   .action-header {
     flex-direction: column;
     text-align: center;
+    gap: 16px;
+  }
+  
+  .action-title {
+    font-size: 20px;
+  }
+  
+  .btn-schedule {
+    padding: 14px 20px;
+    font-size: 15px;
   }
   
   .nav-actions .btn-label {
     display: none;
   }
+}
+
+/* Extra small screens (iPhone SE, etc) */
+@media (max-width: 390px) {
+  .new-lead-view {
+    padding-bottom: 110px;
+  }
+  
+  .new-lead-container {
+    padding: 0 16px;
+  }
+  
+  .status-banner {
+    padding: 16px;
+  }
+  
+  .info-card {
+    padding: 20px 16px;
+  }
+  
+  .action-card {
+    padding: 20px 16px;
+  }
+}
+
+/* Safe area support for iOS */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .new-lead-view {
+    padding-bottom: calc(140px + env(safe-area-inset-bottom));
+  }
+  
+  @media (max-width: 768px) {
+    .new-lead-view {
+      padding-bottom: calc(120px + env(safe-area-inset-bottom));
+    }
+  }
+  
+  @media (max-width: 390px) {
+    .new-lead-view {
+      padding-bottom: calc(110px + env(safe-area-inset-bottom));
+    }
+  }
+}
+
+/* Prevent content overlap - add spacer if needed */
+.new-lead-container::after {
+  content: '';
+  display: block;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+/* Ensure smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Prevent horizontal scroll */
+body {
+  overflow-x: hidden;
+}
+
+/* Prevent pull-to-refresh on mobile */
+body {
+  overscroll-behavior-y: contain;
 }
 
 /* ============================================
