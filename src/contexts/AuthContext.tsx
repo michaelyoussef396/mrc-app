@@ -50,6 +50,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        if (event === 'SIGNED_IN') {
+          navigate('/dashboard');
+        }
+        if (event === 'SIGNED_OUT') {
+          navigate('/');
+        }
       }
     );
 
@@ -69,11 +75,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email,
         password,
       });
-      
-      if (!error) {
-        navigate("/dashboard");
-      }
-      
       return { error };
     } catch (error) {
       return { error };
