@@ -54,6 +54,7 @@ const AppContent = () => {
         <Routes>
           {/* Public routes (no layout) */}
           <Route path="/" element={<Login />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/check-email" element={<CheckEmail />} />
           <Route path="/verify-code" element={<VerifyCode />} />

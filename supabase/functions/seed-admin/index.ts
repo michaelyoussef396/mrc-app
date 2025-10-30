@@ -32,18 +32,8 @@ Deno.serve(async (req) => {
       throw listError
     }
 
-    // If users exist, no need to seed
-    if (existingUsers.users && existingUsers.users.length > 0) {
-      console.log('Users already exist, skipping seed')
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Users already exist',
-          usersCount: existingUsers.users.length 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    // Proceed to upsert admin users even if users already exist
+    const existingList = existingUsers.users ?? [];
 
     // Admin users to create
     const adminUsers = [
@@ -61,38 +51,57 @@ Deno.serve(async (req) => {
       }
     ]
 
-    const createdUsers = []
+    const ensuredUsers: Array<{ email: string; id: string; action: 'created' | 'updated' }> = []
 
-    // Create each admin user if they don't exist
+    // Ensure each admin user exists with the correct password
     for (const adminUser of adminUsers) {
-      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email: adminUser.email,
-        password: adminUser.password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: adminUser.full_name,
-          phone: adminUser.phone,
-          role: 'admin'
+      const existing = existingList.find(u => u.email?.toLowerCase() === adminUser.email.toLowerCase())
+
+      if (existing) {
+        // Update existing user's password and metadata
+        const { data: updated, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(existing.id, {
+          password: adminUser.password,
+          user_metadata: {
+            full_name: adminUser.full_name,
+            phone: adminUser.phone,
+            role: 'admin'
+          }
+        })
+
+        if (updateError) {
+          console.error(`Error updating admin user ${adminUser.email}:`, updateError)
+          throw updateError
         }
-      })
 
-      if (createError) {
-        console.error(`Error creating admin user ${adminUser.email}:`, createError)
-        throw createError
+        ensuredUsers.push({ email: updated.user.email ?? '', id: updated.user.id, action: 'updated' })
+      } else {
+        // Create user if not found
+        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          email: adminUser.email,
+          password: adminUser.password,
+          email_confirm: true,
+          user_metadata: {
+            full_name: adminUser.full_name,
+            phone: adminUser.phone,
+            role: 'admin'
+          }
+        })
+
+        if (createError) {
+          console.error(`Error creating admin user ${adminUser.email}:`, createError)
+          throw createError
+        }
+
+        console.log('Admin user created successfully:', newUser.user.email)
+        ensuredUsers.push({ email: newUser.user.email ?? '', id: newUser.user.id, action: 'created' })
       }
-
-      console.log('Admin user created successfully:', newUser.user.email)
-      createdUsers.push({
-        email: newUser.user.email,
-        id: newUser.user.id
-      })
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `${createdUsers.length} admin user(s) created successfully`,
-        users: createdUsers
+        message: `${ensuredUsers.length} admin user(s) ensured (created/updated)`,
+        users: ensuredUsers
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
