@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes spin-slow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes progress {
+  0%, 100% {
+    width: 60%;
+  }
+  50% {
+    width: 75%;
+  }
+}
+
 /* ============================================
    MRC DESIGN SYSTEM - APPLE INSPIRED
    Premium glassmorphic interface with smooth animations

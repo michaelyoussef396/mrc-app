@@ -1,87 +1,186 @@
-import { Wrench, RefreshCw, Phone } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Logo from "@/components/Logo";
 import { useEffect, useState } from "react";
 
 const Maintenance = () => {
-  const [countdown, setCountdown] = useState(45);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Update time every minute
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 60000); // Update every minute
-
-    return () => clearInterval(interval);
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    return () => clearInterval(timer);
   }, []);
 
-  const handleCheckStatus = () => {
-    window.location.reload();
-  };
+  // Mock estimated return time (2 hours from now)
+  const estimatedReturn = new Date(Date.now() + 2 * 60 * 60 * 1000);
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full text-center space-y-8">
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <img src="/src/assets/logoMRC.png" alt="MRC Logo" className="h-12" />
-        </div>
+    <div className="min-h-screen flex flex-col p-6" style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)' }}>
+      
+      {/* Simple Header */}
+      <div className="flex items-center gap-3 p-4 bg-white/15 backdrop-blur-md rounded-2xl w-fit">
+        <Logo size="medium" />
+        <span className="text-lg font-bold text-white">Mould & Restoration Co.</span>
+      </div>
 
-        {/* Icon */}
-        <div className="flex justify-center">
-          <div className="w-20 h-20 rounded-full bg-blue-500/10 flex items-center justify-center">
-            <Wrench className="w-10 h-10 text-blue-500" />
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col items-center justify-center max-w-3xl mx-auto w-full py-12 px-6">
+        
+        {/* Tools/Wrench Icon */}
+        <div className="mb-12">
+          <div className="w-32 h-32 sm:w-40 sm:h-40 bg-white/95 rounded-[32px] flex flex-col items-center justify-center shadow-2xl animate-spin-slow">
+            <span className="text-5xl sm:text-6xl mb-2">🔧</span>
+            <div className="text-xs sm:text-sm font-bold text-sky-500 uppercase tracking-wider bg-sky-50 px-3 py-1 rounded-full">
+              Under Maintenance
+            </div>
           </div>
         </div>
 
-        {/* Title */}
-        <div className="space-y-2">
-          <h2 className="text-3xl font-bold text-foreground">SCHEDULED MAINTENANCE</h2>
-        </div>
-
-        {/* Description */}
-        <div className="space-y-3">
-          <p className="text-lg text-foreground">
-            We're making improvements!
+        {/* Message Section */}
+        <div className="text-center mb-10">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-4 drop-shadow-lg">
+            We'll Be Back Shortly
+          </h1>
+          
+          <p className="text-base sm:text-lg text-white/95 leading-relaxed mb-3 font-semibold">
+            Our system is currently undergoing scheduled maintenance to improve your experience.
           </p>
-          <p className="text-muted-foreground">
-            The MRC system is currently undergoing scheduled maintenance.
-          </p>
-        </div>
-
-        {/* Countdown */}
-        <div className="bg-muted/50 rounded-lg p-6 max-w-md mx-auto space-y-2">
-          <p className="text-sm font-medium text-foreground">Expected completion:</p>
-          <p className="text-2xl font-bold text-foreground">3:00 PM AEDT</p>
-          <p className="text-sm text-muted-foreground">
-            (Approximately {countdown} minutes)
+          
+          <p className="text-sm sm:text-base text-white/85 font-medium">
+            Thank you for your patience while we make things better.
           </p>
         </div>
 
-        {/* Apology */}
-        <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">
-            We apologize for any inconvenience.
-          </p>
+        {/* Status Card */}
+        <div className="w-full bg-white/15 backdrop-blur-md border border-white/25 rounded-3xl p-6 sm:p-8 mb-6">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="text-2xl">📊</span>
+            <h3 className="text-lg sm:text-xl font-bold text-white">Maintenance Status</h3>
+          </div>
+          
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="flex justify-between items-center py-3 border-b border-white/15">
+              <span className="text-white/80 text-sm sm:text-base font-semibold">Current Status:</span>
+              <span className="text-white text-sm sm:text-base font-bold flex items-center gap-2">
+                <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
+                In Progress
+              </span>
+            </div>
+            
+            <div className="flex justify-between items-center py-3 border-b border-white/15">
+              <span className="text-white/80 text-sm sm:text-base font-semibold">Started:</span>
+              <span className="text-white text-sm sm:text-base font-bold">
+                {currentTime.toLocaleTimeString('en-AU', { 
+                  hour: '2-digit', 
+                  minute: '2-digit',
+                  hour12: true 
+                })}
+              </span>
+            </div>
+            
+            <div className="flex justify-between items-center py-3">
+              <span className="text-white/80 text-sm sm:text-base font-semibold">Estimated Completion:</span>
+              <span className="text-amber-400 text-sm sm:text-lg font-bold">
+                {estimatedReturn.toLocaleTimeString('en-AU', { 
+                  hour: '2-digit', 
+                  minute: '2-digit',
+                  hour12: true 
+                })}
+              </span>
+            </div>
+          </div>
+          
+          <div className="mt-2">
+            <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden mb-2">
+              <div 
+                className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full animate-progress"
+                style={{ width: '60%' }}
+              ></div>
+            </div>
+            <p className="text-center text-white/80 text-xs sm:text-sm font-semibold">
+              Working on it...
+            </p>
+          </div>
+        </div>
+
+        {/* What's Being Updated */}
+        <div className="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 sm:p-7 mb-6">
+          <h3 className="text-base sm:text-lg font-bold text-white mb-5 text-center">
+            What We're Working On
+          </h3>
+          <ul className="flex flex-col gap-3">
+            <li className="flex items-center gap-3 p-3 bg-white/10 rounded-xl">
+              <span className="text-xl flex-shrink-0">⚡</span>
+              <span className="text-white/95 text-sm sm:text-base font-medium">
+                System performance improvements
+              </span>
+            </li>
+            <li className="flex items-center gap-3 p-3 bg-white/10 rounded-xl">
+              <span className="text-xl flex-shrink-0">🔒</span>
+              <span className="text-white/95 text-sm sm:text-base font-medium">
+                Security updates and patches
+              </span>
+            </li>
+            <li className="flex items-center gap-3 p-3 bg-white/10 rounded-xl">
+              <span className="text-xl flex-shrink-0">✨</span>
+              <span className="text-white/95 text-sm sm:text-base font-medium">
+                New features and enhancements
+              </span>
+            </li>
+          </ul>
         </div>
 
         {/* Emergency Contact */}
-        <div className="pt-8 space-y-4">
-          <p className="text-sm font-medium text-foreground">Need urgent assistance?</p>
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Phone className="w-4 h-4" />
-            <a href="tel:1300665673" className="hover:text-foreground transition-colors">
-              Emergency Line: 1300 665 673
+        <div className="w-full bg-red-500/15 backdrop-blur-md border-2 border-red-500/30 rounded-2xl p-6 sm:p-8 mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <span className="text-3xl">🚨</span>
+            <h3 className="text-lg sm:text-xl font-bold text-white">Need Urgent Assistance?</h3>
+          </div>
+          <p className="text-white/95 text-sm sm:text-base text-center mb-5 font-medium">
+            For emergency mould inspections or urgent issues, contact us directly:
+          </p>
+          <div className="flex flex-col gap-3 mb-4">
+            <a 
+              href="tel:1300665673" 
+              className="w-full py-3 sm:py-4 px-6 bg-white text-red-600 text-sm sm:text-base font-bold rounded-xl text-center transition-all hover:-translate-y-0.5 hover:shadow-xl shadow-lg"
+            >
+              📞 Emergency Line: 1300 665 673
+            </a>
+            <a 
+              href="mailto:info@mrc.com.au" 
+              className="w-full py-3 sm:py-4 px-6 bg-white text-red-600 text-sm sm:text-base font-bold rounded-xl text-center transition-all hover:-translate-y-0.5 hover:shadow-xl shadow-lg"
+            >
+              📧 Email: info@mrc.com.au
+            </a>
+          </div>
+          <p className="text-center text-white/80 text-xs sm:text-sm font-semibold">
+            Our emergency hotline is available 24/7
+          </p>
+        </div>
+
+        {/* Social Media / Updates */}
+        <div className="text-center p-5">
+          <p className="text-white/90 text-sm sm:text-base font-semibold mb-3">
+            Follow us for real-time updates:
+          </p>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <a href="#" className="text-white text-sm sm:text-base font-bold hover:opacity-80 hover:underline transition-opacity">
+              Twitter
+            </a>
+            <span className="text-white/60 text-sm">•</span>
+            <a href="#" className="text-white text-sm sm:text-base font-bold hover:opacity-80 hover:underline transition-opacity">
+              Facebook
+            </a>
+            <span className="text-white/60 text-sm">•</span>
+            <a href="#" className="text-white text-sm sm:text-base font-bold hover:opacity-80 hover:underline transition-opacity">
+              LinkedIn
             </a>
           </div>
         </div>
 
-        {/* Check Status Button */}
-        <div className="pt-4">
-          <Button onClick={handleCheckStatus} variant="outline" className="gap-2">
-            <RefreshCw className="w-4 h-4" />
-            Check Status
-          </Button>
-        </div>
       </div>
+
     </div>
   );
 };
