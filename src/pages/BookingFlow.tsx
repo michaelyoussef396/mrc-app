@@ -232,6 +232,16 @@ export const BookingFlow = () => {
               </div>
             </div>
 
+            {/* View Full Report Button */}
+            <div className="flex justify-center my-8">
+              <button
+                onClick={() => window.open('/inspection-report/MRC-2025-0042', '_blank')}
+                className="bg-white border-2 border-[#121D73] text-[#121D73] font-semibold px-8 py-4 rounded-xl hover:bg-[#121D73] hover:text-white transition-all duration-300 hover:-translate-y-0.5 shadow-md hover:shadow-lg"
+              >
+                📄 View Full Inspection Report
+              </button>
+            </div>
+
             <div className="step-actions">
               <button 
                 className="btn-back"
@@ -257,15 +267,72 @@ export const BookingFlow = () => {
               Choose a convenient date for your remediation work
             </p>
 
-            <div className="calendar-placeholder">
-              <p>📅 Calendar Component Here</p>
-              <button
-                onClick={() => setSelectedDate('March 19, 2025')}
-                className="mock-date-select"
-              >
-                {selectedDate ? `✓ Selected: ${selectedDate}` : 'Click to Select March 19, 2025'}
-              </button>
+            {/* Interactive Calendar */}
+            <div className="max-w-md mx-auto bg-white rounded-2xl shadow-lg p-6">
+              {/* Calendar Header */}
+              <div className="flex items-center justify-between mb-6">
+                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                  <span className="text-xl">←</span>
+                </button>
+                <h3 className="text-xl font-bold text-gray-800">March 2025</h3>
+                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                  <span className="text-xl">→</span>
+                </button>
+              </div>
+
+              {/* Days of Week */}
+              <div className="grid grid-cols-7 gap-2 mb-3">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+                  <div key={day} className="text-center text-xs font-semibold text-gray-500">
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              {/* Calendar Grid */}
+              <div className="grid grid-cols-7 gap-2">
+                {/* Empty cells for days before month starts */}
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={`empty-${i}`} className="h-12 md:h-12"></div>
+                ))}
+                
+                {/* March dates 1-31 */}
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((date) => {
+                  const isPast = date < 15;
+                  const isSelected = selectedDate === `March ${date}, 2025`;
+                  
+                  return (
+                    <button
+                      key={date}
+                      onClick={() => !isPast && setSelectedDate(`March ${date}, 2025`)}
+                      disabled={isPast}
+                      className={`
+                        h-12 w-full rounded-xl text-sm font-semibold transition-all duration-200
+                        ${isPast 
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                          : isSelected
+                            ? 'bg-[#121D73] text-white shadow-lg scale-105'
+                            : 'bg-white hover:bg-blue-50 hover:border-2 hover:border-[#121D73] text-gray-700'
+                        }
+                      `}
+                    >
+                      {date}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+
+            {/* Selected Date Banner */}
+            {selectedDate && (
+              <div className="mt-6 text-center">
+                <div className="inline-block bg-green-50 border-2 border-green-500 rounded-xl px-6 py-3">
+                  <span className="text-green-700 font-semibold">
+                    📅 Selected: {selectedDate}
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div className="step-actions">
               <button 
