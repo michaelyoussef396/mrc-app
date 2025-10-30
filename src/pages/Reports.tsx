@@ -313,75 +313,71 @@ export default function Reports() {
   };
 
   return (
-    <div className="reports-page">
+    <div className="min-h-screen bg-background">
       <TopNavigation />
 
       <main className="container mx-auto px-4 py-6 pb-24 md:pb-6">
         {/* Header */}
-        <div className="reports-header-section mb-6">
-          <h1 className="reports-title">Inspection Reports</h1>
-          <p className="reports-subtitle">View and manage all completed inspection reports</p>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Inspection Reports</h1>
+          <p className="text-muted-foreground">View and manage all completed inspection reports</p>
         </div>
 
         {/* Statistics Overview */}
-        <div className="stats-overview-reports">
-          <div className="stats-grid-reports">
-            <div className="stat-card-reports">
-              <div className="stat-card-header-reports">
-                <span className="stat-label-reports">Total Value</span>
-                <div className="stat-icon-box-reports blue">
-                  <DollarSign size={20} strokeWidth={2} />
-                </div>
-              </div>
-              <div className="stat-value-reports">${totalValue.toLocaleString()}</div>
-              <div className="stat-change-reports positive">
-                <TrendingUp size={14} strokeWidth={2} />
-                This month
-              </div>
-            </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <DollarSign className="h-4 w-4" />
+                Total Value
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${totalValue.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground mt-1">This month</p>
+            </CardContent>
+          </Card>
 
-            <div className="stat-card-reports">
-              <div className="stat-card-header-reports">
-                <span className="stat-label-reports">Conversion</span>
-                <div className="stat-icon-box-reports green">
-                  <Target size={20} strokeWidth={2} />
-                </div>
-              </div>
-              <div className="stat-value-reports">{conversionRate.toFixed(0)}%</div>
-              <div className="stat-change-reports positive">
-                <CheckCircle size={14} strokeWidth={2} />
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Target className="h-4 w-4" />
+                Conversion
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{conversionRate.toFixed(0)}%</div>
+              <p className="text-xs text-muted-foreground mt-1">
                 {statusCounts.JOB_BOOKED}/{mockReports.length} booked
-              </div>
-            </div>
+              </p>
+            </CardContent>
+          </Card>
 
-            <div className="stat-card-reports">
-              <div className="stat-card-header-reports">
-                <span className="stat-label-reports">Avg Quote</span>
-                <div className="stat-icon-box-reports orange">
-                  <TrendingUp size={20} strokeWidth={2} />
-                </div>
-              </div>
-              <div className="stat-value-reports">${avgQuote.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-              <div className="stat-change-reports neutral">
-                <FileText size={14} strokeWidth={2} />
-                Per inspection
-              </div>
-            </div>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Avg Quote
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${avgQuote.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+              <p className="text-xs text-muted-foreground mt-1">Per inspection</p>
+            </CardContent>
+          </Card>
 
-            <div className="stat-card-reports">
-              <div className="stat-card-header-reports">
-                <span className="stat-label-reports">Avg Response</span>
-                <div className="stat-icon-box-reports purple">
-                  <Clock size={20} strokeWidth={2} />
-                </div>
-              </div>
-              <div className="stat-value-reports">2.3 days</div>
-              <div className="stat-change-reports neutral">
-                <Clock size={14} strokeWidth={2} />
-                Client response time
-              </div>
-            </div>
-          </div>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Avg Response
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">2.3 days</div>
+              <p className="text-xs text-muted-foreground mt-1">Client response time</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Search and Filters */}
