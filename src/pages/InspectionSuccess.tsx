@@ -1,200 +1,137 @@
-import { useEffect, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { CheckCircle2, Phone, Mail, Home, Clock } from "lucide-react";
+import { useNavigate } from 'react-router-dom';
+import PublicNav from '@/components/PublicNav';
 
-export default function InspectionSuccess() {
-  const [searchParams] = useSearchParams();
-  const leadNumber = searchParams.get("ref") || "MRC-2025-XXXX";
-  const email = searchParams.get("email") || "";
-  const [countdown, setCountdown] = useState(10);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          window.location.href = "/";
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
+const InspectionSuccess = () => {
+  const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-center">
-            <img
-              src="/placeholder.svg"
-              alt="MRC Logo"
-              className="h-12"
-            />
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+      <PublicNav />
 
-      {/* Success Content */}
-      <div className="container mx-auto px-4 py-12 max-w-3xl">
-        <div className="bg-card border rounded-lg shadow-lg p-8 md:p-12 text-center space-y-8">
-          {/* Success Icon */}
-          <div className="flex justify-center">
-            <div className="rounded-full bg-green-100 p-6">
-              <CheckCircle2 className="h-16 w-16 text-green-600" />
+      {/* Success Section */}
+      <section className="flex items-center justify-center py-16 px-6">
+        <div className="max-w-3xl w-full bg-white rounded-3xl shadow-2xl p-8 md:p-12 text-center animate-slideInUp">
+          
+          {/* Animated Success Icon */}
+          <div className="flex justify-center mb-8">
+            <div className="w-[120px] h-[120px] rounded-3xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-xl animate-pulse">
+              <svg className="w-20 h-20 text-white" viewBox="0 0 52 52">
+                <circle 
+                  className="checkmark-circle" 
+                  cx="26" 
+                  cy="26" 
+                  r="25" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2"
+                  strokeDasharray="166"
+                  strokeDashoffset="166"
+                  style={{
+                    animation: 'drawCircle 0.6s ease-out forwards'
+                  }}
+                />
+                <path 
+                  className="checkmark-check" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M14.1 27.2l7.1 7.2 16.7-16.8"
+                  strokeDasharray="48"
+                  strokeDashoffset="48"
+                  style={{
+                    animation: 'drawCheck 0.6s 0.3s ease-out forwards'
+                  }}
+                />
+              </svg>
             </div>
           </div>
 
-          {/* Thank You Message */}
-          <div className="space-y-4">
-            <h1 className="text-3xl md:text-4xl font-bold">
-              Thank You For Your Inquiry!
-            </h1>
-            <p className="text-lg text-muted-foreground">
-              We've received your mould inspection request and will contact you within 24 hours.
-            </p>
-          </div>
+          {/* Success Message */}
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            Request Received!
+          </h1>
+          
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-12">
+            Thank you for contacting Mould & Restoration Co. We've received your inspection request and will be in touch shortly.
+          </p>
 
-          {/* Reference Number */}
-          <div className="bg-muted rounded-lg p-6 space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">
-              Reference Number
-            </p>
-            <p className="text-2xl font-bold text-primary">
-              {leadNumber}
-            </p>
-          </div>
-
-          {/* Confirmation Email */}
-          {email && (
-            <p className="text-sm text-muted-foreground">
-              A confirmation email has been sent to:{" "}
-              <span className="font-medium text-foreground">{email}</span>
-            </p>
-          )}
-
-          {/* What Happens Next */}
-          <div className="border-t pt-8">
-            <h2 className="text-2xl font-bold mb-6">What Happens Next?</h2>
-            <div className="grid gap-4 text-left">
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
-                  1
+          {/* Confirmation Details Card */}
+          <div className="bg-gray-50 border-2 border-gray-200 rounded-2xl p-8 mb-8 text-left">
+            <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">What's Next?</h3>
+            
+            <div className="space-y-6">
+              {[
+                { active: true, title: '✓ Request Received', time: 'Just now' },
+                { active: false, title: 'Team Review', time: 'Within 2 hours' },
+                { active: false, title: 'Confirmation Call', time: 'Same business day' },
+                { active: false, title: 'Inspection Scheduled', time: 'At your convenience' }
+              ].map((step, index) => (
+                <div key={index} className="flex items-start gap-4">
+                  <div className={`flex-shrink-0 w-3 h-3 rounded-full mt-1.5 ${
+                    step.active ? 'bg-green-500' : 'bg-gray-300'
+                  }`}></div>
+                  <div className="flex-1">
+                    <h4 className={`font-bold ${step.active ? 'text-gray-900' : 'text-gray-600'}`}>
+                      {step.title}
+                    </h4>
+                    <p className="text-sm text-gray-500">{step.time}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold">We'll call you within 24 hours</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Our team will reach out to discuss your needs
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
-                  2
-                </div>
-                <div>
-                  <h3 className="font-semibold">Schedule your free inspection</h3>
-                  <p className="text-sm text-muted-foreground">
-                    We'll find a convenient time that works for you
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
-                  3
-                </div>
-                <div>
-                  <h3 className="font-semibold">Expert visits your property</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Licensed technician performs thorough inspection
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
-                  4
-                </div>
-                <div>
-                  <h3 className="font-semibold">Receive detailed report</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Professional analysis with photos and findings
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
-                  5
-                </div>
-                <div>
-                  <h3 className="font-semibold">Get no-obligation quote</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Clear pricing with multiple treatment options
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
-                  6
-                </div>
-                <div>
-                  <h3 className="font-semibold">We fix your mould problem!</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Professional remediation with 12-month warranty
-                  </p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
-          {/* Need Immediate Help */}
-          <div className="border-t pt-8">
-            <h2 className="text-xl font-bold mb-4">Need Immediate Help?</h2>
-            <p className="text-muted-foreground mb-6">
-              For urgent issues, call us now:
+          {/* Contact Information */}
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-6 mb-8">
+            <p className="font-semibold text-gray-900 mb-4">
+              Need immediate assistance?
             </p>
-            <div className="space-y-4">
-              <Button size="lg" className="w-full" asChild>
-                <a href="tel:1300665673">
-                  <Phone className="mr-2 h-5 w-5" />
-                  Call 1300 665 673
-                </a>
-              </Button>
-              <Button size="lg" variant="outline" className="w-full" asChild>
-                <a href="mailto:info@mrc.com.au">
-                  <Mail className="mr-2 h-5 w-5" />
-                  Email Us
-                </a>
-              </Button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <a
+                href="tel:1300665673"
+                className="flex items-center justify-center gap-3 h-14 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 hover:scale-105 transform transition-all duration-300"
+              >
+                <span>📞</span>
+                <span>Call: 1300 665 673</span>
+              </a>
+              <a
+                href="mailto:info@mrc.com.au"
+                className="flex items-center justify-center gap-3 h-14 bg-white border-2 border-blue-600 text-blue-600 font-semibold rounded-xl hover:bg-blue-50 hover:scale-105 transform transition-all duration-300"
+              >
+                <span>📧</span>
+                <span>Email Us</span>
+              </a>
             </div>
-            <p className="text-sm text-muted-foreground mt-4">
-              <Clock className="inline h-4 w-4 mr-1" />
-              Emergency service available Mon-Sat 7am-7pm
-            </p>
           </div>
 
-          {/* Return Home */}
-          <div className="border-t pt-8">
-            <Button variant="outline" asChild>
-              <Link to="/">
-                <Home className="mr-2 h-4 w-4" />
-                Back to Home
-              </Link>
-            </Button>
-            <p className="text-sm text-muted-foreground mt-4">
-              Redirecting in {countdown} seconds...
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => navigate('/')}
+              className="px-8 py-3 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-all"
+            >
+              ← Back to Home
+            </button>
+            <button
+              onClick={() => navigate('/request-inspection')}
+              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-lg hover:scale-105 transform transition-all"
+            >
+              Submit Another Request
+            </button>
+          </div>
+
+          {/* Business Hours Info */}
+          <div className="mt-8 pt-8 border-t">
+            <p className="text-sm text-gray-500">
+              Our team is available Monday - Sunday, 7:00 AM - 7:00 PM AEDT
             </p>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
-}
+};
+
+export default InspectionSuccess;
