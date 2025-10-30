@@ -8,7 +8,7 @@ const ServerError = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-600 flex flex-col p-6">
       
       {/* Simple Header */}
-      <div className="flex items-center gap-3 p-4 bg-white/15 backdrop-blur-md rounded-2xl w-fit">
+      <div className="flex items-center gap-3 p-4 bg-white/15 backdrop-blur-md rounded-2xl w-fit mx-auto">
         <Logo size="medium" />
         <span className="text-white text-lg font-bold">Mould & Restoration Co.</span>
       </div>
