@@ -19,35 +19,14 @@ export default function Dashboard() {
     revenue: 0
   });
 
-  // Mock notifications data
-  const notifications = [
-    {
-      id: 1,
-      type: 'success',
-      icon: CheckCircle,
-      text: 'Inspection completed for 45 High St, Croydon',
-      time: '2 hours ago',
-      unread: true
-    },
-    {
-      id: 2,
-      type: 'info',
-      icon: Info,
-      text: 'New lead assigned: 78 Smith Road, Richmond',
-      time: '5 hours ago',
-      unread: true
-    },
-    {
-      id: 3,
-      type: 'alert',
-      icon: AlertCircle,
-      text: 'Urgent: Follow-up needed for job #MRC-2025-0042',
-      time: '1 day ago',
-      unread: false
-    }
+  // Mock notifications data (recent)
+  const recentNotifications = [
+    { id: 1, title: 'Inspection completed for 45 High St, Croydon', time: '2 hours ago', unread: true },
+    { id: 2, title: 'New lead assigned: 78 Smith Road, Richmond', time: '5 hours ago', unread: true },
+    { id: 3, title: 'Urgent: Follow-up needed for job #MRC-2025-0042', time: '1 day ago', unread: false },
   ];
 
-  const notificationCount = notifications.filter(n => n.unread).length;
+  const notificationCount = recentNotifications.filter(n => n.unread).length;
 
   useEffect(() => {
     loadDashboardData();
@@ -132,31 +111,25 @@ export default function Dashboard() {
                     
                     {/* Notifications List */}
                     <div className="max-h-96 overflow-y-auto">
-                      {notifications.map((notification) => {
-                        const IconComponent = notification.icon;
-                        return (
-                          <div 
-                            key={notification.id}
-                            className={`flex gap-3 px-5 py-4 border-b border-gray-100 cursor-pointer transition-colors hover:bg-gray-50 ${
-                              notification.unread ? 'bg-blue-50' : ''
-                            }`}
-                          >
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                              notification.type === 'success' ? 'bg-green-100 text-green-600' :
-                              notification.type === 'alert' ? 'bg-red-100 text-red-600' :
-                              'bg-blue-100 text-blue-600'
-                            }`}>
-                              <IconComponent size={20} strokeWidth={2} />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm text-gray-700 leading-relaxed mb-1">
-                                {notification.text}
-                              </p>
-                              <span className="text-xs text-gray-500">{notification.time}</span>
-                            </div>
+                      {recentNotifications.map((notification) => (
+                        <div 
+                          key={notification.id}
+                          className={`flex gap-3 px-5 py-4 border-b border-gray-100 cursor-pointer transition-colors hover:bg-gray-50 ${
+                            notification.unread ? 'bg-blue-50' : ''
+                          }`}
+                          onClick={() => setNotificationsOpen(false)}
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
+                            <Bell size={20} strokeWidth={2} />
                           </div>
-                        );
-                      })}
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-900 font-medium mb-1">
+                              {notification.title}
+                            </p>
+                            <span className="text-xs text-gray-500">{notification.time}</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                     
                     {/* Footer */}
