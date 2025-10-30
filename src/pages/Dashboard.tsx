@@ -2,18 +2,52 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus } from 'lucide-react';
+import { Plus, Bell, Menu, X, ChevronDown, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import Logo from '@/components/Logo';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState({
     totalLeads: 0,
     activeJobs: 0,
     completedToday: 0,
     revenue: 0
   });
+
+  // Mock notifications data
+  const notifications = [
+    {
+      id: 1,
+      type: 'success',
+      icon: CheckCircle,
+      text: 'Inspection completed for 45 High St, Croydon',
+      time: '2 hours ago',
+      unread: true
+    },
+    {
+      id: 2,
+      type: 'info',
+      icon: Info,
+      text: 'New lead assigned: 78 Smith Road, Richmond',
+      time: '5 hours ago',
+      unread: true
+    },
+    {
+      id: 3,
+      type: 'alert',
+      icon: AlertCircle,
+      text: 'Urgent: Follow-up needed for job #MRC-2025-0042',
+      time: '1 day ago',
+      unread: false
+    }
+  ];
+
+  const notificationCount = notifications.filter(n => n.unread).length;
 
   useEffect(() => {
     loadDashboardData();
@@ -53,36 +87,171 @@ export default function Dashboard() {
       </div>
 
       {/* Top Navigation Bar */}
-      <nav className="dashboard-nav">
-        <div className="nav-container">
-          <div className="nav-left">
-            <div className="logo-section">
-              <div className="logo-icon">🔧</div>
-              <span className="logo-text">MRC Dashboard</span>
+      <nav className="sticky top-0 z-50 bg-gradient-to-r from-blue-900 to-blue-800 border-b border-white/10 shadow-md">
+        <div className="max-w-full px-6 py-3 flex justify-between items-center">
+          
+          {/* Left Section: Logo + Notifications */}
+          <div className="flex items-center gap-4">
+            <Logo size="small" />
+            
+            {/* Notifications Button */}
+            <div className="relative">
+              <button 
+                className="relative w-11 h-11 rounded-xl bg-white/10 border-0 text-white flex items-center justify-center cursor-pointer transition-all hover:bg-white/20"
+                onClick={() => {
+                  setNotificationsOpen(!notificationsOpen);
+                  setProfileMenuOpen(false);
+                }}
+              >
+                <Bell size={20} strokeWidth={2} />
+                {notificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-5 h-5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center px-1.5 border-2 border-blue-900">
+                    {notificationCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notifications Dropdown */}
+              {notificationsOpen && (
+                <>
+                  {/* Backdrop */}
+                  <div 
+                    className="fixed inset-0 z-40"
+                    onClick={() => setNotificationsOpen(false)}
+                  />
+                  
+                  {/* Dropdown Panel */}
+                  <div className="absolute top-14 left-0 w-80 sm:w-96 max-h-[480px] bg-white rounded-2xl shadow-2xl z-50 overflow-hidden">
+                    {/* Header */}
+                    <div className="px-5 py-4 border-b border-gray-200 flex justify-between items-center">
+                      <h3 className="text-base font-bold text-gray-900">Notifications</h3>
+                      <button className="text-sm text-blue-600 font-semibold hover:text-blue-700">
+                        Mark all read
+                      </button>
+                    </div>
+                    
+                    {/* Notifications List */}
+                    <div className="max-h-96 overflow-y-auto">
+                      {notifications.map((notification) => {
+                        const IconComponent = notification.icon;
+                        return (
+                          <div 
+                            key={notification.id}
+                            className={`flex gap-3 px-5 py-4 border-b border-gray-100 cursor-pointer transition-colors hover:bg-gray-50 ${
+                              notification.unread ? 'bg-blue-50' : ''
+                            }`}
+                          >
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                              notification.type === 'success' ? 'bg-green-100 text-green-600' :
+                              notification.type === 'alert' ? 'bg-red-100 text-red-600' :
+                              'bg-blue-100 text-blue-600'
+                            }`}>
+                              <IconComponent size={20} strokeWidth={2} />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm text-gray-700 leading-relaxed mb-1">
+                                {notification.text}
+                              </p>
+                              <span className="text-xs text-gray-500">{notification.time}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Footer */}
+                    <div className="px-5 py-3 border-t border-gray-200 text-center">
+                      <button className="text-sm text-blue-600 font-semibold hover:text-blue-700">
+                        View all notifications
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="nav-right">
-            <button className="nav-icon-btn">
-              <span className="icon">🔔</span>
-              <span className="notification-badge">3</span>
-            </button>
+          {/* Right Section: Profile + Menu */}
+          <div className="flex items-center gap-3">
             
-            <div className="user-menu">
-              <button className="user-menu-btn">
-                <div className="user-avatar">
-                  {user?.email?.charAt(0).toUpperCase()}
+            {/* Profile Button */}
+            <div className="relative">
+              <button 
+                className="flex items-center gap-2.5 py-1.5 pr-3 pl-1.5 bg-white/10 border border-white/20 rounded-full cursor-pointer transition-all hover:bg-white/15 text-white"
+                onClick={() => {
+                  setProfileMenuOpen(!profileMenuOpen);
+                  setNotificationsOpen(false);
+                }}
+              >
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-base font-bold text-white">
+                  {user?.email?.charAt(0).toUpperCase() || 'A'}
                 </div>
-                <span className="user-name">{user?.email?.split('@')[0]}</span>
+                <div className="hidden md:flex flex-col items-start gap-0.5">
+                  <span className="text-sm font-semibold leading-none">
+                    {user?.email?.split('@')[0] || 'admin'}
+                  </span>
+                  <span className="text-xs opacity-80 leading-none">Administrator</span>
+                </div>
+                <ChevronDown size={16} strokeWidth={2} className="opacity-70" />
               </button>
-              
-              <div className="user-dropdown">
-                <button onClick={() => navigate('/profile')}>Profile</button>
-                <button onClick={() => navigate('/settings')}>Settings</button>
-                <button onClick={handleLogout}>Sign Out</button>
-              </div>
+
+              {/* Profile Dropdown */}
+              {profileMenuOpen && (
+                <>
+                  {/* Backdrop */}
+                  <div 
+                    className="fixed inset-0 z-40"
+                    onClick={() => setProfileMenuOpen(false)}
+                  />
+                  
+                  {/* Dropdown Menu */}
+                  <div className="absolute top-14 right-0 w-56 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden border border-gray-200">
+                    <div className="py-2">
+                      <button 
+                        className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                        onClick={() => {
+                          navigate('/profile');
+                          setProfileMenuOpen(false);
+                        }}
+                      >
+                        Profile Settings
+                      </button>
+                      <button 
+                        className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                        onClick={() => {
+                          navigate('/settings');
+                          setProfileMenuOpen(false);
+                        }}
+                      >
+                        System Settings
+                      </button>
+                      <div className="my-2 border-t border-gray-200"></div>
+                      <button 
+                        className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 font-semibold transition-colors"
+                        onClick={handleLogout}
+                      >
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
+
+            {/* Menu Toggle Button */}
+            <button 
+              className="w-11 h-11 rounded-xl bg-white/10 border-0 text-white flex items-center justify-center cursor-pointer transition-all hover:bg-white/20"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
+              {sidebarOpen ? (
+                <X size={24} strokeWidth={2} />
+              ) : (
+                <Menu size={24} strokeWidth={2} />
+              )}
+            </button>
+
           </div>
+
         </div>
       </nav>
 
