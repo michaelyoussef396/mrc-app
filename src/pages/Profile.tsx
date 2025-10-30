@@ -239,7 +239,7 @@ export default function Profile() {
 
               <button 
                 className="flex items-center gap-3.5 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-white hover:border-blue-500 hover:shadow-sm transition-all text-left"
-                onClick={() => alert('Notification preferences coming soon!')}
+                onClick={() => navigate('/notification-settings')}
               >
                 <div className="w-11 h-11 rounded-xl bg-white border border-gray-200 text-blue-500 flex items-center justify-center flex-shrink-0">
                   <Bell size={20} strokeWidth={2} />

@@ -23,6 +23,7 @@ import NewLeadView from "./pages/NewLeadView";
 import Profile from "./pages/Profile";
 import ManageUsers from "./pages/ManageUsers";
 import Settings from "./pages/Settings";
+import { NotificationPreferences } from "./pages/NotificationPreferences";
 import Leads from "./pages/Leads";
 import LeadDetail from "./pages/LeadDetail";
 import Calendar from "./pages/Calendar";
@@ -77,6 +78,7 @@ const AppContent = () => {
             <Route path="/inspection/select-lead" element={<InspectionSelectLead />} />
             <Route path="/client/:id" element={<ClientDetail />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/notification-settings" element={<NotificationPreferences />} />
             <Route path="/manage-users" element={<ManageUsers />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/leads" element={<LeadsManagement />} />
