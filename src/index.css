@@ -445,10 +445,18 @@
   right: 0;
   display: flex;
   gap: 12px;
-  padding: 16px 20px;
+  padding: 16px 20px 20px 20px;
   background: white;
   border-top: 1px solid hsl(var(--border));
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12);
+  z-index: 9999;
+}
+
+/* Support for iPhone notch */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .wizard-navigation {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
 }
 
 .wizard-nav-btn {
@@ -478,7 +486,8 @@
 .wizard-nav-btn.next {
   background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--info)) 100%);
   color: white;
-  box-shadow: 0 4px 12px hsl(var(--primary) / 0.3);
+  box-shadow: 0 4px 16px hsl(var(--primary) / 0.4);
+  font-weight: 700;
 }
 
 .wizard-nav-btn.next:hover:not(:disabled) {
@@ -499,6 +508,15 @@
   
   .wizard-checkbox-grid {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+  
+  .wizard-navigation {
+    padding: 14px 16px 16px 16px;
+  }
+  
+  .wizard-nav-btn {
+    height: 56px;
+    font-size: 15px;
   }
 }
 
