@@ -35,6 +35,7 @@ import { BookingConfirmed } from "./pages/BookingConfirmed";
 import { BookingLinkExpired } from "./pages/BookingLinkExpired";
 import RequestInspection from "./pages/RequestInspection";
 import InspectionSuccess from "./pages/InspectionSuccess";
+import AllNotifications from "./pages/AllNotifications";
 import NotFound from "./pages/NotFound";
 import ServerError from "./pages/ServerError";
 import Unauthorized from "./pages/Unauthorized";
@@ -71,6 +72,7 @@ const AppContent = () => {
           {/* Protected routes (with AppLayout) */}
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/notifications" element={<AllNotifications />} />
             <Route path="/lead/new" element={<NewLead />} />
             <Route path="/inspection/select-lead" element={<InspectionSelectLead />} />
             <Route path="/client/:id" element={<ClientDetail />} />

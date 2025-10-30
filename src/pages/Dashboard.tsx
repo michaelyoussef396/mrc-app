@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Bell, Menu, X, ChevronDown, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { Plus, Bell, Menu, X, ChevronDown, CheckCircle, AlertCircle, Info, Home, ClipboardList, Calendar as CalendarIcon, FileText, BarChart, TrendingUp, User, Settings as SettingsIcon, LogOut, ChevronRight } from 'lucide-react';
 import Logo from '@/components/Logo';
 
 export default function Dashboard() {
@@ -161,7 +161,13 @@ export default function Dashboard() {
                     
                     {/* Footer */}
                     <div className="px-5 py-3 border-t border-gray-200 text-center">
-                      <button className="text-sm text-blue-600 font-semibold hover:text-blue-700">
+                      <button 
+                        className="text-sm text-blue-600 font-semibold hover:text-blue-700"
+                        onClick={() => {
+                          navigate('/notifications');
+                          setNotificationsOpen(false);
+                        }}
+                      >
                         View all notifications
                       </button>
                     </div>
@@ -254,6 +260,158 @@ export default function Dashboard() {
 
         </div>
       </nav>
+
+      {/* Sidebar Menu */}
+      {sidebarOpen && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/50 z-[95] animate-fade-in"
+            onClick={() => setSidebarOpen(false)}
+          />
+          
+          {/* Sidebar Panel */}
+          <div className="fixed top-0 right-0 w-80 max-w-[85vw] h-screen bg-white shadow-2xl z-[100] overflow-y-auto animate-slide-in-right">
+            
+            {/* Sidebar Header */}
+            <div className="px-5 py-5 flex justify-end border-b border-gray-200">
+              <button 
+                className="w-10 h-10 rounded-xl bg-gray-100 border-0 text-gray-700 flex items-center justify-center cursor-pointer transition-all hover:bg-gray-200"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <X size={24} strokeWidth={2} />
+              </button>
+            </div>
+            
+            {/* Profile Section */}
+            <div className="px-6 py-8 text-center border-b border-gray-200">
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-3xl font-bold">
+                {user?.email?.charAt(0).toUpperCase() || 'A'}
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-1">
+                {user?.email?.split('@')[0] || 'admin'}
+              </h3>
+              <p className="text-sm text-gray-600 mb-1">Administrator</p>
+              <p className="text-xs text-gray-500">{user?.email || 'admin@mrc.com.au'}</p>
+            </div>
+            
+            {/* Navigation Menu */}
+            <nav className="py-4">
+              <button 
+                className="w-full flex items-center gap-3 px-6 py-3.5 bg-transparent border-0 text-gray-700 text-[15px] font-medium cursor-pointer transition-all hover:bg-gray-50"
+                onClick={() => {
+                  navigate('/dashboard');
+                  setSidebarOpen(false);
+                }}
+              >
+                <Home size={20} strokeWidth={2} />
+                <span className="flex-1 text-left">Home</span>
+                <ChevronRight size={16} strokeWidth={2} className="opacity-30" />
+              </button>
+              
+              <button 
+                className="w-full flex items-center gap-3 px-6 py-3.5 bg-transparent border-0 text-gray-700 text-[15px] font-medium cursor-pointer transition-all hover:bg-gray-50"
+                onClick={() => {
+                  navigate('/leads');
+                  setSidebarOpen(false);
+                }}
+              >
+                <ClipboardList size={20} strokeWidth={2} />
+                <span className="flex-1 text-left">Leads</span>
+                <ChevronRight size={16} strokeWidth={2} className="opacity-30" />
+              </button>
+              
+              <button 
+                className="w-full flex items-center gap-3 px-6 py-3.5 bg-transparent border-0 text-gray-700 text-[15px] font-medium cursor-pointer transition-all hover:bg-gray-50"
+                onClick={() => {
+                  navigate('/calendar');
+                  setSidebarOpen(false);
+                }}
+              >
+                <CalendarIcon size={20} strokeWidth={2} />
+                <span className="flex-1 text-left">Calendar</span>
+                <ChevronRight size={16} strokeWidth={2} className="opacity-30" />
+              </button>
+              
+              <button 
+                className="w-full flex items-center gap-3 px-6 py-3.5 bg-transparent border-0 text-gray-700 text-[15px] font-medium cursor-pointer transition-all hover:bg-gray-50"
+                onClick={() => {
+                  navigate('/inspection/select-lead');
+                  setSidebarOpen(false);
+                }}
+              >
+                <FileText size={20} strokeWidth={2} />
+                <span className="flex-1 text-left">Inspections</span>
+                <ChevronRight size={16} strokeWidth={2} className="opacity-30" />
+              </button>
+              
+              <button 
+                className="w-full flex items-center gap-3 px-6 py-3.5 bg-transparent border-0 text-gray-700 text-[15px] font-medium cursor-pointer transition-all hover:bg-gray-50"
+                onClick={() => {
+                  navigate('/reports');
+                  setSidebarOpen(false);
+                }}
+              >
+                <BarChart size={20} strokeWidth={2} />
+                <span className="flex-1 text-left">Reports</span>
+                <ChevronRight size={16} strokeWidth={2} className="opacity-30" />
+              </button>
+              
+              <button 
+                className="w-full flex items-center gap-3 px-6 py-3.5 bg-transparent border-0 text-gray-700 text-[15px] font-medium cursor-pointer transition-all hover:bg-gray-50"
+                onClick={() => {
+                  navigate('/analytics');
+                  setSidebarOpen(false);
+                }}
+              >
+                <TrendingUp size={20} strokeWidth={2} />
+                <span className="flex-1 text-left">Analytics</span>
+                <ChevronRight size={16} strokeWidth={2} className="opacity-30" />
+              </button>
+            </nav>
+            
+            {/* Divider */}
+            <div className="h-px bg-gray-200 my-4"></div>
+            
+            {/* Account Actions */}
+            <div className="pb-6">
+              <button 
+                className="w-full flex items-center gap-3 px-6 py-3.5 bg-transparent border-0 text-gray-700 text-[15px] font-medium cursor-pointer transition-all hover:bg-gray-50"
+                onClick={() => {
+                  navigate('/profile');
+                  setSidebarOpen(false);
+                }}
+              >
+                <User size={20} strokeWidth={2} />
+                <span className="flex-1 text-left">My Profile</span>
+              </button>
+              
+              <button 
+                className="w-full flex items-center gap-3 px-6 py-3.5 bg-transparent border-0 text-gray-700 text-[15px] font-medium cursor-pointer transition-all hover:bg-gray-50"
+                onClick={() => {
+                  navigate('/settings');
+                  setSidebarOpen(false);
+                }}
+              >
+                <SettingsIcon size={20} strokeWidth={2} />
+                <span className="flex-1 text-left">Settings</span>
+              </button>
+              
+              <button 
+                className="w-full flex items-center gap-3 px-6 py-3.5 bg-transparent border-0 text-red-600 text-[15px] font-semibold cursor-pointer transition-all hover:bg-red-50"
+                onClick={() => {
+                  handleLogout();
+                  setSidebarOpen(false);
+                }}
+              >
+                <LogOut size={20} strokeWidth={2} />
+                <span className="flex-1 text-left">Sign Out</span>
+              </button>
+            </div>
+            
+          </div>
+        </>
+      )}
 
       {/* Main Content */}
       <main className="dashboard-main">
