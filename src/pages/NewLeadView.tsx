@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { 
   ArrowLeft, Phone, Mail, MapPin, Calendar, Clock, 
   FileText, AlertTriangle, Sparkles, Globe, CheckCircle,
-  X, User, Home
+  X, User, Home, ChevronRight
 } from 'lucide-react'
 
 const NewLeadView = () => {
@@ -303,29 +303,64 @@ const NewLeadView = () => {
             </div>
           </div>
 
-          {/* Action Card */}
-          <div className="action-card">
-            <div className="action-header">
-              <div className="action-content">
-                <div className="action-icon-large">
-                  <Calendar size={32} strokeWidth={2} />
+          {/* Action Card - Completely Redesigned */}
+          <div className="action-card-redesign">
+            <div className="action-card-inner">
+              {/* Decorative Background Elements */}
+              <div className="action-bg-pattern"></div>
+              <div className="action-gradient-orb"></div>
+              
+              {/* Main Content */}
+              <div className="action-content-redesign">
+                <div className="action-icon-badge">
+                  <div className="icon-pulse"></div>
+                  <Calendar size={28} strokeWidth={2} />
                 </div>
-                <div>
-                  <h3 className="action-title">Next Step</h3>
-                  <p className="action-desc">
-                    Schedule an inspection to assess the mould issue and provide a detailed quote
+                
+                <div className="action-text-content">
+                  <div className="action-label">Ready to proceed</div>
+                  <h3 className="action-title-redesign">Schedule Your Inspection</h3>
+                  <p className="action-description">
+                    Book a convenient time for our expert team to assess the mould issue and provide a comprehensive quote
                   </p>
+                  
+                  <div className="action-features">
+                    <div className="feature-item">
+                      <div className="feature-icon">
+                        <CheckCircle size={18} strokeWidth={2} />
+                      </div>
+                      <span>Professional assessment</span>
+                    </div>
+                    <div className="feature-item">
+                      <div className="feature-icon">
+                        <CheckCircle size={18} strokeWidth={2} />
+                      </div>
+                      <span>Detailed quote provided</span>
+                    </div>
+                    <div className="feature-item">
+                      <div className="feature-icon">
+                        <CheckCircle size={18} strokeWidth={2} />
+                      </div>
+                      <span>Same-day availability</span>
+                    </div>
+                  </div>
                 </div>
               </div>
+              
+              {/* CTA Button */}
+              <button 
+                className="btn-schedule-redesign"
+                onClick={() => setShowScheduleModal(true)}
+              >
+                <span className="btn-schedule-content">
+                  <Calendar size={22} strokeWidth={2.5} />
+                  <span className="btn-schedule-text">Schedule Inspection Now</span>
+                </span>
+                <span className="btn-schedule-arrow">
+                  <ChevronRight size={20} strokeWidth={2.5} />
+                </span>
+              </button>
             </div>
-            
-            <button 
-              className="btn-primary btn-schedule"
-              onClick={() => setShowScheduleModal(true)}
-            >
-              <Calendar size={20} strokeWidth={2} />
-              <span className="btn-label">Schedule Inspection</span>
-            </button>
           </div>
         </div>
       </main>
