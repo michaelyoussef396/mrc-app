@@ -1,3 +1,5 @@
+import logoLoading from '@/assets/logo-loading.png';
+
 interface GlobalLoaderProps {
   loading: boolean;
 }
@@ -29,9 +31,11 @@ const GlobalLoader = ({ loading }: GlobalLoaderProps) => {
         
         {/* Logo */}
         <div className="loader-logo">
-          <div className="logo-circle">
-            <span className="logo-text">MRC</span>
-          </div>
+          <img 
+            src={logoLoading} 
+            alt="MRC Logo" 
+            className="w-32 h-32 object-contain animate-pulse"
+          />
         </div>
         
         {/* Loading Text */}
