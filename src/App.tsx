@@ -28,7 +28,7 @@ import Leads from "./pages/Leads";
 import LeadDetail from "./pages/LeadDetail";
 import Calendar from "./pages/Calendar";
 import InspectionForm from "./pages/InspectionForm";
-import Reports from "./pages/Reports";
+import { ReportsPage } from "./pages/ReportsPage";
 import Analytics from "./pages/Analytics";
 import CustomerBooking from "./pages/CustomerBooking";
 import { BookingFlow } from "./pages/BookingFlow";
@@ -89,7 +89,7 @@ const AppContent = () => {
             <Route path="/inspection" element={<InspectionForm />} />
             <Route path="/inspection/new" element={<InspectionForm />} />
             <Route path="/inspection/:id" element={<InspectionForm />} />
-            <Route path="/reports" element={<Reports />} />
+            <Route path="/reports" element={<ReportsPage />} />
             <Route path="/analytics" element={<Analytics />} />
           </Route>
           
