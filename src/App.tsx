@@ -65,7 +65,6 @@ const AppContent = () => {
           <Route path="/request-inspection/success" element={<InspectionSuccess />} />
           <Route path="/error" element={<ServerError />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
-          <Route path="/403" element={<Unauthorized />} />
           <Route path="/session-expired" element={<SessionExpired />} />
           <Route path="/maintenance" element={<Maintenance />} />
           
