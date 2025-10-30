@@ -79,164 +79,181 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 pb-20">
+    <div className="dashboard-page">
       {/* Subtle Background */}
       <div className="dashboard-background">
         <div className="gradient-orb orb-1"></div>
         <div className="gradient-orb orb-2"></div>
       </div>
 
-      {/* Dashboard Header Section */}
-      <div className="flex justify-between items-center px-6 py-5 mb-6">
-        
-        {/* Left: Logo */}
-        <div>
-          <Logo size="medium" />
-        </div>
-
-        {/* Right: Notifications + Profile + Menu */}
-        <div className="flex items-center gap-3">
+      {/* Top Navigation Bar */}
+      <nav className="sticky top-0 z-50 bg-gradient-to-r from-blue-900 to-blue-800 border-b border-white/10 shadow-md">
+        <div className="max-w-full px-6 py-3 flex justify-between items-center">
           
-          {/* Notifications Button */}
-          <div className="relative">
+          {/* Left Section: Logo + Notifications */}
+          <div className="flex items-center gap-4">
+            <Logo size="small" />
+            
+            {/* Notifications Button */}
+            <div className="relative">
+              <button 
+                className="relative w-11 h-11 rounded-xl bg-white/10 border-0 text-white flex items-center justify-center cursor-pointer transition-all hover:bg-white/20"
+                onClick={() => {
+                  setNotificationsOpen(!notificationsOpen);
+                  setProfileMenuOpen(false);
+                }}
+              >
+                <Bell size={20} strokeWidth={2} />
+                {notificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-5 h-5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center px-1.5 border-2 border-blue-900">
+                    {notificationCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notifications Dropdown */}
+              {notificationsOpen && (
+                <>
+                  {/* Backdrop */}
+                  <div 
+                    className="fixed inset-0 z-40"
+                    onClick={() => setNotificationsOpen(false)}
+                  />
+                  
+                  {/* Dropdown Panel */}
+                  <div className="absolute top-14 left-0 w-80 sm:w-96 max-h-[480px] bg-white rounded-2xl shadow-2xl z-50 overflow-hidden">
+                    {/* Header */}
+                    <div className="px-5 py-4 border-b border-gray-200 flex justify-between items-center">
+                      <h3 className="text-base font-bold text-gray-900">Notifications</h3>
+                      <button className="text-sm text-blue-600 font-semibold hover:text-blue-700">
+                        Mark all read
+                      </button>
+                    </div>
+                    
+                    {/* Notifications List */}
+                    <div className="max-h-96 overflow-y-auto">
+                      {notifications.map((notification) => {
+                        const IconComponent = notification.icon;
+                        return (
+                          <div 
+                            key={notification.id}
+                            className={`flex gap-3 px-5 py-4 border-b border-gray-100 cursor-pointer transition-colors hover:bg-gray-50 ${
+                              notification.unread ? 'bg-blue-50' : ''
+                            }`}
+                          >
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                              notification.type === 'success' ? 'bg-green-100 text-green-600' :
+                              notification.type === 'alert' ? 'bg-red-100 text-red-600' :
+                              'bg-blue-100 text-blue-600'
+                            }`}>
+                              <IconComponent size={20} strokeWidth={2} />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm text-gray-700 leading-relaxed mb-1">
+                                {notification.text}
+                              </p>
+                              <span className="text-xs text-gray-500">{notification.time}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Footer */}
+                    <div className="px-5 py-3 border-t border-gray-200 text-center">
+                      <button className="text-sm text-blue-600 font-semibold hover:text-blue-700">
+                        View all notifications
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Right Section: Profile + Menu */}
+          <div className="flex items-center gap-3">
+            
+            {/* Profile Button */}
+            <div className="relative">
+              <button 
+                className="flex items-center gap-2.5 py-1.5 pr-3 pl-1.5 bg-white/10 border border-white/20 rounded-full cursor-pointer transition-all hover:bg-white/15 text-white"
+                onClick={() => {
+                  setProfileMenuOpen(!profileMenuOpen);
+                  setNotificationsOpen(false);
+                }}
+              >
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-base font-bold text-white">
+                  {user?.email?.charAt(0).toUpperCase() || 'A'}
+                </div>
+                <div className="hidden md:flex flex-col items-start gap-0.5">
+                  <span className="text-sm font-semibold leading-none">
+                    {user?.email?.split('@')[0] || 'admin'}
+                  </span>
+                  <span className="text-xs opacity-80 leading-none">Administrator</span>
+                </div>
+                <ChevronDown size={16} strokeWidth={2} className="opacity-70" />
+              </button>
+
+              {/* Profile Dropdown */}
+              {profileMenuOpen && (
+                <>
+                  {/* Backdrop */}
+                  <div 
+                    className="fixed inset-0 z-40"
+                    onClick={() => setProfileMenuOpen(false)}
+                  />
+                  
+                  {/* Dropdown Menu */}
+                  <div className="absolute top-14 right-0 w-56 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden border border-gray-200">
+                    <div className="py-2">
+                      <button 
+                        className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                        onClick={() => {
+                          navigate('/profile');
+                          setProfileMenuOpen(false);
+                        }}
+                      >
+                        Profile Settings
+                      </button>
+                      <button 
+                        className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                        onClick={() => {
+                          navigate('/settings');
+                          setProfileMenuOpen(false);
+                        }}
+                      >
+                        System Settings
+                      </button>
+                      <div className="my-2 border-t border-gray-200"></div>
+                      <button 
+                        className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 font-semibold transition-colors"
+                        onClick={handleLogout}
+                      >
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Menu Toggle Button */}
             <button 
-              className="relative w-11 h-11 rounded-xl bg-white border border-gray-200 text-gray-700 flex items-center justify-center cursor-pointer transition-all hover:bg-gray-50"
-              onClick={() => {
-                setNotificationsOpen(!notificationsOpen);
-                setProfileMenuOpen(false);
-              }}
+              className="w-11 h-11 rounded-xl bg-white/10 border-0 text-white flex items-center justify-center cursor-pointer transition-all hover:bg-white/20"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
             >
-              <Bell size={20} strokeWidth={2} />
-              {notificationCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center px-1.5">
-                  {notificationCount}
-                </span>
+              {sidebarOpen ? (
+                <X size={24} strokeWidth={2} />
+              ) : (
+                <Menu size={24} strokeWidth={2} />
               )}
             </button>
 
-            {/* Notifications Dropdown */}
-            {notificationsOpen && (
-              <>
-                <div 
-                  className="fixed inset-0 z-40"
-                  onClick={() => setNotificationsOpen(false)}
-                />
-                <div className="absolute top-14 right-0 w-80 sm:w-96 max-h-[480px] bg-white rounded-2xl shadow-2xl z-50 overflow-hidden">
-                  <div className="px-5 py-4 border-b border-gray-200 flex justify-between items-center">
-                    <h3 className="text-base font-bold text-gray-900">Notifications</h3>
-                    <button className="text-sm text-blue-600 font-semibold hover:text-blue-700">
-                      Mark all read
-                    </button>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {notifications.map((notification) => {
-                      const IconComponent = notification.icon;
-                      return (
-                        <div 
-                          key={notification.id}
-                          className={`flex gap-3 px-5 py-4 border-b border-gray-100 cursor-pointer transition-colors hover:bg-gray-50 ${
-                            notification.unread ? 'bg-blue-50' : ''
-                          }`}
-                        >
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                            notification.type === 'success' ? 'bg-green-100 text-green-600' :
-                            notification.type === 'alert' ? 'bg-red-100 text-red-600' :
-                            'bg-blue-100 text-blue-600'
-                          }`}>
-                            <IconComponent size={20} strokeWidth={2} />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm text-gray-700 leading-relaxed mb-1">
-                              {notification.text}
-                            </p>
-                            <span className="text-xs text-gray-500">{notification.time}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="px-5 py-3 border-t border-gray-200 text-center">
-                    <button className="text-sm text-blue-600 font-semibold hover:text-blue-700">
-                      View all notifications
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
           </div>
-          
-          {/* Profile Button */}
-          <div className="relative">
-            <button 
-              className="flex items-center gap-2.5 py-1.5 pr-3 pl-1.5 bg-white border border-gray-200 rounded-full cursor-pointer transition-all hover:bg-gray-50"
-              onClick={() => {
-                setProfileMenuOpen(!profileMenuOpen);
-                setNotificationsOpen(false);
-              }}
-            >
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-base font-bold text-white">
-                {user?.email?.charAt(0).toUpperCase() || 'A'}
-              </div>
-              <span className="hidden md:inline text-sm font-semibold text-gray-900">
-                {user?.email?.split('@')[0] || 'admin'}
-              </span>
-              <ChevronDown size={16} strokeWidth={2} className="text-gray-500" />
-            </button>
 
-            {/* Profile Dropdown */}
-            {profileMenuOpen && (
-              <>
-                <div 
-                  className="fixed inset-0 z-40"
-                  onClick={() => setProfileMenuOpen(false)}
-                />
-                <div className="absolute top-14 right-0 w-56 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden border border-gray-200">
-                  <div className="py-2">
-                    <button 
-                      className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 font-medium transition-colors"
-                      onClick={() => {
-                        navigate('/profile');
-                        setProfileMenuOpen(false);
-                      }}
-                    >
-                      Profile Settings
-                    </button>
-                    <button 
-                      className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 font-medium transition-colors"
-                      onClick={() => {
-                        navigate('/settings');
-                        setProfileMenuOpen(false);
-                      }}
-                    >
-                      System Settings
-                    </button>
-                    <div className="my-2 border-t border-gray-200"></div>
-                    <button 
-                      className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 font-semibold transition-colors"
-                      onClick={handleLogout}
-                    >
-                      Sign Out
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-          
-          {/* Menu Toggle Button */}
-          <button 
-            className="w-11 h-11 rounded-xl bg-white border border-gray-200 text-gray-700 flex items-center justify-center cursor-pointer transition-all hover:bg-gray-50"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            {sidebarOpen ? (
-              <X size={24} strokeWidth={2} />
-            ) : (
-              <Menu size={24} strokeWidth={2} />
-            )}
-          </button>
-          
         </div>
-      </div>
+      </nav>
 
       {/* Main Content */}
       <main className="dashboard-main">
