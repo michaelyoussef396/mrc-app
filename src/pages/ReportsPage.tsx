@@ -4,8 +4,11 @@ import {
   ArrowLeft, Download, Share2, Calendar, TrendingUp, TrendingDown, DollarSign,
   CheckCircle, Users, BarChart2, PieChart, MapPin, Clock, AlertTriangle,
   FileText, Eye, RefreshCw, ChevronRight, Mail, Phone, Home, Search, X,
-  Printer, Activity, Target, Sparkles
+  Printer, Activity, Target, Sparkles, Package, Award, Lightbulb, ArrowUp, ArrowDown, Minus
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import './ReportsPage.css';
 
 export const ReportsPage = () => {
@@ -45,6 +48,47 @@ export const ReportsPage = () => {
     { name: 'Mould Remediation', count: 86, percentage: 31, revenue: 19780, avgDuration: 6.8, color: '#34C759' },
     { name: 'Water Damage', count: 42, percentage: 15, revenue: 6300, avgDuration: 4.2, color: '#FF9500' },
     { name: 'Follow-up Inspection', count: 34, percentage: 9, revenue: 2720, avgDuration: 1.5, color: '#AF52DE' }
+  ];
+
+  const outstandingInvoices = [
+    { invoice: 'INS-2025-038', client: 'Lisa Brown', amount: 3200, days: 45, status: 'overdue' },
+    { invoice: 'INS-2025-041', client: 'Tom Anderson', amount: 2450, days: 32, status: 'overdue' },
+    { invoice: 'INS-2025-043', client: 'Sarah Lee', amount: 2770, days: 28, status: 'due-soon' },
+    { invoice: 'INS-2025-045', client: 'Mike Davis', amount: 3100, days: 15, status: 'recent' },
+  ];
+
+  const monthlyPerformance = [
+    { month: 'Sep', revenue: 95000, jobs: 32 },
+    { month: 'Oct', revenue: 108000, jobs: 35 },
+    { month: 'Nov', revenue: 121000, jobs: 38 },
+    { month: 'Dec', revenue: 135000, jobs: 41 },
+    { month: 'Jan', revenue: 142000, jobs: 43 },
+    { month: 'Feb', revenue: 127000, jobs: 38 },
+    { month: 'Mar', revenue: 156432, jobs: 45 },
+  ];
+
+  const profitAnalysis = {
+    revenue: 156432,
+    costs: {
+      labor: 62573,
+      equipment: 8450,
+      materials: 11520,
+      overhead: 15643,
+      marketing: 4693,
+    },
+    netProfit: 53553,
+    profitMargin: 34,
+  };
+
+  const equipment = [
+    { name: 'Dehumidifiers', units: 4, usage: 87, revenue: 10296, inUse: 2, available: 2 },
+    { name: 'Air Movers', units: 8, usage: 74, revenue: 8096, inUse: 5, available: 3 },
+    { name: 'RCD Boxes', units: 6, usage: 65, revenue: 600, inUse: 4, available: 2 },
+  ];
+
+  const technicians = [
+    { name: 'Sarah Martinez', jobs: 25, revenue: 87450, avg: 3498, rating: 4.9 },
+    { name: 'Michael Chen', jobs: 20, revenue: 68982, avg: 3449, rating: 4.8 },
   ];
 
   const completedJobs = [
@@ -204,109 +248,310 @@ export const ReportsPage = () => {
         </div>
       </div>
 
-      {/* Analytics Grid */}
+      {/* Analytics Tabs */}
       <div className="analytics-section">
-        <div className="analytics-grid">
+        <Tabs defaultValue="overview" className="analytics-tabs">
+          <TabsList className="tabs-list">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="financial">Financial</TabsTrigger>
+            <TabsTrigger value="operations">Operations</TabsTrigger>
+            <TabsTrigger value="team">Team</TabsTrigger>
+          </TabsList>
 
-          <div className="analytics-card full-width">
-            <div className="card-header">
-              <div className="card-title">
-                <BarChart2 size={22} strokeWidth={2} />
-                <span>Revenue Over Time</span>
-              </div>
-              <div className="card-actions">
-                <button className="card-action-btn"><Eye size={16} strokeWidth={2} /></button>
-                <button className="card-action-btn"><Download size={16} strokeWidth={2} /></button>
-              </div>
-            </div>
-            <div className="chart-container">
-              <div className="chart-placeholder">
-                <BarChart2 size={56} strokeWidth={1.5} className="placeholder-icon" />
-                <p className="placeholder-text">Revenue chart visualization</p>
-              </div>
-            </div>
-          </div>
+          <TabsContent value="overview" className="tab-content">
+            <div className="analytics-grid">
 
-          <div className="analytics-card">
-            <div className="card-header">
-              <div className="card-title">
-                <PieChart size={22} strokeWidth={2} />
-                <span>Lead Sources</span>
-              </div>
-            </div>
-            <div className="lead-sources">
-              {leadSources.map((source, idx) => (
-                <div key={idx} className="lead-source-item">
-                  <div className="source-left">
-                    <div className="source-indicator" style={{ backgroundColor: source.color }}></div>
-                    <div className="source-info">
-                      <span className="source-name">{source.name}</span>
-                      <span className="source-count">{source.count} leads</span>
+              <div className="analytics-card full-width">
+                <div className="card-header">
+                  <div className="card-title">
+                    <TrendingUp size={22} strokeWidth={2} />
+                    <span>Monthly Performance</span>
+                  </div>
+                </div>
+                <div className="monthly-chart">
+                  <div className="chart-bars">
+                    {monthlyPerformance.map((month) => (
+                      <div key={month.month} className="chart-bar-col">
+                        <div className="bar-label-top">{month.jobs}</div>
+                        <div 
+                          className="bar-fill" 
+                          style={{ height: `${(month.revenue / Math.max(...monthlyPerformance.map(m => m.revenue))) * 100}%` }}
+                        ></div>
+                        <div className="bar-label">{month.month}</div>
+                        <div className="bar-value">${(month.revenue / 1000).toFixed(0)}k</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="chart-insights">
+                    <div className="insight-item">
+                      <span className="insight-label">Trend</span>
+                      <div className="insight-value positive">
+                        <TrendingUp size={14} strokeWidth={2} />
+                        Growth trajectory positive
+                      </div>
+                    </div>
+                    <div className="insight-item">
+                      <span className="insight-label">Best Month</span>
+                      <span className="insight-value">March 2025 ($156,432)</span>
+                    </div>
+                    <div className="insight-item">
+                      <span className="insight-label">Avg Monthly</span>
+                      <span className="insight-value">$126,285</span>
                     </div>
                   </div>
-                  <div className="source-right">
-                    <span className="source-percentage">{source.percentage}%</span>
-                    <span className="source-revenue">${source.revenue.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="analytics-card">
+                <div className="card-header">
+                  <div className="card-title">
+                    <PieChart size={22} strokeWidth={2} />
+                    <span>Lead Sources</span>
                   </div>
                 </div>
-              ))}
-            </div>
-            <div className="insight-box">
-              <Sparkles size={16} strokeWidth={2} />
-              <span>Google Search generates highest quality leads</span>
-            </div>
-          </div>
-
-          <div className="analytics-card">
-            <div className="card-header">
-              <div className="card-title">
-                <MapPin size={22} strokeWidth={2} />
-                <span>Top Suburbs</span>
-              </div>
-            </div>
-            <div className="suburbs-list">
-              {topSuburbs.map((suburb, idx) => (
-                <div key={idx} className="suburb-item">
-                  <div className="suburb-rank">{suburb.rank === 1 ? '🏆' : suburb.rank === 2 ? '🥈' : suburb.rank === 3 ? '🥉' : suburb.rank}</div>
-                  <div className="suburb-info">
-                    <span className="suburb-name">{suburb.name}</span>
-                    <span className="suburb-jobs">{suburb.jobs} jobs</span>
-                  </div>
-                  <div className="suburb-revenue">${suburb.revenue.toLocaleString()}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="analytics-card">
-            <div className="card-header">
-              <div className="card-title">
-                <Activity size={22} strokeWidth={2} />
-                <span>Service Types</span>
-              </div>
-            </div>
-            <div className="services-list">
-              {serviceTypes.map((service, idx) => (
-                <div key={idx} className="service-item">
-                  <div className="service-header">
-                    <div className="service-info">
-                      <span className="service-name">{service.name}</span>
-                      <span className="service-stats">{service.count} jobs • {service.percentage}%</span>
+                <div className="lead-sources">
+                  {leadSources.map((source, idx) => (
+                    <div key={idx} className="lead-source-item">
+                      <div className="source-left">
+                        <div className="source-indicator" style={{ backgroundColor: source.color }}></div>
+                        <div className="source-info">
+                          <span className="source-name">{source.name}</span>
+                          <span className="source-count">{source.count} leads</span>
+                        </div>
+                      </div>
+                      <div className="source-right">
+                        <span className="source-percentage">{source.percentage}%</span>
+                        <span className="source-revenue">${source.revenue.toLocaleString()}</span>
+                      </div>
                     </div>
-                    <span className="service-revenue">${service.revenue.toLocaleString()}</span>
-                  </div>
-                  <div className="service-bar">
-                    <div className="service-bar-fill" style={{ width: `${service.percentage}%`, backgroundColor: service.color }}></div>
-                  </div>
-                  <div className="service-meta">
-                    <Clock size={12} strokeWidth={2} />
-                    <span>Avg {service.avgDuration} hours</span>
+                  ))}
+                </div>
+                <div className="insight-box">
+                  <Sparkles size={16} strokeWidth={2} />
+                  <span>Google Search generates highest quality leads</span>
+                </div>
+              </div>
+
+              <div className="analytics-card">
+                <div className="card-header">
+                  <div className="card-title">
+                    <MapPin size={22} strokeWidth={2} />
+                    <span>Top Suburbs</span>
                   </div>
                 </div>
-              ))}
+                <div className="suburbs-list">
+                  {topSuburbs.map((suburb, idx) => (
+                    <div key={idx} className="suburb-item">
+                      <div className="suburb-rank">{suburb.rank === 1 ? '🏆' : suburb.rank === 2 ? '🥈' : suburb.rank === 3 ? '🥉' : suburb.rank}</div>
+                      <div className="suburb-info">
+                        <span className="suburb-name">{suburb.name}</span>
+                        <span className="suburb-jobs">{suburb.jobs} jobs</span>
+                      </div>
+                      <div className="suburb-revenue">${suburb.revenue.toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="analytics-card">
+                <div className="card-header">
+                  <div className="card-title">
+                    <Activity size={22} strokeWidth={2} />
+                    <span>Service Types</span>
+                  </div>
+                </div>
+                <div className="services-list">
+                  {serviceTypes.map((service, idx) => (
+                    <div key={idx} className="service-item">
+                      <div className="service-header">
+                        <div className="service-info">
+                          <span className="service-name">{service.name}</span>
+                          <span className="service-stats">{service.count} jobs • {service.percentage}%</span>
+                        </div>
+                        <span className="service-revenue">${service.revenue.toLocaleString()}</span>
+                      </div>
+                      <div className="service-bar">
+                        <div className="service-bar-fill" style={{ width: `${service.percentage}%`, backgroundColor: service.color }}></div>
+                      </div>
+                      <div className="service-meta">
+                        <Clock size={12} strokeWidth={2} />
+                        <span>Avg {service.avgDuration} hours</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </TabsContent>
+
+          <TabsContent value="financial" className="tab-content">
+            <div className="analytics-grid">
+              <div className="analytics-card">
+                <div className="card-header">
+                  <div className="card-title">
+                    <AlertTriangle size={22} strokeWidth={2} />
+                    <span>Outstanding Invoices</span>
+                  </div>
+                </div>
+                <div className="invoices-list">
+                  {outstandingInvoices.map((invoice, idx) => (
+                    <div key={idx} className={`invoice-item ${invoice.status}`}>
+                      <div className="invoice-left">
+                        <div className="invoice-id">{invoice.invoice}</div>
+                        <div className="invoice-client">{invoice.client}</div>
+                      </div>
+                      <div className="invoice-right">
+                        <div className="invoice-amount">${invoice.amount.toLocaleString()}</div>
+                        <div className="invoice-days">{invoice.days} days</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="analytics-card">
+                <div className="card-header">
+                  <div className="card-title">
+                    <DollarSign size={22} strokeWidth={2} />
+                    <span>Profit Analysis</span>
+                  </div>
+                </div>
+                <div className="profit-breakdown">
+                  <div className="profit-row">
+                    <span className="profit-label">Total Revenue</span>
+                    <span className="profit-value">${profitAnalysis.revenue.toLocaleString()}</span>
+                  </div>
+                  <div className="profit-section">
+                    <div className="profit-row sub">
+                      <span className="profit-label">Labor</span>
+                      <span className="profit-value">${profitAnalysis.costs.labor.toLocaleString()}</span>
+                    </div>
+                    <div className="profit-row sub">
+                      <span className="profit-label">Equipment</span>
+                      <span className="profit-value">${profitAnalysis.costs.equipment.toLocaleString()}</span>
+                    </div>
+                    <div className="profit-row sub">
+                      <span className="profit-label">Materials</span>
+                      <span className="profit-value">${profitAnalysis.costs.materials.toLocaleString()}</span>
+                    </div>
+                    <div className="profit-row sub">
+                      <span className="profit-label">Overhead</span>
+                      <span className="profit-value">${profitAnalysis.costs.overhead.toLocaleString()}</span>
+                    </div>
+                    <div className="profit-row sub">
+                      <span className="profit-label">Marketing</span>
+                      <span className="profit-value">${profitAnalysis.costs.marketing.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="profit-row total">
+                    <span className="profit-label">Net Profit</span>
+                    <span className="profit-value">${profitAnalysis.netProfit.toLocaleString()}</span>
+                  </div>
+                  <div className="profit-margin">
+                    <span className="margin-label">Profit Margin</span>
+                    <span className="margin-value">{profitAnalysis.profitMargin}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="operations" className="tab-content">
+            <div className="analytics-grid">
+              <div className="analytics-card">
+                <div className="card-header">
+                  <div className="card-title">
+                    <Package size={22} strokeWidth={2} />
+                    <span>Equipment Utilization</span>
+                  </div>
+                </div>
+                <div className="equipment-list">
+                  {equipment.map((item, idx) => (
+                    <div key={idx} className="equipment-item">
+                      <div className="equipment-header">
+                        <span className="equipment-name">{item.name}</span>
+                        <span className="equipment-units">{item.inUse} / {item.units} in use</span>
+                      </div>
+                      <Progress value={item.usage} className="equipment-progress" />
+                      <div className="equipment-footer">
+                        <span className="equipment-usage">{item.usage}% utilization</span>
+                        <span className="equipment-revenue">${item.revenue.toLocaleString()} revenue</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="analytics-card">
+                <div className="card-header">
+                  <div className="card-title">
+                    <Lightbulb size={22} strokeWidth={2} />
+                    <span>Insights & Recommendations</span>
+                  </div>
+                </div>
+                <div className="insights-section">
+                  <div className="insight-group">
+                    <h4 className="insight-group-title positive">
+                      <CheckCircle size={18} strokeWidth={2} />
+                      Strong Performance
+                    </h4>
+                    <ul className="insight-list">
+                      <li>Revenue up 23% month-over-month</li>
+                      <li>Profit margin improved to 34%</li>
+                      <li>Conversion rate above industry average</li>
+                      <li>High equipment utilization (87%)</li>
+                    </ul>
+                  </div>
+                  <div className="insight-group">
+                    <h4 className="insight-group-title warning">
+                      <AlertTriangle size={18} strokeWidth={2} />
+                      Areas for Attention
+                    </h4>
+                    <ul className="insight-list">
+                      <li>7 invoices overdue (total $8,420)</li>
+                      <li>Equipment demand exceeding supply</li>
+                      <li>Follow-up on outstanding payments</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="team" className="tab-content">
+            <div className="analytics-grid">
+              <div className="analytics-card full-width">
+                <div className="card-header">
+                  <div className="card-title">
+                    <Award size={22} strokeWidth={2} />
+                    <span>Technician Performance</span>
+                  </div>
+                </div>
+                <div className="technicians-list">
+                  {technicians.map((tech, idx) => (
+                    <div key={idx} className="technician-item">
+                      <div className="tech-avatar">{tech.name.split(' ').map(n => n[0]).join('')}</div>
+                      <div className="tech-info">
+                        <div className="tech-name">{tech.name}</div>
+                        <div className="tech-stats">
+                          <span>{tech.jobs} jobs</span>
+                          <span>•</span>
+                          <span>${tech.revenue.toLocaleString()} revenue</span>
+                          <span>•</span>
+                          <span>${tech.avg} avg</span>
+                        </div>
+                      </div>
+                      <div className="tech-rating">
+                        <Award size={16} strokeWidth={2} />
+                        <span>{tech.rating}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Completed Jobs */}
