@@ -1,730 +1,525 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  ArrowLeft,
+  User,
+  Bell,
+  Shield,
+  Globe,
+  Palette,
+  HardDrive,
+  Info,
+  ChevronRight,
+  Moon,
+  Sun,
+  Volume2,
+  Database,
+  Download,
+  Trash2,
+  LogOut,
+  Mail,
+  Key,
+  Eye,
+  HelpCircle,
+  FileText,
+  AlertCircle
+} from 'lucide-react';
+import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
 
-const Settings = () => {
-  const navigate = useNavigate()
+export default function Settings() {
+  const navigate = useNavigate();
   
-  const [activeTab, setActiveTab] = useState('profile')
-  const [saving, setSaving] = useState(false)
-  const [showSuccess, setShowSuccess] = useState(false)
+  const [darkMode, setDarkMode] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [autoSync, setAutoSync] = useState(true);
 
-  // Profile settings
-  const [profile, setProfile] = useState({
-    name: 'John Smith',
-    email: 'john@mouldrestoration.com.au',
-    phone: '0412 345 678',
-    role: 'Technician',
-    avatar: null
-  })
-
-  // Business settings
-  const [business, setBusiness] = useState({
-    companyName: 'Mould & Restoration Co.',
-    abn: '12 345 678 901',
-    address: '123 Business St, Melbourne VIC 3000',
-    phone: '1300 123 456',
-    email: 'info@mouldrestoration.com.au',
-    website: 'www.mouldrestoration.com.au',
-    operatingHours: '7:00 AM - 7:00 PM',
-    serviceArea: 'Melbourne Metro'
-  })
-
-  // Notification settings
-  const [notifications, setNotifications] = useState({
-    emailNewLead: true,
-    emailJobBooked: true,
-    emailJobComplete: false,
-    smsNewLead: true,
-    smsJobBooked: true,
-    smsJobComplete: false,
-    pushNewLead: true,
-    pushJobBooked: true,
-    pushJobComplete: true,
-    pushReminders: true
-  })
-
-  // Team settings
-  const [team, setTeam] = useState([
-    {
-      id: 1,
-      name: 'Tech 1',
-      email: 'tech1@mouldrestoration.com.au',
-      phone: '0400 111 222',
-      role: 'Lead Technician',
-      active: true
-    },
-    {
-      id: 2,
-      name: 'Tech 2',
-      email: 'tech2@mouldrestoration.com.au',
-      phone: '0400 333 444',
-      role: 'Technician',
-      active: true
-    }
-  ])
-
-  // Integration settings
-  const [integrations, setIntegrations] = useState({
-    googleCalendar: false,
-    outlookCalendar: false,
-    xero: false,
-    quickbooks: false,
-    stripe: false
-  })
-
-  const handleSave = async () => {
-    setSaving(true)
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // TODO: Save to Supabase
-    console.log('Saving settings:', { profile, business, notifications, team, integrations })
-    
-    setSaving(false)
-    setShowSuccess(true)
-    setTimeout(() => setShowSuccess(false), 3000)
-  }
-
-  const tabs = [
-    { id: 'profile', label: 'Profile', icon: '👤' },
-    { id: 'business', label: 'Business', icon: '🏢' },
-    { id: 'notifications', label: 'Notifications', icon: '🔔' },
-    { id: 'team', label: 'Team', icon: '👥' },
-    { id: 'integrations', label: 'Integrations', icon: '🔗' },
-    { id: 'account', label: 'Account', icon: '⚙️' }
-  ]
+  const appVersion = "1.0.0";
+  const storageUsed = "45.2 MB";
+  const lastSync = "2 minutes ago";
 
   return (
-    <div className="settings-page">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 pb-24">
       
-      {/* Navigation */}
-      <nav className="settings-nav">
-        <div className="nav-container">
-          <button className="back-btn" onClick={() => navigate('/dashboard')}>
-            <span className="back-arrow">←</span>
-            <span>Dashboard</span>
-          </button>
-          
-          <div className="nav-title">
-            <span className="nav-icon">⚙️</span>
-            <span>Settings</span>
-          </div>
-          
-          <button 
-            className="btn-save"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <>
-                <div className="btn-spinner"></div>
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <span>✓</span>
-                <span>Save</span>
-              </>
-            )}
-          </button>
-        </div>
-      </nav>
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-5 bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <button 
+          className="w-10 h-10 rounded-xl bg-gray-100 border-0 text-gray-700 flex items-center justify-center cursor-pointer transition-all hover:bg-gray-200 hover:text-gray-900"
+          onClick={() => navigate('/dashboard')}
+        >
+          <ArrowLeft size={22} strokeWidth={2} />
+        </button>
+        <h1 className="text-xl font-bold text-gray-900 m-0">Settings</h1>
+        <div className="w-10"></div>
+      </div>
 
-      {/* Success Message */}
-      {showSuccess && (
-        <div className="success-banner">
-          <span className="success-icon">✓</span>
-          <span className="success-text">Settings saved successfully!</span>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <main className="settings-main">
-        <div className="settings-container">
+      {/* Content */}
+      <div className="max-w-3xl mx-auto px-5 py-6">
+        
+        {/* Account Section */}
+        <div className="mb-8">
+          <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3 ml-1">Account</h2>
           
-          {/* Sidebar Tabs */}
-          <div className="settings-sidebar">
-            <div className="sidebar-tabs">
-              {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  className={`sidebar-tab ${activeTab === tab.id ? 'active' : ''}`}
-                  onClick={() => setActiveTab(tab.id)}
-                >
-                  <span className="tab-icon">{tab.icon}</span>
-                  <span className="tab-label">{tab.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Content Area */}
-          <div className="settings-content">
+          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
             
-            {/* PROFILE TAB */}
-            {activeTab === 'profile' && (
-              <div className="settings-section">
-                <div className="section-header">
-                  <h2 className="section-title">Profile Settings</h2>
-                  <p className="section-subtitle">Manage your personal information</p>
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full border-b border-gray-100 bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => navigate('/profile')}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600 flex items-center justify-center flex-shrink-0">
+                  <User size={20} strokeWidth={2} />
                 </div>
-
-                <div className="settings-card">
-                  <div className="avatar-section">
-                    <div className="avatar-preview">
-                      {profile.avatar ? (
-                        <img src={profile.avatar} alt="Profile" />
-                      ) : (
-                        <div className="avatar-placeholder">
-                          {profile.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                    <div className="avatar-actions">
-                      <button className="btn-upload">
-                        <span>📸</span>
-                        <span>Upload Photo</span>
-                      </button>
-                      <button className="btn-remove">Remove</button>
-                    </div>
-                  </div>
-
-                  <div className="form-grid">
-                    <div className="form-group full-width">
-                      <label className="form-label">Full Name *</label>
-                      <input
-                        type="text"
-                        value={profile.name}
-                        onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                        className="form-input"
-                        placeholder="John Smith"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Email Address *</label>
-                      <input
-                        type="email"
-                        value={profile.email}
-                        onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                        className="form-input"
-                        placeholder="john@email.com"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Phone Number *</label>
-                      <input
-                        type="tel"
-                        value={profile.phone}
-                        onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                        className="form-input"
-                        placeholder="04XX XXX XXX"
-                      />
-                    </div>
-
-                    <div className="form-group full-width">
-                      <label className="form-label">Role</label>
-                      <select
-                        value={profile.role}
-                        onChange={(e) => setProfile({ ...profile, role: e.target.value })}
-                        className="form-select"
-                      >
-                        <option value="Owner">Owner</option>
-                        <option value="Lead Technician">Lead Technician</option>
-                        <option value="Technician">Technician</option>
-                        <option value="Admin">Admin</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="settings-card">
-                  <h3 className="card-title">Change Password</h3>
-                  <div className="form-grid">
-                    <div className="form-group full-width">
-                      <label className="form-label">Current Password</label>
-                      <input
-                        type="password"
-                        className="form-input"
-                        placeholder="Enter current password"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">New Password</label>
-                      <input
-                        type="password"
-                        className="form-input"
-                        placeholder="Enter new password"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Confirm New Password</label>
-                      <input
-                        type="password"
-                        className="form-input"
-                        placeholder="Confirm new password"
-                      />
-                    </div>
-                  </div>
-                  <button className="btn-secondary">
-                    Update Password
-                  </button>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">My Profile</h3>
+                  <p className="text-sm text-gray-600 m-0">View and edit your profile information</p>
                 </div>
               </div>
-            )}
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
 
-            {/* BUSINESS TAB */}
-            {activeTab === 'business' && (
-              <div className="settings-section">
-                <div className="section-header">
-                  <h2 className="section-title">Business Information</h2>
-                  <p className="section-subtitle">Manage your company details</p>
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full border-b border-gray-100 bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => navigate('/forgot-password')}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-100 to-green-200 text-green-600 flex items-center justify-center flex-shrink-0">
+                  <Key size={20} strokeWidth={2} />
                 </div>
-
-                <div className="settings-card">
-                  <div className="form-grid">
-                    <div className="form-group full-width">
-                      <label className="form-label">Company Name *</label>
-                      <input
-                        type="text"
-                        value={business.companyName}
-                        onChange={(e) => setBusiness({ ...business, companyName: e.target.value })}
-                        className="form-input"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">ABN *</label>
-                      <input
-                        type="text"
-                        value={business.abn}
-                        onChange={(e) => setBusiness({ ...business, abn: e.target.value })}
-                        className="form-input"
-                        placeholder="12 345 678 901"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Business Phone *</label>
-                      <input
-                        type="tel"
-                        value={business.phone}
-                        onChange={(e) => setBusiness({ ...business, phone: e.target.value })}
-                        className="form-input"
-                        placeholder="1300 XXX XXX"
-                      />
-                    </div>
-
-                    <div className="form-group full-width">
-                      <label className="form-label">Business Address *</label>
-                      <input
-                        type="text"
-                        value={business.address}
-                        onChange={(e) => setBusiness({ ...business, address: e.target.value })}
-                        className="form-input"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Email Address *</label>
-                      <input
-                        type="email"
-                        value={business.email}
-                        onChange={(e) => setBusiness({ ...business, email: e.target.value })}
-                        className="form-input"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Website</label>
-                      <input
-                        type="text"
-                        value={business.website}
-                        onChange={(e) => setBusiness({ ...business, website: e.target.value })}
-                        className="form-input"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Operating Hours</label>
-                      <input
-                        type="text"
-                        value={business.operatingHours}
-                        onChange={(e) => setBusiness({ ...business, operatingHours: e.target.value })}
-                        className="form-input"
-                        placeholder="7:00 AM - 7:00 PM"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Service Area</label>
-                      <input
-                        type="text"
-                        value={business.serviceArea}
-                        onChange={(e) => setBusiness({ ...business, serviceArea: e.target.value })}
-                        className="form-input"
-                        placeholder="Melbourne Metro"
-                      />
-                    </div>
-                  </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Change Password</h3>
+                  <p className="text-sm text-gray-600 m-0">Update your password for security</p>
                 </div>
               </div>
-            )}
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
 
-            {/* NOTIFICATIONS TAB */}
-            {activeTab === 'notifications' && (
-              <div className="settings-section">
-                <div className="section-header">
-                  <h2 className="section-title">Notification Preferences</h2>
-                  <p className="section-subtitle">Choose how you want to be notified</p>
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => alert('Notification preferences coming soon!')}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 text-orange-600 flex items-center justify-center flex-shrink-0">
+                  <Bell size={20} strokeWidth={2} />
                 </div>
-
-                <div className="settings-card">
-                  <h3 className="card-title">Email Notifications</h3>
-                  <div className="toggle-list">
-                    <div className="toggle-item">
-                      <div className="toggle-info">
-                        <h4 className="toggle-title">New Lead</h4>
-                        <p className="toggle-description">Receive email when a new lead is created</p>
-                      </div>
-                      <label className="toggle-switch">
-                        <input
-                          type="checkbox"
-                          checked={notifications.emailNewLead}
-                          onChange={(e) => setNotifications({ ...notifications, emailNewLead: e.target.checked })}
-                        />
-                        <span className="toggle-slider"></span>
-                      </label>
-                    </div>
-
-                    <div className="toggle-item">
-                      <div className="toggle-info">
-                        <h4 className="toggle-title">Job Booked</h4>
-                        <p className="toggle-description">Receive email when a job is booked</p>
-                      </div>
-                      <label className="toggle-switch">
-                        <input
-                          type="checkbox"
-                          checked={notifications.emailJobBooked}
-                          onChange={(e) => setNotifications({ ...notifications, emailJobBooked: e.target.checked })}
-                        />
-                        <span className="toggle-slider"></span>
-                      </label>
-                    </div>
-
-                    <div className="toggle-item">
-                      <div className="toggle-info">
-                        <h4 className="toggle-title">Job Complete</h4>
-                        <p className="toggle-description">Receive email when a job is completed</p>
-                      </div>
-                      <label className="toggle-switch">
-                        <input
-                          type="checkbox"
-                          checked={notifications.emailJobComplete}
-                          onChange={(e) => setNotifications({ ...notifications, emailJobComplete: e.target.checked })}
-                        />
-                        <span className="toggle-slider"></span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="settings-card">
-                  <h3 className="card-title">SMS Notifications</h3>
-                  <div className="toggle-list">
-                    <div className="toggle-item">
-                      <div className="toggle-info">
-                        <h4 className="toggle-title">New Lead</h4>
-                        <p className="toggle-description">Receive SMS for new leads</p>
-                      </div>
-                      <label className="toggle-switch">
-                        <input
-                          type="checkbox"
-                          checked={notifications.smsNewLead}
-                          onChange={(e) => setNotifications({ ...notifications, smsNewLead: e.target.checked })}
-                        />
-                        <span className="toggle-slider"></span>
-                      </label>
-                    </div>
-
-                    <div className="toggle-item">
-                      <div className="toggle-info">
-                        <h4 className="toggle-title">Job Booked</h4>
-                        <p className="toggle-description">Receive SMS when job is booked</p>
-                      </div>
-                      <label className="toggle-switch">
-                        <input
-                          type="checkbox"
-                          checked={notifications.smsJobBooked}
-                          onChange={(e) => setNotifications({ ...notifications, smsJobBooked: e.target.checked })}
-                        />
-                        <span className="toggle-slider"></span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="settings-card">
-                  <h3 className="card-title">Push Notifications</h3>
-                  <div className="toggle-list">
-                    <div className="toggle-item">
-                      <div className="toggle-info">
-                        <h4 className="toggle-title">New Lead</h4>
-                        <p className="toggle-description">In-app notifications for new leads</p>
-                      </div>
-                      <label className="toggle-switch">
-                        <input
-                          type="checkbox"
-                          checked={notifications.pushNewLead}
-                          onChange={(e) => setNotifications({ ...notifications, pushNewLead: e.target.checked })}
-                        />
-                        <span className="toggle-slider"></span>
-                      </label>
-                    </div>
-
-                    <div className="toggle-item">
-                      <div className="toggle-info">
-                        <h4 className="toggle-title">Job Booked</h4>
-                        <p className="toggle-description">In-app notifications for bookings</p>
-                      </div>
-                      <label className="toggle-switch">
-                        <input
-                          type="checkbox"
-                          checked={notifications.pushJobBooked}
-                          onChange={(e) => setNotifications({ ...notifications, pushJobBooked: e.target.checked })}
-                        />
-                        <span className="toggle-slider"></span>
-                      </label>
-                    </div>
-
-                    <div className="toggle-item">
-                      <div className="toggle-info">
-                        <h4 className="toggle-title">Reminders</h4>
-                        <p className="toggle-description">Appointment and task reminders</p>
-                      </div>
-                      <label className="toggle-switch">
-                        <input
-                          type="checkbox"
-                          checked={notifications.pushReminders}
-                          onChange={(e) => setNotifications({ ...notifications, pushReminders: e.target.checked })}
-                        />
-                        <span className="toggle-slider"></span>
-                      </label>
-                    </div>
-                  </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Notifications</h3>
+                  <p className="text-sm text-gray-600 m-0">Manage notification preferences</p>
                 </div>
               </div>
-            )}
-
-            {/* TEAM TAB */}
-            {activeTab === 'team' && (
-              <div className="settings-section">
-                <div className="section-header">
-                  <h2 className="section-title">Team Management</h2>
-                  <p className="section-subtitle">Manage team members and permissions</p>
-                </div>
-
-                <div className="settings-card">
-                  <div className="card-header-actions">
-                    <h3 className="card-title">Team Members</h3>
-                    <button className="btn-primary btn-sm">
-                      <span>+</span>
-                      <span>Add Member</span>
-                    </button>
-                  </div>
-
-                  <div className="team-list">
-                    {team.map(member => (
-                      <div key={member.id} className="team-member-card">
-                        <div className="member-avatar">
-                          {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                        </div>
-                        <div className="member-info">
-                          <h4 className="member-name">{member.name}</h4>
-                          <p className="member-role">{member.role}</p>
-                          <p className="member-contact">
-                            {member.email} • {member.phone}
-                          </p>
-                        </div>
-                        <div className="member-actions">
-                          <span className={`status-badge ${member.active ? 'active' : 'inactive'}`}>
-                            {member.active ? '✓ Active' : '✕ Inactive'}
-                          </span>
-                          <button className="btn-icon" title="Edit">
-                            ✏️
-                          </button>
-                          <button className="btn-icon" title="Remove">
-                            🗑️
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* INTEGRATIONS TAB */}
-            {activeTab === 'integrations' && (
-              <div className="settings-section">
-                <div className="section-header">
-                  <h2 className="section-title">Integrations</h2>
-                  <p className="section-subtitle">Connect with external services</p>
-                </div>
-
-                <div className="integration-grid">
-                  <div className="integration-card">
-                    <div className="integration-icon">📅</div>
-                    <div className="integration-info">
-                      <h3 className="integration-name">Google Calendar</h3>
-                      <p className="integration-description">Sync jobs with Google Calendar</p>
-                    </div>
-                    <label className="toggle-switch">
-                      <input
-                        type="checkbox"
-                        checked={integrations.googleCalendar}
-                        onChange={(e) => setIntegrations({ ...integrations, googleCalendar: e.target.checked })}
-                      />
-                      <span className="toggle-slider"></span>
-                    </label>
-                  </div>
-
-                  <div className="integration-card">
-                    <div className="integration-icon">📆</div>
-                    <div className="integration-info">
-                      <h3 className="integration-name">Outlook Calendar</h3>
-                      <p className="integration-description">Sync with Outlook Calendar</p>
-                    </div>
-                    <label className="toggle-switch">
-                      <input
-                        type="checkbox"
-                        checked={integrations.outlookCalendar}
-                        onChange={(e) => setIntegrations({ ...integrations, outlookCalendar: e.target.checked })}
-                      />
-                      <span className="toggle-slider"></span>
-                    </label>
-                  </div>
-
-                  <div className="integration-card">
-                    <div className="integration-icon">💰</div>
-                    <div className="integration-info">
-                      <h3 className="integration-name">Xero</h3>
-                      <p className="integration-description">Accounting integration</p>
-                    </div>
-                    <label className="toggle-switch">
-                      <input
-                        type="checkbox"
-                        checked={integrations.xero}
-                        onChange={(e) => setIntegrations({ ...integrations, xero: e.target.checked })}
-                      />
-                      <span className="toggle-slider"></span>
-                    </label>
-                  </div>
-
-                  <div className="integration-card">
-                    <div className="integration-icon">📊</div>
-                    <div className="integration-info">
-                      <h3 className="integration-name">QuickBooks</h3>
-                      <p className="integration-description">Accounting and invoicing</p>
-                    </div>
-                    <label className="toggle-switch">
-                      <input
-                        type="checkbox"
-                        checked={integrations.quickbooks}
-                        onChange={(e) => setIntegrations({ ...integrations, quickbooks: e.target.checked })}
-                      />
-                      <span className="toggle-slider"></span>
-                    </label>
-                  </div>
-
-                  <div className="integration-card">
-                    <div className="integration-icon">💳</div>
-                    <div className="integration-info">
-                      <h3 className="integration-name">Stripe</h3>
-                      <p className="integration-description">Payment processing</p>
-                    </div>
-                    <label className="toggle-switch">
-                      <input
-                        type="checkbox"
-                        checked={integrations.stripe}
-                        onChange={(e) => setIntegrations({ ...integrations, stripe: e.target.checked })}
-                      />
-                      <span className="toggle-slider"></span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ACCOUNT TAB */}
-            {activeTab === 'account' && (
-              <div className="settings-section">
-                <div className="section-header">
-                  <h2 className="section-title">Account Settings</h2>
-                  <p className="section-subtitle">Manage your account and data</p>
-                </div>
-
-                <div className="settings-card">
-                  <h3 className="card-title">Plan & Billing</h3>
-                  <div className="plan-info">
-                    <div className="plan-badge">Professional Plan</div>
-                    <p className="plan-price">$99/month</p>
-                    <p className="plan-description">
-                      Unlimited leads, 2 team members, all integrations
-                    </p>
-                    <button className="btn-secondary">Manage Subscription</button>
-                  </div>
-                </div>
-
-                <div className="settings-card">
-                  <h3 className="card-title">Data & Privacy</h3>
-                  <div className="action-list">
-                    <button className="action-item">
-                      <span className="action-icon">📥</span>
-                      <div className="action-info">
-                        <h4 className="action-title">Export Data</h4>
-                        <p className="action-description">Download all your data</p>
-                      </div>
-                      <span className="action-arrow">→</span>
-                    </button>
-
-                    <button className="action-item">
-                      <span className="action-icon">🔒</span>
-                      <div className="action-info">
-                        <h4 className="action-title">Privacy Settings</h4>
-                        <p className="action-description">Manage data privacy</p>
-                      </div>
-                      <span className="action-arrow">→</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="settings-card danger-card">
-                  <h3 className="card-title">Danger Zone</h3>
-                  <div className="action-list">
-                    <button className="action-item danger">
-                      <span className="action-icon">⚠️</span>
-                      <div className="action-info">
-                        <h4 className="action-title">Delete Account</h4>
-                        <p className="action-description">Permanently delete your account and all data</p>
-                      </div>
-                      <span className="action-arrow">→</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
 
           </div>
-
         </div>
-      </main>
-    </div>
-  )
-}
 
-export default Settings
+        {/* Appearance Section */}
+        <div className="mb-8">
+          <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3 ml-1">Appearance</h2>
+          
+          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+            
+            <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-100 to-purple-200 text-purple-600 flex items-center justify-center flex-shrink-0">
+                  {darkMode ? <Moon size={20} strokeWidth={2} /> : <Sun size={20} strokeWidth={2} />}
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Dark Mode</h3>
+                  <p className="text-sm text-gray-600 m-0">Switch between light and dark theme</p>
+                </div>
+              </div>
+              <label className="relative inline-block w-[52px] h-7 flex-shrink-0 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="opacity-0 w-0 h-0"
+                  checked={darkMode}
+                  onChange={() => setDarkMode(!darkMode)}
+                />
+                <span className={`absolute inset-0 rounded-full transition-all ${darkMode ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gray-300'}`}>
+                  <span className={`absolute h-[22px] w-[22px] left-[3px] bottom-[3px] bg-white rounded-full transition-transform shadow-md ${darkMode ? 'transform translate-x-6' : ''}`}></span>
+                </span>
+              </label>
+            </div>
+
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => alert('Theme customization coming soon!')}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-100 to-purple-200 text-purple-600 flex items-center justify-center flex-shrink-0">
+                  <Palette size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Theme Customization</h3>
+                  <p className="text-sm text-gray-600 m-0">Customize colors and appearance</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+          </div>
+        </div>
+
+        {/* System Section */}
+        <div className="mb-8">
+          <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3 ml-1">System</h2>
+          
+          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+            
+            <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-red-100 to-red-200 text-red-600 flex items-center justify-center flex-shrink-0">
+                  <Volume2 size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Sound Effects</h3>
+                  <p className="text-sm text-gray-600 m-0">Enable or disable sound effects</p>
+                </div>
+              </div>
+              <label className="relative inline-block w-[52px] h-7 flex-shrink-0 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="opacity-0 w-0 h-0"
+                  checked={soundEnabled}
+                  onChange={() => setSoundEnabled(!soundEnabled)}
+                />
+                <span className={`absolute inset-0 rounded-full transition-all ${soundEnabled ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gray-300'}`}>
+                  <span className={`absolute h-[22px] w-[22px] left-[3px] bottom-[3px] bg-white rounded-full transition-transform shadow-md ${soundEnabled ? 'transform translate-x-6' : ''}`}></span>
+                </span>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 px-4 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-red-100 to-red-200 text-red-600 flex items-center justify-center flex-shrink-0">
+                  <Database size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Auto-Sync</h3>
+                  <p className="text-sm text-gray-600 m-0">Automatically sync data in background</p>
+                </div>
+              </div>
+              <label className="relative inline-block w-[52px] h-7 flex-shrink-0 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="opacity-0 w-0 h-0"
+                  checked={autoSync}
+                  onChange={() => setAutoSync(!autoSync)}
+                />
+                <span className={`absolute inset-0 rounded-full transition-all ${autoSync ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gray-300'}`}>
+                  <span className={`absolute h-[22px] w-[22px] left-[3px] bottom-[3px] bg-white rounded-full transition-transform shadow-md ${autoSync ? 'transform translate-x-6' : ''}`}></span>
+                </span>
+              </label>
+            </div>
+
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => alert('Language settings coming soon!')}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-red-100 to-red-200 text-red-600 flex items-center justify-center flex-shrink-0">
+                  <Globe size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Language</h3>
+                  <p className="text-sm text-gray-600 m-0">English (Australia)</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+          </div>
+        </div>
+
+        {/* Data & Storage Section */}
+        <div className="mb-8">
+          <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3 ml-1">Data & Storage</h2>
+          
+          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+            
+            <div className="flex flex-col gap-2 px-4 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-pink-100 to-pink-200 text-pink-600 flex items-center justify-center flex-shrink-0">
+                  <HardDrive size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Storage Used</h3>
+                  <p className="text-sm text-gray-600 m-0">{storageUsed} of 100 MB</p>
+                </div>
+              </div>
+              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden ml-14">
+                <div className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all" style={{ width: '45%' }}></div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3.5 px-4 py-4 border-b border-gray-100">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-pink-100 to-pink-200 text-pink-600 flex items-center justify-center flex-shrink-0">
+                <Database size={20} strokeWidth={2} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Last Sync</h3>
+                <p className="text-sm text-gray-600 m-0">{lastSync}</p>
+              </div>
+            </div>
+
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full border-b border-gray-100 bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => {
+                if (confirm('Are you sure you want to download all your data?')) {
+                  alert('Preparing data export...');
+                }
+              }}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-pink-100 to-pink-200 text-pink-600 flex items-center justify-center flex-shrink-0">
+                  <Download size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Download Data</h3>
+                  <p className="text-sm text-gray-600 m-0">Export all your data</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full bg-transparent hover:bg-red-50 transition-colors cursor-pointer text-left"
+              onClick={() => {
+                if (confirm('Are you sure? This will clear all cached data.')) {
+                  alert('Cache cleared successfully!');
+                }
+              }}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-red-100 to-red-200 text-red-600 flex items-center justify-center flex-shrink-0">
+                  <Trash2 size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-red-600 mb-1">Clear Cache</h3>
+                  <p className="text-sm text-gray-600 m-0">Free up storage space</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+          </div>
+        </div>
+
+        {/* Security & Privacy Section */}
+        <div className="mb-8">
+          <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3 ml-1">Security & Privacy</h2>
+          
+          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+            
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full border-b border-gray-100 bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => alert('Two-factor authentication coming soon!')}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-100 to-green-200 text-green-600 flex items-center justify-center flex-shrink-0">
+                  <Shield size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Two-Factor Authentication</h3>
+                  <p className="text-sm text-gray-600 m-0">Add extra security to your account</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => alert('Privacy settings coming soon!')}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-100 to-green-200 text-green-600 flex items-center justify-center flex-shrink-0">
+                  <Eye size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Privacy Settings</h3>
+                  <p className="text-sm text-gray-600 m-0">Control your privacy preferences</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+          </div>
+        </div>
+
+        {/* Help & Support Section */}
+        <div className="mb-8">
+          <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3 ml-1">Help & Support</h2>
+          
+          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+            
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full border-b border-gray-100 bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => alert('Help center coming soon!')}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600 flex items-center justify-center flex-shrink-0">
+                  <HelpCircle size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Help Center</h3>
+                  <p className="text-sm text-gray-600 m-0">Find answers and tutorials</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full border-b border-gray-100 bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => window.location.href = 'mailto:support@mrc.com.au'}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600 flex items-center justify-center flex-shrink-0">
+                  <Mail size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Contact Support</h3>
+                  <p className="text-sm text-gray-600 m-0">Get help from our team</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => alert('Bug report form coming soon!')}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Report a Bug</h3>
+                  <p className="text-sm text-gray-600 m-0">Help us improve the app</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+          </div>
+        </div>
+
+        {/* About Section */}
+        <div className="mb-8">
+          <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3 ml-1">About</h2>
+          
+          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+            
+            <div className="flex items-center gap-3.5 px-4 py-4 border-b border-gray-100">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 text-gray-600 flex items-center justify-center flex-shrink-0">
+                <Info size={20} strokeWidth={2} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Version</h3>
+                <p className="text-sm text-gray-600 m-0">MRC Lead Management v{appVersion}</p>
+              </div>
+            </div>
+
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full border-b border-gray-100 bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => alert('Terms of Service')}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 text-gray-600 flex items-center justify-center flex-shrink-0">
+                  <FileText size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Terms of Service</h3>
+                  <p className="text-sm text-gray-600 m-0">Read our terms and conditions</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => alert('Privacy Policy')}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 text-gray-600 flex items-center justify-center flex-shrink-0">
+                  <Shield size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Privacy Policy</h3>
+                  <p className="text-sm text-gray-600 m-0">How we handle your data</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+          </div>
+        </div>
+
+        {/* Danger Zone */}
+        <div className="mb-8 border-t-2 border-red-100 pt-6">
+          <h2 className="text-sm font-bold text-red-500 uppercase tracking-wider mb-3 ml-1">Danger Zone</h2>
+          
+          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+            
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full border-b border-gray-100 bg-transparent hover:bg-red-50 transition-colors cursor-pointer text-left"
+              onClick={() => {
+                if (confirm('Are you sure you want to sign out?')) {
+                  navigate('/');
+                }
+              }}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-red-100 to-red-200 text-red-600 flex items-center justify-center flex-shrink-0">
+                  <LogOut size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-red-600 mb-1">Sign Out</h3>
+                  <p className="text-sm text-gray-600 m-0">Log out of your account</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+            <button 
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full bg-transparent hover:bg-red-50 transition-colors cursor-pointer text-left"
+              onClick={() => {
+                if (confirm('WARNING: This will permanently delete your account and all data. This cannot be undone!')) {
+                  const confirmation = prompt('Type DELETE to confirm account deletion:');
+                  if (confirmation === 'DELETE') {
+                    alert('Account deletion request submitted.');
+                  }
+                }
+              }}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-red-100 to-red-200 text-red-600 flex items-center justify-center flex-shrink-0">
+                  <Trash2 size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-red-600 mb-1">Delete Account</h3>
+                  <p className="text-sm text-gray-600 m-0">Permanently delete your account</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+          </div>
+        </div>
+
+        {/* Footer Info */}
+        <div className="text-center py-8">
+          <p className="text-sm text-gray-600 mb-2">
+            Made with ❤️ in Melbourne, Australia
+          </p>
+          <p className="text-xs text-gray-500 m-0">
+            © 2025 Mould & Restoration Co. All rights reserved.
+          </p>
+        </div>
+
+      </div>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
+    </div>
+  );
+}
