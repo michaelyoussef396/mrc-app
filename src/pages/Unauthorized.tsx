@@ -5,7 +5,7 @@ const Unauthorized = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-600 to-red-800 flex flex-col p-6">
+    <div className="min-h-screen flex flex-col p-6" style={{ background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)' }}>
       
       {/* Simple Header */}
       <div className="flex items-center gap-3 p-4 bg-white/15 backdrop-blur-md rounded-2xl w-fit mx-auto">

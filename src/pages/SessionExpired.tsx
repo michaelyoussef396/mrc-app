@@ -5,7 +5,7 @@ const SessionExpired = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-500 to-orange-600 flex flex-col p-6">
+    <div className="min-h-screen flex flex-col p-6" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)' }}>
       
       {/* Simple Header */}
       <div className="flex items-center gap-3 p-4 bg-white/15 backdrop-blur-md rounded-2xl w-fit">
