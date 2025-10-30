@@ -180,10 +180,10 @@ export default function Login() {
           <button 
             type="button"
             className="test-account-btn"
-            onClick={() => fillCredentials('clayton@mrc.com.au', 'Password123!')}
+            onClick={() => fillCredentials('michaelyoussef396@gmail.com', 'Admin123!')}
           >
             <Wrench size={16} className="inline mr-2" />
-            Technician (Clayton)
+            Technician (Michael)
           </button>
         </div>
       </div>
