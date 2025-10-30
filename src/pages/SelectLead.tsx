@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft,
@@ -15,7 +15,8 @@ import {
   ChevronRight,
   CheckCircle,
   XCircle,
-  Zap
+  Zap,
+  ChevronDown
 } from 'lucide-react';
 
 export const SelectLead = () => {
@@ -24,6 +25,11 @@ export const SelectLead = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('date');
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  
+  const statusRef = useRef<HTMLDivElement>(null);
+  const sortRef = useRef<HTMLDivElement>(null);
 
   // Mock leads data
   const [leads] = useState([
@@ -126,6 +132,21 @@ export const SelectLead = () => {
     return 0;
   });
 
+  // Click outside handler to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (statusRef.current && !statusRef.current.contains(event.target as Node)) {
+        setStatusOpen(false);
+      }
+      if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
+        setSortOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleSelectLead = (leadId: number) => {
     navigate(`/inspection/${leadId}`);
   };
@@ -200,31 +221,121 @@ export const SelectLead = () => {
           
           {/* Status Filter */}
           <div className="filter-group">
-            <label className="filter-label">Status</label>
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="all">All Leads</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="pending">Pending</option>
-              <option value="urgent">Urgent Only</option>
-            </select>
+            <label className="filter-label">STATUS</label>
+            <div className="custom-dropdown" ref={statusRef}>
+              <button 
+                className="dropdown-trigger"
+                onClick={() => setStatusOpen(!statusOpen)}
+                type="button"
+              >
+                <span>
+                  {filterStatus === 'all' && 'All Leads'}
+                  {filterStatus === 'scheduled' && 'Scheduled'}
+                  {filterStatus === 'pending' && 'Pending'}
+                  {filterStatus === 'urgent' && 'Urgent Only'}
+                </span>
+                <ChevronDown size={16} className={`dropdown-icon ${statusOpen ? 'open' : ''}`} />
+              </button>
+              
+              {statusOpen && (
+                <div className="dropdown-menu">
+                  <button 
+                    className={`dropdown-item ${filterStatus === 'all' ? 'active' : ''}`}
+                    onClick={() => {
+                      setFilterStatus('all');
+                      setStatusOpen(false);
+                    }}
+                    type="button"
+                  >
+                    All Leads
+                  </button>
+                  <button 
+                    className={`dropdown-item ${filterStatus === 'scheduled' ? 'active' : ''}`}
+                    onClick={() => {
+                      setFilterStatus('scheduled');
+                      setStatusOpen(false);
+                    }}
+                    type="button"
+                  >
+                    Scheduled
+                  </button>
+                  <button 
+                    className={`dropdown-item ${filterStatus === 'pending' ? 'active' : ''}`}
+                    onClick={() => {
+                      setFilterStatus('pending');
+                      setStatusOpen(false);
+                    }}
+                    type="button"
+                  >
+                    Pending
+                  </button>
+                  <button 
+                    className={`dropdown-item ${filterStatus === 'urgent' ? 'active' : ''}`}
+                    onClick={() => {
+                      setFilterStatus('urgent');
+                      setStatusOpen(false);
+                    }}
+                    type="button"
+                  >
+                    Urgent Only
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Sort By */}
           <div className="filter-group">
-            <label className="filter-label">Sort By</label>
-            <select
-              className="filter-select"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              <option value="date">Date & Time</option>
-              <option value="urgency">Urgency Level</option>
-              <option value="suburb">Suburb</option>
-            </select>
+            <label className="filter-label">SORT BY</label>
+            <div className="custom-dropdown" ref={sortRef}>
+              <button 
+                className="dropdown-trigger"
+                onClick={() => setSortOpen(!sortOpen)}
+                type="button"
+              >
+                <span>
+                  {sortBy === 'date' && 'Date & Time'}
+                  {sortBy === 'urgency' && 'Urgency Level'}
+                  {sortBy === 'suburb' && 'Suburb'}
+                </span>
+                <ChevronDown size={16} className={`dropdown-icon ${sortOpen ? 'open' : ''}`} />
+              </button>
+              
+              {sortOpen && (
+                <div className="dropdown-menu">
+                  <button 
+                    className={`dropdown-item ${sortBy === 'date' ? 'active' : ''}`}
+                    onClick={() => {
+                      setSortBy('date');
+                      setSortOpen(false);
+                    }}
+                    type="button"
+                  >
+                    Date & Time
+                  </button>
+                  <button 
+                    className={`dropdown-item ${sortBy === 'urgency' ? 'active' : ''}`}
+                    onClick={() => {
+                      setSortBy('urgency');
+                      setSortOpen(false);
+                    }}
+                    type="button"
+                  >
+                    Urgency Level
+                  </button>
+                  <button 
+                    className={`dropdown-item ${sortBy === 'suburb' ? 'active' : ''}`}
+                    onClick={() => {
+                      setSortBy('suburb');
+                      setSortOpen(false);
+                    }}
+                    type="button"
+                  >
+                    Suburb
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
         </div>
