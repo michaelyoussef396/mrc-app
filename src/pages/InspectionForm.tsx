@@ -4,7 +4,23 @@ import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import { calculateDewPoint, generateJobNumber, calculateJobCost, formatCurrency } from '@/lib/inspectionUtils'
 import type { InspectionFormData, InspectionArea, MoistureReading, SubfloorReading, Photo } from '@/types/inspection'
-import { Sparkles } from 'lucide-react'
+import { 
+  Sparkles, 
+  FileText, 
+  Home, 
+  MapPin, 
+  ArrowDown, 
+  Cloud, 
+  Trash2, 
+  Wrench, 
+  ClipboardList, 
+  DollarSign,
+  Save,
+  X,
+  Camera,
+  Thermometer,
+  Droplets
+} from 'lucide-react'
 
 const InspectionForm = () => {
   const navigate = useNavigate()
@@ -98,15 +114,15 @@ const InspectionForm = () => {
   })
 
   const sections = [
-    { id: 0, title: 'Basic Information', icon: '📋' },
-    { id: 1, title: 'Property Details', icon: '🏠' },
-    { id: 2, title: 'Area Inspection', icon: '📍' },
-    { id: 3, title: 'Subfloor', icon: '⬇️' },
-    { id: 4, title: 'Outdoor Info', icon: '🌤️' },
-    { id: 5, title: 'Waste Disposal', icon: '🗑️' },
-    { id: 6, title: 'Work Procedure', icon: '🔧' },
-    { id: 7, title: 'Job Summary', icon: '📝' },
-    { id: 8, title: 'Cost Estimate', icon: '💰' }
+    { id: 0, title: 'Basic Information', icon: <FileText size={40} strokeWidth={2} /> },
+    { id: 1, title: 'Property Details', icon: <Home size={40} strokeWidth={2} /> },
+    { id: 2, title: 'Area Inspection', icon: <MapPin size={40} strokeWidth={2} /> },
+    { id: 3, title: 'Subfloor', icon: <ArrowDown size={40} strokeWidth={2} /> },
+    { id: 4, title: 'Outdoor Info', icon: <Cloud size={40} strokeWidth={2} /> },
+    { id: 5, title: 'Waste Disposal', icon: <Trash2 size={40} strokeWidth={2} /> },
+    { id: 6, title: 'Work Procedure', icon: <Wrench size={40} strokeWidth={2} /> },
+    { id: 7, title: 'Job Summary', icon: <ClipboardList size={40} strokeWidth={2} /> },
+    { id: 8, title: 'Cost Estimate', icon: <DollarSign size={40} strokeWidth={2} /> }
   ]
 
   useEffect(() => {
@@ -567,7 +583,12 @@ const InspectionForm = () => {
           
           <div className="nav-info">
             <span className="nav-title">{formData.jobNumber}</span>
-            {saving && <span className="save-indicator">💾 Saving...</span>}
+            {saving && (
+              <span className="save-indicator">
+                <Save size={16} strokeWidth={2} />
+                Saving...
+              </span>
+            )}
           </div>
         </div>
         
@@ -785,7 +806,8 @@ const InspectionForm = () => {
                           className="btn-remove-area"
                           onClick={() => removeArea(area.id)}
                         >
-                          ✕ Remove Area
+                          <X size={16} strokeWidth={2} />
+                          Remove Area
                         </button>
                       )}
                     </div>
@@ -912,7 +934,7 @@ const InspectionForm = () => {
                                   className="btn-remove"
                                   onClick={() => removeMoistureReading(area.id, reading.id)}
                                 >
-                                  ✕
+                                  <X size={16} strokeWidth={2} />
                                 </button>
                               </div>
 
@@ -951,7 +973,7 @@ const InspectionForm = () => {
                                           className="photo-remove-small"
                                           onClick={() => removePhoto('moistureReading', photo.id, area.id, reading.id)}
                                         >
-                                          ✕
+                                          <X size={14} strokeWidth={2} />
                                         </button>
                                       </div>
                                     ))}
@@ -1010,7 +1032,7 @@ const InspectionForm = () => {
                                 className="photo-remove"
                                 onClick={() => removePhoto('roomView', photo.id, area.id)}
                               >
-                                ✕
+                                <X size={16} strokeWidth={2} />
                               </button>
                             </div>
                           ))}
@@ -1253,7 +1275,7 @@ const InspectionForm = () => {
                                 className="btn-remove"
                                 onClick={() => removeSubfloorReading(reading.id)}
                               >
-                                ✕
+                                <X size={16} strokeWidth={2} />
                               </button>
                             </div>
 
@@ -1308,7 +1330,7 @@ const InspectionForm = () => {
                                   className="photo-remove"
                                   onClick={() => removePhoto('subfloor', photo.id)}
                                 >
-                                  ✕
+                                  <X size={16} strokeWidth={2} />
                                 </button>
                               </div>
                             ))}
@@ -1535,7 +1557,7 @@ const InspectionForm = () => {
                                 className="photo-remove"
                                 onClick={() => removePhoto('direction', photo.id)}
                               >
-                                ✕
+                                <X size={16} strokeWidth={2} />
                               </button>
                             </div>
                           ))}
