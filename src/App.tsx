@@ -30,6 +30,8 @@ import InspectionForm from "./pages/InspectionForm";
 import Reports from "./pages/Reports";
 import Analytics from "./pages/Analytics";
 import ClientBooking from "./pages/ClientBooking";
+import CustomerBooking from "./pages/CustomerBooking";
+import { BookingFlow } from "./pages/BookingFlow";
 import RequestInspection from "./pages/RequestInspection";
 import InspectionSuccess from "./pages/InspectionSuccess";
 import NotFound from "./pages/NotFound";
@@ -55,8 +57,9 @@ const AppContent = () => {
           <Route path="/verify-code" element={<VerifyCode />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/password-changed" element={<PasswordChanged />} />
-          <Route path="/book/:token" element={<ClientBooking />} />
-          <Route path="/book/demo" element={<ClientBooking />} />
+          <Route path="/book/:token" element={<CustomerBooking />} />
+          <Route path="/book/demo" element={<CustomerBooking />} />
+          <Route path="/book/valid" element={<BookingFlow />} />
           <Route path="/booking/:inspectionId/:token" element={<ClientBooking />} />
           <Route path="/request-inspection" element={<RequestInspection />} />
           <Route path="/request-inspection/success" element={<InspectionSuccess />} />
