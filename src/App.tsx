@@ -29,7 +29,6 @@ import Calendar from "./pages/Calendar";
 import InspectionForm from "./pages/InspectionForm";
 import Reports from "./pages/Reports";
 import Analytics from "./pages/Analytics";
-import ClientBooking from "./pages/ClientBooking";
 import CustomerBooking from "./pages/CustomerBooking";
 import { BookingFlow } from "./pages/BookingFlow";
 import { BookingConfirmed } from "./pages/BookingConfirmed";
@@ -62,7 +61,6 @@ const AppContent = () => {
           <Route path="/book/valid" element={<BookingFlow />} />
           <Route path="/booking-confirmed" element={<BookingConfirmed />} />
           <Route path="/booking-expired" element={<BookingLinkExpired />} />
-          <Route path="/booking/:inspectionId/:token" element={<ClientBooking />} />
           <Route path="/request-inspection" element={<RequestInspection />} />
           <Route path="/request-inspection/success" element={<InspectionSuccess />} />
           <Route path="/contact" element={<RequestInspection />} />
