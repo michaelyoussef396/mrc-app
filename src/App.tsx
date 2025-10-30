@@ -63,7 +63,6 @@ const AppContent = () => {
           <Route path="/booking-expired" element={<BookingLinkExpired />} />
           <Route path="/request-inspection" element={<RequestInspection />} />
           <Route path="/request-inspection/success" element={<InspectionSuccess />} />
-          <Route path="/500" element={<ServerError />} />
           <Route path="/error" element={<ServerError />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
           <Route path="/403" element={<Unauthorized />} />
