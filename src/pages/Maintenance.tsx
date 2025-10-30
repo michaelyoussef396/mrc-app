@@ -40,7 +40,7 @@ const Maintenance = () => {
         
         {/* Wrench Icon */}
         <div className="mb-12">
-          <div className="w-32 h-32 sm:w-40 sm:h-40 bg-white/95 rounded-[32px] flex flex-col items-center justify-center shadow-2xl animate-spin-slow">
+          <div className="w-32 h-32 sm:w-40 sm:h-40 bg-white/95 rounded-[32px] flex flex-col items-center justify-center shadow-2xl">
             <Wrench className="w-12 h-12 sm:w-16 sm:h-16 text-sky-500 mb-3" strokeWidth={2.5} />
             <div className="text-xs sm:text-sm font-bold text-sky-500 uppercase tracking-wider bg-sky-50 px-3 py-1 rounded-full">
               Under Maintenance
