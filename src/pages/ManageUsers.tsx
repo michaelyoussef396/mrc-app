@@ -135,32 +135,32 @@ export default function ManageUsers() {
       </div>
 
       <div className="max-w-3xl mx-auto px-5 py-6">
-        <div className="grid grid-cols-3 gap-3 mb-5 bg-white p-5 rounded-2xl shadow-md">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600 flex items-center justify-center">
+        <div className="flex flex-col gap-3 mb-5 bg-white p-4 rounded-2xl shadow-md sm:flex-row sm:p-5">
+          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl flex-1">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600 flex items-center justify-center flex-shrink-0">
               <Users size={20} strokeWidth={2} />
             </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{users.length}</div>
-              <div className="text-xs text-gray-600 font-semibold">Total</div>
+            <div className="flex-1">
+              <div className="text-2xl font-bold text-gray-900 leading-none mb-1">{users.length}</div>
+              <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Total Users</div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-100 to-green-200 text-green-600 flex items-center justify-center">
+          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl flex-1">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-100 to-green-200 text-green-600 flex items-center justify-center flex-shrink-0">
               <Shield size={20} strokeWidth={2} />
             </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{users.filter(u => u.role === 'Administrator').length}</div>
-              <div className="text-xs text-gray-600 font-semibold">Admins</div>
+            <div className="flex-1">
+              <div className="text-2xl font-bold text-gray-900 leading-none mb-1">{users.filter(u => u.role === 'Administrator').length}</div>
+              <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Admins</div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 text-orange-600 flex items-center justify-center">
+          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl flex-1">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 text-orange-600 flex items-center justify-center flex-shrink-0">
               <User size={20} strokeWidth={2} />
             </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{users.filter(u => u.role === 'Technician').length}</div>
-              <div className="text-xs text-gray-600 font-semibold">Techs</div>
+            <div className="flex-1">
+              <div className="text-2xl font-bold text-gray-900 leading-none mb-1">{users.filter(u => u.role === 'Technician').length}</div>
+              <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Technicians</div>
             </div>
           </div>
         </div>
@@ -171,30 +171,62 @@ export default function ManageUsers() {
 
         <div className="flex flex-col gap-3">
           {users.map(user => (
-            <div key={user.id} className="flex items-center gap-4 p-4 bg-white border-2 border-gray-200 rounded-2xl transition-all hover:border-blue-500">
-              <div className="flex items-center gap-3.5 flex-1">
-                <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold text-white ${user.role === 'Administrator' ? 'bg-gradient-to-br from-green-500 to-green-600' : 'bg-gradient-to-br from-blue-500 to-blue-600'}`}>
-                  {user.firstName[0]}{user.lastName[0]}
+            <div key={user.id} className="flex flex-col gap-4 p-4 bg-white border-2 border-gray-200 rounded-2xl hover:border-blue-500 hover:shadow-md transition-all md:flex-row md:items-center md:p-5 md:gap-5">
+              
+              {/* Top Section: Avatar + Info + Role */}
+              <div className="flex items-start gap-3 flex-1 md:items-center">
+                <div className="flex-shrink-0">
+                  <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold text-white ${user.role === 'Administrator' ? 'bg-gradient-to-br from-green-500 to-green-600' : 'bg-gradient-to-br from-blue-500 to-blue-600'}`}>
+                    {user.firstName[0]}{user.lastName[0]}
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-base font-semibold text-gray-900 mb-1.5">{user.firstName} {user.lastName}</h3>
-                  <div className="flex flex-col gap-1">
-                    <span className="flex items-center gap-1.5 text-sm text-gray-600"><Mail size={14} />{user.email}</span>
-                    <span className="flex items-center gap-1.5 text-sm text-gray-600"><Phone size={14} />{user.phone}</span>
+                
+                <div className="flex-1 min-w-0 md:flex md:items-center md:gap-3">
+                  <h3 className="text-base font-semibold text-gray-900 mb-2 break-words md:mb-0">
+                    {user.firstName} {user.lastName}
+                  </h3>
+                  <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${user.role === 'Administrator' ? 'bg-gradient-to-r from-green-100 to-green-200 text-green-700' : 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700'}`}>
+                    {user.role === 'Administrator' ? (
+                      <Shield size={14} strokeWidth={2} />
+                    ) : (
+                      <User size={14} strokeWidth={2} />
+                    )}
+                    {user.role}
                   </div>
                 </div>
               </div>
-              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${user.role === 'Administrator' ? 'bg-gradient-to-br from-green-100 to-green-200 text-green-700' : 'bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700'}`}>
-                {user.role === 'Administrator' ? <Shield size={14} /> : <User size={14} />}{user.role}
+
+              {/* Contact Details */}
+              <div className="flex flex-col gap-2 p-3 bg-gray-50 rounded-xl md:flex-row md:gap-4 md:p-0 md:bg-transparent md:flex-1">
+                <div className="flex items-center gap-2 text-sm text-gray-600 min-w-0">
+                  <Mail size={14} strokeWidth={2} className="flex-shrink-0" />
+                  <span className="break-all">{user.email}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Phone size={14} strokeWidth={2} className="flex-shrink-0" />
+                  <span>{user.phone}</span>
+                </div>
               </div>
+
+              {/* Actions */}
               <div className="flex gap-2">
-                <button className="w-10 h-10 rounded-xl bg-gray-100 text-blue-600 border-0 flex items-center justify-center cursor-pointer transition-all hover:bg-blue-100" onClick={() => alert('Edit user functionality coming soon!')}>
-                  <Edit2 size={18} />
+                <button 
+                  className="flex-1 h-11 rounded-xl bg-gray-100 text-blue-600 flex items-center justify-center gap-2 font-semibold text-sm hover:bg-blue-50 transition-colors md:w-11 md:flex-none"
+                  onClick={() => alert('Edit user functionality coming soon!')}
+                >
+                  <Edit2 size={18} strokeWidth={2} />
+                  <span className="md:hidden">Edit</span>
                 </button>
-                <button className={`w-10 h-10 rounded-xl border-0 flex items-center justify-center ${user.id === 1 ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-red-50 text-red-600 cursor-pointer hover:bg-red-100'}`} onClick={() => user.id !== 1 && handleDeleteUser(user.id)} disabled={user.id === 1}>
-                  <Trash2 size={18} />
+                <button 
+                  className={`flex-1 h-11 rounded-xl flex items-center justify-center gap-2 font-semibold text-sm transition-colors md:w-11 md:flex-none ${user.id === 1 ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
+                  onClick={() => user.id !== 1 && handleDeleteUser(user.id)}
+                  disabled={user.id === 1}
+                >
+                  <Trash2 size={18} strokeWidth={2} />
+                  <span className="md:hidden">Delete</span>
                 </button>
               </div>
+
             </div>
           ))}
         </div>
@@ -203,25 +235,25 @@ export default function ManageUsers() {
       {showAddModal && (
         <>
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[998]" onClick={() => setShowAddModal(false)} />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] max-w-[calc(100vw-32px)] max-h-[calc(100vh-80px)] bg-white rounded-3xl shadow-2xl z-[999] overflow-hidden">
-            <div className="flex justify-between items-center px-6 py-6 border-b border-gray-200 bg-gray-50">
-              <h2 className="text-xl font-bold text-gray-900 m-0">Add New User</h2>
-              <button className="w-9 h-9 rounded-lg bg-transparent border-0 text-gray-600 flex items-center justify-center cursor-pointer hover:bg-gray-200" onClick={() => setShowAddModal(false)}>
-                <X size={24} />
+          <div className="fixed inset-0 bg-white z-[999] overflow-y-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:inset-auto md:w-[600px] md:max-w-[calc(100vw-40px)] md:max-h-[calc(100vh-80px)] md:rounded-3xl md:shadow-2xl">
+            <div className="flex justify-between items-center px-4 py-5 border-b border-gray-200 bg-gray-50 sticky top-0 z-10 md:px-6 md:py-6 md:static">
+              <h2 className="text-lg font-bold text-gray-900 m-0 md:text-xl">Add New User</h2>
+              <button className="w-9 h-9 rounded-lg bg-transparent border-0 text-gray-600 flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => setShowAddModal(false)}>
+                <X size={24} strokeWidth={2} />
               </button>
             </div>
-            <form onSubmit={handleAddUser} className="px-6 py-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+            <form onSubmit={handleAddUser} className="px-4 py-5 md:px-6 md:py-6 md:max-h-[calc(100vh-200px)] md:overflow-y-auto">
               <div className="mb-7">
                 <h3 className="text-[15px] font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200">Personal Information</h3>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
+                <div className="flex flex-col gap-4 mb-4 md:flex-row">
+                  <div className="flex-1">
                     <label className="block text-sm font-semibold text-gray-700 mb-2">First Name *</label>
-                    <input type="text" className={`w-full h-11 px-3.5 bg-gray-50 border-2 rounded-xl ${formErrors.firstName ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} placeholder="John" />
+                    <input type="text" className={`w-full h-12 px-3.5 bg-gray-50 border-2 rounded-xl text-base md:h-11 md:text-[15px] ${formErrors.firstName ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} placeholder="John" />
                     {formErrors.firstName && <span className="block text-xs text-red-500 mt-1">{formErrors.firstName}</span>}
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Last Name *</label>
-                    <input type="text" className={`w-full h-11 px-3.5 bg-gray-50 border-2 rounded-xl ${formErrors.lastName ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} placeholder="Smith" />
+                    <input type="text" className={`w-full h-12 px-3.5 bg-gray-50 border-2 rounded-xl text-base md:h-11 md:text-[15px] ${formErrors.lastName ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} placeholder="Smith" />
                     {formErrors.lastName && <span className="block text-xs text-red-500 mt-1">{formErrors.lastName}</span>}
                   </div>
                 </div>
@@ -229,7 +261,7 @@ export default function ManageUsers() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address *</label>
                   <div className="relative">
                     <Mail size={18} strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input type="email" className={`w-full h-11 pl-11 pr-3.5 bg-gray-50 border-2 rounded-xl ${formErrors.email ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="john.smith@mrc.com.au" />
+                    <input type="email" className={`w-full h-12 pl-11 pr-3.5 bg-gray-50 border-2 rounded-xl text-base md:h-11 md:text-[15px] ${formErrors.email ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="john.smith@mrc.com.au" />
                   </div>
                   {formErrors.email && <span className="block text-xs text-red-500 mt-1">{formErrors.email}</span>}
                 </div>
@@ -237,7 +269,7 @@ export default function ManageUsers() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number *</label>
                   <div className="relative">
                     <Phone size={18} strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input type="tel" className={`w-full h-11 pl-11 pr-3.5 bg-gray-50 border-2 rounded-xl ${formErrors.phone ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="0400 000 000" />
+                    <input type="tel" className={`w-full h-12 pl-11 pr-3.5 bg-gray-50 border-2 rounded-xl text-base md:h-11 md:text-[15px] ${formErrors.phone ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="0400 000 000" />
                   </div>
                   {formErrors.phone && <span className="block text-xs text-red-500 mt-1">{formErrors.phone}</span>}
                 </div>
@@ -303,9 +335,9 @@ export default function ManageUsers() {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-6 border-t border-gray-200">
-                <button type="button" className="flex-1 h-12 bg-gray-100 text-gray-700 border-0 rounded-xl font-semibold cursor-pointer hover:bg-gray-200 transition-all" onClick={() => setShowAddModal(false)}>Cancel</button>
-                <button type="submit" className="flex-1 h-12 bg-gradient-to-r from-green-500 to-green-600 text-white border-0 rounded-xl font-semibold flex items-center justify-center gap-2 cursor-pointer hover:-translate-y-0.5 transition-all shadow-md"><Check size={20} />Add User</button>
+              <div className="flex flex-col gap-2.5 pt-6 border-t border-gray-200 md:flex-row md:gap-3">
+                <button type="button" className="flex-1 h-13 bg-gray-100 text-gray-700 border-0 rounded-xl font-semibold cursor-pointer hover:bg-gray-200 transition-all md:h-12" onClick={() => setShowAddModal(false)}>Cancel</button>
+                <button type="submit" className="flex-1 h-13 bg-gradient-to-r from-green-500 to-green-600 text-white border-0 rounded-xl font-semibold flex items-center justify-center gap-2 cursor-pointer hover:-translate-y-0.5 transition-all shadow-md md:h-12"><Check size={20} strokeWidth={2} />Add User</button>
               </div>
             </form>
           </div>
