@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { Plus } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -95,9 +96,12 @@ export default function Dashboard() {
               <p className="page-subtitle">Here's what's happening with your leads today</p>
             </div>
             
-            <button className="btn-primary btn-new-lead" onClick={() => navigate('/lead/new')}>
-              <span>➕</span>
-              <span>New Inspection/Lead</span>
+            <button 
+              className="flex items-center gap-2 w-12 h-12 sm:w-auto sm:h-12 p-0 sm:px-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-[15px] font-semibold rounded-full sm:rounded-xl border-0 cursor-pointer transition-all duration-300 shadow-md hover:-translate-y-0.5 hover:shadow-lg justify-center sm:justify-start"
+              onClick={() => navigate('/lead/new')}
+            >
+              <Plus size={20} strokeWidth={2.5} />
+              <span className="hidden sm:inline">New Inspection/Lead</span>
             </button>
           </div>
 
