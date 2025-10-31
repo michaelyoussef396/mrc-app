@@ -4,6 +4,7 @@ export type LeadStatus =
   | "contacted"
   | "inspection_waiting"
   | "inspection_completed"
+  | "approve_report_pdf"
   | "inspection_report_pdf_completed"
   | "job_waiting"
   | "job_completed"
@@ -56,7 +57,7 @@ export const STATUS_FLOW: Record<LeadStatus, StatusFlowConfig> = {
     borderColor: 'hsl(38 92% 50%)',
   },
   'inspection_completed': {
-    next: 'inspection_report_pdf_completed',
+    next: 'approve_report_pdf',
     title: 'Inspection Completed',
     shortTitle: 'INSP DONE',
     nextAction: 'Review and approve inspection data',
@@ -65,12 +66,22 @@ export const STATUS_FLOW: Record<LeadStatus, StatusFlowConfig> = {
     bgColor: 'hsl(239 84% 97%)',
     borderColor: 'hsl(239 84% 67%)',
   },
+  'approve_report_pdf': {
+    next: 'inspection_report_pdf_completed',
+    title: 'Approve Report PDF',
+    shortTitle: 'APPROVE PDF',
+    nextAction: 'Review and approve PDF report for sending',
+    iconName: 'FileCheck2',
+    color: 'hsl(280 70% 60%)',
+    bgColor: 'hsl(280 70% 97%)',
+    borderColor: 'hsl(280 70% 60%)',
+  },
   'inspection_report_pdf_completed': {
     next: 'job_waiting',
-    title: 'Report PDF Ready',
-    shortTitle: 'REPORT PDF',
-    nextAction: 'Generate and send PDF report',
-    iconName: 'FileCheck',
+    title: 'Report PDF Sent',
+    shortTitle: 'PDF SENT',
+    nextAction: 'PDF report approved and sent to client',
+    iconName: 'Send',
     color: 'hsl(271 81% 56%)',
     bgColor: 'hsl(271 81% 97%)',
     borderColor: 'hsl(271 81% 56%)',
@@ -152,6 +163,7 @@ export const ALL_STATUSES: LeadStatus[] = [
   'contacted',
   'inspection_waiting',
   'inspection_completed',
+  'approve_report_pdf',
   'inspection_report_pdf_completed',
   'job_waiting',
   'job_completed',
