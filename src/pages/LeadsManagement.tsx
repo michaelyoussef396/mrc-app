@@ -38,7 +38,7 @@ const LeadsManagement = () => {
   const [removeReason, setRemoveReason] = useState('');
   const [selectedLeadForRemoval, setSelectedLeadForRemoval] = useState<any>(null);
 
-  // UPDATED 10-STAGE PIPELINE
+  // UPDATED 11-STAGE PIPELINE
   const statusOptions: StatusOption[] = [
     { 
       value: 'all', 
@@ -64,6 +64,15 @@ const LeadsManagement = () => {
       description: 'Inspection scheduled, waiting for appointment',
       nextActions: ['Start inspection or remove lead'],
       availableButtons: ['call', 'email', 'startInspection', 'removeLead', 'viewDetails']
+    },
+    { 
+      value: 'approve_report_pdf', 
+      label: 'Report PDF Approval', 
+      icon: '📄', 
+      color: '#a855f7',
+      description: 'Inspection report PDF ready for review and approval',
+      nextActions: ['Review PDF and approve for client delivery'],
+      availableButtons: ['viewPDF', 'approvePDF', 'viewDetails']
     },
     { 
       value: 'job_waiting', 
@@ -498,6 +507,26 @@ const LeadsManagement = () => {
         label: 'Reactivate',
         onClick: () => stageActions.reactivate(lead.id),
         style: 'success'
+      },
+      viewPDF: {
+        icon: '👁️',
+        label: 'View PDF',
+        onClick: () => {
+          // TODO: Open PDF viewer
+          console.log('View PDF for lead:', lead.id);
+          // navigate(`/report/pdf/${lead.id}`);
+        },
+        style: 'secondary'
+      },
+      approvePDF: {
+        icon: '✓',
+        label: 'Approve & Send',
+        onClick: () => {
+          // TODO: Implement approval logic
+          console.log('Approve PDF for lead:', lead.id);
+          navigate(`/report/approved/${lead.id}`);
+        },
+        style: 'success'
       }
     };
 
@@ -603,6 +632,24 @@ const LeadsManagement = () => {
         scheduledDate: '2025-01-31T10:00:00',
         estimatedValue: null,
         issueDescription: 'Black mould in bathroom after recent flooding'
+      },
+      // NEW: APPROVE_REPORT_PDF - Report ready for review
+      {
+        id: 16,
+        name: 'Lisa Anderson',
+        email: 'lisa@email.com',
+        phone: '0412 678 901',
+        property: '92 Park Avenue',
+        suburb: 'Hawthorn',
+        state: 'VIC',
+        postcode: '3122',
+        status: 'approve_report_pdf',
+        urgency: 'medium',
+        source: 'Website Form',
+        dateCreated: '2025-01-26T11:30:00',
+        lastContact: '2025-01-29T10:00:00',
+        estimatedValue: 3200,
+        issueDescription: 'Inspection complete - PDF report ready for approval'
       },
       // 3. JOB_WAITING - Awaiting Approval
       {
