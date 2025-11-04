@@ -531,16 +531,54 @@ const InspectionForm = () => {
       return
     }
 
+    if (!formData.areas.length) {
+      toast({ title: 'Validation error', description: 'At least one area is required', variant: 'destructive' })
+      return
+    }
+
+    if (!formData.outdoorTemperature || !formData.outdoorHumidity) {
+      toast({ title: 'Validation error', description: 'Outdoor environment data is required', variant: 'destructive' })
+      return
+    }
+
     setSaving(true)
     
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    toast({
-      title: 'Inspection completed!',
-      description: 'Report is being generated...'
-    })
-    
-    navigate('/dashboard')
+    try {
+      // Call edge function to generate PDF
+      const { data, error } = await supabase.functions.invoke('generate-inspection-pdf', {
+        body: {
+          inspectionData: formData,
+          leadId: leadId || lead?.id
+        }
+      })
+
+      if (error) throw error
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to generate PDF')
+      }
+
+      toast({ 
+        title: 'Inspection Complete!', 
+        description: 'Report PDF generated successfully',
+        duration: 3000
+      })
+      
+      // Navigate to the PDF viewer page
+      setTimeout(() => {
+        navigate(`/report/view/${leadId || lead?.id}`)
+      }, 1500)
+
+    } catch (error: any) {
+      console.error('Error completing inspection:', error)
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'Failed to complete inspection',
+        variant: 'destructive'
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const calculateProgress = () => {

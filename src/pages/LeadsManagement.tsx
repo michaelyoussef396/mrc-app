@@ -512,9 +512,7 @@ const LeadsManagement = () => {
         icon: '👁️',
         label: 'View PDF',
         onClick: () => {
-          // TODO: Open PDF viewer
-          console.log('View PDF for lead:', lead.id);
-          // navigate(`/report/pdf/${lead.id}`);
+          navigate(`/report/view/${lead.id}`);
         },
         style: 'secondary'
       },
@@ -522,9 +520,7 @@ const LeadsManagement = () => {
         icon: '✓',
         label: 'Approve & Send',
         onClick: () => {
-          // TODO: Implement approval logic
-          console.log('Approve PDF for lead:', lead.id);
-          navigate(`/report/approved/${lead.id}`);
+          navigate(`/report/view/${lead.id}`);
         },
         style: 'success'
       }

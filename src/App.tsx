@@ -37,6 +37,7 @@ import RequestInspection from "./pages/RequestInspection";
 import InspectionSuccess from "./pages/InspectionSuccess";
 import ReportApproved from "./pages/ReportApproved";
 import ReportApprovalFailed from "./pages/ReportApprovalFailed";
+import ViewReportPDF from "./pages/ViewReportPDF";
 import AllNotifications from "./pages/AllNotifications";
 import NotFound from "./pages/NotFound";
 import ServerError from "./pages/ServerError";
@@ -67,6 +68,7 @@ const AppContent = () => {
           <Route path="/booking-expired" element={<BookingLinkExpired />} />
           <Route path="/request-inspection" element={<RequestInspection />} />
           <Route path="/request-inspection/success" element={<InspectionSuccess />} />
+          <Route path="/report/view/:id" element={<ViewReportPDF />} />
           <Route path="/report/approved/:id?" element={<ReportApproved />} />
           <Route path="/report/approval-failed/:id?" element={<ReportApprovalFailed />} />
           <Route path="/error" element={<ServerError />} />
