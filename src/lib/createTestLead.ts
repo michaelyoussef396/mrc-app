@@ -21,9 +21,10 @@ export async function createCompleteTestLead() {
         urgency: 'high',
         issue_description: 'Visible mould growth in bathroom and bedroom. Water damage from recent leak.',
         lead_source: 'Website Form',
-        status: 'inspection_booked' as any,
+        status: 'inspection_completed',
         assigned_to: user.id,
-        notes: 'Test lead for PDF generation - complete inspection data included'
+        inspection_completed_date: new Date().toISOString().split('T')[0],
+        notes: 'TEST LEAD - Complete inspection data ready for PDF generation'
       } as any)
       .select()
       .single()

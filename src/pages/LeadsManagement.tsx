@@ -69,6 +69,15 @@ const LeadsManagement = () => {
       availableButtons: ['call', 'email', 'startInspection', 'removeLead', 'viewDetails']
     },
     { 
+      value: 'inspection_completed', 
+      label: 'Inspection Complete', 
+      icon: '✅', 
+      color: '#10b981',
+      description: 'Inspection finished, ready to generate PDF report',
+      nextActions: ['Generate PDF report'],
+      availableButtons: ['generatePDF', 'viewDetails']
+    },
+    { 
       value: 'approve_report_pdf', 
       label: 'Report PDF Approval', 
       icon: '📄', 
@@ -546,6 +555,81 @@ const LeadsManagement = () => {
           navigate(`/report/view/${lead.id}`);
         },
         style: 'secondary'
+      },
+      generatePDF: {
+        icon: '📄',
+        label: 'Generate PDF',
+        onClick: async () => {
+          const loadingToast = toast.loading('Generating PDF report...');
+          
+          try {
+            // Fetch inspection data
+            const { data: inspection, error } = await supabase
+              .from('inspections')
+              .select(`
+                *,
+                inspection_areas (
+                  *,
+                  moisture_readings (*)
+                ),
+                equipment_bookings (
+                  *,
+                  equipment (*)
+                )
+              `)
+              .eq('lead_id', lead.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+
+            if (error) throw error;
+            if (!inspection) throw new Error('No inspection found for this lead');
+
+            // Prepare data for PDF generation
+            const inspectionData = {
+              jobNumber: inspection.job_number,
+              inspector: inspection.inspector_id,
+              requestedBy: inspection.requested_by || lead.name,
+              attentionTo: inspection.attention_to || lead.name,
+              inspectionDate: inspection.inspection_date,
+              address: `${lead.property}, ${lead.suburb} VIC ${lead.postcode}`,
+              dwellingType: inspection.dwelling_type,
+              outdoorTemperature: inspection.outdoor_temperature,
+              outdoorHumidity: inspection.outdoor_humidity,
+              outdoorDewPoint: inspection.outdoor_dew_point,
+              totalCost: inspection.estimated_cost_inc_gst,
+              areas: inspection.inspection_areas || []
+            };
+
+            // Call edge function
+            const { data: pdfData, error: pdfError } = await supabase.functions.invoke('generate-inspection-pdf', {
+              body: {
+                inspectionData,
+                leadId: lead.id
+              }
+            });
+
+            if (pdfError) throw pdfError;
+            if (!pdfData.success) throw new Error(pdfData.error || 'Failed to generate PDF');
+
+            toast.dismiss(loadingToast);
+            toast.success('PDF Generated!', {
+              description: 'Redirecting to PDF viewer...'
+            });
+
+            setTimeout(() => {
+              navigate(`/report/view/${lead.id}`);
+            }, 1000);
+
+          } catch (error: any) {
+            toast.dismiss(loadingToast);
+            toast.error('Failed to generate PDF', {
+              description: error.message
+            });
+            console.error('PDF generation error:', error);
+          }
+        },
+        style: 'primary'
       },
       approvePDF: {
         icon: '✓',
