@@ -697,7 +697,6 @@ export type Database = {
           property_type: string | null
           property_zone: number | null
           quoted_amount: number | null
-          report_pdf_url: string | null
           scheduled_dates: string[] | null
           scheduled_time: string | null
           special_requests: string | null
@@ -732,7 +731,6 @@ export type Database = {
           property_type?: string | null
           property_zone?: number | null
           quoted_amount?: number | null
-          report_pdf_url?: string | null
           scheduled_dates?: string[] | null
           scheduled_time?: string | null
           special_requests?: string | null
@@ -767,7 +765,6 @@ export type Database = {
           property_type?: string | null
           property_zone?: number | null
           quoted_amount?: number | null
-          report_pdf_url?: string | null
           scheduled_dates?: string[] | null
           scheduled_time?: string | null
           special_requests?: string | null
