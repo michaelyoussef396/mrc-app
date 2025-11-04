@@ -35,7 +35,7 @@ export default function ViewReportPDF() {
       if (error) throw error
 
       setLead(data)
-      setPdfUrl(data.report_pdf_url || '')
+      setPdfUrl((data as any).report_pdf_url || '')
     } catch (error: any) {
       console.error('Error loading lead:', error)
       toast({

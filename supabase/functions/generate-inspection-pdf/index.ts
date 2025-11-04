@@ -61,10 +61,10 @@ serve(async (req) => {
     const { error: updateError } = await supabase
       .from('leads')
       .update({ 
-        status: 'approve_report_pdf',
-        report_pdf_url: publicUrl,
+        status: 'approve_report_pdf' as any,
+        report_pdf_url: publicUrl as any,
         updated_at: new Date().toISOString()
-      })
+      } as any)
       .eq('id', leadId)
 
     if (updateError) {
@@ -85,10 +85,11 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error generating PDF:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: errorMessage 
       }),
       { 
         status: 500,
