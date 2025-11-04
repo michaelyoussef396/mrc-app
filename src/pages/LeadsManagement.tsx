@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { createCompleteTestLead } from '@/lib/createTestLead';
+import { toast } from 'sonner';
 import { 
   Circle, 
   AlertTriangle, 
@@ -11,7 +13,8 @@ import {
   MapPin,
   Phone,
   Mail,
-  MessageSquare
+  MessageSquare,
+  FlaskConical
 } from 'lucide-react';
 
 interface StatusOption {
@@ -156,6 +159,34 @@ const LeadsManagement = () => {
       availableButtons: ['viewHistory', 'addNotes', 'reactivate']
     }
   ];
+
+  // Handle creating test lead with complete data
+  const handleCreateTestLead = async () => {
+    const loadingToast = toast.loading('Creating test lead with inspection data...');
+    
+    const result = await createCompleteTestLead();
+    
+    toast.dismiss(loadingToast);
+    
+    if (result.success) {
+      toast.success('Test lead created! Ready to generate PDF.', {
+        description: `Lead: ${result.lead.full_name} - ${result.lead.property_address_street}`,
+        duration: 5000
+      });
+      
+      // Refresh leads list
+      loadLeads();
+      
+      // Navigate to the lead detail page
+      setTimeout(() => {
+        navigate(`/lead/new/${result.lead.id}`);
+      }, 1500);
+    } else {
+      toast.error('Failed to create test lead', {
+        description: result.error
+      });
+    }
+  };
 
   // STAGE-SPECIFIC ACTION FUNCTIONS
   const stageActions = {
@@ -972,6 +1003,31 @@ const LeadsManagement = () => {
           <button className="btn-primary btn-new-lead" onClick={() => navigate('/lead/new')}>
             <span>+</span>
             <span>New Lead</span>
+          </button>
+          
+          <button 
+            className="btn-secondary" 
+            onClick={handleCreateTestLead}
+            style={{ 
+              marginLeft: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '12px 20px',
+              background: '#8b5cf6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              fontSize: '15px',
+              fontWeight: '600',
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = '#7c3aed'}
+            onMouseOut={(e) => e.currentTarget.style.background = '#8b5cf6'}
+          >
+            <FlaskConical size={18} />
+            <span>Create Test Lead</span>
           </button>
         </div>
       </nav>
