@@ -30,18 +30,10 @@ import Calendar from "./pages/Calendar";
 import InspectionForm from "./pages/InspectionForm";
 import { ReportsPage } from "./pages/ReportsPage";
 import CustomerBooking from "./pages/CustomerBooking";
-import { BookingFlow } from "./pages/BookingFlow";
-import { BookingConfirmed } from "./pages/BookingConfirmed";
-import { BookingLinkExpired } from "./pages/BookingLinkExpired";
 import RequestInspection from "./pages/RequestInspection";
 import InspectionSuccess from "./pages/InspectionSuccess";
-import ReportApproved from "./pages/ReportApproved";
-import ReportApprovalFailed from "./pages/ReportApprovalFailed";
 import AllNotifications from "./pages/AllNotifications";
 import NotFound from "./pages/NotFound";
-import ServerError from "./pages/ServerError";
-import Unauthorized from "./pages/Unauthorized";
-import SessionExpired from "./pages/SessionExpired";
 import Maintenance from "./pages/Maintenance";
 
 const queryClient = new QueryClient();
@@ -62,16 +54,8 @@ const AppContent = () => {
           <Route path="/verify-code" element={<VerifyCode />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/password-changed" element={<PasswordChanged />} />
-          <Route path="/book/valid" element={<BookingFlow />} />
-          <Route path="/booking-confirmed" element={<BookingConfirmed />} />
-          <Route path="/booking-expired" element={<BookingLinkExpired />} />
           <Route path="/request-inspection" element={<RequestInspection />} />
           <Route path="/request-inspection/success" element={<InspectionSuccess />} />
-          <Route path="/report/approved/:id?" element={<ReportApproved />} />
-          <Route path="/report/approval-failed/:id?" element={<ReportApprovalFailed />} />
-          <Route path="/error" element={<ServerError />} />
-          <Route path="/unauthorized" element={<Unauthorized />} />
-          <Route path="/session-expired" element={<SessionExpired />} />
           <Route path="/maintenance" element={<Maintenance />} />
           
           {/* Protected routes (with AppLayout) */}

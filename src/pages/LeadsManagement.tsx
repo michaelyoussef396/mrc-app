@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Circle, 
   AlertTriangle, 
@@ -26,6 +27,7 @@ interface StatusOption {
 
 const LeadsManagement = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -524,7 +526,10 @@ const LeadsManagement = () => {
         onClick: () => {
           // TODO: Implement approval logic
           console.log('Approve PDF for lead:', lead.id);
-          navigate(`/report/approved/${lead.id}`);
+          toast({
+            title: "Report approved",
+            description: "The report has been sent to the client",
+          });
         },
         style: 'success'
       }
