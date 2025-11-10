@@ -34,7 +34,6 @@ import RequestInspection from "./pages/RequestInspection";
 import InspectionSuccess from "./pages/InspectionSuccess";
 import AllNotifications from "./pages/AllNotifications";
 import NotFound from "./pages/NotFound";
-import Maintenance from "./pages/Maintenance";
 
 const queryClient = new QueryClient();
 
@@ -56,7 +55,6 @@ const AppContent = () => {
           <Route path="/password-changed" element={<PasswordChanged />} />
           <Route path="/request-inspection" element={<RequestInspection />} />
           <Route path="/request-inspection/success" element={<InspectionSuccess />} />
-          <Route path="/maintenance" element={<Maintenance />} />
           
           {/* Protected routes (with AppLayout) */}
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
