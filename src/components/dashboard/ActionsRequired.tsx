@@ -36,7 +36,7 @@ export function ActionsRequired() {
         .from("leads")
         .select(`
           *,
-          calendar_events(start_datetime, end_datetime)
+          calendar_bookings(start_datetime, end_datetime)
         `)
         .neq("status", "finished")
         .order("created_at", { ascending: true });
@@ -62,8 +62,8 @@ export function ActionsRequired() {
             break;
 
           case "contacted":
-            if (lead.calendar_events?.[0]?.start_datetime) {
-              const inspectionDate = new Date(lead.calendar_events[0].start_datetime);
+            if (lead.calendar_bookings?.[0]?.start_datetime) {
+              const inspectionDate = new Date(lead.calendar_bookings[0].start_datetime);
               if (inspectionDate >= startOfToday && inspectionDate < endOfToday) {
                 action = {
                   type: "inspection_today",
@@ -122,8 +122,8 @@ export function ActionsRequired() {
             break;
 
           case "job_completed":
-            if (lead.calendar_events?.[0]?.start_datetime) {
-              const jobDate = new Date(lead.calendar_events[0].start_datetime);
+            if (lead.calendar_bookings?.[0]?.start_datetime) {
+              const jobDate = new Date(lead.calendar_bookings[0].start_datetime);
               if (jobDate >= startOfToday && jobDate < endOfToday) {
                 action = {
                   type: "job_today",

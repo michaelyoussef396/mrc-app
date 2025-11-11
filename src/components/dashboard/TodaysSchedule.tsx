@@ -17,7 +17,7 @@ export function TodaysSchedule() {
       tomorrow.setDate(tomorrow.getDate() + 1);
 
       const { data, error } = await supabase
-        .from("calendar_events")
+        .from("calendar_bookings")
         .select(`
           *,
           lead:leads(lead_number, full_name, property_address_street, property_address_suburb)

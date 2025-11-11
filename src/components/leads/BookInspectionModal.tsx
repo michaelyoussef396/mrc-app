@@ -49,7 +49,7 @@ export function BookInspectionModal({
 
       // Create calendar event
       const { error: calendarError } = await supabase
-        .from("calendar_events")
+        .from("calendar_bookings")
         .insert({
           lead_id: leadId,
           event_type: "inspection",
