@@ -1,3 +1,38 @@
+/**
+ * VerifyCode Component - Alternative OTP-Based Password Reset Flow
+ *
+ * ⚠️ STATUS: UI COMPLETE, BACKEND NOT IMPLEMENTED
+ *
+ * This component provides a 6-digit OTP code verification interface as an
+ * alternative to the standard Supabase magic link flow.
+ *
+ * CURRENT STATE:
+ * - ✅ UI: Complete with auto-advancing inputs, paste support, animations
+ * - ❌ Backend: OTP generation, storage, and validation NOT implemented
+ * - ⚠️ Currently simulates verification with setTimeout (line 90)
+ *
+ * IMPLEMENTATION REQUIRED:
+ * 1. Database: Create 'password_reset_codes' table
+ *    - Columns: code (6-digit), email, created_at, expires_at, used_at
+ * 2. Email Service: Send OTP codes via custom email template
+ * 3. API Endpoint: Validate OTP code before allowing password reset
+ * 4. Security: Rate limiting, code expiry (10 min), single-use enforcement
+ *
+ * DEFAULT FLOW (Currently Active):
+ * - Uses Supabase's built-in token-based password reset (magic link)
+ * - User gets email with link → clicks → resets password directly
+ * - No code verification needed (handled by Supabase tokens)
+ *
+ * TO USE THIS COMPONENT:
+ * 1. Implement the backend OTP system as described above
+ * 2. Replace setTimeout simulation with actual API call (line 88-93)
+ * 3. Update ForgotPassword flow to use this verification step
+ * 4. Test thoroughly with real OTP generation and validation
+ *
+ * @see src/pages/ResetPassword.tsx - Where users land after verification
+ * @see src/contexts/AuthContext.tsx - resetPassword() sends magic link (not OTP)
+ */
+
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";

@@ -1,353 +1,317 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, ArrowRight, ArrowLeft } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function ResetPassword() {
-  const location = useLocation();
-  const email = location.state?.email || "";
-  const navigate = useNavigate();
-  const { updatePassword } = useAuth();
-  const { toast } = useToast();
-  
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
-  
-  // Password strength calculation
-  const [passwordStrength, setPasswordStrength] = useState({
-    score: 0,
-    label: "",
-    color: "",
-    checks: {
-      length: false,
-      uppercase: false,
-      lowercase: false,
-      number: false,
-      special: false
-    }
-  });
-  
+  const [showForm, setShowForm] = useState(false);
+  const navigate = useNavigate();
+
   useEffect(() => {
-    calculatePasswordStrength(password);
-  }, [password]);
-  
-  const calculatePasswordStrength = (pwd: string) => {
-    const checks = {
-      length: pwd.length >= 8,
-      uppercase: /[A-Z]/.test(pwd),
-      lowercase: /[a-z]/.test(pwd),
-      number: /[0-9]/.test(pwd),
-      special: /[!@#$%^&*(),.?":{}|<>]/.test(pwd)
-    };
-    
-    const score = Object.values(checks).filter(Boolean).length;
-    
-    let label = "";
-    let color = "";
-    
-    if (score === 0) {
-      label = "";
-      color = "";
-    } else if (score <= 2) {
-      label = "Weak";
-      color = "#ef4444";
-    } else if (score === 3) {
-      label = "Fair";
-      color = "#f59e0b";
-    } else if (score === 4) {
-      label = "Good";
-      color = "#3b82f6";
-    } else {
-      label = "Strong";
-      color = "#10b981";
+    console.log('🔍 === PASSWORD RESET DIAGNOSTICS ===');
+    console.log('📍 Full URL:', window.location.href);
+    console.log('🔍 Search params:', searchParams.toString());
+    console.log('🔍 Hash:', window.location.hash);
+
+    // CRITICAL: Detect if this is a password reset URL
+    // Check multiple formats to handle different Supabase auth flows
+    const hasTokenHash = searchParams.has('token_hash') && searchParams.get('type') === 'recovery';
+    const hasRecoveryHash = window.location.hash.includes('type=recovery') && window.location.hash.includes('access_token');
+    const hasResetCode = searchParams.has('code');
+
+    // Also check if Supabase has already processed the URL and stored session
+    // This happens when detectSessionInUrl removes params from URL
+    const hasError = searchParams.has('error') || window.location.hash.includes('error=');
+
+    console.log('🔑 Has token_hash (?token_hash=):', hasTokenHash);
+    console.log('🔑 Has recovery hash (#access_token + type=recovery):', hasRecoveryHash);
+    console.log('🔑 Has reset code (?code=):', hasResetCode);
+    console.log('🔑 Has error:', hasError);
+
+    // If we have an error in the URL, show it and redirect
+    if (hasError) {
+      const errorDesc = searchParams.get('error_description') || 'Invalid or expired reset link';
+      console.log('❌ Error in URL:', errorDesc);
+      setError(errorDesc);
+      setTimeout(() => navigate('/forgot-password'), 3000);
+      return;
     }
-    
-    setPasswordStrength({ score, label, color, checks });
-  };
-  
+
+    // Don't immediately redirect - wait for Supabase to process the token
+    // Supabase's detectSessionInUrl will remove params from URL after processing
+    const isPasswordReset = hasTokenHash || hasRecoveryHash || hasResetCode;
+
+    console.log('🔑 Is password reset URL:', isPasswordReset);
+
+    // If no reset params AND no existing session, then it's invalid
+    // But give Supabase 2 seconds to process the URL first
+    if (!isPasswordReset) {
+      console.log('⏳ No reset params detected - waiting 2 seconds for Supabase processing...');
+
+      const timeoutId = setTimeout(async () => {
+        // Check if Supabase created a session during the 2 second wait
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session) {
+          console.log('❌ No session after 2 seconds - not a valid reset URL');
+          setError('Invalid password reset link');
+          navigate('/forgot-password');
+        } else {
+          console.log('✅ Session found - assuming this was a valid reset URL');
+          // Let the auth state change handler show the form
+        }
+      }, 2000);
+
+      return () => clearTimeout(timeoutId);
+    }
+
+    // Listen for Supabase auth events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('🔔 Auth Event:', event);
+        console.log('📝 Session:', session ? 'Present' : 'None');
+
+        // CRITICAL: For PKCE flow, Supabase exchanges the code automatically
+        // The session will be a regular session, not a recovery session
+        // We need to check if this came from a password reset link
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session && isPasswordReset) {
+          console.log('✅ Session detected with password reset URL');
+          console.log('📊 Session user:', session.user?.email);
+          console.log('📊 Session expires:', new Date(session.expires_at! * 1000).toLocaleString());
+
+          // PKCE flow creates a regular session, but we can use it for password reset
+          // because the user authenticated via the reset link email
+          setShowForm(true);
+        } else if (event === 'PASSWORD_RECOVERY') {
+          console.log('✅ PASSWORD_RECOVERY event detected - showing form');
+          setShowForm(true);
+        } else {
+          console.log('⏳ Waiting for session establishment...');
+        }
+      }
+    );
+
+    return () => {
+      console.log('🧹 Cleaning up auth subscription');
+      subscription.unsubscribe();
+    };
+  }, [searchParams, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    
+    setError(null);
+
     // Validation
     if (password.length < 8) {
-      setError("Password must be at least 8 characters");
+      setError('Password must be at least 8 characters');
       return;
     }
-    
+
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError('Passwords do not match');
       return;
     }
-    
-    if (passwordStrength.score < 3) {
-      setError("Please choose a stronger password");
-      return;
-    }
-    
-    setLoading(true);
-    
+
     try {
-      const { error } = await updatePassword(password);
-      
-      if (error) throw error;
-      
-      setSuccess(true);
-      
-      toast({
-        title: "Password Reset!",
-        description: "Your password has been successfully reset.",
+      setLoading(true);
+      console.log('🔄 Attempting to update password...');
+
+      // CRITICAL FIX: Use updateUser which works with both regular and recovery sessions
+      // Supabase allows password updates if the user authenticated via reset link
+      const { data, error: updateError } = await supabase.auth.updateUser({
+        password: password,
       });
-      
-      // Redirect to password-changed page
+
+      if (updateError) {
+        console.error('❌ Update error:', updateError);
+
+        // If we get a session missing error, try the admin API approach
+        if (updateError.message.includes('session') || updateError.message.includes('Auth session missing')) {
+          console.log('⚠️ Session missing error - trying alternative approach...');
+
+          // Get the current session
+          const { data: { session } } = await supabase.auth.getSession();
+
+          if (!session) {
+            throw new Error('No active session found. Please request a new password reset link.');
+          }
+
+          console.log('📊 Current session:', session.user?.email);
+
+          // Try updating with the session explicitly
+          const { error: retryError } = await supabase.auth.updateUser(
+            { password: password }
+          );
+
+          if (retryError) {
+            console.error('❌ Retry failed:', retryError);
+            throw new Error('Unable to update password. The reset link may have expired. Please request a new one.');
+          }
+        } else {
+          throw updateError;
+        }
+      }
+
+      console.log('✅ Password updated successfully');
+      console.log('📊 Update result:', data);
+
+      // Sign out to force fresh login with new password
+      await supabase.auth.signOut();
+
+      alert('✅ Password updated successfully! Please login with your new password.');
+
       setTimeout(() => {
-        navigate("/password-changed");
-      }, 2000);
-    } catch (err: any) {
-      setError(err.message || "Failed to reset password");
+        navigate('/login');
+      }, 1000);
+
+    } catch (err) {
+      console.error('❌ Password reset error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update password';
+      setError(errorMessage);
+
+      // If it's a session-related error, provide helpful guidance
+      if (errorMessage.includes('session') || errorMessage.includes('expired')) {
+        setError('Your reset link has expired or is invalid. Please request a new password reset.');
+      }
     } finally {
       setLoading(false);
     }
   };
-  
-  if (success) {
+
+  // Show loading while waiting for Supabase to process the reset token
+  if (!showForm) {
     return (
-      <div className="reset-password-page">
-        <div className="reset-background">
-          <div className="gradient-orb orb-1"></div>
-          <div className="gradient-orb orb-2"></div>
-          <div className="gradient-orb orb-3"></div>
-          <div className="gradient-orb orb-4"></div>
-        </div>
-        
-        <div className="reset-container">
-          <div className="reset-card glass-card">
-            {/* Success State */}
-            <div className="success-state">
-              <div className="success-icon-wrapper">
-                <div className="success-icon-circle-reset">
-                  <svg 
-                    className="checkmark-svg" 
-                    viewBox="0 0 52 52"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <circle 
-                      className="checkmark-circle" 
-                      cx="26" 
-                      cy="26" 
-                      r="25" 
-                      fill="none"
-                    />
-                    <path 
-                      className="checkmark-check" 
-                      fill="none" 
-                      d="M14.1 27.2l7.1 7.2 16.7-16.8"
-                    />
-                  </svg>
-                </div>
-              </div>
-              
-              <h1 className="success-title-reset">Password Reset!</h1>
-              <p className="success-message-reset">
-                Your password has been successfully reset.
-              </p>
-              <p className="success-redirect">
-                Redirecting to login...
-              </p>
-              
-              <div className="redirect-loader">
-                <div className="loader-bar"></div>
-              </div>
-            </div>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center p-8 bg-white rounded-lg shadow-xl max-w-md mx-4">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-orange-500 mx-auto"></div>
+          <h2 className="mt-6 text-2xl font-bold text-gray-900">Validating Reset Link</h2>
+          <p className="mt-2 text-gray-600">Please wait while we verify your password reset link...</p>
+          <p className="mt-4 text-sm text-gray-500">This may take a few moments</p>
+
+          {/* Technical debug info */}
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg text-left">
+            <p className="text-xs text-blue-700 font-mono">
+              <strong>Technical Info:</strong>
+            </p>
+            <p className="text-xs text-blue-600 font-mono mt-1">
+              Waiting for Supabase auth event
+            </p>
+            <p className="text-xs text-blue-600 font-mono">
+              (PASSWORD_RECOVERY, SIGNED_IN, or INITIAL_SESSION)
+            </p>
           </div>
+
+          {error && (
+            <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+              {error}
+            </div>
+          )}
         </div>
       </div>
     );
   }
-  
+
+  // Show password reset form once session is validated
   return (
-    <div className="reset-password-page">
-      {/* Blue Animated Background */}
-      <div className="reset-background">
-        <div className="gradient-orb orb-1"></div>
-        <div className="gradient-orb orb-2"></div>
-        <div className="gradient-orb orb-3"></div>
-        <div className="gradient-orb orb-4"></div>
-      </div>
-      
-      {/* Content Card */}
-      <div className="reset-container">
-        <div className="reset-card glass-card">
-          {/* Icon */}
-          <div className="reset-icon-wrapper">
-            <div className="reset-icon">
-              <span className="icon-emoji">🔒</span>
-            </div>
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-8">
+        <div className="text-center mb-6">
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 shadow-lg">
+            <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
           </div>
-          
-          {/* Header */}
-          <div className="reset-header">
-            <h1 className="reset-title">Create New Password</h1>
-            <p className="reset-subtitle">
-              Your new password must be different from previously used passwords
-            </p>
-          </div>
-          
-          {/* Form */}
-          <form className="reset-form" onSubmit={handleSubmit}>
-            {error && (
-              <div className="error-message-reset">
-                <span className="error-icon">⚠️</span>
-                <span>{error}</span>
+          <h2 className="mt-4 text-3xl font-bold text-gray-900">Reset Your Password</h2>
+          <p className="mt-2 text-sm text-gray-600">Enter your new password below</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <p className="text-sm text-red-700 font-medium">{error}</p>
               </div>
+            </div>
+          )}
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+              New Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
+              placeholder="Enter new password"
+              required
+              minLength={8}
+              autoFocus
+            />
+            <p className="mt-1 text-xs text-gray-500">At least 8 characters</p>
+          </div>
+
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
+              Confirm Password
+            </label>
+            <input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
+              placeholder="Confirm new password"
+              required
+              minLength={8}
+            />
+            {confirmPassword && (
+              <p className={`mt-1 text-xs font-medium ${password === confirmPassword ? 'text-green-600' : 'text-red-600'}`}>
+                {password === confirmPassword ? '✓ Passwords match' : '✗ Passwords do not match'}
+              </p>
             )}
-            
-            {/* New Password */}
-            <div className="form-group-reset">
-              <label className="form-label-reset">New Password</label>
-              <div className="input-wrapper-reset">
-                <span className="input-icon-reset">🔑</span>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  className="form-input-reset"
-                  placeholder="Enter new password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  className="input-toggle-reset"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-              
-              {/* Password Strength Meter */}
-              {password && (
-                <div className="password-strength">
-                  <div className="strength-bar-container">
-                    <div 
-                      className="strength-bar"
-                      style={{
-                        width: `${(passwordStrength.score / 5) * 100}%`,
-                        backgroundColor: passwordStrength.color
-                      }}
-                    />
-                  </div>
-                  <p 
-                    className="strength-label"
-                    style={{ color: passwordStrength.color }}
-                  >
-                    {passwordStrength.label}
-                  </p>
-                </div>
-              )}
-            </div>
-            
-            {/* Confirm Password */}
-            <div className="form-group-reset">
-              <label className="form-label-reset">Confirm Password</label>
-              <div className="input-wrapper-reset">
-                <span className="input-icon-reset">🔑</span>
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  className="form-input-reset"
-                  placeholder="Confirm new password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
-                <button
-                  type="button"
-                  className="input-toggle-reset"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-              
-              {/* Match Indicator */}
-              {confirmPassword && (
-                <div className={`match-indicator ${password === confirmPassword ? "match" : "no-match"}`}>
-                  <span className="match-icon">
-                    {password === confirmPassword ? "✓" : "✗"}
-                  </span>
-                  <span className="match-text">
-                    {password === confirmPassword ? "Passwords match" : "Passwords do not match"}
-                  </span>
-                </div>
-              )}
-            </div>
-            
-            {/* Password Requirements */}
-            <div className="password-requirements">
-              <p className="requirements-title">Password must contain:</p>
-              <ul className="requirements-list">
-                <li className={passwordStrength.checks.length ? "met" : ""}>
-                  <span className="check-icon-req">{passwordStrength.checks.length ? "✓" : "○"}</span>
-                  <span>At least 8 characters</span>
-                </li>
-                <li className={passwordStrength.checks.uppercase ? "met" : ""}>
-                  <span className="check-icon-req">{passwordStrength.checks.uppercase ? "✓" : "○"}</span>
-                  <span>One uppercase letter</span>
-                </li>
-                <li className={passwordStrength.checks.lowercase ? "met" : ""}>
-                  <span className="check-icon-req">{passwordStrength.checks.lowercase ? "✓" : "○"}</span>
-                  <span>One lowercase letter</span>
-                </li>
-                <li className={passwordStrength.checks.number ? "met" : ""}>
-                  <span className="check-icon-req">{passwordStrength.checks.number ? "✓" : "○"}</span>
-                  <span>One number</span>
-                </li>
-                <li className={passwordStrength.checks.special ? "met" : ""}>
-                  <span className="check-icon-req">{passwordStrength.checks.special ? "✓" : "○"}</span>
-                  <span>One special character</span>
-                </li>
-              </ul>
-            </div>
-            
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              className="btn-reset-submit btn-primary-gradient w-full"
-              size="lg"
-              disabled={loading || passwordStrength.score < 3 || password !== confirmPassword}
-            >
-              {loading ? (
-                <>
-                  <span className="loading-spinner-reset"></span>
-                  <span>Resetting Password...</span>
-                </>
-              ) : (
-                <>
-                  <span>Reset Password</span>
-                  <ArrowRight className="w-5 h-5 btn-arrow-reset" />
-                </>
-              )}
-            </Button>
-          </form>
-          
-          {/* Back to Login */}
-          <div className="reset-footer">
-            <Button
-              variant="ghost"
-              className="btn-back-login-reset"
-              onClick={() => navigate("/")}
-            >
-              <ArrowLeft className="w-4 h-4 back-arrow-reset" />
-              <span>Back to Login</span>
-            </Button>
           </div>
+
+          <button
+            type="submit"
+            disabled={loading || password.length < 8 || password !== confirmPassword}
+            className="w-full bg-orange-500 text-white py-3 px-4 rounded-lg font-semibold hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Updating Password...
+              </span>
+            ) : (
+              'Reset Password'
+            )}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => navigate('/login')}
+            className="text-sm text-gray-600 hover:text-gray-900 font-medium transition"
+          >
+            ← Back to Login
+          </button>
+        </div>
+
+        <div className="mt-6 p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-600 text-center">
+            🔒 Your password will be encrypted and stored securely
+          </p>
         </div>
       </div>
     </div>

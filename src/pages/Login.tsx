@@ -154,7 +154,7 @@ export default function Login() {
               onClick={() => navigate("/forgot-password")}
               className="forgot-link"
             >
-              Forgot password?
+              Forgot Password? (Contact Developer)
             </button>
           </form>
           

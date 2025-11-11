@@ -8,10 +8,11 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { GlobalLoader, ProgressBar, PageTransition } from "@/components/loading";
+import { SessionMonitor } from "@/components/debug/SessionMonitor";
+import { useSessionRefresh } from "@/lib/hooks/useSessionRefresh";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import CheckEmail from "./pages/CheckEmail";
-import VerifyCode from "./pages/VerifyCode";
 import ResetPassword from "./pages/ResetPassword";
 import PasswordChanged from "./pages/PasswordChanged";
 import Dashboard from "./pages/Dashboard";
@@ -50,9 +51,8 @@ const AppContent = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/check-email" element={<CheckEmail />} />
-          <Route path="/verify-code" element={<VerifyCode />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/password-changed" element={<PasswordChanged />} />
+          {/* <Route path="/reset-password" element={<ResetPassword />} /> */}
+          {/* <Route path="/password-changed" element={<PasswordChanged />} /> */}
           <Route path="/request-inspection" element={<RequestInspection />} />
           <Route path="/request-inspection/success" element={<InspectionSuccess />} />
           
@@ -86,16 +86,19 @@ const AppContent = () => {
 
 const App = () => {
   const [initialLoading, setInitialLoading] = useState(true);
-  
+
+  // Enable proactive session refresh to prevent timeouts
+  useSessionRefresh();
+
   useEffect(() => {
     // Simulate initial app load
     const timer = setTimeout(() => {
       setInitialLoading(false);
     }, 1500);
-    
+
     return () => clearTimeout(timer);
   }, []);
-  
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -106,6 +109,8 @@ const App = () => {
           <AuthProvider>
             <AppContent />
           </AuthProvider>
+          {/* Session Monitor - only visible in development */}
+          <SessionMonitor />
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>

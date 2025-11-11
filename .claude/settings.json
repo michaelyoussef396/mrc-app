@@ -1,0 +1,279 @@
+{
+  "autoInvokeAgents": {
+    "enabled": true,
+    "description": "Automatic agent triggering based on file changes, context, and workflow stages",
+    "triggers": [
+      {
+        "agent": "mobile-tester",
+        "trigger": "file_modified",
+        "patterns": [
+          "src/components/**/*.tsx",
+          "src/pages/**/*.tsx",
+          "src/styles/**/*.css"
+        ],
+        "delay": 2000,
+        "description": "Auto-test mobile viewports after UI changes"
+      },
+      {
+        "agent": "pricing-calculator",
+        "trigger": "file_modified",
+        "patterns": [
+          "src/lib/pricing/**/*.ts",
+          "src/utils/pricing.ts",
+          "supabase/functions/calculate-price/**/*"
+        ],
+        "delay": 1000,
+        "blocking": true,
+        "description": "BLOCKER: Validate pricing logic immediately"
+      },
+      {
+        "agent": "Code Reviewer",
+        "trigger": "file_modified",
+        "patterns": [
+          "src/**/*.ts",
+          "src/**/*.tsx"
+        ],
+        "delay": 5000,
+        "description": "Auto-review code quality after changes"
+      },
+      {
+        "agent": "Security Auditor",
+        "trigger": "file_modified",
+        "patterns": [
+          "src/lib/auth/**/*.ts",
+          "supabase/migrations/**/*.sql",
+          "src/components/auth/**/*.tsx"
+        ],
+        "delay": 3000,
+        "description": "Auto-scan security on auth changes"
+      },
+      {
+        "agent": "Supabase Schema Architect",
+        "trigger": "file_modified",
+        "patterns": [
+          "supabase/migrations/**/*.sql",
+          "supabase/schema.sql"
+        ],
+        "delay": 2000,
+        "description": "Auto-review schema changes"
+      },
+      {
+        "agent": "TypeScript Pro",
+        "trigger": "file_created",
+        "patterns": [
+          "src/types/**/*.ts"
+        ],
+        "delay": 1000,
+        "description": "Auto-validate new type definitions"
+      },
+      {
+        "agent": "offline-architect",
+        "trigger": "file_modified",
+        "patterns": [
+          "public/sw.js",
+          "src/lib/offline/**/*.ts"
+        ],
+        "delay": 2000,
+        "description": "Auto-validate service worker changes"
+      },
+      {
+        "agent": "Web Vitals Optimizer",
+        "trigger": "bundle_built",
+        "patterns": [
+          "dist/**/*"
+        ],
+        "delay": 5000,
+        "description": "Auto-check performance after build"
+      }
+    ],
+    "contextualOrchestration": {
+      "enabled": true,
+      "keywordTriggers": {
+        "component|building new UI|new page": ["TypeScript Pro", "React Performance Optimization", "mobile-tester"],
+        "pricing|discount|GST|13%": ["pricing-calculator"],
+        "deploy|deployment|production": ["Security Auditor", "pricing-calculator", "Web Vitals Optimizer"],
+        "schema|database|migration": ["Supabase Schema Architect", "SQL Pro", "Security Auditor"],
+        "mobile|responsive|viewport": ["mobile-tester"],
+        "auth|authentication|login": ["Security Auditor", "Code Reviewer"],
+        "offline|service worker|PWA": ["offline-architect", "mobile-tester"],
+        "bug|fix|error": ["Test Engineer", "Code Reviewer"],
+        "performance|slow|optimize": ["Performance Engineer", "React Performance Optimization"]
+      }
+    },
+    "agentChaining": {
+      "enabled": true,
+      "sequences": {
+        "ui-component": ["TypeScript Pro", "React Performance Optimization", "mobile-tester", "Web Vitals Optimizer", "Code Reviewer"],
+        "database-change": ["Supabase Schema Architect", "SQL Pro", "Security Auditor", "TypeScript Pro"],
+        "pricing-change": ["pricing-calculator", "Test Engineer", "Code Reviewer"],
+        "auth-change": ["Security Auditor", "Code Reviewer"],
+        "pre-deployment": ["Security Auditor", "pricing-calculator", "Web Vitals Optimizer"]
+      }
+    }
+  },
+  "workflowHooks": {
+    "enabled": true,
+    "hooks": {
+      "on-file-save": {
+        "script": ".claude/hooks/on-file-save.sh",
+        "enabled": true
+      },
+      "pre-commit": {
+        "script": ".claude/hooks/pre-commit.sh",
+        "enabled": true,
+        "blocking": true
+      },
+      "pre-push": {
+        "script": ".claude/hooks/pre-push.sh",
+        "enabled": true,
+        "blocking": true
+      }
+    }
+  },
+  "deploymentBlockers": {
+    "enabled": true,
+    "blockers": [
+      {
+        "name": "Security Auditor",
+        "agent": "Security Auditor",
+        "required": true,
+        "description": "Zero high/critical vulnerabilities required"
+      },
+      {
+        "name": "pricing-calculator",
+        "agent": "pricing-calculator",
+        "required": true,
+        "description": "All 48 pricing scenarios must pass, 13% cap enforced"
+      },
+      {
+        "name": "Web Vitals Optimizer",
+        "agent": "Web Vitals Optimizer",
+        "required": true,
+        "description": "Mobile Lighthouse score >90 required"
+      }
+    ]
+  },
+  "projectKnowledge": {
+    "description": "Core MRC workflow documentation available in all sessions",
+    "alwaysInclude": [
+      {
+        "path": "CLAUDE.md",
+        "description": "Session guide - Read first every session",
+        "priority": "critical",
+        "autoLoad": true
+      },
+      {
+        "path": "MRC-AGENT-WORKFLOW.md",
+        "description": "Agent usage patterns and workflows",
+        "priority": "high",
+        "autoLoad": true
+      },
+      {
+        "path": "TASKS.md",
+        "description": "All 320+ tasks with agent assignments",
+        "priority": "high",
+        "autoLoad": false
+      },
+      {
+        "path": "MRC-SPRINT-1-TASKS.md",
+        "description": "Current 4-week sprint roadmap",
+        "priority": "high",
+        "autoLoad": true
+      },
+      {
+        "path": "PLANNING.md",
+        "description": "Architecture decisions and tech stack",
+        "priority": "medium",
+        "autoLoad": false
+      },
+      {
+        "path": ".claude/agents/README.md",
+        "description": "Complete agent directory (12 agents)",
+        "priority": "high",
+        "autoLoad": true
+      },
+      {
+        "path": "DEPLOYMENT-CHECKLIST.md",
+        "description": "Pre-deployment workflow and blockers",
+        "priority": "high",
+        "autoLoad": false
+      },
+      {
+        "path": "AGENT-INVOCATION-PATTERNS.md",
+        "description": "Copy-paste pattern library",
+        "priority": "medium",
+        "autoLoad": false
+      },
+      {
+        "path": "HOOKS-AND-AUTOMATION.md",
+        "description": "Hook configurations and automation",
+        "priority": "medium",
+        "autoLoad": false
+      },
+      {
+        "path": "context/MRC-PRD.md",
+        "description": "Product requirements document",
+        "priority": "medium",
+        "autoLoad": false
+      },
+      {
+        "path": "context/MRC-TECHNICAL-SPEC.md",
+        "description": "Technical implementation guide",
+        "priority": "medium",
+        "autoLoad": false
+      },
+      {
+        "path": "context/design-checklist-s-tier.md",
+        "description": "MRC design standards",
+        "priority": "medium",
+        "autoLoad": false
+      },
+      {
+        "path": "context/MRC-AUTOMATIC-AGENT-TRIGGERING-ENHANCEMENT.md",
+        "description": "Automatic triggering specification",
+        "priority": "low",
+        "autoLoad": false
+      },
+      {
+        "path": "AUTOMATIC-AGENT-TRIGGERING-IMPLEMENTATION-COMPLETE.md",
+        "description": "Implementation summary and guide",
+        "priority": "medium",
+        "autoLoad": false
+      }
+    ],
+    "startupSequence": {
+      "description": "Files to read at start of every session",
+      "order": [
+        "CLAUDE.md",
+        "MRC-AGENT-WORKFLOW.md",
+        "MRC-SPRINT-1-TASKS.md",
+        ".claude/agents/README.md"
+      ],
+      "runGitStatus": true,
+      "checkCurrentTask": true
+    },
+    "contextWindows": {
+      "essential": [
+        "CLAUDE.md",
+        "MRC-AGENT-WORKFLOW.md",
+        ".claude/agents/README.md"
+      ],
+      "sprint": [
+        "MRC-SPRINT-1-TASKS.md",
+        "TASKS.md"
+      ],
+      "technical": [
+        "PLANNING.md",
+        "context/MRC-TECHNICAL-SPEC.md"
+      ],
+      "deployment": [
+        "DEPLOYMENT-CHECKLIST.md",
+        "HOOKS-AND-AUTOMATION.md"
+      ],
+      "patterns": [
+        "AGENT-INVOCATION-PATTERNS.md",
+        "AUTOMATIC-AGENT-TRIGGERING-IMPLEMENTATION-COMPLETE.md"
+      ]
+    }
+  }
+}

@@ -10,8 +10,43 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    // CRITICAL: Enable session persistence across page reloads
     persistSession: true,
+
+    // CRITICAL: Use localStorage for persistence across tabs
+    storage: window.localStorage,
+
+    // CRITICAL: Auto-refresh tokens before they expire
     autoRefreshToken: true,
-  }
+
+    // CRITICAL: Detect session from URL (for password reset links)
+    detectSessionInUrl: true,
+
+    // CRITICAL: Use implicit flow for password recovery
+    // PKCE converts ?token_hash= to ?code= which creates regular session, not recovery session
+    // Password updates require recovery session (403 error with regular session)
+    flowType: 'implicit',
+
+    // Debug mode (only in development)
+    debug: import.meta.env.DEV,
+  },
+
+  // Global options
+  global: {
+    headers: {
+      'x-application-name': 'mrc-lead-management',
+    },
+  },
 });
+
+// Log session state changes in development (helpful for debugging password reset issues)
+if (import.meta.env.DEV) {
+  supabase.auth.onAuthStateChange((event, session) => {
+    console.log('🔐 [Supabase Client] Auth State Change:', event);
+    console.log('📝 [Supabase Client] Session:', session ? 'Active' : 'None');
+    if (session) {
+      console.log('👤 [Supabase Client] User:', session.user.email);
+      console.log('⏰ [Supabase Client] Expires:', new Date(session.expires_at! * 1000).toLocaleString());
+    }
+  });
+}

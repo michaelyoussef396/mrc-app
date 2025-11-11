@@ -36,13 +36,13 @@ export default function CheckEmail() {
         toast({
           variant: "destructive",
           title: "Error",
-          description: error.message || "Failed to resend code",
+          description: error.message || "Failed to resend reset link",
         });
       } else {
         setResent(true);
         toast({
-          title: "Code Sent!",
-          description: "We've sent a new verification code to your email.",
+          title: "Link Sent!",
+          description: "We've sent a new password reset link to your email.",
         });
         
         // Reset the "resent" state after 3 seconds
@@ -57,11 +57,6 @@ export default function CheckEmail() {
     } finally {
       setIsResending(false);
     }
-  };
-
-  const handleContinue = () => {
-    // Navigate to verify code page (to be created)
-    navigate(`/verify-code`, { state: { email } });
   };
 
   return (
@@ -107,11 +102,11 @@ export default function CheckEmail() {
           <div className="check-email-header">
             <h1 className="check-email-title">Check Your Email</h1>
             <p className="check-email-subtitle">
-              We've sent a verification code to
+              We've sent a password reset link to
             </p>
             <p className="check-email-address">{email}</p>
           </div>
-          
+
           {/* Instructions */}
           <div className="email-instructions">
             <div className="instruction-step">
@@ -121,23 +116,23 @@ export default function CheckEmail() {
               <div className="step-content">
                 <h3 className="step-title">Check your inbox</h3>
                 <p className="step-description">
-                  Look for an email from MRC with a 6-digit code
+                  Look for an email from MRC with your password reset link
                 </p>
               </div>
             </div>
-            
+
             <div className="instruction-step">
               <div className="step-number">
                 <span>2</span>
               </div>
               <div className="step-content">
-                <h3 className="step-title">Enter the code</h3>
+                <h3 className="step-title">Click the reset link</h3>
                 <p className="step-description">
-                  The code will expire in 10 minutes for security
+                  The link will expire in 1 hour for security
                 </p>
               </div>
             </div>
-            
+
             <div className="instruction-step">
               <div className="step-number">
                 <span>3</span>
@@ -145,39 +140,25 @@ export default function CheckEmail() {
               <div className="step-content">
                 <h3 className="step-title">Create new password</h3>
                 <p className="step-description">
-                  Choose a strong, unique password
+                  You'll be taken to a secure page to set your new password
                 </p>
               </div>
             </div>
           </div>
-          
-          {/* Code Preview Box */}
+
+          {/* Link Preview Box */}
           <div className="code-preview-box">
-            <div className="code-preview-icon">✉️</div>
+            <div className="code-preview-icon">🔗</div>
             <div className="code-preview-content">
-              <p className="code-preview-title">Your code will look like this:</p>
-              <div className="code-preview-example">
-                <span className="code-digit">1</span>
-                <span className="code-digit">2</span>
-                <span className="code-digit">3</span>
-                <span className="code-digit">4</span>
-                <span className="code-digit">5</span>
-                <span className="code-digit">6</span>
+              <p className="code-preview-title">The email contains a secure link:</p>
+              <div className="link-preview-example">
+                <span className="link-text">Click here to reset your password →</span>
               </div>
             </div>
           </div>
           
           {/* Actions */}
           <div className="check-email-actions">
-            <Button
-              onClick={handleContinue}
-              className="btn-continue btn-primary-gradient w-full"
-              size="lg"
-            >
-              <span>I Have My Code</span>
-              <ArrowRight className="w-5 h-5 btn-arrow" />
-            </Button>
-            
             <Button
               onClick={() => navigate("/")}
               variant="outline"
@@ -187,9 +168,9 @@ export default function CheckEmail() {
               <ArrowLeft className="w-5 h-5 back-arrow" />
               <span>Back to Login</span>
             </Button>
-            
+
             <div className="resend-section">
-              <p className="resend-text">Didn't receive the code?</p>
+              <p className="resend-text">Didn't receive the email?</p>
               <Button
                 onClick={handleResend}
                 disabled={isResending || resent}
@@ -205,12 +186,12 @@ export default function CheckEmail() {
                 ) : resent ? (
                   <>
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Code Sent!</span>
+                    <span>Link Sent!</span>
                   </>
                 ) : (
                   <>
                     <RefreshCw className="w-4 h-4" />
-                    <span>Resend Code</span>
+                    <span>Resend Link</span>
                   </>
                 )}
               </Button>

@@ -50,9 +50,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // Only auto-navigate to dashboard for normal sign-ins, not password recovery
         if (event === 'SIGNED_IN') {
-          navigate('/dashboard');
+          // Check if this is a password recovery session
+          // Method 1: Check current pathname
+          const onResetPasswordPage = window.location.pathname === '/reset-password';
+
+          // Method 2: Check URL hash for recovery type (more reliable)
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          const isRecoveryHash = hashParams.get('type') === 'recovery';
+
+          // Method 3: Check if access_token exists in hash (indicates recovery flow)
+          const hasAccessToken = hashParams.has('access_token');
+
+          const isPasswordRecovery = onResetPasswordPage || isRecoveryHash ||
+                                      (hasAccessToken && window.location.pathname === '/reset-password');
+
+          // Only redirect to dashboard if it's NOT a password recovery flow
+          if (!isPasswordRecovery) {
+            navigate('/dashboard');
+          }
         }
+
         if (event === 'SIGNED_OUT') {
           navigate('/');
         }
