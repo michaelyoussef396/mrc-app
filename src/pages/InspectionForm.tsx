@@ -4,16 +4,17 @@ import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import { calculateDewPoint, generateJobNumber, calculateJobCost, formatCurrency } from '@/lib/inspectionUtils'
 import type { InspectionFormData, InspectionArea, MoistureReading, SubfloorReading, Photo } from '@/types/inspection'
-import { 
-  Sparkles, 
-  FileText, 
-  Home, 
-  MapPin, 
-  ArrowDown, 
-  Cloud, 
-  Trash2, 
-  Wrench, 
-  ClipboardList, 
+import { TopNavbar } from '@/components/layout/TopNavbar'
+import {
+  Sparkles,
+  FileText,
+  Home,
+  MapPin,
+  ArrowDown,
+  Cloud,
+  Trash2,
+  Wrench,
+  ClipboardList,
   DollarSign,
   Save,
   X,
@@ -209,24 +210,83 @@ const InspectionForm = () => {
       return
     }
     
-    // TODO: Load from Supabase if no passed data
-    const mockLead = {
-      id: leadId,
-      name: 'John Doe',
-      email: 'john@email.com',
-      phone: '0412 345 678',
-      property: '123 Smith Street, Melbourne VIC 3000',
-      issueDescription: 'Black mould visible in bathroom around shower area and bedroom ceiling',
-      scheduledDate: '2025-01-29T14:00:00'
+    // Load from Supabase using leadId
+    try {
+      const { data: leadData, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', leadId)
+        .single()
+
+      if (error) {
+        console.error('❌ Error fetching lead:', error)
+        toast({
+          title: 'Error loading lead',
+          description: error.message || 'Failed to load lead data',
+          variant: 'destructive'
+        })
+        navigate('/inspection/select-lead')
+        return
+      }
+
+      if (!leadData) {
+        console.error('❌ Lead not found:', leadId)
+        toast({
+          title: 'Lead not found',
+          description: 'The lead you\'re trying to inspect doesn\'t exist.',
+          variant: 'destructive'
+        })
+        navigate('/inspection/select-lead')
+        return
+      }
+
+      console.log('✅ Lead data loaded for inspection:', {
+        id: leadData.id,
+        lead_number: leadData.lead_number,
+        full_name: leadData.full_name,
+        suburb: leadData.property_address_suburb,
+        status: leadData.status,
+      })
+
+      // Format lead data for inspection form
+      const formattedLead = {
+        id: leadData.id,
+        name: leadData.full_name,
+        email: leadData.email,
+        phone: leadData.phone,
+        property: [
+          leadData.property_address_street,
+          leadData.property_address_suburb,
+          'VIC',
+          leadData.property_address_postcode
+        ].filter(Boolean).join(', '),
+        issueDescription: leadData.issue_description || 'No issue description provided',
+        scheduledDate: leadData.inspection_scheduled_date || new Date().toISOString().split('T')[0],
+        propertyType: leadData.property_type,
+        urgency: leadData.urgency
+      }
+
+      setLead(formattedLead)
+      setFormData(prev => ({
+        ...prev,
+        triage: formattedLead.issueDescription,
+        address: formattedLead.property,
+        requestedBy: formattedLead.name,
+        dwellingType: formattedLead.propertyType || ''
+      }))
+
+      console.log('🎉 Inspection form populated with real lead data:', formattedLead.name)
+    } catch (error) {
+      console.error('❌ Exception loading lead:', error)
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred',
+        variant: 'destructive'
+      })
+      navigate('/inspection/select-lead')
+      return
     }
-    
-    setLead(mockLead)
-    setFormData(prev => ({
-      ...prev,
-      triage: mockLead.issueDescription,
-      address: mockLead.property,
-      requestedBy: mockLead.name
-    }))
+
     setLoading(false)
   }
 
@@ -559,14 +619,16 @@ const InspectionForm = () => {
   }
 
   return (
-    <div className="inspection-form-page">
-      <div className="inspection-background">
-        <div className="gradient-orb orb-1"></div>
-        <div className="gradient-orb orb-2"></div>
-      </div>
+    <>
+      <TopNavbar />
+      <div className="inspection-form-page">
+        <div className="inspection-background">
+          <div className="gradient-orb orb-1"></div>
+          <div className="gradient-orb orb-2"></div>
+        </div>
 
-      {/* Sticky Navigation */}
-      <nav className="inspection-nav">
+        {/* Sticky Navigation */}
+        <nav className="inspection-nav">
         <div className="nav-container">
           <button 
             type="button"
@@ -1963,7 +2025,8 @@ const InspectionForm = () => {
           </div>
         </div>
       </main>
-    </div>
+      </div>
+    </>
   )
 }
 
