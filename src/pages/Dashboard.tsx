@@ -1,25 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Bell, Menu, X, ChevronDown, CheckCircle, AlertCircle, Info, Home, ClipboardList, Calendar as CalendarIcon, FileText, BarChart, TrendingUp, User, Settings as SettingsIcon, LogOut, ChevronRight } from 'lucide-react';
+import { Plus, Bell, Menu, X, ChevronDown, Home, ClipboardList, Calendar as CalendarIcon, FileText, BarChart, TrendingUp, User, Settings as SettingsIcon, LogOut, ChevronRight, Users, Briefcase, CheckCircle, DollarSign } from 'lucide-react';
 import Logo from '@/components/Logo';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
+import { StatCard } from '@/components/dashboard/StatCard';
+import { RecentLeads } from '@/components/dashboard/RecentLeads';
+import { useDashboardStats } from '@/hooks/useDashboardStats';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [newLeadDialogOpen, setNewLeadDialogOpen] = useState(false);
-  const [stats, setStats] = useState({
-    totalLeads: 0,
-    activeJobs: 0,
-    completedToday: 0,
-    revenue: 0
-  });
+
+  // Fetch dashboard statistics using React Query hooks
+  const {
+    totalLeadsThisMonth,
+    activeJobs,
+    completedToday,
+    monthlyRevenue,
+    isLoading: statsLoading,
+  } = useDashboardStats();
 
   // Mock notifications data (recent)
   const recentNotifications = [
@@ -30,40 +35,37 @@ export default function Dashboard() {
 
   const notificationCount = recentNotifications.filter(n => n.unread).length;
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    // TODO: Load real data from Supabase
-    // For now, mock data
-    setStats({
-      totalLeads: 47,
-      activeJobs: 12,
-      completedToday: 3,
-      revenue: 24500
-    });
-    setLoading(false);
+  const handleLeadCreated = () => {
+    // Close dialog - React Query will auto-refetch
+    setNewLeadDialogOpen(false);
   };
 
-  const handleLeadCreated = () => {
-    // Reload dashboard data after lead creation
-    loadDashboardData();
-    setNewLeadDialogOpen(false);
+  // Format currency (Australian dollars)
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-AU', {
+      style: 'currency',
+      currency: 'AUD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  // Format percentage
+  const formatPercentage = (value: number): string => {
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value.toFixed(1)}%`;
+  };
+
+  // Format number change
+  const formatChange = (value: number): string => {
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value}`;
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/login');
   };
-
-  if (loading) {
-    return (
-      <div className="dashboard-loading">
-        <div className="loading-spinner"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="dashboard-page">
@@ -414,42 +416,54 @@ export default function Dashboard() {
           </div>
 
           {/* Stats Grid */}
-          <div className="stats-grid">
-            <div className="stat-card blue">
-              <div className="stat-icon">📋</div>
-              <div className="stat-content">
-                <p className="stat-label">Total Leads</p>
-                <h3 className="stat-value">{stats.totalLeads}</h3>
-                <p className="stat-change positive">↑ 12% from last month</p>
-              </div>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Total Leads This Month */}
+            <StatCard
+              title="Total Leads This Month"
+              value={totalLeadsThisMonth.data?.count ?? 0}
+              trend={totalLeadsThisMonth.data?.trend}
+              trendValue={formatPercentage(totalLeadsThisMonth.data?.percentageChange ?? 0)}
+              trendLabel="vs last month"
+              icon={Users}
+              iconColor="text-blue-600"
+              loading={totalLeadsThisMonth.isLoading}
+            />
 
-            <div className="stat-card green">
-              <div className="stat-icon">⚡</div>
-              <div className="stat-content">
-                <p className="stat-label">Active Jobs</p>
-                <h3 className="stat-value">{stats.activeJobs}</h3>
-                <p className="stat-change positive">↑ 3 new today</p>
-              </div>
-            </div>
+            {/* Active Jobs */}
+            <StatCard
+              title="Active Jobs"
+              value={activeJobs.data?.count ?? 0}
+              trend={activeJobs.data?.trend}
+              trendValue={formatChange(activeJobs.data?.change ?? 0)}
+              trendLabel="vs last week"
+              icon={Briefcase}
+              iconColor="text-orange-600"
+              loading={activeJobs.isLoading}
+            />
 
-            <div className="stat-card purple">
-              <div className="stat-icon">✓</div>
-              <div className="stat-content">
-                <p className="stat-label">Completed Today</p>
-                <h3 className="stat-value">{stats.completedToday}</h3>
-                <p className="stat-change neutral">On track</p>
-              </div>
-            </div>
+            {/* Completed Today */}
+            <StatCard
+              title="Completed Today"
+              value={completedToday.data?.count ?? 0}
+              trend={completedToday.data?.trend}
+              trendValue={formatChange(completedToday.data?.change ?? 0)}
+              trendLabel="vs yesterday"
+              icon={CheckCircle}
+              iconColor="text-green-600"
+              loading={completedToday.isLoading}
+            />
 
-            <div className="stat-card orange">
-              <div className="stat-icon">💰</div>
-              <div className="stat-content">
-                <p className="stat-label">Monthly Revenue</p>
-                <h3 className="stat-value">${stats.revenue.toLocaleString()}</h3>
-                <p className="stat-change positive">↑ 8% from last month</p>
-              </div>
-            </div>
+            {/* Monthly Revenue */}
+            <StatCard
+              title="Monthly Revenue"
+              value={formatCurrency(monthlyRevenue.data?.amount ?? 0)}
+              trend={monthlyRevenue.data?.trend}
+              trendValue={formatPercentage(monthlyRevenue.data?.percentageChange ?? 0)}
+              trendLabel="vs last month"
+              icon={DollarSign}
+              iconColor="text-emerald-600"
+              loading={monthlyRevenue.isLoading}
+            />
           </div>
 
           {/* Quick Actions */}
@@ -508,92 +522,8 @@ export default function Dashboard() {
           </div>
 
           {/* Recent Leads */}
-          <div className="recent-leads-section">
-            <div className="section-header">
-              <h2 className="section-title">Recent Leads</h2>
-              <button className="btn-link" onClick={() => navigate('/leads')}>
-                View All →
-              </button>
-            </div>
-
-            <div className="leads-table-card">
-              <table className="leads-table">
-                <thead>
-                  <tr>
-                    <th>Client</th>
-                    <th>Property</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                    <th>Value</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>
-                      <div className="client-cell">
-                        <div className="client-avatar">JD</div>
-                        <div>
-                          <p className="client-name">John Doe</p>
-                          <p className="client-email">john@email.com</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td>123 Smith St, Melbourne</td>
-                    <td>
-                      <span className="status-badge new">New</span>
-                    </td>
-                    <td>Today, 10:30 AM</td>
-                    <td className="value-cell">$2,400</td>
-                    <td>
-                      <button className="btn-action" onClick={() => navigate('/client/1')}>View</button>
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td>
-                      <div className="client-cell">
-                        <div className="client-avatar">SM</div>
-                        <div>
-                          <p className="client-name">Sarah Miller</p>
-                          <p className="client-email">sarah@email.com</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td>45 Queen St, Richmond</td>
-                    <td>
-                      <span className="status-badge inprogress">In Progress</span>
-                    </td>
-                    <td>Yesterday, 2:15 PM</td>
-                    <td className="value-cell">$3,200</td>
-                    <td>
-                      <button className="btn-action" onClick={() => navigate('/client/2')}>View</button>
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td>
-                      <div className="client-cell">
-                        <div className="client-avatar">RJ</div>
-                        <div>
-                          <p className="client-name">Robert Jones</p>
-                          <p className="client-email">robert@email.com</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td>78 Collins St, Melbourne CBD</td>
-                    <td>
-                      <span className="status-badge completed">Completed</span>
-                    </td>
-                    <td>Oct 27, 11:00 AM</td>
-                    <td className="value-cell">$4,500</td>
-                    <td>
-                      <button className="btn-action" onClick={() => navigate('/client/3')}>View</button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+          <div className="mb-6">
+            <RecentLeads />
           </div>
         </div>
       </main>
