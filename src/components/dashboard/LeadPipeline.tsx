@@ -21,6 +21,7 @@ export function LeadPipeline() {
       const totalLeads = leads?.length || 0;
 
       return {
+        hipagesLeads: statusCounts?.["hipages_lead"] || 0,
         newLeads: statusCounts?.["new_lead"] || 0,
         contacted: statusCounts?.["contacted"] || 0,
         inspectionWaiting: statusCounts?.["inspection_waiting"] || 0,
@@ -39,6 +40,12 @@ export function LeadPipeline() {
   });
 
   const stages = [
+    {
+      label: "📱 HiPages Leads",
+      count: pipelineData?.hipagesLeads || 0,
+      percentage: ((pipelineData?.hipagesLeads || 0) / (pipelineData?.totalLeads || 1)) * 100,
+      color: "bg-purple-500",
+    },
     {
       label: "🆕 New Leads",
       count: pipelineData?.newLeads || 0,

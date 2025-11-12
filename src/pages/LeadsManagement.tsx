@@ -42,17 +42,26 @@ const LeadsManagement = () => {
 
   // UPDATED 11-STAGE PIPELINE
   const statusOptions: StatusOption[] = [
-    { 
-      value: 'all', 
-      label: 'All Leads', 
-      icon: '📋', 
+    {
+      value: 'all',
+      label: 'All Leads',
+      icon: '📋',
       color: '#6b7280',
       description: 'View all leads regardless of stage'
     },
-    { 
-      value: 'new_lead', 
-      label: 'New Lead', 
-      icon: '🌟', 
+    {
+      value: 'hipages_lead',
+      label: 'HiPages Lead',
+      icon: '📱',
+      color: '#9333ea',
+      description: 'Lead from HiPages marketplace - limited info, needs follow-up call',
+      nextActions: ['Call to gather full details', 'Schedule inspection'],
+      availableButtons: ['call', 'viewDetails']
+    },
+    {
+      value: 'new_lead',
+      label: 'New Lead',
+      icon: '🌟',
       color: '#3b82f6',
       description: 'Initial inquiry received from website',
       nextActions: ['Review inquiry', 'Schedule inspection'],
@@ -562,8 +571,59 @@ const LeadsManagement = () => {
 
   const loadLeads = async () => {
     setLoading(true);
-    
-    // Mock data covering ALL 9 pipeline stages
+
+    try {
+      // Fetch real leads from Supabase
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading leads:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load leads. Please refresh the page.',
+          variant: 'destructive',
+        });
+        setLeads([]);
+      } else {
+        // Transform Supabase data to match component interface
+        const transformedLeads = (data || []).map(lead => ({
+          id: lead.id,
+          name: lead.full_name || 'Unknown',
+          email: lead.email || '',
+          phone: lead.phone || '',
+          property: lead.property_address_street || '',
+          suburb: lead.property_address_suburb || '',
+          state: lead.property_address_state || 'VIC',
+          postcode: lead.property_address_postcode || '',
+          status: lead.status || 'new_lead',
+          urgency: lead.urgency || 'medium',
+          source: lead.lead_source || 'Unknown',
+          dateCreated: lead.created_at,
+          lastContact: lead.updated_at,
+          estimatedValue: lead.quoted_amount ? parseFloat(lead.quoted_amount.toString()) : null,
+          issueDescription: lead.issue_description || lead.notes || '',
+          leadNumber: lead.lead_number,
+        }));
+        setLeads(transformedLeads);
+      }
+    } catch (err) {
+      console.error('Unexpected error loading leads:', err);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      });
+      setLeads([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // OLD: Mock data (keeping for reference, but not used)
+  const _MOCK_DATA_UNUSED = () => {
     const mockLeads = [
       // 1. NEW_LEAD - Brand new inquiry from website
       {
@@ -867,9 +927,7 @@ const LeadsManagement = () => {
         issueDescription: 'Bathroom mould - decided to go with another company'
       }
     ];
-    
-    setLeads(mockLeads);
-    setLoading(false);
+    return mockLeads;
   };
 
   const getFilteredLeads = () => {

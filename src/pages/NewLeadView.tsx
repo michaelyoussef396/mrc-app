@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
-import { 
-  ArrowLeft, Phone, Mail, MapPin, Calendar, Clock, 
+import {
+  ArrowLeft, Phone, Mail, MapPin, Calendar, Clock,
   FileText, AlertTriangle, Sparkles, Globe, CheckCircle,
   X, User, Home, ChevronRight
 } from 'lucide-react'
@@ -10,63 +11,29 @@ import {
 const NewLeadView = () => {
   const navigate = useNavigate()
   const { id } = useParams()
-  const [lead, setLead] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
   const [showScheduleModal, setShowScheduleModal] = useState(false)
   const [scheduleDate, setScheduleDate] = useState('')
   const [scheduleTime, setScheduleTime] = useState('')
   const [assignedTo, setAssignedTo] = useState('')
   const [notes, setNotes] = useState('')
 
-  useEffect(() => {
-    loadLeadData()
-  }, [id])
+  // Fetch lead data from Supabase using React Query
+  const { data: lead, isLoading: loading } = useQuery({
+    queryKey: ['lead', id],
+    queryFn: async () => {
+      if (!id) throw new Error('Lead ID is required');
 
-  const loadLeadData = async () => {
-    setLoading(true)
-    
-    // Mock data matching LeadsManagement - replace with real Supabase query later
-    const mockLeads = [
-      {
-        id: 1,
-        full_name: 'John Doe',
-        email: 'john@email.com',
-        phone: '0412 345 678',
-        property_address_street: '123 Smith Street',
-        property_address_suburb: 'Melbourne',
-        property_address_state: 'VIC',
-        property_address_postcode: '3000',
-        status: 'new_lead',
-        urgency: 'high',
-        lead_source: 'Website Form',
-        created_at: '2025-01-29T10:30:00',
-        issue_description: 'Visible black mould in bathroom around shower area and on bedroom ceiling near window'
-      },
-      {
-        id: 2,
-        full_name: 'Emma Wilson',
-        email: 'emma@email.com',
-        phone: '0434 567 890',
-        property_address_street: '67 High Street',
-        property_address_suburb: 'Preston',
-        property_address_state: 'VIC',
-        property_address_postcode: '3072',
-        status: 'new_lead',
-        urgency: 'medium',
-        lead_source: 'Google Ads',
-        created_at: '2025-01-29T08:15:00',
-        issue_description: 'Musty smell in laundry room and visible spots on walls'
-      }
-    ]
-    
-    const leadData = mockLeads.find(l => l.id === parseInt(id || '0'))
-    
-    if (leadData) {
-      setLead(leadData)
-    }
-    
-    setLoading(false)
-  }
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  })
 
   const handleScheduleInspection = async () => {
     if (!scheduleDate || !scheduleTime) {

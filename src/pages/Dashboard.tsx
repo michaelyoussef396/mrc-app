@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Bell, Menu, X, ChevronDown, CheckCircle, AlertCircle, Info, Home, ClipboardList, Calendar as CalendarIcon, FileText, BarChart, TrendingUp, User, Settings as SettingsIcon, LogOut, ChevronRight } from 'lucide-react';
 import Logo from '@/components/Logo';
+import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export default function Dashboard() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [newLeadDialogOpen, setNewLeadDialogOpen] = useState(false);
   const [stats, setStats] = useState({
     totalLeads: 0,
     activeJobs: 0,
@@ -42,6 +44,12 @@ export default function Dashboard() {
       revenue: 24500
     });
     setLoading(false);
+  };
+
+  const handleLeadCreated = () => {
+    // Reload dashboard data after lead creation
+    loadDashboardData();
+    setNewLeadDialogOpen(false);
   };
 
   const handleLogout = async () => {
@@ -396,12 +404,12 @@ export default function Dashboard() {
               <p className="page-subtitle">Here's what's happening with your leads today</p>
             </div>
             
-            <button 
+            <button
               className="flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-[15px] font-semibold rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
-              onClick={() => navigate('/lead/new')}
+              onClick={() => setNewLeadDialogOpen(true)}
             >
               <Plus size={20} strokeWidth={2.5} />
-              <span>New Inspection/Lead</span>
+              <span>New Lead</span>
             </button>
           </div>
 
@@ -589,6 +597,13 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+
+      {/* New Lead Dialog */}
+      <NewLeadDialog
+        open={newLeadDialogOpen}
+        onClose={() => setNewLeadDialogOpen(false)}
+        onSuccess={handleLeadCreated}
+      />
     </div>
   );
 }

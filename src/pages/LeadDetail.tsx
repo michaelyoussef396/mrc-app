@@ -235,6 +235,18 @@ export default function LeadDetail() {
     const status = lead.status as LeadStatus;
 
     switch (status) {
+      case "hipages_lead":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" onClick={() => window.location.href = `tel:${lead.phone}`}>
+              <Phone className="h-4 w-4 mr-2" /> Call Lead Now
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => window.location.href = `mailto:${lead.email}`}>
+              <Mail className="h-4 w-4 mr-2" /> Send Email
+            </Button>
+          </div>
+        );
+
       case "new_lead":
         return (
           <div className="flex flex-wrap gap-2">
@@ -552,31 +564,92 @@ export default function LeadDetail() {
           </div>
 
           <TabsContent value="overview" className="space-y-6 mt-6">
+            {/* HiPages Lead Indicator */}
+            {(lead.status === 'hipages_lead' || lead.lead_source === 'hipages') && (
+              <Card className="border-purple-200 bg-purple-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-3">
+                    <div className="bg-purple-500 text-white p-2 rounded-lg flex-shrink-0">
+                      <Phone className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-purple-900 mb-1">HiPages Lead - Limited Information</h3>
+                      <p className="text-sm text-purple-800 mb-3">
+                        This lead came from HiPages marketplace and only has basic contact info.
+                        Call the lead to gather full details before scheduling inspection.
+                      </p>
+                      <div className="bg-white p-3 rounded border border-purple-200">
+                        <p className="text-xs font-semibold text-purple-900 mb-2">📋 Next Steps:</p>
+                        <ol className="text-xs text-purple-800 space-y-1 list-decimal list-inside">
+                          <li>Call {lead.phone} to introduce MRC</li>
+                          <li>Ask about mould issue and property details</li>
+                          <li>Gather full name, complete address, property type</li>
+                          <li>Schedule inspection date and time</li>
+                        </ol>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
                 <CardTitle>Customer Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-muted-foreground">Full Name</p>
-                    <p className="break-words">{lead.full_name}</p>
+                {(lead.status === 'hipages_lead' || lead.lead_source === 'hipages') ? (
+                  // HiPages Lead - Limited Fields
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-muted-foreground">Suburb</p>
+                      <p className="break-words">{lead.property_address_suburb}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-muted-foreground">Postcode</p>
+                      <p className="break-words">{lead.property_address_postcode}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-muted-foreground">Phone</p>
+                      <p className="break-words">
+                        <a href={`tel:${lead.phone}`} className="text-primary hover:underline">{lead.phone}</a>
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-muted-foreground">Email</p>
+                      <p className="break-all overflow-wrap-anywhere text-sm">{lead.email}</p>
+                    </div>
+                    <div className="min-w-0 sm:col-span-2">
+                      <p className="text-sm font-semibold text-muted-foreground">Lead Source</p>
+                      <Badge variant="secondary" className="mt-1">
+                        <Phone className="h-3 w-3 mr-1" />
+                        HiPages Marketplace
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-muted-foreground">Email</p>
-                    <p className="break-all overflow-wrap-anywhere text-sm">{lead.email}</p>
+                ) : (
+                  // Normal Lead - Full Fields
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-muted-foreground">Full Name</p>
+                      <p className="break-words">{lead.full_name}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-muted-foreground">Email</p>
+                      <p className="break-all overflow-wrap-anywhere text-sm">{lead.email}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-muted-foreground">Phone</p>
+                      <p className="break-words">
+                        <a href={`tel:${lead.phone}`} className="text-primary hover:underline">{lead.phone}</a>
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-muted-foreground">Lead Source</p>
+                      <p className="break-words">{lead.lead_source || "Not specified"}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-muted-foreground">Phone</p>
-                    <p className="break-words">
-                      <a href={`tel:${lead.phone}`} className="hover:underline">{lead.phone}</a>
-                    </p>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-muted-foreground">Lead Source</p>
-                    <p className="break-words">{lead.lead_source || "Not specified"}</p>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
@@ -607,6 +680,52 @@ export default function LeadDetail() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Activity History */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Activity History
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {activities && activities.length > 0 ? (
+                  <div className="space-y-4">
+                    {activities.map((activity, index) => (
+                      <div
+                        key={activity.id}
+                        className="relative pl-6 pb-4 border-l-2 border-muted last:border-l-0 last:pb-0"
+                      >
+                        {/* Timeline dot */}
+                        <div className="absolute left-[-9px] top-0 h-4 w-4 rounded-full bg-primary border-2 border-background" />
+
+                        {/* Activity content */}
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold">{activity.title}</p>
+                          {activity.description && (
+                            <p className="text-xs text-muted-foreground">
+                              {activity.description}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(activity.created_at).toLocaleString('en-AU', {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    No activity history yet. Activities will appear here as the lead progresses.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="timeline" className="mt-6">

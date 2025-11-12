@@ -1,49 +1,52 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 const ClientDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
-  const [lead, setLead] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
-  
+
   // Editable fields
   const [editedLead, setEditedLead] = useState<any>({});
 
-  useEffect(() => {
-    loadLeadData();
-  }, [id]);
+  // Fetch lead data from Supabase using React Query
+  const { data: leadData, isLoading: loading } = useQuery({
+    queryKey: ['lead', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-  const loadLeadData = async () => {
-    setLoading(true);
-    
-    // TODO: Load from Supabase
-    // For now, mock data
-    const mockLead = {
-      id: parseInt(id || '1'),
-      name: 'John Doe',
-      email: 'john@email.com',
-      phone: '0412 345 678',
-      property: '123 Smith Street',
-      suburb: 'Melbourne',
-      state: 'VIC',
-      postcode: '3000',
-      status: 'job_report_pdf_sent',
-      urgency: 'high',
-      issueDescription: 'Black mould in bathroom and bedroom ceiling',
-      source: 'Website',
-      dateCreated: '2025-01-29T10:30:00',
-      estimatedValue: 2400,
-    };
-    
-    setLead(mockLead);
-    setEditedLead(mockLead);
-    setLoading(false);
-  };
+      if (error) throw error;
+
+      // Transform database fields to component format
+      return {
+        id: data.id,
+        name: data.full_name || 'Unknown',
+        email: data.email || '',
+        phone: data.phone || '',
+        property: data.property_address_street || '',
+        suburb: data.property_address_suburb || '',
+        state: data.property_address_state || 'VIC',
+        postcode: data.property_address_postcode || '',
+        status: data.status || 'new_lead',
+        urgency: data.urgency || 'medium',
+        issueDescription: data.issue_description || data.notes || '',
+        source: data.lead_source || 'Unknown',
+        dateCreated: data.created_at,
+        estimatedValue: data.quoted_amount ? parseFloat(data.quoted_amount.toString()) : null,
+      };
+    },
+  });
+
+  // Use leadData directly instead of local state
+  const lead = leadData;
 
   const handleEdit = () => {
     setEditMode(true);
@@ -57,14 +60,34 @@ const ClientDetail = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    
+
     try {
-      // TODO: Save to Supabase
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      setLead(editedLead);
+      // Transform component format back to database fields
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          full_name: editedLead.name,
+          email: editedLead.email,
+          phone: editedLead.phone,
+          property_address_street: editedLead.property,
+          property_address_suburb: editedLead.suburb,
+          property_address_state: editedLead.state,
+          property_address_postcode: editedLead.postcode,
+          urgency: editedLead.urgency,
+          issue_description: editedLead.issueDescription,
+          lead_source: editedLead.source,
+          quoted_amount: editedLead.estimatedValue,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
       setEditMode(false);
       alert('Lead updated successfully!');
+
+      // Refetch the data to show updated values
+      window.location.reload();
     } catch (error) {
       alert('Failed to save changes');
       console.error(error);
@@ -84,13 +107,25 @@ const ClientDetail = () => {
     const confirmed = window.confirm(
       'Mark this job as complete?\n\nThis will update the status and notify the client.'
     );
-    
+
     if (confirmed) {
-      // TODO: Update status in Supabase
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      setLead((prev: any) => ({ ...prev, status: 'inspection_report_pdf_completed' }));
-      alert('Job marked as complete!');
+      try {
+        const { error } = await supabase
+          .from('leads')
+          .update({
+            status: 'inspection_report_pdf_completed',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', leadId);
+
+        if (error) throw error;
+
+        alert('Job marked as complete!');
+        window.location.reload();
+      } catch (error) {
+        alert('Failed to update status');
+        console.error(error);
+      }
     }
   };
 
