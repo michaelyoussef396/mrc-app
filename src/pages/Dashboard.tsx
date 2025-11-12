@@ -8,11 +8,11 @@ import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentLeads } from '@/components/dashboard/RecentLeads';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
+import { NotificationBell } from '@/components/layout/NotificationBell';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [newLeadDialogOpen, setNewLeadDialogOpen] = useState(false);
@@ -25,15 +25,6 @@ export default function Dashboard() {
     monthlyRevenue,
     isLoading: statsLoading,
   } = useDashboardStats();
-
-  // Mock notifications data (recent)
-  const recentNotifications = [
-    { id: 1, title: 'Inspection completed for 45 High St, Croydon', time: '2 hours ago', unread: true },
-    { id: 2, title: 'New lead assigned: 78 Smith Road, Richmond', time: '5 hours ago', unread: true },
-    { id: 3, title: 'Urgent: Follow-up needed for job #MRC-2025-0042', time: '1 day ago', unread: false },
-  ];
-
-  const notificationCount = recentNotifications.filter(n => n.unread).length;
 
   const handleLeadCreated = () => {
     // Close dialog - React Query will auto-refetch
@@ -82,82 +73,9 @@ export default function Dashboard() {
           {/* Left Section: Logo + Notifications */}
           <div className="flex items-center gap-4">
             <Logo size="small" />
-            
-            {/* Notifications Button */}
-            <div className="relative">
-              <button 
-                className="relative w-11 h-11 rounded-xl bg-white/10 border-0 text-white flex items-center justify-center cursor-pointer transition-all hover:bg-white/20"
-                onClick={() => {
-                  setNotificationsOpen(!notificationsOpen);
-                  setProfileMenuOpen(false);
-                }}
-              >
-                <Bell size={20} strokeWidth={2} />
-                {notificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-5 h-5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center px-1.5 border-2 border-blue-900">
-                    {notificationCount}
-                  </span>
-                )}
-              </button>
 
-              {/* Notifications Dropdown */}
-              {notificationsOpen && (
-                <>
-                  {/* Backdrop */}
-                  <div 
-                    className="fixed inset-0 z-40"
-                    onClick={() => setNotificationsOpen(false)}
-                  />
-                  
-                  {/* Dropdown Panel */}
-                  <div className="absolute top-14 -left-20 w-80 sm:w-96 max-h-[480px] bg-white rounded-2xl shadow-2xl z-50 overflow-hidden">
-                    {/* Header */}
-                    <div className="px-5 py-4 border-b border-gray-200 flex justify-between items-center">
-                      <h3 className="text-base font-bold text-gray-900">Notifications</h3>
-                      <button className="text-sm text-blue-600 font-semibold hover:text-blue-700">
-                        Mark all read
-                      </button>
-                    </div>
-                    
-                    {/* Notifications List */}
-                    <div className="max-h-96 overflow-y-auto">
-                      {recentNotifications.map((notification) => (
-                        <div 
-                          key={notification.id}
-                          className={`flex gap-3 px-5 py-4 border-b border-gray-100 cursor-pointer transition-colors hover:bg-gray-50 ${
-                            notification.unread ? 'bg-blue-50' : ''
-                          }`}
-                          onClick={() => setNotificationsOpen(false)}
-                        >
-                          <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
-                            <Bell size={20} strokeWidth={2} />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm text-gray-900 font-medium mb-1">
-                              {notification.title}
-                            </p>
-                            <span className="text-xs text-gray-500">{notification.time}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {/* Footer */}
-                    <div className="px-5 py-3 border-t border-gray-200 text-center">
-                      <button 
-                        className="text-sm text-blue-600 font-semibold hover:text-blue-700"
-                        onClick={() => {
-                          navigate('/notifications');
-                          setNotificationsOpen(false);
-                        }}
-                      >
-                        View all notifications
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+            {/* Notifications Bell */}
+            <NotificationBell />
           </div>
 
           {/* Right Section: Profile + Menu */}

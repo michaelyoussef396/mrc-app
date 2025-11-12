@@ -33,7 +33,7 @@ import { ReportsPage } from "./pages/ReportsPage";
 import CustomerBooking from "./pages/CustomerBooking";
 import RequestInspection from "./pages/RequestInspection";
 import InspectionSuccess from "./pages/InspectionSuccess";
-import AllNotifications from "./pages/AllNotifications";
+import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -59,7 +59,7 @@ const AppContent = () => {
           {/* Protected routes (with AppLayout) */}
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/notifications" element={<AllNotifications />} />
+            <Route path="/notifications" element={<Notifications />} />
             <Route path="/lead/new" element={<NewLead />} />
             <Route path="/inspection/select-lead" element={<SelectLead />} />
             <Route path="/client/:id" element={<ClientDetail />} />
