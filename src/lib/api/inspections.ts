@@ -171,6 +171,12 @@ export async function getInspection(inspectionId: string) {
     throw new Error(`Failed to get inspection: ${error.message}`)
   }
 
+  // Sanitize enum values in case of invalid/old data
+  if (data) {
+    data.dwelling_type = sanitizeEnumValue(data.dwelling_type, 'dwelling_type')
+    data.property_occupation = sanitizeEnumValue(data.property_occupation, 'property_occupation')
+  }
+
   return data
 }
 
@@ -305,7 +311,36 @@ export async function getInspectionByLeadId(leadId: string) {
     throw new Error(`Failed to get inspection by lead: ${error.message}`)
   }
 
+  // Sanitize enum values in case of invalid/old data
+  if (data) {
+    data.dwelling_type = sanitizeEnumValue(data.dwelling_type, 'dwelling_type')
+    data.property_occupation = sanitizeEnumValue(data.property_occupation, 'property_occupation')
+  }
+
   return data
+}
+
+/**
+ * Sanitize enum values to match database enum types
+ * Handles invalid/old data by converting to valid enum values or undefined
+ */
+function sanitizeEnumValue(value: string | null | undefined, enumType: 'dwelling_type' | 'property_occupation'): string | undefined {
+  if (!value) return undefined
+
+  const validDwellingTypes = ['house', 'units', 'apartment', 'duplex', 'townhouse', 'commercial', 'construction', 'industrial']
+  const validPropertyOccupation = ['tenanted', 'vacant', 'owner_occupied', 'tenants_vacating']
+
+  // Convert to lowercase and replace spaces with underscores
+  const normalized = value.toLowerCase().replace(/\s+/g, '_')
+
+  if (enumType === 'dwelling_type') {
+    // Handle old invalid values like "residential" by returning undefined
+    return validDwellingTypes.includes(normalized) ? normalized : undefined
+  } else if (enumType === 'property_occupation') {
+    return validPropertyOccupation.includes(normalized) ? normalized : undefined
+  }
+
+  return undefined
 }
 
 /**
@@ -316,6 +351,12 @@ export async function getInspectionByLeadId(leadId: string) {
 export async function loadCompleteInspection(inspectionId: string) {
   // Load inspection metadata
   const inspection = await getInspection(inspectionId)
+
+  // Sanitize enum values in case of invalid/old data
+  if (inspection) {
+    inspection.dwelling_type = sanitizeEnumValue(inspection.dwelling_type, 'dwelling_type')
+    inspection.property_occupation = sanitizeEnumValue(inspection.property_occupation, 'property_occupation')
+  }
 
   // Load all areas
   const areas = await loadInspectionAreas(inspectionId)

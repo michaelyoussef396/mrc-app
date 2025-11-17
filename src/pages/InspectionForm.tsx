@@ -756,6 +756,25 @@ const InspectionForm = () => {
     }
   }
 
+  // Sanitize enum values to match database enum types
+  const sanitizeEnumValue = (value: string, enumType: 'dwelling_type' | 'property_occupation'): string | undefined => {
+    if (!value) return undefined
+
+    const validDwellingTypes = ['house', 'units', 'apartment', 'duplex', 'townhouse', 'commercial', 'construction', 'industrial']
+    const validPropertyOccupation = ['tenanted', 'vacant', 'owner_occupied', 'tenants_vacating']
+
+    // Convert to lowercase and replace spaces with underscores
+    const normalized = value.toLowerCase().replace(/\s+/g, '_')
+
+    if (enumType === 'dwelling_type') {
+      return validDwellingTypes.includes(normalized) ? normalized : undefined
+    } else if (enumType === 'property_occupation') {
+      return validPropertyOccupation.includes(normalized) ? normalized : undefined
+    }
+
+    return undefined
+  }
+
   const autoSave = async () => {
     if (!leadId || !currentUserId) return
 
@@ -764,6 +783,10 @@ const InspectionForm = () => {
     try {
       // Create or get inspection ID
       const inspectionId = await createOrLoadInspection()
+
+      // Sanitize enum values before saving
+      const sanitizedPropertyOccupation = sanitizeEnumValue(formData.propertyOccupation, 'property_occupation')
+      const sanitizedDwellingType = sanitizeEnumValue(formData.dwellingType, 'dwelling_type')
 
       // Save inspection metadata
       await updateInspection(inspectionId, {
@@ -774,8 +797,8 @@ const InspectionForm = () => {
         triage_description: formData.triage,
         requested_by: formData.requestedBy,
         attention_to: formData.attentionTo,
-        property_occupation: formData.propertyOccupation || undefined,
-        dwelling_type: formData.dwellingType || undefined,
+        property_occupation: sanitizedPropertyOccupation,
+        dwelling_type: sanitizedDwellingType,
         outdoor_temperature: parseFloat(formData.outdoorTemperature) || undefined,
         outdoor_humidity: parseFloat(formData.outdoorHumidity) || undefined,
         outdoor_dew_point: parseFloat(formData.outdoorDewPoint) || undefined,
@@ -1128,10 +1151,10 @@ const InspectionForm = () => {
                     className="form-select"
                   >
                     <option value="">Select occupation type...</option>
-                    <option value="Tenanted">Tenanted</option>
-                    <option value="Vacant">Vacant</option>
-                    <option value="Owner Occupied">Owner Occupied</option>
-                    <option value="Tenants Vacating">Tenants Vacating</option>
+                    <option value="tenanted">Tenanted</option>
+                    <option value="vacant">Vacant</option>
+                    <option value="owner_occupied">Owner Occupied</option>
+                    <option value="tenants_vacating">Tenants Vacating</option>
                   </select>
                 </div>
 
@@ -1143,14 +1166,14 @@ const InspectionForm = () => {
                     className="form-select"
                   >
                     <option value="">Select dwelling type...</option>
-                    <option value="House">House</option>
-                    <option value="Units">Units</option>
-                    <option value="Apartment">Apartment</option>
-                    <option value="Duplex">Duplex</option>
-                    <option value="Townhouse">Townhouse</option>
-                    <option value="Commercial">Commercial</option>
-                    <option value="Construction">Construction</option>
-                    <option value="Industrial">Industrial</option>
+                    <option value="house">House</option>
+                    <option value="units">Units</option>
+                    <option value="apartment">Apartment</option>
+                    <option value="duplex">Duplex</option>
+                    <option value="townhouse">Townhouse</option>
+                    <option value="commercial">Commercial</option>
+                    <option value="construction">Construction</option>
+                    <option value="industrial">Industrial</option>
                   </select>
                 </div>
               </div>
