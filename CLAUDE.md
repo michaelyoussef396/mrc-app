@@ -94,7 +94,6 @@ cat PLANNING.md                        # Architecture decisions
 cat context/MRC-PRD.md                 # Product requirements
 cat context/MRC-TECHNICAL-SPEC.md      # Technical implementation
 cat context/design-checklist-s-tier.md # Design standards
-cat REQUEST-INSPECTION-FORM-FIXED.md   # Latest: Form fix complete
 ```
 
 #### 2. **Check Git Status**
