@@ -5,6 +5,15 @@ import { useToast } from '@/hooks/use-toast'
 import { calculateDewPoint, generateJobNumber, calculateJobCost, formatCurrency } from '@/lib/inspectionUtils'
 import type { InspectionFormData, InspectionArea, MoistureReading, SubfloorReading, Photo } from '@/types/inspection'
 import { TopNavbar } from '@/components/layout/TopNavbar'
+import { uploadInspectionPhoto, uploadMultiplePhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
+import {
+  createInspection,
+  updateInspection,
+  saveInspectionArea,
+  getInspectionByLeadId,
+  type InspectionData,
+  type InspectionAreaData
+} from '@/lib/api/inspections'
 import {
   Sparkles,
   FileText,
@@ -36,6 +45,9 @@ const InspectionForm = () => {
   const [lead, setLead] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [currentInspectionId, setCurrentInspectionId] = useState<string | null>(null)
+  const [technicians, setTechnicians] = useState<Array<{ id: string; name: string }>>([])
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   
   const [formData, setFormData] = useState<InspectionFormData>({
     jobNumber: generateJobNumber(),
@@ -126,9 +138,18 @@ const InspectionForm = () => {
     { id: 8, title: 'Cost Estimate', icon: <DollarSign size={40} strokeWidth={2} /> }
   ]
 
+  // Load user and lead data on mount
   useEffect(() => {
     loadLeadData()
+    loadCurrentUser()
   }, [leadId])
+
+  // Load technicians only after currentUserId is available
+  useEffect(() => {
+    if (currentUserId) {
+      loadTechnicians()
+    }
+  }, [currentUserId])
 
   useEffect(() => {
     // Auto-save every 30 seconds
@@ -136,7 +157,7 @@ const InspectionForm = () => {
       autoSave()
     }, 30000)
     return () => clearInterval(interval)
-  }, [formData])
+  }, [formData, currentInspectionId])
 
   useEffect(() => {
     // Recalculate cost whenever relevant fields change
@@ -175,12 +196,19 @@ const InspectionForm = () => {
       }
       
       setLead(leadData)
+
+      // Map propertyType to valid dwelling_type enum values
+      const validDwellingTypes = ['house', 'units', 'apartment', 'duplex', 'townhouse', 'commercial', 'construction', 'industrial']
+      const dwellingType = validDwellingTypes.includes(leadData.propertyType?.toLowerCase())
+        ? leadData.propertyType.toLowerCase()
+        : ''
+
       setFormData(prev => ({
         ...prev,
         triage: leadData.issueDescription,
         address: leadData.property,
         requestedBy: leadData.name,
-        dwellingType: leadData.propertyType,
+        dwellingType: dwellingType,
         // Pre-fill first area with affected areas from lead
         areas: leadData.affectedAreas && leadData.affectedAreas.length > 0 
           ? [{
@@ -288,6 +316,77 @@ const InspectionForm = () => {
     }
 
     setLoading(false)
+  }
+
+  const loadTechnicians = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, raw_user_meta_data')
+        .eq('raw_user_meta_data->>role', 'technician')
+
+      if (error) {
+        console.error('Failed to load technicians:', error)
+        // Fallback: use current user with valid UUID
+        if (currentUserId) {
+          const { data: user } = await supabase.auth.getUser()
+          setTechnicians([
+            { id: currentUserId, name: user?.user?.email?.split('@')[0] || 'Current User' }
+          ])
+        }
+        return
+      }
+
+      const techList = (data || []).map((user: any) => ({
+        id: user.id,
+        name: user.raw_user_meta_data?.display_name || user.email.split('@')[0]
+      }))
+
+      // Fallback if no technicians found
+      if (techList.length === 0 && currentUserId) {
+        const { data: user } = await supabase.auth.getUser()
+        setTechnicians([
+          { id: currentUserId, name: user?.user?.email?.split('@')[0] || 'Current User' }
+        ])
+      } else {
+        setTechnicians(techList)
+      }
+    } catch (error) {
+      console.error('Exception loading technicians:', error)
+      // Fallback: use current user with valid UUID
+      if (currentUserId) {
+        const { data: user } = await supabase.auth.getUser()
+        setTechnicians([
+          { id: currentUserId, name: user?.user?.email?.split('@')[0] || 'Current User' }
+        ])
+      }
+    }
+  }
+
+  const loadCurrentUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setCurrentUserId(user.id)
+      }
+    } catch (error) {
+      console.error('Failed to get current user:', error)
+    }
+  }
+
+  const checkExistingInspection = async () => {
+    if (!leadId) return
+
+    try {
+      const inspection = await getInspectionByLeadId(leadId)
+      if (inspection) {
+        setCurrentInspectionId(inspection.id)
+        console.log('📋 Found existing inspection:', inspection.job_number)
+        // TODO: Optionally load inspection data into form
+      }
+    } catch (error) {
+      console.error('Error checking existing inspection:', error)
+    }
   }
 
   const handleInputChange = (field: string, value: any) => {
@@ -433,59 +532,118 @@ const InspectionForm = () => {
   }
 
   const handlePhotoCapture = async (type: string, areaId?: string, readingId?: string) => {
+    // Ensure inspection exists before uploading photos
+    if (!currentInspectionId) {
+      toast({
+        title: 'Saving inspection first...',
+        description: 'Please wait while we prepare to upload photos',
+        variant: 'default'
+      })
+
+      try {
+        await createOrLoadInspection()
+      } catch (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to create inspection. Please try again.',
+          variant: 'destructive'
+        })
+        return
+      }
+    }
+
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'image/*'
     input.multiple = type !== 'single'
-    
+
     input.onchange = async (e: any) => {
       const files = Array.from(e.target.files) as File[]
-      const newPhotos: Photo[] = files.map(f => ({
-        id: crypto.randomUUID(),
-        name: f.name,
-        url: URL.createObjectURL(f),
-        timestamp: new Date().toISOString()
-      }))
-      
-      if (areaId && readingId) {
-        // Moisture reading photos
-        updateMoistureReading(areaId, readingId, 'images', [
-          ...(formData.areas.find(a => a.id === areaId)?.moistureReadings.find(r => r.id === readingId)?.images || []),
-          ...newPhotos
-        ])
-      } else if (areaId && type === 'roomView') {
-        // Room view photos (limit 3)
-        const currentArea = formData.areas.find(a => a.id === areaId)
-        const currentPhotos = currentArea?.roomViewPhotos || []
-        if (currentPhotos.length + newPhotos.length > 3) {
-          toast({ title: 'Photo limit', description: 'Room view limited to 3 photos', variant: 'destructive' })
-          return
+
+      if (files.length === 0) return
+
+      // Show uploading toast
+      toast({
+        title: 'Uploading photos...',
+        description: `Uploading ${files.length} photo(s) to secure storage`
+      })
+
+      try {
+        // Determine photo type and metadata
+        let photoType: 'area' | 'subfloor' | 'general' | 'outdoor' = 'general'
+        if (areaId) photoType = 'area'
+        else if (type === 'subfloor') photoType = 'subfloor'
+        else if (type === 'frontDoor' || type === 'frontHouse' || type === 'mailbox' || type === 'street') {
+          photoType = 'outdoor'
         }
-        handleAreaChange(areaId, 'roomViewPhotos', [...currentPhotos, ...newPhotos])
-      } else if (areaId && type === 'infrared') {
-        handleAreaChange(areaId, 'infraredPhoto', newPhotos[0])
-      } else if (areaId && type === 'naturalInfrared') {
-        handleAreaChange(areaId, 'naturalInfraredPhoto', newPhotos[0])
-      } else if (type === 'subfloor') {
-        setFormData(prev => ({
-          ...prev,
-          subfloorPhotos: [...prev.subfloorPhotos, ...newPhotos]
+
+        // Upload photos to Storage and get signed URLs
+        const uploadResults = await uploadMultiplePhotos(files, {
+          inspection_id: currentInspectionId!,
+          area_id: areaId,
+          photo_type: photoType
+        })
+
+        // Create Photo objects with signed URLs
+        const newPhotos: Photo[] = uploadResults.map((result, index) => ({
+          id: result.photo_id,
+          name: files[index].name,
+          url: result.signed_url,
+          timestamp: new Date().toISOString()
         }))
-      } else if (type === 'direction') {
-        setFormData(prev => ({
-          ...prev,
-          directionPhotos: [...prev.directionPhotos, ...newPhotos]
-        }))
-      } else if (type === 'frontDoor' || type === 'frontHouse' || type === 'mailbox' || type === 'street') {
-        setFormData(prev => ({
-          ...prev,
-          [`${type}Photo`]: newPhotos[0]
-        }))
+
+        // Update form state based on photo type
+        if (areaId && readingId) {
+          // Moisture reading photos
+          updateMoistureReading(areaId, readingId, 'images', [
+            ...(formData.areas.find(a => a.id === areaId)?.moistureReadings.find(r => r.id === readingId)?.images || []),
+            ...newPhotos
+          ])
+        } else if (areaId && type === 'roomView') {
+          // Room view photos (limit 3)
+          const currentArea = formData.areas.find(a => a.id === areaId)
+          const currentPhotos = currentArea?.roomViewPhotos || []
+          if (currentPhotos.length + newPhotos.length > 3) {
+            toast({ title: 'Photo limit', description: 'Room view limited to 3 photos', variant: 'destructive' })
+            return
+          }
+          handleAreaChange(areaId, 'roomViewPhotos', [...currentPhotos, ...newPhotos])
+        } else if (areaId && type === 'infrared') {
+          handleAreaChange(areaId, 'infraredPhoto', newPhotos[0])
+        } else if (areaId && type === 'naturalInfrared') {
+          handleAreaChange(areaId, 'naturalInfraredPhoto', newPhotos[0])
+        } else if (type === 'subfloor') {
+          setFormData(prev => ({
+            ...prev,
+            subfloorPhotos: [...prev.subfloorPhotos, ...newPhotos]
+          }))
+        } else if (type === 'direction') {
+          setFormData(prev => ({
+            ...prev,
+            directionPhotos: [...prev.directionPhotos, ...newPhotos]
+          }))
+        } else if (type === 'frontDoor' || type === 'frontHouse' || type === 'mailbox' || type === 'street') {
+          setFormData(prev => ({
+            ...prev,
+            [`${type}Photo`]: newPhotos[0]
+          }))
+        }
+
+        toast({
+          title: 'Photos uploaded successfully!',
+          description: `${files.length} photo(s) saved to secure storage`,
+          variant: 'default'
+        })
+      } catch (error: any) {
+        console.error('Photo upload error:', error)
+        toast({
+          title: 'Upload failed',
+          description: error.message || 'Failed to upload photos. Please try again.',
+          variant: 'destructive'
+        })
       }
-      
-      toast({ title: 'Photos added', description: `${files.length} photo(s) uploaded` })
     }
-    
+
     input.click()
   }
 
@@ -563,10 +721,135 @@ const InspectionForm = () => {
     // TODO: Implement AI generation using Lovable AI
   }
 
-  const autoSave = () => {
+  const createOrLoadInspection = async (): Promise<string> => {
+    if (currentInspectionId) {
+      return currentInspectionId
+    }
+
+    if (!leadId || !currentUserId) {
+      throw new Error('Missing required data (leadId or userId)')
+    }
+
+    try {
+      // Check if inspection already exists for this lead
+      const existing = await getInspectionByLeadId(leadId)
+      if (existing) {
+        setCurrentInspectionId(existing.id)
+        return existing.id
+      }
+
+      // Create new inspection
+      const inspectionData: InspectionData = {
+        lead_id: leadId,
+        inspector_id: formData.inspector || currentUserId,
+        inspection_date: formData.inspectionDate,
+        job_number: formData.jobNumber
+      }
+
+      const inspection = await createInspection(inspectionData)
+      setCurrentInspectionId(inspection.id)
+      console.log('✅ Created inspection:', inspection.job_number)
+      return inspection.id
+    } catch (error) {
+      console.error('Failed to create inspection:', error)
+      throw error
+    }
+  }
+
+  const autoSave = async () => {
+    if (!leadId || !currentUserId) return
+
     setSaving(true)
-    // TODO: Save to Supabase
-    setTimeout(() => setSaving(false), 1000)
+
+    try {
+      // Create or get inspection ID
+      const inspectionId = await createOrLoadInspection()
+
+      // Save inspection metadata
+      await updateInspection(inspectionId, {
+        lead_id: leadId,
+        inspector_id: formData.inspector || currentUserId,
+        inspection_date: formData.inspectionDate,
+        inspection_start_time: new Date().toTimeString().split(' ')[0],
+        triage_description: formData.triage,
+        requested_by: formData.requestedBy,
+        attention_to: formData.attentionTo,
+        property_occupation: formData.propertyOccupation || undefined,
+        dwelling_type: formData.dwellingType || undefined,
+        outdoor_temperature: parseFloat(formData.outdoorTemperature) || undefined,
+        outdoor_humidity: parseFloat(formData.outdoorHumidity) || undefined,
+        outdoor_dew_point: parseFloat(formData.outdoorDewPoint) || undefined,
+        outdoor_comments: formData.outdoorComments,
+        subfloor_required: formData.subfloorEnabled,
+        waste_disposal_required: formData.wasteDisposalEnabled,
+        total_time_minutes: formData.areas.reduce(
+          (sum, a) => sum + a.timeWithoutDemo + (a.demolitionRequired ? a.demolitionTime : 0),
+          0
+        ) + (formData.subfloorEnabled ? formData.subfloorTreatmentTime : 0),
+        estimated_cost_ex_gst: formData.subtotal,
+        estimated_cost_inc_gst: formData.totalCost,
+        equipment_cost_ex_gst: formData.equipmentCost,
+        recommended_dehumidifier: formData.dehumidifierSize,
+        cause_of_mould: formData.causeOfMould,
+        additional_info_technician: formData.additionalInfoForTech,
+        additional_equipment_comments: formData.additionalEquipmentComments,
+        parking_option: formData.parkingOptions
+      })
+
+      // Save all inspection areas
+      for (let i = 0; i < formData.areas.length; i++) {
+        const area = formData.areas[i]
+
+        const areaData: InspectionAreaData = {
+          inspection_id: inspectionId,
+          area_order: i,
+          area_name: area.areaName,
+          // Map mould visibility array to boolean fields
+          mould_ceiling: area.mouldVisibility.includes('Ceiling'),
+          mould_cornice: area.mouldVisibility.includes('Cornice'),
+          mould_windows: area.mouldVisibility.includes('Windows'),
+          mould_window_furnishings: area.mouldVisibility.includes('Window furnishings'),
+          mould_walls: area.mouldVisibility.includes('Walls'),
+          mould_skirting: area.mouldVisibility.includes('Skirting'),
+          mould_flooring: area.mouldVisibility.includes('Flooring'),
+          mould_wardrobe: area.mouldVisibility.includes('Wardrobe'),
+          mould_cupboard: area.mouldVisibility.includes('Cupboard'),
+          mould_contents: area.mouldVisibility.includes('Contents'),
+          mould_grout_silicone: area.mouldVisibility.includes('Grout/Silicone'),
+          mould_none_visible: area.mouldVisibility.includes('None visible'),
+          comments: area.commentsForReport,
+          temperature: parseFloat(area.temperature) || undefined,
+          humidity: parseFloat(area.humidity) || undefined,
+          dew_point: parseFloat(area.dewPoint) || undefined,
+          internal_office_notes: area.internalNotes,
+          moisture_readings_enabled: area.moistureReadingsEnabled,
+          infrared_enabled: area.infraredEnabled,
+          // Map infrared observations to boolean fields
+          infrared_observation_no_active: area.infraredObservations.includes('No Active Water Intrusion Detected'),
+          infrared_observation_water_infiltration: area.infraredObservations.includes('Active Water Infiltration'),
+          infrared_observation_past_ingress: area.infraredObservations.includes('Past Water Ingress (Dried)'),
+          infrared_observation_condensation: area.infraredObservations.includes('Condensation Pattern'),
+          infrared_observation_missing_insulation: area.infraredObservations.includes('Missing/Inadequate Insulation'),
+          job_time_minutes: area.timeWithoutDemo,
+          demolition_required: area.demolitionRequired,
+          demolition_time_minutes: area.demolitionTime,
+          demolition_description: area.demolitionDescription
+        }
+
+        await saveInspectionArea(areaData)
+      }
+
+      console.log('✅ Auto-saved inspection:', inspectionId)
+    } catch (error) {
+      console.error('Auto-save failed:', error)
+      toast({
+        title: 'Auto-save failed',
+        description: 'Will retry in 30 seconds',
+        variant: 'destructive'
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleNext = () => {
@@ -591,16 +874,36 @@ const InspectionForm = () => {
       return
     }
 
+    if (formData.areas.length === 0 || !formData.areas[0].areaName) {
+      toast({ title: 'Required field', description: 'At least one inspection area is required', variant: 'destructive' })
+      setCurrentSection(2) // Go to Area Inspection section
+      return
+    }
+
     setSaving(true)
-    
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    toast({
-      title: 'Inspection completed!',
-      description: 'Report is being generated...'
-    })
-    
-    navigate('/dashboard')
+
+    try {
+      // Perform final save
+      await autoSave()
+
+      toast({
+        title: 'Inspection completed!',
+        description: 'Inspection saved successfully. Redirecting to dashboard...'
+      })
+
+      // Wait a moment for user to see the message
+      await new Promise(resolve => setTimeout(resolve, 1500))
+
+      navigate('/dashboard')
+    } catch (error: any) {
+      console.error('Failed to submit inspection:', error)
+      toast({
+        title: 'Submission failed',
+        description: error.message || 'Failed to save inspection. Please try again.',
+        variant: 'destructive'
+      })
+      setSaving(false)
+    }
   }
 
   const calculateProgress = () => {
@@ -773,8 +1076,9 @@ const InspectionForm = () => {
                     className="form-select"
                   >
                     <option value="">Select inspector...</option>
-                    <option value="Tech 1">Technician 1</option>
-                    <option value="Tech 2">Technician 2</option>
+                    {technicians.map(tech => (
+                      <option key={tech.id} value={tech.id}>{tech.name}</option>
+                    ))}
                   </select>
                 </div>
 
