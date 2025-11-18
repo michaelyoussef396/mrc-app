@@ -25,10 +25,11 @@ export async function uploadInspectionPhoto(
   file: File,
   metadata: PhotoMetadata
 ): Promise<PhotoUploadResult> {
-  // 1. Generate unique filename with timestamp
+  // 1. Generate unique filename with timestamp and UUID to prevent collisions
   const timestamp = Date.now()
+  const uniqueId = crypto.randomUUID().slice(0, 8) // 8 chars of randomness
   const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-  const filename = `${metadata.photo_type}-${timestamp}.${extension}`
+  const filename = `${metadata.photo_type}-${timestamp}-${uniqueId}.${extension}`
 
   // 2. Construct storage path based on metadata
   let storagePath: string
@@ -110,7 +111,7 @@ export async function uploadInspectionPhoto(
 }
 
 /**
- * Upload multiple photos in parallel
+ * Upload multiple photos sequentially to prevent HTTP/2 protocol errors
  * @param files Array of files to upload
  * @param metadata Base metadata for all photos (area_id, inspection_id, etc.)
  * @returns Promise with array of upload results
@@ -119,20 +120,44 @@ export async function uploadMultiplePhotos(
   files: File[],
   metadata: PhotoMetadata
 ): Promise<PhotoUploadResult[]> {
-  const uploadPromises = files.map((file, index) =>
-    uploadInspectionPhoto(file, {
-      ...metadata,
-      order_index: (metadata.order_index || 0) + index
-    })
-  )
+  const results: PhotoUploadResult[] = []
+  const errors: Array<{ index: number; filename: string; error: any }> = []
 
-  try {
-    const results = await Promise.all(uploadPromises)
-    return results
-  } catch (error) {
-    console.error('Batch upload error:', error)
-    throw error
+  // Upload sequentially to prevent overwhelming HTTP/2 connection
+  for (let i = 0; i < files.length; i++) {
+    try {
+      console.log(`Uploading photo ${i + 1}/${files.length}: ${files[i].name}`)
+
+      const result = await uploadInspectionPhoto(files[i], {
+        ...metadata,
+        order_index: (metadata.order_index || 0) + i
+      })
+
+      results.push(result)
+      console.log(`✓ Photo ${i + 1}/${files.length} uploaded successfully`)
+    } catch (error) {
+      console.error(`✗ Failed to upload photo ${i + 1}/${files.length} (${files[i].name}):`, error)
+      errors.push({
+        index: i,
+        filename: files[i].name,
+        error
+      })
+      // Continue with remaining uploads instead of failing completely
+    }
   }
+
+  // If all uploads failed, throw error
+  if (errors.length === files.length) {
+    throw new Error(`All ${files.length} photo uploads failed. Check network connection and try again.`)
+  }
+
+  // If some uploads failed, log warning but return successful ones
+  if (errors.length > 0) {
+    console.warn(`${errors.length} of ${files.length} photos failed to upload:`, errors)
+    // Don't throw - let caller decide how to handle partial success
+  }
+
+  return results
 }
 
 /**

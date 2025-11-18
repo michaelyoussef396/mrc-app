@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast'
 import { calculateDewPoint, generateJobNumber, calculateJobCost, formatCurrency } from '@/lib/inspectionUtils'
 import type { InspectionFormData, InspectionArea, MoistureReading, SubfloorReading, Photo } from '@/types/inspection'
 import { TopNavbar } from '@/components/layout/TopNavbar'
-import { uploadInspectionPhoto, uploadMultiplePhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
+import { uploadInspectionPhoto, uploadMultiplePhotos, getPhotoSignedUrl, loadInspectionPhotos } from '@/lib/utils/photoUpload'
 import {
   createInspection,
   updateInspection,
@@ -212,20 +212,133 @@ const InspectionForm = () => {
             setAreaIdMapping(newMapping)
 
             console.log('✅ Loaded area ID mapping:', newMapping)
-          }
 
-          // Populate ALL form fields with saved data
-          setFormData(prev => ({
-            ...prev,
-            jobNumber: existingInspection.job_number || prev.jobNumber,
-            triage: existingInspection.triage_description || prev.triage,
-            inspector: existingInspection.inspector_id || prev.inspector,
-            requestedBy: existingInspection.requested_by || prev.requestedBy,
-            attentionTo: existingInspection.attention_to || prev.attentionTo,
-            inspectionDate: existingInspection.inspection_date || prev.inspectionDate,
-            dwellingType: existingInspection.dwelling_type || prev.dwellingType,
-            propertyOccupation: existingInspection.property_occupation || prev.propertyOccupation,
-          }))
+            // Load all photos for this inspection
+            let photosWithUrls: any[] = []
+            try {
+              photosWithUrls = await loadInspectionPhotos(existingInspection.id)
+              console.log('✅ Loaded photos from database:', photosWithUrls.length)
+            } catch (error) {
+              console.error('Failed to load photos:', error)
+              // Continue without photos rather than failing completely
+            }
+
+            // Group photos by area_id for easy lookup
+            const photosByArea: Record<string, any[]> = {}
+            photosWithUrls.forEach(photo => {
+              if (photo.area_id) {
+                if (!photosByArea[photo.area_id]) {
+                  photosByArea[photo.area_id] = []
+                }
+                photosByArea[photo.area_id].push(photo)
+              }
+            })
+
+            // Transform database areas to frontend format
+            const transformedAreas: InspectionArea[] = existingAreas.map(dbArea => {
+              // Transform mould visibility (12 booleans → array of strings)
+              const mouldVisibility: string[] = []
+              if (dbArea.mould_ceiling) mouldVisibility.push('Ceiling')
+              if (dbArea.mould_cornice) mouldVisibility.push('Cornice')
+              if (dbArea.mould_windows) mouldVisibility.push('Windows')
+              if (dbArea.mould_window_furnishings) mouldVisibility.push('Window furnishings')
+              if (dbArea.mould_walls) mouldVisibility.push('Walls')
+              if (dbArea.mould_skirting) mouldVisibility.push('Skirting')
+              if (dbArea.mould_flooring) mouldVisibility.push('Flooring')
+              if (dbArea.mould_wardrobe) mouldVisibility.push('Wardrobe')
+              if (dbArea.mould_cupboard) mouldVisibility.push('Cupboard')
+              if (dbArea.mould_contents) mouldVisibility.push('Contents')
+              if (dbArea.mould_grout_silicone) mouldVisibility.push('Grout/Silicone')
+              if (dbArea.mould_none_visible) mouldVisibility.push('None visible')
+
+              // Transform infrared observations (5 booleans → array of strings)
+              const infraredObservations: string[] = []
+              if (dbArea.infrared_observation_no_active) infraredObservations.push('No Active Water Intrusion Detected')
+              if (dbArea.infrared_observation_water_infiltration) infraredObservations.push('Active Water Infiltration')
+              if (dbArea.infrared_observation_past_ingress) infraredObservations.push('Past Water Ingress (Dried)')
+              if (dbArea.infrared_observation_condensation) infraredObservations.push('Condensation Pattern')
+              if (dbArea.infrared_observation_missing_insulation) infraredObservations.push('Missing/Inadequate Insulation')
+
+              // Load photos for this area
+              const areaPhotos = photosByArea[dbArea.id] || []
+              const roomViewPhotos: Photo[] = []
+              let infraredPhoto: Photo | null = null
+              let naturalInfraredPhoto: Photo | null = null
+
+              // Categorize photos by caption or default to room view
+              areaPhotos.forEach(photo => {
+                const photoObj: Photo = {
+                  id: photo.id,
+                  name: photo.file_name,
+                  url: photo.signed_url,
+                  timestamp: photo.created_at
+                }
+
+                // Categorize based on caption
+                if (photo.caption === 'infrared') {
+                  infraredPhoto = photoObj
+                } else if (photo.caption === 'natural_infrared') {
+                  naturalInfraredPhoto = photoObj
+                } else {
+                  // Default to room view photos
+                  roomViewPhotos.push(photoObj)
+                }
+              })
+
+              console.log(`✅ Loaded ${roomViewPhotos.length} photos for area "${dbArea.area_name}"`)
+
+              return {
+                id: dbArea.id,
+                areaName: dbArea.area_name,
+                mouldVisibility,
+                commentsForReport: dbArea.comments || '',
+                temperature: dbArea.temperature?.toString() || '',
+                humidity: dbArea.humidity?.toString() || '',
+                dewPoint: dbArea.dew_point?.toString() || '',
+                moistureReadingsEnabled: dbArea.moisture_readings_enabled || false,
+                moistureReadings: [], // TODO: Load from moisture_readings table
+                internalNotes: dbArea.internal_office_notes || '',
+                roomViewPhotos,
+                infraredEnabled: dbArea.infrared_enabled || false,
+                infraredPhoto,
+                naturalInfraredPhoto,
+                infraredObservations,
+                timeWithoutDemo: dbArea.job_time_minutes || 0,
+                demolitionRequired: dbArea.demolition_required || false,
+                demolitionTime: dbArea.demolition_time_minutes || 0,
+                demolitionDescription: dbArea.demolition_description || ''
+              }
+            })
+
+            console.log('✅ Transformed areas for UI:', transformedAreas)
+
+            // Populate ALL form fields with saved data including areas
+            setFormData(prev => ({
+              ...prev,
+              areas: transformedAreas,
+              jobNumber: existingInspection.job_number || prev.jobNumber,
+              triage: existingInspection.triage_description || prev.triage,
+              inspector: existingInspection.inspector_id || prev.inspector,
+              requestedBy: existingInspection.requested_by || prev.requestedBy,
+              attentionTo: existingInspection.attention_to || prev.attentionTo,
+              inspectionDate: existingInspection.inspection_date || prev.inspectionDate,
+              dwellingType: existingInspection.dwelling_type || prev.dwellingType,
+              propertyOccupation: existingInspection.property_occupation || prev.propertyOccupation,
+            }))
+          } else {
+            // No areas in database, populate other fields only
+            setFormData(prev => ({
+              ...prev,
+              jobNumber: existingInspection.job_number || prev.jobNumber,
+              triage: existingInspection.triage_description || prev.triage,
+              inspector: existingInspection.inspector_id || prev.inspector,
+              requestedBy: existingInspection.requested_by || prev.requestedBy,
+              attentionTo: existingInspection.attention_to || prev.attentionTo,
+              inspectionDate: existingInspection.inspection_date || prev.inspectionDate,
+              dwellingType: existingInspection.dwelling_type || prev.dwellingType,
+              propertyOccupation: existingInspection.property_occupation || prev.propertyOccupation,
+            }))
+          }
 
           console.log('✅ Loaded saved inspection data:', {
             attention_to: existingInspection.attention_to,
@@ -727,9 +840,36 @@ const InspectionForm = () => {
         })
       } catch (error: any) {
         console.error('Photo upload error:', error)
+
+        // Provide specific error messages based on error type
+        let errorTitle = 'Upload failed'
+        let errorMessage = 'Failed to upload photos. Please try again.'
+
+        const errorMsg = error.message?.toLowerCase() || ''
+
+        if (errorMsg.includes('already exists') || errorMsg.includes('duplicate')) {
+          errorTitle = 'Duplicate file detected'
+          errorMessage = 'Some photos may have duplicate names. Please try uploading again.'
+        } else if (errorMsg.includes('failed to fetch') || errorMsg.includes('network')) {
+          errorTitle = 'Network error'
+          errorMessage = 'Unable to reach server. Please check your internet connection and try again.'
+        } else if (errorMsg.includes('http2') || errorMsg.includes('protocol')) {
+          errorTitle = 'Too many photos'
+          errorMessage = 'Please try uploading fewer photos at once (3-5 at a time works best).'
+        } else if (errorMsg.includes('size') || errorMsg.includes('too large')) {
+          errorTitle = 'File too large'
+          errorMessage = 'One or more photos are too large. Please compress them and try again.'
+        } else if (errorMsg.includes('authenticated') || errorMsg.includes('permission')) {
+          errorTitle = 'Authentication error'
+          errorMessage = 'Your session may have expired. Please refresh the page and try again.'
+        } else if (errorMsg.includes('all') && errorMsg.includes('failed')) {
+          errorTitle = 'All uploads failed'
+          errorMessage = error.message || 'Unable to upload any photos. Check your connection and try again.'
+        }
+
         toast({
-          title: 'Upload failed',
-          description: error.message || 'Failed to upload photos. Please try again.',
+          title: errorTitle,
+          description: errorMessage,
           variant: 'destructive'
         })
       }
