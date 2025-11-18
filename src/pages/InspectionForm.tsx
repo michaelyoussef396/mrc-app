@@ -173,10 +173,11 @@ const InspectionForm = () => {
   ])
 
   const loadLeadData = async () => {
-    if (!leadId && !passedLead) {
-      navigate('/inspection/select-lead')
-      return
-    }
+    // TEMPORARY: Disabled redirect for Section 1 testing - re-enable after testing
+    // if (!leadId && !passedLead) {
+    //   navigate('/inspection/select-lead')
+    //   return
+    // }
 
     setLoading(true)
     
@@ -320,44 +321,38 @@ const InspectionForm = () => {
 
   const loadTechnicians = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, raw_user_meta_data')
-        .eq('raw_user_meta_data->>role', 'technician')
-
-      if (error) {
-        console.error('Failed to load technicians:', error)
-        // Fallback: use current user with valid UUID
-        if (currentUserId) {
-          const { data: user } = await supabase.auth.getUser()
-          setTechnicians([
-            { id: currentUserId, name: user?.user?.email?.split('@')[0] || 'Current User' }
-          ])
+      // For now, use hardcoded list of known users
+      // TODO: Create a public view or RPC function to query auth.users
+      const knownUsers = [
+        {
+          id: 'bef0e406-68bd-4c31-a504-dbfc68069c71',
+          name: 'Michael Youssef'
+        },
+        {
+          id: '651622a1-2faa-421b-b639-942b27e1cd70',
+          name: 'System Administrator'
         }
-        return
-      }
+      ]
 
-      const techList = (data || []).map((user: any) => ({
-        id: user.id,
-        name: user.raw_user_meta_data?.display_name || user.email.split('@')[0]
-      }))
+      setTechnicians(knownUsers)
 
-      // Fallback if no technicians found
-      if (techList.length === 0 && currentUserId) {
+      // Also add current user if not in the list
+      if (currentUserId && !knownUsers.find(u => u.id === currentUserId)) {
         const { data: user } = await supabase.auth.getUser()
+        const fullName = user?.user?.user_metadata?.full_name || user?.user?.email?.split('@')[0] || 'Current User'
         setTechnicians([
-          { id: currentUserId, name: user?.user?.email?.split('@')[0] || 'Current User' }
+          ...knownUsers,
+          { id: currentUserId, name: fullName }
         ])
-      } else {
-        setTechnicians(techList)
       }
     } catch (error) {
-      console.error('Exception loading technicians:', error)
-      // Fallback: use current user with valid UUID
+      console.error('Exception loading users:', error)
+      // Fallback: use current user
       if (currentUserId) {
         const { data: user } = await supabase.auth.getUser()
+        const fullName = user?.user?.user_metadata?.full_name || user?.user?.email?.split('@')[0] || 'Current User'
         setTechnicians([
-          { id: currentUserId, name: user?.user?.email?.split('@')[0] || 'Current User' }
+          { id: currentUserId, name: fullName }
         ])
       }
     }

@@ -1,8 +1,9 @@
 # 🗄️ MRC Database Schema - Production
 
-**Last Updated:** November 17, 2025
+**Last Updated:** November 18, 2025
 **Database:** Supabase PostgreSQL
-**Schema Version:** Migration 20251112000020 (latest)
+**Schema Version:** Migration 20251118 (latest)
+**Note:** Schema now reflects actual normalized structure (not JSONB)
 
 ---
 
@@ -105,55 +106,164 @@ The MRC database consists of **16 core tables** managing:
 
 ### 3. `inspections`
 
-**Purpose:** Scheduled property inspections
+**Purpose:** Property inspection form data (captures all inspection details from the 9-section mobile form)
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | uuid | PK, default uuid_generate_v4() | Unique inspection ID |
-| `inspection_number` | text | UNIQUE, NOT NULL | Auto-generated (e.g., "I-2024-0001") |
 | `lead_id` | uuid | FK → leads.id, NOT NULL | Associated lead |
-| `inspection_type` | inspection_type_enum | NOT NULL | "initial", "follow_up", "final" |
-| `scheduled_date` | date | NOT NULL | Inspection date |
-| `scheduled_time` | time | NOT NULL | Inspection time |
-| `duration_minutes` | integer | NOT NULL, default 60 | Expected duration |
-| `assigned_to` | uuid | FK → users.id, NOT NULL | Assigned technician |
-| `status` | inspection_status_enum | NOT NULL, default 'scheduled' | Current status |
-| `customer_name` | text | NOT NULL | Customer name |
-| `customer_phone` | text | NOT NULL | Contact phone |
-| `property_address` | text | NOT NULL | Inspection address |
-| `access_instructions` | text | nullable | Access notes |
-| `inspection_notes` | text | nullable | Technician notes |
-| `areas_inspected` | jsonb | nullable | Array of area objects with photos |
-| `completed_at` | timestamptz | nullable | Completion timestamp |
+| `job_number` | varchar | nullable | Job reference number |
+| `inspector_id` | uuid | FK → auth.users.id, NOT NULL | Assigned technician |
+| `inspection_date` | date | NOT NULL | Scheduled inspection date |
+| `inspection_start_time` | time | nullable | Actual start time |
+| `triage_description` | text | nullable | Initial triage notes |
+| `requested_by` | varchar | nullable | Person requesting inspection |
+| `attention_to` | varchar | nullable | Contact person on site |
+| `property_occupation` | property_occupation_enum | nullable | "occupied", "unoccupied", "tenanted" |
+| `dwelling_type` | dwelling_type_enum | nullable | "residential", "commercial", "industrial" |
+| `total_time_minutes` | integer | nullable | Total job duration |
+| `estimated_cost_ex_gst` | numeric | nullable | Quote cost excluding GST |
+| `estimated_cost_inc_gst` | numeric | nullable | Quote cost including GST |
+| `selected_job_type` | job_type_enum | nullable | Type of work required |
+| `equipment_cost_ex_gst` | numeric | nullable | Equipment hire cost ex GST |
+| `equipment_cost_inc_gst` | numeric | nullable | Equipment hire cost inc GST |
+| `waste_disposal_cost` | numeric | nullable | Waste disposal charges |
+| `subfloor_required` | boolean | nullable | Subfloor inspection needed |
+| `waste_disposal_required` | boolean | nullable | Waste disposal required |
+| `outdoor_temperature` | numeric | nullable | External temperature (°C) |
+| `outdoor_humidity` | numeric | nullable | External humidity (%) |
+| `outdoor_dew_point` | numeric | nullable | Calculated dew point |
+| `outdoor_comments` | text | nullable | External conditions notes |
+| `recommended_dehumidifier` | varchar | nullable | Equipment recommendation |
+| `cause_of_mould` | text | nullable | Identified mould cause |
+| `additional_info_technician` | text | nullable | Technician notes |
+| `additional_equipment_comments` | text | nullable | Equipment-specific notes |
+| `parking_option` | varchar | nullable | Parking availability |
+| `report_generated` | boolean | nullable, default false | PDF report created |
+| `report_pdf_url` | text | nullable | Storage path to PDF |
+| `report_sent_date` | timestamptz | nullable | When report was emailed |
 | `created_at` | timestamptz | NOT NULL, default now() | Creation timestamp |
-| `updated_at` | timestamptz | NOT NULL, default now() | Last update |
+| `updated_at` | timestamptz | NOT NULL, default now() | Last update (auto-save) |
 
-**JSONB Structure for `areas_inspected`:**
-```json
-[
-  {
-    "area_name": "Kitchen",
-    "moisture_reading": "15%",
-    "findings": "Visible mould on ceiling",
-    "severity": "moderate",
-    "photos": [
-      {"url": "https://...", "caption": "Kitchen ceiling mould"}
-    ],
-    "recommendations": "Require remediation"
-  }
-]
-```
+**Note:** This table uses a **flat structure** for form data. Related data is normalized into separate tables:
+- `inspection_areas` - Room-by-room inspection details (see below)
+- `photos` - Inspection photos (see below)
+- `subfloor_readings` - Subfloor moisture readings
+- `equipment_bookings` - Equipment hire items
 
 **Indexes:**
-- `idx_inspections_inspection_number` (inspection_number)
 - `idx_inspections_lead_id` (lead_id)
-- `idx_inspections_scheduled_date` (scheduled_date)
-- `idx_inspections_assigned_to` (assigned_to)
-- `idx_inspections_status` (status)
+- `idx_inspections_inspector_id` (inspector_id)
+- `idx_inspections_inspection_date` (inspection_date)
+
+**RLS Policies:**
+- `SELECT`: All authenticated users can view inspections
+- `INSERT`: All authenticated users (technicians) can create inspections
+- `UPDATE`: Inspector can update their own inspections, or admins can update any
+- `DELETE`: Only admins can delete inspections
 
 ---
 
-### 4. `quotes`
+### 4. `inspection_areas`
+
+**Purpose:** Room-by-room inspection data (normalized from inspection form)
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | uuid | PK, default uuid_generate_v4() | Unique area ID |
+| `inspection_id` | uuid | FK → inspections.id, NOT NULL | Parent inspection |
+| `area_order` | integer | NOT NULL | Display order (1, 2, 3...) |
+| `area_name` | varchar | NOT NULL | Room name (e.g., "Kitchen") |
+| `mould_ceiling` | boolean | nullable | Mould visible on ceiling |
+| `mould_walls` | boolean | nullable | Mould visible on walls |
+| `mould_floor` | boolean | nullable | Mould visible on floor |
+| `mould_windows` | boolean | nullable | Mould visible on windows |
+| `mould_doors` | boolean | nullable | Mould visible on doors |
+| `mould_ac_vents` | boolean | nullable | Mould visible on AC vents |
+| `mould_exhaust_fans` | boolean | nullable | Mould visible on exhaust fans |
+| `mould_other_fixtures` | boolean | nullable | Mould on other fixtures |
+| `mould_furniture` | boolean | nullable | Mould on furniture |
+| `mould_carpet` | boolean | nullable | Mould on carpet/flooring |
+| `mould_bathroom_sealant` | boolean | nullable | Mould on bathroom sealant |
+| `mould_other` | boolean | nullable | Mould in other locations |
+| `comments` | text | nullable | Technician notes for this area |
+| `comments_approved` | boolean | nullable, default false | AI-generated comments approved |
+| `temperature` | numeric | nullable | Room temperature (°C) |
+| `humidity` | numeric | nullable | Room humidity (%) |
+| `dew_point` | numeric | nullable | Calculated dew point |
+| `moisture_readings_enabled` | boolean | nullable, default false | Moisture meter used |
+| `internal_office_notes` | text | nullable | Internal admin notes |
+| `infrared_wet_roof` | boolean | nullable | Infrared detected wet roof |
+| `infrared_wet_walls` | boolean | nullable | Infrared detected wet walls |
+| `infrared_wet_floor` | boolean | nullable | Infrared detected wet floor |
+| `infrared_damp_subfloor` | boolean | nullable | Infrared detected damp subfloor |
+| `infrared_blocked_cavity` | boolean | nullable | Infrared detected blocked cavity |
+| `job_time_minutes` | integer | nullable | Time spent in this area |
+| `demolition_required` | boolean | nullable | Demolition work needed |
+| `demolition_time_minutes` | integer | nullable | Est. demolition duration |
+| `demolition_description` | text | nullable | Demolition scope details |
+| `created_at` | timestamptz | NOT NULL, default now() | Creation timestamp |
+| `updated_at` | timestamptz | NOT NULL, default now() | Last update |
+
+**Indexes:**
+- `idx_inspection_areas_inspection_id` (inspection_id)
+- `idx_inspection_areas_area_order` (inspection_id, area_order)
+
+**RLS Policies:**
+- `SELECT`: All authenticated users can view inspection areas
+- `INSERT`: All authenticated users can create areas
+- `UPDATE`: All authenticated users can update areas
+- `DELETE`: All authenticated users can delete areas (admins have full access)
+
+---
+
+### 5. `photos`
+
+**Purpose:** Inspection photo storage (linked to inspections, areas, and subfloor data)
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | uuid | PK, default uuid_generate_v4() | Unique photo ID |
+| `inspection_id` | uuid | FK → inspections.id, nullable | Parent inspection |
+| `area_id` | uuid | FK → inspection_areas.id, nullable | Specific room/area |
+| `subfloor_id` | uuid | FK → subfloor_data.id, nullable | Subfloor inspection link |
+| `photo_type` | varchar | NOT NULL | "area", "subfloor", "general", "outdoor" |
+| `storage_path` | text | NOT NULL | Supabase Storage path |
+| `file_name` | varchar | nullable | Original filename |
+| `file_size` | integer | nullable | File size in bytes |
+| `mime_type` | varchar | nullable | Image MIME type (e.g., "image/jpeg") |
+| `caption` | varchar | nullable | Photo caption/description |
+| `order_index` | integer | nullable | Display order within group |
+| `uploaded_by` | uuid | FK → auth.users.id, NOT NULL | User who uploaded photo |
+| `created_at` | timestamptz | NOT NULL, default now() | Upload timestamp |
+
+**Storage Organization:**
+Photos are stored in Supabase Storage bucket `inspection-photos` with the following structure:
+```
+inspection-photos/
+  ├── {inspection_id}/
+  │   ├── {area_id}/
+  │   │   └── area-{timestamp}.jpg
+  │   ├── subfloor/
+  │   │   └── subfloor-{timestamp}.jpg
+  │   └── outdoor-{timestamp}.jpg
+```
+
+**Indexes:**
+- `idx_photos_inspection_id` (inspection_id)
+- `idx_photos_area_id` (area_id)
+- `idx_photos_subfloor_id` (subfloor_id)
+- `idx_photos_uploaded_by` (uploaded_by)
+
+**RLS Policies:**
+- `SELECT`: All authenticated users can view photos
+- `INSERT`: All authenticated users can upload photos
+- `UPDATE`: Users can update their own photos, or admins can update any
+- `DELETE`: Users can delete their own photos, or admins can delete any
+
+---
+
+### 6. `quotes`
 
 **Purpose:** Job quotes and pricing
 

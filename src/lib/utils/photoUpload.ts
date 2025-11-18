@@ -62,7 +62,18 @@ export async function uploadInspectionPhoto(
     throw new Error('Failed to generate signed URL for photo')
   }
 
-  // 5. Save photo metadata to photos table
+  // 5. Get current user ID for uploaded_by tracking
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    // Clean up uploaded file if user not authenticated
+    await supabase.storage
+      .from('inspection-photos')
+      .remove([uploadData.path])
+    throw new Error('User must be authenticated to upload photos')
+  }
+
+  // 6. Save photo metadata to photos table
   const { data: photoData, error: photoError } = await supabase
     .from('photos')
     .insert({
@@ -75,7 +86,8 @@ export async function uploadInspectionPhoto(
       file_size: file.size,
       mime_type: file.type,
       caption: metadata.caption || null,
-      order_index: metadata.order_index || 0
+      order_index: metadata.order_index || 0,
+      uploaded_by: user.id
     })
     .select()
     .single()

@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Only auto-navigate to dashboard for normal sign-ins, not password recovery
+        // Only auto-navigate to dashboard for normal sign-ins, not password recovery or session restoration
         if (event === 'SIGNED_IN') {
           // Check if this is a password recovery session
           // Method 1: Check current pathname
@@ -67,8 +67,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const isPasswordRecovery = onResetPasswordPage || isRecoveryHash ||
                                       (hasAccessToken && window.location.pathname === '/reset-password');
 
-          // Only redirect to dashboard if it's NOT a password recovery flow
-          if (!isPasswordRecovery) {
+          // Only redirect to dashboard if it's NOT a password recovery flow AND user is on login page
+          // This prevents redirecting away from other pages when session is restored on page reload
+          const isOnLoginPage = window.location.pathname === '/' || window.location.pathname === '/login';
+
+          if (!isPasswordRecovery && isOnLoginPage) {
             navigate('/dashboard');
           }
         }

@@ -141,17 +141,30 @@ export async function updateInspection(
   inspectionId: string,
   data: Partial<InspectionData>
 ): Promise<void> {
-  const { error } = await supabase
+  const { data: result, error } = await supabase
     .from('inspections')
     .update({
       ...data,
       updated_at: new Date().toISOString()
     })
     .eq('id', inspectionId)
+    .select()
+
+  console.log('📊 Update inspection result:', {
+    inspectionId,
+    rowsAffected: result?.length || 0,
+    error: error?.message || null,
+    fields: Object.keys(data)
+  })
 
   if (error) {
     console.error('Failed to update inspection:', error)
     throw new Error(`Failed to update inspection: ${error.message}`)
+  }
+
+  if (!result || result.length === 0) {
+    console.error('Update succeeded but affected 0 rows - RLS policy may be blocking')
+    throw new Error('Update failed: No rows were affected. This may be due to Row Level Security policies. Please check your permissions.')
   }
 }
 
