@@ -48,6 +48,10 @@ const InspectionForm = () => {
   const [currentInspectionId, setCurrentInspectionId] = useState<string | null>(null)
   const [technicians, setTechnicians] = useState<Array<{ id: string; name: string }>>([])
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  // Map frontend area IDs to database area IDs
+  // Key: frontend UUID (area.id), Value: database UUID (inspection_areas.id)
+  const [areaIdMapping, setAreaIdMapping] = useState<Record<string, string>>({})
   
   const [formData, setFormData] = useState<InspectionFormData>({
     jobNumber: generateJobNumber(),
@@ -190,6 +194,25 @@ const InspectionForm = () => {
 
           // Set the inspection ID
           setCurrentInspectionId(existingInspection.id)
+
+          // Load existing areas from database
+          const { data: existingAreas, error: areasError } = await supabase
+            .from('inspection_areas')
+            .select('*')
+            .eq('inspection_id', existingInspection.id)
+            .order('area_order', { ascending: true })
+
+          if (!areasError && existingAreas && existingAreas.length > 0) {
+            // Create mapping of database area IDs to frontend area IDs
+            const newMapping: Record<string, string> = {}
+            existingAreas.forEach(dbArea => {
+              // Use database ID as both key and value initially
+              newMapping[dbArea.id] = dbArea.id
+            })
+            setAreaIdMapping(newMapping)
+
+            console.log('✅ Loaded area ID mapping:', newMapping)
+          }
 
           // Populate ALL form fields with saved data
           setFormData(prev => ({
@@ -587,6 +610,38 @@ const InspectionForm = () => {
       }
     }
 
+    // Get database area_id for uploading
+    let dbAreaId: string | undefined = areaId ? areaIdMapping[areaId] : undefined
+
+    // If uploading to a specific area, ensure area is saved to database first
+    if (areaId && !dbAreaId) {
+      toast({
+        title: 'Saving area first...',
+        description: 'Please wait while we save the area before uploading photos',
+        variant: 'default'
+      })
+
+      try {
+        // Trigger a save to ensure area is in database
+        const newMappings = await handleSave()
+
+        // Get the database area_id from the returned mappings
+        dbAreaId = newMappings[areaId]
+
+        // Double-check that the area was saved and mapped
+        if (!dbAreaId) {
+          throw new Error('Area was not saved to database')
+        }
+      } catch (error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to save area. Please try again.',
+          variant: 'destructive'
+        })
+        return
+      }
+    }
+
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'image/*'
@@ -613,9 +668,10 @@ const InspectionForm = () => {
         }
 
         // Upload photos to Storage and get signed URLs
+        // dbAreaId is already set above (either from mapping or from save)
         const uploadResults = await uploadMultiplePhotos(files, {
           inspection_id: currentInspectionId!,
-          area_id: areaId,
+          area_id: dbAreaId,  // Use database area_id instead of frontend area.id
           photo_type: photoType
         })
 
@@ -810,7 +866,7 @@ const InspectionForm = () => {
     return undefined
   }
 
-  const autoSave = async () => {
+  const autoSave = async (): Promise<Record<string, string> | void> => {
     if (!leadId || !currentUserId) return
 
     setSaving(true)
@@ -818,6 +874,9 @@ const InspectionForm = () => {
     try {
       // Create or get inspection ID
       const inspectionId = await createOrLoadInspection()
+
+      // Track new area ID mappings from this save
+      const newMappings: Record<string, string> = {}
 
       // Sanitize enum values before saving
       const sanitizedPropertyOccupation = sanitizeEnumValue(formData.propertyOccupation, 'property_occupation')
@@ -894,10 +953,23 @@ const InspectionForm = () => {
           demolition_description: area.demolitionDescription
         }
 
-        await saveInspectionArea(areaData)
+        // Save area and get database area_id
+        const dbAreaId = await saveInspectionArea(areaData)
+
+        // Track this mapping for return value
+        newMappings[area.id] = dbAreaId
+
+        // Map frontend area.id to database area_id for photo uploads
+        setAreaIdMapping(prev => ({
+          ...prev,
+          [area.id]: dbAreaId
+        }))
       }
 
       console.log('✅ Auto-saved inspection:', inspectionId)
+
+      // Return the new mappings so photo upload can use them immediately
+      return newMappings
     } catch (error) {
       console.error('Auto-save failed:', error)
       toast({
@@ -908,6 +980,12 @@ const InspectionForm = () => {
     } finally {
       setSaving(false)
     }
+  }
+
+  // Wrapper for manual save that returns mapping
+  const handleSave = async (): Promise<Record<string, string>> => {
+    const mappings = await autoSave()
+    return mappings || {}
   }
 
   const handleNext = () => {
