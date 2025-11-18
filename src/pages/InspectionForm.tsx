@@ -180,7 +180,42 @@ const InspectionForm = () => {
     // }
 
     setLoading(true)
-    
+
+    // ✅ FIX: Check for existing inspection FIRST and load its saved data
+    if (leadId) {
+      try {
+        const existingInspection = await getInspectionByLeadId(leadId)
+        if (existingInspection) {
+          console.log('✅ Found existing inspection, loading saved data:', existingInspection.id)
+
+          // Set the inspection ID
+          setCurrentInspectionId(existingInspection.id)
+
+          // Populate ALL form fields with saved data
+          setFormData(prev => ({
+            ...prev,
+            jobNumber: existingInspection.job_number || prev.jobNumber,
+            triage: existingInspection.triage_description || prev.triage,
+            inspector: existingInspection.inspector_id || prev.inspector,
+            requestedBy: existingInspection.requested_by || prev.requestedBy,
+            attentionTo: existingInspection.attention_to || prev.attentionTo,
+            inspectionDate: existingInspection.inspection_date || prev.inspectionDate,
+            dwellingType: existingInspection.dwelling_type || prev.dwellingType,
+            propertyOccupation: existingInspection.property_occupation || prev.propertyOccupation,
+          }))
+
+          console.log('✅ Loaded saved inspection data:', {
+            attention_to: existingInspection.attention_to,
+            dwelling_type: existingInspection.dwelling_type,
+            property_occupation: existingInspection.property_occupation
+          })
+        }
+      } catch (error) {
+        console.error('Error loading existing inspection:', error)
+        // Continue to load lead data even if inspection load fails
+      }
+    }
+
     // Use passed lead data from SelectLead page if available
     if (passedLead) {
       const leadData = {
@@ -204,12 +239,13 @@ const InspectionForm = () => {
         ? leadData.propertyType.toLowerCase()
         : ''
 
+      // ✅ FIX: Only populate lead data if not already set from existing inspection
       setFormData(prev => ({
         ...prev,
-        triage: leadData.issueDescription,
-        address: leadData.property,
-        requestedBy: leadData.name,
-        dwellingType: dwellingType,
+        triage: prev.triage || leadData.issueDescription,
+        address: prev.address || leadData.property,
+        requestedBy: prev.requestedBy || leadData.name,
+        dwellingType: prev.dwellingType || dwellingType,
         // Pre-fill first area with affected areas from lead
         areas: leadData.affectedAreas && leadData.affectedAreas.length > 0 
           ? [{
@@ -296,12 +332,16 @@ const InspectionForm = () => {
       }
 
       setLead(formattedLead)
+
+      // ✅ FIX: Only populate lead data if there's NO existing inspection
+      // Otherwise, we'll overwrite the saved inspection data
       setFormData(prev => ({
         ...prev,
-        triage: formattedLead.issueDescription,
-        address: formattedLead.property,
-        requestedBy: formattedLead.name,
-        dwellingType: formattedLead.propertyType || ''
+        triage: prev.triage || formattedLead.issueDescription,
+        address: prev.address || formattedLead.property,
+        requestedBy: prev.requestedBy || formattedLead.name,
+        // Only set dwelling type from lead if not already set from inspection
+        dwellingType: prev.dwellingType || formattedLead.propertyType || ''
       }))
 
       console.log('🎉 Inspection form populated with real lead data:', formattedLead.name)
@@ -1232,22 +1272,14 @@ const InspectionForm = () => {
 
                     {/* Comments Shown in Report */}
                     <div className="form-group">
-                      <label className="form-label">Comments Shown in Report</label>
+                      <label className="form-label">Comments/Findings</label>
                       <textarea
                         value={area.commentsForReport}
                         onChange={(e) => handleAreaChange(area.id, 'commentsForReport', e.target.value)}
-                        placeholder="Professional paragraph describing mould conditions..."
+                        placeholder="Enter your findings and observations for this area..."
                         className="form-textarea"
                         rows={4}
                       />
-                      <button
-                        type="button"
-                        className="btn-ai"
-                        onClick={() => generateWithAI('areaComments', area.id)}
-                      >
-                        <Sparkles size={16} />
-                        <span>Generate with AI</span>
-                      </button>
                     </div>
 
                     {/* Temperature, Humidity, Dew Point */}
@@ -1309,6 +1341,7 @@ const InspectionForm = () => {
 
                       {area.moistureReadingsEnabled && (
                         <div className="moisture-readings-section">
+                          <p className="field-hint">Minimum 2 moisture reading photos required *</p>
                           {area.moistureReadings.map((reading, idx) => (
                             <div key={reading.id} className="reading-item">
                               <div className="reading-header">
@@ -1392,15 +1425,15 @@ const InspectionForm = () => {
                       />
                     </div>
 
-                    {/* Room View Photos (3 required) */}
+                    {/* Room View Photos (4 required) */}
                     <div className="form-group">
-                      <label className="form-label">Room View Photos (3 required) *</label>
-                      <p className="field-hint">Upload exactly 3 photos showing the room from different angles</p>
+                      <label className="form-label">Room View Photos (4 required) *</label>
+                      <p className="field-hint">Upload exactly 4 photos showing the room from different angles</p>
                       <button
                         type="button"
                         className="btn-photo"
                         onClick={() => handlePhotoCapture('roomView', area.id)}
-                        disabled={area.roomViewPhotos.length >= 3}
+                        disabled={area.roomViewPhotos.length >= 4}
                       >
                         <span>📷</span>
                         <span>Attach from Photo Library</span>
@@ -1422,7 +1455,7 @@ const InspectionForm = () => {
                           ))}
                         </div>
                       )}
-                      <p className="photo-count">{area.roomViewPhotos.length} / 3 photos</p>
+                      <p className="photo-count">{area.roomViewPhotos.length} / 4 photos</p>
                     </div>
 
                     {/* Infrared View Toggle */}
@@ -1442,8 +1475,9 @@ const InspectionForm = () => {
 
                       {area.infraredEnabled && (
                         <div className="infrared-section">
+                          <p className="field-hint">2 infrared photos required (Infrared View + Natural Infrared View) *</p>
                           <div className="form-group">
-                            <label className="form-label">Infrared View Photo</label>
+                            <label className="form-label">Infrared View Photo *</label>
                             <button
                               type="button"
                               className="btn-photo"
@@ -1460,7 +1494,7 @@ const InspectionForm = () => {
                           </div>
 
                           <div className="form-group">
-                            <label className="form-label">Natural Infrared View Photo</label>
+                            <label className="form-label">Natural Infrared View Photo *</label>
                             <button
                               type="button"
                               className="btn-photo"
@@ -1545,22 +1579,14 @@ const InspectionForm = () => {
                           </div>
 
                           <div className="form-group">
-                            <label className="form-label">What Demolition Would You Like to Do?</label>
+                            <label className="form-label">Demolition List</label>
                             <textarea
                               value={area.demolitionDescription}
                               onChange={(e) => handleAreaChange(area.id, 'demolitionDescription', e.target.value)}
-                              placeholder="• Removal of damaged drywall&#10;• Removal of carpet and underlay&#10;• Removal of wet insulation"
+                              placeholder="Enter demolition requirements (e.g., Removal of damaged drywall, Removal of carpet and underlay, Removal of wet insulation)"
                               className="form-textarea"
                               rows={4}
                             />
-                            <button
-                              type="button"
-                              className="btn-ai"
-                              onClick={() => generateWithAI('demolition', area.id)}
-                            >
-                              <Sparkles size={16} />
-                              <span>Generate Demolition List with AI</span>
-                            </button>
                           </div>
                         </div>
                       )}
@@ -1630,22 +1656,14 @@ const InspectionForm = () => {
                       </div>
 
                       <div className="form-group">
-                        <label className="form-label">Subfloor Comments (for report)</label>
+                        <label className="form-label">Subfloor Comments</label>
                         <textarea
                           value={formData.subfloorComments}
                           onChange={(e) => handleInputChange('subfloorComments', e.target.value)}
-                          placeholder="Professional paragraph for report..."
+                          placeholder="Enter your observations and findings about the subfloor area..."
                           className="form-textarea"
                           rows={4}
                         />
-                        <button
-                          type="button"
-                          className="btn-ai"
-                          onClick={() => generateWithAI('subfloorComments')}
-                        >
-                          <Sparkles size={16} />
-                          <span>Generate with AI</span>
-                        </button>
                       </div>
 
                       <div className="form-group">
@@ -2179,18 +2197,10 @@ const InspectionForm = () => {
                   <textarea
                     value={formData.causeOfMould}
                     onChange={(e) => handleInputChange('causeOfMould', e.target.value)}
-                    placeholder="Professional description of what caused the mould..."
+                    placeholder="Describe the cause of mould (e.g., water leak, poor ventilation, condensation)"
                     className="form-textarea"
                     rows={4}
                   />
-                  <button
-                    type="button"
-                    className="btn-ai"
-                    onClick={() => generateWithAI('causeOfMould')}
-                  >
-                    <Sparkles size={16} />
-                    <span>Generate with AI</span>
-                  </button>
                 </div>
 
                 <div className="form-group">
