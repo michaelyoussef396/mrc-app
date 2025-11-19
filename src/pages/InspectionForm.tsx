@@ -156,11 +156,15 @@ const InspectionForm = () => {
   }, [currentUserId])
 
   useEffect(() => {
-    // Auto-save every 30 seconds
-    const interval = setInterval(() => {
+    // Auto-save 30 seconds after last change (debounced)
+    // Only auto-save if we have an inspection ID (form has been saved at least once)
+    if (!currentInspectionId) return
+
+    const timeoutId = setTimeout(() => {
       autoSave()
-    }, 30000)
-    return () => clearInterval(interval)
+    }, 30000) // 30 seconds
+
+    return () => clearTimeout(timeoutId)
   }, [formData, currentInspectionId])
 
   useEffect(() => {
@@ -235,7 +239,7 @@ const InspectionForm = () => {
             })
 
             // Transform database areas to frontend format
-            const transformedAreas: InspectionArea[] = existingAreas.map(dbArea => {
+            const transformedAreas: InspectionArea[] = await Promise.all(existingAreas.map(async (dbArea) => {
               // Transform mould visibility (12 booleans → array of strings)
               const mouldVisibility: string[] = []
               if (dbArea.mould_ceiling) mouldVisibility.push('Ceiling')
@@ -287,6 +291,39 @@ const InspectionForm = () => {
 
               console.log(`✅ Loaded ${roomViewPhotos.length} photos for area "${dbArea.area_name}"`)
 
+              // Load moisture readings for this area
+              const { data: dbMoistureReadings, error: moistureError } = await supabase
+                .from('moisture_readings')
+                .select('*')
+                .eq('area_id', dbArea.id)
+                .order('reading_order', { ascending: true })
+
+              if (moistureError) {
+                console.error('Error loading moisture readings:', moistureError)
+              }
+
+              // Transform moisture readings to frontend format
+              const moistureReadings: MoistureReading[] = (dbMoistureReadings || []).map(dbReading => {
+                // Get photos for this moisture reading (caption = 'moisture')
+                const moisturePhotos = areaPhotos
+                  .filter(p => p.caption === 'moisture')
+                  .map(p => ({
+                    id: p.id,
+                    name: p.file_name,
+                    url: p.signed_url,
+                    timestamp: p.created_at
+                  }))
+
+                return {
+                  id: dbReading.id,
+                  title: dbReading.title || '',
+                  reading: dbReading.moisture_percentage?.toString() || '',
+                  images: moisturePhotos
+                }
+              })
+
+              console.log(`✅ Loaded ${moistureReadings.length} moisture readings for area "${dbArea.area_name}"`)
+
               return {
                 id: dbArea.id,
                 areaName: dbArea.area_name,
@@ -296,7 +333,7 @@ const InspectionForm = () => {
                 humidity: dbArea.humidity?.toString() || '',
                 dewPoint: dbArea.dew_point?.toString() || '',
                 moistureReadingsEnabled: dbArea.moisture_readings_enabled || false,
-                moistureReadings: [], // TODO: Load from moisture_readings table
+                moistureReadings,
                 internalNotes: dbArea.internal_office_notes || '',
                 roomViewPhotos,
                 infraredEnabled: dbArea.infrared_enabled || false,
@@ -308,7 +345,7 @@ const InspectionForm = () => {
                 demolitionTime: dbArea.demolition_time_minutes || 0,
                 demolitionDescription: dbArea.demolition_description || ''
               }
-            })
+            }))
 
             console.log('✅ Transformed areas for UI:', transformedAreas)
 
@@ -774,10 +811,23 @@ const InspectionForm = () => {
       try {
         // Determine photo type and metadata
         let photoType: 'area' | 'subfloor' | 'general' | 'outdoor' = 'general'
+        let caption: string | undefined = undefined
+
         if (areaId) photoType = 'area'
         else if (type === 'subfloor') photoType = 'subfloor'
         else if (type === 'frontDoor' || type === 'frontHouse' || type === 'mailbox' || type === 'street') {
           photoType = 'outdoor'
+        }
+
+        // Determine caption based on photo type for categorization
+        if (type === 'roomView') {
+          caption = 'room_view'
+        } else if (areaId && readingId) {
+          caption = 'moisture'
+        } else if (type === 'infrared') {
+          caption = 'infrared'
+        } else if (type === 'naturalInfrared') {
+          caption = 'natural_infrared'
         }
 
         // Upload photos to Storage and get signed URLs
@@ -785,7 +835,8 @@ const InspectionForm = () => {
         const uploadResults = await uploadMultiplePhotos(files, {
           inspection_id: currentInspectionId!,
           area_id: dbAreaId,  // Use database area_id instead of frontend area.id
-          photo_type: photoType
+          photo_type: photoType,
+          caption: caption  // Add caption for photo categorization
         })
 
         // Create Photo objects with signed URLs
@@ -1104,6 +1155,71 @@ const InspectionForm = () => {
           ...prev,
           [area.id]: dbAreaId
         }))
+
+        // Save moisture readings for this area
+        if (area.moistureReadingsEnabled && area.moistureReadings.length > 0) {
+          // First, delete existing moisture readings for this area
+          const { error: deleteError } = await supabase
+            .from('moisture_readings')
+            .delete()
+            .eq('area_id', dbAreaId)
+
+          if (deleteError) {
+            console.error('Error deleting old moisture readings:', deleteError)
+          }
+
+          // Then insert new moisture readings
+          for (let j = 0; j < area.moistureReadings.length; j++) {
+            const reading = area.moistureReadings[j]
+            const { error: insertError } = await supabase
+              .from('moisture_readings')
+              .insert({
+                area_id: dbAreaId,
+                reading_order: j,
+                title: reading.title || '',
+                moisture_percentage: parseFloat(reading.reading) || null,
+                moisture_status: 'normal' // Default status, can be enhanced later
+              })
+
+            if (insertError) {
+              console.error(`Error saving moisture reading ${j + 1}:`, insertError)
+            }
+          }
+
+          console.log(`✅ Saved ${area.moistureReadings.length} moisture readings for area "${area.areaName}"`)
+        }
+      }
+
+      // Save subfloor data if enabled
+      if (formData.subfloorEnabled) {
+        // First, delete existing subfloor data for this inspection
+        const { error: deleteError } = await supabase
+          .from('subfloor_data')
+          .delete()
+          .eq('inspection_id', inspectionId)
+
+        if (deleteError && deleteError.code !== 'PGRST116') { // Ignore "no rows" error
+          console.error('Error deleting old subfloor data:', deleteError)
+        }
+
+        // Then insert new subfloor data
+        const { error: insertError } = await supabase
+          .from('subfloor_data')
+          .insert({
+            inspection_id: inspectionId,
+            observations: formData.subfloorObservations || null,
+            comments: formData.subfloorComments || null,
+            landscape_type: formData.subfloorLandscape || null,
+            sanitation_required: formData.subfloorSanitation || false,
+            racking_required: formData.subfloorRacking || false,
+            treatment_time_minutes: formData.subfloorTreatmentTime || 0
+          })
+
+        if (insertError) {
+          console.error('Error saving subfloor data:', insertError)
+        } else {
+          console.log('✅ Saved subfloor data')
+        }
       }
 
       console.log('✅ Auto-saved inspection:', inspectionId)
@@ -1125,17 +1241,33 @@ const InspectionForm = () => {
   // Wrapper for manual save that returns mapping
   const handleSave = async (): Promise<Record<string, string>> => {
     const mappings = await autoSave()
+
+    // Show success toast if save completed without errors
+    if (mappings) {
+      toast({
+        title: '✅ Saved successfully',
+        description: 'All changes have been saved',
+        variant: 'default'
+      })
+    }
+
     return mappings || {}
   }
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    // Save before navigating to next section
+    await autoSave()
+
     if (currentSection < sections.length - 1) {
       setCurrentSection(currentSection + 1)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 
-  const handlePrevious = () => {
+  const handlePrevious = async () => {
+    // Save before navigating to previous section
+    await autoSave()
+
     if (currentSection > 0) {
       setCurrentSection(currentSection - 1)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -2517,7 +2649,7 @@ const InspectionForm = () => {
           {/* Navigation Buttons */}
           <div className="form-navigation">
             {currentSection > 0 && (
-              <button 
+              <button
                 type="button"
                 className="btn-nav btn-previous"
                 onClick={handlePrevious}
@@ -2527,8 +2659,35 @@ const InspectionForm = () => {
               </button>
             )}
 
+            {/* Save Button - Always visible */}
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleSave}
+              disabled={saving}
+              style={{
+                minWidth: '120px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              {saving ? (
+                <>
+                  <span className="loading-spinner-small"></span>
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <span>💾</span>
+                  <span>Save</span>
+                </>
+              )}
+            </button>
+
             {currentSection < sections.length - 1 ? (
-              <button 
+              <button
                 type="button"
                 className="btn-nav btn-next"
                 onClick={handleNext}
