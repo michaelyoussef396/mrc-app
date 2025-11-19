@@ -304,38 +304,25 @@ const InspectionForm = () => {
 
               // Transform moisture readings to frontend format
               const moistureReadings: MoistureReading[] = (dbMoistureReadings || []).map(dbReading => {
-                // Get photos for THIS SPECIFIC moisture reading using moisture_reading_id
-                console.log(`🔍 LOADING PHOTOS FOR READING "${dbReading.title || 'untitled'}":`, {
-                  readingId: dbReading.id,
-                  totalAreaPhotos: areaPhotos.length,
-                  areaPhotosWithMoistureReadingId: areaPhotos.filter(p => p.moisture_reading_id).length,
-                  areaPhotoDetails: areaPhotos.map(p => ({
-                    id: p.id,
-                    file_name: p.file_name,
-                    moisture_reading_id: p.moisture_reading_id
-                  }))
-                })
+                // Get single photo for THIS SPECIFIC moisture reading using moisture_reading_id
+                const moisturePhoto = areaPhotos.find(p => p.moisture_reading_id === dbReading.id)
 
-                const moisturePhotos = areaPhotos
-                  .filter(p => p.moisture_reading_id === dbReading.id)
-                  .map(p => ({
-                    id: p.id,
-                    name: p.file_name,
-                    url: p.signed_url,
-                    timestamp: p.created_at
-                  }))
-
-                console.log(`📸 FILTERED PHOTOS FOR READING "${dbReading.title || 'untitled'}":`, {
+                console.log(`📸 LOADING PHOTO FOR READING "${dbReading.title || 'untitled'}":`, {
                   readingId: dbReading.id,
-                  photosFound: moisturePhotos.length,
-                  photoIds: moisturePhotos.map(p => p.id)
+                  photoFound: !!moisturePhoto,
+                  photoId: moisturePhoto?.id || null
                 })
 
                 return {
                   id: dbReading.id,
                   title: dbReading.title || '',
                   reading: dbReading.moisture_percentage?.toString() || '',
-                  images: moisturePhotos
+                  photo: moisturePhoto ? {
+                    id: moisturePhoto.id,
+                    name: moisturePhoto.file_name,
+                    url: moisturePhoto.signed_url,
+                    timestamp: moisturePhoto.created_at
+                  } : null
                 }
               })
 
@@ -690,7 +677,7 @@ const InspectionForm = () => {
           id: crypto.randomUUID(),
           title: '',
           reading: '',
-          images: []
+          photo: null
         }
         return {
           ...area,
@@ -714,12 +701,11 @@ const InspectionForm = () => {
   }
 
   const updateMoistureReading = (areaId: string, readingId: string, field: keyof MoistureReading, value: any) => {
-    if (field === 'images') {
-      console.log('🔍 DEBUG - updateMoistureReading called for images:', {
+    if (field === 'photo') {
+      console.log('🔍 DEBUG - updateMoistureReading called for photo:', {
         areaId,
         readingId,
-        imagesCount: value?.length || 0,
-        imageIds: value?.map((img: any) => img.id) || []
+        photoId: value?.id || null
       })
     }
 
@@ -732,13 +718,12 @@ const InspectionForm = () => {
           moistureReadings: area.moistureReadings.map(r => {
             if (r.id === readingId) {
               const updated = { ...r, [field]: value }
-              if (field === 'images') {
+              if (field === 'photo') {
                 console.log('🔍 DEBUG - Updated reading state:', {
                   readingId: r.id,
                   readingTitle: r.title,
-                  oldImagesCount: r.images?.length || 0,
-                  newImagesCount: updated.images?.length || 0,
-                  newImageIds: updated.images?.map((img: any) => img.id) || []
+                  oldPhotoId: r.photo?.id || null,
+                  newPhotoId: updated.photo?.id || null
                 })
               }
               return updated
@@ -927,30 +912,14 @@ const InspectionForm = () => {
 
         // Update form state based on photo type
         if (areaId && readingId) {
-          // Moisture reading photos
-          const currentReading = formData.areas.find(a => a.id === areaId)?.moistureReadings.find(r => r.id === readingId)
-          const existingPhotos = currentReading?.images || []
-
-          console.log('🔍 DEBUG - Before updateMoistureReading:', {
+          // Moisture reading photo (single photo only)
+          console.log('🔍 DEBUG - Setting moisture reading photo:', {
             areaId,
             readingId,
-            existingPhotosCount: existingPhotos.length,
-            existingPhotoIds: existingPhotos.map(p => p.id),
-            newPhotosCount: newPhotos.length,
-            newPhotoIds: newPhotos.map(p => p.id)
+            photoId: newPhotos[0]?.id
           })
 
-          const updatedPhotos = [...existingPhotos, ...newPhotos]
-
-          console.log('🔍 DEBUG - Calling updateMoistureReading with:', {
-            areaId,
-            readingId,
-            field: 'images',
-            updatedPhotosCount: updatedPhotos.length,
-            updatedPhotoIds: updatedPhotos.map(p => p.id)
-          })
-
-          updateMoistureReading(areaId, readingId, 'images', updatedPhotos)
+          updateMoistureReading(areaId, readingId, 'photo', newPhotos[0])
         } else if (areaId && type === 'roomView') {
           // Room view photos (limit 3)
           const currentArea = formData.areas.find(a => a.id === areaId)
@@ -1030,8 +999,8 @@ const InspectionForm = () => {
     if (areaId && readingId) {
       const area = formData.areas.find(a => a.id === areaId)
       const reading = area?.moistureReadings.find(r => r.id === readingId)
-      if (reading) {
-        updateMoistureReading(areaId, readingId, 'images', reading.images.filter(p => p.id !== photoId))
+      if (reading && reading.photo?.id === photoId) {
+        updateMoistureReading(areaId, readingId, 'photo', null)
       }
     } else if (areaId && type === 'roomView') {
       const area = formData.areas.find(a => a.id === areaId)
@@ -1316,66 +1285,63 @@ const InspectionForm = () => {
               insertedReading = data
             }
 
-            // Update photos to link them to this moisture reading
+            // Update photo to link it to this moisture reading
             console.log(`DEBUG: Moisture reading ${j + 1} "${reading.title}":`, {
               hasReading: !!insertedReading,
               readingId: insertedReading?.id,
-              hasImages: !!reading.images,
-              imageCount: reading.images?.length || 0,
-              imageIds: reading.images?.map(img => img.id) || []
+              hasPhoto: !!reading.photo,
+              photoId: reading.photo?.id || null
             })
 
-            if (insertedReading && reading.images && reading.images.length > 0) {
-              const photoIds = reading.images.map(img => img.id)
-              console.log(`🔗 ATTEMPTING TO LINK PHOTOS:`, {
+            if (insertedReading && reading.photo) {
+              const photoId = reading.photo.id
+              console.log(`🔗 ATTEMPTING TO LINK PHOTO:`, {
                 readingId: insertedReading.id,
                 readingTitle: reading.title,
-                photoCount: photoIds.length,
-                photoIds: photoIds
+                photoId: photoId
               })
 
-              const { data: updateData, error: updateError, count } = await supabase
+              const { data: updateData, error: updateError } = await supabase
                 .from('photos')
                 .update({ moisture_reading_id: insertedReading.id })
-                .in('id', photoIds)
+                .eq('id', photoId)
                 .select()
 
               if (updateError) {
-                console.error(`❌ ERROR LINKING PHOTOS:`, {
+                console.error(`❌ ERROR LINKING PHOTO:`, {
                   error: updateError,
-                  photoIds: photoIds,
+                  photoId: photoId,
                   readingId: insertedReading.id
                 })
               } else {
                 console.log(`✅ UPDATE QUERY SUCCESSFUL:`, {
                   rowsReturned: updateData?.length || 0,
-                  count: count,
-                  updatedPhotos: updateData
+                  updatedPhoto: updateData
                 })
 
                 // VERIFICATION: Query the database to confirm the update
                 const { data: verifyData, error: verifyError } = await supabase
                   .from('photos')
                   .select('id, file_name, moisture_reading_id')
-                  .in('id', photoIds)
+                  .eq('id', photoId)
+                  .single()
 
                 if (verifyError) {
                   console.error(`❌ VERIFICATION QUERY FAILED:`, verifyError)
                 } else {
                   console.log(`🔍 VERIFICATION QUERY RESULT:`, verifyData)
-                  const allLinked = verifyData?.every(p => p.moisture_reading_id === insertedReading.id)
-                  if (allLinked) {
-                    console.log(`✅ CONFIRMED: All ${photoIds.length} photos linked to moisture reading "${reading.title}"`)
+                  if (verifyData.moisture_reading_id === insertedReading.id) {
+                    console.log(`✅ CONFIRMED: Photo linked to moisture reading "${reading.title}"`)
                   } else {
-                    console.error(`❌ VERIFICATION FAILED: Photos not properly linked!`, {
+                    console.error(`❌ VERIFICATION FAILED: Photo not properly linked!`, {
                       expected: insertedReading.id,
-                      actual: verifyData
+                      actual: verifyData.moisture_reading_id
                     })
                   }
                 }
               }
             } else {
-              console.warn(`⚠️ Skipping photo linking for reading ${j + 1} - no photos or reading not inserted`)
+              console.warn(`⚠️ Skipping photo linking for reading ${j + 1} - no photo or reading not inserted`)
             }
 
             // Update React state with the database ID to enable future UPDATEs
@@ -1933,28 +1899,24 @@ const InspectionForm = () => {
                                   className="form-input"
                                 />
 
-                                <button
-                                  type="button"
-                                  className="btn-photo-small"
-                                  onClick={() => handlePhotoCapture('moistureReading', area.id, reading.id)}
-                                >
-                                  📷 Add Photos
-                                </button>
-
-                                {reading.images.length > 0 && (
-                                  <div className="photo-grid-small">
-                                    {reading.images.map(photo => (
-                                      <div key={photo.id} className="photo-item-small">
-                                        <img src={photo.url} alt="Moisture reading" />
-                                        <button
-                                          type="button"
-                                          className="photo-remove-small"
-                                          onClick={() => removePhoto('moistureReading', photo.id, area.id, reading.id)}
-                                        >
-                                          <X size={14} strokeWidth={2} />
-                                        </button>
-                                      </div>
-                                    ))}
+                                {!reading.photo ? (
+                                  <button
+                                    type="button"
+                                    className="btn-photo-small"
+                                    onClick={() => handlePhotoCapture('moistureReading', area.id, reading.id)}
+                                  >
+                                    📷 Add Photo
+                                  </button>
+                                ) : (
+                                  <div className="photo-item-small">
+                                    <img src={reading.photo.url} alt="Moisture reading" />
+                                    <button
+                                      type="button"
+                                      className="photo-remove-small"
+                                      onClick={() => removePhoto('moistureReading', reading.photo!.id, area.id, reading.id)}
+                                    >
+                                      <X size={14} strokeWidth={2} />
+                                    </button>
                                   </div>
                                 )}
                               </div>

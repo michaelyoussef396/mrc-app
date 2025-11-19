@@ -4,7 +4,7 @@ export interface MoistureReading {
   id: string;
   title: string;
   reading: string;
-  images: Photo[];
+  photo: Photo | null;  // Changed from images: Photo[] to single photo
 }
 
 export interface Photo {
