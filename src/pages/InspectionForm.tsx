@@ -305,6 +305,17 @@ const InspectionForm = () => {
               // Transform moisture readings to frontend format
               const moistureReadings: MoistureReading[] = (dbMoistureReadings || []).map(dbReading => {
                 // Get photos for THIS SPECIFIC moisture reading using moisture_reading_id
+                console.log(`🔍 LOADING PHOTOS FOR READING "${dbReading.title || 'untitled'}":`, {
+                  readingId: dbReading.id,
+                  totalAreaPhotos: areaPhotos.length,
+                  areaPhotosWithMoistureReadingId: areaPhotos.filter(p => p.moisture_reading_id).length,
+                  areaPhotoDetails: areaPhotos.map(p => ({
+                    id: p.id,
+                    file_name: p.file_name,
+                    moisture_reading_id: p.moisture_reading_id
+                  }))
+                })
+
                 const moisturePhotos = areaPhotos
                   .filter(p => p.moisture_reading_id === dbReading.id)
                   .map(p => ({
@@ -313,6 +324,12 @@ const InspectionForm = () => {
                     url: p.signed_url,
                     timestamp: p.created_at
                   }))
+
+                console.log(`📸 FILTERED PHOTOS FOR READING "${dbReading.title || 'untitled'}":`, {
+                  readingId: dbReading.id,
+                  photosFound: moisturePhotos.length,
+                  photoIds: moisturePhotos.map(p => p.id)
+                })
 
                 return {
                   id: dbReading.id,
@@ -1239,17 +1256,52 @@ const InspectionForm = () => {
 
             if (insertedReading && reading.images && reading.images.length > 0) {
               const photoIds = reading.images.map(img => img.id)
-              console.log(`Attempting to link ${photoIds.length} photos to reading ${insertedReading.id}:`, photoIds)
+              console.log(`🔗 ATTEMPTING TO LINK PHOTOS:`, {
+                readingId: insertedReading.id,
+                readingTitle: reading.title,
+                photoCount: photoIds.length,
+                photoIds: photoIds
+              })
 
-              const { error: updateError } = await supabase
+              const { data: updateData, error: updateError, count } = await supabase
                 .from('photos')
                 .update({ moisture_reading_id: insertedReading.id })
                 .in('id', photoIds)
+                .select()
 
               if (updateError) {
-                console.error(`❌ Error linking photos to moisture reading ${j + 1}:`, updateError)
+                console.error(`❌ ERROR LINKING PHOTOS:`, {
+                  error: updateError,
+                  photoIds: photoIds,
+                  readingId: insertedReading.id
+                })
               } else {
-                console.log(`✅ Linked ${photoIds.length} photos to moisture reading "${reading.title}"`)
+                console.log(`✅ UPDATE QUERY SUCCESSFUL:`, {
+                  rowsReturned: updateData?.length || 0,
+                  count: count,
+                  updatedPhotos: updateData
+                })
+
+                // VERIFICATION: Query the database to confirm the update
+                const { data: verifyData, error: verifyError } = await supabase
+                  .from('photos')
+                  .select('id, file_name, moisture_reading_id')
+                  .in('id', photoIds)
+
+                if (verifyError) {
+                  console.error(`❌ VERIFICATION QUERY FAILED:`, verifyError)
+                } else {
+                  console.log(`🔍 VERIFICATION QUERY RESULT:`, verifyData)
+                  const allLinked = verifyData?.every(p => p.moisture_reading_id === insertedReading.id)
+                  if (allLinked) {
+                    console.log(`✅ CONFIRMED: All ${photoIds.length} photos linked to moisture reading "${reading.title}"`)
+                  } else {
+                    console.error(`❌ VERIFICATION FAILED: Photos not properly linked!`, {
+                      expected: insertedReading.id,
+                      actual: verifyData
+                    })
+                  }
+                }
               }
             } else {
               console.warn(`⚠️ Skipping photo linking for reading ${j + 1} - no photos or reading not inserted`)
