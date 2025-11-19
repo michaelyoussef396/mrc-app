@@ -714,15 +714,37 @@ const InspectionForm = () => {
   }
 
   const updateMoistureReading = (areaId: string, readingId: string, field: keyof MoistureReading, value: any) => {
+    if (field === 'images') {
+      console.log('🔍 DEBUG - updateMoistureReading called for images:', {
+        areaId,
+        readingId,
+        imagesCount: value?.length || 0,
+        imageIds: value?.map((img: any) => img.id) || []
+      })
+    }
+
     setFormData(prev => ({
       ...prev,
       areas: prev.areas.map(area => {
         if (area.id !== areaId) return area
         return {
           ...area,
-          moistureReadings: area.moistureReadings.map(r =>
-            r.id === readingId ? { ...r, [field]: value } : r
-          )
+          moistureReadings: area.moistureReadings.map(r => {
+            if (r.id === readingId) {
+              const updated = { ...r, [field]: value }
+              if (field === 'images') {
+                console.log('🔍 DEBUG - Updated reading state:', {
+                  readingId: r.id,
+                  readingTitle: r.title,
+                  oldImagesCount: r.images?.length || 0,
+                  newImagesCount: updated.images?.length || 0,
+                  newImageIds: updated.images?.map((img: any) => img.id) || []
+                })
+              }
+              return updated
+            }
+            return r
+          })
         }
       })
     }))
@@ -882,6 +904,11 @@ const InspectionForm = () => {
 
         const uploadResults = await uploadMultiplePhotos(files, uploadMetadata)
 
+        console.log('🔍 DEBUG - Upload results from uploadMultiplePhotos:', {
+          resultsCount: uploadResults.length,
+          photoIds: uploadResults.map(r => r.photo_id)
+        })
+
         // Create Photo objects with signed URLs
         const newPhotos: Photo[] = uploadResults.map((result, index) => ({
           id: result.photo_id,
@@ -890,13 +917,40 @@ const InspectionForm = () => {
           timestamp: new Date().toISOString()
         }))
 
+        console.log('🔍 DEBUG - newPhotos array created:', {
+          photosCount: newPhotos.length,
+          photoIds: newPhotos.map(p => p.id),
+          areaId,
+          readingId,
+          isForMoistureReading: !!(areaId && readingId)
+        })
+
         // Update form state based on photo type
         if (areaId && readingId) {
           // Moisture reading photos
-          updateMoistureReading(areaId, readingId, 'images', [
-            ...(formData.areas.find(a => a.id === areaId)?.moistureReadings.find(r => r.id === readingId)?.images || []),
-            ...newPhotos
-          ])
+          const currentReading = formData.areas.find(a => a.id === areaId)?.moistureReadings.find(r => r.id === readingId)
+          const existingPhotos = currentReading?.images || []
+
+          console.log('🔍 DEBUG - Before updateMoistureReading:', {
+            areaId,
+            readingId,
+            existingPhotosCount: existingPhotos.length,
+            existingPhotoIds: existingPhotos.map(p => p.id),
+            newPhotosCount: newPhotos.length,
+            newPhotoIds: newPhotos.map(p => p.id)
+          })
+
+          const updatedPhotos = [...existingPhotos, ...newPhotos]
+
+          console.log('🔍 DEBUG - Calling updateMoistureReading with:', {
+            areaId,
+            readingId,
+            field: 'images',
+            updatedPhotosCount: updatedPhotos.length,
+            updatedPhotoIds: updatedPhotos.map(p => p.id)
+          })
+
+          updateMoistureReading(areaId, readingId, 'images', updatedPhotos)
         } else if (areaId && type === 'roomView') {
           // Room view photos (limit 3)
           const currentArea = formData.areas.find(a => a.id === areaId)
