@@ -270,9 +270,12 @@ Updated UI options to match save/load logic exactly:
 - [x] End-to-end Section 3 test with NEW data → ✅ COMPLETE
 - [x] DATABASE FIX: Removed duplicate areas - now exactly 2 areas (bedroom, Living Room)
 
-## Phase 2: Fix Database Foreign Keys (1h)
-- [ ] Create and apply migration to fix subfloor_data FK
-- [ ] Create and apply migration to fix equipment_bookings FK
+## Phase 2: Fix Database Foreign Keys ✅ COMPLETE
+- [x] Create and apply migration to fix subfloor_data FK
+- [x] Create and apply migration to fix equipment_bookings FK
+- [x] Verify FK constraints point to inspections table
+- [x] Test subfloor_data insert/update (no FK errors)
+- [x] Test equipment_bookings insert/update (no FK errors)
 
 ## Phase 3: Test Section 4 - Subfloor (1.5h)
 - [ ] Test all subfloor fields and verify data persistence
@@ -316,9 +319,9 @@ Updated UI options to match save/load logic exactly:
 
 **Overall Status:** 🟡 In Progress
 
-**Phases Complete:** 1/11
+**Phases Complete:** 2/11
 - Phase 1: ✅ Complete (2025-11-19)
-- Phase 2: ⏸️ Pending
+- Phase 2: ✅ Complete (2025-11-20)
 - Phase 3: ⏸️ Pending
 - Phase 4: ⏸️ Pending
 - Phase 5: ⏸️ Pending
@@ -329,7 +332,7 @@ Updated UI options to match save/load logic exactly:
 - Phase 10: ⏸️ Pending
 - Phase 11: ⏸️ Pending
 
-**Tasks Complete:** 9/29 (Updated after Phase 1 completion + all 4 bug fixes)
+**Tasks Complete:** 14/31 (Updated after Phase 2 completion - FK fixes verified)
 
 **Estimated Time Remaining:** 13-17 hours
 
@@ -375,38 +378,107 @@ Updated UI options to match save/load logic exactly:
 
 ---
 
+## 📍 SESSION END SUMMARY (2025-11-20) - PHASE 2 COMPLETE
+
+### ✅ PHASE 2 COMPLETE - Database Foreign Keys Fixed
+
+**What We Accomplished This Session:**
+
+1. **Migration 1: Fixed subfloor_data FK**
+   - Created: `supabase/migrations/20251120000001_fix_subfloor_data_fkey.sql`
+   - Dropped incorrect FK pointing to `inspection_reports`
+   - Added correct FK pointing to `inspections` table
+   - CASCADE delete rule applied
+   - ✅ VERIFIED: FK constraint working correctly
+
+2. **Migration 2: Fixed equipment_bookings FK**
+   - Created: `supabase/migrations/20251120000002_fix_equipment_bookings_fkey.sql`
+   - Dropped incorrect FK pointing to `inspection_reports`
+   - Added correct FK pointing to `inspections` table
+   - CASCADE delete rule applied
+   - ✅ VERIFIED: FK constraint working correctly
+
+3. **Testing & Verification:**
+   - ✅ Tested `subfloor_data` insert → Success (no FK errors)
+   - ✅ Tested `equipment_bookings` insert → Success (no FK errors)
+   - ✅ Verified both FKs point to `inspections.id`
+   - ✅ Verified CASCADE delete rules applied
+   - ✅ Confirmed data integrity maintained
+
+**Database State:**
+- `subfloor_data.inspection_id` → `inspections.id` ON DELETE CASCADE
+- `equipment_bookings.inspection_id` → `inspections.id` ON DELETE CASCADE
+- Test inspection: MRC-2025-9229 (ID: a06d1d4a-0062-41a4-ba38-e713e5348fbc)
+
+**Root Cause:**
+- Migration 20251111000016 renamed `inspections` → `inspection_reports`
+- FKs were updated to point to `inspection_reports`
+- Application code continued using `inspections` table
+- Result: FK constraints pointed to wrong table
+
+**Impact:**
+- Section 4 (Subfloor) can now save data without FK errors
+- Section 7 (Equipment) can now save data without FK errors
+- Data integrity maintained with CASCADE deletes
+- Unblocks Phase 3 testing
+
+**Migrations Applied:**
+1. `20251120000001_fix_subfloor_data_fkey.sql`
+2. `20251120000002_fix_equipment_bookings_fkey.sql`
+
+**Session Duration:** ~40 minutes
+**Tasks Completed:** 5/5 (100% of Phase 2)
+**Code Quality:** High - proper migration structure, verification queries
+**Status:** ✅ Phase 2 COMPLETE - Ready for Phase 3
+
+---
+
 ## 🎯 NEXT SESSION - START HERE
 
-### Phase 2: Fix Database Foreign Keys (Estimated: 1h)
+### Phase 3: Test Section 4 - Subfloor (Estimated: 1.5h)
 
-**Objective:** Fix FK constraints in subfloor_data and equipment_bookings tables
+**Objective:** Test Section 4 (Subfloor Inspection) end-to-end with full data persistence
+
+**Prerequisites:**
+✅ Phase 1 Complete - Section 3 working
+✅ Phase 2 Complete - FK constraints fixed
 
 **Steps to take:**
-1. Read the database schema file:
-   ```bash
-   cat context/DATABASE-SCHEMA.md
+1. Navigate to test inspection:
+   ```
+   Inspection ID: a06d1d4a-0062-41a4-ba38-e713e5348fbc
+   Job Number: MRC-2025-9229
+   URL: http://localhost:8082/inspections/a06d1d4a-0062-41a4-ba38-e713e5348fbc
    ```
 
-2. Check current FK constraints:
-   ```sql
-   -- Use Supabase MCP to query
-   SELECT table_name, constraint_name, constraint_type
-   FROM information_schema.table_constraints
-   WHERE table_name IN ('subfloor_data', 'equipment_bookings')
-   ```
+2. Test Section 4 fields:
+   - Enable "Subfloor Access" toggle
+   - Add observations (text)
+   - Add comments (text)
+   - Select landscape type (dropdown)
+   - Toggle sanitation required
+   - Toggle racking required
+   - Enter treatment time (minutes)
 
-3. Create migration to fix subfloor_data FK
-4. Create migration to fix equipment_bookings FK
-5. Apply migrations and verify
+3. Add subfloor photos (2-3 with captions)
+
+4. Click Save and verify:
+   - No FK constraint errors
+   - Data saves to `subfloor_data` table
+   - Photos save with `photo_type='subfloor'`
+   - All data persists after page reload
+
+5. Test at 375px viewport (mobile-first)
 
 **Why This Matters:**
-- FK constraints ensure data integrity
-- Prevents orphaned records
-- Required before testing Section 4 (Subfloor)
+- FK fixes in Phase 2 enable Section 4 to work
+- Subfloor data is critical for job documentation
+- Tests photo categorization for subfloor photos
 
 **Files to Check:**
-- `/Users/michaelyoussef/michaelyoussefdev/mrc-app/context/DATABASE-SCHEMA.md`
-- `/Users/michaelyoussef/michaelyoussefdev/mrc-app/supabase/migrations/`
+- `/Users/michaelyoussef/michaelyoussefdev/mrc-app/src/pages/InspectionForm.tsx` (Section 4 UI)
+- Database: `subfloor_data` table
+- Database: `photos` table (photo_type='subfloor')
 
 ---
 
