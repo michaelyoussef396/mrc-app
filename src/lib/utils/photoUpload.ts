@@ -10,6 +10,7 @@ export interface PhotoMetadata {
   inspection_id: string
   area_id?: string
   subfloor_id?: string
+  moisture_reading_id?: string
   photo_type: 'area' | 'subfloor' | 'general' | 'outdoor'
   caption?: string
   order_index?: number
@@ -81,6 +82,7 @@ export async function uploadInspectionPhoto(
       inspection_id: metadata.inspection_id,
       area_id: metadata.area_id || null,
       subfloor_id: metadata.subfloor_id || null,
+      moisture_reading_id: metadata.moisture_reading_id || null,
       photo_type: metadata.photo_type,
       storage_path: uploadData.path,
       file_name: filename,
@@ -231,12 +233,14 @@ export async function loadInspectionPhotos(
   id: string
   area_id: string | null
   subfloor_id: string | null
+  moisture_reading_id: string | null
   photo_type: string
   storage_path: string
   file_name: string
   caption: string | null
   order_index: number
   signed_url: string
+  created_at: string
 }>> {
   // 1. Get photo metadata
   const { data: photos, error } = await supabase

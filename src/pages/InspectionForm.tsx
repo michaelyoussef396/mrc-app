@@ -304,9 +304,9 @@ const InspectionForm = () => {
 
               // Transform moisture readings to frontend format
               const moistureReadings: MoistureReading[] = (dbMoistureReadings || []).map(dbReading => {
-                // Get photos for this moisture reading (caption = 'moisture')
+                // Get photos for THIS SPECIFIC moisture reading using moisture_reading_id
                 const moisturePhotos = areaPhotos
-                  .filter(p => p.caption === 'moisture')
+                  .filter(p => p.moisture_reading_id === dbReading.id)
                   .map(p => ({
                     id: p.id,
                     name: p.file_name,
@@ -1168,7 +1168,7 @@ const InspectionForm = () => {
             console.error('Error deleting old moisture readings:', deleteError)
           }
 
-          // Then insert new moisture readings
+          // Then insert new moisture readings and update photos
           for (let j = 0; j < area.moistureReadings.length; j++) {
             const reading = area.moistureReadings[j]
 
@@ -1184,7 +1184,8 @@ const InspectionForm = () => {
               status = 'elevated'
             }
 
-            const { error: insertError } = await supabase
+            // Insert moisture reading and get the ID
+            const { data: insertedReading, error: insertError } = await supabase
               .from('moisture_readings')
               .insert({
                 area_id: dbAreaId,
@@ -1193,9 +1194,27 @@ const InspectionForm = () => {
                 moisture_percentage: percentage || null,
                 moisture_status: status
               })
+              .select()
+              .single()
 
             if (insertError) {
               console.error(`Error saving moisture reading ${j + 1}:`, insertError)
+              continue
+            }
+
+            // Update photos to link them to this moisture reading
+            if (insertedReading && reading.images && reading.images.length > 0) {
+              const photoIds = reading.images.map(img => img.id)
+              const { error: updateError } = await supabase
+                .from('photos')
+                .update({ moisture_reading_id: insertedReading.id })
+                .in('id', photoIds)
+
+              if (updateError) {
+                console.error(`Error linking photos to moisture reading ${j + 1}:`, updateError)
+              } else {
+                console.log(`✅ Linked ${photoIds.length} photos to moisture reading "${reading.title}"`)
+              }
             }
           }
 
