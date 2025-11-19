@@ -1290,13 +1290,24 @@ const InspectionForm = () => {
               status = 'elevated'
             }
 
-            // Check if this reading already exists in database (has database ID from load)
-            const isExisting = reading.id && reading.id.length === 36 && reading.id.includes('-')
+            // Query for existing reading by business key (area_id + reading_order)
+            // This avoids the bug where frontend UUIDs and database UUIDs have the same format
+            const { data: existingReading, error: fetchError } = await supabase
+              .from('moisture_readings')
+              .select('id')
+              .eq('area_id', dbAreaId)
+              .eq('reading_order', j)
+              .maybeSingle()
+
+            if (fetchError) {
+              console.error(`Error checking existing moisture reading ${j + 1}:`, fetchError)
+              continue
+            }
 
             let insertedReading: any
 
-            if (isExisting) {
-              // UPDATE existing moisture reading to preserve ID
+            if (existingReading) {
+              // UPDATE existing moisture reading using database ID
               const { data, error: updateError } = await supabase
                 .from('moisture_readings')
                 .update({
@@ -1305,15 +1316,21 @@ const InspectionForm = () => {
                   moisture_percentage: percentage || null,
                   moisture_status: status
                 })
-                .eq('id', reading.id)
+                .eq('id', existingReading.id)
                 .select()
                 .single()
 
               if (updateError) {
-                console.error(`Error updating moisture reading ${j + 1}:`, updateError)
+                console.error(`❌ Error updating moisture reading ${j + 1}:`, updateError)
+                toast({
+                  title: 'Error saving moisture reading',
+                  description: `Failed to update "${reading.title}"`,
+                  variant: 'destructive'
+                })
                 continue
               }
               insertedReading = data
+              console.log(`✅ Updated moisture reading ${j + 1} "${reading.title}" (ID: ${data.id})`)
             } else {
               // INSERT new moisture reading
               const { data, error: insertError } = await supabase
@@ -1329,11 +1346,16 @@ const InspectionForm = () => {
                 .single()
 
               if (insertError) {
-                console.error(`❌ Error saving moisture reading ${j + 1}:`, insertError)
+                console.error(`❌ Error inserting moisture reading ${j + 1}:`, insertError)
+                toast({
+                  title: 'Error saving moisture reading',
+                  description: `Failed to save "${reading.title}"`,
+                  variant: 'destructive'
+                })
                 continue
               }
               insertedReading = data
-              console.log(`✅ SUCCESS: Inserted moisture reading ${j + 1} "${reading.title}" with ID: ${data.id}`)
+              console.log(`✅ Inserted moisture reading ${j + 1} "${reading.title}" (ID: ${data.id})`)
             }
 
             // Update photo to link it to this moisture reading
@@ -1393,24 +1415,6 @@ const InspectionForm = () => {
               }
             } else {
               console.warn(`⚠️ Skipping photo linking for reading ${j + 1} - no photo or reading not inserted`)
-            }
-
-            // Update React state with the database ID to enable future UPDATEs
-            if (insertedReading && insertedReading.id !== reading.id) {
-              setFormData(prev => ({
-                ...prev,
-                areas: prev.areas.map(a =>
-                  a.id === area.id
-                    ? {
-                        ...a,
-                        moistureReadings: a.moistureReadings.map((r, idx) =>
-                          idx === j ? { ...r, id: insertedReading.id } : r
-                        )
-                      }
-                    : a
-                )
-              }))
-              console.log(`🔄 Updated reading "${reading.title}" with database ID: ${insertedReading.id}`)
             }
           }
 
