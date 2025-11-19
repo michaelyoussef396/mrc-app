@@ -121,12 +121,92 @@ const removeArea = async (areaId: string) => {
 
 ---
 
+### Bug 3: Moisture Readings Not Persisting (PGRST116 Error)
+
+**User Report:**
+- Added moisture reading with title and percentage
+- Clicked Save or navigated to next section
+- Console shows: `PGRST116: Cannot coerce result to single JSON object - 0 rows returned`
+- Page reload → moisture reading disappeared ❌
+
+**Root Cause Analysis:**
+```typescript
+// BEFORE (BUG) - Line 1294:
+const isExisting = reading.id && reading.id.length === 36 && reading.id.includes('-')
+
+// PROBLEM: Both frontend and database UUIDs have the same format!
+// Frontend: crypto.randomUUID() → "a1b2c3d4-5678-90ab-cdef-1234567890ab"
+// Database: PostgreSQL UUID  → "e5f6g7h8-9012-34ij-klmn-5678901234op"
+// Both match the check! ❌
+
+if (isExisting) {
+  // Attempts UPDATE on non-existent record
+  await supabase
+    .from('moisture_readings')
+    .update({ ... })
+    .eq('id', reading.id)  // ❌ Frontend UUID doesn't exist in DB!
+    .select()
+    .single()
+  // Result: PGRST116 error - "0 rows returned"
+}
+```
+
+**The Problem:**
+- Flawed detection logic couldn't distinguish frontend UUIDs from database UUIDs
+- New readings got frontend UUIDs (from `crypto.randomUUID()`)
+- Check returned `true` (length 36, contains dashes)
+- Code attempted UPDATE on non-existent record
+- Database returned 0 rows → PGRST116 error
+- State update workaround was async → race conditions
+- Result: Silent data loss
+
+**The Fix (Commit: cccea79):**
+```typescript
+// AFTER (FIXED) - UPSERT with Business Key:
+const { data: existingReading } = await supabase
+  .from('moisture_readings')
+  .select('id')
+  .eq('area_id', dbAreaId)
+  .eq('reading_order', j)  // Business key: area + position
+  .maybeSingle()
+
+if (existingReading) {
+  // UPDATE using database ID
+  await supabase
+    .from('moisture_readings')
+    .update({ ... })
+    .eq('id', existingReading.id)  // ✅ Use fetched DB ID!
+} else {
+  // INSERT new reading
+  await supabase
+    .from('moisture_readings')
+    .insert({ ... })
+}
+```
+
+**Key Improvements:**
+1. ✅ Query database for existing record (no UUID format assumptions)
+2. ✅ Use business key: `area_id` + `reading_order` (reliable identifier)
+3. ✅ Always use database-fetched ID for UPDATE (never frontend UUID)
+4. ✅ Removed async state update workaround (no more race conditions)
+5. ✅ Added user-facing error toast notifications
+6. ✅ Matches proven pattern from `saveInspectionArea()`
+
+**Impact:**
+- CRITICAL bug fixed - moisture readings now persist on first save
+- No more PGRST116 errors
+- Photo linking works (depends on stable moisture reading IDs)
+- Eliminates race conditions from async state updates
+
+---
+
 ## Phase 1: Section 3 Photo Categorization ✅ COMPLETE
 - [x] Implement photo categorization - update handlePhotoCapture()
 - [x] Test photo categorization - verify captions in database
 - [x] Load moisture readings from database on reload ✅ ALREADY WORKING
 - [x] CRITICAL BUG FIX #1: Save button + navigation save (Commit: cab7d04)
 - [x] CRITICAL BUG FIX #2: Area deletion now persists to database (Commit: 286bb30)
+- [x] CRITICAL BUG FIX #3: Moisture readings now persist (PGRST116 fix) (Commit: cccea79)
 - [x] End-to-end Section 3 test with NEW data → ✅ COMPLETE
 - [x] DATABASE FIX: Removed duplicate areas - now exactly 2 areas (bedroom, Living Room)
 
@@ -189,7 +269,7 @@ const removeArea = async (areaId: string) => {
 - Phase 10: ⏸️ Pending
 - Phase 11: ⏸️ Pending
 
-**Tasks Complete:** 7/28 (Updated after Phase 1 completion + area deletion fix)
+**Tasks Complete:** 8/29 (Updated after Phase 1 completion + all bug fixes)
 
 **Estimated Time Remaining:** 13-17 hours
 
