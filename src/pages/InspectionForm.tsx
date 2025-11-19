@@ -10,6 +10,7 @@ import {
   createInspection,
   updateInspection,
   saveInspectionArea,
+  deleteInspectionArea,
   getInspectionByLeadId,
   type InspectionData,
   type InspectionAreaData
@@ -656,16 +657,58 @@ const InspectionForm = () => {
     toast({ title: 'Area added', description: 'New inspection area created' })
   }
 
-  const removeArea = (areaId: string) => {
+  const removeArea = async (areaId: string) => {
+    // Validation: Require at least one area
     if (formData.areas.length === 1) {
-      toast({ title: 'Cannot remove', description: 'At least one area is required', variant: 'destructive' })
+      toast({
+        title: 'Cannot remove',
+        description: 'At least one area is required',
+        variant: 'destructive'
+      })
       return
     }
-    setFormData(prev => ({
-      ...prev,
-      areas: prev.areas.filter(area => area.id !== areaId)
-    }))
-    toast({ title: 'Area removed' })
+
+    try {
+      // Get the database ID from the mapping (if area was saved to DB)
+      const dbAreaId = areaIdMapping[areaId]
+
+      // If area exists in database, delete it
+      if (dbAreaId) {
+        console.log(`Deleting area from database: ${dbAreaId}`)
+        await deleteInspectionArea(dbAreaId)
+
+        // Remove from mapping
+        setAreaIdMapping(prev => {
+          const newMapping = { ...prev }
+          delete newMapping[areaId]
+          return newMapping
+        })
+
+        console.log(`Successfully deleted area ${dbAreaId} from database`)
+      } else {
+        console.log(`Area ${areaId} not yet saved to database, only removing from local state`)
+      }
+
+      // Update local state (remove area from UI)
+      setFormData(prev => ({
+        ...prev,
+        areas: prev.areas.filter(area => area.id !== areaId)
+      }))
+
+      toast({
+        title: 'Area removed',
+        description: dbAreaId
+          ? 'Area and related data deleted successfully'
+          : 'Area removed from form'
+      })
+    } catch (error) {
+      console.error('Failed to delete area:', error)
+      toast({
+        title: 'Error deleting area',
+        description: error instanceof Error ? error.message : 'Failed to delete area from database',
+        variant: 'destructive'
+      })
+    }
   }
 
   const addMoistureReading = (areaId: string) => {
