@@ -1255,17 +1255,7 @@ const InspectionForm = () => {
 
         // Save moisture readings for this area
         if (area.moistureReadingsEnabled && area.moistureReadings.length > 0) {
-          // First, delete existing moisture readings for this area
-          const { error: deleteError } = await supabase
-            .from('moisture_readings')
-            .delete()
-            .eq('area_id', dbAreaId)
-
-          if (deleteError) {
-            console.error('Error deleting old moisture readings:', deleteError)
-          }
-
-          // Then insert new moisture readings and update photos
+          // UPSERT moisture readings to preserve IDs (critical for photo linking)
           for (let j = 0; j < area.moistureReadings.length; j++) {
             const reading = area.moistureReadings[j]
 
@@ -1281,22 +1271,49 @@ const InspectionForm = () => {
               status = 'elevated'
             }
 
-            // Insert moisture reading and get the ID
-            const { data: insertedReading, error: insertError } = await supabase
-              .from('moisture_readings')
-              .insert({
-                area_id: dbAreaId,
-                reading_order: j,
-                title: reading.title || '',
-                moisture_percentage: percentage || null,
-                moisture_status: status
-              })
-              .select()
-              .single()
+            // Check if this reading already exists in database (has database ID from load)
+            const isExisting = reading.id && reading.id.length === 36 && reading.id.includes('-')
 
-            if (insertError) {
-              console.error(`Error saving moisture reading ${j + 1}:`, insertError)
-              continue
+            let insertedReading: any
+
+            if (isExisting) {
+              // UPDATE existing moisture reading to preserve ID
+              const { data, error: updateError } = await supabase
+                .from('moisture_readings')
+                .update({
+                  reading_order: j,
+                  title: reading.title || '',
+                  moisture_percentage: percentage || null,
+                  moisture_status: status
+                })
+                .eq('id', reading.id)
+                .select()
+                .single()
+
+              if (updateError) {
+                console.error(`Error updating moisture reading ${j + 1}:`, updateError)
+                continue
+              }
+              insertedReading = data
+            } else {
+              // INSERT new moisture reading
+              const { data, error: insertError } = await supabase
+                .from('moisture_readings')
+                .insert({
+                  area_id: dbAreaId,
+                  reading_order: j,
+                  title: reading.title || '',
+                  moisture_percentage: percentage || null,
+                  moisture_status: status
+                })
+                .select()
+                .single()
+
+              if (insertError) {
+                console.error(`Error saving moisture reading ${j + 1}:`, insertError)
+                continue
+              }
+              insertedReading = data
             }
 
             // Update photos to link them to this moisture reading
@@ -1359,6 +1376,24 @@ const InspectionForm = () => {
               }
             } else {
               console.warn(`⚠️ Skipping photo linking for reading ${j + 1} - no photos or reading not inserted`)
+            }
+
+            // Update React state with the database ID to enable future UPDATEs
+            if (insertedReading && insertedReading.id !== reading.id) {
+              setFormData(prev => ({
+                ...prev,
+                areas: prev.areas.map(a =>
+                  a.id === area.id
+                    ? {
+                        ...a,
+                        moistureReadings: a.moistureReadings.map((r, idx) =>
+                          idx === j ? { ...r, id: insertedReading.id } : r
+                        )
+                      }
+                    : a
+                )
+              }))
+              console.log(`🔄 Updated reading "${reading.title}" with database ID: ${insertedReading.id}`)
             }
           }
 
