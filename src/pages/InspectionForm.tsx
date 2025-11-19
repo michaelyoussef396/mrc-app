@@ -1171,14 +1171,27 @@ const InspectionForm = () => {
           // Then insert new moisture readings
           for (let j = 0; j < area.moistureReadings.length; j++) {
             const reading = area.moistureReadings[j]
+
+            // Determine moisture status based on percentage
+            // Valid enum values: 'dry', 'elevated', 'wet', 'very_wet'
+            const percentage = parseFloat(reading.reading) || 0
+            let status: 'dry' | 'elevated' | 'wet' | 'very_wet' = 'dry'
+            if (percentage >= 40) {
+              status = 'very_wet'
+            } else if (percentage >= 25) {
+              status = 'wet'
+            } else if (percentage >= 15) {
+              status = 'elevated'
+            }
+
             const { error: insertError } = await supabase
               .from('moisture_readings')
               .insert({
                 area_id: dbAreaId,
                 reading_order: j,
                 title: reading.title || '',
-                moisture_percentage: parseFloat(reading.reading) || null,
-                moisture_status: 'normal' // Default status, can be enhanced later
+                moisture_percentage: percentage || null,
+                moisture_status: status
               })
 
             if (insertError) {
