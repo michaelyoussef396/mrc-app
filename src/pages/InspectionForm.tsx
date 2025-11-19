@@ -2126,10 +2126,10 @@ const InspectionForm = () => {
                             <div className="checkbox-grid">
                               {[
                                 'No Active Water Intrusion Detected',
-                                'Evidence of Water Infiltration Present',
-                                'Indications of Past Water Ingress',
-                                'Possible Condensation-Related Thermal Variations',
-                                'Suspected Missing Insulation Detected'
+                                'Active Water Infiltration',
+                                'Past Water Ingress (Dried)',
+                                'Condensation Pattern',
+                                'Missing/Inadequate Insulation'
                               ].map(option => (
                                 <label key={option} className="checkbox-option">
                                   <input
