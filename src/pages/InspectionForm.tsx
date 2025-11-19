@@ -1241,6 +1241,17 @@ const InspectionForm = () => {
           internal_office_notes: area.internalNotes,
           moisture_readings_enabled: area.moistureReadingsEnabled,
           infrared_enabled: area.infraredEnabled,
+          // 🔍 DEBUG: Log infrared observations state BEFORE conversion
+          ...((() => {
+            console.log(`🔍 INFRARED DEBUG - Area "${area.areaName}" (index ${i}):`, {
+              areaId: area.id,
+              infraredEnabled: area.infraredEnabled,
+              infraredObservations: area.infraredObservations,
+              observationsLength: area.infraredObservations?.length || 0,
+              isArray: Array.isArray(area.infraredObservations)
+            })
+            return {}
+          })()),
           // Map infrared observations to boolean fields
           infrared_observation_no_active: area.infraredObservations.includes('No Active Water Intrusion Detected'),
           infrared_observation_water_infiltration: area.infraredObservations.includes('Active Water Infiltration'),
@@ -1252,6 +1263,16 @@ const InspectionForm = () => {
           demolition_time_minutes: area.demolitionTime,
           demolition_description: area.demolitionDescription
         }
+
+        // 🔍 DEBUG: Log what we're sending to database
+        console.log(`🔍 INFRARED SAVE - Area "${area.areaName}" areaData being sent to DB:`, {
+          infrared_enabled: areaData.infrared_enabled,
+          infrared_observation_no_active: areaData.infrared_observation_no_active,
+          infrared_observation_water_infiltration: areaData.infrared_observation_water_infiltration,
+          infrared_observation_past_ingress: areaData.infrared_observation_past_ingress,
+          infrared_observation_condensation: areaData.infrared_observation_condensation,
+          infrared_observation_missing_insulation: areaData.infrared_observation_missing_insulation
+        })
 
         // Save area and get database area_id
         const dbAreaId = await saveInspectionArea(areaData)
