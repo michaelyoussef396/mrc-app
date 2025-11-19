@@ -1250,6 +1250,16 @@ const InspectionForm = () => {
               observationsLength: area.infraredObservations?.length || 0,
               isArray: Array.isArray(area.infraredObservations)
             })
+
+            // 🔍 SUPER VISIBLE DEBUG: Show toast for area 2
+            if (i === 1) {
+              toast({
+                title: `🔍 DEBUG Area 2 "${area.areaName}"`,
+                description: `Infrared Observations: ${JSON.stringify(area.infraredObservations)} (Length: ${area.infraredObservations?.length || 0})`,
+                duration: 10000
+              })
+            }
+
             return {}
           })()),
           // Map infrared observations to boolean fields
