@@ -1223,7 +1223,14 @@ const InspectionForm = () => {
         }))
 
         // Save moisture readings for this area
+        console.log(`🔍 DEBUG: Checking moisture readings for area "${area.areaName}":`, {
+          moistureReadingsEnabled: area.moistureReadingsEnabled,
+          moistureReadingsLength: area.moistureReadings.length,
+          moistureReadings: area.moistureReadings
+        })
+
         if (area.moistureReadingsEnabled && area.moistureReadings.length > 0) {
+          console.log(`✅ SAVING ${area.moistureReadings.length} moisture readings for area "${area.areaName}"`)
           // UPSERT moisture readings to preserve IDs (critical for photo linking)
           for (let j = 0; j < area.moistureReadings.length; j++) {
             const reading = area.moistureReadings[j]
@@ -1279,10 +1286,11 @@ const InspectionForm = () => {
                 .single()
 
               if (insertError) {
-                console.error(`Error saving moisture reading ${j + 1}:`, insertError)
+                console.error(`❌ Error saving moisture reading ${j + 1}:`, insertError)
                 continue
               }
               insertedReading = data
+              console.log(`✅ SUCCESS: Inserted moisture reading ${j + 1} "${reading.title}" with ID: ${data.id}`)
             }
 
             // Update photo to link it to this moisture reading
@@ -1364,6 +1372,8 @@ const InspectionForm = () => {
           }
 
           console.log(`✅ Saved ${area.moistureReadings.length} moisture readings for area "${area.areaName}"`)
+        } else {
+          console.log(`⚠️ SKIPPING moisture readings for area "${area.areaName}": moistureReadingsEnabled=${area.moistureReadingsEnabled}, length=${area.moistureReadings.length}`)
         }
       }
 
