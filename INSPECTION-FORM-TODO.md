@@ -20,9 +20,9 @@
 
 ---
 
-## 🐛 CRITICAL BUG FOUND & FIXED (2025-11-19)
+## 🐛 CRITICAL BUGS FOUND & FIXED (2025-11-19)
 
-### Bug: Moisture Readings Not Persisting on Navigation
+### Bug 1: Moisture Readings Not Persisting on Navigation
 
 **User Report:**
 - Added moisture reading: "behind wall", reading "32", 2 photos
@@ -60,11 +60,73 @@ const handleNext = () => {
 
 ---
 
+### Bug 2: Area Deletion Not Persisting to Database
+
+**User Report:**
+- Clicked "Remove Area" button
+- Area disappeared from UI
+- Reloaded page → area came back ❌
+
+**Root Cause Analysis:**
+```typescript
+// BEFORE (BUG):
+const removeArea = (areaId: string) => {
+  setFormData(prev => ({
+    ...prev,
+    areas: prev.areas.filter(area => area.id !== areaId)
+  }))
+  // ❌ NO DATABASE DELETE!
+}
+```
+
+**The Problem:**
+- Function only updated local React state
+- No database DELETE operation
+- Area remained in database
+- Page reload fetched from DB → area reappeared
+
+**The Fix (Commit: 286bb30):**
+```typescript
+// AFTER (FIXED):
+const removeArea = async (areaId: string) => {
+  const dbAreaId = areaIdMapping[areaId]
+
+  if (dbAreaId) {
+    await deleteInspectionArea(dbAreaId)  // ✅ Delete from DB
+    setAreaIdMapping(prev => {
+      const newMapping = { ...prev }
+      delete newMapping[areaId]
+      return newMapping
+    })
+  }
+
+  setFormData(prev => ({
+    ...prev,
+    areas: prev.areas.filter(area => area.id !== areaId)
+  }))
+}
+```
+
+**Key Improvements:**
+1. ✅ Calls `deleteInspectionArea()` to delete from database
+2. ✅ Proper async/await handling
+3. ✅ Error handling with try/catch
+4. ✅ User feedback via toast notifications
+5. ✅ Cascade delete verified (photos & moisture readings auto-delete)
+
+**Impact:**
+- CRITICAL bug fixed - area deletions now persist
+- Related data (photos, moisture readings) automatically deleted
+- Proper error handling prevents UI corruption
+
+---
+
 ## Phase 1: Section 3 Photo Categorization ✅ COMPLETE
 - [x] Implement photo categorization - update handlePhotoCapture()
 - [x] Test photo categorization - verify captions in database
 - [x] Load moisture readings from database on reload ✅ ALREADY WORKING
-- [x] CRITICAL BUG FIX: Save button + navigation save (Commit: cab7d04)
+- [x] CRITICAL BUG FIX #1: Save button + navigation save (Commit: cab7d04)
+- [x] CRITICAL BUG FIX #2: Area deletion now persists to database (Commit: 286bb30)
 - [x] End-to-end Section 3 test with NEW data → ✅ COMPLETE
 - [x] DATABASE FIX: Removed duplicate areas - now exactly 2 areas (bedroom, Living Room)
 
@@ -127,7 +189,7 @@ const handleNext = () => {
 - Phase 10: ⏸️ Pending
 - Phase 11: ⏸️ Pending
 
-**Tasks Complete:** 6/27 (Updated after Phase 1 completion)
+**Tasks Complete:** 7/28 (Updated after Phase 1 completion + area deletion fix)
 
 **Estimated Time Remaining:** 13-17 hours
 
