@@ -1,503 +1,97 @@
-GoTrueClient@0 (2.76.1) 2025-11-19T04:39:35.525Z #_onVisibilityChanged(false) visibilityState hidden
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:35.525Z #_stopAutoRefresh()
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:44.206Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:44.207Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:44.207Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:44.207Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:44.208Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:44.208Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:44.208Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:44.208Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:44.208Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:44.208Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.559Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.559Z #_onVisibilityChanged(false) visibilityState visible
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.559Z #_stopAutoRefresh()
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.559Z #_startAutoRefresh()
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.559Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.560Z #_autoRefreshTokenTick() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.560Z #_acquireLock begin 0
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.560Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.560Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.560Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.560Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.560Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.560Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.560Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.560Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.560Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.561Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.561Z #_recoverAndRefresh() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.561Z #_recoverAndRefresh() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.561Z #_recoverAndRefresh() session has not expired with margin of 90000s
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.561Z #_notifyAllSubscribers(SIGNED_IN) begin {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …} broadcast = true
-client.ts:52 🔐 [Supabase Client] Auth State Change: SIGNED_IN
-client.ts:53 📝 [Supabase Client] Session: Active
-client.ts:55 👤 [Supabase Client] User: admin@mrc.com.au
-client.ts:56 ⏰ [Supabase Client] Expires: 19/11/2025, 16:35:17
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.562Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.562Z #_notifyAllSubscribers(SIGNED_IN) end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.562Z auto refresh token tick lock not available
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.562Z #_recoverAndRefresh() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.562Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:39:48.562Z #_acquireLock end
-8Fetch failed loading: HEAD "<URL>".
-photoUpload.ts:129 Uploading photo 1/1: area-3.jpeg
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:06.687Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:06.690Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:06.690Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:06.690Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:06.690Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:06.690Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:06.690Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:06.690Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:06.690Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:06.690Z #_acquireLock end
-5Fetch finished loading: POST "<URL>".
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.092Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.092Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.092Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.092Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.092Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.093Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.093Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.093Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.093Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.093Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.284Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.284Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.284Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.284Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.284Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.285Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.285Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.476Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.476Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.476Z #_acquireLock end
-5Fetch finished loading: GET "<URL>".
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.477Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.477Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.477Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.477Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.477Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.477Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.477Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.477Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.477Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:11.477Z #_acquireLock end
-photoUpload.ts:137 ✓ Photo 1/1 uploaded successfully
-2@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.616Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.616Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.616Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.616Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.616Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.617Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.617Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.617Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.617Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.617Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.617Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.617Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.617Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.617Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.617Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.617Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.617Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.617Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:13.617Z #_acquireLock end
-useSessionRefresh.ts:46 ✅ [useSessionRefresh] Session healthy (55 minutes remaining)
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.561Z #_autoRefreshTokenTick() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.561Z #_acquireLock begin 0
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.561Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.561Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.561Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.561Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.561Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.561Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.561Z #_autoRefreshTokenTick() access token expires in 109 ticks, a tick lasts 30000ms, refresh threshold is 3 ticks
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.561Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.561Z #_autoRefreshTokenTick() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.561Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.561Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.729Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.730Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.730Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.730Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.730Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.730Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.730Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.730Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.730Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:18.730Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.682Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.695Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.695Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.695Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.695Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.695Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.695Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.695Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.695Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.695Z #_acquireLock end
-inspections.ts:153 📊 Update inspection result: {inspectionId: 'a06d1d4a-0062-41a4-ba38-e713e5348fbc', rowsAffected: 1, error: null, fields: Array(24)}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.887Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.888Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.888Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.888Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.888Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.888Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.888Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.889Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.889Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:41.889Z #_acquireLock end
-8Fetch finished loading: PATCH "<URL>".
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.078Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.078Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.079Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.079Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.079Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.079Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.079Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.079Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.079Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.079Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.251Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.260Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.260Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.260Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.260Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.261Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.261Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.261Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.261Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.261Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.428Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.429Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.429Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.429Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.429Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.429Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.430Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.430Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.430Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.430Z #_acquireLock end
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+Fetch finished loading: POST "<URL>".
+@supabase_supabase-js.js?v=23812741:5606 Fetch finished loading: POST "https://ecyivrxjpsmjmexqatym.supabase.co/rest/v1/moisture_readings?select=*".
+(anonymous) @ @supabase_supabase-js.js?v=23812741:5606
+(anonymous) @ @supabase_supabase-js.js?v=23812741:5627
+await in (anonymous)
+then @ @supabase_supabase-js.js?v=23812741:94
+@supabase_supabase-js.js?v=23812741:5606 Fetch finished loading: POST "https://ecyivrxjpsmjmexqatym.supabase.co/rest/v1/moisture_readings?select=*".
+(anonymous) @ @supabase_supabase-js.js?v=23812741:5606
+(anonymous) @ @supabase_supabase-js.js?v=23812741:5627
+await in (anonymous)
+then @ @supabase_supabase-js.js?v=23812741:94
+@supabase_supabase-js.js?v=23812741:5606 Fetch finished loading: POST "https://ecyivrxjpsmjmexqatym.supabase.co/rest/v1/moisture_readings?select=*".
+(anonymous) @ @supabase_supabase-js.js?v=23812741:5606
+(anonymous) @ @supabase_supabase-js.js?v=23812741:5627
+await in (anonymous)
+then @ @supabase_supabase-js.js?v=23812741:94
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+Fetch finished loading: GET "<URL>".
+@supabase_supabase-js.js?v=23812741:5606 Fetch finished loading: GET "https://ecyivrxjpsmjmexqatym.supabase.co/rest/v1/moisture_readings?select=*&area_id=eq.e937e6eb-5460-42a1-aa98-371c4b8a5fab&order=reading_order.asc".
+(anonymous) @ @supabase_supabase-js.js?v=23812741:5606
+(anonymous) @ @supabase_supabase-js.js?v=23812741:5627
+await in (anonymous)
+then @ @supabase_supabase-js.js?v=23812741:94
+@supabase_supabase-js.js?v=23812741:5606 Fetch finished loading: GET "https://ecyivrxjpsmjmexqatym.supabase.co/rest/v1/moisture_readings?select=*&area_id=eq.b36f402f-49f5-40ac-b960-cb98057667fb&order=reading_order.asc".
+(anonymous) @ @supabase_supabase-js.js?v=23812741:5606
+(anonymous) @ @supabase_supabase-js.js?v=23812741:5627
+await in (anonymous)
+then @ @supabase_supabase-js.js?v=23812741:94
+@supabase_supabase-js.js?v=23812741:5606 Fetch finished loading: GET "https://ecyivrxjpsmjmexqatym.supabase.co/rest/v1/moisture_readings?select=*&area_id=eq.ef540628-ace2-4338-bcf5-5a8666ff2535&order=reading_order.asc".
+(anonymous) @ @supabase_supabase-js.js?v=23812741:5606
+(anonymous) @ @supabase_supabase-js.js?v=23812741:5627
+await in (anonymous)
+then @ @supabase_supabase-js.js?v=23812741:94
 @supabase_supabase-js.js?v=23812741:5606 Fetch finished loading: DELETE "https://ecyivrxjpsmjmexqatym.supabase.co/rest/v1/moisture_readings?area_id=eq.e937e6eb-5460-42a1-aa98-371c4b8a5fab".
 (anonymous) @ @supabase_supabase-js.js?v=23812741:5606
 (anonymous) @ @supabase_supabase-js.js?v=23812741:5627
 await in (anonymous)
 then @ @supabase_supabase-js.js?v=23812741:94
-InspectionForm.tsx:1202 ✅ Saved 1 moisture readings for area "bedroom"
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.611Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.612Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.612Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.612Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.612Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.612Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.612Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.612Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.612Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.613Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.768Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.769Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.769Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.769Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.769Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.769Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.769Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.769Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.769Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.769Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.946Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.951Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.951Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.951Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.951Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.952Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.952Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.952Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.952Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:42.952Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.122Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.123Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.123Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.123Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.123Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.123Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.123Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.123Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.123Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.123Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:5606 Fetch finished loading: GET "https://ecyivrxjpsmjmexqatym.supabase.co/rest/v1/inspection_areas?select=id&inspection_id=eq.a06d1d4a-0062-41a4-ba38-e713e5348fbc&area_name=eq.".
-(anonymous) @ @supabase_supabase-js.js?v=23812741:5606
-(anonymous) @ @supabase_supabase-js.js?v=23812741:5627
-await in (anonymous)
-then @ @supabase_supabase-js.js?v=23812741:94
-InspectionForm.tsx:1238 ✅ Auto-saved inspection: a06d1d4a-0062-41a4-ba38-e713e5348fbc
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.616Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.616Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.616Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.617Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.617Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.617Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.617Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.617Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.617Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:43.617Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.561Z #_autoRefreshTokenTick() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.561Z #_acquireLock begin 0
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.561Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.561Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.561Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.561Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.561Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.561Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.561Z #_autoRefreshTokenTick() access token expires in 108 ticks, a tick lasts 30000ms, refresh threshold is 3 ticks
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.561Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.561Z #_autoRefreshTokenTick() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.562Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.562Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.904Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.904Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.904Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.904Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.905Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.905Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.905Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.905Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.905Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:40:48.905Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.068Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.075Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.075Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.075Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.076Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.076Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.076Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.076Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.076Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.076Z #_acquireLock end
-inspections.ts:153 📊 Update inspection result: {inspectionId: 'a06d1d4a-0062-41a4-ba38-e713e5348fbc', rowsAffected: 1, error: null, fields: Array(24)}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.245Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.245Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.245Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.245Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.245Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.245Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.246Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.246Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.246Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.246Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.394Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.394Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.394Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.394Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.394Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.394Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.395Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.395Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.395Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.395Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.560Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.566Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.566Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.566Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.566Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.566Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.566Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.566Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.567Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.567Z #_acquireLock end
 @supabase_supabase-js.js?v=23812741:5606 Fetch finished loading: DELETE "https://ecyivrxjpsmjmexqatym.supabase.co/rest/v1/moisture_readings?area_id=eq.e937e6eb-5460-42a1-aa98-371c4b8a5fab".
 (anonymous) @ @supabase_supabase-js.js?v=23812741:5606
 (anonymous) @ @supabase_supabase-js.js?v=23812741:5627
 await in (anonymous)
 then @ @supabase_supabase-js.js?v=23812741:94
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.721Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.722Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.723Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.723Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.723Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.723Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.723Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.723Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.723Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.723Z #_acquireLock end
-InspectionForm.tsx:1202 ✅ Saved 1 moisture readings for area "bedroom"
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.883Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.884Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.884Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.884Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.884Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.884Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.884Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.884Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.884Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:00.884Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.028Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.028Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.028Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.028Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.028Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.028Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.028Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.028Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.029Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.029Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.177Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.179Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.179Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.179Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.179Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.180Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.180Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.180Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.180Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.180Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:5606 Fetch finished loading: GET "https://ecyivrxjpsmjmexqatym.supabase.co/rest/v1/inspection_areas?select=id&inspection_id=eq.a06d1d4a-0062-41a4-ba38-e713e5348fbc&area_name=eq.".
+@supabase_supabase-js.js?v=23812741:5606 Fetch finished loading: DELETE "https://ecyivrxjpsmjmexqatym.supabase.co/rest/v1/moisture_readings?area_id=eq.e937e6eb-5460-42a1-aa98-371c4b8a5fab".
 (anonymous) @ @supabase_supabase-js.js?v=23812741:5606
 (anonymous) @ @supabase_supabase-js.js?v=23812741:5627
 await in (anonymous)
 then @ @supabase_supabase-js.js?v=23812741:94
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.331Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.331Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.331Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.331Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.331Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.331Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.331Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.331Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.331Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:01.331Z #_acquireLock end
-InspectionForm.tsx:1238 ✅ Auto-saved inspection: a06d1d4a-0062-41a4-ba38-e713e5348fbc
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:13.617Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:13.618Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:13.618Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:13.618Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:13.618Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:13.619Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:13.619Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:13.619Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:13.619Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:13.619Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:18.561Z #_autoRefreshTokenTick() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:18.561Z #_acquireLock begin 0
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:18.562Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:18.562Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:18.562Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:18.562Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:18.562Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:18.562Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:18.562Z #_autoRefreshTokenTick() access token expires in 107 ticks, a tick lasts 30000ms, refresh threshold is 3 ticks
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:18.562Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:18.562Z #_autoRefreshTokenTick() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:18.562Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:18.562Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:19.061Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:19.061Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:19.061Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:19.061Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:19.061Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:19.061Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:19.061Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:19.061Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:19.061Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:19.061Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:43.617Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:43.617Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:43.617Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:43.618Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:43.618Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:43.618Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:43.618Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:43.618Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:43.618Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:43.618Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:48.562Z #_autoRefreshTokenTick() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:48.563Z #_acquireLock begin 0
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:48.563Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:48.563Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:48.563Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:48.563Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:48.563Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:48.563Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:48.563Z #_autoRefreshTokenTick() access token expires in 106 ticks, a tick lasts 30000ms, refresh threshold is 3 ticks
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:48.563Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:48.564Z #_autoRefreshTokenTick() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:48.564Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:48.564Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:49.510Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:49.510Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:49.510Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:49.510Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:49.510Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:49.511Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:49.511Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:49.511Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:49.511Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:41:49.511Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:13.617Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:13.618Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:13.618Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:13.618Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:13.618Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:13.618Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:13.618Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:13.618Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:13.618Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:13.618Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:18.563Z #_autoRefreshTokenTick() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:18.563Z #_acquireLock begin 0
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:18.563Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:18.563Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:18.563Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:18.563Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:18.563Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:18.563Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:18.563Z #_autoRefreshTokenTick() access token expires in 105 ticks, a tick lasts 30000ms, refresh threshold is 3 ticks
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:18.563Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:18.563Z #_autoRefreshTokenTick() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:18.563Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:18.563Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:19.678Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:19.678Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:19.678Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:19.678Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:19.678Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:19.678Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:19.678Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:19.679Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:19.679Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:19.679Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:43.617Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:43.618Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:43.618Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:43.618Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:43.619Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:43.619Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:43.619Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:43.619Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:43.619Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:43.619Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:48.562Z #_autoRefreshTokenTick() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:48.563Z #_acquireLock begin 0
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:48.563Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:48.563Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:48.564Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:48.564Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:48.564Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:48.564Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:48.564Z #_autoRefreshTokenTick() access token expires in 104 ticks, a tick lasts 30000ms, refresh threshold is 3 ticks
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:48.564Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:48.564Z #_autoRefreshTokenTick() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:48.564Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:48.565Z #_acquireLock end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:50.181Z #_acquireLock begin -1
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:50.181Z #_acquireLock lock acquired for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:50.181Z #_useSession begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:50.181Z #__loadSession() begin
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:50.181Z #getSession() session from storage {access_token: 'eyJhbGciOiJIUzI1NiIsImtpZCI6IkNRWXNSK2pibEhXbFR3ZW…sc2V9.c0ENuNvvc29LFNhcl5NO5phYvaqXCNfdiHrPNplcntA', token_type: 'bearer', expires_in: 3600, expires_at: 1763530517, refresh_token: 'wnk7qca7625r', …}
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:50.181Z #__loadSession() session has not expired expires_at 1763530517
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:50.182Z #__loadSession() end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:50.182Z #_useSession end
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:50.182Z #_acquireLock lock released for storage key sb-ecyivrxjpsmjmexqatym-auth-token
-@supabase_supabase-js.js?v=23812741:7781 GoTrueClient@0 (2.76.1) 2025-11-19T04:42:50.182Z #_acquireLock end

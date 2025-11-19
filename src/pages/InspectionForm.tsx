@@ -763,8 +763,19 @@ const InspectionForm = () => {
     // Get database area_id for uploading
     let dbAreaId: string | undefined = areaId ? areaIdMapping[areaId] : undefined
 
+    console.log('🔍 DEBUG handlePhotoCapture:', {
+      areaId,
+      readingId,
+      type,
+      dbAreaId,
+      currentMapping: areaIdMapping,
+      hasDbAreaId: !!dbAreaId
+    })
+
     // If uploading to a specific area, ensure area is saved to database first
     if (areaId && !dbAreaId) {
+      console.log('⚠️ Area not saved yet - triggering save first')
+
       toast({
         title: 'Saving area first...',
         description: 'Please wait while we save the area before uploading photos',
@@ -774,15 +785,21 @@ const InspectionForm = () => {
       try {
         // Trigger a save to ensure area is in database
         const newMappings = await handleSave()
+        console.log('✅ Save complete, new mappings:', newMappings)
 
         // Get the database area_id from the returned mappings
         dbAreaId = newMappings[areaId]
+        console.log('📌 dbAreaId from mappings:', dbAreaId)
 
         // Double-check that the area was saved and mapped
         if (!dbAreaId) {
+          console.error('❌ Area was not saved to database - no mapping found')
           throw new Error('Area was not saved to database')
         }
+
+        console.log('✅ Area saved successfully, dbAreaId:', dbAreaId)
       } catch (error) {
+        console.error('❌ Failed to save area before photo upload:', error)
         toast({
           title: 'Error',
           description: 'Failed to save area. Please try again.',
@@ -790,6 +807,10 @@ const InspectionForm = () => {
         })
         return
       }
+    } else if (areaId && dbAreaId) {
+      console.log('✅ Using existing dbAreaId from mapping:', dbAreaId)
+    } else {
+      console.log('ℹ️ No areaId provided - uploading general photo')
     }
 
     const input = document.createElement('input')
@@ -832,12 +853,17 @@ const InspectionForm = () => {
 
         // Upload photos to Storage and get signed URLs
         // dbAreaId is already set above (either from mapping or from save)
-        const uploadResults = await uploadMultiplePhotos(files, {
+        const uploadMetadata = {
           inspection_id: currentInspectionId!,
           area_id: dbAreaId,  // Use database area_id instead of frontend area.id
           photo_type: photoType,
           caption: caption  // Add caption for photo categorization
-        })
+        }
+
+        console.log('📸 Uploading photos with metadata:', uploadMetadata)
+        console.log('📸 Number of files:', files.length)
+
+        const uploadResults = await uploadMultiplePhotos(files, uploadMetadata)
 
         // Create Photo objects with signed URLs
         const newPhotos: Photo[] = uploadResults.map((result, index) => ({
@@ -1203,18 +1229,30 @@ const InspectionForm = () => {
             }
 
             // Update photos to link them to this moisture reading
+            console.log(`DEBUG: Moisture reading ${j + 1} "${reading.title}":`, {
+              hasReading: !!insertedReading,
+              readingId: insertedReading?.id,
+              hasImages: !!reading.images,
+              imageCount: reading.images?.length || 0,
+              imageIds: reading.images?.map(img => img.id) || []
+            })
+
             if (insertedReading && reading.images && reading.images.length > 0) {
               const photoIds = reading.images.map(img => img.id)
+              console.log(`Attempting to link ${photoIds.length} photos to reading ${insertedReading.id}:`, photoIds)
+
               const { error: updateError } = await supabase
                 .from('photos')
                 .update({ moisture_reading_id: insertedReading.id })
                 .in('id', photoIds)
 
               if (updateError) {
-                console.error(`Error linking photos to moisture reading ${j + 1}:`, updateError)
+                console.error(`❌ Error linking photos to moisture reading ${j + 1}:`, updateError)
               } else {
                 console.log(`✅ Linked ${photoIds.length} photos to moisture reading "${reading.title}"`)
               }
+            } else {
+              console.warn(`⚠️ Skipping photo linking for reading ${j + 1} - no photos or reading not inserted`)
             }
           }
 
