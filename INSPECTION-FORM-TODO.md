@@ -200,6 +200,65 @@ if (existingReading) {
 
 ---
 
+### Bug 4: Infrared Observations Not Saving (UI/Logic Mismatch)
+
+**User Report:**
+- Selected infrared observation "Possible Condensation-Related Thermal Variations"
+- Clicked Save
+- Reloaded page → infrared observation disappeared ❌
+
+**Root Cause Analysis:**
+```typescript
+// UI OPTIONS (what user sees and selects):
+[
+  'Evidence of Water Infiltration Present',        // ❌ WRONG
+  'Indications of Past Water Ingress',            // ❌ WRONG
+  'Possible Condensation-Related Thermal Variations', // ❌ WRONG
+  'Suspected Missing Insulation Detected'         // ❌ WRONG
+]
+
+// SAVE LOGIC (what code checks for):
+infrared_observation_water_infiltration: area.infraredObservations.includes('Active Water Infiltration')  // ❌ Doesn't match!
+infrared_observation_past_ingress: area.infraredObservations.includes('Past Water Ingress (Dried)')      // ❌ Doesn't match!
+infrared_observation_condensation: area.infraredObservations.includes('Condensation Pattern')            // ❌ Doesn't match!
+infrared_observation_missing_insulation: area.infraredObservations.includes('Missing/Inadequate Insulation') // ❌ Doesn't match!
+
+// RESULT: User selects option → Code checks for different text → Always returns false → Saved as false
+```
+
+**The Problem:**
+- UI dropdown options used different text than save/load logic
+- Example: User selects "Possible Condensation-Related Thermal Variations"
+- Save logic checks: `area.infraredObservations.includes('Condensation Pattern')`
+- Result: `false` (no match) → saved as `false` in database
+- 4 out of 5 options had mismatched text!
+
+**The Fix (Commit: 32ecb0b):**
+Updated UI options to match save/load logic exactly:
+
+| Before (WRONG) | After (CORRECT) |
+|----------------|-----------------|
+| Evidence of Water Infiltration Present | Active Water Infiltration |
+| Indications of Past Water Ingress | Past Water Ingress (Dried) |
+| Possible Condensation-Related Thermal Variations | Condensation Pattern |
+| Suspected Missing Insulation Detected | Missing/Inadequate Insulation |
+
+**Debug Process:**
+1. Added toast notification to show infrared observations array during save
+2. Toast revealed: Array had correct data `["Possible Condensation..."]`
+3. Problem was NOT state management - data was there
+4. Grepped code to find UI options vs save logic
+5. Found text mismatch in 4 out of 5 options
+6. Fixed UI options to match save/load logic exactly
+
+**Impact:**
+- CRITICAL bug fixed - infrared observations now save for all areas
+- All 5 options now work correctly
+- User selections properly persist to database
+- Verified working after fix
+
+---
+
 ## Phase 1: Section 3 Photo Categorization ✅ COMPLETE
 - [x] Implement photo categorization - update handlePhotoCapture()
 - [x] Test photo categorization - verify captions in database
@@ -207,6 +266,7 @@ if (existingReading) {
 - [x] CRITICAL BUG FIX #1: Save button + navigation save (Commit: cab7d04)
 - [x] CRITICAL BUG FIX #2: Area deletion now persists to database (Commit: 286bb30)
 - [x] CRITICAL BUG FIX #3: Moisture readings now persist (PGRST116 fix) (Commit: cccea79)
+- [x] CRITICAL BUG FIX #4: Infrared observations UI/logic mismatch (Commit: 32ecb0b)
 - [x] End-to-end Section 3 test with NEW data → ✅ COMPLETE
 - [x] DATABASE FIX: Removed duplicate areas - now exactly 2 areas (bedroom, Living Room)
 
@@ -269,7 +329,7 @@ if (existingReading) {
 - Phase 10: ⏸️ Pending
 - Phase 11: ⏸️ Pending
 
-**Tasks Complete:** 8/29 (Updated after Phase 1 completion + all bug fixes)
+**Tasks Complete:** 9/29 (Updated after Phase 1 completion + all 4 bug fixes)
 
 **Estimated Time Remaining:** 13-17 hours
 
