@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { useNavigate, useSearchParams, useLocation, useParams } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import { calculateDewPoint, generateJobNumber, calculateJobCost, formatCurrency } from '@/lib/inspectionUtils'
@@ -12,6 +12,7 @@ import {
   saveInspectionArea,
   deleteInspectionArea,
   getInspectionByLeadId,
+  getInspection,
   type InspectionData,
   type InspectionAreaData
 } from '@/lib/api/inspections'
@@ -38,6 +39,7 @@ const InspectionForm = () => {
   const location = useLocation()
   const { toast } = useToast()
   const [searchParams] = useSearchParams()
+  const { id: inspectionId } = useParams<{ id: string }>()
   const leadId = searchParams.get('leadId')
   const passedLead = location.state?.lead
   
@@ -147,7 +149,7 @@ const InspectionForm = () => {
   useEffect(() => {
     loadLeadData()
     loadCurrentUser()
-  }, [leadId])
+  }, [leadId, inspectionId])
 
   // Load technicians only after currentUserId is available
   useEffect(() => {
@@ -182,216 +184,275 @@ const InspectionForm = () => {
   ])
 
   const loadLeadData = async () => {
-    // TEMPORARY: Disabled redirect for Section 1 testing - re-enable after testing
-    // if (!leadId && !passedLead) {
-    //   navigate('/inspection/select-lead')
-    //   return
-    // }
-
     setLoading(true)
 
-    // ✅ FIX: Check for existing inspection FIRST and load its saved data
-    if (leadId) {
+    // MODE 1: Load existing inspection by ID (from URL path /inspection/:id)
+    if (inspectionId) {
       try {
-        const existingInspection = await getInspectionByLeadId(leadId)
-        if (existingInspection) {
-          console.log('✅ Found existing inspection, loading saved data:', existingInspection.id)
+        console.log('📋 Loading existing inspection by ID:', inspectionId)
+        const { data: inspection, error } = await supabase
+          .from('inspections')
+          .select('*')
+          .eq('id', inspectionId)
+          .maybeSingle()
 
-          // Set the inspection ID
-          setCurrentInspectionId(existingInspection.id)
+        if (error) {
+          console.error('❌ Query error:', error)
+          throw error
+        }
 
-          // Load existing areas from database
-          const { data: existingAreas, error: areasError } = await supabase
-            .from('inspection_areas')
+        if (!inspection) {
+          throw new Error('Inspection not found or access denied')
+        }
+
+        if (inspection && inspection.lead_id) {
+          console.log('✅ Found inspection, loading via lead ID:', inspection.lead_id)
+          // Recursively use the existing leadId loading logic
+          const { data: leadData, error: leadError } = await supabase
+            .from('leads')
             .select('*')
-            .eq('inspection_id', existingInspection.id)
-            .order('area_order', { ascending: true })
+            .eq('id', inspection.lead_id)
+            .single()
 
-          if (!areasError && existingAreas && existingAreas.length > 0) {
-            // Create mapping of database area IDs to frontend area IDs
-            const newMapping: Record<string, string> = {}
-            existingAreas.forEach(dbArea => {
-              // Use database ID as both key and value initially
-              newMapping[dbArea.id] = dbArea.id
-            })
-            setAreaIdMapping(newMapping)
+          if (!leadError && leadData) {
+            setLead(leadData)
+            // Now proceed with the normal leadId flow below
+            // by temporarily setting leadId context
+            await loadInspectionFromLead(inspection.lead_id)
+            setLoading(false)
+            return
+          }
+        }
 
-            console.log('✅ Loaded area ID mapping:', newMapping)
+        throw new Error('Inspection has no associated lead')
+      } catch (error: any) {
+        console.error('❌ Failed to load inspection:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load inspection. " + (error.message || ''),
+          variant: "destructive"
+        })
+        setLoading(false)
+        return
+      }
+    }
 
-            // Load all photos for this inspection
-            let photosWithUrls: any[] = []
-            try {
-              photosWithUrls = await loadInspectionPhotos(existingInspection.id)
-              console.log('✅ Loaded photos from database:', photosWithUrls.length)
-            } catch (error) {
-              console.error('Failed to load photos:', error)
-              // Continue without photos rather than failing completely
-            }
+    // MODE 2: Create new/load existing inspection from lead (existing behavior)
+    if (leadId) {
+      await loadInspectionFromLead(leadId)
+      setLoading(false)
+      return
+    }
 
-            // Group photos by area_id for easy lookup
-            const photosByArea: Record<string, any[]> = {}
-            photosWithUrls.forEach(photo => {
-              if (photo.area_id) {
-                if (!photosByArea[photo.area_id]) {
-                  photosByArea[photo.area_id] = []
-                }
-                photosByArea[photo.area_id].push(photo)
-              }
-            })
+    // No lead ID or inspection ID - show error
+    toast({
+      title: "No inspection context",
+      description: "Please select a lead to create an inspection",
+      variant: "destructive"
+    })
+    setLoading(false)
+  }
 
-            // Transform database areas to frontend format
-            const transformedAreas: InspectionArea[] = await Promise.all(existingAreas.map(async (dbArea) => {
-              // Transform mould visibility (12 booleans → array of strings)
-              const mouldVisibility: string[] = []
-              if (dbArea.mould_ceiling) mouldVisibility.push('Ceiling')
-              if (dbArea.mould_cornice) mouldVisibility.push('Cornice')
-              if (dbArea.mould_windows) mouldVisibility.push('Windows')
-              if (dbArea.mould_window_furnishings) mouldVisibility.push('Window furnishings')
-              if (dbArea.mould_walls) mouldVisibility.push('Walls')
-              if (dbArea.mould_skirting) mouldVisibility.push('Skirting')
-              if (dbArea.mould_flooring) mouldVisibility.push('Flooring')
-              if (dbArea.mould_wardrobe) mouldVisibility.push('Wardrobe')
-              if (dbArea.mould_cupboard) mouldVisibility.push('Cupboard')
-              if (dbArea.mould_contents) mouldVisibility.push('Contents')
-              if (dbArea.mould_grout_silicone) mouldVisibility.push('Grout/Silicone')
-              if (dbArea.mould_none_visible) mouldVisibility.push('None visible')
+  const loadInspectionFromLead = async (lid: string) => {
+    try {
+      const existingInspection = await getInspectionByLeadId(lid)
+      if (existingInspection) {
+        console.log('✅ Found existing inspection, loading saved data:', existingInspection.id)
 
-              // Transform infrared observations (5 booleans → array of strings)
-              const infraredObservations: string[] = []
-              if (dbArea.infrared_observation_no_active) infraredObservations.push('No Active Water Intrusion Detected')
-              if (dbArea.infrared_observation_water_infiltration) infraredObservations.push('Active Water Infiltration')
-              if (dbArea.infrared_observation_past_ingress) infraredObservations.push('Past Water Ingress (Dried)')
-              if (dbArea.infrared_observation_condensation) infraredObservations.push('Condensation Pattern')
-              if (dbArea.infrared_observation_missing_insulation) infraredObservations.push('Missing/Inadequate Insulation')
+        // Set the inspection ID
+        setCurrentInspectionId(existingInspection.id)
 
-              // Load photos for this area
-              const areaPhotos = photosByArea[dbArea.id] || []
-              const roomViewPhotos: Photo[] = []
-              let infraredPhoto: Photo | null = null
-              let naturalInfraredPhoto: Photo | null = null
+        // Load existing areas from database
+        const { data: existingAreas, error: areasError } = await supabase
+          .from('inspection_areas')
+          .select('*')
+          .eq('inspection_id', existingInspection.id)
+          .order('area_order', { ascending: true })
 
-              // Categorize photos by caption or default to room view
-              areaPhotos.forEach(photo => {
-                const photoObj: Photo = {
-                  id: photo.id,
-                  name: photo.file_name,
-                  url: photo.signed_url,
-                  timestamp: photo.created_at
-                }
+        if (!areasError && existingAreas && existingAreas.length > 0) {
+          // Create mapping of database area IDs to frontend area IDs
+          const newMapping: Record<string, string> = {}
+          existingAreas.forEach(dbArea => {
+            // Use database ID as both key and value initially
+            newMapping[dbArea.id] = dbArea.id
+          })
+          setAreaIdMapping(newMapping)
 
-                // Categorize based on caption
-                if (photo.caption === 'infrared') {
-                  infraredPhoto = photoObj
-                } else if (photo.caption === 'natural_infrared') {
-                  naturalInfraredPhoto = photoObj
-                } else {
-                  // Default to room view photos
-                  roomViewPhotos.push(photoObj)
-                }
-              })
+          console.log('✅ Loaded area ID mapping:', newMapping)
 
-              console.log(`✅ Loaded ${roomViewPhotos.length} photos for area "${dbArea.area_name}"`)
-
-              // Load moisture readings for this area
-              const { data: dbMoistureReadings, error: moistureError } = await supabase
-                .from('moisture_readings')
-                .select('*')
-                .eq('area_id', dbArea.id)
-                .order('reading_order', { ascending: true })
-
-              if (moistureError) {
-                console.error('Error loading moisture readings:', moistureError)
-              }
-
-              // Transform moisture readings to frontend format
-              const moistureReadings: MoistureReading[] = (dbMoistureReadings || []).map(dbReading => {
-                // Get single photo for THIS SPECIFIC moisture reading using moisture_reading_id
-                const moisturePhoto = areaPhotos.find(p => p.moisture_reading_id === dbReading.id)
-
-                console.log(`📸 LOADING PHOTO FOR READING "${dbReading.title || 'untitled'}":`, {
-                  readingId: dbReading.id,
-                  photoFound: !!moisturePhoto,
-                  photoId: moisturePhoto?.id || null
-                })
-
-                return {
-                  id: dbReading.id,
-                  title: dbReading.title || '',
-                  reading: dbReading.moisture_percentage?.toString() || '',
-                  photo: moisturePhoto ? {
-                    id: moisturePhoto.id,
-                    name: moisturePhoto.file_name,
-                    url: moisturePhoto.signed_url,
-                    timestamp: moisturePhoto.created_at
-                  } : null
-                }
-              })
-
-              console.log(`✅ Loaded ${moistureReadings.length} moisture readings for area "${dbArea.area_name}"`)
-
-              return {
-                id: dbArea.id,
-                areaName: dbArea.area_name,
-                mouldVisibility,
-                commentsForReport: dbArea.comments || '',
-                temperature: dbArea.temperature?.toString() || '',
-                humidity: dbArea.humidity?.toString() || '',
-                dewPoint: dbArea.dew_point?.toString() || '',
-                moistureReadingsEnabled: dbArea.moisture_readings_enabled || false,
-                moistureReadings,
-                internalNotes: dbArea.internal_office_notes || '',
-                roomViewPhotos,
-                infraredEnabled: dbArea.infrared_enabled || false,
-                infraredPhoto,
-                naturalInfraredPhoto,
-                infraredObservations,
-                timeWithoutDemo: dbArea.job_time_minutes || 0,
-                demolitionRequired: dbArea.demolition_required || false,
-                demolitionTime: dbArea.demolition_time_minutes || 0,
-                demolitionDescription: dbArea.demolition_description || ''
-              }
-            }))
-
-            console.log('✅ Transformed areas for UI:', transformedAreas)
-
-            // Populate ALL form fields with saved data including areas
-            setFormData(prev => ({
-              ...prev,
-              areas: transformedAreas,
-              jobNumber: existingInspection.job_number || prev.jobNumber,
-              triage: existingInspection.triage_description || prev.triage,
-              inspector: existingInspection.inspector_id || prev.inspector,
-              requestedBy: existingInspection.requested_by || prev.requestedBy,
-              attentionTo: existingInspection.attention_to || prev.attentionTo,
-              inspectionDate: existingInspection.inspection_date || prev.inspectionDate,
-              dwellingType: existingInspection.dwelling_type || prev.dwellingType,
-              propertyOccupation: existingInspection.property_occupation || prev.propertyOccupation,
-            }))
-          } else {
-            // No areas in database, populate other fields only
-            setFormData(prev => ({
-              ...prev,
-              jobNumber: existingInspection.job_number || prev.jobNumber,
-              triage: existingInspection.triage_description || prev.triage,
-              inspector: existingInspection.inspector_id || prev.inspector,
-              requestedBy: existingInspection.requested_by || prev.requestedBy,
-              attentionTo: existingInspection.attention_to || prev.attentionTo,
-              inspectionDate: existingInspection.inspection_date || prev.inspectionDate,
-              dwellingType: existingInspection.dwelling_type || prev.dwellingType,
-              propertyOccupation: existingInspection.property_occupation || prev.propertyOccupation,
-            }))
+          // Load all photos for this inspection
+          let photosWithUrls: any[] = []
+          try {
+            photosWithUrls = await loadInspectionPhotos(existingInspection.id)
+            console.log('✅ Loaded photos from database:', photosWithUrls.length)
+          } catch (error) {
+            console.error('Failed to load photos:', error)
+            // Continue without photos rather than failing completely
           }
 
-          console.log('✅ Loaded saved inspection data:', {
-            attention_to: existingInspection.attention_to,
-            dwelling_type: existingInspection.dwelling_type,
-            property_occupation: existingInspection.property_occupation
+          // Group photos by area_id for easy lookup
+          const photosByArea: Record<string, any[]> = {}
+          photosWithUrls.forEach(photo => {
+            if (photo.area_id) {
+              if (!photosByArea[photo.area_id]) {
+                photosByArea[photo.area_id] = []
+              }
+              photosByArea[photo.area_id].push(photo)
+            }
           })
+
+          // Transform database areas to frontend format
+          const transformedAreas: InspectionArea[] = await Promise.all(existingAreas.map(async (dbArea) => {
+            // Transform mould visibility (12 booleans → array of strings)
+            const mouldVisibility: string[] = []
+            if (dbArea.mould_ceiling) mouldVisibility.push('Ceiling')
+            if (dbArea.mould_cornice) mouldVisibility.push('Cornice')
+            if (dbArea.mould_windows) mouldVisibility.push('Windows')
+            if (dbArea.mould_window_furnishings) mouldVisibility.push('Window furnishings')
+            if (dbArea.mould_walls) mouldVisibility.push('Walls')
+            if (dbArea.mould_skirting) mouldVisibility.push('Skirting')
+            if (dbArea.mould_flooring) mouldVisibility.push('Flooring')
+            if (dbArea.mould_wardrobe) mouldVisibility.push('Wardrobe')
+            if (dbArea.mould_cupboard) mouldVisibility.push('Cupboard')
+            if (dbArea.mould_contents) mouldVisibility.push('Contents')
+            if (dbArea.mould_grout_silicone) mouldVisibility.push('Grout/Silicone')
+            if (dbArea.mould_none_visible) mouldVisibility.push('None visible')
+
+            // Transform infrared observations (5 booleans → array of strings)
+            const infraredObservations: string[] = []
+            if (dbArea.infrared_observation_no_active) infraredObservations.push('No Active Water Intrusion Detected')
+            if (dbArea.infrared_observation_water_infiltration) infraredObservations.push('Active Water Infiltration')
+            if (dbArea.infrared_observation_past_ingress) infraredObservations.push('Past Water Ingress (Dried)')
+            if (dbArea.infrared_observation_condensation) infraredObservations.push('Condensation Pattern')
+            if (dbArea.infrared_observation_missing_insulation) infraredObservations.push('Missing/Inadequate Insulation')
+
+            // Load photos for this area
+            const areaPhotos = photosByArea[dbArea.id] || []
+            const roomViewPhotos: Photo[] = []
+            let infraredPhoto: Photo | null = null
+            let naturalInfraredPhoto: Photo | null = null
+
+            // Categorize photos by caption or default to room view
+            areaPhotos.forEach(photo => {
+              const photoObj: Photo = {
+                id: photo.id,
+                name: photo.file_name,
+                url: photo.signed_url,
+                timestamp: photo.created_at
+              }
+
+              // Categorize based on caption
+              if (photo.caption === 'infrared') {
+                infraredPhoto = photoObj
+              } else if (photo.caption === 'natural_infrared') {
+                naturalInfraredPhoto = photoObj
+              } else {
+                // Default to room view photos
+                roomViewPhotos.push(photoObj)
+              }
+            })
+
+            console.log(`✅ Loaded ${roomViewPhotos.length} photos for area "${dbArea.area_name}"`)
+
+            // Load moisture readings for this area
+            const { data: dbMoistureReadings, error: moistureError } = await supabase
+              .from('moisture_readings')
+              .select('*')
+              .eq('area_id', dbArea.id)
+              .order('reading_order', { ascending: true })
+
+            if (moistureError) {
+              console.error('Error loading moisture readings:', moistureError)
+            }
+
+            // Transform moisture readings to frontend format
+            const moistureReadings: MoistureReading[] = (dbMoistureReadings || []).map(dbReading => {
+              // Get single photo for THIS SPECIFIC moisture reading using moisture_reading_id
+              const moisturePhoto = areaPhotos.find(p => p.moisture_reading_id === dbReading.id)
+
+              console.log(`📸 LOADING PHOTO FOR READING "${dbReading.title || 'untitled'}":`, {
+                readingId: dbReading.id,
+                photoFound: !!moisturePhoto,
+                photoId: moisturePhoto?.id || null
+              })
+
+              return {
+                id: dbReading.id,
+                title: dbReading.title || '',
+                reading: dbReading.moisture_percentage?.toString() || '',
+                photo: moisturePhoto ? {
+                  id: moisturePhoto.id,
+                  name: moisturePhoto.file_name,
+                  url: moisturePhoto.signed_url,
+                  timestamp: moisturePhoto.created_at
+                } : null
+              }
+            })
+
+            console.log(`✅ Loaded ${moistureReadings.length} moisture readings for area "${dbArea.area_name}"`)
+
+            return {
+              id: dbArea.id,
+              areaName: dbArea.area_name,
+              mouldVisibility,
+              commentsForReport: dbArea.comments || '',
+              temperature: dbArea.temperature?.toString() || '',
+              humidity: dbArea.humidity?.toString() || '',
+              dewPoint: dbArea.dew_point?.toString() || '',
+              moistureReadingsEnabled: dbArea.moisture_readings_enabled || false,
+              moistureReadings,
+              internalNotes: dbArea.internal_office_notes || '',
+              roomViewPhotos,
+              infraredEnabled: dbArea.infrared_enabled || false,
+              infraredPhoto,
+              naturalInfraredPhoto,
+              infraredObservations,
+              timeWithoutDemo: dbArea.job_time_minutes || 0,
+              demolitionRequired: dbArea.demolition_required || false,
+              demolitionTime: dbArea.demolition_time_minutes || 0,
+              demolitionDescription: dbArea.demolition_description || ''
+            }
+          }))
+
+          console.log('✅ Transformed areas for UI:', transformedAreas)
+
+          // Populate ALL form fields with saved data including areas
+          setFormData(prev => ({
+            ...prev,
+            areas: transformedAreas,
+            jobNumber: existingInspection.job_number || prev.jobNumber,
+            triage: existingInspection.triage_description || prev.triage,
+            inspector: existingInspection.inspector_id || prev.inspector,
+            requestedBy: existingInspection.requested_by || prev.requestedBy,
+            attentionTo: existingInspection.attention_to || prev.attentionTo,
+            inspectionDate: existingInspection.inspection_date || prev.inspectionDate,
+            dwellingType: existingInspection.dwelling_type || prev.dwellingType,
+            propertyOccupation: existingInspection.property_occupation || prev.propertyOccupation,
+          }))
+        } else {
+          // No areas in database, populate other fields only
+          setFormData(prev => ({
+            ...prev,
+            jobNumber: existingInspection.job_number || prev.jobNumber,
+            triage: existingInspection.triage_description || prev.triage,
+            inspector: existingInspection.inspector_id || prev.inspector,
+            requestedBy: existingInspection.requested_by || prev.requestedBy,
+            attentionTo: existingInspection.attention_to || prev.attentionTo,
+            inspectionDate: existingInspection.inspection_date || prev.inspectionDate,
+            dwellingType: existingInspection.dwelling_type || prev.dwellingType,
+            propertyOccupation: existingInspection.property_occupation || prev.propertyOccupation,
+          }))
         }
-      } catch (error) {
-        console.error('Error loading existing inspection:', error)
-        // Continue to load lead data even if inspection load fails
+
+        console.log('✅ Loaded saved inspection data:', {
+          attention_to: existingInspection.attention_to,
+          dwelling_type: existingInspection.dwelling_type,
+          property_occupation: existingInspection.property_occupation
+        })
       }
+    } catch (error) {
+      console.error('Error loading existing inspection:', error)
+      // Continue to load lead data even if inspection load fails
     }
 
     // Use passed lead data from SelectLead page if available
@@ -408,7 +469,7 @@ const InspectionForm = () => {
         propertyType: passedLead.propertyType,
         urgency: passedLead.urgency
       }
-      
+
       setLead(leadData)
 
       // Map propertyType to valid dwelling_type enum values
@@ -425,7 +486,7 @@ const InspectionForm = () => {
         requestedBy: prev.requestedBy || leadData.name,
         dwellingType: prev.dwellingType || dwellingType,
         // Pre-fill first area with affected areas from lead
-        areas: leadData.affectedAreas && leadData.affectedAreas.length > 0 
+        areas: leadData.affectedAreas && leadData.affectedAreas.length > 0
           ? [{
               id: crypto.randomUUID(),
               areaName: leadData.affectedAreas[0],
@@ -449,16 +510,15 @@ const InspectionForm = () => {
             }]
           : prev.areas
       }))
-      setLoading(false)
       return
     }
-    
+
     // Load from Supabase using leadId
     try {
       const { data: leadData, error } = await supabase
         .from('leads')
         .select('*')
-        .eq('id', leadId)
+        .eq('id', lid)
         .single()
 
       if (error) {
@@ -473,7 +533,7 @@ const InspectionForm = () => {
       }
 
       if (!leadData) {
-        console.error('❌ Lead not found:', leadId)
+        console.error('❌ Lead not found:', lid)
         toast({
           title: 'Lead not found',
           description: 'The lead you\'re trying to inspect doesn\'t exist.',
@@ -533,8 +593,6 @@ const InspectionForm = () => {
       navigate('/inspection/select-lead')
       return
     }
-
-    setLoading(false)
   }
 
   const loadTechnicians = async () => {
@@ -1167,7 +1225,8 @@ const InspectionForm = () => {
   }
 
   const autoSave = async (): Promise<Record<string, string> | void> => {
-    if (!leadId || !currentUserId) return
+    // Allow save if we have either a leadId (new inspection) OR currentInspectionId (existing inspection)
+    if ((!leadId && !currentInspectionId) || !currentUserId) return
 
     setSaving(true)
 
@@ -1184,7 +1243,8 @@ const InspectionForm = () => {
 
       // Save inspection metadata
       await updateInspection(inspectionId, {
-        lead_id: leadId,
+        // Only include lead_id if it's defined (for new inspections from leads)
+        ...(leadId ? { lead_id: leadId } : {}),
         inspector_id: formData.inspector || currentUserId,
         inspection_date: formData.inspectionDate,
         inspection_start_time: new Date().toTimeString().split(' ')[0],
@@ -1443,7 +1503,8 @@ const InspectionForm = () => {
             inspection_id: inspectionId,
             observations: formData.subfloorObservations || null,
             comments: formData.subfloorComments || null,
-            landscape_type: formData.subfloorLandscape || null,
+            // Transform "Sloping Block" to "sloping_block" for database enum
+            landscape: formData.subfloorLandscape ? formData.subfloorLandscape.toLowerCase().replace(/\s+/g, '_') : null,
             sanitation_required: formData.subfloorSanitation || false,
             racking_required: formData.subfloorRacking || false,
             treatment_time_minutes: formData.subfloorTreatmentTime || 0
