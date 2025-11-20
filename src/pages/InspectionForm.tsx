@@ -416,7 +416,59 @@ const InspectionForm = () => {
 
           console.log('✅ Transformed areas for UI:', transformedAreas)
 
-          // Populate ALL form fields with saved data including areas
+          // Load subfloor data if it exists
+          const { data: subfloorData, error: subfloorError } = await supabase
+            .from('subfloor_data')
+            .select('*')
+            .eq('inspection_id', existingInspection.id)
+            .maybeSingle()
+
+          if (subfloorError && subfloorError.code !== 'PGRST116') {
+            console.error('Error loading subfloor data:', subfloorError)
+          }
+
+          // Load subfloor readings if subfloor data exists
+          let subfloorReadings: SubfloorReading[] = []
+          if (subfloorData) {
+            const { data: dbSubfloorReadings, error: readingsError } = await supabase
+              .from('subfloor_readings')
+              .select('*')
+              .eq('subfloor_id', subfloorData.id)
+              .order('reading_order', { ascending: true })
+
+            if (readingsError) {
+              console.error('Error loading subfloor readings:', readingsError)
+            } else if (dbSubfloorReadings && dbSubfloorReadings.length > 0) {
+              subfloorReadings = dbSubfloorReadings.map(dbReading => ({
+                id: dbReading.id,
+                reading: dbReading.moisture_percentage?.toString() || '',
+                location: dbReading.location || ''
+              }))
+            }
+          }
+
+          // Load subfloor photos
+          const subfloorPhotos: Photo[] = []
+          const subfloorPhotoRecords = photosWithUrls.filter(p => p.section === 'subfloor')
+          subfloorPhotoRecords.forEach(photo => {
+            subfloorPhotos.push({
+              id: photo.id,
+              name: photo.file_name,
+              url: photo.signed_url,
+              timestamp: photo.created_at
+            })
+          })
+
+          console.log('✅ Loaded subfloor data:', {
+            hasData: !!subfloorData,
+            observations: subfloorData?.observations,
+            comments: subfloorData?.comments,
+            landscape: subfloorData?.landscape,
+            readingsCount: subfloorReadings.length,
+            photosCount: subfloorPhotos.length
+          })
+
+          // Populate ALL form fields with saved data including areas and subfloor
           setFormData(prev => ({
             ...prev,
             areas: transformedAreas,
@@ -428,9 +480,73 @@ const InspectionForm = () => {
             inspectionDate: existingInspection.inspection_date || prev.inspectionDate,
             dwellingType: existingInspection.dwelling_type || prev.dwellingType,
             propertyOccupation: existingInspection.property_occupation || prev.propertyOccupation,
+            // Load subfloor fields from database
+            subfloorEnabled: existingInspection.subfloor_required || prev.subfloorEnabled,
+            subfloorObservations: subfloorData?.observations || prev.subfloorObservations,
+            subfloorComments: subfloorData?.comments || prev.subfloorComments,
+            subfloorLandscape: subfloorData?.landscape ? subfloorData.landscape.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) : prev.subfloorLandscape,
+            subfloorSanitation: subfloorData?.sanitation_required || prev.subfloorSanitation,
+            subfloorRacking: subfloorData?.racking_required || prev.subfloorRacking,
+            subfloorTreatmentTime: subfloorData?.treatment_time_minutes || prev.subfloorTreatmentTime,
+            subfloorReadings: subfloorReadings.length > 0 ? subfloorReadings : prev.subfloorReadings,
+            subfloorPhotos: subfloorPhotos.length > 0 ? subfloorPhotos : prev.subfloorPhotos,
           }))
         } else {
-          // No areas in database, populate other fields only
+          // No areas in database, but still load subfloor data if it exists
+          const { data: subfloorData, error: subfloorError } = await supabase
+            .from('subfloor_data')
+            .select('*')
+            .eq('inspection_id', existingInspection.id)
+            .maybeSingle()
+
+          if (subfloorError && subfloorError.code !== 'PGRST116') {
+            console.error('Error loading subfloor data:', subfloorError)
+          }
+
+          // Load subfloor readings if subfloor data exists
+          let subfloorReadings: SubfloorReading[] = []
+          if (subfloorData) {
+            const { data: dbSubfloorReadings, error: readingsError } = await supabase
+              .from('subfloor_readings')
+              .select('*')
+              .eq('subfloor_id', subfloorData.id)
+              .order('reading_order', { ascending: true })
+
+            if (readingsError) {
+              console.error('Error loading subfloor readings:', readingsError)
+            } else if (dbSubfloorReadings && dbSubfloorReadings.length > 0) {
+              subfloorReadings = dbSubfloorReadings.map(dbReading => ({
+                id: dbReading.id,
+                reading: dbReading.moisture_percentage?.toString() || '',
+                location: dbReading.location || ''
+              }))
+            }
+          }
+
+          // Load subfloor photos (need to load photos even without areas)
+          let subfloorPhotos: Photo[] = []
+          try {
+            const photosWithUrls = await loadInspectionPhotos(existingInspection.id)
+            const subfloorPhotoRecords = photosWithUrls.filter(p => p.section === 'subfloor')
+            subfloorPhotoRecords.forEach(photo => {
+              subfloorPhotos.push({
+                id: photo.id,
+                name: photo.file_name,
+                url: photo.signed_url,
+                timestamp: photo.created_at
+              })
+            })
+          } catch (error) {
+            console.error('Failed to load photos:', error)
+          }
+
+          console.log('✅ Loaded subfloor data (no areas):', {
+            hasData: !!subfloorData,
+            readingsCount: subfloorReadings.length,
+            photosCount: subfloorPhotos.length
+          })
+
+          // Populate other fields including subfloor
           setFormData(prev => ({
             ...prev,
             jobNumber: existingInspection.job_number || prev.jobNumber,
@@ -441,6 +557,16 @@ const InspectionForm = () => {
             inspectionDate: existingInspection.inspection_date || prev.inspectionDate,
             dwellingType: existingInspection.dwelling_type || prev.dwellingType,
             propertyOccupation: existingInspection.property_occupation || prev.propertyOccupation,
+            // Load subfloor fields from database
+            subfloorEnabled: existingInspection.subfloor_required || prev.subfloorEnabled,
+            subfloorObservations: subfloorData?.observations || prev.subfloorObservations,
+            subfloorComments: subfloorData?.comments || prev.subfloorComments,
+            subfloorLandscape: subfloorData?.landscape ? subfloorData.landscape.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) : prev.subfloorLandscape,
+            subfloorSanitation: subfloorData?.sanitation_required || prev.subfloorSanitation,
+            subfloorRacking: subfloorData?.racking_required || prev.subfloorRacking,
+            subfloorTreatmentTime: subfloorData?.treatment_time_minutes || prev.subfloorTreatmentTime,
+            subfloorReadings: subfloorReadings.length > 0 ? subfloorReadings : prev.subfloorReadings,
+            subfloorPhotos: subfloorPhotos.length > 0 ? subfloorPhotos : prev.subfloorPhotos,
           }))
         }
 
@@ -661,6 +787,10 @@ const InspectionForm = () => {
   }
 
   const handleInputChange = (field: string, value: any) => {
+    // DEBUG: Log all subfloor field changes
+    if (field.startsWith('subfloor')) {
+      console.log(`🔍 DEBUG - handleInputChange: ${field} =`, value)
+    }
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
@@ -1486,6 +1616,17 @@ const InspectionForm = () => {
 
       // Save subfloor data if enabled
       if (formData.subfloorEnabled) {
+        // DEBUG: Log all subfloor form values before save
+        console.log('🔍 DEBUG - Subfloor formData values:', {
+          subfloorEnabled: formData.subfloorEnabled,
+          subfloorObservations: formData.subfloorObservations,
+          subfloorComments: formData.subfloorComments,
+          subfloorLandscape: formData.subfloorLandscape,
+          subfloorSanitation: formData.subfloorSanitation,
+          subfloorRacking: formData.subfloorRacking,
+          subfloorTreatmentTime: formData.subfloorTreatmentTime
+        })
+
         // First, delete existing subfloor data for this inspection
         const { error: deleteError } = await supabase
           .from('subfloor_data')
