@@ -449,7 +449,7 @@ const InspectionForm = () => {
 
           // Load subfloor photos
           const subfloorPhotos: Photo[] = []
-          const subfloorPhotoRecords = photosWithUrls.filter(p => p.section === 'subfloor')
+          const subfloorPhotoRecords = photosWithUrls.filter(p => p.photo_type === 'subfloor' && p.subfloor_id === subfloorData?.id)
           subfloorPhotoRecords.forEach(photo => {
             subfloorPhotos.push({
               id: photo.id,
@@ -1108,9 +1108,28 @@ const InspectionForm = () => {
 
         // Upload photos to Storage and get signed URLs
         // dbAreaId is already set above (either from mapping or from save)
+
+        // Fetch subfloor_id if this is a subfloor photo
+        let subfloorId: string | null = null
+        if (photoType === 'subfloor') {
+          const { data: subfloorData, error: subfloorError } = await supabase
+            .from('subfloor_data')
+            .select('id')
+            .eq('inspection_id', currentInspectionId!)
+            .single()
+
+          if (subfloorError) {
+            console.error('Error fetching subfloor_id for photo upload:', subfloorError)
+          } else if (subfloorData) {
+            subfloorId = subfloorData.id
+            console.log('✅ Found subfloor_id for photo upload:', subfloorId)
+          }
+        }
+
         const uploadMetadata = {
           inspection_id: currentInspectionId!,
           area_id: dbAreaId,  // Use database area_id instead of frontend area.id
+          subfloor_id: subfloorId,  // Add subfloor_id for subfloor photos
           photo_type: photoType,
           caption: caption  // Add caption for photo categorization
         }
@@ -1637,8 +1656,8 @@ const InspectionForm = () => {
           console.error('Error deleting old subfloor data:', deleteError)
         }
 
-        // Then insert new subfloor data
-        const { error: insertError } = await supabase
+        // Then insert new subfloor data and get the ID
+        const { data: subfloorData, error: insertError } = await supabase
           .from('subfloor_data')
           .insert({
             inspection_id: inspectionId,
@@ -1650,11 +1669,49 @@ const InspectionForm = () => {
             racking_required: formData.subfloorRacking || false,
             treatment_time_minutes: formData.subfloorTreatmentTime || 0
           })
+          .select()
+          .single()
 
         if (insertError) {
           console.error('Error saving subfloor data:', insertError)
         } else {
           console.log('✅ Saved subfloor data')
+
+          // Save subfloor moisture readings if there are any
+          if (subfloorData && formData.subfloorReadings && formData.subfloorReadings.length > 0) {
+            // First, delete existing readings for this subfloor
+            const { error: deleteReadingsError } = await supabase
+              .from('subfloor_readings')
+              .delete()
+              .eq('subfloor_id', subfloorData.id)
+
+            if (deleteReadingsError && deleteReadingsError.code !== 'PGRST116') {
+              console.error('Error deleting old subfloor readings:', deleteReadingsError)
+            }
+
+            // Then insert new readings
+            for (let i = 0; i < formData.subfloorReadings.length; i++) {
+              const reading = formData.subfloorReadings[i]
+
+              // Parse the moisture reading value
+              const moistureValue = parseFloat(reading.reading)
+
+              const { error: readingInsertError } = await supabase
+                .from('subfloor_readings')
+                .insert({
+                  subfloor_id: subfloorData.id,
+                  reading_order: i,
+                  moisture_percentage: !isNaN(moistureValue) ? moistureValue : null,
+                  location: reading.location || ''
+                })
+
+              if (readingInsertError) {
+                console.error(`Error saving subfloor reading ${i}:`, readingInsertError)
+              }
+            }
+
+            console.log(`✅ Saved ${formData.subfloorReadings.length} subfloor moisture readings`)
+          }
         }
       }
 
