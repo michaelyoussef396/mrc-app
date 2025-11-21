@@ -449,7 +449,7 @@ const InspectionForm = () => {
 
           // Load subfloor photos
           const subfloorPhotos: Photo[] = []
-          const subfloorPhotoRecords = photosWithUrls.filter(p => p.photo_type === 'subfloor' && p.subfloor_id === subfloorData?.id)
+          const subfloorPhotoRecords = photosWithUrls.filter(p => p.subfloor_id === subfloorData?.id)
           subfloorPhotoRecords.forEach(photo => {
             subfloorPhotos.push({
               id: photo.id,
@@ -467,6 +467,10 @@ const InspectionForm = () => {
             readingsCount: subfloorReadings.length,
             photosCount: subfloorPhotos.length
           })
+
+          if (subfloorPhotos.length > 0) {
+            console.log(`✅ Loaded ${subfloorPhotos.length} subfloor photos`)
+          }
 
           // Populate ALL form fields with saved data including areas and subfloor
           setFormData(prev => ({
@@ -527,7 +531,7 @@ const InspectionForm = () => {
           let subfloorPhotos: Photo[] = []
           try {
             const photosWithUrls = await loadInspectionPhotos(existingInspection.id)
-            const subfloorPhotoRecords = photosWithUrls.filter(p => p.section === 'subfloor')
+            const subfloorPhotoRecords = photosWithUrls.filter(p => p.subfloor_id === subfloorData?.id)
             subfloorPhotoRecords.forEach(photo => {
               subfloorPhotos.push({
                 id: photo.id,
@@ -545,6 +549,10 @@ const InspectionForm = () => {
             readingsCount: subfloorReadings.length,
             photosCount: subfloorPhotos.length
           })
+
+          if (subfloorPhotos.length > 0) {
+            console.log(`✅ Loaded ${subfloorPhotos.length} subfloor photos (no areas path)`)
+          }
 
           // Populate other fields including subfloor
           setFormData(prev => ({
