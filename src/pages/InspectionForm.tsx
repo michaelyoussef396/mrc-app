@@ -476,6 +476,41 @@ const InspectionForm = () => {
             console.log(`✅ Loaded ${subfloorPhotos.length} subfloor photos`)
           }
 
+          // Load outdoor photos
+          const outdoorPhotoRecords = photosWithUrls.filter(p => p.photo_type === 'outdoor')
+          let frontDoorPhoto: Photo | null = null
+          let frontHousePhoto: Photo | null = null
+          let mailboxPhoto: Photo | null = null
+          let streetPhoto: Photo | null = null
+
+          outdoorPhotoRecords.forEach(photo => {
+            const photoObj: Photo = {
+              id: photo.id,
+              name: photo.file_name,
+              url: photo.signed_url,
+              timestamp: photo.created_at
+            }
+
+            // Match by caption to categorize outdoor photos
+            if (photo.caption === 'front_door') {
+              frontDoorPhoto = photoObj
+            } else if (photo.caption === 'front_house') {
+              frontHousePhoto = photoObj
+            } else if (photo.caption === 'mailbox') {
+              mailboxPhoto = photoObj
+            } else if (photo.caption === 'street') {
+              streetPhoto = photoObj
+            }
+          })
+
+          console.log('✅ Loaded outdoor photos:', {
+            count: outdoorPhotoRecords.length,
+            frontDoor: !!frontDoorPhoto,
+            frontHouse: !!frontHousePhoto,
+            mailbox: !!mailboxPhoto,
+            street: !!streetPhoto
+          })
+
           // Populate ALL form fields with saved data including areas and subfloor
           setFormData(prev => ({
             ...prev,
@@ -498,6 +533,16 @@ const InspectionForm = () => {
             subfloorTreatmentTime: subfloorData?.treatment_time_minutes || prev.subfloorTreatmentTime,
             subfloorReadings: subfloorReadings.length > 0 ? subfloorReadings : prev.subfloorReadings,
             subfloorPhotos: subfloorPhotos.length > 0 ? subfloorPhotos : prev.subfloorPhotos,
+            // Load outdoor fields from database
+            outdoorTemperature: existingInspection.outdoor_temperature?.toString() || prev.outdoorTemperature,
+            outdoorHumidity: existingInspection.outdoor_humidity?.toString() || prev.outdoorHumidity,
+            outdoorDewPoint: existingInspection.outdoor_dew_point?.toString() || prev.outdoorDewPoint,
+            outdoorComments: existingInspection.outdoor_comments || prev.outdoorComments,
+            // Load outdoor photos
+            frontDoorPhoto: frontDoorPhoto || prev.frontDoorPhoto,
+            frontHousePhoto: frontHousePhoto || prev.frontHousePhoto,
+            mailboxPhoto: mailboxPhoto || prev.mailboxPhoto,
+            streetPhoto: streetPhoto || prev.streetPhoto,
           }))
         } else {
           // No areas in database, but still load subfloor data if it exists
@@ -562,6 +607,41 @@ const InspectionForm = () => {
             console.log(`✅ Loaded ${subfloorPhotos.length} subfloor photos (no areas path)`)
           }
 
+          // Load outdoor photos (no areas path)
+          const outdoorPhotoRecords = photosWithUrls.filter(p => p.photo_type === 'outdoor')
+          let frontDoorPhoto: Photo | null = null
+          let frontHousePhoto: Photo | null = null
+          let mailboxPhoto: Photo | null = null
+          let streetPhoto: Photo | null = null
+
+          outdoorPhotoRecords.forEach(photo => {
+            const photoObj: Photo = {
+              id: photo.id,
+              name: photo.file_name,
+              url: photo.signed_url,
+              timestamp: photo.created_at
+            }
+
+            // Match by caption to categorize outdoor photos
+            if (photo.caption === 'front_door') {
+              frontDoorPhoto = photoObj
+            } else if (photo.caption === 'front_house') {
+              frontHousePhoto = photoObj
+            } else if (photo.caption === 'mailbox') {
+              mailboxPhoto = photoObj
+            } else if (photo.caption === 'street') {
+              streetPhoto = photoObj
+            }
+          })
+
+          console.log('✅ Loaded outdoor photos (no areas):', {
+            count: outdoorPhotoRecords.length,
+            frontDoor: !!frontDoorPhoto,
+            frontHouse: !!frontHousePhoto,
+            mailbox: !!mailboxPhoto,
+            street: !!streetPhoto
+          })
+
           // Populate other fields including subfloor
           setFormData(prev => ({
             ...prev,
@@ -583,6 +663,16 @@ const InspectionForm = () => {
             subfloorTreatmentTime: subfloorData?.treatment_time_minutes || prev.subfloorTreatmentTime,
             subfloorReadings: subfloorReadings.length > 0 ? subfloorReadings : prev.subfloorReadings,
             subfloorPhotos: subfloorPhotos.length > 0 ? subfloorPhotos : prev.subfloorPhotos,
+            // Load outdoor fields from database
+            outdoorTemperature: existingInspection.outdoor_temperature?.toString() || prev.outdoorTemperature,
+            outdoorHumidity: existingInspection.outdoor_humidity?.toString() || prev.outdoorHumidity,
+            outdoorDewPoint: existingInspection.outdoor_dew_point?.toString() || prev.outdoorDewPoint,
+            outdoorComments: existingInspection.outdoor_comments || prev.outdoorComments,
+            // Load outdoor photos
+            frontDoorPhoto: frontDoorPhoto || prev.frontDoorPhoto,
+            frontHousePhoto: frontHousePhoto || prev.frontHousePhoto,
+            mailboxPhoto: mailboxPhoto || prev.mailboxPhoto,
+            streetPhoto: streetPhoto || prev.streetPhoto,
           }))
         }
 
@@ -1120,6 +1210,14 @@ const InspectionForm = () => {
           caption = 'infrared'
         } else if (type === 'naturalInfrared') {
           caption = 'natural_infrared'
+        } else if (type === 'frontDoor') {
+          caption = 'front_door'
+        } else if (type === 'frontHouse') {
+          caption = 'front_house'
+        } else if (type === 'mailbox') {
+          caption = 'mailbox'
+        } else if (type === 'street') {
+          caption = 'street'
         }
 
         // Upload photos to Storage and get signed URLs
