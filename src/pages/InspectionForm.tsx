@@ -1128,17 +1128,43 @@ const InspectionForm = () => {
         // Fetch subfloor_id if this is a subfloor photo
         let subfloorId: string | null = null
         if (photoType === 'subfloor') {
-          const { data: subfloorData, error: subfloorError } = await supabase
+          // First, try to fetch existing subfloor_data
+          const { data: existingSubfloor, error: fetchError } = await supabase
             .from('subfloor_data')
             .select('id')
             .eq('inspection_id', currentInspectionId!)
-            .single()
+            .maybeSingle()
 
-          if (subfloorError) {
-            console.error('Error fetching subfloor_id for photo upload:', subfloorError)
-          } else if (subfloorData) {
-            subfloorId = subfloorData.id
-            console.log('✅ Found subfloor_id for photo upload:', subfloorId)
+          if (existingSubfloor) {
+            // Subfloor data already exists
+            subfloorId = existingSubfloor.id
+            console.log('✅ Found existing subfloor_id for photo upload:', subfloorId)
+          } else if (!fetchError || fetchError.code === 'PGRST116') {
+            // Subfloor data doesn't exist yet - create it now
+            console.log('⚠️ Subfloor data not found, creating placeholder record for photo upload')
+
+            const { data: newSubfloor, error: insertError } = await supabase
+              .from('subfloor_data')
+              .insert({
+                inspection_id: currentInspectionId!,
+                observations: formData.subfloorObservations || null,
+                comments: formData.subfloorComments || null,
+                landscape: formData.subfloorLandscape ? formData.subfloorLandscape.toLowerCase().replace(/\s+/g, '_') : null,
+                sanitation_required: formData.subfloorSanitation || false,
+                racking_required: formData.subfloorRacking || false,
+                treatment_time_minutes: formData.subfloorTreatmentTime || 0
+              })
+              .select('id')
+              .single()
+
+            if (insertError) {
+              console.error('❌ Error creating subfloor data for photo upload:', insertError)
+            } else if (newSubfloor) {
+              subfloorId = newSubfloor.id
+              console.log('✅ Created subfloor_data record with id:', subfloorId)
+            }
+          } else {
+            console.error('❌ Error fetching subfloor_id for photo upload:', fetchError)
           }
         }
 
@@ -1662,20 +1688,10 @@ const InspectionForm = () => {
           subfloorTreatmentTime: formData.subfloorTreatmentTime
         })
 
-        // First, delete existing subfloor data for this inspection
-        const { error: deleteError } = await supabase
+        // Use UPSERT to insert or update subfloor data (preserves existing ID if record exists)
+        const { data: subfloorData, error: upsertError } = await supabase
           .from('subfloor_data')
-          .delete()
-          .eq('inspection_id', inspectionId)
-
-        if (deleteError && deleteError.code !== 'PGRST116') { // Ignore "no rows" error
-          console.error('Error deleting old subfloor data:', deleteError)
-        }
-
-        // Then insert new subfloor data and get the ID
-        const { data: subfloorData, error: insertError } = await supabase
-          .from('subfloor_data')
-          .insert({
+          .upsert({
             inspection_id: inspectionId,
             observations: formData.subfloorObservations || null,
             comments: formData.subfloorComments || null,
@@ -1684,14 +1700,16 @@ const InspectionForm = () => {
             sanitation_required: formData.subfloorSanitation || false,
             racking_required: formData.subfloorRacking || false,
             treatment_time_minutes: formData.subfloorTreatmentTime || 0
+          }, {
+            onConflict: 'inspection_id'
           })
           .select()
           .single()
 
-        if (insertError) {
-          console.error('Error saving subfloor data:', insertError)
+        if (upsertError) {
+          console.error('Error saving subfloor data:', upsertError)
         } else {
-          console.log('✅ Saved subfloor data')
+          console.log('✅ Saved subfloor data (upsert)')
 
           // Save subfloor moisture readings if there are any
           if (subfloorData && formData.subfloorReadings && formData.subfloorReadings.length > 0) {
