@@ -310,7 +310,11 @@ Updated UI options to match save/load logic exactly:
 - [x] All 11 fields verified in database with correct types
 - [x] Fields: HEPA Vac, Antimicrobial, Stain Removing, Sanitation/Fogging
 - [x] Equipment: Dehumidifiers (qty), Air Movers (qty), RCD Boxes (qty)
-- [x] Ready for user testing
+- [x] USER TESTED: 10/11 fields worked perfectly ✅
+- [x] BUG FOUND: RCD Box qty not loading when value = 0
+- [x] BUG FIXED: Changed `||` to `??` operator (Commit: 0754255)
+- [x] Applied preventive fix to all equipment quantities
+- [x] ALL 11 FIELDS NOW WORKING ✅✅✅
 
 ## Phase 7: Test Section 8 - Job Summary (1h)
 - [ ] Test all job summary fields and verify persistence
