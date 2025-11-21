@@ -80,7 +80,7 @@ export interface InspectionFormData {
   mailboxPhoto: Photo | null;
   streetPhoto: Photo | null;
   directionPhotosEnabled: boolean;
-  directionPhotos: Photo[];
+  directionPhoto: Photo | null;
 
   // Section 6: Waste Disposal
   wasteDisposalEnabled: boolean;

@@ -23,6 +23,7 @@ export interface InspectionData {
   // Flags
   subfloor_required?: boolean
   waste_disposal_required?: boolean
+  direction_photos_enabled?: boolean
 
   // Cost Estimates
   total_time_minutes?: number

@@ -650,12 +650,25 @@ const InspectionForm = () => {
             }
           })
 
+          // Load direction photo (single photo)
+          let directionPhoto: Photo | null = null
+          const directionPhotoRecord = outdoorPhotoRecords.find(p => p.caption === 'direction')
+          if (directionPhotoRecord) {
+            directionPhoto = {
+              id: directionPhotoRecord.id,
+              name: directionPhotoRecord.file_name,
+              url: directionPhotoRecord.signed_url,
+              timestamp: directionPhotoRecord.created_at
+            }
+          }
+
           console.log('✅ Loaded outdoor photos (no areas):', {
             count: outdoorPhotoRecords.length,
             frontDoor: !!frontDoorPhoto,
             frontHouse: !!frontHousePhoto,
             mailbox: !!mailboxPhoto,
-            street: !!streetPhoto
+            street: !!streetPhoto,
+            direction: !!directionPhoto
           })
 
           // Populate other fields including subfloor
@@ -1216,7 +1229,7 @@ const InspectionForm = () => {
 
         if (areaId) photoType = 'area'
         else if (type === 'subfloor') photoType = 'subfloor'
-        else if (type === 'frontDoor' || type === 'frontHouse' || type === 'mailbox' || type === 'street') {
+        else if (type === 'frontDoor' || type === 'frontHouse' || type === 'mailbox' || type === 'street' || type === 'direction') {
           photoType = 'outdoor'
         }
 
