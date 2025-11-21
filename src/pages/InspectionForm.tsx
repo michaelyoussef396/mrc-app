@@ -503,12 +503,25 @@ const InspectionForm = () => {
             }
           })
 
+          // Load direction photos
+          const directionPhotoRecords = outdoorPhotoRecords.filter(p => p.caption === 'direction')
+          const directionPhotos: Photo[] = directionPhotoRecords.map(photo => ({
+            id: photo.id,
+            name: photo.file_name,
+            url: photo.signed_url,
+            timestamp: photo.created_at
+          }))
+
           console.log('✅ Loaded outdoor photos:', {
             count: outdoorPhotoRecords.length,
             frontDoor: !!frontDoorPhoto,
             frontHouse: !!frontHousePhoto,
             mailbox: !!mailboxPhoto,
             street: !!streetPhoto
+          })
+
+          console.log('✅ Loaded direction photos:', {
+            count: directionPhotos.length
           })
 
           // Populate ALL form fields with saved data including areas and subfloor
@@ -543,6 +556,9 @@ const InspectionForm = () => {
             frontHousePhoto: frontHousePhoto || prev.frontHousePhoto,
             mailboxPhoto: mailboxPhoto || prev.mailboxPhoto,
             streetPhoto: streetPhoto || prev.streetPhoto,
+            // Load directional photos toggle and photos
+            directionPhotosEnabled: existingInspection.direction_photos_enabled || prev.directionPhotosEnabled,
+            directionPhotos: directionPhotos.length > 0 ? directionPhotos : prev.directionPhotos,
           }))
         } else {
           // No areas in database, but still load subfloor data if it exists
@@ -673,6 +689,9 @@ const InspectionForm = () => {
             frontHousePhoto: frontHousePhoto || prev.frontHousePhoto,
             mailboxPhoto: mailboxPhoto || prev.mailboxPhoto,
             streetPhoto: streetPhoto || prev.streetPhoto,
+            // Load directional photos toggle and photos
+            directionPhotosEnabled: existingInspection.direction_photos_enabled || prev.directionPhotosEnabled,
+            directionPhotos: directionPhotos.length > 0 ? directionPhotos : prev.directionPhotos,
           }))
         }
 
@@ -1218,6 +1237,8 @@ const InspectionForm = () => {
           caption = 'mailbox'
         } else if (type === 'street') {
           caption = 'street'
+        } else if (type === 'direction') {
+          caption = 'direction'
         }
 
         // Upload photos to Storage and get signed URLs
@@ -1546,6 +1567,7 @@ const InspectionForm = () => {
         outdoor_humidity: parseFloat(formData.outdoorHumidity) || undefined,
         outdoor_dew_point: parseFloat(formData.outdoorDewPoint) || undefined,
         outdoor_comments: formData.outdoorComments,
+        direction_photos_enabled: formData.directionPhotosEnabled || false,
         subfloor_required: formData.subfloorEnabled,
         waste_disposal_required: formData.wasteDisposalEnabled,
         total_time_minutes: formData.areas.reduce(
