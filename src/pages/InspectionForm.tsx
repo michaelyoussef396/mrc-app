@@ -105,7 +105,7 @@ const InspectionForm = () => {
     mailboxPhoto: null,
     streetPhoto: null,
     directionPhotosEnabled: false,
-    directionPhotos: [],
+    directionPhoto: null,
     wasteDisposalEnabled: false,
     wasteDisposalAmount: '',
     hepaVac: false,
@@ -503,25 +503,25 @@ const InspectionForm = () => {
             }
           })
 
-          // Load direction photos
-          const directionPhotoRecords = outdoorPhotoRecords.filter(p => p.caption === 'direction')
-          const directionPhotos: Photo[] = directionPhotoRecords.map(photo => ({
-            id: photo.id,
-            name: photo.file_name,
-            url: photo.signed_url,
-            timestamp: photo.created_at
-          }))
+          // Load direction photo (single photo)
+          let directionPhoto: Photo | null = null
+          const directionPhotoRecord = outdoorPhotoRecords.find(p => p.caption === 'direction')
+          if (directionPhotoRecord) {
+            directionPhoto = {
+              id: directionPhotoRecord.id,
+              name: directionPhotoRecord.file_name,
+              url: directionPhotoRecord.signed_url,
+              timestamp: directionPhotoRecord.created_at
+            }
+          }
 
           console.log('✅ Loaded outdoor photos:', {
             count: outdoorPhotoRecords.length,
             frontDoor: !!frontDoorPhoto,
             frontHouse: !!frontHousePhoto,
             mailbox: !!mailboxPhoto,
-            street: !!streetPhoto
-          })
-
-          console.log('✅ Loaded direction photos:', {
-            count: directionPhotos.length
+            street: !!streetPhoto,
+            direction: !!directionPhoto
           })
 
           // Populate ALL form fields with saved data including areas and subfloor
@@ -556,9 +556,9 @@ const InspectionForm = () => {
             frontHousePhoto: frontHousePhoto || prev.frontHousePhoto,
             mailboxPhoto: mailboxPhoto || prev.mailboxPhoto,
             streetPhoto: streetPhoto || prev.streetPhoto,
-            // Load directional photos toggle and photos
+            // Load directional photo toggle and single photo
             directionPhotosEnabled: existingInspection.direction_photos_enabled || prev.directionPhotosEnabled,
-            directionPhotos: directionPhotos.length > 0 ? directionPhotos : prev.directionPhotos,
+            directionPhoto: directionPhoto || prev.directionPhoto,
           }))
         } else {
           // No areas in database, but still load subfloor data if it exists
@@ -689,9 +689,9 @@ const InspectionForm = () => {
             frontHousePhoto: frontHousePhoto || prev.frontHousePhoto,
             mailboxPhoto: mailboxPhoto || prev.mailboxPhoto,
             streetPhoto: streetPhoto || prev.streetPhoto,
-            // Load directional photos toggle and photos
+            // Load directional photo toggle and single photo
             directionPhotosEnabled: existingInspection.direction_photos_enabled || prev.directionPhotosEnabled,
-            directionPhotos: directionPhotos.length > 0 ? directionPhotos : prev.directionPhotos,
+            directionPhoto: directionPhoto || prev.directionPhoto,
           }))
         }
 
@@ -1352,7 +1352,7 @@ const InspectionForm = () => {
         } else if (type === 'direction') {
           setFormData(prev => ({
             ...prev,
-            directionPhotos: [...prev.directionPhotos, ...newPhotos]
+            directionPhoto: newPhotos[0]
           }))
         } else if (type === 'frontDoor' || type === 'frontHouse' || type === 'mailbox' || type === 'street') {
           setFormData(prev => ({
@@ -1426,7 +1426,7 @@ const InspectionForm = () => {
     } else if (type === 'direction') {
       setFormData(prev => ({
         ...prev,
-        directionPhotos: prev.directionPhotos.filter(p => p.id !== photoId)
+        directionPhoto: null
       }))
     }
   }
@@ -2939,23 +2939,19 @@ const InspectionForm = () => {
                         onClick={() => handlePhotoCapture('direction')}
                       >
                         <span>📷</span>
-                        <span>Add Direction Photos</span>
+                        <span>Add Direction Photo</span>
                       </button>
 
-                      {formData.directionPhotos.length > 0 && (
-                        <div className="photo-grid">
-                          {formData.directionPhotos.map(photo => (
-                            <div key={photo.id} className="photo-item">
-                              <img src={photo.url} alt="Direction" />
-                              <button
-                                type="button"
-                                className="photo-remove"
-                                onClick={() => removePhoto('direction', photo.id)}
-                              >
-                                <X size={16} strokeWidth={2} />
-                              </button>
-                            </div>
-                          ))}
+                      {formData.directionPhoto && (
+                        <div className="single-photo">
+                          <img src={formData.directionPhoto.url} alt="Direction" />
+                          <button
+                            type="button"
+                            className="photo-remove"
+                            onClick={() => removePhoto('direction', formData.directionPhoto!.id)}
+                          >
+                            <X size={16} strokeWidth={2} />
+                          </button>
                         </div>
                       )}
                     </>
