@@ -277,9 +277,14 @@ Updated UI options to match save/load logic exactly:
 - [x] Test subfloor_data insert/update (no FK errors)
 - [x] Test equipment_bookings insert/update (no FK errors)
 
-## Phase 3: Test Section 4 - Subfloor (1.5h)
-- [ ] Test all subfloor fields and verify data persistence
-- [ ] Verify subfloor FK fix working (no constraint errors)
+## Phase 3: Test Section 4 - Subfloor ✅ COMPLETE
+- [x] Test all subfloor fields and verify data persistence
+- [x] Verify subfloor FK fix working (no constraint errors)
+- [x] Fix subfloor data not loading on page reload (143 lines added)
+- [x] Fix subfloor moisture readings not saving to database
+- [x] Fix subfloor photos missing subfloor_id foreign key
+- [x] Fix subfloor photo loading filter (photo_type + subfloor_id)
+- [x] Update existing photos with correct subfloor_id (10 photos fixed)
 
 ## Phase 4: Test Section 5 - Outdoor Info (1.5h)
 - [ ] Test outdoor fields, photos, and verify photo_type='outdoor'
@@ -319,10 +324,10 @@ Updated UI options to match save/load logic exactly:
 
 **Overall Status:** 🟡 In Progress
 
-**Phases Complete:** 2/11
+**Phases Complete:** 3/11 (27%)
 - Phase 1: ✅ Complete (2025-11-19)
 - Phase 2: ✅ Complete (2025-11-20)
-- Phase 3: ⏸️ Pending
+- Phase 3: ✅ Complete (2025-11-21)
 - Phase 4: ⏸️ Pending
 - Phase 5: ⏸️ Pending
 - Phase 6: ⏸️ Pending
@@ -332,9 +337,11 @@ Updated UI options to match save/load logic exactly:
 - Phase 10: ⏸️ Pending
 - Phase 11: ⏸️ Pending
 
-**Tasks Complete:** 14/31 (Updated after Phase 2 completion - FK fixes verified)
+**Tasks Complete:** 17/31 (55%)
 
-**Estimated Time Remaining:** 13-17 hours
+**Time Spent This Session:** ~2 hours
+**Total Time Spent:** ~5-6 hours
+**Estimated Time Remaining:** ~10-12 hours
 
 ---
 
@@ -444,52 +451,126 @@ Updated UI options to match save/load logic exactly:
 
 ---
 
+## 📍 SESSION END SUMMARY (2025-11-21) - PHASE 3 COMPLETE
+
+### ✅ PHASE 3 COMPLETE - Section 4 (Subfloor) Fully Working
+
+**What We Accomplished This Session:**
+
+1. **Bug #1 Fixed:** Subfloor data not loading on page reload (Commit: 5c8fbdb)
+   - Added 143 lines of comprehensive data loading logic
+   - Loads subfloor fields, moisture readings, and photos
+   - Fixed both "with areas" and "without areas" code paths
+   - Data now persists correctly across page reloads
+
+2. **Bug #2 Fixed:** Subfloor moisture readings not saving (Commit: 9693f2d)
+   - Added save logic for `subfloor_readings` table
+   - Pattern matches area moisture readings (UPSERT with business key)
+   - Readings now save to database with proper foreign keys
+   - Verified working with test data
+
+3. **Bug #3 Fixed:** Subfloor photos missing subfloor_id (Commit: 3d52e2d)
+   - **ROOT CAUSE:** Photos uploaded BEFORE subfloor_data record existed
+   - **FIX:** Create subfloor_data on-demand during photo upload
+   - Changed DELETE+INSERT to UPSERT to preserve subfloor_id
+   - Photos now get correct foreign key immediately
+
+4. **Bug #4 Fixed:** Photo loading filter incorrect (Commit: 29f8ad3)
+   - **ROOT CAUSE #1:** Filter used non-existent `section` property
+   - **ROOT CAUSE #2:** Overly restrictive AND logic with NULL values
+   - **FIX:** Use fallback OR logic: `subfloor_id` OR (`photo_type='subfloor'` AND `subfloor_id IS NULL`)
+   - Handles both legacy photos (NULL) and new photos (with FK)
+
+5. **Database Cleanup:** Fixed 10 existing photos
+   - Updated all subfloor photos with correct `subfloor_id`
+   - Changed from NULL to proper foreign key
+   - All photos now properly linked to subfloor_data
+
+**Testing & Verification:**
+- ✅ Subfloor fields save and reload correctly
+- ✅ Moisture readings persist to `subfloor_readings` table
+- ✅ Photos upload with correct `subfloor_id` foreign key
+- ✅ Photos load after page reload (10 photos verified)
+- ✅ Legacy photos (NULL FK) handled via fallback filter
+- ✅ New photos get proper FK from on-demand creation
+- ✅ UPSERT prevents orphaned foreign keys on auto-save
+
+**Database State:**
+- Test inspection: MRC-2025-9229 (ID: a06d1d4a-0062-41a4-ba38-e713e5348fbc)
+- Subfloor data: 1 record with proper data
+- Subfloor readings: Multiple moisture readings saved
+- Subfloor photos: 10 photos with correct foreign keys
+
+**Code Quality:**
+- Proper async/await patterns throughout
+- On-demand record creation for better UX
+- UPSERT prevents data corruption
+- Fallback filters for backward compatibility
+- Comprehensive console logging for debugging
+
+**Git Commits This Session:**
+- `5c8fbdb` - Fix: Load subfloor data when editing existing inspections
+- `9693f2d` - Fix: Section 4 (Subfloor) save functionality on existing inspections
+- `bb09e97` - Before debug: Subfloor photos not loading after page reload
+- `29f8ad3` - Fix: Improved subfloor photo loading with fallback for legacy photos
+- `3d52e2d` - Fix: Subfloor photo upload persistence - create subfloor_data on-demand
+
+**Technical Patterns Applied:**
+1. **On-Demand Record Creation:** Create parent record when uploading child data
+2. **UPSERT Over DELETE+INSERT:** Preserve foreign keys, prevent orphaned records
+3. **Fallback Filters:** Handle legacy data (NULL FK) alongside new data (proper FK)
+4. **Business Key Queries:** Use `inspection_id` to check record existence
+5. **Comprehensive Loading:** Load all related data (fields, readings, photos) in one pass
+
+**Session Duration:** ~2 hours
+**Tasks Completed:** 7/7 (100% of Phase 3)
+**Bugs Fixed:** 4 critical bugs
+**Status:** ✅ Phase 3 COMPLETE & VERIFIED - Ready for Phase 4
+
+---
+
 ## 🎯 NEXT SESSION - START HERE
 
-### Phase 3: Test Section 4 - Subfloor (Estimated: 1.5h)
+### Phase 4: Test Section 5 - Outdoor Info (Estimated: 1.5h)
 
-**Objective:** Test Section 4 (Subfloor Inspection) end-to-end with full data persistence
+**Objective:** Test Section 5 (Outdoor Information) end-to-end with photo uploads
 
 **Prerequisites:**
 ✅ Phase 1 Complete - Section 3 working
 ✅ Phase 2 Complete - FK constraints fixed
+✅ Phase 3 Complete - Section 4 (Subfloor) fully working
 
-**Steps to take:**
+**What to do:**
 1. Navigate to test inspection:
    ```
    Inspection ID: a06d1d4a-0062-41a4-ba38-e713e5348fbc
    Job Number: MRC-2025-9229
-   URL: http://localhost:8082/inspections/a06d1d4a-0062-41a4-ba38-e713e5348fbc
+   URL: http://localhost:8081/inspections/a06d1d4a-0062-41a4-ba38-e713e5348fbc
    ```
 
-2. Test Section 4 fields:
-   - Enable "Subfloor Access" toggle
-   - Add observations (text)
-   - Add comments (text)
-   - Select landscape type (dropdown)
-   - Toggle sanitation required
-   - Toggle racking required
-   - Enter treatment time (minutes)
+2. Test Section 5 fields:
+   - Upload front door photo
+   - Upload front house photo
+   - Upload mailbox photo
+   - Upload street photo
+   - Verify all photos save with `photo_type='outdoor'`
 
-3. Add subfloor photos (2-3 with captions)
+3. Click Save and verify:
+   - Photos save to database
+   - Photos reload after page refresh
+   - No errors in console
 
-4. Click Save and verify:
-   - No FK constraint errors
-   - Data saves to `subfloor_data` table
-   - Photos save with `photo_type='subfloor'`
-   - All data persists after page reload
+4. Test at 375px viewport (mobile-first)
 
-5. Test at 375px viewport (mobile-first)
+5. Continue to Section 6, 7, 8 and test each thoroughly
 
-**Why This Matters:**
-- FK fixes in Phase 2 enable Section 4 to work
-- Subfloor data is critical for job documentation
-- Tests photo categorization for subfloor photos
+**Goal:** Make Sections 5-8 production-ready like Sections 3-4
 
-**Files to Check:**
-- `/Users/michaelyoussef/michaelyoussefdev/mrc-app/src/pages/InspectionForm.tsx` (Section 4 UI)
-- Database: `subfloor_data` table
-- Database: `photos` table (photo_type='subfloor')
+**Quick Test All Sections:**
+```
+"Test Sections 5-8 in batch. For each section: fill all fields,
+upload photos if applicable, verify save, test reload, check mobile at 375px."
+```
 
 ---
 
