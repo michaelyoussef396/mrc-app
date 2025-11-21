@@ -448,8 +448,12 @@ const InspectionForm = () => {
           }
 
           // Load subfloor photos
+          // Filter by subfloor_id (new photos) OR photo_type='subfloor' (legacy photos without subfloor_id)
           const subfloorPhotos: Photo[] = []
-          const subfloorPhotoRecords = photosWithUrls.filter(p => p.subfloor_id === subfloorData?.id)
+          const subfloorPhotoRecords = photosWithUrls.filter(p =>
+            (p.subfloor_id === subfloorData?.id) ||
+            (p.photo_type === 'subfloor' && p.subfloor_id === null)
+          )
           subfloorPhotoRecords.forEach(photo => {
             subfloorPhotos.push({
               id: photo.id,
@@ -528,10 +532,14 @@ const InspectionForm = () => {
           }
 
           // Load subfloor photos (need to load photos even without areas)
+          // Filter by subfloor_id (new photos) OR photo_type='subfloor' (legacy photos without subfloor_id)
           let subfloorPhotos: Photo[] = []
           try {
             const photosWithUrls = await loadInspectionPhotos(existingInspection.id)
-            const subfloorPhotoRecords = photosWithUrls.filter(p => p.subfloor_id === subfloorData?.id)
+            const subfloorPhotoRecords = photosWithUrls.filter(p =>
+              (p.subfloor_id === subfloorData?.id) ||
+              (p.photo_type === 'subfloor' && p.subfloor_id === null)
+            )
             subfloorPhotoRecords.forEach(photo => {
               subfloorPhotos.push({
                 id: photo.id,
