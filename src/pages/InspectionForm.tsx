@@ -559,6 +559,9 @@ const InspectionForm = () => {
             // Load directional photo toggle and single photo
             directionPhotosEnabled: existingInspection.direction_photos_enabled || prev.directionPhotosEnabled,
             directionPhoto: directionPhoto || prev.directionPhoto,
+            // Load waste disposal fields
+            wasteDisposalEnabled: existingInspection.waste_disposal_required || prev.wasteDisposalEnabled,
+            wasteDisposalAmount: existingInspection.waste_disposal_amount || prev.wasteDisposalAmount,
           }))
         } else {
           // No areas in database, but still load subfloor data if it exists
@@ -705,6 +708,9 @@ const InspectionForm = () => {
             // Load directional photo toggle and single photo
             directionPhotosEnabled: existingInspection.direction_photos_enabled || prev.directionPhotosEnabled,
             directionPhoto: directionPhoto || prev.directionPhoto,
+            // Load waste disposal fields
+            wasteDisposalEnabled: existingInspection.waste_disposal_required || prev.wasteDisposalEnabled,
+            wasteDisposalAmount: existingInspection.waste_disposal_amount || prev.wasteDisposalAmount,
           }))
         }
 
@@ -1583,6 +1589,7 @@ const InspectionForm = () => {
         direction_photos_enabled: formData.directionPhotosEnabled || false,
         subfloor_required: formData.subfloorEnabled,
         waste_disposal_required: formData.wasteDisposalEnabled,
+        waste_disposal_amount: formData.wasteDisposalAmount || null,
         total_time_minutes: formData.areas.reduce(
           (sum, a) => sum + a.timeWithoutDemo + (a.demolitionRequired ? a.demolitionTime : 0),
           0
