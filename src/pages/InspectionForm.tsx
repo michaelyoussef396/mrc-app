@@ -562,6 +562,18 @@ const InspectionForm = () => {
             // Load waste disposal fields
             wasteDisposalEnabled: existingInspection.waste_disposal_required || prev.wasteDisposalEnabled,
             wasteDisposalAmount: existingInspection.waste_disposal_amount || prev.wasteDisposalAmount,
+            // Load Section 7 work procedure fields
+            hepaVac: existingInspection.hepa_vac || prev.hepaVac,
+            antimicrobial: existingInspection.antimicrobial || prev.antimicrobial,
+            stainRemovingAntimicrobial: existingInspection.stain_removing_antimicrobial || prev.stainRemovingAntimicrobial,
+            homeSanitationFogging: existingInspection.home_sanitation_fogging || prev.homeSanitationFogging,
+            dryingEquipmentEnabled: existingInspection.drying_equipment_enabled || prev.dryingEquipmentEnabled,
+            commercialDehumidifierEnabled: existingInspection.commercial_dehumidifier_enabled || prev.commercialDehumidifierEnabled,
+            commercialDehumidifierQty: existingInspection.commercial_dehumidifier_qty || prev.commercialDehumidifierQty || 0,
+            airMoversEnabled: existingInspection.air_movers_enabled || prev.airMoversEnabled,
+            airMoversQty: existingInspection.air_movers_qty || prev.airMoversQty || 0,
+            rcdBoxEnabled: existingInspection.rcd_box_enabled || prev.rcdBoxEnabled,
+            rcdBoxQty: existingInspection.rcd_box_qty || prev.rcdBoxQty || 0,
           }))
         } else {
           // No areas in database, but still load subfloor data if it exists
@@ -711,6 +723,18 @@ const InspectionForm = () => {
             // Load waste disposal fields
             wasteDisposalEnabled: existingInspection.waste_disposal_required || prev.wasteDisposalEnabled,
             wasteDisposalAmount: existingInspection.waste_disposal_amount || prev.wasteDisposalAmount,
+            // Load Section 7 work procedure fields
+            hepaVac: existingInspection.hepa_vac || prev.hepaVac,
+            antimicrobial: existingInspection.antimicrobial || prev.antimicrobial,
+            stainRemovingAntimicrobial: existingInspection.stain_removing_antimicrobial || prev.stainRemovingAntimicrobial,
+            homeSanitationFogging: existingInspection.home_sanitation_fogging || prev.homeSanitationFogging,
+            dryingEquipmentEnabled: existingInspection.drying_equipment_enabled || prev.dryingEquipmentEnabled,
+            commercialDehumidifierEnabled: existingInspection.commercial_dehumidifier_enabled || prev.commercialDehumidifierEnabled,
+            commercialDehumidifierQty: existingInspection.commercial_dehumidifier_qty || prev.commercialDehumidifierQty || 0,
+            airMoversEnabled: existingInspection.air_movers_enabled || prev.airMoversEnabled,
+            airMoversQty: existingInspection.air_movers_qty || prev.airMoversQty || 0,
+            rcdBoxEnabled: existingInspection.rcd_box_enabled || prev.rcdBoxEnabled,
+            rcdBoxQty: existingInspection.rcd_box_qty || prev.rcdBoxQty || 0,
           }))
         }
 
@@ -1590,6 +1614,18 @@ const InspectionForm = () => {
         subfloor_required: formData.subfloorEnabled,
         waste_disposal_required: formData.wasteDisposalEnabled,
         waste_disposal_amount: formData.wasteDisposalAmount || null,
+        // Section 7: Work Procedure fields
+        hepa_vac: formData.hepaVac || false,
+        antimicrobial: formData.antimicrobial || false,
+        stain_removing_antimicrobial: formData.stainRemovingAntimicrobial || false,
+        home_sanitation_fogging: formData.homeSanitationFogging || false,
+        drying_equipment_enabled: formData.dryingEquipmentEnabled || false,
+        commercial_dehumidifier_enabled: formData.commercialDehumidifierEnabled || false,
+        commercial_dehumidifier_qty: formData.commercialDehumidifierQty || 0,
+        air_movers_enabled: formData.airMoversEnabled || false,
+        air_movers_qty: formData.airMoversQty || 0,
+        rcd_box_enabled: formData.rcdBoxEnabled || false,
+        rcd_box_qty: formData.rcdBoxQty || 0,
         total_time_minutes: formData.areas.reduce(
           (sum, a) => sum + a.timeWithoutDemo + (a.demolitionRequired ? a.demolitionTime : 0),
           0
