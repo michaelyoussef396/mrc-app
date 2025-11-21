@@ -569,11 +569,11 @@ const InspectionForm = () => {
             homeSanitationFogging: existingInspection.home_sanitation_fogging || prev.homeSanitationFogging,
             dryingEquipmentEnabled: existingInspection.drying_equipment_enabled || prev.dryingEquipmentEnabled,
             commercialDehumidifierEnabled: existingInspection.commercial_dehumidifier_enabled || prev.commercialDehumidifierEnabled,
-            commercialDehumidifierQty: existingInspection.commercial_dehumidifier_qty || prev.commercialDehumidifierQty || 0,
+            commercialDehumidifierQty: existingInspection.commercial_dehumidifier_qty ?? prev.commercialDehumidifierQty ?? 0,
             airMoversEnabled: existingInspection.air_movers_enabled || prev.airMoversEnabled,
-            airMoversQty: existingInspection.air_movers_qty || prev.airMoversQty || 0,
+            airMoversQty: existingInspection.air_movers_qty ?? prev.airMoversQty ?? 0,
             rcdBoxEnabled: existingInspection.rcd_box_enabled || prev.rcdBoxEnabled,
-            rcdBoxQty: existingInspection.rcd_box_qty || prev.rcdBoxQty || 0,
+            rcdBoxQty: existingInspection.rcd_box_qty ?? prev.rcdBoxQty ?? 0,
           }))
         } else {
           // No areas in database, but still load subfloor data if it exists
@@ -730,11 +730,11 @@ const InspectionForm = () => {
             homeSanitationFogging: existingInspection.home_sanitation_fogging || prev.homeSanitationFogging,
             dryingEquipmentEnabled: existingInspection.drying_equipment_enabled || prev.dryingEquipmentEnabled,
             commercialDehumidifierEnabled: existingInspection.commercial_dehumidifier_enabled || prev.commercialDehumidifierEnabled,
-            commercialDehumidifierQty: existingInspection.commercial_dehumidifier_qty || prev.commercialDehumidifierQty || 0,
+            commercialDehumidifierQty: existingInspection.commercial_dehumidifier_qty ?? prev.commercialDehumidifierQty ?? 0,
             airMoversEnabled: existingInspection.air_movers_enabled || prev.airMoversEnabled,
-            airMoversQty: existingInspection.air_movers_qty || prev.airMoversQty || 0,
+            airMoversQty: existingInspection.air_movers_qty ?? prev.airMoversQty ?? 0,
             rcdBoxEnabled: existingInspection.rcd_box_enabled || prev.rcdBoxEnabled,
-            rcdBoxQty: existingInspection.rcd_box_qty || prev.rcdBoxQty || 0,
+            rcdBoxQty: existingInspection.rcd_box_qty ?? prev.rcdBoxQty ?? 0,
           }))
         }
 
