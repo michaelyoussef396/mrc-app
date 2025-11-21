@@ -286,12 +286,20 @@ Updated UI options to match save/load logic exactly:
 - [x] Fix subfloor photo loading filter (photo_type + subfloor_id)
 - [x] Update existing photos with correct subfloor_id (10 photos fixed)
 
-## Phase 4: Test Section 5 - Outdoor Info (1.5h)
-- [ ] Test outdoor fields, photos, and verify photo_type='outdoor'
-- [ ] Test at 375px viewport
+## Phase 4: Test Section 5 - Outdoor Info ✅ COMPLETE
+- [x] Test outdoor fields, photos, and verify photo_type='outdoor'
+- [x] Fix direction photos button (was dead - no onClick handler)
+- [x] Direction photos now save/load with photo_type='outdoor' + caption='direction'
+- [x] All outdoor photos working: front door, house door, mailbox, street, direction
+- [x] Test at 375px viewport
 
-## Phase 5: Test Section 6 - Waste Disposal (0.5h)
-- [ ] Test waste disposal toggle and amount selection
+## Phase 5: Test Section 6 - Waste Disposal ✅ COMPLETE
+- [x] Added missing database column: waste_disposal_amount (TEXT)
+- [x] Updated save logic to save wasteDisposalAmount
+- [x] Updated load logic to load waste_disposal_amount
+- [x] Toggle saves/loads correctly (waste_disposal_required)
+- [x] Dropdown saves/loads correctly (waste_disposal_amount)
+- [x] USER VERIFIED: "PERFECT IT WORKED" ✅
 
 ## Phase 6: Complete Section 7 - Work Procedure (1.5h)
 - [ ] Fix toggle styling inconsistency (toggle-slider → toggle-label)
@@ -324,12 +332,12 @@ Updated UI options to match save/load logic exactly:
 
 **Overall Status:** 🟡 In Progress
 
-**Phases Complete:** 3/11 (27%)
+**Phases Complete:** 5/11 (45%)
 - Phase 1: ✅ Complete (2025-11-19)
 - Phase 2: ✅ Complete (2025-11-20)
 - Phase 3: ✅ Complete (2025-11-21)
-- Phase 4: ⏸️ Pending
-- Phase 5: ⏸️ Pending
+- Phase 4: ✅ Complete (2025-11-21) - Section 5 Outdoor Info
+- Phase 5: ✅ Complete (2025-11-21) - Section 6 Waste Disposal
 - Phase 6: ⏸️ Pending
 - Phase 7: ⏸️ Pending
 - Phase 8: ⏸️ Pending
@@ -337,7 +345,7 @@ Updated UI options to match save/load logic exactly:
 - Phase 10: ⏸️ Pending
 - Phase 11: ⏸️ Pending
 
-**Tasks Complete:** 17/31 (55%)
+**Tasks Complete:** 23/31 (74%)
 
 **Time Spent This Session:** ~2 hours
 **Total Time Spent:** ~5-6 hours
