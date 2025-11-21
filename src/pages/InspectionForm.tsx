@@ -574,6 +574,13 @@ const InspectionForm = () => {
             airMoversQty: existingInspection.air_movers_qty ?? prev.airMoversQty ?? 0,
             rcdBoxEnabled: existingInspection.rcd_box_enabled || prev.rcdBoxEnabled,
             rcdBoxQty: existingInspection.rcd_box_qty ?? prev.rcdBoxQty ?? 0,
+            // Section 8: Job Summary
+            recommendDehumidifier: !!existingInspection.recommended_dehumidifier || prev.recommendDehumidifier,
+            dehumidifierSize: existingInspection.recommended_dehumidifier || prev.dehumidifierSize,
+            causeOfMould: existingInspection.cause_of_mould || prev.causeOfMould,
+            additionalInfoForTech: existingInspection.additional_info_technician || prev.additionalInfoForTech,
+            additionalEquipmentComments: existingInspection.additional_equipment_comments || prev.additionalEquipmentComments,
+            parkingOptions: existingInspection.parking_option || prev.parkingOptions,
           }))
         } else {
           // No areas in database, but still load subfloor data if it exists
@@ -735,6 +742,13 @@ const InspectionForm = () => {
             airMoversQty: existingInspection.air_movers_qty ?? prev.airMoversQty ?? 0,
             rcdBoxEnabled: existingInspection.rcd_box_enabled || prev.rcdBoxEnabled,
             rcdBoxQty: existingInspection.rcd_box_qty ?? prev.rcdBoxQty ?? 0,
+            // Section 8: Job Summary
+            recommendDehumidifier: !!existingInspection.recommended_dehumidifier || prev.recommendDehumidifier,
+            dehumidifierSize: existingInspection.recommended_dehumidifier || prev.dehumidifierSize,
+            causeOfMould: existingInspection.cause_of_mould || prev.causeOfMould,
+            additionalInfoForTech: existingInspection.additional_info_technician || prev.additionalInfoForTech,
+            additionalEquipmentComments: existingInspection.additional_equipment_comments || prev.additionalEquipmentComments,
+            parkingOptions: existingInspection.parking_option || prev.parkingOptions,
           }))
         }
 
