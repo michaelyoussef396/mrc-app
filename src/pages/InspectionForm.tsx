@@ -1026,6 +1026,29 @@ const InspectionForm = () => {
     handleCostChange('equipmentCost', value)
   }
 
+  // Recalculate Subtotal, GST, Total whenever Labor or Equipment changes (on load or edit)
+  useEffect(() => {
+    const labor = formData.laborCost || 0
+    const equipment = formData.equipmentCost || 0
+    const subtotal = round(labor + equipment)
+    const gst = round(subtotal * 0.10)
+    const total = round(subtotal + gst)
+
+    // Only update if values actually changed (prevent infinite loop)
+    if (
+      formData.subtotalExGst !== subtotal ||
+      formData.gstAmount !== gst ||
+      formData.totalIncGst !== total
+    ) {
+      setFormData(prev => ({
+        ...prev,
+        subtotalExGst: subtotal,
+        gstAmount: gst,
+        totalIncGst: total
+      }))
+    }
+  }, [formData.laborCost, formData.equipmentCost])
+
   // When Subtotal changes → recalculate GST and Total (don't change Labor/Equipment)
   const handleSubtotalChange = (subtotal: number) => {
     const gst = round(subtotal * 0.10)
