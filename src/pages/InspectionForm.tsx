@@ -1730,15 +1730,12 @@ const InspectionForm = () => {
           (sum, a) => sum + a.timeWithoutDemo + (a.demolitionRequired ? a.demolitionTime : 0),
           0
         ) + (formData.subfloorEnabled ? formData.subfloorTreatmentTime : 0),
-        estimated_cost_ex_gst: formData.subtotal,
-        estimated_cost_inc_gst: formData.totalCost,
-        equipment_cost_ex_gst: formData.equipmentCost,
         recommended_dehumidifier: formData.dehumidifierSize,
         cause_of_mould: formData.causeOfMould,
         additional_info_technician: formData.additionalInfoForTech,
         additional_equipment_comments: formData.additionalEquipmentComments,
         parking_option: formData.parkingOptions,
-        // Section 9: Cost Estimate (simplified)
+        // Section 9: Cost Estimate
         labor_cost_ex_gst: formData.laborCost || 0,
         equipment_cost_ex_gst: formData.equipmentCost || 0,
         subtotal_ex_gst: formData.subtotalExGst || 0,
