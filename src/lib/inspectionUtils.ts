@@ -22,6 +22,7 @@ export const generateJobNumber = (): string => {
 
 /**
  * Calculate job cost based on hours and job type
+ * Uses base anchor model: 2h minimum and 8h full day rates
  */
 export const calculateJobCost = (params: {
   areas: Array<{
@@ -42,19 +43,44 @@ export const calculateJobCost = (params: {
   gst: number;
   total: number;
   breakdown: string;
+  discountPercent: number;
 } => {
-  // ANCHOR RATES (excluding GST)
-  const rates = {
-    surface: { hourly: 152.12 },
-    demolition: { hourly: 224.86 },
-    construction: { hourly: 188.49 },
-    subfloor: { hourly: 291.84 }
+  // BASE ANCHOR RATES (excluding GST)
+  // Each job type has 2h minimum and 8h full day rate
+  const BASE_RATES = {
+    no_demolition: { base2h: 612.00, full8h: 1216.99 },
+    demolition: { base2h: 711.90, full8h: 1798.90 },
+    construction: { base2h: 661.96, full8h: 1507.95 },
+    subfloor: { base2h: 900.00, full8h: 2334.69 }
   };
 
-  const equipmentRates = {
+  const EQUIPMENT_RATES = {
     dehumidifier: 132,
     airMover: 46,
     rcd: 5
+  };
+
+  // Calculate hourly rate from base anchors
+  const getHourlyRate = (rate: { base2h: number; full8h: number }) => {
+    return (rate.full8h - rate.base2h) / 6;
+  };
+
+  // Calculate labor for a job type based on hours
+  const calculateLaborForJobType = (hours: number, rate: { base2h: number; full8h: number }): number => {
+    if (hours <= 0) return 0;
+
+    if (hours <= 2) {
+      // Minimum charge: 2h base rate
+      return rate.base2h;
+    } else if (hours <= 8) {
+      // Between 2h and 8h: base + extra hours at hourly rate
+      const hourlyRate = getHourlyRate(rate);
+      return rate.base2h + ((hours - 2) * hourlyRate);
+    } else {
+      // Over 8h: 8h rate × number of days
+      const days = hours / 8;
+      return rate.full8h * days;
+    }
   };
 
   // Calculate total hours
@@ -73,51 +99,70 @@ export const calculateJobCost = (params: {
     totalHours += params.subfloorTime / 60;
   }
 
-  // Determine job type and rate
-  let hourlyRate = rates.surface.hourly;
+  // Determine job type and calculate labor cost
+  let laborCost = 0;
   let jobType = 'Surface Treatment';
-  
+
   if (params.hasSubfloor) {
-    hourlyRate = rates.subfloor.hourly;
+    laborCost = calculateLaborForJobType(totalHours, BASE_RATES.subfloor);
     jobType = 'Subfloor Treatment';
   } else if (hasDemolition) {
-    hourlyRate = rates.demolition.hourly;
+    laborCost = calculateLaborForJobType(totalHours, BASE_RATES.demolition);
     jobType = 'With Demolition';
+  } else {
+    laborCost = calculateLaborForJobType(totalHours, BASE_RATES.no_demolition);
+    jobType = 'No Demolition';
   }
 
-  // Calculate base labor cost
-  let laborCost = totalHours * hourlyRate;
-
-  // Apply discount based on total days
-  const totalDays = Math.ceil(totalHours / 8);
+  // Apply discount based on HOURS (not days)
+  // Hours-based discount tiers
   let discountMultiplier = 1.0;
+  let discountPercent = 0;
   let discountText = '';
 
-  if (totalDays >= 4) {
-    discountMultiplier = 0.87; // 13% discount (max)
-    discountText = '13% Multi-day Discount';
-  } else if (totalDays === 3) {
-    discountMultiplier = 0.90; // 10% discount
-    discountText = '10% Multi-day Discount';
-  } else if (totalDays === 2) {
-    discountMultiplier = 0.925; // 7.5% discount
+  if (totalHours <= 8) {
+    // 1-8 hours (1 day): 0% discount
+    discountMultiplier = 1.00;
+    discountPercent = 0;
+  } else if (totalHours <= 16) {
+    // 9-16 hours (2 days): 7.5% discount
+    discountMultiplier = 0.925;
+    discountPercent = 7.5;
     discountText = '7.5% Multi-day Discount';
+  } else if (totalHours <= 24) {
+    // 17-24 hours (3 days): 10% discount
+    discountMultiplier = 0.90;
+    discountPercent = 10;
+    discountText = '10% Multi-day Discount';
+  } else if (totalHours <= 32) {
+    // 25-32 hours (4 days): 12% discount
+    discountMultiplier = 0.88;
+    discountPercent = 12;
+    discountText = '12% Multi-day Discount';
+  } else {
+    // 33+ hours (5+ days): 13% discount CAP - NEVER EXCEED
+    discountMultiplier = 0.87;
+    discountPercent = 13;
+    discountText = '13% Multi-day Discount (CAP)';
   }
 
+  // Apply discount to labor (NOT equipment)
+  const laborBeforeDiscount = laborCost;
   laborCost = laborCost * discountMultiplier;
 
-  // Calculate equipment hire
-  const equipmentCost = 
-    (params.dehumidifierQty * equipmentRates.dehumidifier * params.estimatedDays) +
-    (params.airMoverQty * equipmentRates.airMover * params.estimatedDays) +
-    (params.rcdQty * equipmentRates.rcd * params.estimatedDays);
+  // Calculate equipment hire (NO DISCOUNT)
+  const equipmentCost =
+    (params.dehumidifierQty * EQUIPMENT_RATES.dehumidifier * params.estimatedDays) +
+    (params.airMoverQty * EQUIPMENT_RATES.airMover * params.estimatedDays) +
+    (params.rcdQty * EQUIPMENT_RATES.rcd * params.estimatedDays);
 
   // Calculate totals
   const subtotal = laborCost + equipmentCost;
-  const gst = subtotal * 0.1;
+  const gst = subtotal * 0.1; // GST always 10%
   const total = subtotal + gst;
 
   // Build breakdown string
+  const totalDays = Math.ceil(totalHours / 8);
   const breakdown = [
     `Job Type: ${jobType}`,
     `Total Hours: ${totalHours.toFixed(1)}h`,
@@ -131,7 +176,8 @@ export const calculateJobCost = (params: {
     subtotal: Math.round(subtotal * 100) / 100,
     gst: Math.round(gst * 100) / 100,
     total: Math.round(total * 100) / 100,
-    breakdown
+    breakdown,
+    discountPercent
   };
 };
 

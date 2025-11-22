@@ -34,6 +34,29 @@ export interface InspectionData {
   equipment_cost_inc_gst?: number
   waste_disposal_cost?: number
 
+  // Job Type Hours (editable)
+  no_demolition_hours?: number
+  demolition_hours?: number
+  construction_hours?: number
+  subfloor_hours?: number
+
+  // Equipment Quantities (editable)
+  dehumidifier_count?: number
+  air_mover_count?: number
+  rcd_count?: number
+  equipment_days?: number
+
+  // Manual Override
+  manual_price_override?: boolean
+  manual_total_inc_gst?: number
+
+  // Calculated Pricing Values
+  labor_cost_ex_gst?: number
+  discount_percent?: number
+  subtotal_ex_gst?: number
+  gst_amount?: number
+  total_inc_gst?: number
+
   // Additional Info
   recommended_dehumidifier?: string
   cause_of_mould?: string

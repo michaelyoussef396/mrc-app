@@ -107,11 +107,29 @@ export interface InspectionFormData {
   additionalEquipmentComments: string;
   parkingOptions: string;
 
-  // Section 9: Cost Calculation (auto-calculated)
-  estimatedDays: number;
+  // Section 9: Cost Estimate (editable)
+  // Job Type Hours (editable inputs)
+  noDemolitionHours: number;
+  demolitionHours: number;
+  constructionHours: number;
+  subfloorHours: number;
+
+  // Equipment (editable inputs)
+  dehumidifierCount: number;
+  airMoverCount: number;
+  rcdCount: number;
+  equipmentDays: number;
+  estimatedDays: number; // Keep for backwards compatibility
+
+  // Manual Override
+  manualPriceOverride: boolean;
+  manualTotal: number;
+
+  // Display Values (auto-calculated or manual)
   laborCost: number;
   equipmentCost: number;
   subtotal: number;
   gst: number;
   totalCost: number;
+  discountPercent: number;
 }
