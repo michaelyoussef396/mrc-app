@@ -1035,6 +1035,57 @@ const InspectionForm = () => {
     setTimeout(() => recalculatePricing(), 0)
   }
 
+  // Helper function to calculate pricing breakdown for display
+  const getPricingBreakdown = () => {
+    const BASE_RATES = {
+      no_demolition: { base2h: 612.00, full8h: 1216.99 },
+      demolition: { base2h: 711.90, full8h: 1798.90 },
+      construction: { base2h: 661.96, full8h: 1507.95 },
+      subfloor: { base2h: 900.00, full8h: 2334.69 }
+    }
+
+    const calculateLaborForJobType = (hours: number, rate: { base2h: number; full8h: number }): number => {
+      if (hours <= 0) return 0
+      if (hours <= 2) return rate.base2h
+      if (hours <= 8) {
+        const hourlyRate = (rate.full8h - rate.base2h) / 6
+        return rate.base2h + ((hours - 2) * hourlyRate)
+      }
+      return rate.full8h * (hours / 8)
+    }
+
+    const EQUIPMENT_RATES = { dehumidifier: 132, airMover: 46, rcd: 5 }
+
+    // Calculate labor for each job type
+    const noDemoLabor = calculateLaborForJobType(formData.noDemolitionHours || 0, BASE_RATES.no_demolition)
+    const demoLabor = calculateLaborForJobType(formData.demolitionHours || 0, BASE_RATES.demolition)
+    const constructionLabor = calculateLaborForJobType(formData.constructionHours || 0, BASE_RATES.construction)
+    const subfloorLabor = calculateLaborForJobType(formData.subfloorHours || 0, BASE_RATES.subfloor)
+
+    const totalLaborBeforeDiscount = noDemoLabor + demoLabor + constructionLabor + subfloorLabor
+
+    const totalHours =
+      (formData.noDemolitionHours || 0) +
+      (formData.demolitionHours || 0) +
+      (formData.constructionHours || 0) +
+      (formData.subfloorHours || 0)
+
+    const discountAmount = totalLaborBeforeDiscount - formData.laborCost
+
+    return {
+      noDemoLabor,
+      demoLabor,
+      constructionLabor,
+      subfloorLabor,
+      totalLaborBeforeDiscount,
+      totalHours,
+      discountAmount,
+      dehumidifierCost: (formData.dehumidifierCount || 0) * EQUIPMENT_RATES.dehumidifier * (formData.equipmentDays || 1),
+      airMoverCost: (formData.airMoverCount || 0) * EQUIPMENT_RATES.airMover * (formData.equipmentDays || 1),
+      rcdCost: (formData.rcdCount || 0) * EQUIPMENT_RATES.rcd * (formData.equipmentDays || 1)
+    }
+  }
+
   // Recalculate pricing based on current form data using NEW EDITABLE FIELDS
   const recalculatePricing = () => {
     // FIX 1 & 2: Use editable job type hours (noDemolitionHours, etc.)
@@ -3661,53 +3712,124 @@ const InspectionForm = () => {
 
                 {/* Cost Breakdown */}
                 <div className="cost-summary-card" style={{ marginTop: '24px' }}>
-                  <h3 className="cost-title">Cost Breakdown</h3>
+                  <h3 className="cost-title" style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>Cost Breakdown</h3>
 
-                  {/* Labor Before Discount */}
-                  <div className="cost-row" style={{ fontSize: '14px' }}>
-                    <span className="cost-label">Labor (before discount):</span>
-                    <span className="cost-value">{formatCurrency(formData.laborCost / (1 - formData.discountPercent / 100))}</span>
-                  </div>
+                  {(() => {
+                    const breakdown = getPricingBreakdown()
 
-                  {/* Discount */}
-                  {formData.discountPercent > 0 && (
-                    <div className="cost-row" style={{ fontSize: '14px', color: '#22c55e' }}>
-                      <span className="cost-label">Discount ({formData.discountPercent}%):</span>
-                      <span className="cost-value">-{formatCurrency(formData.laborCost / (1 - formData.discountPercent / 100) - formData.laborCost)}</span>
-                    </div>
-                  )}
+                    return (
+                      <>
+                        {/* Labor by Job Type */}
+                        <div style={{ marginBottom: '16px' }}>
+                          <p style={{ fontWeight: '600', marginBottom: '8px', fontSize: '14px' }}>Labor</p>
 
-                  {/* Labor After Discount */}
-                  <div className="cost-row">
-                    <span className="cost-label">Labor (after discount):</span>
-                    <span className="cost-value">{formatCurrency(formData.laborCost)}</span>
-                  </div>
+                          {formData.noDemolitionHours > 0 && (
+                            <div className="cost-row" style={{ fontSize: '13px', paddingLeft: '12px' }}>
+                              <span className="cost-label">No Demolition ({formData.noDemolitionHours}h)</span>
+                              <span className="cost-value">{formatCurrency(breakdown.noDemoLabor)}</span>
+                            </div>
+                          )}
 
-                  {/* Equipment */}
-                  <div className="cost-row">
-                    <span className="cost-label">Equipment Hire:</span>
-                    <span className="cost-value">{formatCurrency(formData.equipmentCost)}</span>
-                  </div>
+                          {formData.demolitionHours > 0 && (
+                            <div className="cost-row" style={{ fontSize: '13px', paddingLeft: '12px' }}>
+                              <span className="cost-label">Demolition ({formData.demolitionHours}h)</span>
+                              <span className="cost-value">{formatCurrency(breakdown.demoLabor)}</span>
+                            </div>
+                          )}
 
-                  {/* Subtotal */}
-                  <div className="cost-row subtotal" style={{ borderTop: '1px solid #e0e0e0', paddingTop: '8px', marginTop: '8px' }}>
-                    <span className="cost-label">Subtotal (Ex GST):</span>
-                    <span className="cost-value">{formatCurrency(formData.subtotal)}</span>
-                  </div>
+                          {formData.constructionHours > 0 && (
+                            <div className="cost-row" style={{ fontSize: '13px', paddingLeft: '12px' }}>
+                              <span className="cost-label">Construction ({formData.constructionHours}h)</span>
+                              <span className="cost-value">{formatCurrency(breakdown.constructionLabor)}</span>
+                            </div>
+                          )}
 
-                  {/* GST */}
-                  <div className="cost-row" style={{ fontSize: '14px' }}>
-                    <span className="cost-label">GST (10%):</span>
-                    <span className="cost-value">{formatCurrency(formData.gst)}</span>
-                  </div>
+                          {formData.subfloorHours > 0 && (
+                            <div className="cost-row" style={{ fontSize: '13px', paddingLeft: '12px' }}>
+                              <span className="cost-label">Subfloor ({formData.subfloorHours}h)</span>
+                              <span className="cost-value">{formatCurrency(breakdown.subfloorLabor)}</span>
+                            </div>
+                          )}
 
-                  {/* Total */}
-                  <div className="cost-row total" style={{ borderTop: '2px solid #22c55e', paddingTop: '12px', marginTop: '8px' }}>
-                    <span className="cost-label" style={{ fontSize: '18px', fontWeight: 'bold' }}>TOTAL (Inc GST):</span>
-                    <span className="cost-value" style={{ fontSize: '24px', fontWeight: 'bold', color: '#22c55e' }}>
-                      {formData.manualPriceOverride ? formatCurrency(formData.manualTotal) : formatCurrency(formData.totalCost)}
-                    </span>
-                  </div>
+                          <div className="cost-row" style={{ fontWeight: '600', borderTop: '1px solid #e0e0e0', paddingTop: '6px', marginTop: '6px', fontSize: '14px' }}>
+                            <span className="cost-label">Labor Subtotal</span>
+                            <span className="cost-value">{formatCurrency(breakdown.totalLaborBeforeDiscount)}</span>
+                          </div>
+                        </div>
+
+                        {/* Discount */}
+                        {formData.discountPercent > 0 && (
+                          <div style={{ marginBottom: '16px', backgroundColor: '#f0fdf4', padding: '12px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                            <div className="cost-row" style={{ fontSize: '13px', color: '#059669' }}>
+                              <span className="cost-label">Total Hours</span>
+                              <span className="cost-value">{breakdown.totalHours}h ({Math.ceil(breakdown.totalHours / 8)} days)</span>
+                            </div>
+                            <div className="cost-row" style={{ fontSize: '14px', color: '#16a34a', fontWeight: '600' }}>
+                              <span className="cost-label">Discount ({formData.discountPercent}%)</span>
+                              <span className="cost-value">-{formatCurrency(breakdown.discountAmount)}</span>
+                            </div>
+                            <div className="cost-row" style={{ fontWeight: '600', borderTop: '1px solid #bbf7d0', paddingTop: '6px', marginTop: '6px', fontSize: '14px' }}>
+                              <span className="cost-label">Labor After Discount</span>
+                              <span className="cost-value">{formatCurrency(formData.laborCost)}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Equipment */}
+                        {formData.equipmentCost > 0 && (
+                          <div style={{ marginBottom: '16px' }}>
+                            <p style={{ fontWeight: '600', marginBottom: '8px', fontSize: '14px' }}>Equipment Hire ({formData.equipmentDays} days)</p>
+
+                            {formData.dehumidifierCount > 0 && (
+                              <div className="cost-row" style={{ fontSize: '13px', paddingLeft: '12px' }}>
+                                <span className="cost-label">{formData.dehumidifierCount} × Dehumidifier × {formData.equipmentDays} days</span>
+                                <span className="cost-value">{formatCurrency(breakdown.dehumidifierCost)}</span>
+                              </div>
+                            )}
+
+                            {formData.airMoverCount > 0 && (
+                              <div className="cost-row" style={{ fontSize: '13px', paddingLeft: '12px' }}>
+                                <span className="cost-label">{formData.airMoverCount} × Air Mover × {formData.equipmentDays} days</span>
+                                <span className="cost-value">{formatCurrency(breakdown.airMoverCost)}</span>
+                              </div>
+                            )}
+
+                            {formData.rcdCount > 0 && (
+                              <div className="cost-row" style={{ fontSize: '13px', paddingLeft: '12px' }}>
+                                <span className="cost-label">{formData.rcdCount} × RCD × {formData.equipmentDays} days</span>
+                                <span className="cost-value">{formatCurrency(breakdown.rcdCost)}</span>
+                              </div>
+                            )}
+
+                            <div className="cost-row" style={{ fontWeight: '600', borderTop: '1px solid #e0e0e0', paddingTop: '6px', marginTop: '6px', fontSize: '14px' }}>
+                              <span className="cost-label">Equipment Total</span>
+                              <span className="cost-value">{formatCurrency(formData.equipmentCost)}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Final Totals */}
+                        <div style={{ borderTop: '2px solid #374151', paddingTop: '12px' }}>
+                          <div className="cost-row">
+                            <span className="cost-label">Subtotal (Ex GST)</span>
+                            <span className="cost-value" style={{ fontWeight: '600' }}>{formatCurrency(formData.subtotal)}</span>
+                          </div>
+
+                          <div className="cost-row" style={{ fontSize: '13px', color: '#6b7280' }}>
+                            <span className="cost-label">GST (10%)</span>
+                            <span className="cost-value">{formatCurrency(formData.gst)}</span>
+                          </div>
+
+                          <div className="cost-row total" style={{ borderTop: '2px solid #22c55e', paddingTop: '12px', marginTop: '8px' }}>
+                            <span className="cost-label" style={{ fontSize: '20px', fontWeight: 'bold' }}>TOTAL (Inc GST)</span>
+                            <span className="cost-value" style={{ fontSize: '26px', fontWeight: 'bold', color: '#22c55e' }}>
+                              {formData.manualPriceOverride ? formatCurrency(formData.manualTotal) : formatCurrency(formData.totalCost)}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    )
+                  })()}
                 </div>
 
                 {/* Manual Override */}
@@ -3729,17 +3851,21 @@ const InspectionForm = () => {
                         type="number"
                         value={formData.manualTotal || ''}
                         onChange={(e) => {
+                          // Allow typing - just update the value
+                          const value = parseFloat(e.target.value) || 0;
+                          setFormData(prev => ({ ...prev, manualTotal: value }));
+                        }}
+                        onBlur={(e) => {
+                          // Validate only when user finishes typing (loses focus)
                           const value = parseFloat(e.target.value) || 0;
                           const minAllowed = formData.totalCost * 0.87; // 13% cap enforcement
 
-                          // FIX 4: ENFORCE 13% cap - block values below minimum
+                          // ENFORCE 13% cap - reset to minimum if below
                           if (value > 0 && value < minAllowed) {
-                            alert(`❌ BLOCKED: Manual total cannot be below 13% discount cap.\n\nMinimum allowed: ${formatCurrency(minAllowed)}\nYou entered: ${formatCurrency(value)}\n\nThe 13% discount is the absolute maximum discount allowed by MRC pricing policy.`);
-                            // Don't update - block the change
-                            return;
+                            alert(`❌ BLOCKED: Manual total cannot be below 13% discount cap.\n\nMinimum allowed: ${formatCurrency(minAllowed)}\nYou entered: ${formatCurrency(value)}\n\nThe 13% discount is the absolute maximum discount allowed by MRC pricing policy.\n\nResetting to minimum allowed value.`);
+                            // Reset to minimum allowed
+                            setFormData(prev => ({ ...prev, manualTotal: minAllowed }));
                           }
-
-                          setFormData(prev => ({ ...prev, manualTotal: value }));
                         }}
                         className="form-input"
                         style={{ fontSize: '18px', fontWeight: 'bold', textAlign: 'right' }}
