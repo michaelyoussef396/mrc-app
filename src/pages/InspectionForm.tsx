@@ -3080,10 +3080,14 @@ const InspectionForm = () => {
                       <label className="form-label">HEPA VAC</label>
                       <button
                         type="button"
-                        className={`toggle-switch ${formData.hepaVac ? 'active' : ''}`}
                         onClick={() => handleInputChange('hepaVac', !formData.hepaVac)}
+                        className={`px-6 py-2 rounded-lg font-medium transition-colors min-w-[100px] ${
+                          formData.hepaVac
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-300 text-gray-700'
+                        }`}
                       >
-                        <span className="toggle-slider"></span>
+                        {formData.hepaVac ? 'ON' : 'OFF'}
                       </button>
                     </div>
                   </div>
@@ -3093,10 +3097,14 @@ const InspectionForm = () => {
                       <label className="form-label">Antimicrobial</label>
                       <button
                         type="button"
-                        className={`toggle-switch ${formData.antimicrobial ? 'active' : ''}`}
                         onClick={() => handleInputChange('antimicrobial', !formData.antimicrobial)}
+                        className={`px-6 py-2 rounded-lg font-medium transition-colors min-w-[100px] ${
+                          formData.antimicrobial
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-300 text-gray-700'
+                        }`}
                       >
-                        <span className="toggle-slider"></span>
+                        {formData.antimicrobial ? 'ON' : 'OFF'}
                       </button>
                     </div>
                   </div>
@@ -3106,10 +3114,14 @@ const InspectionForm = () => {
                       <label className="form-label">Stain Removing Antimicrobial</label>
                       <button
                         type="button"
-                        className={`toggle-switch ${formData.stainRemovingAntimicrobial ? 'active' : ''}`}
                         onClick={() => handleInputChange('stainRemovingAntimicrobial', !formData.stainRemovingAntimicrobial)}
+                        className={`px-6 py-2 rounded-lg font-medium transition-colors min-w-[100px] ${
+                          formData.stainRemovingAntimicrobial
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-300 text-gray-700'
+                        }`}
                       >
-                        <span className="toggle-slider"></span>
+                        {formData.stainRemovingAntimicrobial ? 'ON' : 'OFF'}
                       </button>
                     </div>
                   </div>
@@ -3119,10 +3131,14 @@ const InspectionForm = () => {
                       <label className="form-label">Home Sanitation and Fogging</label>
                       <button
                         type="button"
-                        className={`toggle-switch ${formData.homeSanitationFogging ? 'active' : ''}`}
                         onClick={() => handleInputChange('homeSanitationFogging', !formData.homeSanitationFogging)}
+                        className={`px-6 py-2 rounded-lg font-medium transition-colors min-w-[100px] ${
+                          formData.homeSanitationFogging
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-300 text-gray-700'
+                        }`}
                       >
-                        <span className="toggle-slider"></span>
+                        {formData.homeSanitationFogging ? 'ON' : 'OFF'}
                       </button>
                     </div>
                   </div>
@@ -3132,12 +3148,14 @@ const InspectionForm = () => {
                       <label className="form-label">Drying Equipment</label>
                       <button
                         type="button"
-                        className={`toggle-switch ${formData.dryingEquipmentEnabled ? 'active' : ''}`}
                         onClick={() => handleInputChange('dryingEquipmentEnabled', !formData.dryingEquipmentEnabled)}
+                        className={`px-6 py-2 rounded-lg font-medium transition-colors min-w-[100px] ${
+                          formData.dryingEquipmentEnabled
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-300 text-gray-700'
+                        }`}
                       >
-                        <span className="toggle-label">
-                          {formData.dryingEquipmentEnabled ? 'Enabled' : 'Disabled'}
-                        </span>
+                        {formData.dryingEquipmentEnabled ? 'ENABLED' : 'DISABLED'}
                       </button>
                     </div>
 
@@ -3148,10 +3166,14 @@ const InspectionForm = () => {
                             <label className="form-label">Commercial Dehumidifier</label>
                             <button
                               type="button"
-                              className={`toggle-switch ${formData.commercialDehumidifierEnabled ? 'active' : ''}`}
                               onClick={() => handleInputChange('commercialDehumidifierEnabled', !formData.commercialDehumidifierEnabled)}
+                              className={`px-6 py-2 rounded-lg font-medium transition-colors min-w-[100px] ${
+                                formData.commercialDehumidifierEnabled
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-gray-300 text-gray-700'
+                              }`}
                             >
-                              <span className="toggle-slider"></span>
+                              {formData.commercialDehumidifierEnabled ? 'ON' : 'OFF'}
                             </button>
                           </div>
                           {formData.commercialDehumidifierEnabled && (
@@ -3171,10 +3193,14 @@ const InspectionForm = () => {
                             <label className="form-label">Air Movers</label>
                             <button
                               type="button"
-                              className={`toggle-switch ${formData.airMoversEnabled ? 'active' : ''}`}
                               onClick={() => handleInputChange('airMoversEnabled', !formData.airMoversEnabled)}
+                              className={`px-6 py-2 rounded-lg font-medium transition-colors min-w-[100px] ${
+                                formData.airMoversEnabled
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-gray-300 text-gray-700'
+                              }`}
                             >
-                              <span className="toggle-slider"></span>
+                              {formData.airMoversEnabled ? 'ON' : 'OFF'}
                             </button>
                           </div>
                           {formData.airMoversEnabled && (
@@ -3194,10 +3220,14 @@ const InspectionForm = () => {
                             <label className="form-label">RCD Box</label>
                             <button
                               type="button"
-                              className={`toggle-switch ${formData.rcdBoxEnabled ? 'active' : ''}`}
                               onClick={() => handleInputChange('rcdBoxEnabled', !formData.rcdBoxEnabled)}
+                              className={`px-6 py-2 rounded-lg font-medium transition-colors min-w-[100px] ${
+                                formData.rcdBoxEnabled
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-gray-300 text-gray-700'
+                              }`}
                             >
-                              <span className="toggle-slider"></span>
+                              {formData.rcdBoxEnabled ? 'ON' : 'OFF'}
                             </button>
                           </div>
                           {formData.rcdBoxEnabled && (
@@ -3228,12 +3258,14 @@ const InspectionForm = () => {
                     <label className="form-label">Recommend Dehumidifier?</label>
                     <button
                       type="button"
-                      className={`toggle-switch ${formData.recommendDehumidifier ? 'active' : ''}`}
                       onClick={() => handleInputChange('recommendDehumidifier', !formData.recommendDehumidifier)}
+                      className={`px-6 py-2 rounded-lg font-medium transition-colors min-w-[100px] ${
+                        formData.recommendDehumidifier
+                          ? 'bg-green-500 text-white'
+                          : 'bg-gray-300 text-gray-700'
+                      }`}
                     >
-                      <span className="toggle-label">
-                        {formData.recommendDehumidifier ? 'Yes' : 'No'}
-                      </span>
+                      {formData.recommendDehumidifier ? 'YES' : 'NO'}
                     </button>
                   </div>
 
