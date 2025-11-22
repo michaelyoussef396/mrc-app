@@ -145,9 +145,9 @@ AND (column_name LIKE '%demolition%' OR column_name LIKE '%equipment%');
 2. **src/lib/inspectionUtils.ts** - Pricing calculation logic
 3. **src/types/inspection.ts** - Frontend interface (18 new fields)
 4. **src/lib/api/inspections.ts** - API interface (18 new fields)
-5. **src/pages/InspectionForm.tsx** - Section 9 UI + state + save/load
+5. **src/pages/InspectionForm.tsx** - Section 9 UI + state + save/load + display
 6. **Database migration** - 15 new columns with constraints
-7. **Git commit 6ffc960** - Critical fixes
+7. **Git commits**: 6ffc960 (critical fixes), 564f568 (display + input fix)
 
 ### 🔧 Key Features Implemented
 
@@ -209,3 +209,38 @@ AND (column_name LIKE '%demolition%' OR column_name LIKE '%equipment%');
 ---
 
 **Implementation Status**: ✅ COMPLETE - Ready for user testing and pricing-guardian re-validation
+
+---
+
+## 🎉 ADDITIONAL FIXES (Post-Implementation)
+
+### Fix 1: Manual Override Input Validation (Commit 564f568)
+**Problem**: onChange validation blocked typing (typing "2000" blocked at "2")
+**Solution**:
+- Changed validation from `onChange` to `onBlur`
+- Allow free typing in onChange
+- Validate only when user finishes (blur/loses focus)
+- Auto-reset to 13% cap minimum if value too low
+
+### Fix 2: Cost Breakdown Display Enhancement (Commit 564f568)
+**Problem**: Display didn't show detailed breakdown by job type
+**Solution**:
+- Added `getPricingBreakdown()` helper function
+- Display now shows:
+  1. **Labor by job type** with hours and cost per type
+  2. **Labor Subtotal** (before discount)
+  3. **Discount section** (green box) with total hours, days, %, and amount
+  4. **Equipment breakdown** by item (qty × rate × days)
+  5. **Equipment Total**
+  6. **Final totals** (Subtotal Ex GST, GST 10%, Total Inc GST)
+
+**Visual Improvements**:
+- Green highlight for discount section
+- Individual job type costs visible
+- Equipment shown per item with formula
+- Clear hierarchy with borders and font weights
+- Australian currency formatting throughout
+
+---
+
+**All fixes committed**: Ready for final testing

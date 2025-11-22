@@ -125,24 +125,12 @@ const InspectionForm = () => {
     additionalInfoForTech: '',
     additionalEquipmentComments: '',
     parkingOptions: '',
-    // Section 9: Cost Estimate (editable pricing)
-    noDemolitionHours: 0,
-    demolitionHours: 0,
-    constructionHours: 0,
-    subfloorHours: 0,
-    dehumidifierCount: 0,
-    airMoverCount: 0,
-    rcdCount: 0,
-    equipmentDays: 1,
-    estimatedDays: 1, // Keep for backwards compatibility
-    manualPriceOverride: false,
-    manualTotal: 0,
+    // Section 9: Cost Estimate (simplified editable breakdown)
     laborCost: 0,
     equipmentCost: 0,
-    subtotal: 0,
-    gst: 0,
-    totalCost: 0,
-    discountPercent: 0
+    subtotalExGst: 0,
+    gstAmount: 0,
+    totalIncGst: 0
   })
 
   const sections = [
@@ -593,26 +581,12 @@ const InspectionForm = () => {
             additionalInfoForTech: existingInspection.additional_info_technician || prev.additionalInfoForTech,
             additionalEquipmentComments: existingInspection.additional_equipment_comments || prev.additionalEquipmentComments,
             parkingOptions: existingInspection.parking_option || prev.parkingOptions,
-            // Section 9: Cost Estimate - Job Type Hours
-            noDemolitionHours: existingInspection.no_demolition_hours ?? 0,
-            demolitionHours: existingInspection.demolition_hours ?? 0,
-            constructionHours: existingInspection.construction_hours ?? 0,
-            subfloorHours: existingInspection.subfloor_hours ?? 0,
-            // Section 9: Equipment Quantities
-            dehumidifierCount: existingInspection.dehumidifier_count ?? 0,
-            airMoverCount: existingInspection.air_mover_count ?? 0,
-            rcdCount: existingInspection.rcd_count ?? 0,
-            equipmentDays: existingInspection.equipment_days ?? 1,
-            // Section 9: Manual Override
-            manualPriceOverride: existingInspection.manual_price_override ?? false,
-            manualTotal: existingInspection.manual_total_inc_gst ?? existingInspection.total_inc_gst ?? 0,
-            // Section 9: Display Values (will be recalculated)
+            // Section 9: Cost Estimate (simplified)
             laborCost: existingInspection.labor_cost_ex_gst ?? 0,
             equipmentCost: existingInspection.equipment_cost_ex_gst ?? 0,
-            subtotal: existingInspection.subtotal_ex_gst ?? 0,
-            gst: existingInspection.gst_amount ?? 0,
-            totalCost: existingInspection.total_inc_gst ?? 0,
-            discountPercent: existingInspection.discount_percent ?? 0
+            subtotalExGst: existingInspection.subtotal_ex_gst ?? 0,
+            gstAmount: existingInspection.gst_amount ?? 0,
+            totalIncGst: existingInspection.total_inc_gst ?? 0
           }))
         } else {
           // No areas in database, but still load subfloor data if it exists
@@ -781,26 +755,12 @@ const InspectionForm = () => {
             additionalInfoForTech: existingInspection.additional_info_technician || prev.additionalInfoForTech,
             additionalEquipmentComments: existingInspection.additional_equipment_comments || prev.additionalEquipmentComments,
             parkingOptions: existingInspection.parking_option || prev.parkingOptions,
-            // Section 9: Cost Estimate - Job Type Hours
-            noDemolitionHours: existingInspection.no_demolition_hours ?? 0,
-            demolitionHours: existingInspection.demolition_hours ?? 0,
-            constructionHours: existingInspection.construction_hours ?? 0,
-            subfloorHours: existingInspection.subfloor_hours ?? 0,
-            // Section 9: Equipment Quantities
-            dehumidifierCount: existingInspection.dehumidifier_count ?? 0,
-            airMoverCount: existingInspection.air_mover_count ?? 0,
-            rcdCount: existingInspection.rcd_count ?? 0,
-            equipmentDays: existingInspection.equipment_days ?? 1,
-            // Section 9: Manual Override
-            manualPriceOverride: existingInspection.manual_price_override ?? false,
-            manualTotal: existingInspection.manual_total_inc_gst ?? existingInspection.total_inc_gst ?? 0,
-            // Section 9: Display Values (will be recalculated)
+            // Section 9: Cost Estimate (simplified)
             laborCost: existingInspection.labor_cost_ex_gst ?? 0,
             equipmentCost: existingInspection.equipment_cost_ex_gst ?? 0,
-            subtotal: existingInspection.subtotal_ex_gst ?? 0,
-            gst: existingInspection.gst_amount ?? 0,
-            totalCost: existingInspection.total_inc_gst ?? 0,
-            discountPercent: existingInspection.discount_percent ?? 0
+            subtotalExGst: existingInspection.subtotal_ex_gst ?? 0,
+            gstAmount: existingInspection.gst_amount ?? 0,
+            totalIncGst: existingInspection.total_inc_gst ?? 0
           }))
         }
 
@@ -1028,159 +988,45 @@ const InspectionForm = () => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  // Handle pricing field changes and trigger recalculation
-  const handlePricingChange = (field: string, value: number) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-    // Trigger recalculation after state update
-    setTimeout(() => recalculatePricing(), 0)
+  // Format currency for display
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-AU', {
+      style: 'currency',
+      currency: 'AUD'
+    }).format(amount)
   }
 
-  // Helper function to calculate pricing breakdown for display
-  const getPricingBreakdown = () => {
-    const BASE_RATES = {
-      no_demolition: { base2h: 612.00, full8h: 1216.99 },
-      demolition: { base2h: 711.90, full8h: 1798.90 },
-      construction: { base2h: 661.96, full8h: 1507.95 },
-      subfloor: { base2h: 900.00, full8h: 2334.69 }
-    }
+  // Round to 2 decimals
+  const round = (value: number): number => Math.round(value * 100) / 100
 
-    const calculateLaborForJobType = (hours: number, rate: { base2h: number; full8h: number }): number => {
-      if (hours <= 0) return 0
-      if (hours <= 2) return rate.base2h
-      if (hours <= 8) {
-        const hourlyRate = (rate.full8h - rate.base2h) / 6
-        return rate.base2h + ((hours - 2) * hourlyRate)
-      }
-      return rate.full8h * (hours / 8)
-    }
+  // When Labor or Equipment changes → recalculate Subtotal, GST, Total
+  const handleCostChange = (field: 'laborCost' | 'equipmentCost', value: number) => {
+    const labor = field === 'laborCost' ? value : (formData.laborCost || 0)
+    const equipment = field === 'equipmentCost' ? value : (formData.equipmentCost || 0)
 
-    const EQUIPMENT_RATES = { dehumidifier: 132, airMover: 46, rcd: 5 }
-
-    // Calculate labor for each job type
-    const noDemoLabor = calculateLaborForJobType(formData.noDemolitionHours || 0, BASE_RATES.no_demolition)
-    const demoLabor = calculateLaborForJobType(formData.demolitionHours || 0, BASE_RATES.demolition)
-    const constructionLabor = calculateLaborForJobType(formData.constructionHours || 0, BASE_RATES.construction)
-    const subfloorLabor = calculateLaborForJobType(formData.subfloorHours || 0, BASE_RATES.subfloor)
-
-    const totalLaborBeforeDiscount = noDemoLabor + demoLabor + constructionLabor + subfloorLabor
-
-    const totalHours =
-      (formData.noDemolitionHours || 0) +
-      (formData.demolitionHours || 0) +
-      (formData.constructionHours || 0) +
-      (formData.subfloorHours || 0)
-
-    const discountAmount = totalLaborBeforeDiscount - formData.laborCost
-
-    return {
-      noDemoLabor,
-      demoLabor,
-      constructionLabor,
-      subfloorLabor,
-      totalLaborBeforeDiscount,
-      totalHours,
-      discountAmount,
-      dehumidifierCost: (formData.dehumidifierCount || 0) * EQUIPMENT_RATES.dehumidifier * (formData.equipmentDays || 1),
-      airMoverCost: (formData.airMoverCount || 0) * EQUIPMENT_RATES.airMover * (formData.equipmentDays || 1),
-      rcdCost: (formData.rcdCount || 0) * EQUIPMENT_RATES.rcd * (formData.equipmentDays || 1)
-    }
-  }
-
-  // Recalculate pricing based on current form data using NEW EDITABLE FIELDS
-  const recalculatePricing = () => {
-    // FIX 1 & 2: Use editable job type hours (noDemolitionHours, etc.)
-    // Calculate each job type separately, then combine
-    const BASE_RATES = {
-      no_demolition: { base2h: 612.00, full8h: 1216.99 },
-      demolition: { base2h: 711.90, full8h: 1798.90 },
-      construction: { base2h: 661.96, full8h: 1507.95 },
-      subfloor: { base2h: 900.00, full8h: 2334.69 }
-    }
-
-    const calculateLaborForJobType = (hours: number, rate: { base2h: number; full8h: number }): number => {
-      if (hours <= 0) return 0
-      if (hours <= 2) return rate.base2h
-      if (hours <= 8) {
-        const hourlyRate = (rate.full8h - rate.base2h) / 6
-        return rate.base2h + ((hours - 2) * hourlyRate)
-      }
-      return rate.full8h * (hours / 8)
-    }
-
-    // Calculate labor for each job type
-    const noDemoLabor = calculateLaborForJobType(formData.noDemolitionHours || 0, BASE_RATES.no_demolition)
-    const demoLabor = calculateLaborForJobType(formData.demolitionHours || 0, BASE_RATES.demolition)
-    const constructionLabor = calculateLaborForJobType(formData.constructionHours || 0, BASE_RATES.construction)
-    const subfloorLabor = calculateLaborForJobType(formData.subfloorHours || 0, BASE_RATES.subfloor)
-
-    // Sum all labor costs BEFORE discount
-    const totalLaborBeforeDiscount = noDemoLabor + demoLabor + constructionLabor + subfloorLabor
-
-    // FIX 3: Calculate total hours across ALL job types for discount tier
-    const totalHours =
-      (formData.noDemolitionHours || 0) +
-      (formData.demolitionHours || 0) +
-      (formData.constructionHours || 0) +
-      (formData.subfloorHours || 0)
-
-    if (totalHours === 0) {
-      // No hours entered - reset pricing
-      setFormData(prev => ({
-        ...prev,
-        laborCost: 0,
-        equipmentCost: 0,
-        subtotal: 0,
-        gst: 0,
-        totalCost: 0,
-        discountPercent: 0
-      }))
-      return
-    }
-
-    // Apply discount based on TOTAL hours (not per job type)
-    let discountMultiplier = 1.0
-    let discountPercent = 0
-
-    if (totalHours <= 8) {
-      discountMultiplier = 1.00
-      discountPercent = 0
-    } else if (totalHours <= 16) {
-      discountMultiplier = 0.925
-      discountPercent = 7.5
-    } else if (totalHours <= 24) {
-      discountMultiplier = 0.90
-      discountPercent = 10
-    } else if (totalHours <= 32) {
-      discountMultiplier = 0.88
-      discountPercent = 12
-    } else {
-      discountMultiplier = 0.87 // 13% CAP
-      discountPercent = 13
-    }
-
-    // Apply discount to TOTAL labor
-    const laborAfterDiscount = totalLaborBeforeDiscount * discountMultiplier
-
-    // Calculate equipment (NO discount)
-    const EQUIPMENT_RATES = { dehumidifier: 132, airMover: 46, rcd: 5 }
-    const equipmentCost =
-      (formData.dehumidifierCount || 0) * EQUIPMENT_RATES.dehumidifier * (formData.equipmentDays || 1) +
-      (formData.airMoverCount || 0) * EQUIPMENT_RATES.airMover * (formData.equipmentDays || 1) +
-      (formData.rcdCount || 0) * EQUIPMENT_RATES.rcd * (formData.equipmentDays || 1)
-
-    // Calculate totals
-    const subtotal = laborAfterDiscount + equipmentCost
-    const gst = subtotal * 0.1
-    const total = subtotal + gst
+    const subtotal = round(labor + equipment)
+    const gst = round(subtotal * 0.10)
+    const total = round(subtotal + gst)
 
     setFormData(prev => ({
       ...prev,
-      laborCost: Math.round(laborAfterDiscount * 100) / 100,
-      equipmentCost: Math.round(equipmentCost * 100) / 100,
-      subtotal: Math.round(subtotal * 100) / 100,
-      gst: Math.round(gst * 100) / 100,
-      totalCost: Math.round(total * 100) / 100,
-      discountPercent
+      [field]: value,
+      subtotalExGst: subtotal,
+      gstAmount: gst,
+      totalIncGst: total
+    }))
+  }
+
+  // When Subtotal changes → recalculate GST and Total (don't change Labor/Equipment)
+  const handleSubtotalChange = (subtotal: number) => {
+    const gst = round(subtotal * 0.10)
+    const total = round(subtotal + gst)
+
+    setFormData(prev => ({
+      ...prev,
+      subtotalExGst: subtotal,
+      gstAmount: gst,
+      totalIncGst: total
     }))
   }
 
@@ -1860,25 +1706,12 @@ const InspectionForm = () => {
         additional_info_technician: formData.additionalInfoForTech,
         additional_equipment_comments: formData.additionalEquipmentComments,
         parking_option: formData.parkingOptions,
-        // Section 9: Cost Estimate - Job Type Hours
-        no_demolition_hours: formData.noDemolitionHours || null,
-        demolition_hours: formData.demolitionHours || null,
-        construction_hours: formData.constructionHours || null,
-        subfloor_hours: formData.subfloorHours || null,
-        // Section 9: Equipment Quantities
-        dehumidifier_count: formData.dehumidifierCount || 0,
-        air_mover_count: formData.airMoverCount || 0,
-        rcd_count: formData.rcdCount || 0,
-        equipment_days: formData.equipmentDays || 1,
-        // Section 9: Calculated Pricing Values
-        labor_cost_ex_gst: formData.laborCost,
-        discount_percent: formData.discountPercent,
-        subtotal_ex_gst: formData.subtotal,
-        gst_amount: formData.gst,
-        total_inc_gst: formData.manualPriceOverride ? formData.manualTotal : formData.totalCost,
-        // Section 9: Manual Override
-        manual_price_override: formData.manualPriceOverride,
-        manual_total_inc_gst: formData.manualPriceOverride ? formData.manualTotal : null
+        // Section 9: Cost Estimate (simplified)
+        labor_cost_ex_gst: formData.laborCost || 0,
+        equipment_cost_ex_gst: formData.equipmentCost || 0,
+        subtotal_ex_gst: formData.subtotalExGst || 0,
+        gst_amount: formData.gstAmount || 0,
+        total_inc_gst: formData.totalIncGst || 0
       })
 
       // Save all inspection areas
@@ -3564,343 +3397,83 @@ const InspectionForm = () => {
             {/* SECTION 9: COST ESTIMATE */}
             {currentSection === 8 && (
               <div className="form-section">
-                <h2 className="subsection-title">Cost Estimate</h2>
+                <h2 className="subsection-title">Cost Breakdown</h2>
 
-                {/* Job Type Hours */}
-                <div className="form-group">
-                  <h3 className="subsection-title" style={{ fontSize: '18px', marginBottom: '12px' }}>Labor (Enter hours by job type)</h3>
-
-                  {/* No Demolition */}
-                  <div style={{ marginBottom: '16px', padding: '12px', border: '1px solid #e0e0e0', borderRadius: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <label className="form-label" style={{ marginBottom: '4px' }}>No Demolition (Surface Treatment)</label>
-                        <p style={{ fontSize: '12px', color: '#666', margin: '0' }}>2h min: $612 | 8h: $1,216.99</p>
-                      </div>
-                      <input
-                        type="number"
-                        value={formData.noDemolitionHours || ''}
-                        onChange={(e) => handlePricingChange('noDemolitionHours', parseFloat(e.target.value) || 0)}
-                        placeholder="Hours"
-                        className="form-input"
-                        style={{ width: '120px', textAlign: 'right' }}
-                        min="0"
-                        step="0.5"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Demolition */}
-                  <div style={{ marginBottom: '16px', padding: '12px', border: '1px solid #e0e0e0', borderRadius: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <label className="form-label" style={{ marginBottom: '4px' }}>Demolition</label>
-                        <p style={{ fontSize: '12px', color: '#666', margin: '0' }}>2h min: $711.90 | 8h: $1,798.90</p>
-                      </div>
-                      <input
-                        type="number"
-                        value={formData.demolitionHours || ''}
-                        onChange={(e) => handlePricingChange('demolitionHours', parseFloat(e.target.value) || 0)}
-                        placeholder="Hours"
-                        className="form-input"
-                        style={{ width: '120px', textAlign: 'right' }}
-                        min="0"
-                        step="0.5"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Construction */}
-                  <div style={{ marginBottom: '16px', padding: '12px', border: '1px solid #e0e0e0', borderRadius: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <label className="form-label" style={{ marginBottom: '4px' }}>Construction</label>
-                        <p style={{ fontSize: '12px', color: '#666', margin: '0' }}>2h min: $661.96 | 8h: $1,507.95</p>
-                      </div>
-                      <input
-                        type="number"
-                        value={formData.constructionHours || ''}
-                        onChange={(e) => handlePricingChange('constructionHours', parseFloat(e.target.value) || 0)}
-                        placeholder="Hours"
-                        className="form-input"
-                        style={{ width: '120px', textAlign: 'right' }}
-                        min="0"
-                        step="0.5"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Subfloor */}
-                  <div style={{ marginBottom: '16px', padding: '12px', border: '1px solid #e0e0e0', borderRadius: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <label className="form-label" style={{ marginBottom: '4px' }}>Subfloor</label>
-                        <p style={{ fontSize: '12px', color: '#666', margin: '0' }}>2h min: $900 | 8h: $2,334.69</p>
-                      </div>
-                      <input
-                        type="number"
-                        value={formData.subfloorHours || ''}
-                        onChange={(e) => handlePricingChange('subfloorHours', parseFloat(e.target.value) || 0)}
-                        placeholder="Hours"
-                        className="form-input"
-                        style={{ width: '120px', textAlign: 'right' }}
-                        min="0"
-                        step="0.5"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Equipment Hire */}
-                <div className="form-group" style={{ borderTop: '2px solid #e0e0e0', paddingTop: '20px', marginTop: '20px' }}>
-                  <h3 className="subsection-title" style={{ fontSize: '18px', marginBottom: '12px' }}>Equipment Hire (Per Day)</h3>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                    {/* Dehumidifiers */}
-                    <div>
-                      <label className="form-label">Dehumidifiers ($132/day)</label>
-                      <input
-                        type="number"
-                        value={formData.dehumidifierCount || ''}
-                        onChange={(e) => handlePricingChange('dehumidifierCount', parseInt(e.target.value) || 0)}
-                        className="form-input"
-                        min="0"
-                        placeholder="Quantity"
-                      />
-                    </div>
-
-                    {/* Air Movers */}
-                    <div>
-                      <label className="form-label">Air Movers ($46/day)</label>
-                      <input
-                        type="number"
-                        value={formData.airMoverCount || ''}
-                        onChange={(e) => handlePricingChange('airMoverCount', parseInt(e.target.value) || 0)}
-                        className="form-input"
-                        min="0"
-                        placeholder="Quantity"
-                      />
-                    </div>
-
-                    {/* RCD Boxes */}
-                    <div>
-                      <label className="form-label">RCD Boxes ($5/day)</label>
-                      <input
-                        type="number"
-                        value={formData.rcdCount || ''}
-                        onChange={(e) => handlePricingChange('rcdCount', parseInt(e.target.value) || 0)}
-                        className="form-input"
-                        min="0"
-                        placeholder="Quantity"
-                      />
-                    </div>
-
-                    {/* Hire Days */}
-                    <div>
-                      <label className="form-label">Hire Days</label>
-                      <input
-                        type="number"
-                        value={formData.equipmentDays || 1}
-                        onChange={(e) => handlePricingChange('equipmentDays', parseInt(e.target.value) || 1)}
-                        className="form-input"
-                        min="1"
-                        placeholder="Days"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Cost Breakdown */}
-                <div className="cost-summary-card" style={{ marginTop: '24px' }}>
-                  <h3 className="cost-title" style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>Cost Breakdown</h3>
-
-                  {(() => {
-                    const breakdown = getPricingBreakdown()
-
-                    return (
-                      <>
-                        {/* Labor by Job Type */}
-                        <div style={{ marginBottom: '16px' }}>
-                          <p style={{ fontWeight: '600', marginBottom: '8px', fontSize: '14px' }}>Labor</p>
-
-                          {formData.noDemolitionHours > 0 && (
-                            <div className="cost-row" style={{ fontSize: '13px', paddingLeft: '12px' }}>
-                              <span className="cost-label">No Demolition ({formData.noDemolitionHours}h)</span>
-                              <span className="cost-value">{formatCurrency(breakdown.noDemoLabor)}</span>
-                            </div>
-                          )}
-
-                          {formData.demolitionHours > 0 && (
-                            <div className="cost-row" style={{ fontSize: '13px', paddingLeft: '12px' }}>
-                              <span className="cost-label">Demolition ({formData.demolitionHours}h)</span>
-                              <span className="cost-value">{formatCurrency(breakdown.demoLabor)}</span>
-                            </div>
-                          )}
-
-                          {formData.constructionHours > 0 && (
-                            <div className="cost-row" style={{ fontSize: '13px', paddingLeft: '12px' }}>
-                              <span className="cost-label">Construction ({formData.constructionHours}h)</span>
-                              <span className="cost-value">{formatCurrency(breakdown.constructionLabor)}</span>
-                            </div>
-                          )}
-
-                          {formData.subfloorHours > 0 && (
-                            <div className="cost-row" style={{ fontSize: '13px', paddingLeft: '12px' }}>
-                              <span className="cost-label">Subfloor ({formData.subfloorHours}h)</span>
-                              <span className="cost-value">{formatCurrency(breakdown.subfloorLabor)}</span>
-                            </div>
-                          )}
-
-                          <div className="cost-row" style={{ fontWeight: '600', borderTop: '1px solid #e0e0e0', paddingTop: '6px', marginTop: '6px', fontSize: '14px' }}>
-                            <span className="cost-label">Labor Subtotal</span>
-                            <span className="cost-value">{formatCurrency(breakdown.totalLaborBeforeDiscount)}</span>
-                          </div>
-                        </div>
-
-                        {/* Discount */}
-                        {formData.discountPercent > 0 && (
-                          <div style={{ marginBottom: '16px', backgroundColor: '#f0fdf4', padding: '12px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
-                            <div className="cost-row" style={{ fontSize: '13px', color: '#059669' }}>
-                              <span className="cost-label">Total Hours</span>
-                              <span className="cost-value">{breakdown.totalHours}h ({Math.ceil(breakdown.totalHours / 8)} days)</span>
-                            </div>
-                            <div className="cost-row" style={{ fontSize: '14px', color: '#16a34a', fontWeight: '600' }}>
-                              <span className="cost-label">Discount ({formData.discountPercent}%)</span>
-                              <span className="cost-value">-{formatCurrency(breakdown.discountAmount)}</span>
-                            </div>
-                            <div className="cost-row" style={{ fontWeight: '600', borderTop: '1px solid #bbf7d0', paddingTop: '6px', marginTop: '6px', fontSize: '14px' }}>
-                              <span className="cost-label">Labor After Discount</span>
-                              <span className="cost-value">{formatCurrency(formData.laborCost)}</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Equipment */}
-                        {formData.equipmentCost > 0 && (
-                          <div style={{ marginBottom: '16px' }}>
-                            <p style={{ fontWeight: '600', marginBottom: '8px', fontSize: '14px' }}>Equipment Hire ({formData.equipmentDays} days)</p>
-
-                            {formData.dehumidifierCount > 0 && (
-                              <div className="cost-row" style={{ fontSize: '13px', paddingLeft: '12px' }}>
-                                <span className="cost-label">{formData.dehumidifierCount} × Dehumidifier × {formData.equipmentDays} days</span>
-                                <span className="cost-value">{formatCurrency(breakdown.dehumidifierCost)}</span>
-                              </div>
-                            )}
-
-                            {formData.airMoverCount > 0 && (
-                              <div className="cost-row" style={{ fontSize: '13px', paddingLeft: '12px' }}>
-                                <span className="cost-label">{formData.airMoverCount} × Air Mover × {formData.equipmentDays} days</span>
-                                <span className="cost-value">{formatCurrency(breakdown.airMoverCost)}</span>
-                              </div>
-                            )}
-
-                            {formData.rcdCount > 0 && (
-                              <div className="cost-row" style={{ fontSize: '13px', paddingLeft: '12px' }}>
-                                <span className="cost-label">{formData.rcdCount} × RCD × {formData.equipmentDays} days</span>
-                                <span className="cost-value">{formatCurrency(breakdown.rcdCost)}</span>
-                              </div>
-                            )}
-
-                            <div className="cost-row" style={{ fontWeight: '600', borderTop: '1px solid #e0e0e0', paddingTop: '6px', marginTop: '6px', fontSize: '14px' }}>
-                              <span className="cost-label">Equipment Total</span>
-                              <span className="cost-value">{formatCurrency(formData.equipmentCost)}</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Final Totals */}
-                        <div style={{ borderTop: '2px solid #374151', paddingTop: '12px' }}>
-                          <div className="cost-row">
-                            <span className="cost-label">Subtotal (Ex GST)</span>
-                            <span className="cost-value" style={{ fontWeight: '600' }}>{formatCurrency(formData.subtotal)}</span>
-                          </div>
-
-                          <div className="cost-row" style={{ fontSize: '13px', color: '#6b7280' }}>
-                            <span className="cost-label">GST (10%)</span>
-                            <span className="cost-value">{formatCurrency(formData.gst)}</span>
-                          </div>
-
-                          <div className="cost-row total" style={{ borderTop: '2px solid #22c55e', paddingTop: '12px', marginTop: '8px' }}>
-                            <span className="cost-label" style={{ fontSize: '20px', fontWeight: 'bold' }}>TOTAL (Inc GST)</span>
-                            <span className="cost-value" style={{ fontSize: '26px', fontWeight: 'bold', color: '#22c55e' }}>
-                              {formData.manualPriceOverride ? formatCurrency(formData.manualTotal) : formatCurrency(formData.totalCost)}
-                            </span>
-                          </div>
-                        </div>
-                      </>
-                    )
-                  })()}
-                </div>
-
-                {/* Manual Override */}
-                <div className="form-group" style={{ borderTop: '2px solid #e0e0e0', paddingTop: '20px', marginTop: '20px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                {/* Labor - EDITABLE */}
+                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid #e0e0e0' }}>
+                  <label className="form-label" style={{ fontWeight: '600', margin: 0 }}>Labor</label>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <span style={{ marginRight: '4px', fontSize: '16px' }}>$</span>
                     <input
-                      type="checkbox"
-                      checked={formData.manualPriceOverride}
-                      onChange={(e) => setFormData(prev => ({ ...prev, manualPriceOverride: e.target.checked }))}
-                      style={{ width: '20px', height: '20px' }}
+                      type="number"
+                      value={formData.laborCost || ''}
+                      onChange={(e) => handleCostChange('laborCost', parseFloat(e.target.value) || 0)}
+                      className="form-input"
+                      style={{ width: '140px', textAlign: 'right', padding: '8px 12px', fontSize: '16px' }}
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
                     />
-                    <span className="form-label" style={{ margin: 0 }}>Manual price override</span>
-                  </label>
-
-                  {formData.manualPriceOverride && (
-                    <div style={{ marginTop: '12px' }}>
-                      <label className="form-label">Override Total (Inc GST)</label>
-                      <input
-                        type="number"
-                        value={formData.manualTotal || ''}
-                        onChange={(e) => {
-                          // Allow typing - just update the value
-                          const value = parseFloat(e.target.value) || 0;
-                          setFormData(prev => ({ ...prev, manualTotal: value }));
-                        }}
-                        onBlur={(e) => {
-                          // Validate only when user finishes typing (loses focus)
-                          const value = parseFloat(e.target.value) || 0;
-                          const minAllowed = formData.totalCost * 0.87; // 13% cap enforcement
-
-                          // ENFORCE 13% cap - reset to minimum if below
-                          if (value > 0 && value < minAllowed) {
-                            alert(`❌ BLOCKED: Manual total cannot be below 13% discount cap.\n\nMinimum allowed: ${formatCurrency(minAllowed)}\nYou entered: ${formatCurrency(value)}\n\nThe 13% discount is the absolute maximum discount allowed by MRC pricing policy.\n\nResetting to minimum allowed value.`);
-                            // Reset to minimum allowed
-                            setFormData(prev => ({ ...prev, manualTotal: minAllowed }));
-                          }
-                        }}
-                        className="form-input"
-                        style={{ fontSize: '18px', fontWeight: 'bold', textAlign: 'right' }}
-                        step="0.01"
-                        placeholder={`Min: ${formatCurrency(formData.totalCost * 0.87)}`}
-                        min={formData.totalCost * 0.87}
-                      />
-                      <p style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px' }}>
-                        ⚠️ Minimum: {formatCurrency(formData.totalCost * 0.87)} (13% discount cap enforced)
-                      </p>
-                    </div>
-                  )}
+                  </div>
                 </div>
 
-                {/* 13% Cap Notice */}
-                {formData.discountPercent >= 13 && (
-                  <div style={{
-                    backgroundColor: '#dbeafe',
-                    border: '1px solid #60a5fa',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    marginTop: '16px'
-                  }}>
-                    <p style={{ margin: 0, fontSize: '14px', color: '#1e40af' }}>
-                      ℹ️ Maximum discount of 13% has been applied. This is the absolute discount cap.
-                    </p>
+                {/* Equipment Total - EDITABLE */}
+                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid #e0e0e0' }}>
+                  <label className="form-label" style={{ fontWeight: '600', margin: 0 }}>Equipment Total</label>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <span style={{ marginRight: '4px', fontSize: '16px' }}>$</span>
+                    <input
+                      type="number"
+                      value={formData.equipmentCost || ''}
+                      onChange={(e) => handleCostChange('equipmentCost', parseFloat(e.target.value) || 0)}
+                      className="form-input"
+                      style={{ width: '140px', textAlign: 'right', padding: '8px 12px', fontSize: '16px' }}
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                    />
                   </div>
-                )}
+                </div>
 
-                <div className="cost-note">
-                  <p>💡 Enter hours for each job type. Costs calculate automatically based on MRC pricing rules. Discount tiers: 0% (1-8h), 7.5% (9-16h), 10% (17-24h), 12% (25-32h), 13% cap (33h+).</p>
+                {/* Subtotal (Ex GST) - EDITABLE */}
+                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid #e0e0e0' }}>
+                  <label className="form-label" style={{ fontWeight: '600', margin: 0 }}>Subtotal (Ex GST)</label>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <span style={{ marginRight: '4px', fontSize: '16px' }}>$</span>
+                    <input
+                      type="number"
+                      value={formData.subtotalExGst || ''}
+                      onChange={(e) => handleSubtotalChange(parseFloat(e.target.value) || 0)}
+                      className="form-input"
+                      style={{ width: '140px', textAlign: 'right', padding: '8px 12px', fontSize: '16px' }}
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                {/* GST (10%) - READ ONLY */}
+                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderBottom: '1px solid #e0e0e0', backgroundColor: '#f9fafb', borderRadius: '8px', marginTop: '8px' }}>
+                  <label className="form-label" style={{ color: '#6b7280', margin: 0 }}>GST (10%)</label>
+                  <span style={{ fontWeight: '600', fontSize: '16px' }}>{formatCurrency(formData.gstAmount || 0)}</span>
+                </div>
+
+                {/* TOTAL (Inc GST) - READ ONLY */}
+                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', backgroundColor: '#f0fdf4', borderRadius: '8px', marginTop: '16px' }}>
+                  <label className="form-label" style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>TOTAL (Inc GST)</label>
+                  <span style={{ fontSize: '28px', fontWeight: 'bold', color: '#22c55e' }}>
+                    {formatCurrency(formData.totalIncGst || 0)}
+                  </span>
+                </div>
+
+                <div className="cost-note" style={{ marginTop: '16px' }}>
+                  <p style={{ fontSize: '14px', color: '#666', margin: 0 }}>
+                    💡 Edit Labor, Equipment, or Subtotal. GST (10%) and Total auto-calculate.
+                  </p>
                 </div>
               </div>
-            )}
-          </div>
+            )}          </div>
 
           {/* Navigation Buttons */}
           <div className="form-navigation">
