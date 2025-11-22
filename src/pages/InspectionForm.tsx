@@ -1017,6 +1017,15 @@ const InspectionForm = () => {
     }))
   }
 
+  // Wrappers for Labor and Equipment inputs
+  const handleLaborChange = (value: number) => {
+    handleCostChange('laborCost', value)
+  }
+
+  const handleEquipmentChange = (value: number) => {
+    handleCostChange('equipmentCost', value)
+  }
+
   // When Subtotal changes → recalculate GST and Total (don't change Labor/Equipment)
   const handleSubtotalChange = (subtotal: number) => {
     const gst = round(subtotal * 0.10)
@@ -1580,9 +1589,9 @@ const InspectionForm = () => {
       ...prev,
       laborCost: costResult.laborCost,
       equipmentCost: costResult.equipmentCost,
-      subtotal: costResult.subtotal,
-      gst: costResult.gst,
-      totalCost: costResult.total
+      subtotalExGst: costResult.subtotal,
+      gstAmount: costResult.gst,
+      totalIncGst: costResult.total
     }))
   }
 
@@ -3407,7 +3416,7 @@ const InspectionForm = () => {
                     <input
                       type="number"
                       value={formData.laborCost || ''}
-                      onChange={(e) => handleCostChange('laborCost', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => handleLaborChange(parseFloat(e.target.value) || 0)}
                       className="form-input"
                       style={{ width: '140px', textAlign: 'right', padding: '8px 12px', fontSize: '16px' }}
                       step="0.01"
@@ -3425,7 +3434,7 @@ const InspectionForm = () => {
                     <input
                       type="number"
                       value={formData.equipmentCost || ''}
-                      onChange={(e) => handleCostChange('equipmentCost', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => handleEquipmentChange(parseFloat(e.target.value) || 0)}
                       className="form-input"
                       style={{ width: '140px', textAlign: 'right', padding: '8px 12px', fontSize: '16px' }}
                       step="0.01"
@@ -3435,22 +3444,12 @@ const InspectionForm = () => {
                   </div>
                 </div>
 
-                {/* Subtotal (Ex GST) - EDITABLE */}
-                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid #e0e0e0' }}>
+                {/* Subtotal (Ex GST) - READ ONLY (auto-calculated) */}
+                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid #e0e0e0', borderTop: '2px solid #d1d5db', marginTop: '8px', paddingTop: '16px' }}>
                   <label className="form-label" style={{ fontWeight: '600', margin: 0 }}>Subtotal (Ex GST)</label>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <span style={{ marginRight: '4px', fontSize: '16px' }}>$</span>
-                    <input
-                      type="number"
-                      value={formData.subtotalExGst || ''}
-                      onChange={(e) => handleSubtotalChange(parseFloat(e.target.value) || 0)}
-                      className="form-input"
-                      style={{ width: '140px', textAlign: 'right', padding: '8px 12px', fontSize: '16px' }}
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                    />
-                  </div>
+                  <span style={{ fontWeight: '600', fontSize: '18px' }}>
+                    {formatCurrency(formData.subtotalExGst || 0)}
+                  </span>
                 </div>
 
                 {/* GST (10%) - READ ONLY */}
@@ -3469,7 +3468,7 @@ const InspectionForm = () => {
 
                 <div className="cost-note" style={{ marginTop: '16px' }}>
                   <p style={{ fontSize: '14px', color: '#666', margin: 0 }}>
-                    💡 Edit Labor, Equipment, or Subtotal. GST (10%) and Total auto-calculate.
+                    💡 Edit Labor or Equipment. Subtotal, GST (10%) and Total auto-calculate.
                   </p>
                 </div>
               </div>

@@ -128,8 +128,8 @@ export interface InspectionFormData {
   // Display Values (auto-calculated or manual)
   laborCost: number;
   equipmentCost: number;
-  subtotal: number;
-  gst: number;
-  totalCost: number;
+  subtotalExGst: number;
+  gstAmount: number;
+  totalIncGst: number;
   discountPercent: number;
 }
