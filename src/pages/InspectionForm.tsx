@@ -1026,28 +1026,75 @@ const InspectionForm = () => {
     handleCostChange('equipmentCost', value)
   }
 
-  // Recalculate Subtotal, GST, Total whenever Labor or Equipment changes (on load or edit)
+  // Equipment pricing (Ex GST per day)
+  const EQUIPMENT_RATES = {
+    dehumidifier: 132,
+    airMover: 46,
+    rcd: 5
+  }
+
+  // Recalculate Equipment, Subtotal, GST, Total when Labor or Equipment quantities change
   useEffect(() => {
+    // Calculate equipment cost from Work Procedure quantities
+    const dehuQty = formData.commercialDehumidifierQty || 0
+    const airQty = formData.airMoversQty || 0
+    const rcdQty = formData.rcdBoxQty || 0
+    const days = formData.estimatedDays || 1
+
+    const equipmentCost = round(
+      (dehuQty * EQUIPMENT_RATES.dehumidifier +
+       airQty * EQUIPMENT_RATES.airMover +
+       rcdQty * EQUIPMENT_RATES.rcd) * days
+    )
+
     const labor = formData.laborCost || 0
-    const equipment = formData.equipmentCost || 0
-    const subtotal = round(labor + equipment)
+    const subtotal = round(labor + equipmentCost)
     const gst = round(subtotal * 0.10)
     const total = round(subtotal + gst)
 
+    console.log('💰 COST RECALCULATION:', {
+      equipment: {
+        dehu: dehuQty,
+        air: airQty,
+        rcd: rcdQty,
+        days: days,
+        total: equipmentCost
+      },
+      labor,
+      subtotal,
+      gst,
+      total,
+      current: {
+        equipmentCost: formData.equipmentCost,
+        subtotalExGst: formData.subtotalExGst,
+        gstAmount: formData.gstAmount,
+        totalIncGst: formData.totalIncGst
+      }
+    })
+
     // Only update if values actually changed (prevent infinite loop)
     if (
+      formData.equipmentCost !== equipmentCost ||
       formData.subtotalExGst !== subtotal ||
       formData.gstAmount !== gst ||
       formData.totalIncGst !== total
     ) {
+      console.log('💰 UPDATING formData with new cost values')
       setFormData(prev => ({
         ...prev,
+        equipmentCost: equipmentCost,
         subtotalExGst: subtotal,
         gstAmount: gst,
         totalIncGst: total
       }))
     }
-  }, [formData.laborCost, formData.equipmentCost])
+  }, [
+    formData.laborCost,
+    formData.commercialDehumidifierQty,
+    formData.airMoversQty,
+    formData.rcdBoxQty,
+    formData.estimatedDays
+  ])
 
   // When Subtotal changes → recalculate GST and Total (don't change Labor/Equipment)
   const handleSubtotalChange = (subtotal: number) => {
@@ -1741,6 +1788,14 @@ const InspectionForm = () => {
         subtotal_ex_gst: formData.subtotalExGst || 0,
         gst_amount: formData.gstAmount || 0,
         total_inc_gst: formData.totalIncGst || 0
+      })
+
+      console.log('💰 SAVED COST VALUES:', {
+        laborCost: formData.laborCost,
+        equipmentCost: formData.equipmentCost,
+        subtotalExGst: formData.subtotalExGst,
+        gstAmount: formData.gstAmount,
+        totalIncGst: formData.totalIncGst
       })
 
       // Save all inspection areas
@@ -3446,22 +3501,18 @@ const InspectionForm = () => {
                   </div>
                 </div>
 
-                {/* Equipment Total - EDITABLE */}
-                <div className="form-group" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid #e0e0e0' }}>
-                  <label className="form-label" style={{ fontWeight: '600', margin: 0 }}>Equipment Total</label>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <span style={{ marginRight: '4px', fontSize: '16px' }}>$</span>
-                    <input
-                      type="number"
-                      value={formData.equipmentCost || ''}
-                      onChange={(e) => handleEquipmentChange(parseFloat(e.target.value) || 0)}
-                      className="form-input"
-                      style={{ width: '140px', textAlign: 'right', padding: '8px 12px', fontSize: '16px' }}
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
-                    />
+                {/* Equipment Total - AUTO-CALCULATED (READ ONLY) */}
+                <div className="form-group" style={{ padding: '16px 0', borderBottom: '1px solid #e0e0e0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label className="form-label" style={{ fontWeight: '600', margin: 0 }}>Equipment Total</label>
+                    <span style={{ fontWeight: '600', fontSize: '18px' }}>
+                      {formatCurrency(formData.equipmentCost || 0)}
+                    </span>
                   </div>
+                  <p style={{ fontSize: '12px', color: '#6b7280', margin: 0, lineHeight: '1.4' }}>
+                    {formData.commercialDehumidifierQty || 0} Dehu × $132 + {formData.airMoversQty || 0} Air × $46 + {formData.rcdBoxQty || 0} RCD × $5
+                    {(formData.estimatedDays || 1) > 1 ? ` × ${formData.estimatedDays} days` : ' × 1 day'}
+                  </p>
                 </div>
 
                 {/* Subtotal (Ex GST) - READ ONLY (auto-calculated) */}
@@ -3487,8 +3538,8 @@ const InspectionForm = () => {
                 </div>
 
                 <div className="cost-note" style={{ marginTop: '16px' }}>
-                  <p style={{ fontSize: '14px', color: '#666', margin: 0 }}>
-                    💡 Edit Labor or Equipment. Subtotal, GST (10%) and Total auto-calculate.
+                  <p style={{ fontSize: '14px', color: '#666', margin: 0, textAlign: 'center' }}>
+                    💡 Edit Labor above. Equipment auto-calculates from Work Procedure section (Dehumidifiers, Air Movers, RCD Boxes).
                   </p>
                 </div>
               </div>
