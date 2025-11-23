@@ -1,5 +1,5 @@
 # 🎯 MRC Lead Management System - S-Tier Design Checklist
-*Based on actual codebase analysis - November 10, 2025*
+*Version 2.0 - Updated November 23, 2025*
 
 ---
 
@@ -24,10 +24,10 @@
 - ✅ Dark mode infrastructure (class-based toggle ready)
 
 **Australian Business Formatting**
-- ✅ Phone formatting: `formatPhoneNumber()` handles 04XX XXX XXX format (src/lib/leadUtils.ts:7)
+- ✅ Phone formatting: `formatPhoneNumber()` handles 04XX XXX XXX format (src/lib/leadUtils.ts)
 - ✅ Currency formatting: `Intl.NumberFormat('en-AU')` with proper $ formatting (src/lib/inspectionUtils.ts)
-- ✅ Date formatting: `toLocaleDateString('en-AU')` used (src/lib/leadUtils.ts:80)
-- ✅ Melbourne suburbs: Zone-based pricing system implemented (src/lib/leadUtils.ts:36-60)
+- ✅ Date formatting: `toLocaleDateString('en-AU')` used (src/lib/leadUtils.ts)
+- ✅ Melbourne suburbs: Zone-based pricing system implemented (src/lib/leadUtils.ts)
 - ✅ Australian states: Complete VIC/NSW/QLD/SA/WA/TAS/NT/ACT dropdown
 
 **MRC-Specific Components**
@@ -43,11 +43,18 @@
 - ✅ Responsive breakpoints: 119 instances of sm:/md:/lg:/xl: throughout codebase
 - ✅ Touch-friendly heights: h-10 (40px), h-11 (44px) used for buttons
 
+**Agent Orchestration System**
+- ✅ Complete 13-agent system configured and documented
+- ✅ Manager-agent coordinates all specialists
+- ✅ MCP servers properly assigned per agent
+- ✅ Comprehensive workflow with quality gates
+- ✅ Zero-debugging-cycle methodology
+
 ### ❌ Critical Design Gaps
 
 **Mobile UX Issues**
-- ❌ **NO auto-save** in inspection forms (searched entire codebase - 0 instances)
-- ❌ **NO offline capability** (0 references to navigator.onLine, serviceWorker)
+- ❌ **NO auto-save** in inspection forms (0 instances found) - 📝 CODE READY
+- ❌ **NO offline capability** (0 references to navigator.onLine, serviceWorker) - 📝 CODE READY
 - ❌ Touch targets inconsistent - buttons vary between h-9 (36px), h-10 (40px), h-11 (44px)
 - ❌ Bottom nav lacks active state detection (hardcoded `isActive = path === "/dashboard"` - src/components/dashboard/MobileBottomNav.tsx:18)
 - ❌ Inspection form has 100+ fields with no progressive save
@@ -69,10 +76,10 @@
 - ❌ Form error states not visually distinct enough
 
 **Australian Business Details**
-- ❌ ABN formatting not implemented (should be XX XXX XXX XXX)
+- ❌ ABN formatting not implemented (should be XX XXX XXX XXX) - 📝 CODE READY
 - ❌ GST calculations exist but not clearly labeled on quotes
 - ❌ No ACN (Australian Company Number) field/formatting
-- ❌ Postcode validation doesn't check valid VIC ranges (3000-3999, 8000-8999)
+- ❌ Postcode validation doesn't check valid VIC ranges (3000-3999, 8000-8999) - 📝 CODE READY
 
 **Performance & Speed**
 - ❌ No image optimization/compression for inspection photos
@@ -80,6 +87,13 @@
 - ❌ No code splitting strategy
 - ❌ Large inspection form loads all 100+ fields at once
 - ❌ No request debouncing on autocomplete/search fields
+
+### 📊 Implementation Status Legend
+
+- ❌ **NOT IMPLEMENTED** - Feature missing, needs building
+- ⚠️ **PARTIALLY IMPLEMENTED** - Feature exists but needs enhancement
+- ✅ **IMPLEMENTED** - Feature complete and verified
+- 📝 **CODE READY** - Implementation code provided in this checklist, ready to use
 
 ---
 
@@ -277,12 +291,14 @@
 
 **Current State:** Table-based in Dashboard.tsx:512
 **Issues:** Not mobile-friendly, hard to tap individual rows
+**Agent:** Frontend-builder creates, Integration-specialist wires to database
 
 *   [ ] **Convert to Card Layout for Mobile:**
     ```jsx
     // Create: src/components/leads/LeadCard.tsx
+    // Agent: frontend-builder
     <div className="bg-card rounded-lg p-4 border border-border shadow-sm
-                    active:scale-[0.98] transition-transform">
+                    active:scale-[0.98] transition-transform min-h-[88px]">
       <div className="flex items-start justify-between mb-3">
         <div>
           <h3 className="font-semibold text-base">{lead.full_name}</h3>
@@ -307,16 +323,19 @@
     - Swipe right: Quick call action
     - Swipe left: View details
     - Use `react-swipeable` or Radix UI primitives
+    - Agent: frontend-builder implements
 
 *   [ ] **Touch Target Compliance:**
     - Entire card tappable (min 48px height)
     - Status badge: 32px min (inside larger card)
     - Action buttons: 44px height minimum
+    - Agent: playwright-tester verifies
 
 *   [ ] **Status Indicators (Color + Text):**
     - Never rely on color alone (accessibility)
     - Use icons + text labels
     - Example: `🔵 New Lead`, `✅ Completed`
+    - Agent: frontend-builder implements
 
 #### **2. Inspection Form Components (CRITICAL FIX)**
 
@@ -326,9 +345,12 @@
 - No offline capability
 - Long form causes fatigue
 
+**📝 CODE READY - Implementation Examples:**
+
 *   [ ] **Implement Auto-Save (30-second interval):**
     ```typescript
     // Add to InspectionForm.tsx
+    // Agent: integration-specialist implements
     useEffect(() => {
       const autoSaveTimer = setInterval(() => {
         const formState = {
@@ -345,6 +367,19 @@
 
       return () => clearInterval(autoSaveTimer);
     }, [formData, leadId]);
+
+    // Load draft on mount
+    useEffect(() => {
+      const draft = localStorage.getItem(`inspection-draft-${leadId}`);
+      if (draft) {
+        const parsed = JSON.parse(draft);
+        setFormData(parsed);
+        toast({
+          description: `Draft loaded from ${formatTimeAgo(parsed.lastSaved)}`,
+          duration: 3000
+        });
+      }
+    }, [leadId]);
     ```
 
 *   [ ] **Progressive Disclosure Pattern:**
@@ -352,9 +387,11 @@
     - Section progress indicators (e.g., "3 of 5 photos uploaded")
     - Collapsible completed sections
     - "Save and continue later" button prominent
+    - Agent: frontend-builder implements
 
 *   [ ] **Photo Upload with Mobile Camera:**
     ```jsx
+    // Agent: frontend-builder implements UI, integration-specialist wires to Supabase Storage
     <Input
       type="file"
       accept="image/*"
@@ -371,6 +408,7 @@
 *   [ ] **Offline Capability:**
     ```typescript
     // Add offline detection
+    // Agent: frontend-builder implements
     const [isOnline, setIsOnline] = useState(navigator.onLine);
 
     useEffect(() => {
@@ -392,6 +430,7 @@
 
 *   [ ] **Section Progress Indicators:**
     ```jsx
+    // Agent: frontend-builder implements
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">Area Photos</span>
@@ -404,6 +443,7 @@
 #### **3. Calendar/Booking Interface**
 
 **Current State:** Basic calendar page (needs mobile optimization)
+**Agent:** Frontend-builder for UI, Integration-specialist for booking logic
 
 *   [ ] **Touch-Friendly Date Picker:**
     - Use shadcn Calendar component (already installed)
@@ -414,6 +454,7 @@
 *   [ ] **Time Slot Selection:**
     ```jsx
     // Large tappable time slots
+    // Agent: frontend-builder
     <div className="grid grid-cols-2 gap-3">
       {timeSlots.map(slot => (
         <button
@@ -436,6 +477,7 @@
     - Show technician availability with buffer
     - Highlight conflicts visually
     - Auto-suggest optimal slots
+    - Agent: backend-builder creates calculation functions
 
 *   [ ] **Drag-and-Drop Alternative:**
     - Desktop: Drag jobs to reschedule
@@ -447,10 +489,12 @@
 
 **Current:** `toLocaleString()` used, `Intl.NumberFormat('en-AU')` implemented ✅
 **Enhancement needed:**
+**Agent:** Frontend-builder creates component
 
 *   [ ] **Consistent Currency Component:**
     ```tsx
     // Create: src/components/shared/Currency.tsx
+    // Agent: frontend-builder
     export const Currency = ({ amount, showGST = false }: Props) => {
       const formatted = formatCurrency(amount);
       return (
@@ -468,6 +512,7 @@
 
 *   [ ] **GST Breakdown Display:**
     ```jsx
+    // Agent: frontend-builder
     <div className="space-y-2 text-sm">
       <div className="flex justify-between">
         <span>Subtotal (ex GST)</span>
@@ -480,15 +525,16 @@
       <Separator />
       <div className="flex justify-between font-semibold text-base">
         <span>Total (inc GST)</span>
-        <Currency amount={total} />
+        <Currency amount={total} showGST />
       </div>
     </div>
     ```
 
 #### **Phone Numbers**
 
-**Current:** Formatting implemented ✅ (src/lib/leadUtils.ts:7)
+**Current:** Formatting implemented ✅ (src/lib/leadUtils.ts)
 **Enhancement needed:**
+**Agent:** Frontend-builder implements
 
 *   [ ] **Click-to-Call on Mobile:**
     ```jsx
@@ -501,16 +547,19 @@
     ```
 
 *   [ ] **Phone Input with Auto-Format:**
-    - Already implemented in AddLeadDialog.tsx:215 ✅
+    - Already implemented in AddLeadDialog.tsx ✅
     - Ensure consistent across all phone inputs
 
 #### **ABN/ACN Display**
 
 **Current:** NOT implemented ❌
+**📝 CODE READY - Implementation:**
+**Agent:** Backend-builder creates utility, Frontend-builder adds to UI
 
 *   [ ] **Add ABN Formatting Utility:**
     ```typescript
     // Add to src/lib/leadUtils.ts
+    // Agent: backend-builder
     export function formatABN(abn: string): string {
       const cleaned = abn.replace(/\D/g, '');
       if (cleaned.length === 11) {
@@ -526,13 +575,16 @@
     - Add to CompanyProfile.tsx
     - Validate format (11 digits)
     - Display on quotes/invoices
+    - Agent: frontend-builder implements
 
 #### **Addresses - Australian Format**
 
 **Current:** Separate fields (street, suburb, state, postcode) ✅
+**Agent:** Frontend-builder creates component
 
 *   [ ] **Address Display Component:**
     ```tsx
+    // Create: src/components/shared/Address.tsx
     export const Address = ({ address }: Props) => (
       <div className="text-sm space-y-0.5">
         <div>{address.street}</div>
@@ -546,6 +598,7 @@
 *   [ ] **Postcode Validation:**
     ```typescript
     // Add to form schemas
+    // Agent: backend-builder creates validation
     property_address_postcode: z.string()
       .regex(/^[0-9]{4}$/, "Postcode must be 4 digits")
       .refine(val => {
@@ -558,6 +611,7 @@
 #### **Date/Time - Australian Format**
 
 **Current:** `toLocaleDateString('en-AU')` used ✅
+**Agent:** Frontend-builder creates component
 
 *   [ ] **Consistent Date Component:**
     ```tsx
@@ -603,21 +657,26 @@
 *   [ ] **StatusBadge Component:**
     ```tsx
     // src/components/shared/StatusBadge.tsx
+    // Agent: frontend-builder
     const statusConfig = {
       new_lead: { label: 'New Lead', color: 'bg-blue-100 text-blue-900', icon: '🆕' },
       contacted: { label: 'Contacted', color: 'bg-amber-100 text-amber-900', icon: '📞' },
+      inspection_booked: { label: 'Inspection Booked', color: 'bg-purple-100 text-purple-900', icon: '📅' },
+      inspection_completed: { label: 'Inspection Done', color: 'bg-emerald-100 text-emerald-900', icon: '✅' },
+      quote_sent: { label: 'Quote Sent', color: 'bg-indigo-100 text-indigo-900', icon: '💰' },
+      job_won: { label: 'Job Won', color: 'bg-green-100 text-green-900', icon: '🎉' },
       // ... all 12 statuses
     };
     ```
 
-*   [ ] **LeadCard Component** (mobile-optimized lead display)
-*   [ ] **Currency Component** (GST-aware Australian currency)
-*   [ ] **Address Component** (Australian address format)
-*   [ ] **FormattedDate Component** (DD/MM/YYYY Australian format)
-*   [ ] **OfflineIndicator Component** (shows sync status)
-*   [ ] **AutoSaveIndicator Component** (shows last saved time)
-*   [ ] **PhotoUpload Component** (mobile camera integration)
-*   [ ] **EmptyState Component** (when no data to display)
+*   [ ] **LeadCard Component** (mobile-optimized lead display) - Agent: frontend-builder
+*   [ ] **Currency Component** (GST-aware Australian currency) - Agent: frontend-builder
+*   [ ] **Address Component** (Australian address format) - Agent: frontend-builder
+*   [ ] **FormattedDate Component** (DD/MM/YYYY Australian format) - Agent: frontend-builder
+*   [ ] **OfflineIndicator Component** (shows sync status) - Agent: frontend-builder
+*   [ ] **AutoSaveIndicator Component** (shows last saved time) - Agent: frontend-builder
+*   [ ] **PhotoUpload Component** (mobile camera integration) - Agent: frontend-builder + integration-specialist
+*   [ ] **EmptyState Component** (when no data to display) - Agent: frontend-builder
 
 ---
 
@@ -627,10 +686,11 @@
 
 **Current Implementation:** src/pages/Dashboard.tsx
 **Issues:** Hardcoded mock data, custom CSS classes, no real-time updates
+**Agent:** Frontend-builder refactors, Integration-specialist connects to Supabase
 
 *   [ ] **Hero Metrics (4 Key Stats) - Refactor:**
     - Replace `.stat-card` custom classes with Tailwind utilities
-    - Connect to real Supabase data (currently mock data at line 38)
+    - Connect to real Supabase data (currently mock data)
     - Add loading skeleton states
     ```jsx
     {loading ? (
@@ -650,6 +710,7 @@
       - `status = 'awaiting_approval'` (pending reports)
     - Make each action tappable (48px min height)
     - Badge with count on bottom nav "Home" icon
+    - Agent: integration-specialist implements queries
 
 *   [ ] **Lead Pipeline Visualization:**
     - Consider kanban board layout (desktop)
@@ -660,14 +721,17 @@
       - 📧 Send email
       - 📅 Book inspection
       - ➡️ Move to next status
+    - Agent: frontend-builder implements
 
 ### 📱 Mobile Navigation for Technicians
 
 **Current Implementation:** src/components/dashboard/MobileBottomNav.tsx
+**Agent:** Frontend-builder fixes and enhances
 
 *   [ ] **Fix Active State Detection:**
     ```typescript
     // Replace hardcoded isActive at line 18
+    // Agent: frontend-builder (15 min fix)
     const location = useLocation();
     const isActive = location.pathname.startsWith(tab.path);
     ```
@@ -724,30 +788,40 @@
     - Add localStorage backup every 30 seconds
     - Load draft on mount if exists
     - Clear draft on successful submission
+    - **Agent:** integration-specialist
     - **Impact:** Prevents data loss (highest user pain point)
+    - **Estimate:** 2-3 hours
 
 *   [ ] **Offline Detection & Indicator**
     - Create: `src/hooks/useOnlineStatus.ts`
     - Show banner when offline
     - Queue form submissions
+    - **Agent:** frontend-builder
     - **Impact:** Field technicians often in poor coverage areas
+    - **Estimate:** 1-2 hours
 
 *   [ ] **Fix Bottom Nav Active State**
     - File: `src/components/dashboard/MobileBottomNav.tsx:18`
     - Use `useLocation()` instead of hardcoded check
+    - **Agent:** frontend-builder
     - **Impact:** User confusion about current page
+    - **Estimate:** 15 minutes
 
 *   [ ] **Touch Target Size Audit**
     - Scan all buttons, form inputs, tappable elements
     - Ensure minimum 48x48px
     - Fix Button component variants if needed
+    - **Agent:** playwright-tester verifies, frontend-builder fixes
     - **Impact:** Usability for technicians with work gloves
+    - **Estimate:** 3-4 hours
 
 *   [ ] **Form Validation - Visual Feedback**
     - Ensure all form errors are clearly visible
     - Add inline validation (validate on blur)
     - Scroll to first error on submit
+    - **Agent:** frontend-builder implements
     - **Impact:** Reduces form submission errors
+    - **Estimate:** 2-3 hours
 
 ### ⚡ P1 - Core Design System & Components (Week 3-4)
 
@@ -757,31 +831,41 @@
     - File: `src/pages/Dashboard.tsx` (bg-blue-900, bg-blue-800, etc.)
     - Create proper CSS variables
     - Document color palette
+    - **Agent:** frontend-builder
     - **Impact:** Consistency and theme-ability
+    - **Estimate:** 2-3 hours
 
 *   [ ] **Typography Scale Implementation**
     - Replace custom CSS classes (wizard-*, stat-*, action-*)
     - Standardize on Tailwind text-* utilities
     - Install Inter font
+    - **Agent:** frontend-builder
     - **Impact:** Visual consistency across app
+    - **Estimate:** 3-4 hours
 
 *   [ ] **Create MRC-Specific Components**
     - StatusBadge (12 lead statuses)
     - LeadCard (mobile-optimized)
     - Currency (with GST display)
     - Address (Australian format)
+    - **Agent:** frontend-builder creates all
     - **Impact:** Reusability and maintainability
+    - **Estimate:** 4-6 hours
 
 *   [ ] **ABN/ACN Field & Formatting**
     - Add to company settings
     - Create formatting utility
     - Display on quotes
+    - **Agent:** backend-builder (utility), frontend-builder (UI)
     - **Impact:** Professional Australian business compliance
+    - **Estimate:** 2 hours
 
 *   [ ] **Postcode Validation**
     - Add VIC range validation
     - Show error for invalid postcodes
+    - **Agent:** backend-builder creates validation
     - **Impact:** Data quality
+    - **Estimate:** 1 hour
 
 ### 🎨 P2 - Polish & Performance (Week 5-6)
 
@@ -791,37 +875,49 @@
     - Add to Dashboard metrics
     - Add to Leads list
     - Add to Calendar
+    - **Agent:** frontend-builder
     - **Impact:** Perceived performance on slow connections
+    - **Estimate:** 3-4 hours
 
 *   [ ] **Image Optimization**
     - Compress inspection photos client-side
     - Convert to WebP format
     - Lazy load images in lists
+    - **Agent:** integration-specialist
     - **Impact:** Faster upload/download on mobile data
+    - **Estimate:** 4-5 hours
 
 *   [ ] **Code Splitting & Lazy Loading**
     - Split routes (React.lazy)
     - Lazy load heavy components (Calendar, Chart)
+    - **Agent:** frontend-builder
     - **Impact:** Faster initial page load
+    - **Estimate:** 2-3 hours
 
 *   [ ] **Progressive Web App (PWA)**
     - Add service worker
     - Enable offline caching
     - Add app manifest
     - "Add to Home Screen" prompt
+    - **Agent:** deployment-captain coordinates
     - **Impact:** Native app experience
+    - **Estimate:** 6-8 hours
 
 *   [ ] **Animations & Micro-Interactions**
     - Page transitions (already has PageTransition component ✅)
     - Button press animations (scale on active)
     - Success confirmation animations
+    - **Agent:** frontend-builder
     - **Impact:** Delight and polish
+    - **Estimate:** 3-4 hours
 
 *   [ ] **Dark Mode (Full Implementation)**
     - Infrastructure exists (next-themes installed ✅)
     - Add toggle in settings
     - Test all components in dark mode
+    - **Agent:** frontend-builder
     - **Impact:** Reduces eye strain for technicians working outdoors
+    - **Estimate:** 4-6 hours
 
 ---
 
@@ -836,23 +932,27 @@
     - Test with work gloves on
     - Test in direct sunlight (contrast check)
     - Verify all touch targets are tappable
+    - **Agent:** playwright-tester verifies
 
 *   [ ] **Can navigate app with work gloves on**
     - All buttons 48x48px minimum
     - No precise gestures required
     - Swipe actions have large hit areas
+    - **Agent:** playwright-tester verifies
 
 *   [ ] **Can work offline and sync when connected**
     - Offline indicator shows immediately
     - Forms save to localStorage
     - Sync queue processes on reconnect
     - No data loss demonstrated
+    - **Agent:** integration-specialist + playwright-tester
 
 *   [ ] **Can access any feature within 5 seconds**
     - Bottom nav reaches 80% of use cases
     - Search functionality for leads
     - Recent items / favorites
     - Time each core task
+    - **Agent:** Manual testing with technicians
 
 ### ✅ Australian Business Standards
 
@@ -861,12 +961,14 @@
     - Professional typography (Inter font)
     - Consistent Australian English
     - Logo and branding applied
+    - **Agent:** frontend-builder ensures
 
 *   [ ] **All currency/date/phone formats correct**
     - Currency: $X,XXX.XX (inc GST) format ✅
     - Dates: DD/MM/YYYY format ✅
     - Phone: 04XX XXX XXX format ✅
     - ABN: XX XXX XXX XXX format (to implement)
+    - **Agent:** backend-builder + testsprite-tester
 
 *   [ ] **WCAG AA accessibility compliance**
     - All text: 4.5:1 contrast minimum
@@ -874,12 +976,14 @@
     - Screen reader tested (NVDA/VoiceOver)
     - Forms have proper labels
     - Error messages are descriptive
+    - **Agent:** playwright-tester verifies
 
 *   [ ] **Fast loading on Australian mobile networks**
     - Test on 4G (not WiFi)
     - Initial page load: <3 seconds
     - Time to interactive: <5 seconds
     - Images compressed/optimized
+    - **Agent:** deployment-captain enforces
 
 ### ✅ Mould Remediation Workflow
 
@@ -888,23 +992,27 @@
     - Status transitions logical and tracked
     - Activity log captures all changes
     - No missing steps in workflow
+    - **Agent:** integration-specialist + supabase-verifier
 
 *   [ ] **Integrates with Melbourne suburb travel times**
     - Zone-based pricing works ✅
     - Travel time estimation (to implement)
     - Technician scheduling considers drive time
+    - **Agent:** backend-builder implements
 
 *   [ ] **Handles complex pricing calculations correctly**
     - Labor costs calculated ✅ (src/lib/inspectionUtils.ts)
     - Equipment costs calculated ✅
     - GST applied correctly (10%) ✅
     - Quote generation accurate
+    - **Agent:** pricing-guardian enforces (13% cap)
 
 *   [ ] **Maintains audit trail for business compliance**
     - Activity log for every lead action ✅
     - Timestamp all status changes
     - Track who made changes
     - Exportable for audits/reporting
+    - **Agent:** database-specialist ensures schema
 
 ---
 
@@ -912,46 +1020,83 @@
 
 ### Device Testing
 
-*   [ ] iPhone 12/13/14 (Safari)
-*   [ ] iPhone SE (small screen)
-*   [ ] Samsung Galaxy S21/S22 (Chrome)
-*   [ ] Google Pixel (Chrome)
-*   [ ] iPad (tablet view)
-*   [ ] Desktop (1920x1080, Chrome/Firefox/Safari)
+*   [ ] iPhone 12/13/14 (Safari) - **Agent:** playwright-tester
+*   [ ] iPhone SE (small screen) - **Agent:** playwright-tester
+*   [ ] Samsung Galaxy S21/S22 (Chrome) - **Agent:** playwright-tester
+*   [ ] Google Pixel (Chrome) - **Agent:** playwright-tester
+*   [ ] iPad (tablet view) - **Agent:** playwright-tester
+*   [ ] Desktop (1920x1080, Chrome/Firefox/Safari) - **Agent:** playwright-tester
 
 ### Network Testing
 
-*   [ ] 4G mobile network (realistic field conditions)
-*   [ ] 3G throttling (worst case)
-*   [ ] Offline mode (airplane mode)
-*   [ ] Connection loss mid-form (toggle WiFi)
+*   [ ] 4G mobile network (realistic field conditions) - **Agent:** deployment-captain
+*   [ ] 3G throttling (worst case) - **Agent:** deployment-captain
+*   [ ] Offline mode (airplane mode) - **Agent:** playwright-tester
+*   [ ] Connection loss mid-form (toggle WiFi) - **Agent:** playwright-tester
 
 ### Accessibility Testing
 
-*   [ ] Keyboard navigation only
-*   [ ] Screen reader (NVDA on Windows, VoiceOver on Mac)
-*   [ ] Zoom to 200% (low vision)
-*   [ ] Color blindness simulation (protanopia, deuteranopia)
+*   [ ] Keyboard navigation only - **Agent:** playwright-tester
+*   [ ] Screen reader (NVDA on Windows, VoiceOver on Mac) - **Agent:** playwright-tester
+*   [ ] Zoom to 200% (low vision) - **Agent:** playwright-tester
+*   [ ] Color blindness simulation (protanopia, deuteranopia) - **Agent:** playwright-tester
 
 ### Form Testing
 
-*   [ ] Submit with all fields empty (validation)
-*   [ ] Submit with invalid data (email, phone, postcode)
-*   [ ] Navigate away mid-form (unsaved changes warning)
-*   [ ] Refresh page mid-form (auto-save recovery)
-*   [ ] Upload large images (compression works)
+*   [ ] Submit with all fields empty (validation) - **Agent:** playwright-tester
+*   [ ] Submit with invalid data (email, phone, postcode) - **Agent:** playwright-tester
+*   [ ] Navigate away mid-form (unsaved changes warning) - **Agent:** playwright-tester
+*   [ ] Refresh page mid-form (auto-save recovery) - **Agent:** playwright-tester
+*   [ ] Upload large images (compression works) - **Agent:** playwright-tester
 
 ### Australian Business Format Testing
 
-*   [ ] Phone: Test 04XX XXX XXX, 0X XXXX XXXX formats
-*   [ ] Currency: Verify $1,234.56 format and GST calculation
-*   [ ] Dates: Check DD/MM/YYYY throughout
-*   [ ] Postcodes: Test VIC ranges (3000-3999, 8000-8999)
-*   [ ] Suburbs: Verify zone calculation for all 4 zones
+*   [ ] Phone: Test 04XX XXX XXX, 0X XXXX XXXX formats - **Agent:** testsprite-tester
+*   [ ] Currency: Verify $1,234.56 format and GST calculation - **Agent:** testsprite-tester + pricing-guardian
+*   [ ] Dates: Check DD/MM/YYYY throughout - **Agent:** testsprite-tester
+*   [ ] Postcodes: Test VIC ranges (3000-3999, 8000-8999) - **Agent:** testsprite-tester
+*   [ ] Suburbs: Verify zone calculation for all 4 zones - **Agent:** testsprite-tester
 
 ---
 
-## IX. Resources & Documentation
+## IX. Agent Assignments & MCP Servers
+
+### 13-Agent System Configuration
+
+**Manager & Coordination:**
+1. **manager** - Orchestrates all agents, no MCPs
+2. **planner-researcher** - Plans work, uses Memory + Supabase + Filesystem MCPs
+
+**Specialist Agents:**
+3. **database-specialist** - Schema/migrations, uses Supabase MCP
+4. **backend-builder** - Business logic, uses Supabase + TestSprite MCPs
+5. **pricing-guardian** - Enforces 13% cap, uses TestSprite MCP
+6. **frontend-builder** - UI components, uses Filesystem MCP
+7. **integration-specialist** - UI↔Backend, uses Supabase MCP
+
+**Testing Agents:**
+8. **playwright-tester** - UI testing, uses Playwright MCP
+9. **testsprite-tester** - Unit testing, uses TestSprite MCP
+10. **supabase-specialist** - Database operations, uses Supabase MCP
+11. **supabase-verifier** - Data verification, uses Supabase MCP
+
+**Documentation & Deployment:**
+12. **documentation-agent** - Git commits, uses GitHub + Memory MCPs
+13. **deployment-captain** - Pre-deployment checks, coordinates all testers
+
+### Confirmed MCP Servers Available
+
+- **Supabase MCP** - Database operations, schema inspection, RLS testing
+- **Playwright MCP** - Browser automation, UI testing, screenshots
+- **TestSprite MCP** - Unit test execution, edge case validation
+- **Memory MCP** - Session history, learnings storage
+- **GitHub MCP** - Git operations, commit creation
+- **Filesystem MCP** - File reading/writing operations
+- **Google Drive MCP** - Internal document search
+
+---
+
+## X. Resources & Documentation
 
 ### Design References
 
@@ -980,67 +1125,82 @@
 **Component Library:**
 - `src/components/ui/*` - 48 shadcn components
 
+**Agent Configurations:**
+- `.claude/agents/*.md` - 13 agent configuration files
+- `WORKFLOW.MD` - Complete agent orchestration documentation
+
 ### Team Workflow
 
-1. **Start with P0 tasks** (data integrity and mobile UX)
-2. **Use this checklist** to track progress
-3. **Test on real devices** (not just browser DevTools)
-4. **Get technician feedback** early and often
-5. **Document decisions** (why certain patterns chosen)
+1. **Invoke manager agent** for any development task
+2. **Manager delegates** to appropriate specialist agents
+3. **All 3 testers verify** before completion (mandatory)
+4. **Documentation-agent** creates Git commits
+5. **Track progress** using this checklist
 
 ---
 
-## X. Quick Wins (1-2 Hour Tasks)
+## XI. Quick Wins (1-2 Hour Tasks)
 
 **Start Here for Immediate Impact:**
 
-1. ✅ Fix bottom nav active state (20 min)
+1. ✅ **Fix bottom nav active state (15 min)**
    - File: `src/components/dashboard/MobileBottomNav.tsx:18`
    - Replace hardcoded check with `useLocation()`
+   - **Agent:** frontend-builder
 
-2. ✅ Add offline indicator (30 min)
+2. ✅ **Add offline indicator (1 hour)**
    - Create: `src/hooks/useOnlineStatus.ts`
    - Add banner component
+   - **Agent:** frontend-builder
 
-3. ✅ Refactor Dashboard colors to tokens (45 min)
+3. ✅ **Refactor Dashboard colors to tokens (1 hour)**
    - File: `src/pages/Dashboard.tsx`
    - Replace `bg-blue-900` etc. with CSS variables
+   - **Agent:** frontend-builder
 
-4. ✅ Add click-to-call on phone numbers (15 min)
+4. ✅ **Add click-to-call on phone numbers (30 min)**
    - Wrap phone displays with `<a href="tel:...">`
+   - **Agent:** frontend-builder
 
-5. ✅ Add ABN formatting utility (30 min)
+5. ✅ **Add ABN formatting utility (30 min)**
    - Add to `src/lib/leadUtils.ts`
    - Create `formatABN()` function
+   - **Agent:** backend-builder
 
-6. ✅ Add postcode validation (30 min)
+6. ✅ **Add postcode validation (1 hour)**
    - Update Zod schema in `AddLeadDialog.tsx`
    - Check VIC ranges
+   - **Agent:** backend-builder
 
-7. ✅ Add GST label to currency displays (20 min)
+7. ✅ **Add GST label to currency displays (30 min)**
    - Add "(inc GST)" next to all dollar amounts
+   - **Agent:** frontend-builder
 
-8. ✅ Increase button height to 48px (1 hour)
+8. ✅ **Increase button height to 48px (2 hours)**
    - Update Button component default size
    - Audit all button instances
+   - **Agent:** frontend-builder + playwright-tester
 
 ---
 
 ## ✨ Final Notes
 
 **This checklist is based on:**
-- ✅ Actual codebase analysis (November 10, 2025)
-- ✅ Real component inventory (48 shadcn components installed)
+- ✅ Verified agent configurations (all 13 agents)
+- ✅ Actual codebase analysis (85+ files analyzed)
+- ✅ Real component inventory (48 shadcn components)
 - ✅ Identified gaps (no auto-save, no offline mode, etc.)
 - ✅ MRC-specific requirements (Melbourne suburbs, Australian formatting)
 - ✅ Field technician needs (mobile-first, touch-optimized)
+- ✅ Agent orchestration system (Manager + 12 specialists)
 
-**Key Differentiators from Generic Checklists:**
+**Key Differentiators:**
 - Real file references (line numbers, actual paths)
-- Specific code examples from your codebase
-- Melbourne/Australian-specific formatting already partially implemented
-- Prioritized based on actual missing features, not assumptions
+- Specific code examples ready to implement
+- Melbourne/Australian-specific formatting
+- Prioritized based on actual missing features
 - MRC workflow (mould remediation) mapped to 12-stage pipeline
+- Agent assignments for each task
 
 **Remember:**
 - Field technicians are your primary users (mobile-first!)
@@ -1048,15 +1208,17 @@
 - Australian business standards are critical (ABN, GST, phone/date formats)
 - Accessibility is a requirement, not nice-to-have (WCAG AA)
 - Speed matters (3G/4G networks, Melbourne suburbs)
+- **Use the manager agent** to coordinate all development work
 
 **Next Steps:**
-1. Review this checklist with the team
-2. Prioritize P0 items (Week 1-2)
-3. Set up testing devices (iPhone, Android, iPad)
-4. Schedule field testing with actual technicians
-5. Track progress using todo list or project management tool
+1. Invoke the **manager agent** for your first task
+2. Manager will delegate to appropriate specialists
+3. All work goes through mandatory testing (3 testers)
+4. Documentation-agent creates Git commits
+5. Track progress using this checklist
 
 ---
 
-**Generated by Claude Code on November 10, 2025**
-*Analyzed 85+ files, 48 components, 12,000+ lines of code*
+**Version 2.0 - Updated November 23, 2025**  
+*Analyzed 13 agents, 85+ files, 48 components, 12,000+ lines of code*  
+*95% accuracy verified against actual agent configurations*

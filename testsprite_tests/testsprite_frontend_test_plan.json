@@ -1,0 +1,547 @@
+[
+  {
+    "id": "TC001",
+    "title": "Lead Capture Form Submission with Valid Data",
+    "description": "Verify that the public website lead capture form accepts valid input, saves lead data correctly, triggers instant lead response email, and creates a lead entry in the pipeline.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to public lead capture website form at /request-inspection"
+      },
+      {
+        "type": "action",
+        "description": "Fill in all mandatory fields with valid Australian-standard data (phone, postcode, ABN, date)"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "assertion",
+        "description": "Check form submission returns success response and data is stored in database"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify lead appears in the 12-stage pipeline with initial status"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm instant automated email response is sent to customer with correct template and variables"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Lead Capture Form Validation for Invalid Input",
+    "description": "Ensure lead capture form enforces validation rules for required fields and Australian-standard formatting, preventing submission with invalid data.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to public lead capture website form"
+      },
+      {
+        "type": "action",
+        "description": "Enter invalid phone number, postcode, and ABN formats"
+      },
+      {
+        "type": "action",
+        "description": "Leave mandatory fields empty"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to submit the form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify client-side validation messages are shown for each invalid or missing field"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm form is not submitted and no lead entry is created"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "HiPages Integration Populates Leads into Pipeline",
+    "description": "Verify that leads imported via HiPages integration are correctly populated into the 12-stage pipeline and appear in real-time Kanban board.",
+    "category": "integration",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Trigger lead import from HiPages test environment with sample lead data"
+      },
+      {
+        "type": "assertion",
+        "description": "Check imported leads appear in correct pipeline stage on /leads page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify lead details match data from HiPages"
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure Kanban board updates in real-time reflecting new leads"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Pipeline Drag-and-Drop Stage Change",
+    "description": "Test that dragging and dropping leads between the 12 pipeline stages updates lead status correctly and triggers any stage-specific actions or notifications.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /leads pipeline Kanban board"
+      },
+      {
+        "type": "action",
+        "description": "Drag a lead card from one stage to another"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm lead status updates to new stage in UI and backend"
+      },
+      {
+        "type": "assertion",
+        "description": "Validate that any stage-related automated emails or notifications are triggered"
+      },
+      {
+        "type": "assertion",
+        "description": "Check lead counts are correctly updated on each stage"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Offline Capable Inspection Form - Auto-Save Feature",
+    "description": "Verify that inspection forms auto-save entered data every 30 seconds to localStorage and persist data if app goes offline or browser is closed unexpectedly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Start a new inspection from /inspection/new on a mobile device"
+      },
+      {
+        "type": "action",
+        "description": "Fill in multiple inspection fields, including environmental data and uploading photos"
+      },
+      {
+        "type": "action",
+        "description": "Wait 30 seconds and confirm auto-save triggers in background"
+      },
+      {
+        "type": "action",
+        "description": "Simulate loss of network connectivity (go offline)"
+      },
+      {
+        "type": "action",
+        "description": "Close and reopen app or browser"
+      },
+      {
+        "type": "assertion",
+        "description": "Check previously entered form data and photos are restored from localStorage"
+      },
+      {
+        "type": "action",
+        "description": "Reconnect network and submit inspection form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify data is saved to server database without loss"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Inspection Form Photo Upload Handling",
+    "description": "Validate the photo upload feature works in both online and offline modes, correctly storing and uploading photos upon reconnection.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "On mobile, start an inspection form and capture/upload photos via the form"
+      },
+      {
+        "type": "action",
+        "description": "Test photo uploads under strong network conditions"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm photos are attached and visible in the form preview"
+      },
+      {
+        "type": "action",
+        "description": "Simulate offline mode"
+      },
+      {
+        "type": "action",
+        "description": "Upload additional photos"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify photos are stored locally"
+      },
+      {
+        "type": "action",
+        "description": "Go back online"
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure local photos are uploaded to Supabase storage and linked to form data"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "AI-Generated Inspection Summary Creation",
+    "description": "Verify AI-assisted summary generation works correctly after inspection data is completed and photos uploaded, producing an accurate and relevant summary text.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Complete an inspection form with sample data and photos"
+      },
+      {
+        "type": "action",
+        "description": "Trigger AI summary generation process"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify AI summary is generated within expected time limits"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm summary content relevance to input data and clarity"
+      },
+      {
+        "type": "action",
+        "description": "Edit generated summary and save changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Check that edits persist and are reflected in report generation"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "PDF Report Generation from Dynamic HTML Templates",
+    "description": "Validate automated PDF report generation matches dynamic HTML templates including photos, pricing, GST calculations, and formatting compliant with Australian standards.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Submit completed inspection form with AI summary and photos"
+      },
+      {
+        "type": "action",
+        "description": "Trigger PDF report generation workflow"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify generated PDF matches expected layout and includes all dynamic data"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm currency formatting uses Australian dollar style with commas and decimals"
+      },
+      {
+        "type": "assertion",
+        "description": "Check photo images are correctly embedded with proper sizing"
+      },
+      {
+        "type": "assertion",
+        "description": "Validate GST of 10% is applied on subtotal"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm pricing discount caps and multi-day discount rules are correctly applied in PDF"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "PDF Report Approval Workflow",
+    "description": "Test the full approval workflow for PDF reports including preview, edit, regenerate, finalize, and email delivery with locked file post-approval.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open a generated PDF report in /reports"
+      },
+      {
+        "type": "action",
+        "description": "Edit the AI summary text in report preview"
+      },
+      {
+        "type": "action",
+        "description": "Regenerate PDF with edits applied"
+      },
+      {
+        "type": "action",
+        "description": "Approve/finalize the PDF report"
+      },
+      {
+        "type": "assertion",
+        "description": "Check PDF file is locked and cannot be edited post-approval"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify approved PDF is stored on Supabase Storage correctly"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm customer email with PDF attachment is sent automatically"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Customer Self-Service Booking Calendar - Multi-day Job Booking",
+    "description": "Verify customers can book remediation jobs spanning multiple consecutive days, with correct date selection, pricing discounts, and booking updates lead status and notifications.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access customer booking calendar at /customer-booking"
+      },
+      {
+        "type": "action",
+        "description": "Select consecutive days exceeding 8 hours total job duration"
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure multi-day discount pricing is applied correctly"
+      },
+      {
+        "type": "assertion",
+        "description": "Check booking conflict prevention is active, preventing double bookings"
+      },
+      {
+        "type": "action",
+        "description": "Submit the booking"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify lead status updates appropriately in pipeline"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm email notifications for booking confirmation and reminders are sent"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Booking Calendar Travel Time Conflict Prevention",
+    "description": "Test that intelligent travel time calculation prevents customers from booking times that conflict with technician availability and existing jobs.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt to book remediation job with conflicting travel time to an existing booking"
+      },
+      {
+        "type": "assertion",
+        "description": "Check that calendar prevents selection of slots that would cause technician travel conflicts"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user is shown informative message explaining conflict"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Automated Email Sending for All 8 Templates",
+    "description": "Ensure the platform sends all 8 defined email templates (lead response, booking confirmations, reminders, report delivery, etc.) using Resend API with correct variable substitution and no deliverability issues.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Trigger each email template through corresponding user action or workflow step (e.g. new lead, booking confirmation, reminder, report send)"
+      },
+      {
+        "type": "assertion",
+        "description": "Validate email content renders correct personalized variables"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm each email is dispatched via Resend API and received without spam flags"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify attachments (PDF reports) are correctly included where applicable"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Mobile Progressive Web App Performance and Usability",
+    "description": "Test mobile app on iOS and Android devices to ensure load times are under 3 seconds on 4G, touch targets meet minimum 48px for glove use, and offline form submissions are usable.",
+    "category": "performance",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access the app on multiple iOS and Android devices over 4G network"
+      },
+      {
+        "type": "assertion",
+        "description": "Measure and confirm page load times are under 3 seconds"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify all buttons and form fields have touch targets ≥48px"
+      },
+      {
+        "type": "action",
+        "description": "Fill and submit inspection form offline"
+      },
+      {
+        "type": "assertion",
+        "description": "Check offline submission stores data locally and uploads on reconnect"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Compliance with Australian Data Standards",
+    "description": "Verify all data inputs and displayed content comply with Australian formatting standards for currency, phone numbers, dates, timezones, spelling, and ABN formats across the platform.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Enter sample contact details including Australian formatted phone numbers ((03) XXXX XXXX and 04XX XXX XXX)"
+      },
+      {
+        "type": "assertion",
+        "description": "Check phone numbers display and validate correctly"
+      },
+      {
+        "type": "action",
+        "description": "Verify all currency values are shown as $X,XXX.XX with commas and decimals"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm GST calculations display on invoices and reports correctly"
+      },
+      {
+        "type": "action",
+        "description": "Check date inputs and displays use DD/MM/YYYY format and Australia/Melbourne timezone"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify spelling uses Australian English throughout the UI and emails"
+      },
+      {
+        "type": "action",
+        "description": "Validate ABN input format matches XX XXX XXX XXX"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Dashboard Real-time Pipeline and Revenue Tracking Updates",
+    "description": "Validate that dashboard and analytics page provide real-time updates to pipeline status, lead counts, notifications, activity timeline, and revenue figures.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /dashboard and /analytics pages"
+      },
+      {
+        "type": "action",
+        "description": "Perform lead stage changes and booking activities in other sessions"
+      },
+      {
+        "type": "assertion",
+        "description": "Observe real-time updates in pipeline overview and lead counts on dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify revenue figures reflect job bookings and discounts accurately"
+      },
+      {
+        "type": "assertion",
+        "description": "Check recent activity timeline and notifications show latest events"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Settings Management Persistence and Validation",
+    "description": "Test that all settings including pricing, company profile, equipment/material rates, operating hours, and notifications can be edited, validated, saved persistently, and reflected application-wide.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access /settings page"
+      },
+      {
+        "type": "action",
+        "description": "Modify pricing values, company profile info, equipment rates"
+      },
+      {
+        "type": "action",
+        "description": "Test validation errors for invalid pricing or missing required info"
+      },
+      {
+        "type": "action",
+        "description": "Save valid changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify settings changes persist across sessions and reload"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm pricing updates affect relevant calculations in inspection reports and quotes"
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Demo Environment Load with Sample Data and Performance Check",
+    "description": "Verify that the demo environment loads successfully with sample data, demonstrating end-to-end workflows with no errors and performs within required benchmarks.",
+    "category": "performance",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Initialize demo environment with sample leads, inspections, bookings, reports"
+      },
+      {
+        "type": "action",
+        "description": "Navigate through key user flows: lead management, inspection form, PDF reports, booking calendar, dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure no application errors or warnings appear"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm page loads and interactions meet benchmark performance criteria"
+      }
+    ]
+  }
+]

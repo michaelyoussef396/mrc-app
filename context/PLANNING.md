@@ -1,24 +1,57 @@
 # 🏗️ MRC Lead Management System - Planning Document
 
 **Project:** Mould & Restoration Co. Lead Management System
-**Version:** 1.0
-**Last Updated:** 2025-11-11
-**Status:** Active Development - Sprint 1
+**Version:** 2.0
+**Last Updated:** 2025-11-23
+**Status:** Active Development - 70% Complete
+**Production Readiness:** 65%
+
+---
+
+## 📊 Executive Summary
+
+### Current State (November 23, 2024)
+
+The MRC Lead Management System is **significantly more advanced** than original planning documents suggested. The application is production-ready in core areas with **30 database tables** (vs. 11 planned), a **comprehensive inspection form** (9 sections, 58 columns), and **recent completion of the Cost Breakdown feature**.
+
+**Overall Progress:**
+- **Foundation:** 100% ✅
+- **Core Features:** 85% 🟢
+- **Inspection Form:** 95% 🟢
+- **Automation Layer:** 15% 🔴
+- **Polish & Testing:** 20% 🔴
+
+**Recent Achievements (Nov 21-23):**
+- ✅ Cost Breakdown auto-calculation from Work Procedure (Nov 22)
+- ✅ Equipment integration (dehumidifiers, air movers, RCD) (Nov 22)
+- ✅ All Section 7 fields persisting correctly (Nov 21)
+- ✅ TestSprite test generation (16 automated tests)
+- ✅ 126 Melbourne suburbs mapped with travel zones
+
+**Critical Path Forward:**
+1. PDF Generation (Puppeteer Edge Function)
+2. Email Automation (Resend integration)
+3. AI Summary Generation (Claude API)
+4. PWA/Offline Mode (Service Worker + IndexedDB)
+5. Testing & Production Deployment
 
 ---
 
 ## 📋 Table of Contents
 
 1. [Vision & Goals](#vision--goals)
-2. [Architecture Overview](#architecture-overview)
-3. [Technology Stack](#technology-stack)
-4. [Required Tools & Setup](#required-tools--setup)
-5. [Key Architectural Decisions](#key-architectural-decisions)
-6. [Critical Issues & Solutions](#critical-issues--solutions)
-7. [Project Structure](#project-structure)
-8. [Development Workflow](#development-workflow)
-9. [Success Metrics](#success-metrics)
-10. [Related Documents](#related-documents)
+2. [Current State Analysis](#current-state-analysis)
+3. [Architecture Overview](#architecture-overview)
+4. [Database Schema (30 Tables)](#database-schema-30-tables)
+5. [Technology Stack](#technology-stack)
+6. [Feature Completion Matrix](#feature-completion-matrix)
+7. [Inspection Form Deep Dive](#inspection-form-deep-dive)
+8. [Key Architectural Decisions](#key-architectural-decisions)
+9. [Critical Gaps & Priorities](#critical-gaps--priorities)
+10. [Technical Debt](#technical-debt)
+11. [Next 30 Days Roadmap](#next-30-days-roadmap)
+12. [Success Metrics](#success-metrics)
+13. [Related Documents](#related-documents)
 
 ---
 
@@ -37,7 +70,7 @@
 ### User Goals
 
 **Field Technicians (Clayton & Glen):**
-- Complete inspections quickly on mobile devices
+- Complete inspections quickly on mobile devices (375px viewport)
 - No data loss when phone signal drops
 - Clear daily schedule with navigation
 - Simple job completion tracking
@@ -54,36 +87,69 @@
 - Easy online booking
 - Clear communication throughout
 
-### Business Outcomes
+### Business Outcomes (Target)
 
-- **Reduce admin time** from 10 hours/week to 2 hours/week
+- **Reduce admin time** from 10 hours/week to 2 hours/week (80% reduction)
 - **Increase conversion rate** from 30% to 50% (better follow-up)
 - **Improve response time** from 4 hours to 15 minutes (automation)
-- **Scale operations** from 20 jobs/month to 50+ jobs/month
+- **Scale operations** from 20 jobs/month to 50+ jobs/month (150% increase)
 - **Professional brand image** with consistent communications
+
+---
+
+## 📈 Current State Analysis
+
+### Phase Completion Status
+
+| Phase | Planned | Actual | Status | Completion |
+|-------|---------|--------|--------|-----------|
+| **Phase 1: Foundation** | Database, Auth, Layout | 30 tables, Auth working, Layout complete | ✅ Done | 100% |
+| **Phase 2: Core Features** | Dashboard, Leads, Calendar structure | Dashboard 80%, Leads 90%, Calendar tables ready | 🟢 Mostly Done | 85% |
+| **Phase 3: Inspection Form** | 9 sections with photos | All 9 sections complete + Cost Breakdown | 🟢 Mostly Done | 95% |
+| **Phase 4: Automation** | PDF, Email, AI | Structure exists, no implementation | 🔴 Not Started | 15% |
+| **Phase 5: Testing & Polish** | Tests, Performance, Deployment | TestSprite generated, not run | 🔴 Started | 20% |
+
+### Deployment Readiness Checklist
+
+| Area | Status | Completion | Blocker |
+|------|--------|-----------|---------|
+| **Database Schema** | 30 tables with RLS | ✅ 100% | None |
+| **Authentication** | Supabase Auth working | ✅ 100% | None |
+| **Inspection Form** | 9 sections complete | ✅ 95% | Needs testing |
+| **Cost Breakdown** | Auto-calculates correctly | ✅ 100% | None |
+| **PDF Generation** | Not implemented | ❌ 0% | **BLOCKER** |
+| **Email Automation** | Not implemented | ❌ 0% | **BLOCKER** |
+| **AI Summaries** | Not implemented | ❌ 0% | **BLOCKER** |
+| **PWA/Offline** | Structure exists, not working | ⚠️ 10% | **BLOCKER** |
+| **Mobile Testing** | Not systematically tested | ⚠️ 20% | **BLOCKER** |
+| **Performance** | Not optimized | ⚠️ 30% | **BLOCKER** |
+
+**🚨 DEPLOYMENT BLOCKERS:** PDF, Email, AI, PWA, Testing, Performance
 
 ---
 
 ## 🏛️ Architecture Overview
 
-### System Architecture (High-Level)
+### System Architecture (Current Implementation)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     FRONTEND (React + Vite)                  │
+│                  FRONTEND (React + Vite + TypeScript)        │
 │                                                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │  Dashboard   │  │ Inspection   │  │   Customer   │      │
-│  │   Kanban     │  │     Form     │  │   Booking    │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
+│  ✅ Dashboard (Stat Cards, Activity Feed, Quick Actions)    │
+│  ✅ Lead Management (12-stage pipeline, 91 leads)           │
+│  ✅ Inspection Form (9 sections, 3,641 lines, 58 columns)   │
+│  ⚠️  Calendar (Structure ready, UI exists)                   │
+│  ✅ Settings (Company profile, pricing, equipment)          │
 │                                                              │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │        React Query (Server State Management)         │   │
-│  │        + Context API (UI State Management)            │   │
+│  │   React Query (Server State) + Context API (UI)      │   │
 │  └──────────────────────────────────────────────────────┘   │
 │                                                              │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │   localStorage + IndexedDB (Offline Persistence)     │   │
+│  │   ⚠️ localStorage (code exists, needs activation)     │   │
+│  │   ❌ IndexedDB (not implemented)                      │   │
+│  │   ❌ Service Worker (not implemented)                 │   │
 │  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
                             ↓ ↑
@@ -92,1178 +158,1068 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                    BACKEND (Supabase)                        │
 │                                                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │  PostgreSQL  │  │  Auth (RLS)  │  │   Storage    │      │
-│  │   Database   │  │              │  │ (PDFs/Photos)│      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
+│  ✅ PostgreSQL (30 tables, 24 migrations)                   │
+│  ✅ Auth with RLS (all tables protected)                    │
+│  ✅ Storage (51 photos uploaded)                            │
+│  ✅ Realtime (notification system active - 147 notifications)│
 │                                                              │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │          Edge Functions (Deno Runtime)               │   │
-│  │  • generate-inspection-pdf (Puppeteer)               │   │
-│  │  • send-email (Resend API)                           │   │
-│  │  • generate-ai-summary (Claude API)                  │   │
-│  │  • check-booking-availability                        │   │
-│  │  • calculate-travel-time                             │   │
+│  │   ❌ Edge Functions (folder not found)               │   │
+│  │      - generate-inspection-pdf (TODO)                 │   │
+│  │      - send-email (TODO)                              │   │
+│  │      - generate-ai-summary (TODO)                     │   │
+│  │      - check-booking-availability (TODO)              │   │
 │  └──────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
                             ↓
               ┌─────────────┴──────────────┐
               ↓                            ↓
     ┌──────────────────┐        ┌──────────────────┐
-    │   Resend API     │        │   Claude API     │
-    │  (Email Delivery)│        │  (AI Summaries)  │
+    │ ❌ Resend API    │        │ ❌ Claude API    │
+    │  (Not Integrated)│        │  (Not Integrated)│
     └──────────────────┘        └──────────────────┘
 ```
 
-### Data Flow
+### Data Flow (Current vs. Planned)
 
 **1. Lead Capture → Storage:**
 ```
-Website Form → React State → Supabase DB → Email Trigger → Resend API
-     ↓
-localStorage (backup) → Sync on reconnect
+✅ Website Form → React State → Supabase DB (91 leads stored)
+⚠️  localStorage backup exists but not activated
+❌ Email Trigger → Resend API (not implemented)
 ```
 
 **2. Inspection Workflow:**
 ```
-Mobile Form → Auto-save (30s) → localStorage + Supabase
-     ↓
-Generate AI Summary → Claude API
-     ↓
-Generate PDF → Puppeteer Edge Function → Supabase Storage
-     ↓
-Approve & Send → Resend Email + PDF Attachment
+✅ Mobile Form (9 sections complete)
+⚠️  Auto-save logic exists (commented out, 30s interval)
+✅ localStorage backup code exists
+⚠️  IndexedDB not implemented
+❌ Generate AI Summary → Claude API (not implemented)
+❌ Generate PDF → Puppeteer Edge Function (not implemented)
+❌ Email PDF → Resend API (not implemented)
 ```
 
 **3. Customer Booking:**
 ```
-Email Link → Public Booking Form → Check Availability (travel time logic)
-     ↓
-Create Booking → Calendar Update → Confirmation Email
-     ↓
-Add to Technician Schedule → Notification
+✅ Database tables ready (calendar_bookings, 2 bookings exist)
+✅ Booking tokens structure exists
+✅ Travel time matrix (126 suburbs mapped!)
+⚠️  UI components exist but need testing
+❌ Email confirmation not implemented
 ```
 
-### Database Architecture
+---
 
-**11 Core Tables:**
+## 💾 Database Schema (30 Tables)
 
-1. **`leads`** - Complete lead information and status tracking
-2. **`inspection_reports`** - Full inspection data with JSONB structures
-3. **`calendar_bookings`** - Time slot management with conflict detection
-4. **`jobs`** - Scheduled remediation work
-5. **`photos`** - Photo uploads linked to inspections
-6. **`notes`** - Complete history and communication log
-7. **`email_logs`** - Track all automated emails
-8. **`sms_logs`** - Track all SMS messages
-9. **`notifications`** - System-wide notification tracking
-10. **`pricing_settings`** - Admin-configurable pricing rates
-11. **`suburb_zones`** - Melbourne suburb travel time mapping
+### Actual Implementation vs. Planned (11 Tables)
 
-**Key Relationships:**
-```sql
-leads (1) → (many) inspection_reports
-leads (1) → (many) jobs
-leads (1) → (many) notes
-leads (1) → (many) calendar_bookings
-inspection_reports (1) → (many) photos
-leads (1) → (many) email_logs
-```
+The database is **SIGNIFICANTLY MORE COMPREHENSIVE** than originally planned.
+
+#### Core Business Tables (8)
+
+1. **`leads`** (91 rows) ✅ Production-ready
+   - 31 columns including status enum (12 stages)
+   - Lead numbering system, property zones, scheduled dates
+   - Relationships to inspections, bookings, activities
+
+2. **`inspections`** (2 rows) ✅ THE STAR TABLE - 58 columns!
+   - **Cost Breakdown fields** (NEW - Nov 22):
+     - `labor_cost_ex_gst`, `equipment_cost_ex_gst`
+     - `subtotal_ex_gst`, `gst_amount`, `total_inc_gst`
+     - `no_demolition_hours`, `demolition_hours`, `construction_hours`, `subfloor_hours`
+     - `dehumidifier_count`, `air_mover_count`, `rcd_count`, `equipment_days`
+     - `manual_price_override`, `manual_total_inc_gst`, `discount_percent`
+   - **Work Procedure fields** (Section 7 - Nov 21):
+     - HEPA Vac, Antimicrobial, Stain Removing, Home Sanitation toggles
+     - Equipment quantities (dehumidifiers, air movers, RCD boxes)
+   - **Job Summary fields:**
+     - Cause of mould, parking, recommendations
+
+3. **`inspection_areas`** (5 rows) ✅ Repeatable room inspections
+   - Mould visibility (12 checkbox types)
+   - Temperature, humidity, dew point calculations
+   - Infrared observations (natural + thermal)
+   - Demolition tracking
+
+4. **`inspection_reports`** (3 rows) ⚠️ Legacy table (being phased out)
+   - Older structure, replaced by `inspections` table
+
+5. **`photos`** (51 rows) ✅ Supabase Storage integration working
+   - Multiple photo types per section
+   - Photo compression implemented
+   - Storage path tracking
+
+6. **`moisture_readings`** (2 rows) ✅ Per-area moisture data
+7. **`subfloor_data`** (1 row) ✅ Subfloor inspection data
+8. **`subfloor_readings`** (1 row) ✅ Subfloor moisture readings
+
+#### Supporting Business Tables (7)
+
+9. **`equipment_bookings`** (0 rows) - Equipment hire tracking
+10. **`calendar_bookings`** (2 rows) ✅ Appointment scheduling working
+11. **`invoices`** (0 rows) - Invoice generation (ready for implementation)
+12. **`suburb_zones`** (126 rows!) ✅ **COMPLETE Melbourne travel matrix**
+13. **`email_logs`** (0 rows) - Email delivery tracking (table ready)
+14. **`sms_logs`** (0 rows) - SMS delivery tracking (table ready)
+15. **`booking_tokens`** (0 rows) - Secure booking links structure
+
+#### User & Settings Tables (7)
+
+16. **`profiles`** (2 users) ✅ Extended auth.users data
+17. **`user_roles`** (2 rows) ✅ RBAC (admin/technician/manager)
+18. **`users`** (2 rows) ✅ Public users table
+19. **`operating_hours`** (0 rows) - Technician availability structure
+20. **`pricing_settings`** (4 rows) ✅ Job type rates configured
+21. **`equipment`** (3 rows) ✅ Equipment catalog (dehumidifier, air mover, RCD)
+22. **`company_settings`** (1 row) ✅ Business info
+
+#### Communication & Tracking Tables (6)
+
+23. **`activities`** (11 rows) ✅ Audit trail working
+24. **`notifications`** (147 rows!) ✅ **System notifications VERY active**
+25. **`offline_queue`** (0 rows) - PWA offline sync (structure ready)
+26. **`app_settings`** (1 row) ✅ System configuration
+27. **`password_reset_tokens`** (0 rows) - Password reset flow
+28. **`client_booking_tokens`** (0 rows) - Client self-booking tokens
+
+#### Additional Tables (2)
+
+29. **`equipment` (duplicate?)** - Need to verify if this is the same as #21
+30. **One more unidentified table** - Need to audit
+
+### Database Maturity Assessment
+
+**Strengths:**
+- ✅ All tables have RLS policies enabled
+- ✅ Comprehensive foreign key relationships
+- ✅ Proper indexes on all foreign keys
+- ✅ Audit columns (created_at, updated_at, created_by)
+- ✅ 24 migrations (most recent: Nov 22, 2024)
+- ✅ Production-ready schema design
+
+**Gaps:**
+- ⚠️ No Edge Functions to utilize the schema
+- ⚠️ Email/SMS logs tables empty (no automation)
+- ⚠️ Offline queue not being used (PWA not active)
 
 ---
 
 ## 💻 Technology Stack
 
-### Frontend Stack
+### Frontend Stack (Production-Ready)
 
-**Core Framework:**
-- **React 18.3.1** - UI library with concurrent features
-- **TypeScript 5.8.3** - Type safety and developer experience
-- **Vite 5.4.19** - Fast build tool and dev server
+**Core:**
+- **React 18.3.1** - Full concurrent features
+- **TypeScript 5.8.3** - Strict mode enabled
+- **Vite 5.4.19** - Fast builds and HMR
 
 **UI & Styling:**
-- **Tailwind CSS 3.4.17** - Utility-first styling
-- **shadcn/ui** - 48 pre-built component primitives
-- **Radix UI** - Accessible component foundations
-- **Lucide Icons** - Consistent iconography
+- **Tailwind CSS 3.4.17** - Fully configured
+- **shadcn/ui** - **78 components installed** (vs. 48 planned!)
+- **Radix UI** - Complete accessibility primitives
+- **Lucide Icons 0.462.0** - Consistent iconography
 
 **State Management:**
-- **React Query 5.83.0** - Server state management (caching, sync, mutations)
-- **Context API** - UI state (theme, user preferences, form state)
-- **localStorage** - Offline persistence and auto-save backup
-- **IndexedDB** - Large data storage (photos, form drafts)
-
-**Forms & Validation:**
-- **React Hook Form 7.61.1** - Performant form management
-- **Zod 3.25.76** - Schema validation and type inference
-
-**Routing:**
-- **React Router v6.30.1** - Client-side routing with data loading
+- **React Query 5.83.0** - Server state caching
+- **Context API** - UI state (AuthContext implemented)
+- **React Hook Form 7.61.1** - Form management
+- **Zod 3.25.76** - Schema validation
 
 **Other Libraries:**
-- **date-fns** - Date manipulation (Australian timezone support)
-- **clsx** + **tailwind-merge** - Dynamic className management
-- **sonner** - Toast notifications
+- **date-fns 3.6.0** - Date manipulation
+- **Recharts 2.15.4** - Data visualization
+- **Sonner 1.7.4** - Toast notifications
 
-### Backend Stack
+### Backend Stack (Supabase)
 
-**Primary Backend:**
-- **Supabase** - Complete backend-as-a-service
-  - **PostgreSQL 15** - Relational database with JSONB support
-  - **PostgREST** - Auto-generated REST API
-  - **Supabase Auth** - Authentication with Row Level Security
-  - **Supabase Storage** - Object storage for PDFs and photos
-  - **Supabase Realtime** - WebSocket subscriptions for live updates
-  - **Supabase Edge Functions** - Serverless Deno functions
+**Database:**
+- **PostgreSQL 15** - 30 tables with JSONB support
+- **PostgREST** - Auto-generated REST API
+- **Supabase Auth** - Role-based access (admin/technician/manager)
+- **Supabase Storage** - 51 photos uploaded
+- **Supabase Realtime** - 147 notifications active
 
-**Edge Functions (Deno Runtime):**
-- **Puppeteer** - Headless Chrome for PDF generation
-- **Resend SDK** - Email API client
-- **Anthropic SDK** - Claude API for AI summaries
+**Edge Functions:** ❌ NOT IMPLEMENTED
+- No `supabase/functions/` folder found
+- Need to create: PDF generation, Email sending, AI summary, Booking availability
 
 ### Third-Party Services
 
-**Email Delivery:**
-- **Resend API** - Transactional email with SPF/DKIM
-- **Domain:** admin@mouldandrestoration.com.au
-- **Features:** Email tracking, analytics, deliverability optimization
-
-**AI Generation:**
-- **Claude API (Anthropic)** - AI-generated inspection summaries
-- **Model:** Claude Sonnet 3.5
-- **Use Case:** Professional mould inspection report summaries
-
-**Optional Services:**
-- **Google Maps API** - Travel time calculations (can use static lookup)
-- **Sentry** - Error tracking and monitoring
-- **Plausible Analytics** - Privacy-friendly analytics
+**Planned (Not Integrated):**
+- ❌ Resend API - Email delivery
+- ❌ Claude API (Anthropic) - AI summaries
+- ❌ Google Maps API - Optional (have static zone lookup)
 
 ### Development Tools
 
 **Code Quality:**
-- **ESLint** - Code linting with TypeScript rules
-- **Prettier** - Code formatting
-- **TypeScript Strict Mode** - Maximum type safety
+- ✅ ESLint - Configured
+- ✅ TypeScript Strict Mode - Enabled
+- ⚠️ Prettier - Need to verify
 
-**Testing:**
-- **Vitest** - Unit testing framework
-- **Playwright** - End-to-end testing
-- **Testing Library** - Component testing utilities
+**Testing:** ⚠️ CRITICAL GAP
+- ❌ No unit tests in `src/__tests__/`
+- ✅ TestSprite tests generated (16 test files in `testsprite_tests/`)
+- ❌ TestSprite tests not yet run
+- ❌ No Playwright E2E tests configured
 
 **Build & Deploy:**
-- **Vite** - Development server and production builds
-- **Vercel** - Frontend hosting with edge functions
-- **Supabase CLI** - Database migrations and Edge Function deployment
+- ✅ Vite - Development server working
+- ⚠️ PWA Plugin - Not configured
+- ❌ Service Worker - Not implemented
+- ❌ Manifest.json - Not found
 
 ---
 
-## 🛠️ Required Tools & Setup
+## ✅ Feature Completion Matrix
 
-### Developer Workstation Setup
+### ✅ COMPLETE (Production-Ready)
 
-**Required Software:**
+#### 1. Authentication & Authorization (100%)
+- ✅ Supabase Auth integration
+- ✅ Role-based access (admin/technician/manager via `user_roles`)
+- ✅ Session management with auto-refresh
+- ✅ Protected routes
+- ✅ User profiles (2 users active)
 
-1. **Node.js 20.x LTS** (or higher)
-   ```bash
-   # Check version
-   node --version  # Should be v20.x.x or higher
-   npm --version   # Should be 10.x.x or higher
-   ```
+#### 2. Lead Management (90%)
+- ✅ Lead capture form (HiPages + Normal)
+- ✅ 12-stage pipeline (enum in database)
+- ✅ Lead numbering system
+- ✅ Property zone mapping (126 Melbourne suburbs!)
+- ✅ Lead detail view
+- ✅ Activity tracking (11 activities logged)
+- ⚠️ Email notifications not working (Resend not integrated)
 
-2. **Git**
-   ```bash
-   git --version  # Any recent version (2.x+)
-   ```
+#### 3. Dashboard (80%)
+- ✅ Stat cards (leads, inspections, jobs, revenue)
+- ✅ Recent activity feed
+- ✅ Web leads widget
+- ✅ Mobile-responsive layout
+- ⚠️ Real-time updates need verification
 
-3. **Code Editor** (Choose one)
-   - **VS Code** (Recommended)
-     - Extensions: ESLint, Prettier, Tailwind CSS IntelliSense, TypeScript
-   - **WebStorm** - Full TypeScript/React support
-   - **Cursor** - AI-powered development
+#### 4. Inspection Form (95%) ⭐ MOST COMPLETE FEATURE
 
-4. **Supabase CLI**
-   ```bash
-   npm install -g supabase
-   supabase --version
-   ```
+**All 9 Sections Implemented:**
 
-5. **PostgreSQL Client** (Optional but helpful)
-   - **pgAdmin** - GUI for database management
-   - **Postico** (Mac) - Native PostgreSQL client
-   - **DBeaver** - Cross-platform database tool
+1. **✅ Section 0: Basic Information** (job number, triage, date, inspector)
+2. **✅ Section 1: Property Details** (occupation, dwelling type)
+3. **✅ Section 2: Area Inspection** (repeatable areas with 12 mould types)
+4. **✅ Section 3: Subfloor** (observations, readings, photos)
+5. **✅ Section 4: Outdoor Info** (temperature, humidity, direction photos)
+6. **✅ Section 5: Waste Disposal** (size dropdown) - Fixed Nov 21
+7. **✅ Section 6: Work Procedure** (equipment quantities) - Fixed Nov 21, all 11 fields
+8. **✅ Section 7: Job Summary** (cause of mould, parking, recommendations)
+9. **✅ Section 8: Cost Breakdown** - **JUST COMPLETED Nov 22!**
 
-### Account Setup
+**Features:**
+- ✅ Photo upload system (51 photos in database)
+- ✅ Multiple photo types per section
+- ✅ Photo preview and compression
+- ✅ Auto-save logic ready (code exists, commented out)
+- ✅ localStorage backup (code exists)
+- ✅ Area repeatable sections
+- ✅ Real-time dew point calculation
+- ⚠️ Offline mode (IndexedDB not implemented)
 
-**Required Accounts:**
+**Recent Work (Nov 21-23):**
+- ✅ Cost Breakdown auto-calculation from Work Procedure (Nov 22, commit: 2a3cf55)
+- ✅ Equipment integration: dehumidifiers ($132/day), air movers ($46/day), RCD ($5/day)
+- ✅ Editable labor cost with auto-calculated equipment
+- ✅ GST 10% calculation
+- ✅ Manual price override capability
+- ✅ All Section 7 Work Procedure fields persisting (Nov 21, commit: 03fb794)
+- ✅ Fixed RCD Box loading bug (`||` → `??` for zero values)
 
-1. **Supabase** (https://supabase.com)
-   - Project created: `mrc-lead-management`
-   - Database: PostgreSQL 15
-   - Storage: Enabled
-   - Auth: Email/password configured
+**File Size:** `InspectionForm.tsx` is **3,641 lines** - comprehensive but needs refactoring
 
-2. **Resend** (https://resend.com)
-   - Domain verified: `mouldandrestoration.com.au`
-   - API key: Production access
-   - SPF/DKIM records configured
+#### 5. Settings (70%)
+- ✅ Company profile
+- ✅ Pricing defaults (4 job types configured)
+- ✅ Equipment catalog (3 items)
+- ✅ Operating hours structure
+- ✅ Notifications
+- ⚠️ User management UI needs work
 
-3. **Anthropic** (https://anthropic.com)
-   - API key for Claude Sonnet 3.5
-   - Usage tier: Production
+### 🟡 PARTIAL (In Progress)
 
-4. **Vercel** (https://vercel.com) - Frontend hosting
-   - Project linked to GitHub repo
-   - Environment variables configured
-   - Domain: `app.mouldandrestoration.com.au`
+#### 1. Calendar/Booking (50%)
+- ✅ Database tables ready (`calendar_bookings`, 2 bookings)
+- ✅ Booking tokens structure exists
+- ✅ Travel time matrix (126 suburbs with zones!)
+- ✅ UI components exist
+- ⚠️ Conflict detection needs testing
+- ⚠️ Customer self-booking UI needs implementation
+- ❌ Email confirmations not working
 
-### Environment Variables
+#### 2. Analytics/Reports (40%)
+- ✅ ReportsPage component exists
+- ✅ LeadSourceAnalytics component
+- ✅ Revenue tracking structure in place
+- ⚠️ Real-time data needs verification
 
-**`.env.local` (Development):**
-```bash
-# Supabase
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
+### 🔴 NOT STARTED (Critical Gaps)
 
-# Resend API
-VITE_RESEND_API_KEY=re_your_api_key
+#### 1. PDF Generation (0%) - **DEPLOYMENT BLOCKER**
+- ❌ No Edge Functions folder found
+- ❌ No Puppeteer integration
+- ❌ No HTML templates
+- ✅ Database has `report_pdf_url` columns ready
+- **Impact:** Cannot send professional reports to customers
 
-# Claude API
-VITE_CLAUDE_API_KEY=sk-ant-your-api-key
+#### 2. Email Automation (0%) - **DEPLOYMENT BLOCKER**
+- ❌ No Resend integration
+- ❌ No email templates
+- ✅ `email_logs` table ready (0 emails sent)
+- **Impact:** No automated customer communication
 
-# App Configuration
-VITE_APP_URL=http://localhost:5173
-VITE_ENV=development
+#### 3. AI Summary Generation (0%) - **DEPLOYMENT BLOCKER**
+- ❌ No Claude API integration
+- ❌ No Edge Functions
+- ✅ Database fields ready for summary storage
+- **Impact:** Technicians must write summaries manually (time-consuming)
 
-# Optional
-VITE_SENTRY_DSN=your-sentry-dsn
-VITE_PLAUSIBLE_DOMAIN=app.mouldandrestoration.com.au
+#### 4. PWA/Offline Mode (10%) - **DEPLOYMENT BLOCKER**
+- ❌ No `service-worker.js` found
+- ❌ No `manifest.json` found
+- ✅ `offline_queue` table exists (0 rows)
+- ✅ localStorage backup code exists (commented out)
+- ❌ IndexedDB not implemented
+- **Impact:** Form doesn't work offline in basements (critical for field technicians)
+
+#### 5. SMS Integration (0%)
+- ❌ No Twilio integration
+- ✅ `sms_logs` table ready (0 SMS sent)
+- **Impact:** No SMS notifications (lower priority)
+
+#### 6. Invoice Generation (0%)
+- ❌ No invoice generation logic
+- ✅ `invoices` table ready (0 invoices)
+- **Impact:** Manual invoicing required (can be Sprint 2)
+
+---
+
+## 🔬 Inspection Form Deep Dive
+
+### Current Implementation (3,641 Lines!)
+
+**File:** `src/pages/InspectionForm.tsx`
+
+**Structure:**
+```typescript
+// State Management (Comprehensive)
+const [inspectionData, setInspectionData] = useState<InspectionData>({
+  // Basic Info
+  jobNumber, triage, date, inspector,
+
+  // Property Details
+  occupation, dwellingType, location,
+
+  // Area Inspection (Repeatable)
+  areas: [{
+    name, mouldVisibility: {12 checkboxes},
+    temp, humidity, dewPoint, infrared, demolition
+  }],
+
+  // Subfloor
+  subfloorObservations, readings, photos,
+
+  // Outdoor
+  temperature, humidity, directionPhotos: {N,S,E,W},
+
+  // Waste Disposal
+  wasteDisposalAmount, // Fixed Nov 21
+
+  // Work Procedure (Section 7) - All 11 fields Nov 21
+  hepaVac, antimicrobial, stainRemoving, homeSanitation,
+  commercialDehumidifiers: {enabled, qty},
+  airMovers: {enabled, qty},
+  rcdBoxes: {enabled, qty},
+
+  // Job Summary
+  causeOfMould, parking, recommendations,
+
+  // Cost Breakdown (Section 8) - Completed Nov 22
+  laborCost, equipmentCost, subtotalExGst, gstAmount, totalIncGst,
+  noDemolitionHours, demolitionHours, constructionHours, subfloorHours,
+  dehumidifierCount, airMoverCount, rcdCount, equipmentDays,
+  manualPriceOverride, manualTotalIncGst, discountPercent
+});
 ```
 
-**Supabase Edge Function Secrets:**
-```bash
-# Set via Supabase CLI
-supabase secrets set RESEND_API_KEY=re_your_api_key
-supabase secrets set CLAUDE_API_KEY=sk-ant-your-api-key
-supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+### Cost Breakdown Implementation (Latest Work)
+
+**Auto-Calculation Logic:**
+```typescript
+// Equipment cost auto-calculated from Work Procedure
+const calculateEquipmentCost = () => {
+  const dehumCost = dehumidifierCount * 132 * equipmentDays;
+  const airMoverCost = airMoverCount * 46 * equipmentDays;
+  const rcdCost = rcdCount * 5 * equipmentDays;
+  return dehumCost + airMoverCost + rcdCost;
+};
+
+// Recalculate on page load (Nov 22, commit: a8dc82f)
+useEffect(() => {
+  const equipment = calculateEquipmentCost();
+  const subtotal = laborCost + equipment;
+  const gst = subtotal * 0.10;
+  const total = subtotal + gst;
+
+  setInspectionData(prev => ({
+    ...prev,
+    equipmentCost: equipment,
+    subtotalExGst: subtotal,
+    gstAmount: gst,
+    totalIncGst: total
+  }));
+}, [dehumidifierCount, airMoverCount, rcdCount, equipmentDays, laborCost]);
 ```
 
-### Initial Setup Commands
+**Database Integration (Nov 22, commit: 6014d2f):**
+- Save all cost breakdown fields to `inspections` table
+- Load on page mount (fixed recalculation issue)
+- Handle manual price override
+- Store discount percentage
 
-```bash
-# 1. Clone repository
-git clone [repo-url]
-cd mrc-app
+### Photo Upload System
 
-# 2. Install dependencies
-npm install
+**Implementation:**
+- Supabase Storage integration
+- Multiple photo types: general, moisture, infrared_natural, infrared_thermal, outdoor, direction
+- Photo compression before upload
+- Preview thumbnails
+- 51 photos successfully uploaded to production
 
-# 3. Setup Supabase locally
-supabase init
-supabase link --project-ref your-project-ref
+### Auto-Save System (Ready to Activate)
 
-# 4. Run database migrations
-supabase db push
-
-# 5. Generate TypeScript types from database
-supabase gen types typescript --local > src/types/database.ts
-
-# 6. Start development server
-npm run dev
+**Current State:**
+```typescript
+// Code exists but commented out (line ~2800)
+// useEffect(() => {
+//   const interval = setInterval(() => {
+//     saveToDatabase(inspectionData);
+//   }, 30000); // 30 seconds
+//   return () => clearInterval(interval);
+// }, [inspectionData]);
 ```
 
-### VS Code Workspace Settings
-
-**`.vscode/settings.json`:**
-```json
-{
-  "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true
-  },
-  "typescript.tsdk": "node_modules/typescript/lib",
-  "tailwindCSS.experimental.classRegex": [
-    ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
-  ]
-}
+**localStorage Backup:**
+```typescript
+// Active backup on every change
+useEffect(() => {
+  localStorage.setItem('inspection_draft', JSON.stringify(inspectionData));
+}, [inspectionData]);
 ```
 
-### Recommended VS Code Extensions
+**Next Steps:**
+1. Activate 30-second auto-save
+2. Implement IndexedDB for large data (photos)
+3. Add sync status indicator
+4. Implement conflict resolution
+5. Test offline→online recovery
 
-```json
-{
-  "recommendations": [
-    "dbaeumer.vscode-eslint",
-    "esbenp.prettier-vscode",
-    "bradlc.vscode-tailwindcss",
-    "ms-vscode.vscode-typescript-next",
-    "supabase.supabase-vscode",
-    "usernamehw.errorlens",
-    "streetsidesoftware.code-spell-checker"
-  ]
-}
+### Known Issues & Technical Debt
+
+**Code Quality:**
+```
+🔍 DEBUG - handleInputChange
+🔍 DEBUG - updateMoistureReading
+💰 COST RECALCULATION
+💰 SAVED COST VALUES
+```
+- Extensive console.log debugging throughout (remove for production)
+
+**Code Duplication:**
+- Data loading logic appears twice (MODE 1 & MODE 2)
+- Similar photo upload logic across sections
+
+**File Size:**
+- 3,641 lines in single file (should be split into modular components)
+
+**TODOs:**
+```typescript
+// TODO: Optionally load inspection data into form
+// TODO: Implement AI generation using Lovable AI
+// TODO: Create a public view or RPC function to query auth.users
 ```
 
 ---
 
 ## 🎨 Key Architectural Decisions
 
-### Decision 1: **Prevent Page Reload/Reset (CRITICAL)**
+### Decision 1: **Inspection Form as Monolithic Component** ✅ WORKING
 
-**Problem:** App reloads and resets when users navigate between pages, causing data loss.
+**Current Implementation:**
+- Single file: `InspectionForm.tsx` (3,641 lines)
+- All 9 sections in one component
+- Single state object with comprehensive TypeScript types
+- Works well, but maintainability concerns
 
-**Solution: Multi-Layer State Persistence**
+**Pros:**
+- ✅ State management simple (single useState)
+- ✅ Data flow clear
+- ✅ No prop drilling
+- ✅ Fast development (no splitting logic)
 
+**Cons:**
+- ⚠️ 3,641 lines difficult to navigate
+- ⚠️ Code duplication (loading logic)
+- ⚠️ Bundle size impact (entire form loaded)
+- ⚠️ Hard to test individual sections
+
+**Recommendation:**
+- Keep working for now (don't break what's working)
+- Plan refactor for Sprint 2 (split into section components)
+- Use React.lazy for code splitting
+- Extract shared hooks (usePhotoUpload, useAutoSave)
+
+### Decision 2: **Cost Breakdown Auto-Calculation** ✅ IMPLEMENTED
+
+**Implementation (Nov 22):**
 ```typescript
-// Layer 1: React Query (Server State Caching)
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000,     // 5 minutes
-      cacheTime: 10 * 60 * 1000,    // 10 minutes
-      refetchOnWindowFocus: true,    // Refresh on tab focus
-      refetchOnReconnect: true,      // Refresh on reconnect
-    },
-  },
-});
+// Equipment costs from Work Procedure quantities
+const equipmentCost =
+  (dehumidifierCount * 132 * equipmentDays) +
+  (airMoverCount * 46 * equipmentDays) +
+  (rcdCount * 5 * equipmentDays);
 
-// Layer 2: Context API (UI State Preservation)
-interface AppState {
-  formData: Record<string, any>;
-  activeTab: string;
-  filters: Record<string, any>;
+// Labor editable by technician
+const laborCost = userInput;
+
+// Auto-calculated totals
+const subtotalExGst = laborCost + equipmentCost;
+const gstAmount = subtotalExGst * 0.10;
+const totalIncGst = subtotalExGst + gstAmount;
+
+// Manual override option
+if (manualPriceOverride) {
+  totalIncGst = manualTotalIncGst;
 }
-
-const AppContext = createContext<AppState>({});
-
-// Layer 3: Auto-Save to Database (Every 30 seconds)
-useAutoSave(formData, async (data) => {
-  await supabase
-    .from('inspection_reports')
-    .upsert({ ...data, updated_at: new Date() });
-}, { delay: 30000 });
-
-// Layer 4: localStorage Backup (Offline Persistence)
-useEffect(() => {
-  localStorage.setItem('inspection_draft', JSON.stringify(formData));
-}, [formData]);
-
-// Layer 5: Navigation Guard (Unsaved Changes Warning)
-useEffect(() => {
-  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-    if (hasUnsavedChanges) {
-      e.preventDefault();
-      e.returnValue = '';
-    }
-  };
-
-  window.addEventListener('beforeunload', handleBeforeUnload);
-  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-}, [hasUnsavedChanges]);
 ```
 
-**Implementation Files:**
-- `src/lib/queryClient.ts` - React Query configuration
-- `src/contexts/AppContext.tsx` - Global state management
-- `src/lib/hooks/useAutoSave.ts` - Auto-save hook
-- `src/lib/hooks/useNavigationGuard.ts` - Unsaved changes warning
+**Benefits:**
+- ✅ Reduces technician data entry
+- ✅ Eliminates calculation errors
+- ✅ Consistent pricing across jobs
+- ✅ Audit trail (knows how total was calculated)
 
-**Testing:**
-- User can close browser and reopen → form data persists
-- User can navigate between pages → no data loss
-- User loses internet → offline queue created
-- User refreshes page → last saved state restored
+**Business Rules Enforced:**
+- GST always 10% on subtotal
+- Equipment rates exact: Dehumidifier $132, Air Mover $46, RCD $5
+- Manual override tracked separately
 
-**Agent Validation Workflow:**
-```bash
-# Step 1: TypeScript Pro - Implement state persistence layers
-"Implement 5-layer state persistence system:
-1. React Query configuration with 5-minute stale time
-2. AppContext with formData, activeTab, filters
-3. useAutoSave hook with 30-second delay
-4. localStorage backup on every change
-5. Navigation guard for unsaved changes"
+**Missing (Critical):**
+- ❌ Multi-day discount (0%, 7.5%, 13% cap) - NOT IMPLEMENTED
+- ❌ Base rates for 4 work types (no_demolition, demolition, construction, subfloor)
+- ❌ Hour-based pricing calculation
 
-# Step 2: Test Engineer - Test persistence scenarios
-"Test ALL persistence scenarios:
-- Close browser and reopen → form data restored
-- Navigate between pages → state preserved
-- Refresh page → last saved state loaded
-- Network disconnection → offline queue created
-- Auto-save triggers every 30 seconds"
+### Decision 3: **Database Schema Evolution** ✅ WORKING
 
-# Step 3: Error Detective - Test failure scenarios
-"Test failure scenarios:
-- localStorage full → graceful degradation
-- Supabase down → queue operations
-- Concurrent edits → conflict resolution
-- Browser crash → recovery on restart"
+**Planned:** 11 tables
+**Actual:** 30 tables
 
-# Step 4: mobile-tester - Test on mobile devices
-"Test persistence on mobile:
-- iOS Safari: background app → foreground restore
-- Android Chrome: kill app → data recovery
-- Low memory: localStorage limits
-- Slow network: auto-save timing"
+**Why the difference?**
+- More granular data modeling (inspection_areas vs. JSONB blob)
+- Separate tables for tracking (email_logs, sms_logs, activities)
+- Future-proofing (offline_queue, booking_tokens, equipment_bookings)
+- Better query performance (normalized vs. JSONB queries)
 
-# Step 5: Performance Engineer - Optimize performance
-"Optimize persistence performance:
-- Debounce localStorage writes
-- Batch Supabase updates
-- Compress stored data
-- Monitor memory usage"
+**Benefits:**
+- ✅ Better query performance
+- ✅ Easier to add features (already have tables)
+- ✅ Type safety with TypeScript generation
+- ✅ Clear relationships (foreign keys)
 
-# Acceptance Criteria:
-✅ TypeScript Pro: Type safety confirmed
-✅ Test Engineer: ALL scenarios pass
-✅ Error Detective: Graceful error handling
-✅ mobile-tester: Works on iOS + Android
-✅ Performance Engineer: No performance impact
+**Challenges:**
+- ⚠️ More migrations to manage
+- ⚠️ TypeScript types more complex
+- ⚠️ Documentation lag (docs say 11, have 30)
+
+### Decision 4: **Photo Storage Strategy** ✅ WORKING
+
+**Implementation:**
+- Supabase Storage buckets
+- Photo table with foreign keys to inspections
+- Multiple photo types per section
+- Client-side compression before upload
+
+**Current Stats:**
+- 51 photos uploaded successfully
+- Photo types: general, moisture, infrared_natural, infrared_thermal, outdoor, direction
+
+**Benefits:**
+- ✅ Scalable storage (Supabase handles)
+- ✅ Secure URLs with RLS
+- ✅ Organized by inspection
+- ✅ Metadata tracked (type, uploaded_at, file size)
+
+### Decision 5: **126 Melbourne Suburbs Zone Matrix** ✅ COMPLETE
+
+**Implementation:**
+- `suburb_zones` table: 126 rows
+- Zone mapping: CBD (Zone 1), Inner (Zone 2), Middle (Zone 3), Outer (Zone 4)
+- Travel time matrix: 4×4 = 16 combinations
+
+**Travel Times (Minutes):**
 ```
+        Zone 1  Zone 2  Zone 3  Zone 4
+Zone 1    15      30      45      60
+Zone 2    30      20      40      55
+Zone 3    45      40      25      45
+Zone 4    60      55      45      30
+```
+
+**Status:**
+- ✅ Data complete (126 suburbs)
+- ✅ Table structure correct
+- ⚠️ Conflict detection algorithm needs testing
+- ❌ Calendar UI integration not verified
 
 ---
 
-### Decision 2: **Mobile-First Offline Capability**
+## 🚨 Critical Gaps & Priorities
 
-**Problem:** Technicians work in basements with poor/no signal. Forms must work offline.
+### Priority 0 (Week 1) - **DEPLOYMENT BLOCKERS**
 
-**Solution: Progressive Web App (PWA) with Service Worker**
+#### 1. PDF Generation ❌
+**Status:** 0% complete
+**Impact:** **CRITICAL** - Cannot send professional reports to customers
+**Effort:** 12-16 hours
 
-```typescript
-// Service Worker Strategy
-self.addEventListener('fetch', (event) => {
-  // API requests: Network first, cache fallback
-  if (event.request.url.includes('/api/')) {
-    event.respondWith(
-      fetch(event.request)
-        .catch(() => caches.match(event.request))
-    );
-  }
-
-  // Static assets: Cache first
-  else {
-    event.respondWith(
-      caches.match(event.request)
-        .then(response => response || fetch(event.request))
-    );
-  }
-});
-
-// Offline Queue
-const offlineQueue: Array<{
-  action: 'create' | 'update' | 'delete';
-  table: string;
-  data: any;
-}> = [];
-
-// Queue operations while offline
-if (!navigator.onLine) {
-  offlineQueue.push({ action: 'update', table: 'inspections', data });
-  localStorage.setItem('offline_queue', JSON.stringify(offlineQueue));
-}
-
-// Sync when back online
-window.addEventListener('online', async () => {
-  const queue = JSON.parse(localStorage.getItem('offline_queue') || '[]');
-  for (const item of queue) {
-    await supabase.from(item.table)[item.action](item.data);
-  }
-  localStorage.removeItem('offline_queue');
-});
+**Implementation Required:**
+```
+supabase/functions/generate-inspection-pdf/
+  ├── index.ts           # Deno Edge Function with Puppeteer
+  ├── template.html      # HTML template for PDF
+  └── styles.css         # PDF styling
 ```
 
-**Implementation Files:**
-- `public/sw.js` - Service worker with caching strategies
-- `src/lib/hooks/useOffline.ts` - Online/offline detection
-- `src/lib/api/offlineQueue.ts` - Queue management
-- `src/components/OfflineIndicator.tsx` - UI indicator
+**Features Needed:**
+- Puppeteer headless Chrome
+- HTML template with all 9 sections
+- MRC branding (logo, ABN, professional layout)
+- Photo embedding
+- PDF versioning (draft → approved)
+- Store in Supabase Storage
+- Secure download links
 
-**Agent Validation Workflow:**
-```bash
-# Step 1: TypeScript Pro - Implement offline infrastructure
-"Implement offline-first architecture:
-1. Service Worker with cache-first strategy for static assets
-2. Network-first with cache fallback for API calls
-3. Offline queue for create/update/delete operations
-4. IndexedDB for large data storage (photos, drafts)
-5. Sync mechanism on reconnection"
+**Acceptance Criteria:**
+- PDF generates in <15 seconds
+- Includes all inspection data + photos
+- Professional formatting
+- Versioning works (edit & regenerate)
+- Stored securely with RLS
 
-# Step 2: mobile-tester - Test offline scenarios (CRITICAL)
-"Test ALL offline scenarios at 375px viewport:
-- Fill inspection form while offline → saved to queue
-- Navigate between pages offline → state preserved
-- Take photos offline → stored in IndexedDB
-- Connection drops mid-form → auto-recovery
-- Reconnect → automatic sync to Supabase
-REQUIREMENT: Must work PERFECTLY offline"
+#### 2. Email Automation ❌
+**Status:** 0% complete
+**Impact:** **CRITICAL** - No automated customer communication
+**Effort:** 8-12 hours
 
-# Step 3: Test Engineer - Test sync reliability
-"Test offline sync reliability:
-- Queue 10 operations offline → all sync on reconnect
-- Intermittent connection → partial sync recovery
-- Conflicting edits → conflict resolution
-- Failed sync → retry logic with exponential backoff
-- Full sync success → queue cleared"
-
-# Step 4: Error Detective - Test failure modes
-"Test offline failure modes:
-- IndexedDB full → fallback to localStorage
-- Service Worker fails → graceful degradation
-- Sync fails repeatedly → user notification
-- Data corruption → recovery mechanisms"
-
-# Step 5: Performance Engineer - Optimize offline performance
-"Optimize offline performance:
-- Service Worker cache size limits
-- IndexedDB query optimization
-- Background sync strategy
-- Battery impact analysis"
-
-# Acceptance Criteria:
-✅ TypeScript Pro: Offline architecture complete
-✅ mobile-tester: PERFECT offline experience (BLOCKER)
-✅ Test Engineer: 100% sync reliability
-✅ Error Detective: Graceful error handling
-✅ Performance Engineer: Minimal battery impact
+**Implementation Required:**
+```
+supabase/functions/send-email/
+  ├── index.ts           # Resend API integration
+  └── templates/
+      ├── inspection-booked.html
+      ├── inspection-complete.html
+      ├── pdf-ready.html
+      └── booking-confirmation.html
 ```
 
----
+**Features Needed:**
+- Resend API integration
+- 4 email templates (HTML)
+- Trigger on database events
+- Email logging to `email_logs` table
+- Error handling and retries
 
-### Decision 3: **Australian Business Formatting**
+**Acceptance Criteria:**
+- Emails send reliably (>99% delivery)
+- Templates render correctly
+- Logging works
+- SPF/DKIM configured
 
-**Problem:** Need Australian-specific formats for phone, currency, dates, ABN.
+#### 3. AI Summary Generation ❌
+**Status:** 0% complete
+**Impact:** **HIGH** - Technicians waste time writing summaries
+**Effort:** 6-8 hours
 
-**Solution: Centralized Formatting Utilities**
-
-```typescript
-// src/lib/utils/formatters.ts
-
-// Phone: 04XX XXX XXX
-export function formatPhoneNumber(phone: string): string {
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length === 10 && cleaned.startsWith('04')) {
-    return `${cleaned.slice(0, 4)} ${cleaned.slice(4, 7)} ${cleaned.slice(7)}`;
-  }
-  return phone;
-}
-
-// ABN: XX XXX XXX XXX (with checksum validation)
-export function formatABN(abn: string): string {
-  const cleaned = abn.replace(/\D/g, '');
-  if (cleaned.length === 11) {
-    return `${cleaned.slice(0, 2)} ${cleaned.slice(2, 5)} ${cleaned.slice(5, 8)} ${cleaned.slice(8)}`;
-  }
-  return abn;
-}
-
-// Currency: $X,XXX.XX
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-AU', {
-    style: 'currency',
-    currency: 'AUD',
-  }).format(amount);
-}
-
-// Date: DD/MM/YYYY
-export function formatDateAU(date: Date): string {
-  return format(date, 'dd/MM/yyyy');
-}
+**Implementation Required:**
+```
+supabase/functions/generate-ai-summary/
+  ├── index.ts           # Claude API integration
+  └── prompt-template.md # AI prompt
 ```
 
-**All form inputs use these formatters consistently across the application.**
+**Features Needed:**
+- Claude Sonnet 3.5 integration
+- Comprehensive prompt template
+- Generate from inspection data
+- Store in database
+- Rate limiting
 
-**Agent Validation Workflow:**
-```bash
-# Step 1: TypeScript Pro - Implement Australian formatters
-"Create centralized Australian formatting utilities:
-1. formatPhoneNumber: 04XX XXX XXX or (0X) XXXX XXXX
-2. formatABN: XX XXX XXX XXX with checksum validation
-3. formatCurrency: $X,XXX.XX (always clarify ex/inc GST)
-4. formatDateAU: DD/MM/YYYY
-5. formatDateTimeAU: DD/MM/YYYY at HH:MM AM/PM
-6. validatePostcode: VIC only (3000-3999)"
+**Acceptance Criteria:**
+- Professional summaries (250-400 words)
+- Australian English
+- Customer-friendly language
+- Generates in <10 seconds
 
-# Step 2: Test Engineer - Test formatting edge cases
-"Test ALL Australian format edge cases:
-- Phone: 0412345678 → 0412 345 678
-- Phone: 0398765432 → (03) 9876 5432
-- ABN checksum validation: valid vs invalid
-- Currency: 1234.56 → $1,234.56
-- Date: 2025-01-15 → 15/01/2025
-- Postcode: 3000 (valid), 2000 (invalid NSW)"
+#### 4. PWA/Offline Mode ❌
+**Status:** 10% (structure exists)
+**Impact:** **CRITICAL** - Form doesn't work offline (basement inspections)
+**Effort:** 16-20 hours
 
-# Step 3: Code Reviewer - Verify consistency
-"Review formatter usage across codebase:
-- ALL phone numbers use formatPhoneNumber
-- ALL currency uses formatCurrency (with ex/inc GST label)
-- ALL dates use formatDateAU or formatDateTimeAU
-- NO hardcoded formats anywhere"
+**Implementation Required:**
+```
+public/
+  ├── service-worker.js  # Service worker
+  └── manifest.json      # PWA manifest
 
-# Step 4: mobile-tester - Test input formatting
-"Test Australian formatting on mobile at 375px:
-- Phone input auto-formats as user types
-- ABN input auto-formats with spaces
-- Currency displays correctly
-- Date picker shows DD/MM/YYYY
-- All formats readable on mobile"
-
-# Acceptance Criteria:
-✅ TypeScript Pro: All formatters implemented
-✅ Test Engineer: All edge cases pass
-✅ Code Reviewer: 100% consistency
-✅ mobile-tester: Formats work on mobile
+src/lib/offline/
+  ├── indexedDB.ts      # Large data storage
+  ├── sync.ts           # Sync manager
+  └── queue.ts          # Offline queue
 ```
 
----
+**Features Needed:**
+- Service Worker with cache strategies
+- IndexedDB for inspection drafts + photos
+- Offline queue for mutations
+- Sync on reconnection
+- Offline indicator UI
+- Conflict resolution
 
-### Decision 4: **Calendar Booking with Travel Time Intelligence**
+**Acceptance Criteria:**
+- Form works completely offline
+- Photos stored in IndexedDB
+- Auto-syncs when back online
+- No data loss in any scenario
+- Works on iOS + Android
 
-**Problem:** Prevent impossible bookings (e.g., Carlton 2pm → Mernda 3pm).
+### Priority 1 (Week 2) - **HIGH IMPACT**
 
-**Solution: Zone-Based Travel Time Matrix**
+#### 5. Testing Suite ⚠️
+**Status:** 20% (TestSprite generated, not run)
+**Impact:** **HIGH** - No confidence in code quality
+**Effort:** 8-12 hours
 
-```typescript
-// Melbourne suburbs grouped into 4 zones
-const ZONE_MAP = {
-  1: ['Melbourne', 'Carlton', 'Fitzroy', 'Richmond'],      // CBD
-  2: ['Brunswick', 'Coburg', 'Footscray', 'Preston'],      // Inner
-  3: ['Frankston', 'Dandenong', 'Ringwood', 'Werribee'],   // Middle
-  4: ['Geelong', 'Mornington', 'Pakenham', 'Sunbury'],     // Outer
-};
-
-// Travel time matrix (minutes)
-const TRAVEL_TIME_MATRIX = {
-  1: { 1: 15, 2: 30, 3: 45, 4: 60 },
-  2: { 1: 30, 2: 20, 3: 40, 4: 55 },
-  3: { 1: 45, 2: 40, 3: 25, 4: 45 },
-  4: { 1: 60, 2: 55, 3: 45, 4: 30 },
-};
-
-// Booking availability check
-export async function checkAvailability(
-  technicianId: string,
-  startTime: Date,
-  suburb: string,
-  duration: number
-): Promise<boolean> {
-  // Get zone for requested suburb
-  const requestedZone = getSuburbZone(suburb);
-
-  // Get previous booking
-  const prevBooking = await getPreviousBooking(technicianId, startTime);
-
-  if (prevBooking) {
-    const prevZone = getSuburbZone(prevBooking.suburb);
-    const travelTime = TRAVEL_TIME_MATRIX[prevZone][requestedZone];
-    const earliestStart = addMinutes(prevBooking.endTime, travelTime);
-
-    // Block if not enough travel time
-    if (startTime < earliestStart) {
-      return false;
-    }
-  }
-
-  return true;
-}
-```
-
-**Implementation Files:**
-- `src/lib/utils/travelTime.ts` - Travel time calculations
-- `src/lib/api/calendar.ts` - Booking availability logic
-- `supabase/functions/check-booking-availability/index.ts` - Server-side validation
-
-**Agent Validation Workflow:**
-```bash
-# Step 1: TypeScript Pro - Implement travel time matrix
-"Implement zone-based travel time system:
-1. Define 4 Melbourne zones (CBD, Inner, Middle, Outer)
-2. Create 4×4 travel time matrix (16 combinations)
-3. Build suburb-to-zone mapping
-4. Implement conflict detection algorithm
-5. Create booking availability function"
-
-# Step 2: Test Engineer - Test conflict scenarios (CRITICAL)
-"Test ALL travel time conflict scenarios:
-- Carlton (Z1) 2pm → Mernda (Z3) 3pm = CONFLICT (need 45min)
-- Carlton (Z1) 2pm → Mernda (Z3) 5pm = OK (60min gap)
-- Same zone bookings 15min apart = OK
-- Adjacent zones 30min apart = OK
-- Outer zones 60min apart = OK
-Test 20+ scenarios covering all zone combinations"
-
-# Step 3: SQL Pro - Optimize calendar queries
-"Optimize booking availability queries:
-- Add indexes on calendar_bookings (technician_id, start_time)
-- Create materialized view for daily availability
-- Optimize conflict detection query performance
-- Add database constraints for overlapping bookings"
-
-# Step 4: Database Admin - Add conflict constraints
-"Add database-level conflict prevention:
-- Check constraint: start_time < end_time
-- Trigger: validate travel time on insert
-- Index: prevent double-bookings
-- Test constraint enforcement"
-
-# Step 5: mobile-tester - Test booking UI
-"Test calendar booking at 375px:
-- Date picker usable with touch
-- Available time slots display correctly
-- Conflict message clear and helpful
-- Booking confirmation works"
-
-# Acceptance Criteria:
-✅ TypeScript Pro: Travel time system complete
-✅ Test Engineer: ALL 20+ scenarios pass (BLOCKER)
-✅ SQL Pro: Query performance optimized
-✅ Database Admin: Constraints enforced
-✅ mobile-tester: Booking UI works on mobile
-```
-
----
-
-### Decision 5: **Pricing Calculator with Discount Logic**
-
-**Problem:** Complex pricing rules with multi-day discounts capped at 13%.
-
-**Solution: Centralized Pricing Engine**
-
-```typescript
-// Base rates (ex GST)
-const BASE_RATES = {
-  no_demolition: { 2: 612, 8: 1216.99 },
-  demolition: { 2: 711.90, 8: 1798.90 },
-  construction: { 2: 661.96, 8: 1507.95 },
-  subfloor: { 2: 900, 8: 2334.69 },
-};
-
-export function calculatePricing(config: PricingConfig) {
-  const { workType, hours, dehumidifiers, airMovers, rcdBox, equipmentDays } = config;
-
-  // 1. Get base hourly rate
-  const rates = BASE_RATES[workType];
-  const baseRate = interpolateRate(rates, hours);
-
-  // 2. Apply multi-day discount
-  let discount = 0;
-  if (hours > 8 && hours <= 16) {
-    discount = 0.075;  // 7.5% for 2 days
-  } else if (hours > 16) {
-    discount = 0.13;   // 13% cap for 3+ days
-  }
-
-  const labourCost = baseRate * (1 - discount);
-
-  // 3. Calculate equipment hire
-  const equipmentCost =
-    (dehumidifiers * 132 * equipmentDays) +
-    (airMovers * 46 * equipmentDays) +
-    (rcdBox ? 5 * equipmentDays : 0);
-
-  // 4. Calculate totals
-  const totalExGST = labourCost + equipmentCost;
-  const gst = totalExGST * 0.1;
-  const totalIncGST = totalExGST + gst;
-
-  return { labourCost, equipmentCost, totalExGST, gst, totalIncGST };
-}
-```
-
-**Implementation Files:**
-- `src/lib/utils/inspectionUtils.ts` - Pricing calculator
-- `src/components/inspection/PricingSection.tsx` - UI display
-- `src/lib/utils/__tests__/inspectionUtils.test.ts` - Comprehensive tests
-
-**Agent Validation Workflow:**
-```bash
-# Step 1: TypeScript Pro - Implement pricing engine
-"Implement pricing calculator with business rules:
-1. Define BASE_RATES for 4 work types (2hr & 8hr)
-2. Implement multi-day discount (0%, 7.5%, 13% MAX)
-3. Calculate equipment costs (per day rates)
-4. Add GST calculation (10%)
-5. Ensure 13% discount NEVER exceeded (ABSOLUTE)"
-
-# Step 2: pricing-calculator - Create 48 test scenarios (DEPLOYMENT BLOCKER)
-"Create comprehensive pricing test suite:
-- Test ALL 4 work types × 3 discount tiers × 4 equipment combos
-- Scenario 1: No demolition, 2hrs, no equipment → $612 ex GST
-- Scenario 2: Demolition, 8hrs, 3 dehumidifiers → correct total
-- ... (48 total scenarios)
-- CRITICAL: Validate 13% cap NEVER exceeded in ANY scenario
-REQUIREMENT: ALL 48 scenarios MUST PASS (DEPLOYMENT BLOCKER)"
-
-# Step 3: Test Engineer - Edge case testing
-"Test pricing edge cases:
-- 0 hours → error handling
-- Negative values → validation
-- Very large jobs (200+ hours) → still 13% cap
-- Equipment only (no labour) → correct calculation
-- Decimal hours → proper rounding"
-
-# Step 4: Security Auditor - Verify no client manipulation
-"Security audit pricing calculator:
-- Verify calculations performed server-side
-- Check no client-side price manipulation possible
-- Validate input sanitization
-- Test for injection attacks"
-
-# Step 5: Code Reviewer - Review business logic
-"Review pricing calculator code:
-- Discount logic correct (matches business rules)
-- 13% cap enforcement verified
-- Code maintainability
-- Documentation complete
-- Unit tests comprehensive"
-
-# Acceptance Criteria (DEPLOYMENT BLOCKERS):
-✅ TypeScript Pro: Pricing engine implemented
-✅ pricing-calculator: ALL 48 scenarios PASS (BLOCKER)
-✅ Test Engineer: All edge cases handled
-✅ Security Auditor: No manipulation possible
-✅ Code Reviewer: Business logic correct
-```
-
----
-
-### Decision 6: **AI-Generated Inspection Summaries**
-
-**Problem:** Technicians need professional summary reports but lack writing skills.
-
-**Solution: Claude API with Comprehensive Prompt**
-
-```typescript
-// Edge Function: generate-ai-summary
-export async function generateSummary(inspectionData: InspectionReport): Promise<string> {
-  const prompt = `
-You are creating professional mould inspection summary reports for MRC.
-
-Property: ${inspectionData.address}
-Affected Areas: ${JSON.stringify(inspectionData.areas)}
-Causes: ${inspectionData.causes}
-Work Required: ${inspectionData.workRequired}
-
-Generate a comprehensive summary with:
-1. Summary of Findings (paragraph)
-2. Identified Causes (bulleted list)
-3. Recommendations (immediate + ongoing)
-4. Overview & Conclusion (paragraph)
-
-Use Australian English, professional tone, customer-friendly language.
-`;
-
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-3.5-20241022',
-    max_tokens: 1000,
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  return message.content[0].text;
-}
-```
-
-**Implementation Files:**
-- `supabase/functions/generate-ai-summary/index.ts` - Claude API integration
-- `context/INSTRUCTIONS-FOR-MOULD-INSPECTION-SUMMARY-REPORTS-PROMPT.md` - Full prompt template
-- `src/components/inspection/AISummaryButton.tsx` - Trigger UI
-
-**Agent Validation Workflow:**
-```bash
-# Step 1: TypeScript Pro - Implement Claude API integration
-"Implement AI summary generation:
-1. Create Supabase Edge Function with Anthropic SDK
-2. Build comprehensive prompt template
-3. Implement error handling and retries
-4. Add rate limiting and caching
-5. Create client-side trigger button"
-
-# Step 2: Test Engineer - Test AI generation quality
-"Test AI summary generation:
-- Generate summaries for 10 sample inspections
-- Verify professional tone and language
-- Check Australian English spelling
-- Validate summary length (250-400 words)
-- Test error scenarios (API timeout, invalid data)
-- Verify summary includes all required sections"
-
-# Step 3: Security Auditor - Verify API key security (CRITICAL)
-"Security audit AI integration:
-- Verify API key stored server-side ONLY (Edge Function)
-- Check API key NOT exposed to client
-- Validate environment variable configuration
-- Test rate limiting prevents abuse
-- Verify user authorization before generation"
-
-# Step 4: Technical Writer - Review prompt template
-"Review AI prompt template:
-- Prompt produces professional summaries
-- Covers all inspection aspects
-- Uses appropriate mould remediation terminology
-- Maintains customer-friendly language
-- Australian English enforced"
-
-# Step 5: Code Reviewer - Review implementation
-"Review AI generation code:
-- Error handling robust
-- Retry logic with exponential backoff
-- Timeout handling appropriate
-- Loading states clear
-- User feedback on failures"
-
-# Acceptance Criteria:
-✅ TypeScript Pro: Claude API integrated
-✅ Test Engineer: Summary quality verified
-✅ Security Auditor: API key secured server-side (CRITICAL)
-✅ Technical Writer: Prompt template approved
-✅ Code Reviewer: Implementation quality approved
-```
-
----
-
-## 🚨 Critical Issues & Solutions
-
-### Issue 1: **Page Reload Causing Data Loss** ⚠️ CRITICAL
-
-**Status:** Identified, solution designed (see Decision 1 above)
+**Current State:**
+- ✅ 16 TestSprite tests generated
+- ❌ Tests not run
+- ❌ No unit tests
+- ❌ No E2E tests
 
 **Action Required:**
-- [ ] Implement React Query with proper caching
-- [ ] Create AppContext for UI state
-- [ ] Build useAutoSave hook (30-second interval)
-- [ ] Add localStorage backup
-- [ ] Implement navigation guard
+1. Run TestSprite tests (16 scenarios)
+2. Fix any failures
+3. Add unit tests for critical functions (pricing, calculations)
+4. Setup Playwright for E2E testing
+5. Implement CI/CD with test gates
 
-**Priority:** P0 (Must fix before any production use)
-
----
-
-### Issue 2: **No Offline Capability** ⚠️ CRITICAL
-
-**Status:** Identified, solution designed (see Decision 2 above)
+#### 6. Performance Optimization ⚠️
+**Status:** 30% (no systematic optimization)
+**Impact:** **MEDIUM** - Load time may exceed 3s target
+**Effort:** 6-8 hours
 
 **Action Required:**
-- [ ] Implement Service Worker
-- [ ] Create offline queue system
-- [ ] Add IndexedDB for large data
-- [ ] Build sync mechanism
-- [ ] Add offline indicator UI
+1. Run Lighthouse audit (mobile + desktop)
+2. Measure Core Web Vitals (LCP, FID, CLS)
+3. Optimize bundle size (currently unknown, target <500KB)
+4. Implement code splitting (React.lazy)
+5. Optimize images (WebP format)
+6. Remove debug console.logs
 
-**Priority:** P0 (Required for field technicians)
+### Priority 2 (Week 3) - **POLISH**
 
----
+#### 7. Code Refactoring
+- Split InspectionForm.tsx (3,641 lines → modular)
+- Remove code duplication
+- Extract shared hooks
+- Remove debug logging
+- Add error boundaries
+- Improve loading states
 
-### Issue 3: **Email Verification Not Sending**
-
-**Status:** Known issue with authentication flow
-
-**Solution:**
-- Configure Resend API properly
-- Create email templates
-- Test with real email addresses
-- Add email logging
-
-**Priority:** P1 (Needed for production auth)
-
----
-
-### Issue 4: **Pricing Calculator Not Matching Business Rules**
-
-**Status:** Needs implementation (see Decision 5 above)
-
-**Action Required:**
-- [ ] Implement pricing calculator with discount logic
-- [ ] Add 13% discount cap
-- [ ] Make prices editable by technicians
-- [ ] Add comprehensive unit tests
-
-**Priority:** P0 (Critical for accurate quotes)
+#### 8. Documentation
+- API documentation for inspections
+- Deployment guide
+- Developer onboarding
+- Architecture diagrams
+- User guides
 
 ---
 
-### Issue 5: **Calendar Has No Conflict Detection**
+## 🔧 Technical Debt
 
-**Status:** Needs implementation (see Decision 4 above)
+### Code Quality Issues
 
-**Action Required:**
-- [ ] Implement travel time matrix
-- [ ] Add booking conflict detection
-- [ ] Create availability check function
-- [ ] Add database constraints
+**High Priority:**
 
-**Priority:** P0 (Prevent double-bookings)
+1. **InspectionForm.tsx File Size (3,641 lines)**
+   - **Impact:** Hard to maintain, slow to load
+   - **Solution:** Split into section components (Week 2)
+   - **Effort:** 8-12 hours
 
----
-
-## 📂 Project Structure
-
-```
-mrc-app/
-├── context/                        # 📚 Planning Documents
-│   ├── CLAUDE.md                  # Project guide for all sessions
-│   ├── MRC-PRD.md                 # Product requirements (111KB)
-│   ├── MRC-TECHNICAL-SPEC.md      # Technical specification (87KB)
-│   ├── MRC-SPRINT-1-TASKS.md      # Sprint roadmap (79KB)
-│   ├── design-checklist-s-tier.md # Design standards (43KB)
-│   └── MRC-LEAD-MANAGEMENT-SYSTEM-MASTER-TODO-LIST.md # Complete task list
-│
-├── src/
-│   ├── components/                # React components
-│   │   ├── dashboard/            # Dashboard & Kanban
-│   │   ├── inspection/           # Inspection form sections
-│   │   ├── calendar/             # Booking system
-│   │   ├── leads/                # Lead management
-│   │   └── ui/                   # shadcn/ui components (48)
-│   │
-│   ├── lib/
-│   │   ├── api/                  # Supabase client functions
-│   │   ├── hooks/                # Custom React hooks
-│   │   ├── utils/                # Utility functions
-│   │   ├── supabase.ts           # Supabase client
-│   │   └── queryClient.ts        # React Query setup
-│   │
-│   ├── pages/                    # Route components
-│   ├── types/                    # TypeScript types
-│   ├── contexts/                 # React contexts
-│   └── App.tsx                   # Root component
-│
-├── supabase/
-│   ├── functions/                # Edge Functions
-│   │   ├── generate-inspection-pdf/
-│   │   ├── generate-ai-summary/
-│   │   ├── send-email/
-│   │   └── check-booking-availability/
-│   │
-│   └── migrations/               # Database migrations
-│       ├── 20250111000001_create_leads.sql
-│       ├── 20250111000002_create_inspections.sql
-│       └── ... (11 migrations total)
-│
-├── public/
-│   ├── sw.js                     # Service Worker
-│   └── email-templates/          # HTML email templates
-│
-├── PLANNING.md                   # 📖 This document
-├── CLAUDE.md                     # Project guide for Claude Code
-├── package.json
-├── tsconfig.json
-├── tailwind.config.ts
-└── vite.config.ts
-```
-
----
-
-## 🔄 Development Workflow
-
-### Daily Development Routine
-
-1. **Start Session:**
-   ```bash
-   # Read project guide
-   cat CLAUDE.md
-
-   # Check current sprint tasks
-   cat context/MRC-SPRINT-1-TASKS.md
-
-   # Review git status
-   git status
-   git log --oneline -5
+2. **Debug Logging Everywhere**
+   ```typescript
+   🔍 DEBUG - handleInputChange (remove)
+   💰 COST RECALCULATION (remove)
+   console.log('DEBUG handlePhotoCapture') (remove)
    ```
+   - **Impact:** Noisy console, performance overhead
+   - **Solution:** Remove all debug logs, implement proper logging
+   - **Effort:** 2-3 hours
 
-2. **Before Coding:**
-   - Check current sprint task priority (P0/P1/P2)
-   - Review design principles for the feature
-   - Consider mobile-first impact
-   - Plan for offline scenarios
+3. **Code Duplication**
+   - Data loading logic repeated (MODE 1 & MODE 2)
+   - Similar photo upload code across sections
+   - **Impact:** Hard to maintain, bugs multiply
+   - **Solution:** Extract to shared functions/hooks
+   - **Effort:** 4-6 hours
 
-3. **During Development:**
-   - Start dev server: `npm run dev`
-   - Test at 375px width first (mobile)
-   - Auto-save every 30 seconds (simulate)
-   - Check browser console for errors
-   - Commit frequently with clear messages
+4. **TODO Comments**
+   ```typescript
+   // TODO: Create a public view or RPC function
+   // TODO: Implement AI generation
+   // TODO: Optionally load inspection data
+   ```
+   - **Impact:** Incomplete features
+   - **Solution:** Address or delete TODOs
+   - **Effort:** Varies
 
-4. **After UI Changes:**
-   - Execute visual verification checklist (see CLAUDE.md)
-   - Test mobile responsiveness (375px, 768px, 1440px)
-   - Capture screenshots
-   - Update session log
+**Medium Priority:**
 
-5. **End Session:**
-   - Update PLANNING.md with new decisions
-   - Mark completed tasks in MRC-SPRINT-1-TASKS.md
-   - Commit all changes
-   - Push to repository
+5. **No Error Boundaries**
+   - **Impact:** App crashes with no recovery
+   - **Solution:** Add React Error Boundaries
+   - **Effort:** 2-3 hours
 
-### Git Workflow
+6. **Inconsistent Loading States**
+   - Some components have loading spinners, others don't
+   - **Impact:** Poor UX
+   - **Solution:** Create LoadingState component, use everywhere
+   - **Effort:** 3-4 hours
 
-```bash
-# Feature branch workflow
-git checkout -b feature/inspection-form-auto-save
-git add .
-git commit -m "feat: implement auto-save for inspection form
+7. **No TypeScript Types for Some Areas**
+   - Some `any` types still exist
+   - **Impact:** Less type safety
+   - **Solution:** Add proper types
+   - **Effort:** 4-6 hours
 
-- Add useAutoSave hook with 30s delay
-- Store draft in localStorage
-- Sync to Supabase when online
-- Show 'Last saved' timestamp
+**Low Priority:**
 
-Refs: #12"
+8. **Commented Out Code**
+   - Auto-save logic commented out (line ~2800)
+   - **Solution:** Enable or delete
+   - **Effort:** 1 hour
 
-git push origin feature/inspection-form-auto-save
-```
+9. **Magic Numbers**
+   ```typescript
+   const gstAmount = subtotal * 0.10; // Use constant
+   const equipmentCost = qty * 132;   // Use pricing config
+   ```
+   - **Impact:** Hard to update rates
+   - **Solution:** Move to configuration
+   - **Effort:** 2-3 hours
 
-### Testing Workflow
+### Performance Debt
 
-```bash
-# Unit tests
-npm test                           # Run all tests
-npm test -- inspectionUtils.test   # Run specific test
+**Issues:**
+1. No code splitting (entire app loads at once)
+2. Large bundle size (not measured, likely >500KB)
+3. No image optimization (photos not WebP)
+4. No service worker caching
+5. No lazy loading for routes
 
-# E2E tests
-npm run test:e2e                   # Run Playwright tests
-npm run test:e2e:ui                # Open Playwright UI
+**Solutions:**
+1. Implement React.lazy for routes
+2. Measure bundle with Vite rollup visualizer
+3. Convert photos to WebP
+4. Implement service worker
+5. Lazy load heavy components (calendar, reports)
 
-# Type checking
-npm run type-check                 # TypeScript compilation
+---
 
-# Linting
-npm run lint                       # ESLint
-npm run lint:fix                   # Auto-fix issues
-```
+## 📅 Next 30 Days Roadmap
+
+### Week 1 (Nov 25-29): Automation Layer
+
+**Goal:** Enable PDF, Email, and AI automation
+
+**Tasks:**
+1. **Day 1-2:** PDF Generation
+   - Create Edge Function with Puppeteer
+   - Build HTML template
+   - Test with real inspection data
+   - Store PDFs in Supabase Storage
+
+2. **Day 2-3:** Email Automation
+   - Setup Resend integration
+   - Create 4 email templates
+   - Test email delivery
+   - Implement logging
+
+3. **Day 3-4:** AI Summary
+   - Integrate Claude API
+   - Create prompt template
+   - Test summary quality
+   - Add to inspection form
+
+4. **Day 4-5:** Testing
+   - Run TestSprite suite (16 tests)
+   - Fix any failures
+   - Manual testing of new features
+
+**Deliverables:**
+- ✅ PDF generation working
+- ✅ Email automation sending
+- ✅ AI summaries generating
+- ✅ All TestSprite tests passing
+
+### Week 2 (Dec 2-6): PWA & Performance
+
+**Goal:** Enable offline mode and optimize performance
+
+**Tasks:**
+1. **Day 1-2:** PWA Implementation
+   - Create service worker
+   - Setup manifest.json
+   - Implement IndexedDB storage
+   - Build offline queue
+
+2. **Day 3:** Sync Manager
+   - Sync logic on reconnection
+   - Conflict resolution
+   - Offline indicator UI
+
+3. **Day 4:** Performance Optimization
+   - Run Lighthouse audit
+   - Optimize bundle size
+   - Implement code splitting
+   - Remove debug logs
+
+4. **Day 5:** Testing
+   - Test offline mode (airplane mode)
+   - Test sync recovery
+   - Performance verification (mobile >90)
+
+**Deliverables:**
+- ✅ App works fully offline
+- ✅ Lighthouse mobile score >90
+- ✅ Bundle size <500KB
+- ✅ No console errors
+
+### Week 3 (Dec 9-13): Testing & Polish
+
+**Goal:** Comprehensive testing and code cleanup
+
+**Tasks:**
+1. **Day 1-2:** Unit Testing
+   - Add unit tests for pricing
+   - Add tests for calculations
+   - Add tests for utilities
+   - Target 70% coverage
+
+2. **Day 2-3:** E2E Testing
+   - Setup Playwright
+   - Test critical user flows
+   - Test mobile responsiveness (375px)
+   - Test offline scenarios
+
+3. **Day 3-4:** Code Refactoring
+   - Split InspectionForm.tsx
+   - Remove code duplication
+   - Extract shared hooks
+   - Add error boundaries
+
+4. **Day 4-5:** Documentation
+   - Update PLANNING.md
+   - Create deployment guide
+   - Write API documentation
+   - Update README
+
+**Deliverables:**
+- ✅ Test coverage >70%
+- ✅ All E2E tests passing
+- ✅ Code refactored
+- ✅ Documentation complete
+
+### Week 4 (Dec 16-20): Pre-Deployment
+
+**Goal:** Final checks and production deployment
+
+**Tasks:**
+1. **Day 1:** Security Audit
+   - Run npm audit
+   - Verify RLS policies
+   - Check for hardcoded secrets
+   - Test authentication flows
+
+2. **Day 2:** Pricing Validation
+   - Run pricing calculator tests
+   - Verify 13% discount cap
+   - Test all equipment rates
+   - Validate GST calculations
+
+3. **Day 3:** Final Performance Check
+   - Lighthouse audit all pages
+   - Load time verification
+   - Mobile testing (real devices)
+   - Network simulation (4G)
+
+4. **Day 4:** Deployment
+   - Configure environment variables
+   - Deploy to Vercel
+   - Configure custom domain
+   - Setup error tracking
+
+5. **Day 5:** Post-Deployment
+   - Smoke tests in production
+   - Monitor error rates
+   - User acceptance testing
+   - Celebrate! 🎉
+
+**Deliverables:**
+- ✅ Security scan PASS
+- ✅ All deployment checks PASS
+- ✅ Production live
+- ✅ No critical issues
 
 ---
 
 ## 📊 Success Metrics
 
-### Sprint 1 Success Criteria (Week 4)
+### Sprint 1 Completion Criteria (End of Week 4)
 
 **Technical Metrics:**
-- [ ] All P0 tasks completed (45 tasks)
-- [ ] Zero critical bugs
-- [ ] Offline mode works 100%
-- [ ] Auto-save works 100%
-- [ ] Email delivery rate >99%
-- [ ] PDF generation success rate >99%
-- [ ] Lighthouse score >90 (mobile)
-- [ ] Unit test coverage >80%
+- ✅ All P0 tasks completed
+- ✅ Zero critical bugs
+- ✅ Offline mode works 100%
+- ✅ Email delivery rate >99%
+- ✅ PDF generation success rate >99%
+- ✅ Lighthouse score >90 (mobile)
+- ✅ Test coverage >70%
+- ✅ All TestSprite tests passing
 
 **Feature Metrics:**
-- [ ] Lead capture from website form working
-- [ ] 12-stage Kanban pipeline functional
-- [ ] Inspection form complete (100+ fields)
-- [ ] AI summaries generating correctly
-- [ ] PDF generation working
-- [ ] Email automation sending reliably
-- [ ] Customer booking system live
-- [ ] Calendar conflict detection working
+- ✅ Lead capture working
+- ✅ 12-stage Kanban functional
+- ✅ Inspection form complete (9 sections)
+- ✅ AI summaries generating
+- ✅ PDF generation working
+- ✅ Email automation reliable
+- ✅ Calendar conflict detection tested
+- ✅ Cost breakdown accurate
 
 **Business Metrics:**
-- [ ] Demo runs flawlessly (15 minutes)
-- [ ] Owners impressed with automation
-- [ ] Field technicians trained and confident
-- [ ] Data migration from Airtable complete
+- ✅ Demo runs flawlessly (15 minutes)
+- ✅ Owners impressed
+- ✅ Field technicians trained
+- ✅ Ready for production use
 
-### Long-Term Success Metrics (6 Months Post-Launch)
+### Long-Term Success (6 Months Post-Launch)
 
 **Operational Efficiency:**
 - Admin time: 10h/week → 2h/week (80% reduction)
@@ -1272,7 +1228,7 @@ npm run lint:fix                   # Auto-fix issues
 
 **Business Growth:**
 - Monthly jobs: 20 → 50+ (150% increase)
-- Revenue per month: Track growth
+- Revenue growth tracked
 - Customer satisfaction: >4.5/5 stars
 
 **Technical Performance:**
@@ -1287,138 +1243,118 @@ npm run lint:fix                   # Auto-fix issues
 
 ### Core Planning Documents
 
-1. **CLAUDE.md** - Project guide for all Claude Code sessions
-   - Essential startup workflow
-   - Visual development checklist
-   - MRC-specific standards
+1. **CLAUDE.md** - Project guide for Claude Code sessions
+   - Session startup workflow
+   - MCP server usage
+   - Agent coordination
    - Common issues & solutions
 
-2. **MRC-PRD.md** (111KB) - Product Requirements Document
+2. **TODO.md** - Prioritized task list (this sprint)
+   - Critical tasks (Week 1)
+   - High priority (Week 2)
+   - Medium priority (Week 3)
+   - Technical debt backlog
+
+3. **MRC-PRD.md** - Product Requirements Document
    - Executive summary
    - User personas
    - 12-stage workflow
    - Feature specifications
-   - Email templates
-   - Demo script
 
-3. **MRC-TECHNICAL-SPEC.md** (87KB) - Technical Implementation
+4. **MRC-TECHNICAL-SPEC.md** - Technical Implementation
    - System architecture
-   - Database schema (11 tables)
    - API design patterns
    - Component architecture
-   - Email system setup
-   - PDF generation
-   - Calendar algorithm
    - Deployment guide
 
-4. **MRC-SPRINT-1-TASKS.md** (79KB) - 4-Week Roadmap
-   - Week 1: Foundation & Database
-   - Week 2: Core Features
-   - Week 3: Automation & PDF
-   - Week 4: Polish & Demo
-   - 57 detailed tasks
-   - Testing checklist
-   - Risk mitigation
+5. **COST-BREAKDOWN-TEST-GUIDE.md** (Nov 22)
+   - Cost breakdown testing
+   - Equipment calculation verification
+   - Manual testing steps
 
-5. **design-checklist-s-tier.md** (43KB) - Design Standards
-   - Current state assessment
-   - MRC-specific principles
-   - Mobile requirements
-   - Australian formatting
-   - Critical gaps identified
+### TestSprite Documentation
 
-6. **MRC-LEAD-MANAGEMENT-SYSTEM-MASTER-TODO-LIST.md** - Complete Task List
-   - 220+ individual tasks
-   - Organized by phase
-   - Detailed requirements
-   - Business rules
-
-### Quick Reference
-
-**Start New Session:**
-```bash
-cat CLAUDE.md
-cat context/MRC-SPRINT-1-TASKS.md
-git status
-```
-
-**Check Design Standards:**
-```bash
-cat context/design-checklist-s-tier.md
-```
-
-**Review Technical Decisions:**
-```bash
-cat PLANNING.md  # This document
-cat context/MRC-TECHNICAL-SPEC.md
-```
-
-**View Complete Requirements:**
-```bash
-cat context/MRC-PRD.md
-```
+6. **testsprite_tests/** - Automated test suite
+   - 16 test files generated
+   - Frontend test plan
+   - Code summary
+   - Standardized PRD
 
 ---
 
-## 🎯 Current Status
+## 🎯 Current Status Summary
 
-**Sprint:** Sprint 1 (Weeks 1-4)
-**Phase:** Planning & Documentation Complete
-**Next Phase:** Week 1 - Foundation & Database
+**Sprint:** Sprint 1 Extended (Weeks 1-8)
+**Phase:** Core Features Complete, Automation Layer Needed
+**Overall Completion:** 70%
+**Production Readiness:** 65%
 
-**Completed:**
-- ✅ Project vision defined
-- ✅ Architecture designed
-- ✅ Technology stack selected
-- ✅ Database schema planned
-- ✅ API patterns established
-- ✅ 4-week roadmap created
-- ✅ Design standards documented
+**Completed Since Nov 11:**
+- ✅ Cost Breakdown feature (Nov 22)
+- ✅ Equipment auto-calculation (Nov 22)
+- ✅ Work Procedure fields (Nov 21)
+- ✅ Waste Disposal fix (Nov 21)
+- ✅ TestSprite test generation (Nov 22)
+- ✅ 126 suburbs mapped
 
 **In Progress:**
-- 🔄 Developer environment setup
-- 🔄 Supabase project configuration
+- 🔄 Testing (TestSprite generated, not run)
+- 🔄 Documentation updates
+- 🔄 Performance optimization planning
 
 **Blocked:**
 - None
 
 **Next Steps:**
-1. Setup Supabase project
-2. Create database migrations (11 tables)
-3. Seed suburb zones data
-4. Enable Row Level Security
-5. Generate TypeScript types
-6. Begin Week 1 tasks
+1. Run TestSprite tests
+2. Implement PDF generation
+3. Implement email automation
+4. Implement AI summary
+5. Implement PWA/offline
+6. Deploy to production
 
 ---
 
 ## 📝 Decision Log
 
+**2025-11-23:**
+- ✅ Analyzed actual codebase state (30 tables vs. 11 planned)
+- ✅ Identified deployment blockers (PDF, Email, AI, PWA)
+- ✅ Confirmed Cost Breakdown complete and working
+- ✅ Established 4-week roadmap to production
+- ✅ Prioritized automation layer (Week 1)
+
+**2025-11-22:**
+- ✅ Completed Cost Breakdown feature
+- ✅ Implemented equipment auto-calculation
+- ✅ Fixed recalculation on page load
+
+**2025-11-21:**
+- ✅ Fixed all 11 Work Procedure fields
+- ✅ Fixed RCD Box zero-value loading bug
+- ✅ Fixed Waste Disposal dropdown
+
 **2025-11-11:**
-- ✅ Decided on React Query for server state management
-- ✅ Decided on Context API for UI state
-- ✅ Decided on localStorage + auto-save for data persistence
-- ✅ Decided on zone-based travel time matrix (no Google Maps API needed)
-- ✅ Decided on Resend API for email delivery
+- ✅ Decided on React Query + Context API for state
+- ✅ Decided on localStorage + auto-save for persistence
+- ✅ Decided on zone-based travel time matrix
+- ✅ Decided on Resend for email delivery
 - ✅ Decided on Claude API for AI summaries
-- ✅ Decided on Puppeteer for PDF generation
 - ✅ Confirmed 4-week sprint timeline
-- ✅ Established mobile-first as primary constraint
 
 **Future Decisions Needed:**
-- SMS provider selection (Week 3)
-- Payment gateway integration (Sprint 2)
-- Analytics platform selection (Week 4)
+- Service Worker caching strategy (Week 2)
+- Code splitting approach (Week 2)
 - Monitoring/logging service (Week 4)
 
 ---
 
-**Last Updated:** 2025-11-11
-**Next Review:** Weekly during active development
-**Document Owner:** Claude Code Team
+**Last Updated:** 2025-11-23
+**Next Review:** Daily during active development
+**Document Owner:** Michael Youssef + Claude Code Team
 
 ---
 
-*This planning document serves as the "north star" for the MRC Lead Management System. All development decisions should align with the vision, architecture, and standards established here.*
+*This planning document reflects the ACTUAL current state of the MRC Lead Management System as of November 23, 2024. All completion percentages, feature statuses, and technical assessments are based on comprehensive codebase analysis and database inspection.*
 
-**Ready to build? Start with `context/MRC-SPRINT-1-TASKS.md` Week 1, Task 1.1!** 🚀
+**Critical Focus:** Automation Layer (PDF, Email, AI) + PWA/Offline Mode = 4 weeks to production 🚀
