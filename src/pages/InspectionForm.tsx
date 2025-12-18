@@ -52,6 +52,11 @@ const InspectionForm = () => {
   const [technicians, setTechnicians] = useState<Array<{ id: string; name: string }>>([])
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
+  // Flag to prevent auto-recalculation from overwriting saved cost data during initial load
+  // When true: skip recalculateCost() to preserve database values
+  // When false: allow recalculation for user-driven changes
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
+
   // Map frontend area IDs to database area IDs
   // Key: frontend UUID (area.id), Value: database UUID (inspection_areas.id)
   const [areaIdMapping, setAreaIdMapping] = useState<Record<string, string>>({})
@@ -171,7 +176,15 @@ const InspectionForm = () => {
   }, [formData, currentInspectionId])
 
   useEffect(() => {
-    // Recalculate cost whenever relevant fields change
+    // GUARD: Skip recalculation during initial load to preserve saved cost values
+    // This prevents the race condition where loaded costs get immediately overwritten
+    if (isInitialLoad) {
+      console.log('⏸️ Skipping recalculateCost - initial load in progress')
+      return
+    }
+
+    // Recalculate cost whenever relevant fields change (user-driven changes only)
+    console.log('🔄 Running recalculateCost - user changed equipment/areas')
     recalculateCost()
   }, [
     formData.areas,
@@ -180,7 +193,8 @@ const InspectionForm = () => {
     formData.commercialDehumidifierQty,
     formData.airMoversQty,
     formData.rcdBoxQty,
-    formData.estimatedDays
+    formData.estimatedDays,
+    isInitialLoad
   ])
 
   const loadLeadData = async () => {
@@ -212,7 +226,7 @@ const InspectionForm = () => {
             .from('leads')
             .select('*')
             .eq('id', inspection.lead_id)
-            .single()
+            .maybeSingle()  // Use maybeSingle() to handle RLS restrictions gracefully
 
           if (!leadError && leadData) {
             setLead(leadData)
@@ -220,6 +234,9 @@ const InspectionForm = () => {
             // by temporarily setting leadId context
             await loadInspectionFromLead(inspection.lead_id)
             setLoading(false)
+            // Allow recalculation now that saved data is loaded
+            // Use setTimeout to ensure state updates complete before enabling recalc
+            setTimeout(() => setIsInitialLoad(false), 100)
             return
           }
         }
@@ -233,6 +250,7 @@ const InspectionForm = () => {
           variant: "destructive"
         })
         setLoading(false)
+        setIsInitialLoad(false)  // Allow recalculation even on error
         return
       }
     }
@@ -241,6 +259,9 @@ const InspectionForm = () => {
     if (leadId) {
       await loadInspectionFromLead(leadId)
       setLoading(false)
+      // Allow recalculation now that saved data is loaded
+      // Use setTimeout to ensure state updates complete before enabling recalc
+      setTimeout(() => setIsInitialLoad(false), 100)
       return
     }
 
@@ -251,6 +272,7 @@ const InspectionForm = () => {
       variant: "destructive"
     })
     setLoading(false)
+    setIsInitialLoad(false)  // Allow recalculation even on error/no context
   }
 
   const loadInspectionFromLead = async (lid: string) => {
@@ -588,6 +610,15 @@ const InspectionForm = () => {
             gstAmount: existingInspection.gst_amount ?? 0,
             totalIncGst: existingInspection.total_inc_gst ?? 0
           }))
+
+          // Log loaded cost values for debugging
+          console.log('💰 LOADED COST VALUES FROM DATABASE:', {
+            laborCost: existingInspection.labor_cost_ex_gst,
+            equipmentCost: existingInspection.equipment_cost_ex_gst,
+            subtotalExGst: existingInspection.subtotal_ex_gst,
+            gstAmount: existingInspection.gst_amount,
+            totalIncGst: existingInspection.total_inc_gst
+          })
         } else {
           // No areas in database, but still load subfloor data if it exists
           const { data: subfloorData, error: subfloorError } = await supabase
@@ -623,8 +654,9 @@ const InspectionForm = () => {
           // Load subfloor photos (need to load photos even without areas)
           // Filter by subfloor_id (new photos) OR photo_type='subfloor' (legacy photos without subfloor_id)
           let subfloorPhotos: Photo[] = []
+          let photosWithUrls: any[] = []  // Declare outside try block for use in outdoor photos section
           try {
-            const photosWithUrls = await loadInspectionPhotos(existingInspection.id)
+            photosWithUrls = await loadInspectionPhotos(existingInspection.id)
             const subfloorPhotoRecords = photosWithUrls.filter(p =>
               (p.subfloor_id === subfloorData?.id) ||
               (p.photo_type === 'subfloor' && p.subfloor_id === null)
@@ -762,6 +794,15 @@ const InspectionForm = () => {
             gstAmount: existingInspection.gst_amount ?? 0,
             totalIncGst: existingInspection.total_inc_gst ?? 0
           }))
+
+          // Log loaded cost values for debugging (no areas path)
+          console.log('💰 LOADED COST VALUES FROM DATABASE (no areas):', {
+            laborCost: existingInspection.labor_cost_ex_gst,
+            equipmentCost: existingInspection.equipment_cost_ex_gst,
+            subtotalExGst: existingInspection.subtotal_ex_gst,
+            gstAmount: existingInspection.gst_amount,
+            totalIncGst: existingInspection.total_inc_gst
+          })
         }
 
         console.log('✅ Loaded saved inspection data:', {
@@ -839,7 +880,7 @@ const InspectionForm = () => {
         .from('leads')
         .select('*')
         .eq('id', lid)
-        .single()
+        .maybeSingle()  // Use maybeSingle() to handle 0 rows gracefully (RLS may block access)
 
       if (error) {
         console.error('❌ Error fetching lead:', error)
@@ -853,10 +894,10 @@ const InspectionForm = () => {
       }
 
       if (!leadData) {
-        console.error('❌ Lead not found:', lid)
+        console.error('❌ Lead not found or access denied:', lid)
         toast({
           title: 'Lead not found',
-          description: 'The lead you\'re trying to inspect doesn\'t exist.',
+          description: 'The lead doesn\'t exist or you don\'t have permission to view it.',
           variant: 'destructive'
         })
         navigate('/inspection/select-lead')
@@ -1035,6 +1076,13 @@ const InspectionForm = () => {
 
   // Recalculate Equipment, Subtotal, GST, Total when Labor or Equipment quantities change
   useEffect(() => {
+    // GUARD: Skip recalculation during initial load to preserve saved cost values
+    // This prevents the race condition where loaded costs get immediately overwritten
+    if (isInitialLoad) {
+      console.log('⏸️ Skipping cost recalculation useEffect - initial load in progress')
+      return
+    }
+
     // Calculate equipment cost from Work Procedure quantities
     const dehuQty = formData.commercialDehumidifierQty || 0
     const airQty = formData.airMoversQty || 0
@@ -1093,7 +1141,8 @@ const InspectionForm = () => {
     formData.commercialDehumidifierQty,
     formData.airMoversQty,
     formData.rcdBoxQty,
-    formData.estimatedDays
+    formData.estimatedDays,
+    isInitialLoad
   ])
 
   // When Subtotal changes → recalculate GST and Total (don't change Labor/Equipment)
