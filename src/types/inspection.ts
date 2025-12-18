@@ -132,4 +132,8 @@ export interface InspectionFormData {
   gstAmount: number;
   totalIncGst: number;
   discountPercent: number;
+
+  // AI Summary
+  jobSummaryFinal: string;
+  regenerationFeedback: string;
 }

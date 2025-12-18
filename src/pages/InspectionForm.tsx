@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams, useLocation, useParams } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
@@ -51,11 +51,12 @@ const InspectionForm = () => {
   const [currentInspectionId, setCurrentInspectionId] = useState<string | null>(null)
   const [technicians, setTechnicians] = useState<Array<{ id: string; name: string }>>([])
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
 
   // Flag to prevent auto-recalculation from overwriting saved cost data during initial load
   // When true: skip recalculateCost() to preserve database values
   // When false: allow recalculation for user-driven changes
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const isInitialLoad = useRef(true)
 
   // Map frontend area IDs to database area IDs
   // Key: frontend UUID (area.id), Value: database UUID (inspection_areas.id)
@@ -135,7 +136,11 @@ const InspectionForm = () => {
     equipmentCost: 0,
     subtotalExGst: 0,
     gstAmount: 0,
-    totalIncGst: 0
+    totalIncGst: 0,
+
+    // AI Summary
+    jobSummaryFinal: '',
+    regenerationFeedback: ''
   })
 
   const sections = [
@@ -147,7 +152,8 @@ const InspectionForm = () => {
     { id: 5, title: 'Waste Disposal', icon: <Trash2 size={40} strokeWidth={2} /> },
     { id: 6, title: 'Work Procedure', icon: <Wrench size={40} strokeWidth={2} /> },
     { id: 7, title: 'Job Summary', icon: <ClipboardList size={40} strokeWidth={2} /> },
-    { id: 8, title: 'Cost Estimate', icon: <DollarSign size={40} strokeWidth={2} /> }
+    { id: 8, title: 'Cost Estimate', icon: <DollarSign size={40} strokeWidth={2} /> },
+    { id: 9, title: 'Job Summary (AI)', icon: <Sparkles size={40} strokeWidth={2} /> }
   ]
 
   // Load user and lead data on mount
@@ -178,7 +184,7 @@ const InspectionForm = () => {
   useEffect(() => {
     // GUARD: Skip recalculation during initial load to preserve saved cost values
     // This prevents the race condition where loaded costs get immediately overwritten
-    if (isInitialLoad) {
+    if (isInitialLoad.current) {
       console.log('⏸️ Skipping recalculateCost - initial load in progress')
       return
     }
@@ -193,8 +199,7 @@ const InspectionForm = () => {
     formData.commercialDehumidifierQty,
     formData.airMoversQty,
     formData.rcdBoxQty,
-    formData.estimatedDays,
-    isInitialLoad
+    formData.estimatedDays
   ])
 
   const loadLeadData = async () => {
@@ -236,7 +241,7 @@ const InspectionForm = () => {
             setLoading(false)
             // Allow recalculation now that saved data is loaded
             // Use setTimeout to ensure state updates complete before enabling recalc
-            setTimeout(() => setIsInitialLoad(false), 100)
+            isInitialLoad.current = false
             return
           }
         }
@@ -250,7 +255,7 @@ const InspectionForm = () => {
           variant: "destructive"
         })
         setLoading(false)
-        setIsInitialLoad(false)  // Allow recalculation even on error
+        isInitialLoad.current = false  // Allow recalculation even on error
         return
       }
     }
@@ -261,7 +266,7 @@ const InspectionForm = () => {
       setLoading(false)
       // Allow recalculation now that saved data is loaded
       // Use setTimeout to ensure state updates complete before enabling recalc
-      setTimeout(() => setIsInitialLoad(false), 100)
+      isInitialLoad.current = false
       return
     }
 
@@ -272,7 +277,7 @@ const InspectionForm = () => {
       variant: "destructive"
     })
     setLoading(false)
-    setIsInitialLoad(false)  // Allow recalculation even on error/no context
+    isInitialLoad.current = false  // Allow recalculation even on error/no context
   }
 
   const loadInspectionFromLead = async (lid: string) => {
@@ -608,7 +613,10 @@ const InspectionForm = () => {
             equipmentCost: existingInspection.equipment_cost_ex_gst ?? 0,
             subtotalExGst: existingInspection.subtotal_ex_gst ?? 0,
             gstAmount: existingInspection.gst_amount ?? 0,
-            totalIncGst: existingInspection.total_inc_gst ?? 0
+            totalIncGst: existingInspection.total_inc_gst ?? 0,
+
+            // AI Summary - maps to ai_summary_text in database
+            jobSummaryFinal: existingInspection.ai_summary_text || ''
           }))
 
           // Log loaded cost values for debugging
@@ -792,7 +800,10 @@ const InspectionForm = () => {
             equipmentCost: existingInspection.equipment_cost_ex_gst ?? 0,
             subtotalExGst: existingInspection.subtotal_ex_gst ?? 0,
             gstAmount: existingInspection.gst_amount ?? 0,
-            totalIncGst: existingInspection.total_inc_gst ?? 0
+            totalIncGst: existingInspection.total_inc_gst ?? 0,
+
+            // AI Summary - maps to ai_summary_text in database
+            jobSummaryFinal: existingInspection.ai_summary_text || ''
           }))
 
           // Log loaded cost values for debugging (no areas path)
@@ -1078,7 +1089,7 @@ const InspectionForm = () => {
   useEffect(() => {
     // GUARD: Skip recalculation during initial load to preserve saved cost values
     // This prevents the race condition where loaded costs get immediately overwritten
-    if (isInitialLoad) {
+    if (isInitialLoad.current) {
       console.log('⏸️ Skipping cost recalculation useEffect - initial load in progress')
       return
     }
@@ -1141,8 +1152,7 @@ const InspectionForm = () => {
     formData.commercialDehumidifierQty,
     formData.airMoversQty,
     formData.rcdBoxQty,
-    formData.estimatedDays,
-    isInitialLoad
+    formData.estimatedDays
   ])
 
   // When Subtotal changes → recalculate GST and Total (don't change Labor/Equipment)
@@ -1836,7 +1846,10 @@ const InspectionForm = () => {
         equipment_cost_ex_gst: formData.equipmentCost || 0,
         subtotal_ex_gst: formData.subtotalExGst || 0,
         gst_amount: formData.gstAmount || 0,
-        total_inc_gst: formData.totalIncGst || 0
+        total_inc_gst: formData.totalIncGst || 0,
+        // Section 10: AI Job Summary
+        ai_summary_text: formData.jobSummaryFinal || null,
+        ai_summary_generated_at: formData.jobSummaryFinal ? new Date().toISOString() : null
       })
 
       console.log('💰 SAVED COST VALUES:', {
@@ -2221,6 +2234,265 @@ const InspectionForm = () => {
         variant: 'destructive'
       })
       setSaving(false)
+    }
+  }
+
+  // AI Summary Generation - calls the generate-inspection-summary edge function
+  const handleGenerateSummary = async () => {
+    setIsGenerating(true)
+
+    try {
+      // Prepare form data for the AI
+      const summaryFormData = {
+        // Client/Property Info from lead
+        clientName: lead?.full_name,
+        clientEmail: lead?.email,
+        clientPhone: lead?.phone,
+        propertyAddress: lead?.property_address_street,
+        propertySuburb: lead?.property_address_suburb,
+        propertyState: lead?.property_address_state,
+        propertyPostcode: lead?.property_address_postcode,
+
+        // Inspection Details
+        inspectionDate: formData.inspectionDate,
+        inspector: formData.inspector,
+        triage: formData.triage,
+        requestedBy: formData.requestedBy,
+        attentionTo: formData.attentionTo,
+        propertyOccupation: formData.propertyOccupation,
+        dwellingType: formData.dwellingType,
+
+        // Areas
+        areas: formData.areas.map(area => ({
+          areaName: area.areaName,
+          mouldVisibility: area.mouldVisibility,
+          commentsForReport: area.commentsForReport,
+          temperature: area.temperature,
+          humidity: area.humidity,
+          dewPoint: area.dewPoint,
+          timeWithoutDemo: area.timeWithoutDemo,
+          demolitionRequired: area.demolitionRequired,
+          demolitionTime: area.demolitionTime,
+          demolitionDescription: area.demolitionDescription,
+          moistureReadings: area.moistureReadings,
+          infraredEnabled: area.infraredEnabled,
+          infraredObservations: area.infraredObservations
+        })),
+
+        // Subfloor
+        subfloorEnabled: formData.subfloorEnabled,
+        subfloorObservations: formData.subfloorObservations,
+        subfloorComments: formData.subfloorComments,
+        subfloorLandscape: formData.subfloorLandscape,
+        subfloorSanitation: formData.subfloorSanitation,
+        subfloorRacking: formData.subfloorRacking,
+        subfloorTreatmentTime: formData.subfloorTreatmentTime,
+
+        // Outdoor
+        outdoorTemperature: formData.outdoorTemperature,
+        outdoorHumidity: formData.outdoorHumidity,
+        outdoorDewPoint: formData.outdoorDewPoint,
+        outdoorComments: formData.outdoorComments,
+
+        // Waste Disposal
+        wasteDisposalEnabled: formData.wasteDisposalEnabled,
+        wasteDisposalAmount: formData.wasteDisposalAmount,
+
+        // Work Procedure
+        hepaVac: formData.hepaVac,
+        antimicrobial: formData.antimicrobial,
+        stainRemovingAntimicrobial: formData.stainRemovingAntimicrobial,
+        homeSanitationFogging: formData.homeSanitationFogging,
+        commercialDehumidifierEnabled: formData.commercialDehumidifierEnabled,
+        commercialDehumidifierQty: formData.commercialDehumidifierQty,
+        airMoversEnabled: formData.airMoversEnabled,
+        airMoversQty: formData.airMoversQty,
+        rcdBoxEnabled: formData.rcdBoxEnabled,
+        rcdBoxQty: formData.rcdBoxQty,
+
+        // Job Summary
+        recommendDehumidifier: formData.recommendDehumidifier,
+        dehumidifierSize: formData.dehumidifierSize,
+        causeOfMould: formData.causeOfMould,
+        additionalInfoForTech: formData.additionalInfoForTech,
+        additionalEquipmentComments: formData.additionalEquipmentComments,
+        parkingOptions: formData.parkingOptions,
+
+        // Cost Estimate
+        laborCost: formData.laborCost,
+        equipmentCost: formData.equipmentCost,
+        subtotalExGst: formData.subtotalExGst,
+        gstAmount: formData.gstAmount,
+        totalIncGst: formData.totalIncGst
+      }
+
+      const { data, error } = await supabase.functions.invoke('generate-inspection-summary', {
+        body: { formData: summaryFormData }
+      })
+
+      if (error) {
+        console.error('Error generating summary:', error)
+        toast({
+          title: 'Generation failed',
+          description: error.message || 'Failed to generate AI summary. Please try again.',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      if (data?.success && data?.summary) {
+        // Update form state with generated summary
+        handleInputChange('jobSummaryFinal', data.summary)
+
+        toast({
+          title: 'Summary generated',
+          description: 'AI summary has been generated. You can edit it before saving.',
+          variant: 'default'
+        })
+      } else {
+        toast({
+          title: 'Generation failed',
+          description: data?.error || 'No summary was generated. Please try again.',
+          variant: 'destructive'
+        })
+      }
+    } catch (error: any) {
+      console.error('Error in handleGenerateSummary:', error)
+      toast({
+        title: 'Generation failed',
+        description: error.message || 'An unexpected error occurred. Please try again.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  // Regenerate summary with user feedback
+  const handleRegenerateSummary = async () => {
+    if (!formData.regenerationFeedback?.trim()) {
+      toast({
+        title: 'Feedback required',
+        description: 'Please enter your feedback before regenerating.',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    setIsGenerating(true)
+
+    try {
+      // Prepare form data for the AI (same as generate)
+      const summaryFormData = {
+        clientName: lead?.full_name,
+        clientEmail: lead?.email,
+        clientPhone: lead?.phone,
+        propertyAddress: lead?.property_address_street,
+        propertySuburb: lead?.property_address_suburb,
+        propertyState: lead?.property_address_state,
+        propertyPostcode: lead?.property_address_postcode,
+        inspectionDate: formData.inspectionDate,
+        inspector: formData.inspector,
+        triage: formData.triage,
+        requestedBy: formData.requestedBy,
+        attentionTo: formData.attentionTo,
+        propertyOccupation: formData.propertyOccupation,
+        dwellingType: formData.dwellingType,
+        areas: formData.areas.map(area => ({
+          areaName: area.areaName,
+          mouldVisibility: area.mouldVisibility,
+          commentsForReport: area.commentsForReport,
+          temperature: area.temperature,
+          humidity: area.humidity,
+          dewPoint: area.dewPoint,
+          timeWithoutDemo: area.timeWithoutDemo,
+          demolitionRequired: area.demolitionRequired,
+          demolitionTime: area.demolitionTime,
+          demolitionDescription: area.demolitionDescription,
+          moistureReadings: area.moistureReadings,
+          infraredEnabled: area.infraredEnabled,
+          infraredObservations: area.infraredObservations
+        })),
+        subfloorEnabled: formData.subfloorEnabled,
+        subfloorObservations: formData.subfloorObservations,
+        subfloorComments: formData.subfloorComments,
+        subfloorLandscape: formData.subfloorLandscape,
+        subfloorSanitation: formData.subfloorSanitation,
+        subfloorRacking: formData.subfloorRacking,
+        subfloorTreatmentTime: formData.subfloorTreatmentTime,
+        outdoorTemperature: formData.outdoorTemperature,
+        outdoorHumidity: formData.outdoorHumidity,
+        outdoorDewPoint: formData.outdoorDewPoint,
+        outdoorComments: formData.outdoorComments,
+        wasteDisposalEnabled: formData.wasteDisposalEnabled,
+        wasteDisposalAmount: formData.wasteDisposalAmount,
+        hepaVac: formData.hepaVac,
+        antimicrobial: formData.antimicrobial,
+        stainRemovingAntimicrobial: formData.stainRemovingAntimicrobial,
+        homeSanitationFogging: formData.homeSanitationFogging,
+        commercialDehumidifierEnabled: formData.commercialDehumidifierEnabled,
+        commercialDehumidifierQty: formData.commercialDehumidifierQty,
+        airMoversEnabled: formData.airMoversEnabled,
+        airMoversQty: formData.airMoversQty,
+        rcdBoxEnabled: formData.rcdBoxEnabled,
+        rcdBoxQty: formData.rcdBoxQty,
+        recommendDehumidifier: formData.recommendDehumidifier,
+        dehumidifierSize: formData.dehumidifierSize,
+        causeOfMould: formData.causeOfMould,
+        additionalInfoForTech: formData.additionalInfoForTech,
+        additionalEquipmentComments: formData.additionalEquipmentComments,
+        parkingOptions: formData.parkingOptions,
+        laborCost: formData.laborCost,
+        equipmentCost: formData.equipmentCost,
+        subtotalExGst: formData.subtotalExGst,
+        gstAmount: formData.gstAmount,
+        totalIncGst: formData.totalIncGst
+      }
+
+      const { data, error } = await supabase.functions.invoke('generate-inspection-summary', {
+        body: {
+          formData: summaryFormData,
+          feedback: formData.regenerationFeedback
+        }
+      })
+
+      if (error) {
+        console.error('Error regenerating summary:', error)
+        toast({
+          title: 'Regeneration failed',
+          description: error.message || 'Failed to regenerate AI summary. Please try again.',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      if (data?.success && data?.summary) {
+        // Update form state with regenerated summary
+        handleInputChange('jobSummaryFinal', data.summary)
+        // Clear the feedback field after successful regeneration
+        handleInputChange('regenerationFeedback', '')
+
+        toast({
+          title: 'Summary regenerated',
+          description: 'AI summary has been updated based on your feedback.',
+          variant: 'default'
+        })
+      } else {
+        toast({
+          title: 'Regeneration failed',
+          description: data?.error || 'No summary was generated. Please try again.',
+          variant: 'destructive'
+        })
+      }
+    } catch (error: any) {
+      console.error('Error in handleRegenerateSummary:', error)
+      toast({
+        title: 'Regeneration failed',
+        description: error.message || 'An unexpected error occurred. Please try again.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsGenerating(false)
     }
   }
 
@@ -3591,6 +3863,71 @@ const InspectionForm = () => {
                     💡 Edit Labor above. Equipment auto-calculates from Work Procedure section (Dehumidifiers, Air Movers, RCD Boxes).
                   </p>
                 </div>
+              </div>
+            )}
+
+            {/* SECTION 10: AI JOB SUMMARY */}
+            {currentSection === 9 && (
+              <div className="form-section">
+                <h2 className="subsection-title">Job Summary (Generated by AI)</h2>
+                <p className="field-hint">
+                  Generate a professional summary based on the inspection data. You can edit the result before saving.
+                </p>
+
+                <div className="form-group">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={handleGenerateSummary}
+                    disabled={isGenerating} // Only disable if actively generating
+                  >
+                    {isGenerating ? (
+                      <>
+                        <span className="loading-spinner-small"></span>
+                        <span>Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} className="mr-2" />
+                        <span>{formData.jobSummaryFinal ? 'Regenerate Summary' : 'Generate Summary'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {formData.jobSummaryFinal && (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Generated Summary</label>
+                      <textarea
+                        value={formData.jobSummaryFinal}
+                        onChange={(e) => handleInputChange('jobSummaryFinal', e.target.value)}
+                        className="form-textarea"
+                        rows={15}
+                        placeholder="AI-generated summary will appear here..."
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Request changes</label>
+                      <input
+                        type="text"
+                        value={formData.regenerationFeedback}
+                        onChange={(e) => handleInputChange('regenerationFeedback', e.target.value)}
+                        className="form-input"
+                        placeholder="e.g., 'Make the tone more formal' or 'Add more detail about the subfloor'"
+                      />
+                      <button
+                        type="button"
+                        className="btn-secondary mt-2"
+                        onClick={handleRegenerateSummary}
+                        disabled={isGenerating || !formData.regenerationFeedback}
+                      >
+                        {isGenerating ? 'Generating...' : 'Regenerate with Feedback'}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}          </div>
 

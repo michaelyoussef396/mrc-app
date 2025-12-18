@@ -35,6 +35,7 @@ import RequestInspection from "./pages/RequestInspection";
 import InspectionSuccess from "./pages/InspectionSuccess";
 import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
+import TestPDFTemplate from "./pages/TestPDFTemplate";
 
 const queryClient = new QueryClient();
 
@@ -55,7 +56,8 @@ const AppContent = () => {
           {/* <Route path="/password-changed" element={<PasswordChanged />} /> */}
           <Route path="/request-inspection" element={<RequestInspection />} />
           <Route path="/request-inspection/success" element={<InspectionSuccess />} />
-          
+          <Route path="/test-pdf" element={<TestPDFTemplate />} />
+
           {/* Protected routes (with AppLayout) */}
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<Dashboard />} />
