@@ -323,9 +323,10 @@ ${formattedData}
 Generate an updated professional job summary report that addresses the user's feedback:`
     }
 
-    // Call Gemini API
+    // Call Gemini API - using gemini-1.5-flash for stability
+    console.log('Calling Gemini API...')
     const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
       {
         method: 'POST',
         headers: {
@@ -367,9 +368,25 @@ Generate an updated professional job summary report that addresses the user's fe
 
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text()
-      console.error('Gemini API error:', errorText)
+      console.error('Gemini API error:', geminiResponse.status, errorText)
+
+      // Parse error to provide more helpful message
+      let errorMessage = 'Failed to generate summary. Please try again.'
+      try {
+        const errorJson = JSON.parse(errorText)
+        if (errorJson?.error?.message) {
+          errorMessage = `Gemini API error: ${errorJson.error.message}`
+          // Check for common issues
+          if (errorJson.error.message.includes('API key')) {
+            errorMessage = 'Invalid or expired GEMINI_API_KEY. Please update the secret in Supabase.'
+          }
+        }
+      } catch {
+        // Keep default error message
+      }
+
       return new Response(
-        JSON.stringify({ error: 'Failed to generate summary. Please try again.' }),
+        JSON.stringify({ error: errorMessage, details: errorText }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
