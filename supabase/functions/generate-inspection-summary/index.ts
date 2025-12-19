@@ -323,10 +323,10 @@ ${formattedData}
 Generate an updated professional job summary report that addresses the user's feedback:`
     }
 
-    // Call Gemini API - using gemini-1.5-flash for stability
-    console.log('Calling Gemini API...')
+    // Call Gemini API - using gemini-2.0-flash (latest stable model)
+    console.log('Calling Gemini API with gemini-2.0-flash...')
     const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
       {
         method: 'POST',
         headers: {
