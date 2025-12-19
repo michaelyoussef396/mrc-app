@@ -83,11 +83,10 @@ export default function Dashboard() {
             
             {/* Profile Button */}
             <div className="relative">
-              <button 
+              <button
                 className="flex items-center gap-2.5 py-1.5 pr-3 pl-1.5 bg-white/10 border border-white/20 rounded-full cursor-pointer transition-all hover:bg-white/15 text-white"
                 onClick={() => {
                   setProfileMenuOpen(!profileMenuOpen);
-                  setNotificationsOpen(false);
                 }}
               >
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-base font-bold text-white">

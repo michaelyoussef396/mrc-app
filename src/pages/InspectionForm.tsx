@@ -202,6 +202,27 @@ const InspectionForm = () => {
     formData.estimatedDays
   ])
 
+  // Trigger initial cost calculation when loading completes and no saved costs exist
+  // This ensures the cost section shows calculated values even on first open
+  useEffect(() => {
+    // Only run after loading completes (loading becomes false)
+    if (loading) return
+
+    // Check if costs need initial calculation (all cost values are 0 or missing)
+    const hasSavedCosts = (formData.laborCost && formData.laborCost > 0) ||
+                          (formData.equipmentCost && formData.equipmentCost > 0) ||
+                          (formData.subtotalExGst && formData.subtotalExGst > 0) ||
+                          (formData.totalIncGst && formData.totalIncGst > 0)
+
+    if (!hasSavedCosts) {
+      console.log('💰 No saved costs found - triggering initial calculation')
+      // Recalculate to populate initial values based on current equipment/labor
+      recalculateCost()
+    } else {
+      console.log('💰 Saved costs found - using loaded values')
+    }
+  }, [loading]) // Only depends on loading state changing
+
   const loadLeadData = async () => {
     setLoading(true)
 
@@ -835,6 +856,10 @@ const InspectionForm = () => {
         email: passedLead.customerEmail,
         phone: passedLead.customerPhone,
         property: `${passedLead.propertyAddress}, ${passedLead.propertySuburb} VIC ${passedLead.propertyPostcode}`,
+        property_address_street: passedLead.propertyAddress,
+        property_address_suburb: passedLead.propertySuburb,
+        property_address_state: 'VIC',
+        property_address_postcode: passedLead.propertyPostcode,
         issueDescription: passedLead.problemDescription,
         scheduledDate: `${passedLead.inspectionDate}T${passedLead.inspectionTime}:00`,
         affectedAreas: passedLead.affectedAreas,
@@ -935,6 +960,10 @@ const InspectionForm = () => {
           'VIC',
           leadData.property_address_postcode
         ].filter(Boolean).join(', '),
+        property_address_street: leadData.property_address_street,
+        property_address_suburb: leadData.property_address_suburb,
+        property_address_state: 'VIC',
+        property_address_postcode: leadData.property_address_postcode,
         issueDescription: leadData.issue_description || 'No issue description provided',
         scheduledDate: leadData.inspection_scheduled_date || new Date().toISOString().split('T')[0],
         propertyType: leadData.property_type,
@@ -2245,7 +2274,7 @@ const InspectionForm = () => {
       // Prepare form data for the AI
       const summaryFormData = {
         // Client/Property Info from lead
-        clientName: lead?.full_name,
+        clientName: lead?.name,
         clientEmail: lead?.email,
         clientPhone: lead?.phone,
         propertyAddress: lead?.property_address_street,
@@ -2332,9 +2361,24 @@ const InspectionForm = () => {
 
       if (error) {
         console.error('Error generating summary:', error)
+
+        // Provide specific error messages based on the error type
+        let errorMessage = 'Failed to generate AI summary.'
+
+        if (error.message?.includes('Failed to send a request') || error.message?.includes('FunctionsFetchError')) {
+          errorMessage = 'AI service unavailable. The edge function may not be deployed. Please contact support.'
+          console.error('Edge function not reachable - likely not deployed. Run: npx supabase functions deploy generate-inspection-summary')
+        } else if (error.message?.includes('not configured') || error.message?.includes('API key')) {
+          errorMessage = 'AI service not configured. Please contact support to set up the GEMINI_API_KEY.'
+        } else if (error.message?.includes('401') || error.message?.includes('unauthorized')) {
+          errorMessage = 'Authentication error. Please refresh the page and try again.'
+        } else {
+          errorMessage = error.message || 'Failed to generate AI summary. Please try again.'
+        }
+
         toast({
           title: 'Generation failed',
-          description: error.message || 'Failed to generate AI summary. Please try again.',
+          description: errorMessage,
           variant: 'destructive'
         })
         return
@@ -2358,9 +2402,20 @@ const InspectionForm = () => {
       }
     } catch (error: any) {
       console.error('Error in handleGenerateSummary:', error)
+
+      // Provide specific error messages based on the error type
+      let errorMessage = 'An unexpected error occurred.'
+
+      if (error.name === 'FunctionsFetchError' || error.message?.includes('Failed to send')) {
+        errorMessage = 'AI service unavailable. The edge function may not be deployed. Please contact support.'
+        console.error('Edge function not reachable - likely not deployed. Run: npx supabase functions deploy generate-inspection-summary')
+      } else {
+        errorMessage = error.message || 'An unexpected error occurred. Please try again.'
+      }
+
       toast({
         title: 'Generation failed',
-        description: error.message || 'An unexpected error occurred. Please try again.',
+        description: errorMessage,
         variant: 'destructive'
       })
     } finally {
@@ -2384,7 +2439,7 @@ const InspectionForm = () => {
     try {
       // Prepare form data for the AI (same as generate)
       const summaryFormData = {
-        clientName: lead?.full_name,
+        clientName: lead?.name,
         clientEmail: lead?.email,
         clientPhone: lead?.phone,
         propertyAddress: lead?.property_address_street,
@@ -2458,9 +2513,22 @@ const InspectionForm = () => {
 
       if (error) {
         console.error('Error regenerating summary:', error)
+
+        // Provide specific error messages based on the error type
+        let errorMessage = 'Failed to regenerate AI summary.'
+
+        if (error.message?.includes('Failed to send a request') || error.message?.includes('FunctionsFetchError')) {
+          errorMessage = 'AI service unavailable. The edge function may not be deployed. Please contact support.'
+          console.error('Edge function not reachable - likely not deployed. Run: npx supabase functions deploy generate-inspection-summary')
+        } else if (error.message?.includes('not configured') || error.message?.includes('API key')) {
+          errorMessage = 'AI service not configured. Please contact support to set up the GEMINI_API_KEY.'
+        } else {
+          errorMessage = error.message || 'Failed to regenerate AI summary. Please try again.'
+        }
+
         toast({
           title: 'Regeneration failed',
-          description: error.message || 'Failed to regenerate AI summary. Please try again.',
+          description: errorMessage,
           variant: 'destructive'
         })
         return
@@ -2486,9 +2554,20 @@ const InspectionForm = () => {
       }
     } catch (error: any) {
       console.error('Error in handleRegenerateSummary:', error)
+
+      // Provide specific error messages based on the error type
+      let errorMessage = 'An unexpected error occurred.'
+
+      if (error.name === 'FunctionsFetchError' || error.message?.includes('Failed to send')) {
+        errorMessage = 'AI service unavailable. The edge function may not be deployed. Please contact support.'
+        console.error('Edge function not reachable - likely not deployed. Run: npx supabase functions deploy generate-inspection-summary')
+      } else {
+        errorMessage = error.message || 'An unexpected error occurred. Please try again.'
+      }
+
       toast({
         title: 'Regeneration failed',
-        description: error.message || 'An unexpected error occurred. Please try again.',
+        description: errorMessage,
         variant: 'destructive'
       })
     } finally {
