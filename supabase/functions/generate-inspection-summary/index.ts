@@ -1,5 +1,5 @@
 // Supabase Edge Function: generate-inspection-summary
-// Calls Google Gemini AI to generate a professional inspection summary
+// Calls OpenRouter AI to generate a professional inspection summary
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -267,10 +267,10 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get Gemini API key from environment
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
-    if (!geminiApiKey) {
-      console.error('GEMINI_API_KEY not configured')
+    // Get OpenRouter API key from environment
+    const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY')
+    if (!openrouterApiKey) {
+      console.error('OPENROUTER_API_KEY not configured')
       return new Response(
         JSON.stringify({ error: 'AI service not configured. Please contact support.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -304,10 +304,17 @@ Your task is to generate a professional, comprehensive job summary based on the 
 7. Be suitable for presenting to the client or property manager
 8. Be concise but thorough (aim for 200-400 words)
 
+IMPORTANT FORMATTING RULES:
+- Output PLAIN TEXT only - NO markdown formatting whatsoever
+- Do NOT use asterisks (*), hashtags (#), bullet points (- or *), or any other markdown syntax
+- Use regular paragraph breaks (blank lines) to separate sections
+- Write in flowing prose with proper sentences
+- For emphasis, just use capital letters if needed, not bold or italic markers
+
 INSPECTION DATA:
 ${formattedData}
 
-Generate a professional job summary report:`
+Generate a professional job summary report in plain text format:`
 
     // If feedback is provided, modify the prompt for regeneration
     if (feedback && feedback.trim()) {
@@ -317,69 +324,56 @@ You previously generated a job summary, and the user has requested changes. Plea
 
 USER FEEDBACK: "${feedback}"
 
+IMPORTANT FORMATTING RULES:
+- Output PLAIN TEXT only - NO markdown formatting whatsoever
+- Do NOT use asterisks (*), hashtags (#), bullet points (- or *), or any other markdown syntax
+- Use regular paragraph breaks (blank lines) to separate sections
+- Write in flowing prose with proper sentences
+- For emphasis, just use capital letters if needed, not bold or italic markers
+
 INSPECTION DATA:
 ${formattedData}
 
-Generate an updated professional job summary report that addresses the user's feedback:`
+Generate an updated professional job summary report in plain text format that addresses the user's feedback:`
     }
 
-    // Call Gemini API - using gemini-2.0-flash (latest stable model)
-    console.log('Calling Gemini API with gemini-2.0-flash...')
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
+    // Call OpenRouter API with mistralai/devstral-2512:free (free model)
+    console.log('Calling OpenRouter API with mistralai/devstral-2512:free...')
+    const openrouterResponse = await fetch(
+      'https://openrouter.ai/api/v1/chat/completions',
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openrouterApiKey}`,
+          'HTTP-Referer': 'https://mrc-app.vercel.app',
+          'X-Title': 'MRC Inspection App'
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1024,
-            topP: 0.95,
-            topK: 40
-          },
-          safetySettings: [
+          model: 'mistralai/devstral-2512:free',
+          messages: [
             {
-              category: "HARM_CATEGORY_HARASSMENT",
-              threshold: "BLOCK_ONLY_HIGH"
-            },
-            {
-              category: "HARM_CATEGORY_HATE_SPEECH",
-              threshold: "BLOCK_ONLY_HIGH"
-            },
-            {
-              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-              threshold: "BLOCK_ONLY_HIGH"
-            },
-            {
-              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-              threshold: "BLOCK_ONLY_HIGH"
+              role: 'user',
+              content: prompt
             }
-          ]
+          ],
+          temperature: 0.7,
+          max_tokens: 1024,
+          top_p: 0.95
         })
       }
     )
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text()
-      console.error('Gemini API error:', geminiResponse.status, errorText)
+    if (!openrouterResponse.ok) {
+      const errorText = await openrouterResponse.text()
+      console.error('OpenRouter API error:', openrouterResponse.status, errorText)
 
       // Parse error to provide more helpful message
       let errorMessage = 'Failed to generate summary. Please try again.'
       try {
         const errorJson = JSON.parse(errorText)
         if (errorJson?.error?.message) {
-          errorMessage = `Gemini API error: ${errorJson.error.message}`
-          // Check for common issues
-          if (errorJson.error.message.includes('API key')) {
-            errorMessage = 'Invalid or expired GEMINI_API_KEY. Please update the secret in Supabase.'
-          }
+          errorMessage = `OpenRouter API error: ${errorJson.error.message}`
         }
       } catch {
         // Keep default error message
@@ -391,13 +385,13 @@ Generate an updated professional job summary report that addresses the user's fe
       )
     }
 
-    const geminiResult = await geminiResponse.json()
+    const openrouterResult = await openrouterResponse.json()
 
-    // Extract the generated text from Gemini response
-    const generatedText = geminiResult?.candidates?.[0]?.content?.parts?.[0]?.text
+    // Extract the generated text from OpenRouter response
+    const generatedText = openrouterResult?.choices?.[0]?.message?.content
 
     if (!generatedText) {
-      console.error('No text in Gemini response:', JSON.stringify(geminiResult))
+      console.error('No text in OpenRouter response:', JSON.stringify(openrouterResult))
       return new Response(
         JSON.stringify({ error: 'No summary generated. Please try again.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

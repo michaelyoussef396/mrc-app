@@ -225,12 +225,13 @@ export async function getInspection(inspectionId: string) {
 export async function saveInspectionArea(
   areaData: InspectionAreaData
 ): Promise<string> {
-  // Check if area already exists
+  // Check if area already exists by area_order (unique within inspection)
+  // Using area_order instead of area_name to prevent ghost areas when renaming
   const { data: existing, error: fetchError } = await supabase
     .from('inspection_areas')
     .select('id')
     .eq('inspection_id', areaData.inspection_id)
-    .eq('area_name', areaData.area_name)
+    .eq('area_order', areaData.area_order)
     .maybeSingle()
 
   if (fetchError) {

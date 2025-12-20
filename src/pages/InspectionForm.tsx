@@ -34,6 +34,51 @@ import {
   Droplets
 } from 'lucide-react'
 
+// Helper function to invoke edge functions using direct fetch
+// This bypasses supabase.functions.invoke() which has timeout issues
+async function invokeEdgeFunction(functionName: string, body: object): Promise<{ data: any; error: any }> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+  try {
+    // Get the current session for authorization
+    const { data: { session } } = await supabase.auth.getSession()
+    const accessToken = session?.access_token || supabaseAnonKey
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'apikey': supabaseAnonKey
+      },
+      body: JSON.stringify(body)
+    })
+
+    const responseData = await response.json()
+
+    if (!response.ok) {
+      return {
+        data: null,
+        error: {
+          message: responseData.error || `HTTP ${response.status}: ${response.statusText}`,
+          status: response.status
+        }
+      }
+    }
+
+    return { data: responseData, error: null }
+  } catch (error: any) {
+    return {
+      data: null,
+      error: {
+        message: error.message || 'Network error',
+        name: 'FetchError'
+      }
+    }
+  }
+}
+
 const InspectionForm = () => {
   const navigate = useNavigate()
   const location = useLocation()
@@ -2355,8 +2400,9 @@ const InspectionForm = () => {
         totalIncGst: formData.totalIncGst
       }
 
-      const { data, error } = await supabase.functions.invoke('generate-inspection-summary', {
-        body: { formData: summaryFormData }
+      // Use direct fetch instead of supabase.functions.invoke() to avoid timeout issues
+      const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
+        formData: summaryFormData
       })
 
       if (error) {
@@ -2504,11 +2550,10 @@ const InspectionForm = () => {
         totalIncGst: formData.totalIncGst
       }
 
-      const { data, error } = await supabase.functions.invoke('generate-inspection-summary', {
-        body: {
-          formData: summaryFormData,
-          feedback: formData.regenerationFeedback
-        }
+      // Use direct fetch instead of supabase.functions.invoke() to avoid timeout issues
+      const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
+        formData: summaryFormData,
+        feedback: formData.regenerationFeedback
       })
 
       if (error) {
