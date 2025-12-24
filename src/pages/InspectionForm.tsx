@@ -206,10 +206,20 @@ const InspectionForm = () => {
     jobSummaryFinal: '',
     regenerationFeedback: '',
 
-    // PDF Section Fields
+    // PDF Section Fields (Page 2)
     whatWeFoundText: '',
     whatWeWillDoText: '',
-    whatYouGetText: ''
+    whatYouGetText: '',
+
+    // Page 5 Job Summary fields
+    whatWeDiscovered: '',
+    identifiedCauses: '',
+    contributingFactors: '',
+    whyThisHappened: '',
+    immediateActions: '',
+    longTermProtection: '',
+    whatSuccessLooksLike: '',
+    timelineText: ''
   })
 
   const sections = [
@@ -706,7 +716,22 @@ const InspectionForm = () => {
             totalIncGst: existingInspection.total_inc_gst ?? 0,
 
             // AI Summary - maps to ai_summary_text in database
-            jobSummaryFinal: existingInspection.ai_summary_text || ''
+            jobSummaryFinal: existingInspection.ai_summary_text || '',
+
+            // Page 2 PDF Section fields
+            whatWeFoundText: existingInspection.what_we_found_text || '',
+            whatWeWillDoText: existingInspection.what_we_will_do_text || '',
+            whatYouGetText: existingInspection.what_you_get_text || '',
+
+            // Page 5 Job Summary fields
+            whatWeDiscovered: existingInspection.what_we_discovered || '',
+            identifiedCauses: existingInspection.identified_causes || '',
+            contributingFactors: existingInspection.contributing_factors || '',
+            whyThisHappened: existingInspection.why_this_happened || '',
+            immediateActions: existingInspection.immediate_actions || '',
+            longTermProtection: existingInspection.long_term_protection || '',
+            whatSuccessLooksLike: existingInspection.what_success_looks_like || '',
+            timelineText: existingInspection.timeline_text || ''
           }))
 
           // Log loaded cost values for debugging
@@ -893,7 +918,22 @@ const InspectionForm = () => {
             totalIncGst: existingInspection.total_inc_gst ?? 0,
 
             // AI Summary - maps to ai_summary_text in database
-            jobSummaryFinal: existingInspection.ai_summary_text || ''
+            jobSummaryFinal: existingInspection.ai_summary_text || '',
+
+            // Page 2 PDF Section fields
+            whatWeFoundText: existingInspection.what_we_found_text || '',
+            whatWeWillDoText: existingInspection.what_we_will_do_text || '',
+            whatYouGetText: existingInspection.what_you_get_text || '',
+
+            // Page 5 Job Summary fields
+            whatWeDiscovered: existingInspection.what_we_discovered || '',
+            identifiedCauses: existingInspection.identified_causes || '',
+            contributingFactors: existingInspection.contributing_factors || '',
+            whyThisHappened: existingInspection.why_this_happened || '',
+            immediateActions: existingInspection.immediate_actions || '',
+            longTermProtection: existingInspection.long_term_protection || '',
+            whatSuccessLooksLike: existingInspection.what_success_looks_like || '',
+            timelineText: existingInspection.timeline_text || ''
           }))
 
           // Log loaded cost values for debugging (no areas path)
@@ -1970,7 +2010,22 @@ const InspectionForm = () => {
         total_inc_gst: formData.totalIncGst || 0,
         // Section 10: AI Job Summary
         ai_summary_text: formData.jobSummaryFinal || null,
-        ai_summary_generated_at: formData.jobSummaryFinal ? new Date().toISOString() : null
+        ai_summary_generated_at: formData.jobSummaryFinal ? new Date().toISOString() : null,
+
+        // Page 2 PDF Section fields
+        what_we_found_text: formData.whatWeFoundText || null,
+        what_we_will_do_text: formData.whatWeWillDoText || null,
+        what_you_get_text: formData.whatYouGetText || null,
+
+        // Page 5 Job Summary fields
+        what_we_discovered: formData.whatWeDiscovered || null,
+        identified_causes: formData.identifiedCauses || null,
+        contributing_factors: formData.contributingFactors || null,
+        why_this_happened: formData.whyThisHappened || null,
+        immediate_actions: formData.immediateActions || null,
+        long_term_protection: formData.longTermProtection || null,
+        what_success_looks_like: formData.whatSuccessLooksLike || null,
+        timeline_text: formData.timelineText || null
       })
 
       console.log('💰 SAVED COST VALUES:', {
@@ -2700,9 +2755,31 @@ const InspectionForm = () => {
         airMoversQty: formData.airMoversQty
       }
 
+      // Get the custom prompt for this section (used during regeneration)
+      const customPrompt = section === 'whatWeFound' ? whatWeFoundPrompt :
+                           section === 'whatWeWillDo' ? whatWeWillDoPrompt :
+                           section === 'whatYouGet' ? whatYouGetPrompt : ''
+
+      // Get current content being regenerated (empty for first generation)
+      const currentContent = section === 'whatWeFound' ? formData.whatWeFoundText :
+                             section === 'whatWeWillDo' ? formData.whatWeWillDoText :
+                             section === 'whatYouGet' ? formData.whatYouGetText : ''
+
+      // Debug logging for edge function call
+      console.log('=== Calling Edge Function ===')
+      console.log('Section:', section)
+      console.log('Custom Prompt:', customPrompt)
+      console.log('Current Content length:', currentContent?.length)
+      console.log('FormData sample:', {
+        clientName: sectionFormData.clientName,
+        areas: sectionFormData.areas?.length
+      })
+
       const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
         formData: sectionFormData,
-        section: section
+        section: section,
+        customPrompt: customPrompt || undefined,
+        currentContent: currentContent || undefined
       })
 
       if (error) {
@@ -2729,6 +2806,11 @@ const InspectionForm = () => {
 
         handleInputChange(fieldName, data.summary)
 
+        // Clear the custom prompt after successful regeneration
+        if (section === 'whatWeFound') setWhatWeFoundPrompt('')
+        else if (section === 'whatWeWillDo') setWhatWeWillDoPrompt('')
+        else if (section === 'whatYouGet') setWhatYouGetPrompt('')
+
         toast({
           title: 'Section generated',
           description: 'AI content has been generated. You can edit it before saving.',
@@ -2736,10 +2818,23 @@ const InspectionForm = () => {
         })
       }
     } catch (error: any) {
-      console.error(`Error in handleGeneratePDFSection (${section}):`, error)
+      console.error(`Error generating ${section}:`, error)
+      console.error('Full error details:', JSON.stringify(error, null, 2))
+      console.error('Error message:', error?.message)
+      console.error('Error response:', error?.response)
+
+      let errorMessage = 'An unexpected error occurred.'
+      if (error.name === 'FunctionsFetchError' || error.message?.includes('Failed to send')) {
+        errorMessage = 'AI service unavailable. Please try again.'
+      } else if (error?.message) {
+        errorMessage = error.message
+      } else if (typeof error === 'object') {
+        errorMessage = JSON.stringify(error)
+      }
+
       toast({
         title: 'Generation failed',
-        description: error.message || 'An unexpected error occurred.',
+        description: errorMessage,
         variant: 'destructive'
       })
     } finally {

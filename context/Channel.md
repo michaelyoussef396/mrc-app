@@ -6,7 +6,7 @@ Implement the complete Smart Overlay PDF Editing system with database schema, PD
 **CONTEXT:**
 - **Project:** MRC Lead Management System (Mould & Restoration Co., Melbourne)
 - **Current Phase:** Phase 6 - Testing & Polish (FINAL)
-- **Project ID:** ecyivrxjpsmjmexqatym
+- **Project ID:** nwfxsipngpokptlzbfup
 - **Plan Approved:** 2024-12-21 by user
 
 **STATUS:** Smart Overlay PDF System COMPLETE. Visual react-pdf preview with edit buttons ON the PDF. **Flexible layouts deployed** - text will no longer overlap.
@@ -16,7 +16,117 @@ When all 6 sub-tasks complete with passing tests.
 
 ---
 
-## 🎉 LATEST UPDATE: 2025-12-25 (Session 2)
+## 🎉 LATEST UPDATE: 2025-12-25 (Session 4)
+
+### REGENERATION MARKDOWN FIX - Plain Text Output ✅
+
+**Date:** 2025-12-25
+**Status:** ✅ COMPLETE - Regeneration now returns plain text like initial generation
+
+#### Problem
+- Initial generation → Plain text ✅
+- Regeneration with custom prompt → Markdown with **bold**, *italic*, bullets ❌
+- User sees ugly `**bold text**` in textarea instead of formatted text
+
+#### Root Cause
+Regeneration prompts had weaker plain text instructions than initial generation prompts:
+- **Before:** `PLAIN TEXT ONLY: No markdown, no asterisks, no bullet points.`
+- **After:** Full `CRITICAL PLAIN TEXT RULE` matching initial generation
+
+#### Solution Implemented
+Updated all 3 regeneration prompts in `generate-inspection-summary/index.ts`:
+
+```
+CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting whatsoever.
+No asterisks (**bold** or *italic*), no bullet points (* or -), no headers (#),
+no numbered lists (1. 2. 3.). Write in clear sentences and paragraphs only.
+The output goes directly into a text field - any markdown symbols will appear
+as ugly raw text to the customer.
+```
+
+#### Files Modified
+- `supabase/functions/generate-inspection-summary/index.ts`
+  - Line 468: whatWeFound regeneration prompt
+  - Line 512: whatWeWillDo regeneration prompt
+  - Line 557: whatYouGet regeneration prompt
+
+#### Build Status
+- ✅ `npm run build` passes
+
+#### Deployment Required
+```bash
+npx supabase functions deploy generate-inspection-summary --project-ref nwfxsipngpokptlzbfup
+```
+
+---
+
+## Previous Update: 2025-12-25 (Session 3)
+
+### REGENERATE FUNCTIONALITY FIX - Custom Prompts Now Work ✅
+
+**Date:** 2025-12-25
+**Status:** ✅ COMPLETE - Regenerate follows user's custom instructions
+
+#### Problem
+- User types "make it shorter" → AI ignored instruction
+- User types "make it more technical" → AI just removed text randomly
+- Custom prompts were NOT being sent to the edge function
+
+#### Solution Implemented (4 Steps)
+
+**Step 1: Frontend sends custom prompt**
+- Modified `handleGeneratePDFSection()` in InspectionForm.tsx
+- Now sends `customPrompt` and `currentContent` to edge function
+- Gets prompt from state: `whatWeFoundPrompt`, `whatWeWillDoPrompt`, `whatYouGetPrompt`
+
+**Step 2: Edge function receives parameters**
+- Updated `RequestBody` interface with `customPrompt?: string` and `currentContent?: string`
+- Extracts these from request body
+
+**Step 3: AI prompt construction for regeneration**
+- Added `isRegeneration` flag when customPrompt AND currentContent exist
+- Created new REGENERATION MODE prompts for each section
+- Prompts include:
+  - Original content being regenerated
+  - User's custom instruction
+  - Specific examples (shorter → 30-50% reduction, technical → terminology)
+  - Plain text format rules
+
+**Step 4: Clear prompt after success**
+- Custom prompt input cleared after successful regeneration
+- Better UX - user knows action completed
+
+#### Files Modified
+1. `src/pages/InspectionForm.tsx` (lines 2703-2747)
+   - Added customPrompt and currentContent to edge function call
+   - Added prompt clearing after success
+
+2. `supabase/functions/generate-inspection-summary/index.ts` (lines 100-101, 444-591)
+   - Updated RequestBody interface
+   - Added isRegeneration check
+   - Added REGENERATION MODE prompts for all 3 sections
+
+#### Build Status
+- ✅ Frontend: `npm run build` passes (1.14MB bundle)
+- ⚠️ Edge function: Needs redeployment to Supabase
+
+#### Test Cases to Verify
+| Custom Prompt | Expected Behavior |
+|---------------|-------------------|
+| "make it shorter" | Content reduces by 30-50% |
+| "make it more technical" | Uses technical terminology |
+| "add detail about X" | Expands section about X |
+| "emphasize the warranty" | Warranty mentioned more prominently |
+
+#### Deployment Required
+Edge function needs redeployment:
+```bash
+supabase functions deploy generate-inspection-summary --project-ref ecyivrxjpsmjmexqatym
+```
+
+---
+
+## Previous Update: 2025-12-25 (Session 2)
 
 ### SECTION 10 COMPREHENSIVE FIX - 2 Major Issues Resolved ✅
 

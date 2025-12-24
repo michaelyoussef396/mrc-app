@@ -97,6 +97,8 @@ interface RequestBody {
   feedback?: string
   section?: 'whatWeFound' | 'whatWeWillDo' | 'whatYouGet'
   structured?: boolean  // When true, returns all 11 fields as JSON
+  customPrompt?: string  // User's custom instruction for regeneration
+  currentContent?: string  // Current content being regenerated
 }
 
 interface StructuredSummary {
@@ -296,7 +298,7 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { formData, feedback, section, structured }: RequestBody = await req.json()
+    const { formData, feedback, section, structured, customPrompt, currentContent }: RequestBody = await req.json()
 
     if (!formData) {
       return new Response(
@@ -439,9 +441,39 @@ Return ONLY the JSON object, no other text:`
     }
 
     // Handle section-specific prompts for PDF sections
+    // Check if this is a REGENERATION request with custom instructions
+    // Note: customPrompt and currentContent are already destructured from request body on line 301
+    const isRegeneration = customPrompt && currentContent
+
     if (section === 'whatWeFound') {
       maxTokens = 400
-      prompt = `You are writing the "What We Found" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+      if (isRegeneration) {
+        // REGENERATION MODE with custom instruction
+        prompt = `You previously generated this "What We Found" content for a mould inspection report:
+
+"${currentContent}"
+
+The user wants you to regenerate it with this specific change:
+"${customPrompt}"
+
+CRITICAL INSTRUCTIONS:
+1. Follow the user's instruction EXACTLY
+2. If they say "make it shorter" → reduce word count by 30-50%
+3. If they say "make it more technical" → use technical mould/moisture terminology
+4. If they say "add detail about X" → expand that specific topic
+5. Keep the same format (paragraphs) unless they ask to change it
+6. Use Australian English (mould not mold)
+7. Maintain professional tone for customer-facing report
+
+CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting whatsoever. No asterisks (**bold** or *italic*), no bullet points (* or -), no headers (#), no numbered lists (1. 2. 3.). Write in clear sentences and paragraphs only. The output goes directly into a text field - any markdown symbols will appear as ugly raw text to the customer.
+
+[Inspection data for reference]:
+${formattedData}
+
+Now regenerate following their instruction. Return ONLY the regenerated text:`
+      } else {
+        // INITIAL GENERATION MODE
+        prompt = `You are writing the "What We Found" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
 
 Write a customer-friendly summary (2-3 paragraphs, 100-150 words) of what the inspection found. Focus on:
 - Where mould was found and its severity
@@ -456,9 +488,36 @@ INSPECTION DATA:
 ${formattedData}
 
 Generate the "What We Found" section:`
+      }
     } else if (section === 'whatWeWillDo') {
       maxTokens = 400
-      prompt = `You are writing the "What We're Going To Do" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+      if (isRegeneration) {
+        // REGENERATION MODE with custom instruction
+        prompt = `You previously generated this "What We're Going To Do" content for a mould inspection report:
+
+"${currentContent}"
+
+The user wants you to regenerate it with this specific change:
+"${customPrompt}"
+
+CRITICAL INSTRUCTIONS:
+1. Follow the user's instruction EXACTLY
+2. If they say "make it shorter" → reduce word count by 30-50%
+3. If they say "make it more technical" → use technical remediation terminology
+4. If they say "add detail about equipment" → expand on dehumidifiers, air movers, etc.
+5. Keep the same format (paragraphs) unless they ask to change it
+6. Use Australian English
+7. Maintain reassuring, professional tone
+
+CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting whatsoever. No asterisks (**bold** or *italic*), no bullet points (* or -), no headers (#), no numbered lists (1. 2. 3.). Write in clear sentences and paragraphs only. The output goes directly into a text field - any markdown symbols will appear as ugly raw text to the customer.
+
+[Inspection data for reference]:
+${formattedData}
+
+Now regenerate following their instruction. Return ONLY the regenerated text:`
+      } else {
+        // INITIAL GENERATION MODE
+        prompt = `You are writing the "What We're Going To Do" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
 
 Write a clear treatment plan summary (2-3 paragraphs, 100-150 words) explaining what remediation work will be performed. Focus on:
 - Treatment methods (HEPA vacuuming, antimicrobial treatment, etc.)
@@ -474,9 +533,36 @@ INSPECTION DATA:
 ${formattedData}
 
 Generate the "What We're Going To Do" section:`
+      }
     } else if (section === 'whatYouGet') {
       maxTokens = 350
-      prompt = `You are writing the "What You Get" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+      if (isRegeneration) {
+        // REGENERATION MODE with custom instruction
+        prompt = `You previously generated this "What You Get" benefits list for a mould inspection report:
+
+"${currentContent}"
+
+The user wants you to regenerate it with this specific change:
+"${customPrompt}"
+
+CRITICAL INSTRUCTIONS:
+1. Follow the user's instruction EXACTLY
+2. If they say "make it shorter" → reduce to 3-4 benefits
+3. If they say "emphasize warranty" → put more focus on the 12 Month warranty
+4. If they say "add more benefits" → include additional value propositions
+5. Keep each benefit on a separate line
+6. Start with "12 Month warranty on all treated areas" unless told otherwise
+7. Use Australian English, upbeat positive tone
+
+CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting whatsoever. No asterisks (**bold** or *italic*), no bullet points (* or -), no headers (#), no numbered lists (1. 2. 3.), no HTML tags. Write each benefit as a simple sentence on its own line. The output goes directly into a text field - any formatting symbols will appear as ugly raw text to the customer.
+
+[Inspection data for reference]:
+${formattedData}
+
+Now regenerate following their instruction. Return ONLY the regenerated benefits list:`
+      } else {
+        // INITIAL GENERATION MODE
+        prompt = `You are writing the "What You Get" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
 
 Generate a simple list of benefits the client receives. Write each benefit on a new line.
 Start with "12 Month warranty on all treated areas" as the first benefit.
@@ -501,6 +587,7 @@ INSPECTION DATA:
 ${formattedData}
 
 Generate the "What You Get" benefits list:`
+      }
     } else {
       // Default: Full comprehensive report
       prompt = `You are creating a professional mould inspection summary report for Mould & Restoration Co. (MRC), a Melbourne-based mould remediation company.
