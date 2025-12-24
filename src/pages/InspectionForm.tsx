@@ -2503,9 +2503,21 @@ const InspectionForm = () => {
       }
 
       // Use direct fetch instead of supabase.functions.invoke() to avoid timeout issues
+      // Request full report (no structured mode - returns complete plain text summary)
       const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
         formData: summaryFormData
       })
+
+      // === DEBUG LOGGING FOR BUG DIAGNOSIS ===
+      console.log('=== AI Generation Response ===')
+      console.log('Raw response:', data)
+      console.log('Response type:', typeof data)
+      console.log('Has success?', data?.success)
+      console.log('Has structured?', data?.structured)
+      console.log('Has error?', data?.error)
+      console.log('Raw response (if failed):', data?.raw_response)
+      console.log('Error object:', error)
+      // === END DEBUG LOGGING ===
 
       if (error) {
         console.error('Error generating summary:', error)
@@ -2533,9 +2545,8 @@ const InspectionForm = () => {
       }
 
       if (data?.success && data?.summary) {
-        // Update form state with generated summary
+        // Set the full report in jobSummaryFinal
         handleInputChange('jobSummaryFinal', data.summary)
-
         toast({
           title: 'Summary generated',
           description: 'AI summary has been generated. You can edit it before saving.',
@@ -4294,17 +4305,15 @@ const InspectionForm = () => {
                   <p className="field-hint" style={{ fontSize: '0.85rem', marginBottom: '12px' }}>
                     Customer-friendly summary of the mould findings (2-3 paragraphs)
                   </p>
-                  {!formData.whatWeFoundText && (
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={() => handleGeneratePDFSection('whatWeFound')}
-                      disabled={isGeneratingSection === 'whatWeFound'}
-                      style={{ marginBottom: '12px' }}
-                    >
-                      {isGeneratingSection === 'whatWeFound' ? 'Generating...' : 'Generate What We Found'}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => handleGeneratePDFSection('whatWeFound')}
+                    disabled={isGeneratingSection === 'whatWeFound'}
+                    style={{ marginBottom: '12px' }}
+                  >
+                    {isGeneratingSection === 'whatWeFound' ? 'Generating...' : 'Generate What We Found'}
+                  </button>
                   <textarea
                     value={formData.whatWeFoundText}
                     onChange={(e) => handleInputChange('whatWeFoundText', e.target.value)}
@@ -4313,7 +4322,7 @@ const InspectionForm = () => {
                     placeholder="Describe what mould issues were found during the inspection..."
                     style={{ marginBottom: '12px' }}
                   />
-                  {formData.whatWeFoundText && (
+                  {formData.whatWeFoundText?.trim() && (
                     <>
                       <label className="form-label" style={{ fontSize: '0.85rem', marginBottom: '4px' }}>
                         Request Changes:
@@ -4358,17 +4367,15 @@ const InspectionForm = () => {
                   <p className="field-hint" style={{ fontSize: '0.85rem', marginBottom: '12px' }}>
                     Treatment plan summary for the customer
                   </p>
-                  {!formData.whatWeWillDoText && (
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={() => handleGeneratePDFSection('whatWeWillDo')}
-                      disabled={isGeneratingSection === 'whatWeWillDo'}
-                      style={{ marginBottom: '12px' }}
-                    >
-                      {isGeneratingSection === 'whatWeWillDo' ? 'Generating...' : 'Generate Treatment Plan'}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => handleGeneratePDFSection('whatWeWillDo')}
+                    disabled={isGeneratingSection === 'whatWeWillDo'}
+                    style={{ marginBottom: '12px' }}
+                  >
+                    {isGeneratingSection === 'whatWeWillDo' ? 'Generating...' : 'Generate Treatment Plan'}
+                  </button>
                   <textarea
                     value={formData.whatWeWillDoText}
                     onChange={(e) => handleInputChange('whatWeWillDoText', e.target.value)}
@@ -4377,7 +4384,7 @@ const InspectionForm = () => {
                     placeholder="Describe the treatment plan and equipment to be used..."
                     style={{ marginBottom: '12px' }}
                   />
-                  {formData.whatWeWillDoText && (
+                  {formData.whatWeWillDoText?.trim() && (
                     <>
                       <label className="form-label" style={{ fontSize: '0.85rem', marginBottom: '4px' }}>
                         Request Changes:
@@ -4422,17 +4429,15 @@ const InspectionForm = () => {
                   <p className="field-hint" style={{ fontSize: '0.85rem', marginBottom: '12px' }}>
                     Benefits and warranty information for the customer
                   </p>
-                  {!formData.whatYouGetText && (
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={() => handleGeneratePDFSection('whatYouGet')}
-                      disabled={isGeneratingSection === 'whatYouGet'}
-                      style={{ marginBottom: '12px' }}
-                    >
-                      {isGeneratingSection === 'whatYouGet' ? 'Generating...' : 'Generate Benefits'}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => handleGeneratePDFSection('whatYouGet')}
+                    disabled={isGeneratingSection === 'whatYouGet'}
+                    style={{ marginBottom: '12px' }}
+                  >
+                    {isGeneratingSection === 'whatYouGet' ? 'Generating...' : 'Generate Benefits'}
+                  </button>
                   <textarea
                     value={formData.whatYouGetText}
                     onChange={(e) => handleInputChange('whatYouGetText', e.target.value)}
@@ -4441,7 +4446,7 @@ const InspectionForm = () => {
                     placeholder="List the benefits: warranty, professional treatment, documentation..."
                     style={{ marginBottom: '12px' }}
                   />
-                  {formData.whatYouGetText && (
+                  {formData.whatYouGetText?.trim() && (
                     <>
                       <label className="form-label" style={{ fontSize: '0.85rem', marginBottom: '4px' }}>
                         Request Changes:
