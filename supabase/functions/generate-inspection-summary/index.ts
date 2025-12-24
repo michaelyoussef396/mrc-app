@@ -95,6 +95,24 @@ interface InspectionFormData {
 interface RequestBody {
   formData: InspectionFormData
   feedback?: string
+  section?: 'whatWeFound' | 'whatWeWillDo' | 'whatYouGet'
+  structured?: boolean  // When true, returns all 11 fields as JSON
+}
+
+interface StructuredSummary {
+  // Page 2 fields
+  what_we_found: string
+  what_we_will_do: string
+  what_you_get: string
+  // Page 5 fields (Job Summary sections)
+  what_we_discovered: string
+  identified_causes: string
+  contributing_factors: string
+  why_this_happened: string
+  immediate_actions: string
+  long_term_protection: string
+  what_success_looks_like: string
+  timeline_text: string
 }
 
 function formatFormDataForPrompt(formData: InspectionFormData): string {
@@ -278,7 +296,7 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { formData, feedback }: RequestBody = await req.json()
+    const { formData, feedback, section, structured }: RequestBody = await req.json()
 
     if (!formData) {
       return new Response(
@@ -290,51 +308,279 @@ Deno.serve(async (req) => {
     // Format the inspection data for the prompt
     const formattedData = formatFormDataForPrompt(formData)
 
-    // Build the prompt
-    let prompt = `You are a professional mould inspection report writer for Mould & Restoration Co., a Melbourne-based restoration company.
+    let prompt: string
+    let maxTokens = 1500
 
-Your task is to generate a professional, comprehensive job summary based on the following inspection data. The summary should:
+    // Handle STRUCTURED mode - returns all 11 fields as JSON
+    if (structured) {
+      maxTokens = 3000
+      prompt = `You are creating a professional mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
 
-1. Be written in professional Australian English
-2. Summarize the key findings from all inspected areas
-3. Explain the cause of mould if identified
-4. Outline the recommended treatment plan
-5. Mention the equipment that will be used
-6. Include the estimated cost
-7. Be suitable for presenting to the client or property manager
-8. Be concise but thorough (aim for 200-400 words)
+Based on the inspection data below, generate content for ALL sections of the PDF report.
 
-IMPORTANT FORMATTING RULES:
-- Output PLAIN TEXT only - NO markdown formatting whatsoever
-- Do NOT use asterisks (*), hashtags (#), bullet points (- or *), or any other markdown syntax
-- Use regular paragraph breaks (blank lines) to separate sections
-- Write in flowing prose with proper sentences
-- For emphasis, just use capital letters if needed, not bold or italic markers
+IMPORTANT: Return ONLY valid JSON with no additional text. Use this exact structure:
+
+{
+  "what_we_found": "2-3 paragraphs summarising mould findings for the customer (Page 2)",
+  "what_we_will_do": "2-3 paragraphs explaining treatment plan (Page 2)",
+  "what_you_get": "12 Month warranty on all treated areas\\nProfessional material removal where required\\nComplete airborne spore elimination\\nDetailed documentation for insurance / resale",
+  "what_we_discovered": "2-3 sentences summarising what was discovered during inspection",
+  "identified_causes": "2-3 sentences describing the primary cause of mould growth",
+  "contributing_factors": "- Indoor humidity levels at X%\n- Internal moisture readings of X%\n- Additional contributing factors",
+  "why_this_happened": "2-3 sentences explaining root cause and how it occurred",
+  "immediate_actions": "1. First immediate action required\n2. Second immediate action\n3. Additional actions as needed",
+  "long_term_protection": "- First long-term protection measure\n- Second protection measure\n- Additional measures",
+  "what_success_looks_like": "2-3 sentences describing expected outcomes after treatment",
+  "timeline_text": "1-2 sentences with treatment timeline (e.g., MRC treatment: 1 day onsite + 3 days air scrubber)"
+}
+
+FORMATTING RULES:
+- Use Australian English (mould, colour, etc.)
+- Use \\n for line breaks within fields
+- Be professional but customer-friendly
+- Be specific to the actual inspection data provided
+
+CRITICAL PLAIN TEXT RULE:
+- Return ONLY plain text. Do NOT use any markdown formatting.
+- No asterisks (**bold**), no bullet points (* or -), no headers (#).
+- No HTML tags (<br/>, <span>, etc.) - use \\n for line breaks instead.
+- Write in clear sentences and paragraphs only.
+- For lists, use simple lines with \\n between items.
 
 INSPECTION DATA:
 ${formattedData}
 
-Generate a professional job summary report in plain text format:`
+Return ONLY the JSON object, no other text:`
 
-    // If feedback is provided, modify the prompt for regeneration
-    if (feedback && feedback.trim()) {
-      prompt = `You are a professional mould inspection report writer for Mould & Restoration Co., a Melbourne-based restoration company.
+      console.log('Calling OpenRouter API for STRUCTURED output...')
+      const openrouterResponse = await fetch(
+        'https://openrouter.ai/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openrouterApiKey}`,
+            'HTTP-Referer': 'https://mrc-app.vercel.app',
+            'X-Title': 'MRC Inspection App'
+          },
+          body: JSON.stringify({
+            model: 'mistralai/devstral-2512:free',
+            messages: [
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            temperature: 0.7,
+            max_tokens: maxTokens,
+            top_p: 0.95
+          })
+        }
+      )
 
-You previously generated a job summary, and the user has requested changes. Please regenerate the summary with the following feedback incorporated:
+      if (!openrouterResponse.ok) {
+        const errorText = await openrouterResponse.text()
+        console.error('OpenRouter API error (structured):', openrouterResponse.status, errorText)
+        return new Response(
+          JSON.stringify({ error: 'Failed to generate structured summary. Please try again.', details: errorText }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const openrouterResult = await openrouterResponse.json()
+      const generatedText = openrouterResult?.choices?.[0]?.message?.content
+
+      if (!generatedText) {
+        console.error('No text in OpenRouter response (structured):', JSON.stringify(openrouterResult))
+        return new Response(
+          JSON.stringify({ error: 'No structured summary generated. Please try again.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Parse the JSON response
+      try {
+        // Clean up the response - remove any markdown code blocks if present
+        let cleanedText = generatedText.trim()
+        if (cleanedText.startsWith('```json')) {
+          cleanedText = cleanedText.slice(7)
+        }
+        if (cleanedText.startsWith('```')) {
+          cleanedText = cleanedText.slice(3)
+        }
+        if (cleanedText.endsWith('```')) {
+          cleanedText = cleanedText.slice(0, -3)
+        }
+        cleanedText = cleanedText.trim()
+
+        const structuredData: StructuredSummary = JSON.parse(cleanedText)
+
+        // Return the structured response
+        return new Response(
+          JSON.stringify({
+            success: true,
+            structured: true,
+            ...structuredData,
+            generated_at: new Date().toISOString()
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      } catch (parseError) {
+        console.error('Failed to parse structured JSON:', parseError, 'Raw text:', generatedText)
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Failed to parse AI response as JSON. Please try again.',
+            raw_response: generatedText
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    // Handle section-specific prompts for PDF sections
+    if (section === 'whatWeFound') {
+      maxTokens = 400
+      prompt = `You are writing the "What We Found" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+
+Write a customer-friendly summary (2-3 paragraphs, 100-150 words) of what the inspection found. Focus on:
+- Where mould was found and its severity
+- Any moisture issues discovered
+- Key areas of concern
+
+Use Australian English (mould not mold). Write in a professional but approachable tone suitable for homeowners.
+
+CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting. No asterisks (**bold**), no bullet points (* or -), no headers (#). Write in clear sentences and paragraphs only.
+
+INSPECTION DATA:
+${formattedData}
+
+Generate the "What We Found" section:`
+    } else if (section === 'whatWeWillDo') {
+      maxTokens = 400
+      prompt = `You are writing the "What We're Going To Do" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+
+Write a clear treatment plan summary (2-3 paragraphs, 100-150 words) explaining what remediation work will be performed. Focus on:
+- Treatment methods (HEPA vacuuming, antimicrobial treatment, etc.)
+- Any demolition or removal work required
+- Drying equipment to be used (dehumidifiers, air movers)
+- Approximate timeline
+
+Use Australian English. Write in a reassuring, professional tone that builds confidence.
+
+CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting. No asterisks (**bold**), no bullet points (* or -), no headers (#). Write in clear sentences and paragraphs only.
+
+INSPECTION DATA:
+${formattedData}
+
+Generate the "What We're Going To Do" section:`
+    } else if (section === 'whatYouGet') {
+      maxTokens = 350
+      prompt = `You are writing the "What You Get" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+
+Generate a simple list of benefits the client receives. Write each benefit on a new line.
+Start with "12 Month warranty on all treated areas" as the first benefit.
+
+Include benefits like:
+- Professional material removal where required
+- Complete airborne spore elimination
+- Detailed documentation for insurance / resale
+- Peace of mind from professional remediation
+- Certificate of completion
+
+Use Australian English. Write in an upbeat, positive tone.
+
+CRITICAL PLAIN TEXT RULE: Return ONLY plain text. NO HTML tags, NO markdown formatting. Write each benefit on a separate line. Write 4-6 benefits total.
+
+Example format:
+12 Month warranty on all treated areas
+Professional material removal where required
+Complete airborne spore elimination
+
+INSPECTION DATA:
+${formattedData}
+
+Generate the "What You Get" benefits list:`
+    } else {
+      // Default: Full comprehensive report
+      prompt = `You are creating a professional mould inspection summary report for Mould & Restoration Co. (MRC), a Melbourne-based mould remediation company.
+
+Use this exact structure:
+
+Mould and Restoration Co. Inspection Report Summary - Causes and Prevention
+
+[Full Property Address]
+
+---
+
+Summary of Findings
+
+[Single comprehensive paragraph: What was found + primary cause + immediate risks + context]
+
+---
+
+Identified Causes
+
+Primary Cause:
+[Single clear statement of main issue]
+
+Contributing Factors:
+1. [First contributing factor]
+2. [Second contributing factor]
+3. [Additional factors as needed - usually 3-6 total]
+
+---
+
+Recommendations
+
+Immediate Actions:
+1. [Urgent action 1] - [explanation]
+2. [Urgent action 2] - [explanation]
+
+Ongoing Prevention:
+1. [Important prevention measure] - [explanation]
+2. [Maintenance measure] - [explanation]
+3. [Additional prevention] - [explanation]
+
+---
+
+Overview and Conclusion
+
+[Comprehensive closing paragraph: Restate cause, summarize interventions, emphasize benefits, end positively]
+
+WRITING STYLE:
+- Use "as there is" (for evidence), "On the other hand", "However", "It is recommended"
+- Australian English (mould not mold)
+- Be comprehensive but every line must add value
+
+CRITICAL PLAIN TEXT RULE:
+- Return ONLY plain text. No markdown formatting.
+- No asterisks (**bold**), no bullet points (* or -), no headers (#).
+- No emojis (⚠️, ✅, 🧱, 🔍, 📋, 📌).
+- Write in clear sentences and paragraphs only.
+- Use simple numbered lists (1. 2. 3.) where appropriate.
+- Use "---" section dividers if needed for structure.
+
+INSPECTION DATA:
+${formattedData}
+
+Generate the full inspection summary report:`
+
+      // If feedback is provided, modify the prompt for regeneration (only for full report)
+      if (feedback && feedback.trim()) {
+        prompt = `You are creating a professional mould inspection summary report for Mould & Restoration Co. (MRC).
+
+The user has requested changes. Please regenerate with this feedback incorporated:
 
 USER FEEDBACK: "${feedback}"
 
-IMPORTANT FORMATTING RULES:
-- Output PLAIN TEXT only - NO markdown formatting whatsoever
-- Do NOT use asterisks (*), hashtags (#), bullet points (- or *), or any other markdown syntax
-- Use regular paragraph breaks (blank lines) to separate sections
-- Write in flowing prose with proper sentences
-- For emphasis, just use capital letters if needed, not bold or italic markers
+Use the same structure (Summary of Findings, Identified Causes, Recommendations, Conclusion) but address the user's feedback.
 
 INSPECTION DATA:
 ${formattedData}
 
-Generate an updated professional job summary report in plain text format that addresses the user's feedback:`
+Generate the updated inspection summary report:`
+      }
     }
 
     // Call OpenRouter API with mistralai/devstral-2512:free (free model)
@@ -358,7 +604,7 @@ Generate an updated professional job summary report in plain text format that ad
             }
           ],
           temperature: 0.7,
-          max_tokens: 1024,
+          max_tokens: maxTokens,
           top_p: 0.95
         })
       }

@@ -98,6 +98,25 @@ const InspectionForm = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
 
+  // Custom prompt inputs for PDF section regeneration
+  const [whatWeFoundPrompt, setWhatWeFoundPrompt] = useState('')
+  const [whatWeWillDoPrompt, setWhatWeWillDoPrompt] = useState('')
+  const [whatYouGetPrompt, setWhatYouGetPrompt] = useState('')
+
+  // Section regeneration loading state
+  const [isGeneratingSection, setIsGeneratingSection] = useState<string | null>(null)
+
+  // Field history for revert functionality (session-only)
+  const [fieldHistory, setFieldHistory] = useState<{
+    whatWeFoundText: string[]
+    whatWeWillDoText: string[]
+    whatYouGetText: string[]
+  }>({
+    whatWeFoundText: [],
+    whatWeWillDoText: [],
+    whatYouGetText: []
+  })
+
   // Flag to prevent auto-recalculation from overwriting saved cost data during initial load
   // When true: skip recalculateCost() to preserve database values
   // When false: allow recalculation for user-driven changes
@@ -185,7 +204,12 @@ const InspectionForm = () => {
 
     // AI Summary
     jobSummaryFinal: '',
-    regenerationFeedback: ''
+    regenerationFeedback: '',
+
+    // PDF Section Fields
+    whatWeFoundText: '',
+    whatWeWillDoText: '',
+    whatYouGetText: ''
   })
 
   const sections = [
@@ -1112,6 +1136,29 @@ const InspectionForm = () => {
       console.log(`🔍 DEBUG - handleInputChange: ${field} =`, value)
     }
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  // Save current value to history before updating (for revert functionality)
+  const saveToHistory = (fieldName: 'whatWeFoundText' | 'whatWeWillDoText' | 'whatYouGetText', value: string) => {
+    if (value && value.trim()) {
+      setFieldHistory(prev => ({
+        ...prev,
+        [fieldName]: [...prev[fieldName], value]
+      }))
+    }
+  }
+
+  // Revert to previous value
+  const handleRevert = (fieldName: 'whatWeFoundText' | 'whatWeWillDoText' | 'whatYouGetText') => {
+    const history = fieldHistory[fieldName]
+    if (history.length > 0) {
+      const previousValue = history[history.length - 1]
+      handleInputChange(fieldName, previousValue)
+      setFieldHistory(prev => ({
+        ...prev,
+        [fieldName]: prev[fieldName].slice(0, -1)
+      }))
+    }
   }
 
   // Format currency for display
@@ -2620,6 +2667,86 @@ const InspectionForm = () => {
     }
   }
 
+  // Generate individual PDF sections with AI
+  const handleGeneratePDFSection = async (section: 'whatWeFound' | 'whatWeWillDo' | 'whatYouGet') => {
+    setIsGeneratingSection(section)
+
+    try {
+      const sectionFormData = {
+        clientName: lead?.name,
+        propertyAddress: lead?.property_address_street,
+        propertySuburb: lead?.property_address_suburb,
+        inspectionDate: formData.inspectionDate,
+        areas: formData.areas.map(area => ({
+          areaName: area.areaName,
+          mouldVisibility: area.mouldVisibility,
+          commentsForReport: area.commentsForReport,
+          temperature: area.temperature,
+          humidity: area.humidity,
+          moistureReadings: area.moistureReadings,
+          demolitionRequired: area.demolitionRequired,
+          demolitionDescription: area.demolitionDescription
+        })),
+        subfloorEnabled: formData.subfloorEnabled,
+        subfloorObservations: formData.subfloorObservations,
+        causeOfMould: formData.causeOfMould,
+        hepaVac: formData.hepaVac,
+        antimicrobial: formData.antimicrobial,
+        stainRemovingAntimicrobial: formData.stainRemovingAntimicrobial,
+        homeSanitationFogging: formData.homeSanitationFogging,
+        commercialDehumidifierEnabled: formData.commercialDehumidifierEnabled,
+        commercialDehumidifierQty: formData.commercialDehumidifierQty,
+        airMoversEnabled: formData.airMoversEnabled,
+        airMoversQty: formData.airMoversQty
+      }
+
+      const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
+        formData: sectionFormData,
+        section: section
+      })
+
+      if (error) {
+        console.error(`Error generating ${section}:`, error)
+        toast({
+          title: 'Generation failed',
+          description: error.message || `Failed to generate ${section}. Please try again.`,
+          variant: 'destructive'
+        })
+        return
+      }
+
+      if (data?.success && data?.summary) {
+        const fieldMap: Record<string, 'whatWeFoundText' | 'whatWeWillDoText' | 'whatYouGetText'> = {
+          'whatWeFound': 'whatWeFoundText',
+          'whatWeWillDo': 'whatWeWillDoText',
+          'whatYouGet': 'whatYouGetText'
+        }
+        const fieldName = fieldMap[section]
+
+        // Save current value to history before updating
+        const currentValue = (formData as any)[fieldName] as string
+        saveToHistory(fieldName, currentValue)
+
+        handleInputChange(fieldName, data.summary)
+
+        toast({
+          title: 'Section generated',
+          description: 'AI content has been generated. You can edit it before saving.',
+          variant: 'default'
+        })
+      }
+    } catch (error: any) {
+      console.error(`Error in handleGeneratePDFSection (${section}):`, error)
+      toast({
+        title: 'Generation failed',
+        description: error.message || 'An unexpected error occurred.',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsGeneratingSection(null)
+    }
+  }
+
   const calculateProgress = () => {
     return Math.round((currentSection / (sections.length - 1)) * 100)
   }
@@ -4052,6 +4179,209 @@ const InspectionForm = () => {
                     </div>
                   </>
                 )}
+
+                {/* Divider */}
+                <hr style={{ margin: '32px 0', borderColor: '#e5e7eb' }} />
+
+                {/* PDF Section Fields */}
+                <h3 className="subsection-title" style={{ fontSize: '1.1rem', marginBottom: '16px' }}>
+                  PDF Report Sections
+                </h3>
+                <p className="field-hint" style={{ marginBottom: '24px' }}>
+                  These sections appear on the customer-facing PDF report.
+                </p>
+
+                {/* WHAT WE FOUND */}
+                <div className="form-group" style={{ marginBottom: '24px', padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
+                  <label className="form-label" style={{ fontWeight: 600, marginBottom: '8px' }}>
+                    What We Found
+                  </label>
+                  <p className="field-hint" style={{ fontSize: '0.85rem', marginBottom: '12px' }}>
+                    Customer-friendly summary of the mould findings (2-3 paragraphs)
+                  </p>
+                  {!formData.whatWeFoundText && (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => handleGeneratePDFSection('whatWeFound')}
+                      disabled={isGeneratingSection === 'whatWeFound'}
+                      style={{ marginBottom: '12px' }}
+                    >
+                      {isGeneratingSection === 'whatWeFound' ? 'Generating...' : 'Generate What We Found'}
+                    </button>
+                  )}
+                  <textarea
+                    value={formData.whatWeFoundText}
+                    onChange={(e) => handleInputChange('whatWeFoundText', e.target.value)}
+                    className="form-textarea"
+                    rows={6}
+                    placeholder="Describe what mould issues were found during the inspection..."
+                    style={{ marginBottom: '12px' }}
+                  />
+                  {formData.whatWeFoundText && (
+                    <>
+                      <label className="form-label" style={{ fontSize: '0.85rem', marginBottom: '4px' }}>
+                        Request Changes:
+                      </label>
+                      <input
+                        type="text"
+                        value={whatWeFoundPrompt}
+                        onChange={(e) => setWhatWeFoundPrompt(e.target.value)}
+                        className="form-input"
+                        placeholder="e.g., 'Make it more technical'"
+                        style={{ marginBottom: '8px' }}
+                      />
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => handleGeneratePDFSection('whatWeFound')}
+                          disabled={isGeneratingSection === 'whatWeFound'}
+                        >
+                          {isGeneratingSection === 'whatWeFound' ? 'Generating...' : 'Regenerate'}
+                        </button>
+                        {fieldHistory.whatWeFoundText.length > 0 && (
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => handleRevert('whatWeFoundText')}
+                            style={{ background: '#fee2e2', borderColor: '#fca5a5', color: '#dc2626' }}
+                          >
+                            ↩ Revert
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* WHAT WE'RE GOING TO DO */}
+                <div className="form-group" style={{ marginBottom: '24px', padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
+                  <label className="form-label" style={{ fontWeight: 600, marginBottom: '8px' }}>
+                    What We're Going To Do
+                  </label>
+                  <p className="field-hint" style={{ fontSize: '0.85rem', marginBottom: '12px' }}>
+                    Treatment plan summary for the customer
+                  </p>
+                  {!formData.whatWeWillDoText && (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => handleGeneratePDFSection('whatWeWillDo')}
+                      disabled={isGeneratingSection === 'whatWeWillDo'}
+                      style={{ marginBottom: '12px' }}
+                    >
+                      {isGeneratingSection === 'whatWeWillDo' ? 'Generating...' : 'Generate Treatment Plan'}
+                    </button>
+                  )}
+                  <textarea
+                    value={formData.whatWeWillDoText}
+                    onChange={(e) => handleInputChange('whatWeWillDoText', e.target.value)}
+                    className="form-textarea"
+                    rows={6}
+                    placeholder="Describe the treatment plan and equipment to be used..."
+                    style={{ marginBottom: '12px' }}
+                  />
+                  {formData.whatWeWillDoText && (
+                    <>
+                      <label className="form-label" style={{ fontSize: '0.85rem', marginBottom: '4px' }}>
+                        Request Changes:
+                      </label>
+                      <input
+                        type="text"
+                        value={whatWeWillDoPrompt}
+                        onChange={(e) => setWhatWeWillDoPrompt(e.target.value)}
+                        className="form-input"
+                        placeholder="e.g., 'Add more detail about drying equipment'"
+                        style={{ marginBottom: '8px' }}
+                      />
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => handleGeneratePDFSection('whatWeWillDo')}
+                          disabled={isGeneratingSection === 'whatWeWillDo'}
+                        >
+                          {isGeneratingSection === 'whatWeWillDo' ? 'Generating...' : 'Regenerate'}
+                        </button>
+                        {fieldHistory.whatWeWillDoText.length > 0 && (
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => handleRevert('whatWeWillDoText')}
+                            style={{ background: '#fee2e2', borderColor: '#fca5a5', color: '#dc2626' }}
+                          >
+                            ↩ Revert
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* WHAT YOU GET */}
+                <div className="form-group" style={{ marginBottom: '24px', padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
+                  <label className="form-label" style={{ fontWeight: 600, marginBottom: '8px' }}>
+                    What You Get
+                  </label>
+                  <p className="field-hint" style={{ fontSize: '0.85rem', marginBottom: '12px' }}>
+                    Benefits and warranty information for the customer
+                  </p>
+                  {!formData.whatYouGetText && (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => handleGeneratePDFSection('whatYouGet')}
+                      disabled={isGeneratingSection === 'whatYouGet'}
+                      style={{ marginBottom: '12px' }}
+                    >
+                      {isGeneratingSection === 'whatYouGet' ? 'Generating...' : 'Generate Benefits'}
+                    </button>
+                  )}
+                  <textarea
+                    value={formData.whatYouGetText}
+                    onChange={(e) => handleInputChange('whatYouGetText', e.target.value)}
+                    className="form-textarea"
+                    rows={6}
+                    placeholder="List the benefits: warranty, professional treatment, documentation..."
+                    style={{ marginBottom: '12px' }}
+                  />
+                  {formData.whatYouGetText && (
+                    <>
+                      <label className="form-label" style={{ fontSize: '0.85rem', marginBottom: '4px' }}>
+                        Request Changes:
+                      </label>
+                      <input
+                        type="text"
+                        value={whatYouGetPrompt}
+                        onChange={(e) => setWhatYouGetPrompt(e.target.value)}
+                        className="form-input"
+                        placeholder="e.g., 'Emphasize the warranty more'"
+                        style={{ marginBottom: '8px' }}
+                      />
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => handleGeneratePDFSection('whatYouGet')}
+                          disabled={isGeneratingSection === 'whatYouGet'}
+                        >
+                          {isGeneratingSection === 'whatYouGet' ? 'Generating...' : 'Regenerate'}
+                        </button>
+                        {fieldHistory.whatYouGetText.length > 0 && (
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => handleRevert('whatYouGetText')}
+                            style={{ background: '#fee2e2', borderColor: '#fca5a5', color: '#dc2626' }}
+                          >
+                            ↩ Revert
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             )}          </div>
 

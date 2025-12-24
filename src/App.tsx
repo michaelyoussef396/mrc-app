@@ -36,6 +36,7 @@ import InspectionSuccess from "./pages/InspectionSuccess";
 import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 import TestPDFTemplate from "./pages/TestPDFTemplate";
+import ViewReportPDF from "./pages/ViewReportPDF";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,8 @@ const AppContent = () => {
             <Route path="/inspection/new" element={<InspectionForm />} />
             <Route path="/inspection/:id" element={<InspectionForm />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/inspection/:inspectionId/report" element={<ViewReportPDF />} />
+            <Route path="/report/:id" element={<ViewReportPDF />} />
           </Route>
           
           <Route path="*" element={<NotFound />} />

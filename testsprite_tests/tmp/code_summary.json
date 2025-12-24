@@ -1,0 +1,81 @@
+{
+  "tech_stack": [
+    "TypeScript",
+    "React 18",
+    "Vite",
+    "Supabase",
+    "TailwindCSS",
+    "shadcn/ui",
+    "React Router",
+    "React Query",
+    "Zod",
+    "React Hook Form"
+  ],
+  "features": [
+    {
+      "name": "Authentication",
+      "description": "User login, logout, password reset, and session management via Supabase Auth",
+      "files": ["src/pages/Login.tsx", "src/pages/ForgotPassword.tsx", "src/pages/ResetPassword.tsx", "src/components/ProtectedRoute.tsx", "src/lib/hooks/useSessionRefresh.ts"]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Main dashboard with stats, revenue overview, lead pipeline, recent activity, and schedule",
+      "files": ["src/pages/Dashboard.tsx", "src/components/dashboard/StatCard.tsx", "src/components/dashboard/RevenueOverview.tsx", "src/components/dashboard/LeadPipeline.tsx", "src/components/dashboard/RecentActivity.tsx", "src/components/dashboard/TodaysSchedule.tsx", "src/hooks/useDashboardStats.ts"]
+    },
+    {
+      "name": "Lead Management",
+      "description": "Create, view, and manage leads with pipeline view and table view",
+      "files": ["src/pages/Leads.tsx", "src/pages/LeadsManagement.tsx", "src/pages/LeadDetail.tsx", "src/pages/NewLead.tsx", "src/components/leads/AddLeadDialog.tsx", "src/components/leads/NewLeadDialog.tsx", "src/lib/leadUtils.ts"]
+    },
+    {
+      "name": "Lead Capture Form",
+      "description": "Public form for customers to request mould inspections with validation",
+      "files": ["src/pages/RequestInspection.tsx", "src/lib/api/public-leads.ts"]
+    },
+    {
+      "name": "Inspection Form",
+      "description": "Multi-section inspection form with auto-save, photo upload, and AI summary generation",
+      "files": ["src/pages/InspectionForm.tsx", "src/pages/InspectionSelectLead.tsx", "src/pages/InspectionSuccess.tsx", "src/lib/api/inspections.ts", "src/lib/inspectionUtils.ts", "src/hooks/useInspectionLeads.ts"]
+    },
+    {
+      "name": "Calendar & Booking",
+      "description": "Calendar view for scheduling inspections and customer self-service booking",
+      "files": ["src/pages/Calendar.tsx", "src/pages/CustomerBooking.tsx", "src/components/leads/BookInspectionModal.tsx"]
+    },
+    {
+      "name": "Reports & PDF Generation",
+      "description": "View and generate PDF inspection reports",
+      "files": ["src/pages/Reports.tsx", "src/pages/ReportsPage.tsx", "src/pages/ViewReportPDF.tsx", "src/pages/TestPDFTemplate.tsx"]
+    },
+    {
+      "name": "Settings",
+      "description": "Company profile, pricing defaults, equipment/materials, operating hours, and notifications settings",
+      "files": ["src/pages/Settings.tsx", "src/components/settings/CompanyProfile.tsx", "src/components/settings/PricingDefaults.tsx", "src/components/settings/EquipmentMaterials.tsx", "src/components/settings/OperatingHours.tsx", "src/components/settings/Notifications.tsx"]
+    },
+    {
+      "name": "Notifications",
+      "description": "In-app notification system with bell icon and notifications page",
+      "files": ["src/pages/Notifications.tsx", "src/pages/AllNotifications.tsx", "src/components/layout/NotificationBell.tsx", "src/hooks/useNotifications.ts", "src/lib/notifications.ts"]
+    },
+    {
+      "name": "Analytics",
+      "description": "Lead source analytics and reporting",
+      "files": ["src/pages/Analytics.tsx", "src/components/reports/LeadSourceAnalytics.tsx"]
+    },
+    {
+      "name": "User Management",
+      "description": "Admin user management and profile settings",
+      "files": ["src/pages/ManageUsers.tsx", "src/pages/Profile.tsx"]
+    },
+    {
+      "name": "Layout Components",
+      "description": "App layout with top navigation, bottom navbar, and mobile-responsive design",
+      "files": ["src/components/layout/AppLayout.tsx", "src/components/layout/TopNavbar.tsx", "src/components/layout/BottomNavbar.tsx", "src/components/dashboard/MobileBottomNav.tsx", "src/hooks/use-mobile.tsx"]
+    },
+    {
+      "name": "UI Component Library",
+      "description": "shadcn/ui components including buttons, forms, dialogs, cards, tables, etc.",
+      "files": ["src/components/ui/button.tsx", "src/components/ui/form.tsx", "src/components/ui/dialog.tsx", "src/components/ui/card.tsx", "src/components/ui/table.tsx", "src/components/ui/input.tsx", "src/components/ui/select.tsx"]
+    }
+  ]
+}

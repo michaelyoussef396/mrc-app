@@ -286,11 +286,11 @@ export default function LeadDetail() {
       case "inspection_completed":
         return (
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline" onClick={() => navigate(`/inspection/${lead.id}`)}>
-              👁️ Preview Report
+            <Button size="lg" variant="outline" onClick={() => navigate(`/report/${lead.id}`)}>
+              📄 View & Generate Report
             </Button>
-            <Button size="lg" onClick={handleApproveReport}>
-              ✅ Approve & Send Report
+            <Button size="lg" variant="outline" onClick={() => navigate(`/inspection/${lead.id}`)}>
+              ✏️ Edit Inspection
             </Button>
           </div>
         );
@@ -298,8 +298,8 @@ export default function LeadDetail() {
       case "inspection_report_pdf_completed":
         return (
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline" onClick={() => navigate(`/inspection/${lead.id}`)}>
-              📄 Review Inspection Report PDF
+            <Button size="lg" variant="outline" onClick={() => navigate(`/report/${lead.id}`)}>
+              📄 View Report PDF
             </Button>
             <Button size="lg" onClick={handleSendReportToCustomer}>
               📧 Send Report to Customer

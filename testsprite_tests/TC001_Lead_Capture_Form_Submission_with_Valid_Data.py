@@ -1,90 +1,98 @@
 import asyncio
-from playwright import async_api
-from playwright.async_api import expect
+from playwright.async_api import async_playwright, expect
 
 async def run_test():
+    """
+    TC001: Lead Capture Form Submission with Valid Data
+
+    Tests that a user can successfully submit a PUBLIC inspection request form
+    with valid Australian data and receives confirmation.
+
+    NOTE: This is a PUBLIC form - no authentication required.
+    """
     pw = None
     browser = None
     context = None
-    
+
     try:
-        # Start a Playwright session in asynchronous mode
-        pw = await async_api.async_playwright().start()
-        
-        # Launch a Chromium browser in headless mode with custom arguments
+        pw = await async_playwright().start()
         browser = await pw.chromium.launch(
             headless=True,
-            args=[
-                "--window-size=1280,720",         # Set the browser window size
-                "--disable-dev-shm-usage",        # Avoid using /dev/shm which can cause issues in containers
-                "--ipc=host",                     # Use host-level IPC for better stability
-                "--single-process"                # Run the browser in a single process mode
-            ],
+            args=["--window-size=1280,720", "--disable-dev-shm-usage"]
         )
-        
-        # Create a new browser context (like an incognito window)
         context = await browser.new_context()
-        context.set_default_timeout(5000)
-        
-        # Open a new page in the browser context
+        context.set_default_timeout(30000)
         page = await context.new_page()
-        
-        # Navigate to your target URL and wait until the network request is committed
-        await page.goto("http://localhost:8080", wait_until="commit", timeout=10000)
-        
-        # Wait for the main page to reach DOMContentLoaded state (optional for stability)
+
+        # Navigate to the public lead capture form (NO AUTH REQUIRED)
+        print("Navigating to /request-inspection...")
+        await page.goto("http://localhost:8080/request-inspection", wait_until="networkidle")
+
+        # Wait for form to be ready
+        await page.wait_for_selector('input[name="name"]', state="visible")
+        print("Form loaded successfully")
+
+        # Fill in ALL required fields with valid Australian data
+        print("Filling form fields...")
+
+        # Section 1: Your Details
+        await page.fill('input[name="name"]', 'John Smith')
+        await page.fill('input[name="phone"]', '0412345678')
+        await page.fill('input[name="email"]', 'john.smith@example.com')
+
+        # Section 2: Property Location
+        await page.fill('input[name="streetAddress"]', '47 Brighton Road')
+        await page.fill('input[name="suburb"]', 'Elwood')
+        await page.fill('input[name="postcode"]', '3184')
+
+        # Section 3: Inspection Details
+        await page.select_option('select[name="urgency"]', 'within_week')
+        await page.fill('textarea[name="description"]', 'Mould growth visible on bathroom ceiling and walls. Recent leak from upstairs unit may be the cause. Need professional assessment.')
+
+        print("All fields filled. Submitting form...")
+
+        # Submit the form
+        await page.click('button[type="submit"]')
+
+        # Wait for navigation to success page OR success content
         try:
-            await page.wait_for_load_state("domcontentloaded", timeout=3000)
-        except async_api.Error:
-            pass
-        
-        # Iterate through all iframes and wait for them to load as well
-        for frame in page.frames:
+            # Option 1: Check if we navigated to success page
+            await page.wait_for_url("**/request-inspection/success**", timeout=15000)
+            print("Successfully navigated to success page!")
+
+            # Verify success content is visible
+            success_text = page.locator('text=Your Inspection Request Has Been Received')
+            await expect(success_text).to_be_visible(timeout=5000)
+            print("SUCCESS: Lead capture form submission completed successfully!")
+
+        except Exception as nav_error:
+            # Option 2: Check for success message on same page (in case of SPA)
             try:
-                await frame.wait_for_load_state("domcontentloaded", timeout=3000)
-            except async_api.Error:
-                pass
-        
-        # Interact with the page elements to simulate user flow
-        # -> Navigate to the public lead capture website form at /request-inspection by finding a navigation element or using URL navigation if no clickable element is found.
-        await page.goto('http://localhost:8080/request-inspection', timeout=10000)
-        await asyncio.sleep(3)
-        
+                thank_you = page.locator('text=Thank You')
+                await expect(thank_you).to_be_visible(timeout=5000)
+                print("SUCCESS: Found thank you message!")
+            except:
+                # Check for any error messages
+                error_elements = page.locator('.text-red-500, .text-destructive, [class*="error"]')
+                error_count = await error_elements.count()
+                if error_count > 0:
+                    error_texts = []
+                    for i in range(error_count):
+                        text = await error_elements.nth(i).text_content()
+                        if text:
+                            error_texts.append(text.strip())
+                    raise AssertionError(f"Form submission failed with errors: {error_texts}")
 
-        # -> Input valid description text into the description textarea (index 8) using a supported method, then submit the form.
-        frame = context.pages[-1]
-        # Input valid description of the issue in the textarea
-        elem = frame.locator('xpath=html/body/div/div[3]/div/div/div[2]/form/div[3]/div/div[2]/textarea').nth(0)
-        await page.wait_for_timeout(3000); await elem.fill('Mould growth visible on bathroom ceiling and walls. Recent leak from upstairs unit may be the cause.')
-        
+                # Get current URL for debugging
+                current_url = page.url
+                raise AssertionError(f"Form submission did not complete successfully. Current URL: {current_url}. Navigation error: {nav_error}")
 
-        frame = context.pages[-1]
-        # Submit the lead capture form
-        elem = frame.locator('xpath=html/body/div/div[3]/div/div/div[2]/form/button').nth(0)
-        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
-        
+        print("TEST PASSED: TC001 - Lead Capture Form Submission with Valid Data")
 
-        # -> Correct the phone number field with a valid Australian phone number format (e.g., 0412 345 678) and submit the form.
-        frame = context.pages[-1]
-        # Correct the phone number field with a valid Australian phone number format
-        elem = frame.locator('xpath=html/body/div/div[3]/div/div/div[2]/form/div/div/div[2]/input').nth(0)
-        await page.wait_for_timeout(3000); await elem.fill('0412 345 678')
-        
+    except Exception as e:
+        print(f"TEST FAILED: {e}")
+        raise
 
-        frame = context.pages[-1]
-        # Submit the lead capture form
-        elem = frame.locator('xpath=html/body/div/div[3]/div/div/div[5]/p/a').nth(0)
-        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
-        
-
-        # --> Assertions to verify final state
-        frame = context.pages[-1]
-        try:
-            await expect(frame.locator('text=Lead Capture Successful! Your inspection request has been received.').first).to_be_visible(timeout=1000)
-        except AssertionError:
-            raise AssertionError('Test case failed: The lead capture form did not submit successfully, or the lead data was not saved correctly, the instant lead response email was not triggered, or the lead entry was not created in the pipeline as expected.')
-        await asyncio.sleep(5)
-    
     finally:
         if context:
             await context.close()
@@ -92,6 +100,6 @@ async def run_test():
             await browser.close()
         if pw:
             await pw.stop()
-            
-asyncio.run(run_test())
-    
+
+if __name__ == "__main__":
+    asyncio.run(run_test())
