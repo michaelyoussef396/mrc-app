@@ -16,7 +16,69 @@ When all 6 sub-tasks complete with passing tests.
 
 ---
 
-## 🎉 LATEST UPDATE: 2025-12-25 (Session 4)
+## 🎉 LATEST UPDATE: 2025-12-25 (Session 5)
+
+### FIX: 8 Page 5 Job Summary Fields Were Never Wired Up ✅
+
+**Date:** 2025-12-25
+**Status:** ✅ COMPLETE - All 11 AI fields now save to database
+
+#### Problem Diagnosed
+- Database had all 11 columns for AI content ✅
+- Edge function supported `structured: true` mode returning all 11 fields ✅
+- Frontend NEVER passed `structured: true` to edge function ❌
+- Frontend NEVER extracted the 8 Page 5 fields from response ❌
+- Frontend NEVER called `handleInputChange` for those 8 fields ❌
+- Result: 8 Page 5 fields always saved as NULL to database
+
+#### Root Cause
+The `handleGenerateSummary` function only:
+1. Called edge function WITHOUT `structured: true`
+2. Checked for `data.summary` (single markdown blob)
+3. Updated only `jobSummaryFinal`
+4. Never populated the 8 individual Page 5 fields
+
+#### Solution Implemented
+
+**Change 1: API Call (line 2507-2510)**
+```typescript
+const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
+  formData: summaryFormData,
+  structured: true  // NEW: Request all 11 structured fields
+})
+```
+
+**Change 2: Response Handling (lines 2537-2591)**
+Now extracts and populates ALL 11 fields:
+- Page 2: `whatWeFoundText`, `whatWeWillDoText`, `whatYouGetText`
+- Page 5: `whatWeDiscovered`, `identifiedCauses`, `contributingFactors`, `whyThisHappened`, `immediateActions`, `longTermProtection`, `whatSuccessLooksLike`, `timelineText`
+- Also builds combined markdown for `jobSummaryFinal` (preserves existing display)
+
+#### Files Modified
+- `src/pages/InspectionForm.tsx`
+  - Line 2507-2510: Added `structured: true` to API call
+  - Lines 2537-2591: Complete rewrite of response handling to populate all 11 fields
+
+#### Build Status
+- ✅ `npm run build` passes (1.14MB bundle)
+
+#### Testing Required
+1. Go to inspection form Section 10
+2. Click "Generate Summary"
+3. Check console for `=== Structured AI Response ===` log
+4. Verify all 11 fields show `true` in log
+5. Let auto-save trigger
+6. Query database - all 8 Page 5 fields should have data (not NULL)
+
+```sql
+SELECT what_we_discovered, identified_causes, contributing_factors, why_this_happened,
+       immediate_actions, long_term_protection, what_success_looks_like, timeline_text
+FROM inspections WHERE id = 'YOUR_INSPECTION_ID';
+```
+
+---
+
+## Previous Update: 2025-12-25 (Session 4)
 
 ### REGENERATION MARKDOWN FIX - Plain Text Output ✅
 
