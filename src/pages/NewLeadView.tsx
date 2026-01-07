@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
@@ -35,6 +35,21 @@ const NewLeadView = () => {
     enabled: !!id,
   })
 
+  // Pre-populate modal with existing data when it opens
+  useEffect(() => {
+    if (lead && showScheduleModal) {
+      if (lead.inspection_scheduled_date) {
+        setScheduleDate(lead.inspection_scheduled_date)
+      }
+      if (lead.scheduled_time) {
+        setScheduleTime(lead.scheduled_time)
+      }
+      if (lead.notes) {
+        setNotes(lead.notes)
+      }
+    }
+  }, [lead, showScheduleModal])
+
   const handleScheduleInspection = async () => {
     if (!scheduleDate || !scheduleTime) {
       alert('Please select a date and time')
@@ -45,9 +60,11 @@ const NewLeadView = () => {
       // Update lead status to 'inspection_waiting'
       const { error } = await supabase
         .from('leads')
-        .update({ 
+        .update({
           status: 'inspection_waiting',
-          inspection_scheduled_date: scheduleDate
+          inspection_scheduled_date: scheduleDate,
+          scheduled_time: scheduleTime,
+          notes: notes
         })
         .eq('id', id)
       
@@ -246,9 +263,15 @@ const NewLeadView = () => {
                     <span className="info-label">Urgency Level</span>
                     <span className={`urgency-tag ${lead.urgency}`}>
                       <AlertTriangle size={16} strokeWidth={2} />
+                      {lead.urgency === 'ASAP' && 'ASAP - As soon as possible'}
+                      {lead.urgency === 'within_week' && 'Within a week'}
+                      {lead.urgency === 'couple_weeks' && 'Next couple of weeks'}
+                      {lead.urgency === 'within_month' && 'Within a month'}
+                      {lead.urgency === 'couple_months' && 'Next couple of months'}
                       {lead.urgency === 'high' && 'High Priority'}
                       {lead.urgency === 'medium' && 'Medium Priority'}
                       {lead.urgency === 'low' && 'Low Priority'}
+                      {lead.urgency === 'emergency' && 'Emergency - Same day'}
                     </span>
                   </div>
                 )}
@@ -264,6 +287,41 @@ const NewLeadView = () => {
                       hour: '2-digit',
                       minute: '2-digit'
                     })}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Lead Details Section */}
+            <div className="info-section">
+              <h3 className="section-title">
+                <FileText size={18} strokeWidth={2} />
+                Lead Details
+              </h3>
+              <div className="info-grid">
+                <div className="info-item">
+                  <span className="info-label">Source</span>
+                  <span className="info-value">
+                    {lead.lead_source === 'other' && lead.lead_source_other
+                      ? `Other: ${lead.lead_source_other}`
+                      : lead.lead_source || 'Website'
+                    }
+                  </span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Date Created</span>
+                  <span className="info-value">
+                    {new Date(lead.created_at).toLocaleDateString('en-AU', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                  </span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Lead ID</span>
+                  <span className="info-value" style={{ fontFamily: 'monospace', fontSize: '0.85rem', wordBreak: 'break-all' }}>
+                    #{lead.id}
                   </span>
                 </div>
               </div>
@@ -329,6 +387,72 @@ const NewLeadView = () => {
               </button>
             </div>
           </div>
+
+          {/* Display Scheduled Inspection Info if exists */}
+          {lead.inspection_scheduled_date && (
+            <div className="info-card scheduled-info-card">
+              <div className="card-header">
+                <h2 className="card-title">
+                  <CheckCircle size={24} strokeWidth={2} style={{ color: '#34C759' }} />
+                  Inspection Scheduled
+                </h2>
+                <span className="status-badge" style={{ background: '#34C759', color: 'white' }}>
+                  Confirmed
+                </span>
+              </div>
+
+              <div className="info-section">
+                <div className="info-grid">
+                  <div className="info-item">
+                    <span className="info-label">Date</span>
+                    <span className="info-value">
+                      <Calendar size={16} strokeWidth={2} />
+                      {new Date(lead.inspection_scheduled_date).toLocaleDateString('en-AU', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                  {lead.scheduled_time && (
+                    <div className="info-item">
+                      <span className="info-label">Time</span>
+                      <span className="info-value">
+                        <Clock size={16} strokeWidth={2} />
+                        {lead.scheduled_time.substring(0, 2) === '12'
+                          ? '12:00 PM'
+                          : parseInt(lead.scheduled_time.substring(0, 2)) > 12
+                            ? `${parseInt(lead.scheduled_time.substring(0, 2)) - 12}:00 PM`
+                            : `${parseInt(lead.scheduled_time.substring(0, 2))}:00 AM`
+                        }
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {lead.notes && (
+                  <div className="info-item" style={{ marginTop: '16px' }}>
+                    <span className="info-label">Internal Notes</span>
+                    <div className="issue-box" style={{ marginTop: '8px' }}>
+                      <div className="issue-icon">
+                        <FileText size={20} strokeWidth={2} />
+                      </div>
+                      <p className="issue-text">{lead.notes}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                className="btn-secondary"
+                style={{ marginTop: '16px', width: '100%' }}
+                onClick={() => setShowScheduleModal(true)}
+              >
+                <Calendar size={18} strokeWidth={2} />
+                <span className="btn-label">Reschedule Inspection</span>
+              </button>
+            </div>
+          )}
         </div>
       </main>
 

@@ -249,7 +249,7 @@ export async function approvePDF(inspectionId: string): Promise<{ success: boole
       return { success: false, error: error.message }
     }
 
-    // Also update the lead status to 'inspection_report_pdf_completed'
+    // Update the lead status to 'inspection_email_approval' (next stage after approval)
     const { data: inspection } = await supabase
       .from('inspections')
       .select('lead_id')
@@ -259,7 +259,7 @@ export async function approvePDF(inspectionId: string): Promise<{ success: boole
     if (inspection?.lead_id) {
       await supabase
         .from('leads')
-        .update({ status: 'inspection_report_pdf_completed' })
+        .update({ status: 'inspection_email_approval' })
         .eq('id', inspection.lead_id)
     }
 

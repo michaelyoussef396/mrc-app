@@ -1,15 +1,17 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Plus, 
-  ArrowLeft, 
-  ChevronLeft, 
+import {
+  Plus,
+  ArrowLeft,
+  ChevronLeft,
   ChevronRight,
   MapPin,
   Calendar,
@@ -20,6 +22,8 @@ import {
   Clock,
   FileText,
   FileCheck,
+  FileCheck2,
+  RefreshCw,
   Wrench,
   Send,
   Star,
@@ -53,8 +57,12 @@ const iconMap: Record<string, any> = {
 
 export default function Leads() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [showAddLead, setShowAddLead] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Track PDF generation status for leads in approve_inspection_report stage
+  const [pdfStatus, setPdfStatus] = useState<Record<string, 'generating' | 'ready' | 'failed'>>({});
 
   const { data: leads, isLoading } = useQuery({
     queryKey: ["leads"],
@@ -73,6 +81,63 @@ export default function Leads() {
     acc[status] = leads?.filter((lead) => lead.status === status) || [];
     return acc;
   }, {} as Record<LeadStatus, any[]>);
+
+  // Check PDF status for leads in the approve_inspection_report stage
+  useEffect(() => {
+    const checkPDFStatus = async () => {
+      if (!leads) return;
+
+      const genReportLeads = leads.filter(l => l.status === 'approve_inspection_report');
+
+      for (const lead of genReportLeads) {
+        const { data: inspection } = await supabase
+          .from('inspections')
+          .select('pdf_url, pdf_generated_at')
+          .eq('lead_id', lead.id)
+          .single();
+
+        setPdfStatus(prev => ({
+          ...prev,
+          [lead.id]: inspection?.pdf_url ? 'ready' : 'generating'
+        }));
+      }
+    };
+
+    checkPDFStatus();
+    const interval = setInterval(checkPDFStatus, 5000); // Poll every 5s
+    return () => clearInterval(interval);
+  }, [leads]);
+
+  // Regenerate PDF for a lead
+  const handleRegeneratePDF = async (leadId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Don't open lead detail
+
+    const { data: inspection } = await supabase
+      .from('inspections')
+      .select('id')
+      .eq('lead_id', leadId)
+      .single();
+
+    if (!inspection) {
+      toast({ title: 'Error', description: 'No inspection found', variant: 'destructive' });
+      return;
+    }
+
+    setPdfStatus(prev => ({ ...prev, [leadId]: 'generating' }));
+
+    try {
+      const result = await generateInspectionPDF(inspection.id, { regenerate: true });
+      setPdfStatus(prev => ({ ...prev, [leadId]: result.success ? 'ready' : 'failed' }));
+      toast({
+        title: result.success ? 'PDF regenerated' : 'Generation failed',
+        description: result.success ? 'Report is ready for review' : 'Please try again',
+        variant: result.success ? 'default' : 'destructive'
+      });
+    } catch (error) {
+      setPdfStatus(prev => ({ ...prev, [leadId]: 'failed' }));
+      toast({ title: 'Error', description: 'Failed to regenerate PDF', variant: 'destructive' });
+    }
+  };
 
   const scrollLeft = () => {
     if (scrollContainerRef.current) {
@@ -214,6 +279,48 @@ export default function Leads() {
                                   <button className="view-details-btn">
                                     View Details →
                                   </button>
+
+                                  {/* PDF Approval Stage Actions */}
+                                  {lead.status === 'approve_inspection_report' && (
+                                    <div className="mt-3 pt-3 border-t border-gray-100">
+                                      {pdfStatus[lead.id] === 'generating' ? (
+                                        <div className="flex items-center gap-2 text-purple-600">
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                          <span className="text-sm">Generating PDF...</span>
+                                        </div>
+                                      ) : (
+                                        <Button
+                                          size="sm"
+                                          className="w-full h-12 bg-purple-600 hover:bg-purple-700"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            e.preventDefault();
+
+                                            console.log('[View & Edit PDF] Desktop button clicked', {
+                                              leadId: lead.id,
+                                              leadName: lead.full_name,
+                                              route: `/report/${lead.id}`
+                                            });
+
+                                            if (!lead.id) {
+                                              console.error('[View & Edit PDF] No lead ID available');
+                                              return;
+                                            }
+
+                                            try {
+                                              navigate(`/report/${lead.id}`);
+                                              console.log('[View & Edit PDF] Navigate called successfully');
+                                            } catch (error) {
+                                              console.error('[View & Edit PDF] Navigation error:', error);
+                                              window.location.href = `/report/${lead.id}`;
+                                            }
+                                          }}
+                                        >
+                                          <FileCheck2 className="h-4 w-4 mr-2" /> View & Edit PDF
+                                        </Button>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             ))
@@ -309,6 +416,48 @@ export default function Leads() {
                             <button className="mobile-view-btn">
                               View Details →
                             </button>
+
+                            {/* PDF Approval Stage Actions - Mobile */}
+                            {lead.status === 'approve_inspection_report' && (
+                              <div className="mt-3 pt-3 border-t border-gray-100">
+                                {pdfStatus[lead.id] === 'generating' ? (
+                                  <div className="flex items-center gap-2 text-purple-600">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <span className="text-sm">Generating PDF...</span>
+                                  </div>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    className="w-full h-12 bg-purple-600 hover:bg-purple-700"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+
+                                      console.log('[View & Edit PDF] Mobile button clicked', {
+                                        leadId: lead.id,
+                                        leadName: lead.full_name,
+                                        route: `/report/${lead.id}`
+                                      });
+
+                                      if (!lead.id) {
+                                        console.error('[View & Edit PDF] No lead ID available');
+                                        return;
+                                      }
+
+                                      try {
+                                        navigate(`/report/${lead.id}`);
+                                        console.log('[View & Edit PDF] Navigate called successfully');
+                                      } catch (error) {
+                                        console.error('[View & Edit PDF] Navigation error:', error);
+                                        window.location.href = `/report/${lead.id}`;
+                                      }
+                                    }}
+                                  >
+                                    <FileCheck2 className="h-4 w-4 mr-2" /> View & Edit PDF
+                                  </Button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))

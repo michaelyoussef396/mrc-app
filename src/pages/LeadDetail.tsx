@@ -6,25 +6,30 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { 
-  ArrowLeft, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Calendar, 
-  User, 
-  FileText, 
-  DollarSign, 
+import {
+  ArrowLeft,
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+  User,
+  FileText,
+  DollarSign,
   Clock,
   Sparkles,
   CheckCircle,
   CheckCircle2,
   FileCheck,
+  FileCheck2,
   Wrench,
   Send,
   Star,
-  PartyPopper
+  PartyPopper,
+  RefreshCw,
+  Edit,
+  Loader2
 } from "lucide-react";
+import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
 import { STATUS_FLOW, LeadStatus } from "@/lib/statusFlow";
 import { useState } from "react";
 import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
@@ -50,6 +55,7 @@ export default function LeadDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [showBookingModal, setShowBookingModal] = useState(false);
+  const [regeneratingPdf, setRegeneratingPdf] = useState(false);
 
   const { data: lead, isLoading } = useQuery({
     queryKey: ["lead", id],
@@ -152,6 +158,36 @@ export default function LeadDetail() {
     const bookingUrl = `${window.location.origin}/book/${lead.id}`;
     navigator.clipboard.writeText(bookingUrl);
     toast.success('📋 Booking link copied to clipboard!');
+  };
+
+  // Regenerate PDF for the current lead
+  const handleRegeneratePDF = async () => {
+    const { data: inspection } = await supabase
+      .from('inspections')
+      .select('id')
+      .eq('lead_id', lead.id)
+      .single();
+
+    if (!inspection) {
+      toast.error('No inspection found for this lead');
+      return;
+    }
+
+    setRegeneratingPdf(true);
+
+    try {
+      const result = await generateInspectionPDF(inspection.id, { regenerate: true });
+      if (result.success) {
+        toast.success('PDF regenerated successfully! Refreshing...');
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        toast.error('Failed to regenerate PDF');
+      }
+    } catch (error) {
+      toast.error('Error regenerating PDF');
+    } finally {
+      setRegeneratingPdf(false);
+    }
   };
 
   const handleMarkAsPaid = async () => {
@@ -279,6 +315,40 @@ export default function LeadDetail() {
             </Button>
             <Button size="lg" onClick={() => navigate(`/inspection/${lead.id}`)}>
               📋 Start Inspection
+            </Button>
+          </div>
+        );
+
+      case "approve_inspection_report":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="lg"
+              className="h-12 bg-purple-600 hover:bg-purple-700"
+              onClick={() => navigate(`/report/${lead.id}`)}
+            >
+              <FileCheck2 className="h-4 w-4 mr-2" /> View & Edit PDF
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-12"
+              onClick={() => navigate(`/inspection/${lead.id}`)}
+            >
+              <Edit className="h-4 w-4 mr-2" /> Edit Inspection
+            </Button>
+          </div>
+        );
+
+      case "inspection_email_approval":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="lg"
+              className="h-12"
+              onClick={() => navigate(`/report/${lead.id}`)}
+            >
+              <Eye className="h-4 w-4 mr-2" /> View Report
             </Button>
           </div>
         );

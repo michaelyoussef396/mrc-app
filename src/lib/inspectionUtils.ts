@@ -88,15 +88,15 @@ export const calculateJobCost = (params: {
   let hasDemolition = false;
 
   params.areas.forEach(area => {
-    totalHours += area.timeWithoutDemo / 60; // Convert minutes to hours
+    totalHours += area.timeWithoutDemo; // Values are now stored as hours
     if (area.demolitionRequired && area.demolitionTime > 0) {
-      totalHours += area.demolitionTime / 60;
+      totalHours += area.demolitionTime;
       hasDemolition = true;
     }
   });
 
   if (params.hasSubfloor) {
-    totalHours += params.subfloorTime / 60;
+    totalHours += params.subfloorTime;
   }
 
   // Determine job type and calculate labor cost

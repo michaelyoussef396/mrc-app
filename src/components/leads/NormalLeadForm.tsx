@@ -68,6 +68,8 @@ export function NormalLeadForm({
 }: NormalLeadFormProps): React.ReactElement {
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [charCount, setCharCount] = React.useState<number>(0);
+  const [showOtherSource, setShowOtherSource] = React.useState<boolean>(false);
+  const [otherSourceText, setOtherSourceText] = React.useState<string>('');
 
   // ============================================================================
   // FORM SETUP
@@ -165,6 +167,7 @@ export function NormalLeadForm({
           issue_description: data.issue_description,
           property_type: data.property_type,
           lead_source: data.lead_source || 'website',
+          lead_source_other: data.lead_source === 'other' ? otherSourceText : null,
           status: 'new_lead',
           notes: data.notes,
         })
@@ -418,6 +421,65 @@ export function NormalLeadForm({
             {charCount}/1000 characters
           </p>
         </div>
+      </div>
+
+      {/* Lead Source - Select Dropdown */}
+      <div className="space-y-2">
+        <Label
+          htmlFor="normal-lead_source"
+          className="text-sm font-medium text-gray-700"
+        >
+          Source *
+        </Label>
+        <Controller
+          name="lead_source"
+          control={control}
+          render={({ field }) => (
+            <Select
+              onValueChange={(value) => {
+                field.onChange(value);
+                if (value === 'other') {
+                  setShowOtherSource(true);
+                } else {
+                  setShowOtherSource(false);
+                  setOtherSourceText('');
+                }
+              }}
+              value={field.value}
+              disabled={isLoading}
+            >
+              <SelectTrigger
+                id="normal-lead_source"
+                className="h-12 px-3 text-base"
+              >
+                <SelectValue placeholder="How did this lead come to us?" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="website">Website</SelectItem>
+                <SelectItem value="hipages">HiPages</SelectItem>
+                <SelectItem value="google">Google Search</SelectItem>
+                <SelectItem value="referral">Referral</SelectItem>
+                <SelectItem value="repeat">Repeat Customer</SelectItem>
+                <SelectItem value="facebook">Facebook</SelectItem>
+                <SelectItem value="instagram">Instagram</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        />
+
+        {/* Conditional "Other" text field */}
+        {showOtherSource && (
+          <div className="mt-2">
+            <Input
+              placeholder="Please specify the source"
+              value={otherSourceText}
+              onChange={(e) => setOtherSourceText(e.target.value)}
+              className="h-12 px-3 text-base"
+              disabled={isLoading}
+            />
+          </div>
+        )}
       </div>
 
       {/* Form Actions */}

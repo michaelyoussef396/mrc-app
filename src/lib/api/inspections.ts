@@ -70,7 +70,10 @@ export interface InspectionAreaData {
   area_order: number
   area_name: string
 
-  // Mould Location Checklist (12 boolean fields)
+  // Mould Description (text field - replaces checkbox booleans)
+  mould_description?: string
+
+  // Legacy Mould Location Checklist (12 boolean fields - for backwards compatibility)
   mould_ceiling?: boolean
   mould_cornice?: boolean
   mould_windows?: boolean

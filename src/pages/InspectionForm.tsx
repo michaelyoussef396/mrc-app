@@ -16,6 +16,7 @@ import {
   type InspectionData,
   type InspectionAreaData
 } from '@/lib/api/inspections'
+import { generateInspectionPDF } from '@/lib/api/pdfGeneration'
 import {
   Sparkles,
   FileText,
@@ -139,7 +140,7 @@ const InspectionForm = () => {
     areas: [{
       id: crypto.randomUUID(),
       areaName: '',
-      mouldVisibility: [],
+      mouldDescription: '',
       commentsForReport: '',
       temperature: '',
       humidity: '',
@@ -281,24 +282,42 @@ const InspectionForm = () => {
     formData.estimatedDays
   ])
 
-  // Trigger initial cost calculation when loading completes and no saved costs exist
+  // Trigger initial cost calculation when loading completes and equipment is set but not calculated
   // This ensures the cost section shows calculated values even on first open
   useEffect(() => {
     // Only run after loading completes (loading becomes false)
     if (loading) return
 
-    // Check if costs need initial calculation (all cost values are 0 or missing)
-    const hasSavedCosts = (formData.laborCost && formData.laborCost > 0) ||
-                          (formData.equipmentCost && formData.equipmentCost > 0) ||
-                          (formData.subtotalExGst && formData.subtotalExGst > 0) ||
-                          (formData.totalIncGst && formData.totalIncGst > 0)
+    // Check if equipment is configured (quantities > 0)
+    const hasEquipment = (formData.commercialDehumidifierQty || 0) > 0 ||
+                         (formData.airMoversQty || 0) > 0 ||
+                         (formData.rcdBoxQty || 0) > 0
 
-    if (!hasSavedCosts) {
+    // Equipment exists but cost is $0 means we need to recalculate
+    const needsRecalculation = hasEquipment && (!formData.equipmentCost || formData.equipmentCost === 0)
+
+    // Also recalculate if no costs at all (new inspection)
+    const hasNoCosts = (!formData.laborCost || formData.laborCost === 0) &&
+                       (!formData.equipmentCost || formData.equipmentCost === 0) &&
+                       (!formData.subtotalExGst || formData.subtotalExGst === 0)
+
+    if (needsRecalculation) {
+      console.log('🔄 Recalculating costs - equipment present but cost is $0', {
+        dehuQty: formData.commercialDehumidifierQty,
+        airQty: formData.airMoversQty,
+        rcdQty: formData.rcdBoxQty,
+        currentEquipmentCost: formData.equipmentCost
+      })
+      recalculateCost()
+    } else if (hasNoCosts) {
       console.log('💰 No saved costs found - triggering initial calculation')
-      // Recalculate to populate initial values based on current equipment/labor
       recalculateCost()
     } else {
-      console.log('💰 Saved costs found - using loaded values')
+      console.log('💰 Costs already calculated - using loaded values', {
+        labor: formData.laborCost,
+        equipment: formData.equipmentCost,
+        subtotal: formData.subtotalExGst
+      })
     }
   }, [loading]) // Only depends on loading state changing
 
@@ -340,7 +359,6 @@ const InspectionForm = () => {
             await loadInspectionFromLead(inspection.lead_id)
             setLoading(false)
             // Allow recalculation now that saved data is loaded
-            // Use setTimeout to ensure state updates complete before enabling recalc
             isInitialLoad.current = false
             return
           }
@@ -365,7 +383,6 @@ const InspectionForm = () => {
       await loadInspectionFromLead(leadId)
       setLoading(false)
       // Allow recalculation now that saved data is loaded
-      // Use setTimeout to ensure state updates complete before enabling recalc
       isInitialLoad.current = false
       return
     }
@@ -430,20 +447,27 @@ const InspectionForm = () => {
 
           // Transform database areas to frontend format
           const transformedAreas: InspectionArea[] = await Promise.all(existingAreas.map(async (dbArea) => {
-            // Transform mould visibility (12 booleans → array of strings)
-            const mouldVisibility: string[] = []
-            if (dbArea.mould_ceiling) mouldVisibility.push('Ceiling')
-            if (dbArea.mould_cornice) mouldVisibility.push('Cornice')
-            if (dbArea.mould_windows) mouldVisibility.push('Windows')
-            if (dbArea.mould_window_furnishings) mouldVisibility.push('Window furnishings')
-            if (dbArea.mould_walls) mouldVisibility.push('Walls')
-            if (dbArea.mould_skirting) mouldVisibility.push('Skirting')
-            if (dbArea.mould_flooring) mouldVisibility.push('Flooring')
-            if (dbArea.mould_wardrobe) mouldVisibility.push('Wardrobe')
-            if (dbArea.mould_cupboard) mouldVisibility.push('Cupboard')
-            if (dbArea.mould_contents) mouldVisibility.push('Contents')
-            if (dbArea.mould_grout_silicone) mouldVisibility.push('Grout/Silicone')
-            if (dbArea.mould_none_visible) mouldVisibility.push('None visible')
+            // Load mould description (text field) or build from legacy booleans for backwards compatibility
+            let mouldDescription = (dbArea as any).mould_description || ''
+            if (!mouldDescription) {
+              // Backwards compatibility: build from legacy boolean fields
+              const legacyMould: string[] = []
+              if (dbArea.mould_ceiling) legacyMould.push('Ceiling')
+              if (dbArea.mould_cornice) legacyMould.push('Cornice')
+              if (dbArea.mould_windows) legacyMould.push('Windows')
+              if (dbArea.mould_window_furnishings) legacyMould.push('Window furnishings')
+              if (dbArea.mould_walls) legacyMould.push('Walls')
+              if (dbArea.mould_skirting) legacyMould.push('Skirting')
+              if (dbArea.mould_flooring) legacyMould.push('Flooring')
+              if (dbArea.mould_wardrobe) legacyMould.push('Wardrobe')
+              if (dbArea.mould_cupboard) legacyMould.push('Cupboard')
+              if (dbArea.mould_contents) legacyMould.push('Contents')
+              if (dbArea.mould_grout_silicone) legacyMould.push('Grout/Silicone')
+              if (dbArea.mould_none_visible) legacyMould.push('None visible')
+              if (legacyMould.length > 0) {
+                mouldDescription = legacyMould.join(', ')
+              }
+            }
 
             // Transform infrared observations (5 booleans → array of strings)
             const infraredObservations: string[] = []
@@ -473,8 +497,11 @@ const InspectionForm = () => {
                 infraredPhoto = photoObj
               } else if (photo.caption === 'natural_infrared') {
                 naturalInfraredPhoto = photoObj
-              } else {
-                // Default to room view photos
+              } else if (photo.caption === 'moisture' || photo.moisture_reading_id) {
+                // Moisture reading photos - handled separately in moisture readings loader
+                // Skip adding to roomViewPhotos
+              } else if (photo.caption === 'room_view' || !photo.caption) {
+                // Only add room_view photos (or legacy photos without caption)
                 roomViewPhotos.push(photoObj)
               }
             })
@@ -521,7 +548,7 @@ const InspectionForm = () => {
             return {
               id: dbArea.id,
               areaName: dbArea.area_name,
-              mouldVisibility,
+              mouldDescription,
               commentsForReport: dbArea.comments || '',
               temperature: dbArea.temperature?.toString() || '',
               humidity: dbArea.humidity?.toString() || '',
@@ -996,7 +1023,7 @@ const InspectionForm = () => {
           ? [{
               id: crypto.randomUUID(),
               areaName: leadData.affectedAreas[0],
-              mouldVisibility: [],
+              mouldDescription: '',
               commentsForReport: leadData.issueDescription,
               temperature: '',
               humidity: '',
@@ -1338,7 +1365,7 @@ const InspectionForm = () => {
     }))
   }
 
-  const handleAreaArrayToggle = (areaId: string, field: 'mouldVisibility' | 'infraredObservations', value: string) => {
+  const handleAreaArrayToggle = (areaId: string, field: 'infraredObservations', value: string) => {
     setFormData(prev => ({
       ...prev,
       areas: prev.areas.map(area => {
@@ -1358,7 +1385,7 @@ const InspectionForm = () => {
     const newArea: InspectionArea = {
       id: crypto.randomUUID(),
       areaName: '',
-      mouldVisibility: [],
+      mouldDescription: '',
       commentsForReport: '',
       temperature: '',
       humidity: '',
@@ -1742,11 +1769,11 @@ const InspectionForm = () => {
 
           updateMoistureReading(areaId, readingId, 'photo', newPhotos[0])
         } else if (areaId && type === 'roomView') {
-          // Room view photos (limit 3)
+          // Room view photos (limit 4)
           const currentArea = formData.areas.find(a => a.id === areaId)
           const currentPhotos = currentArea?.roomViewPhotos || []
-          if (currentPhotos.length + newPhotos.length > 3) {
-            toast({ title: 'Photo limit', description: 'Room view limited to 3 photos', variant: 'destructive' })
+          if (currentPhotos.length + newPhotos.length > 4) {
+            toast({ title: 'Photo limit', description: 'Room view limited to 4 photos', variant: 'destructive' })
             return
           }
           handleAreaChange(areaId, 'roomViewPhotos', [...currentPhotos, ...newPhotos])
@@ -1948,6 +1975,18 @@ const InspectionForm = () => {
     // Allow save if we have either a leadId (new inspection) OR currentInspectionId (existing inspection)
     if ((!leadId && !currentInspectionId) || !currentUserId) return
 
+    // Validate session before attempting save
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      console.error('❌ No active session - cannot save')
+      toast({
+        title: 'Session expired',
+        description: 'Please refresh the page and log in again.',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setSaving(true)
 
     try {
@@ -2044,19 +2083,8 @@ const InspectionForm = () => {
           inspection_id: inspectionId,
           area_order: i,
           area_name: area.areaName,
-          // Map mould visibility array to boolean fields
-          mould_ceiling: area.mouldVisibility.includes('Ceiling'),
-          mould_cornice: area.mouldVisibility.includes('Cornice'),
-          mould_windows: area.mouldVisibility.includes('Windows'),
-          mould_window_furnishings: area.mouldVisibility.includes('Window furnishings'),
-          mould_walls: area.mouldVisibility.includes('Walls'),
-          mould_skirting: area.mouldVisibility.includes('Skirting'),
-          mould_flooring: area.mouldVisibility.includes('Flooring'),
-          mould_wardrobe: area.mouldVisibility.includes('Wardrobe'),
-          mould_cupboard: area.mouldVisibility.includes('Cupboard'),
-          mould_contents: area.mouldVisibility.includes('Contents'),
-          mould_grout_silicone: area.mouldVisibility.includes('Grout/Silicone'),
-          mould_none_visible: area.mouldVisibility.includes('None visible'),
+          // Save mould description as text field
+          mould_description: area.mouldDescription,
           comments: area.commentsForReport,
           temperature: parseFloat(area.temperature) || undefined,
           humidity: parseFloat(area.humidity) || undefined,
@@ -2325,11 +2353,24 @@ const InspectionForm = () => {
 
       // Return the new mappings so photo upload can use them immediately
       return newMappings
-    } catch (error) {
-      console.error('Auto-save failed:', error)
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Unknown error'
+      const isNetworkError = errorMessage.includes('Failed to fetch') ||
+                             errorMessage.includes('NetworkError') ||
+                             errorMessage.includes('Network request failed')
+
+      console.error('Auto-save failed:', {
+        message: errorMessage,
+        type: isNetworkError ? 'NETWORK' : 'OTHER',
+        timestamp: new Date().toISOString(),
+        stack: error?.stack
+      })
+
       toast({
         title: 'Auto-save failed',
-        description: 'Will retry in 30 seconds',
+        description: isNetworkError
+          ? 'Network connection lost. Check your internet and try again.'
+          : `Error: ${errorMessage}. Will retry in 30 seconds.`,
         variant: 'destructive'
       })
     } finally {
@@ -2390,18 +2431,43 @@ const InspectionForm = () => {
     setSaving(true)
 
     try {
-      // Perform final save
+      // Step 1: Save inspection data
       await autoSave()
 
+      // Step 2: Update lead status to 'approve_inspection_report' immediately
+      if (leadId) {
+        const { error: statusError } = await supabase
+          .from('leads')
+          .update({ status: 'approve_inspection_report' })
+          .eq('id', leadId)
+
+        if (statusError) {
+          console.error('Failed to update lead status:', statusError)
+        }
+      }
+
+      // Step 3: Trigger PDF generation in background (non-blocking)
+      if (currentInspectionId) {
+        generateInspectionPDF(currentInspectionId, { regenerate: false })
+          .then(result => {
+            console.log('PDF generation completed:', result.success ? 'success' : 'failed', result)
+          })
+          .catch(error => {
+            console.error('PDF generation failed:', error)
+          })
+      }
+
+      // Step 4: Show success and redirect immediately (don't wait for PDF)
       toast({
         title: 'Inspection completed!',
-        description: 'Inspection saved successfully. Redirecting to dashboard...'
+        description: 'Generating your PDF report...'
       })
 
       // Wait a moment for user to see the message
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      await new Promise(resolve => setTimeout(resolve, 1000))
 
-      navigate('/dashboard')
+      // Redirect to leads page
+      navigate('/leads')
     } catch (error: any) {
       console.error('Failed to submit inspection:', error)
       toast({
@@ -2409,6 +2475,7 @@ const InspectionForm = () => {
         description: error.message || 'Failed to save inspection. Please try again.',
         variant: 'destructive'
       })
+    } finally {
       setSaving(false)
     }
   }
@@ -2441,7 +2508,7 @@ const InspectionForm = () => {
         // Areas
         areas: formData.areas.map(area => ({
           areaName: area.areaName,
-          mouldVisibility: area.mouldVisibility,
+          mouldDescription: area.mouldDescription,
           commentsForReport: area.commentsForReport,
           temperature: area.temperature,
           humidity: area.humidity,
@@ -2614,7 +2681,7 @@ const InspectionForm = () => {
         dwellingType: formData.dwellingType,
         areas: formData.areas.map(area => ({
           areaName: area.areaName,
-          mouldVisibility: area.mouldVisibility,
+          mouldDescription: area.mouldDescription,
           commentsForReport: area.commentsForReport,
           temperature: area.temperature,
           humidity: area.humidity,
@@ -2745,7 +2812,7 @@ const InspectionForm = () => {
         inspectionDate: formData.inspectionDate,
         areas: formData.areas.map(area => ({
           areaName: area.areaName,
-          mouldVisibility: area.mouldVisibility,
+          mouldDescription: area.mouldDescription,
           commentsForReport: area.commentsForReport,
           temperature: area.temperature,
           humidity: area.humidity,
@@ -3139,24 +3206,14 @@ const InspectionForm = () => {
 
                     {/* Mould Visibility */}
                     <div className="form-group">
-                      <label className="form-label">Mould Visibility (select all that apply)</label>
-                      <div className="checkbox-grid">
-                        {[
-                          'Ceiling', 'Cornice', 'Windows', 'Window Furnishings',
-                          'Walls', 'Skirting', 'Flooring', 'Wardrobe',
-                          'Cupboard', 'Contents', 'Grout/Silicone', 'No Mould Visible'
-                        ].map(option => (
-                          <label key={option} className="checkbox-option">
-                            <input
-                              type="checkbox"
-                              checked={area.mouldVisibility.includes(option)}
-                              onChange={() => handleAreaArrayToggle(area.id, 'mouldVisibility', option)}
-                            />
-                            <span className="checkbox-custom"></span>
-                            <span className="checkbox-label">{option}</span>
-                          </label>
-                        ))}
-                      </div>
+                      <label className="form-label">Mould Visibility</label>
+                      <textarea
+                        value={area.mouldDescription}
+                        onChange={(e) => handleAreaChange(area.id, 'mouldDescription', e.target.value)}
+                        placeholder="Describe where mould is visible in this area (e.g., Ceiling, Walls, Windows, Skirting, Flooring...)"
+                        className="form-textarea"
+                        rows={3}
+                      />
                     </div>
 
                     {/* Comments Shown in Report */}
@@ -3423,14 +3480,14 @@ const InspectionForm = () => {
 
                     {/* Time for Job (Without Demolition) */}
                     <div className="form-group">
-                      <label className="form-label">Time for Job (Without Demolition) - Minutes *</label>
+                      <label className="form-label">Time for Job (Without Demolition) - Hours *</label>
                       <input
                         type="number"
                         min="0"
                         value={area.timeWithoutDemo}
                         onChange={(e) => handleAreaChange(area.id, 'timeWithoutDemo', parseInt(e.target.value) || 0)}
                         className="form-input"
-                        placeholder="Enter time in minutes"
+                        placeholder="Enter time in hours"
                       />
                     </div>
 
@@ -3452,14 +3509,14 @@ const InspectionForm = () => {
                       {area.demolitionRequired && (
                         <div className="demolition-section">
                           <div className="form-group">
-                            <label className="form-label">Time for Demolition - Minutes *</label>
+                            <label className="form-label">Time for Demolition - Hours *</label>
                             <input
                               type="number"
                               min="0"
                               value={area.demolitionTime}
                               onChange={(e) => handleAreaChange(area.id, 'demolitionTime', parseInt(e.target.value) || 0)}
                               className="form-input"
-                              placeholder="Enter demolition time in minutes"
+                              placeholder="Enter demolition time in hours"
                             />
                           </div>
 
@@ -3665,14 +3722,14 @@ const InspectionForm = () => {
                       )}
 
                       <div className="form-group">
-                        <label className="form-label">Subfloor Treatment Time (Minutes)</label>
+                        <label className="form-label">Subfloor Treatment Time (Hours)</label>
                         <input
                           type="number"
                           min="0"
                           value={formData.subfloorTreatmentTime}
                           onChange={(e) => handleInputChange('subfloorTreatmentTime', parseInt(e.target.value) || 0)}
                           className="form-input"
-                          placeholder="Enter time in minutes"
+                          placeholder="Enter time in hours"
                         />
                       </div>
                     </div>

@@ -17,7 +17,7 @@ export interface Photo {
 export interface InspectionArea {
   id: string;
   areaName: string;
-  mouldVisibility: string[];
+  mouldDescription: string;
   commentsForReport: string;
   temperature: string;
   humidity: string;

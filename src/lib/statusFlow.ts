@@ -4,8 +4,9 @@ export type LeadStatus =
   | "new_lead"
   | "contacted"
   | "inspection_waiting"
+  | "approve_inspection_report"   // PDF review and approval stage
+  | "inspection_email_approval"   // Email sending approval stage
   | "inspection_completed"
-  | "approve_report_pdf"
   | "inspection_report_pdf_completed"
   | "job_waiting"
   | "job_completed"
@@ -58,7 +59,7 @@ export const STATUS_FLOW: Record<LeadStatus, StatusFlowConfig> = {
     borderColor: 'hsl(142 76% 36%)',
   },
   'inspection_waiting': {
-    next: 'inspection_completed',
+    next: 'approve_inspection_report',  // Goes to PDF review/approval stage
     title: 'Inspection Waiting',
     shortTitle: 'INSP WAIT',
     nextAction: 'Conduct inspection and submit form',
@@ -67,8 +68,18 @@ export const STATUS_FLOW: Record<LeadStatus, StatusFlowConfig> = {
     bgColor: 'hsl(38 92% 95%)',
     borderColor: 'hsl(38 92% 50%)',
   },
+  'approve_inspection_report': {
+    next: 'inspection_email_approval',
+    title: 'Approve Inspection Report',
+    shortTitle: 'APPROVE REPORT',
+    nextAction: 'Review and approve PDF report',
+    iconName: 'FileCheck2',
+    color: 'hsl(280 70% 60%)',
+    bgColor: 'hsl(280 70% 97%)',
+    borderColor: 'hsl(280 70% 60%)',
+  },
   'inspection_completed': {
-    next: 'approve_report_pdf',
+    next: 'inspection_email_approval',
     title: 'Inspection Completed',
     shortTitle: 'INSP DONE',
     nextAction: 'Review and approve inspection data',
@@ -77,15 +88,15 @@ export const STATUS_FLOW: Record<LeadStatus, StatusFlowConfig> = {
     bgColor: 'hsl(239 84% 97%)',
     borderColor: 'hsl(239 84% 67%)',
   },
-  'approve_report_pdf': {
+  'inspection_email_approval': {
     next: 'inspection_report_pdf_completed',
-    title: 'Approve Report PDF',
-    shortTitle: 'APPROVE PDF',
-    nextAction: 'Review and approve PDF report for sending',
-    iconName: 'FileCheck2',
-    color: 'hsl(280 70% 60%)',
-    bgColor: 'hsl(280 70% 97%)',
-    borderColor: 'hsl(280 70% 60%)',
+    title: 'Inspection Email Approval',
+    shortTitle: 'EMAIL APPROVAL',
+    nextAction: 'Send inspection report via email',
+    iconName: 'Mail',
+    color: 'hsl(200 70% 60%)',
+    bgColor: 'hsl(200 70% 97%)',
+    borderColor: 'hsl(200 70% 60%)',
   },
   'inspection_report_pdf_completed': {
     next: 'job_waiting',
@@ -174,8 +185,9 @@ export const ALL_STATUSES: LeadStatus[] = [
   'new_lead',
   'contacted',
   'inspection_waiting',
+  'approve_inspection_report',   // PDF review/approval stage
+  'inspection_email_approval',   // Email sending approval stage
   'inspection_completed',
-  'approve_report_pdf',
   'inspection_report_pdf_completed',
   'job_waiting',
   'job_completed',

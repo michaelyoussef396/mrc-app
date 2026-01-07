@@ -687,6 +687,7 @@ export type Database = {
           job_scheduled_date: string | null
           lead_number: string | null
           lead_source: string | null
+          lead_source_other: string | null
           notes: string | null
           payment_received_date: string | null
           phone: string
@@ -721,6 +722,7 @@ export type Database = {
           job_scheduled_date?: string | null
           lead_number?: string | null
           lead_source?: string | null
+          lead_source_other?: string | null
           notes?: string | null
           payment_received_date?: string | null
           phone: string
@@ -755,6 +757,7 @@ export type Database = {
           job_scheduled_date?: string | null
           lead_number?: string | null
           lead_source?: string | null
+          lead_source_other?: string | null
           notes?: string | null
           payment_received_date?: string | null
           phone?: string
@@ -1260,9 +1263,12 @@ export type Database = {
       invoice_status: "draft" | "sent" | "overdue" | "paid" | "cancelled"
       job_type: "no_demolition_surface" | "demo" | "construction" | "subfloor"
       lead_status:
+        | "hipages_lead"
         | "new_lead"
         | "contacted"
         | "inspection_waiting"
+        | "approve_inspection_report"
+        | "inspection_email_approval"
         | "inspection_completed"
         | "inspection_report_pdf_completed"
         | "job_waiting"
@@ -1431,9 +1437,12 @@ export const Constants = {
       invoice_status: ["draft", "sent", "overdue", "paid", "cancelled"],
       job_type: ["no_demolition_surface", "demo", "construction", "subfloor"],
       lead_status: [
+        "hipages_lead",
         "new_lead",
         "contacted",
         "inspection_waiting",
+        "approve_inspection_report",
+        "inspection_email_approval",
         "inspection_completed",
         "inspection_report_pdf_completed",
         "job_waiting",

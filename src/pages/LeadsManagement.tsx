@@ -67,23 +67,32 @@ const LeadsManagement = () => {
       nextActions: ['Review inquiry', 'Schedule inspection'],
       availableButtons: ['call', 'viewDetails']
     },
-    { 
-      value: 'inspection_waiting', 
-      label: 'Awaiting Inspection', 
-      icon: '📅', 
+    {
+      value: 'inspection_waiting',
+      label: 'Awaiting Inspection',
+      icon: '📅',
       color: '#8b5cf6',
       description: 'Inspection scheduled, waiting for appointment',
       nextActions: ['Start inspection or remove lead'],
       availableButtons: ['call', 'email', 'startInspection', 'removeLead', 'viewDetails']
     },
-    { 
-      value: 'approve_report_pdf', 
-      label: 'Report PDF Approval', 
-      icon: '📄', 
+    {
+      value: 'approve_inspection_report',
+      label: 'Approve Inspection Report',
+      icon: '📋',
       color: '#a855f7',
-      description: 'Inspection report PDF ready for review and approval',
-      nextActions: ['Review PDF and approve for client delivery'],
-      availableButtons: ['viewPDF', 'approvePDF', 'viewDetails']
+      description: 'Review and approve inspection report PDF',
+      nextActions: ['View PDF and approve report'],
+      availableButtons: ['viewPDF', 'viewDetails']
+    },
+    {
+      value: 'inspection_email_approval',
+      label: 'Email Approval',
+      icon: '📧',
+      color: '#06b6d4',
+      description: 'Report approved, ready to send via email',
+      nextActions: ['Send inspection report to client'],
+      availableButtons: ['sendEmail', 'viewPDF', 'viewDetails']
     },
     { 
       value: 'job_waiting', 
@@ -698,7 +707,7 @@ const LeadsManagement = () => {
         estimatedValue: null,
         issueDescription: 'Black mould in bathroom after recent flooding'
       },
-      // NEW: APPROVE_REPORT_PDF - Report ready for review
+      // NEW: APPROVE_INSPECTION_REPORT - Report ready for review
       {
         id: 16,
         name: 'Lisa Anderson',
@@ -708,7 +717,7 @@ const LeadsManagement = () => {
         suburb: 'Hawthorn',
         state: 'VIC',
         postcode: '3122',
-        status: 'approve_report_pdf',
+        status: 'approve_inspection_report',
         urgency: 'medium',
         source: 'Website Form',
         dateCreated: '2025-01-26T11:30:00',

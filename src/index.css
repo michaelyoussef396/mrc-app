@@ -16441,7 +16441,7 @@ a.contact-value:hover {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: white;
+  color: #1d1d1f;
   font-size: 16px;
   font-weight: 600;
 }
