@@ -7,7 +7,6 @@ import {
   UserPlus,
   Edit2,
   Trash2,
-  Shield,
   User,
   Mail,
   Phone,
@@ -41,7 +40,6 @@ interface FormData {
   lastName: string;
   email: string;
   phone: string;
-  role: 'admin' | 'technician' | 'manager';
   password: string;
   confirmPassword: string;
 }
@@ -172,7 +170,6 @@ export default function ManageUsers() {
     lastName: '',
     email: '',
     phone: '',
-    role: 'technician',
     password: '',
     confirmPassword: '',
   });
@@ -187,7 +184,6 @@ export default function ManageUsers() {
       lastName: '',
       email: '',
       phone: '',
-      role: 'technician',
       password: '',
       confirmPassword: '',
     });
@@ -202,8 +198,19 @@ export default function ManageUsers() {
     else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.email = 'Email is invalid';
     if (!formData.phone.trim()) errors.phone = 'Phone number is required';
     else if (!/^04\d{8}$/.test(formData.phone.replace(/\s/g, ''))) errors.phone = 'Invalid Australian mobile number (e.g., 0400 000 000)';
-    if (!formData.password) errors.password = 'Password is required';
-    else if (formData.password.length < 8) errors.password = 'Password must be at least 8 characters';
+    if (!formData.password) {
+      errors.password = 'Password is required';
+    } else if (formData.password.length < 8) {
+      errors.password = 'Password must be at least 8 characters';
+    } else if (!/[A-Z]/.test(formData.password)) {
+      errors.password = 'Password must contain an uppercase letter';
+    } else if (!/[a-z]/.test(formData.password)) {
+      errors.password = 'Password must contain a lowercase letter';
+    } else if (!/[0-9]/.test(formData.password)) {
+      errors.password = 'Password must contain a number';
+    } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)) {
+      errors.password = 'Password must contain a special character';
+    }
     if (formData.password !== formData.confirmPassword) errors.confirmPassword = 'Passwords do not match';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -218,7 +225,7 @@ export default function ManageUsers() {
       password: formData.password,
       full_name: `${formData.firstName} ${formData.lastName}`,
       phone: formData.phone.replace(/\s/g, ''),
-      role: formData.role === 'admin' ? 'admin' : 'technician',
+      role: 'technician', // All users are technicians by default
     });
   };
 
@@ -237,16 +244,8 @@ export default function ManageUsers() {
     return fullName.slice(0, 2).toUpperCase();
   };
 
-  const getRoleDisplay = (role: string) => {
-    if (role === 'admin') return 'Administrator';
-    if (role === 'manager') return 'Manager';
-    return 'Technician';
-  };
-
   // Stats
   const totalUsers = users.length;
-  const adminCount = users.filter(u => u.role === 'admin').length;
-  const technicianCount = users.filter(u => u.role === 'technician').length;
 
   if (error) {
     return (
@@ -298,7 +297,7 @@ export default function ManageUsers() {
       </div>
 
       <div className="max-w-3xl mx-auto px-5 py-6">
-        <div className="flex flex-col gap-3 mb-5 bg-white p-4 rounded-2xl shadow-md sm:flex-row sm:p-5">
+        <div className="flex mb-5 bg-white p-4 rounded-2xl shadow-md sm:p-5">
           <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl flex-1">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600 flex items-center justify-center flex-shrink-0">
               <Users size={20} strokeWidth={2} />
@@ -306,24 +305,6 @@ export default function ManageUsers() {
             <div className="flex-1">
               <div className="text-2xl font-bold text-gray-900 leading-none mb-1">{isLoading ? '-' : totalUsers}</div>
               <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Total Users</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl flex-1">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-100 to-green-200 text-green-600 flex items-center justify-center flex-shrink-0">
-              <Shield size={20} strokeWidth={2} />
-            </div>
-            <div className="flex-1">
-              <div className="text-2xl font-bold text-gray-900 leading-none mb-1">{isLoading ? '-' : adminCount}</div>
-              <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Admins</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl flex-1">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 text-orange-600 flex items-center justify-center flex-shrink-0">
-              <User size={20} strokeWidth={2} />
-            </div>
-            <div className="flex-1">
-              <div className="text-2xl font-bold text-gray-900 leading-none mb-1">{isLoading ? '-' : technicianCount}</div>
-              <div className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Technicians</div>
             </div>
           </div>
         </div>
@@ -342,28 +323,20 @@ export default function ManageUsers() {
             {users.map(user => (
               <div key={user.id} className="flex flex-col gap-4 p-4 bg-white border-2 border-gray-200 rounded-2xl hover:border-blue-500 hover:shadow-md transition-all md:flex-row md:items-center md:p-5 md:gap-5">
 
-                {/* Top Section: Avatar + Info + Role */}
+                {/* Top Section: Avatar + Info */}
                 <div className="flex items-start gap-3 flex-1 md:items-center">
                   <div className="flex-shrink-0">
-                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold text-white ${user.role === 'admin' ? 'bg-gradient-to-br from-green-500 to-green-600' : 'bg-gradient-to-br from-blue-500 to-blue-600'}`}>
+                    <div className="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-blue-500 to-blue-600">
                       {getInitials(user.full_name)}
                     </div>
                   </div>
 
                   <div className="flex-1 min-w-0 md:flex md:items-center md:gap-3">
-                    <h3 className="text-base font-semibold text-gray-900 mb-2 break-words md:mb-0">
+                    <h3 className="text-base font-semibold text-gray-900 break-words">
                       {user.full_name}
                     </h3>
-                    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${user.role === 'admin' ? 'bg-gradient-to-r from-green-100 to-green-200 text-green-700' : 'bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700'}`}>
-                      {user.role === 'admin' ? (
-                        <Shield size={14} strokeWidth={2} />
-                      ) : (
-                        <User size={14} strokeWidth={2} />
-                      )}
-                      {getRoleDisplay(user.role)}
-                    </div>
                     {!user.is_active && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 ml-2">
                         Inactive
                       </span>
                     )}
@@ -463,36 +436,6 @@ export default function ManageUsers() {
               </div>
 
               <div className="mb-7">
-                <h3 className="text-[15px] font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200">User Role</h3>
-                <div className="flex flex-col gap-3">
-                  <label className="block cursor-pointer">
-                    <input type="radio" name="role" value="technician" checked={formData.role === 'technician'} onChange={(e) => setFormData({ ...formData, role: e.target.value as 'technician' })} className="hidden" />
-                    <div className={`flex gap-3.5 p-4 bg-gray-50 border-2 rounded-xl transition-all ${formData.role === 'technician' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
-                      <div className="w-13 h-13 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600 flex items-center justify-center flex-shrink-0">
-                        <User size={24} strokeWidth={2} />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-base font-semibold text-gray-900 mb-1">Technician</h4>
-                        <p className="text-sm text-gray-600 m-0 leading-snug">Can perform inspections, manage leads, and generate reports</p>
-                      </div>
-                    </div>
-                  </label>
-                  <label className="block cursor-pointer">
-                    <input type="radio" name="role" value="admin" checked={formData.role === 'admin'} onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' })} className="hidden" />
-                    <div className={`flex gap-3.5 p-4 bg-gray-50 border-2 rounded-xl transition-all ${formData.role === 'admin' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
-                      <div className="w-13 h-13 rounded-xl bg-gradient-to-br from-green-100 to-green-200 text-green-600 flex items-center justify-center flex-shrink-0">
-                        <Shield size={24} strokeWidth={2} />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-base font-semibold text-gray-900 mb-1">Administrator</h4>
-                        <p className="text-sm text-gray-600 m-0 leading-snug">Full access including user management and system settings</p>
-                      </div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              <div className="mb-7">
                 <h3 className="text-[15px] font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200">Password Setup</h3>
                 <div className="mb-4">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Password *</label>
@@ -516,9 +459,9 @@ export default function ManageUsers() {
                   </div>
                   {formErrors.confirmPassword && <span className="block text-xs text-red-500 mt-1">{formErrors.confirmPassword}</span>}
                 </div>
-                <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-xl text-sm text-blue-600">
-                  <AlertCircle size={16} strokeWidth={2} />
-                  <span>Password must be at least 8 characters long</span>
+                <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-xl text-sm text-blue-600">
+                  <AlertCircle size={16} strokeWidth={2} className="flex-shrink-0 mt-0.5" />
+                  <span>Password must be 8+ characters with uppercase, lowercase, number, and special character</span>
                 </div>
               </div>
 
