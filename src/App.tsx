@@ -38,6 +38,7 @@ const InspectionSuccess = lazy(() => import("./pages/InspectionSuccess"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const TestPDFTemplate = lazy(() => import("./pages/TestPDFTemplate"));
 const ViewReportPDF = lazy(() => import("./pages/ViewReportPDF"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -64,6 +65,7 @@ const AppContent = () => {
             <Route path="/check-email" element={<CheckEmail />} />
             <Route path="/request-inspection" element={<RequestInspection />} />
             <Route path="/request-inspection/success" element={<InspectionSuccess />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/test-pdf" element={<TestPDFTemplate />} />
 
             {/* Protected routes (with AppLayout) */}
