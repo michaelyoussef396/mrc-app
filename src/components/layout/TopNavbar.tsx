@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,7 +6,6 @@ import {
   Home,
   ClipboardList,
   Calendar as CalendarIcon,
-  FileText,
   BarChart,
   User,
   Settings as SettingsIcon,
@@ -25,12 +24,49 @@ import { NotificationBell } from '@/components/layout/NotificationBell';
  * - Profile menu with user avatar
  * - Logout functionality
  *
- * Used across all main application pages for consistent navigation
+ * Uses user_metadata for profile information (first_name, last_name)
  */
 export function TopNavbar() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [displayName, setDisplayName] = useState('');
+  const [initials, setInitials] = useState('');
+
+  // Get profile data from user_metadata
+  useEffect(() => {
+    const loadProfile = () => {
+      if (!user) return;
+
+      const meta = user.user_metadata || {};
+
+      // Get first_name and last_name from metadata
+      let firstName = meta.first_name || '';
+      let lastName = meta.last_name || '';
+
+      // Fallback: if no first/last name in metadata, try to parse from full_name
+      if (!firstName && !lastName && meta.full_name) {
+        const nameParts = meta.full_name.trim().split(' ');
+        firstName = nameParts[0] || '';
+        lastName = nameParts.slice(1).join(' ') || '';
+      }
+
+      // Fallback to email if no name
+      if (!firstName && !lastName) {
+        firstName = user.email?.split('@')[0] || 'User';
+      }
+
+      const fullName = `${firstName} ${lastName}`.trim();
+      setDisplayName(fullName || 'User');
+
+      // Get initials
+      const firstInitial = firstName?.charAt(0) || '';
+      const lastInitial = lastName?.charAt(0) || '';
+      setInitials((firstInitial + lastInitial).toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U');
+    };
+
+    loadProfile();
+  }, [user]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -57,9 +93,9 @@ export function TopNavbar() {
               onClick={() => setProfileMenuOpen(!profileMenuOpen)}
             >
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-base font-bold text-white">
-                {user?.email?.charAt(0).toUpperCase() || 'A'}
+                {initials || 'U'}
               </div>
-              <span className="text-sm font-medium">{user?.email?.split('@')[0] || 'Admin'}</span>
+              <span className="text-sm font-medium">{displayName || 'User'}</span>
               <ChevronDown
                 size={16}
                 strokeWidth={2.5}
@@ -79,9 +115,8 @@ export function TopNavbar() {
                   {/* User Info Header */}
                   <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                     <p className="text-sm font-semibold text-gray-900 truncate">
-                      {user?.email || 'Admin'}
+                      {displayName || 'User'}
                     </p>
-                    <p className="text-xs text-gray-500 mt-0.5">Administrator</p>
                   </div>
 
                   {/* Menu Items */}

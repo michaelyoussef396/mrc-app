@@ -33,7 +33,6 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
 
   // User profile data
   const [profileData, setProfileData] = useState<ProfileData>({
@@ -48,7 +47,7 @@ export default function Profile() {
 
   const [editData, setEditData] = useState<ProfileData>({ ...profileData });
 
-  // Load user data from Supabase
+  // Load user data from Supabase Auth user_metadata
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -68,31 +67,28 @@ export default function Profile() {
           return;
         }
 
-        setUserId(user.id);
+        // Get profile data from user_metadata
+        const meta = user.user_metadata || {};
 
-        // Get profile data from profiles table
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('full_name, phone, is_active')
-          .eq('id', user.id)
-          .single();
+        // Get first_name and last_name from metadata
+        let firstName = meta.first_name || '';
+        let lastName = meta.last_name || '';
 
-        if (profileError && profileError.code !== 'PGRST116') {
-          console.error('Profile error:', profileError);
+        // Fallback: if no first/last name in metadata, try to parse from full_name
+        if (!firstName && !lastName && meta.full_name) {
+          const nameParts = meta.full_name.trim().split(' ');
+          firstName = nameParts[0] || '';
+          lastName = nameParts.slice(1).join(' ') || '';
         }
 
-        // Get user role from user_roles table
+        const phone = meta.phone || '';
+
+        // Get user role from user_roles table (roles still managed in DB)
         const { data: roleData } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id)
           .single();
-
-        // Parse full_name into first and last name
-        const fullName = profile?.full_name || user.user_metadata?.full_name || '';
-        const nameParts = fullName.split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
 
         // Format the join date
         const joinDate = user.created_at
@@ -116,7 +112,7 @@ export default function Profile() {
           firstName,
           lastName,
           email: user.email || '',
-          phone: profile?.phone || '',
+          phone,
           role: roleDisplay,
           joinDate,
           avatar: initials,
@@ -141,26 +137,21 @@ export default function Profile() {
   }, [navigate, toast]);
 
   const handleSave = async () => {
-    if (!userId) return;
-
     try {
       setIsSaving(true);
 
-      // Combine first and last name
-      const fullName = `${editData.firstName} ${editData.lastName}`.trim();
+      // Update user_metadata using Supabase Auth
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          first_name: editData.firstName,
+          last_name: editData.lastName,
+          phone: editData.phone || '',
+        }
+      });
 
-      // Update profiles table
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: userId,
-          full_name: fullName,
-          phone: editData.phone || null,
-        });
-
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-        throw profileError;
+      if (error) {
+        console.error('Profile update error:', error);
+        throw error;
       }
 
       // Update local state

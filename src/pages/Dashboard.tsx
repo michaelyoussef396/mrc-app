@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +16,43 @@ export default function Dashboard() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [newLeadDialogOpen, setNewLeadDialogOpen] = useState(false);
+  const [displayName, setDisplayName] = useState('');
+  const [initials, setInitials] = useState('');
+
+  // Get user's name from user_metadata
+  useEffect(() => {
+    const loadProfile = () => {
+      if (!user) return;
+
+      const meta = user.user_metadata || {};
+
+      // Get first_name and last_name from metadata
+      let firstName = meta.first_name || '';
+      let lastName = meta.last_name || '';
+
+      // Fallback: if no first/last name in metadata, try to parse from full_name
+      if (!firstName && !lastName && meta.full_name) {
+        const nameParts = meta.full_name.trim().split(' ');
+        firstName = nameParts[0] || '';
+        lastName = nameParts.slice(1).join(' ') || '';
+      }
+
+      // Fallback to email if no name
+      if (!firstName && !lastName) {
+        firstName = user.email?.split('@')[0] || 'User';
+      }
+
+      const fullName = `${firstName} ${lastName}`.trim();
+      setDisplayName(fullName || 'User');
+
+      // Get initials
+      const firstInitial = firstName?.charAt(0) || '';
+      const lastInitial = lastName?.charAt(0) || '';
+      setInitials((firstInitial + lastInitial).toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U');
+    };
+
+    loadProfile();
+  }, [user]);
 
   // Fetch dashboard statistics using React Query hooks
   const {
@@ -90,13 +127,12 @@ export default function Dashboard() {
                 }}
               >
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-base font-bold text-white">
-                  {user?.email?.charAt(0).toUpperCase() || 'A'}
+                  {initials || 'U'}
                 </div>
-                <div className="hidden md:flex flex-col items-start gap-0.5">
+                <div className="hidden md:flex items-center">
                   <span className="text-sm font-semibold leading-none">
-                    {user?.email?.split('@')[0] || 'admin'}
+                    {displayName || 'User'}
                   </span>
-                  <span className="text-xs opacity-80 leading-none">Administrator</span>
                 </div>
                 <ChevronDown size={16} strokeWidth={2} className="opacity-70" />
               </button>
@@ -186,13 +222,12 @@ export default function Dashboard() {
             {/* Profile Section */}
             <div className="px-6 py-8 text-center border-b border-gray-200">
               <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-3xl font-bold">
-                {user?.email?.charAt(0).toUpperCase() || 'A'}
+                {initials || 'U'}
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-1">
-                {user?.email?.split('@')[0] || 'admin'}
+                {displayName || 'User'}
               </h3>
-              <p className="text-sm text-gray-600 mb-1">Administrator</p>
-              <p className="text-xs text-gray-500">{user?.email || 'admin@mrc.com.au'}</p>
+              <p className="text-xs text-gray-500">{user?.email || 'user@mrc.com.au'}</p>
             </div>
             
             {/* Navigation Menu */}

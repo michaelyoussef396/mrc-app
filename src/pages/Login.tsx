@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Mail, Lock, ArrowRight, User, Wrench } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 import Logo from "@/components/Logo";
 
 const loginSchema = z.object({
@@ -29,16 +29,6 @@ export default function Login() {
       password: "",
     },
   });
-
-  const fillCredentials = (email: string, password: string) => {
-    form.setValue('email', email);
-    form.setValue('password', password);
-    toast({
-      title: "Credentials filled",
-      description: "Click Sign In to login",
-      duration: 2000,
-    });
-  };
 
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
@@ -164,27 +154,6 @@ export default function Login() {
               Melbourne's trusted mould specialists
             </p>
           </div>
-        </div>
-        
-        {/* Test Credentials (Dev only) */}
-        <div className="test-credentials glass-card">
-          <p className="test-title">Demo Accounts:</p>
-          <button 
-            type="button"
-            className="test-account-btn"
-            onClick={() => fillCredentials('admin@mrc.com.au', 'Admin123!')}
-          >
-            <User size={16} className="inline mr-2" />
-            Admin Account
-          </button>
-          <button 
-            type="button"
-            className="test-account-btn"
-            onClick={() => fillCredentials('michaelyoussef396@gmail.com', 'Admin123!')}
-          >
-            <Wrench size={16} className="inline mr-2" />
-            Technician (Michael)
-          </button>
         </div>
       </div>
     </div>

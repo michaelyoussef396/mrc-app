@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sheet";
 import { Menu, ChevronDown, User, Users, Settings, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import NotificationBell from "./NotificationBell";
 import logo from "@/assets/logo-small.png";
 
@@ -24,6 +25,37 @@ export function TopNavigation() {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [displayName, setDisplayName] = useState('');
+
+  // Get user's name from user_metadata
+  useEffect(() => {
+    const loadProfile = () => {
+      if (!user) return;
+
+      const meta = user.user_metadata || {};
+
+      // Get first_name and last_name from metadata
+      let firstName = meta.first_name || '';
+      let lastName = meta.last_name || '';
+
+      // Fallback: if no first/last name in metadata, try to parse from full_name
+      if (!firstName && !lastName && meta.full_name) {
+        const nameParts = meta.full_name.trim().split(' ');
+        firstName = nameParts[0] || '';
+        lastName = nameParts.slice(1).join(' ') || '';
+      }
+
+      // Fallback to email if no name
+      if (!firstName && !lastName) {
+        firstName = user.email?.split('@')[0] || 'User';
+      }
+
+      const fullName = `${firstName} ${lastName}`.trim();
+      setDisplayName(fullName || 'User');
+    };
+
+    loadProfile();
+  }, [user]);
 
   const navLinks = [
     { label: "Dashboard", path: "/dashboard" },
@@ -77,12 +109,12 @@ export function TopNavigation() {
                   variant="ghost"
                   className="text-primary-foreground hover:bg-primary-foreground/10"
                 >
-                  {user?.email || 'System Administrator'}
+                  {displayName || 'User'}
                   <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 bg-card">
-                <DropdownMenuLabel>{user?.email || 'System Administrator'}</DropdownMenuLabel>
+                <DropdownMenuLabel>{displayName || 'User'}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate('/profile')}>
                   <User className="mr-2 h-4 w-4" />
