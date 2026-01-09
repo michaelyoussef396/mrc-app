@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { decode } from 'https://deno.land/std@0.208.0/encoding/base64url.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,7 +8,6 @@ const corsHeaders = {
 
 interface UserData {
   email: string
-  password?: string
   full_name: string
   phone: string
   role: 'admin' | 'technician' | 'manager'
@@ -22,6 +22,20 @@ interface UpdateUserData {
   is_active?: boolean
 }
 
+// Helper to decode JWT and extract user ID
+function decodeJWT(token: string): { sub: string; exp: number } | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+
+    const payload = parts[1]
+    const decoded = new TextDecoder().decode(decode(payload))
+    return JSON.parse(decoded)
+  } catch {
+    return null
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -29,10 +43,20 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Server configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Create admin client with service role key
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      supabaseUrl,
+      serviceRoleKey,
       {
         auth: {
           autoRefreshToken: false,
@@ -41,8 +65,9 @@ Deno.serve(async (req) => {
       }
     )
 
-    // Verify the calling user is authenticated and is an admin
+    // Verify the calling user is authenticated
     const authHeader = req.headers.get('Authorization')
+
     if (!authHeader) {
       return new Response(
         JSON.stringify({ success: false, error: 'No authorization header' }),
@@ -51,11 +76,33 @@ Deno.serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user: callingUser }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
-    if (authError || !callingUser) {
+    // Decode JWT to get user ID
+    const jwtPayload = decodeJWT(token)
+    if (!jwtPayload || !jwtPayload.sub) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Invalid authentication token' }),
+        JSON.stringify({ success: false, error: 'Invalid token format' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Check if token is expired
+    const now = Math.floor(Date.now() / 1000)
+    if (jwtPayload.exp && jwtPayload.exp < now) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Token expired' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const userId = jwtPayload.sub
+
+    // Verify user exists using admin API
+    const { data: callingUser, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId)
+
+    if (userError || !callingUser?.user) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'User not found' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -64,7 +111,7 @@ Deno.serve(async (req) => {
     const { data: roleData, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
-      .eq('user_id', callingUser.id)
+      .eq('user_id', userId)
       .eq('role', 'admin')
       .maybeSingle()
 
@@ -76,35 +123,24 @@ Deno.serve(async (req) => {
     }
 
     const url = new URL(req.url)
-    const userId = url.searchParams.get('userId')
+    const targetUserId = url.searchParams.get('userId')
 
     // GET - List all users
     if (req.method === 'GET') {
-      // Get all users from auth.users
       const { data: authUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers()
 
       if (listError) {
         throw listError
       }
 
-      // Get profiles and roles for all users
-      const { data: profiles, error: profilesError } = await supabaseAdmin
+      const { data: profiles } = await supabaseAdmin
         .from('profiles')
         .select('id, full_name, phone, avatar_url, is_active')
 
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError)
-      }
-
-      const { data: roles, error: rolesError } = await supabaseAdmin
+      const { data: roles } = await supabaseAdmin
         .from('user_roles')
         .select('user_id, role')
 
-      if (rolesError) {
-        console.error('Error fetching roles:', rolesError)
-      }
-
-      // Combine auth users with profiles and roles
       const users = authUsers.users.map(authUser => {
         const profile = profiles?.find(p => p.id === authUser.id)
         const userRole = roles?.find(r => r.user_id === authUser.id)
@@ -128,71 +164,60 @@ Deno.serve(async (req) => {
       )
     }
 
-    // POST - Create new user
+    // POST - Invite new user
     if (req.method === 'POST') {
       const userData: UserData = await req.json()
 
-      // Validate required fields
-      if (!userData.email || !userData.password || !userData.full_name || !userData.role) {
+      if (!userData.email || !userData.full_name || !userData.role) {
         return new Response(
-          JSON.stringify({ success: false, error: 'Missing required fields: email, password, full_name, role' }),
+          JSON.stringify({ success: false, error: 'Missing required fields: email, full_name, role' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      // Create user in auth.users
-      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email: userData.email,
-        password: userData.password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: userData.full_name,
-          phone: userData.phone || null,
-          role: userData.role
+      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+        userData.email,
+        {
+          data: {
+            full_name: userData.full_name,
+            phone: userData.phone || null,
+            role: userData.role
+          },
+          redirectTo: `${Deno.env.get('SITE_URL') || 'https://mrc-app.vercel.app'}/login`
         }
-      })
+      )
 
-      if (createError) {
+      if (inviteError) {
         return new Response(
-          JSON.stringify({ success: false, error: createError.message }),
+          JSON.stringify({ success: false, error: inviteError.message }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      // Create profile (trigger should handle this, but let's be explicit)
-      const { error: profileError } = await supabaseAdmin
+      await supabaseAdmin
         .from('profiles')
         .upsert({
-          id: newUser.user.id,
+          id: inviteData.user.id,
           email: userData.email,
           full_name: userData.full_name,
           phone: userData.phone || null,
           is_active: true
         })
 
-      if (profileError) {
-        console.error('Error creating profile:', profileError)
-      }
-
-      // Create user role
-      const { error: roleInsertError } = await supabaseAdmin
+      await supabaseAdmin
         .from('user_roles')
         .insert({
-          user_id: newUser.user.id,
+          user_id: inviteData.user.id,
           role: userData.role
         })
-
-      if (roleInsertError) {
-        console.error('Error creating user role:', roleInsertError)
-      }
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'User created successfully',
+          message: 'Invitation sent successfully. User will receive an email to set their password.',
           user: {
-            id: newUser.user.id,
-            email: newUser.user.email,
+            id: inviteData.user.id,
+            email: inviteData.user.email,
             full_name: userData.full_name,
             phone: userData.phone,
             role: userData.role
@@ -204,7 +229,7 @@ Deno.serve(async (req) => {
 
     // PATCH - Update user
     if (req.method === 'PATCH') {
-      if (!userId) {
+      if (!targetUserId) {
         return new Response(
           JSON.stringify({ success: false, error: 'userId query parameter required' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -213,7 +238,6 @@ Deno.serve(async (req) => {
 
       const updateData: UpdateUserData = await req.json()
 
-      // Update auth user if email or password changed
       if (updateData.email || updateData.password) {
         const authUpdate: { email?: string; password?: string; user_metadata?: Record<string, unknown> } = {}
         if (updateData.email) authUpdate.email = updateData.email
@@ -226,7 +250,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(userId, authUpdate)
+        const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, authUpdate)
         if (authUpdateError) {
           return new Response(
             JSON.stringify({ success: false, error: authUpdateError.message }),
@@ -235,38 +259,27 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Update profile
       if (updateData.full_name !== undefined || updateData.phone !== undefined || updateData.is_active !== undefined) {
         const profileUpdate: Record<string, unknown> = {}
         if (updateData.full_name !== undefined) profileUpdate.full_name = updateData.full_name
         if (updateData.phone !== undefined) profileUpdate.phone = updateData.phone
         if (updateData.is_active !== undefined) profileUpdate.is_active = updateData.is_active
 
-        const { error: profileError } = await supabaseAdmin
+        await supabaseAdmin
           .from('profiles')
           .update(profileUpdate)
-          .eq('id', userId)
-
-        if (profileError) {
-          console.error('Error updating profile:', profileError)
-        }
+          .eq('id', targetUserId)
       }
 
-      // Update role
       if (updateData.role) {
-        // Delete existing role and insert new one (upsert)
         await supabaseAdmin
           .from('user_roles')
           .delete()
-          .eq('user_id', userId)
+          .eq('user_id', targetUserId)
 
-        const { error: roleError } = await supabaseAdmin
+        await supabaseAdmin
           .from('user_roles')
-          .insert({ user_id: userId, role: updateData.role })
-
-        if (roleError) {
-          console.error('Error updating role:', roleError)
-        }
+          .insert({ user_id: targetUserId, role: updateData.role })
       }
 
       return new Response(
@@ -277,35 +290,31 @@ Deno.serve(async (req) => {
 
     // DELETE - Delete user
     if (req.method === 'DELETE') {
-      if (!userId) {
+      if (!targetUserId) {
         return new Response(
           JSON.stringify({ success: false, error: 'userId query parameter required' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      // Prevent deleting yourself
-      if (userId === callingUser.id) {
+      if (targetUserId === userId) {
         return new Response(
           JSON.stringify({ success: false, error: 'Cannot delete your own account' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      // Delete from user_roles first (FK constraint)
       await supabaseAdmin
         .from('user_roles')
         .delete()
-        .eq('user_id', userId)
+        .eq('user_id', targetUserId)
 
-      // Delete from profiles
       await supabaseAdmin
         .from('profiles')
         .delete()
-        .eq('id', userId)
+        .eq('id', targetUserId)
 
-      // Delete auth user
-      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(targetUserId)
 
       if (deleteError) {
         return new Response(
@@ -320,7 +329,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Method not allowed
     return new Response(
       JSON.stringify({ success: false, error: 'Method not allowed' }),
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

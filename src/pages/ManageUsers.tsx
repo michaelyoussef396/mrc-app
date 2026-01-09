@@ -10,9 +10,7 @@ import {
   User,
   Mail,
   Phone,
-  Key,
-  Eye,
-  EyeOff,
+  Send,
   X,
   Check,
   AlertCircle,
@@ -40,8 +38,6 @@ interface FormData {
   lastName: string;
   email: string;
   phone: string;
-  password: string;
-  confirmPassword: string;
 }
 
 // API functions
@@ -55,6 +51,7 @@ const fetchUsers = async (): Promise<UserType[]> => {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         'Content-Type': 'application/json',
       },
     }
@@ -65,7 +62,7 @@ const fetchUsers = async (): Promise<UserType[]> => {
   return result.users;
 };
 
-const createUser = async (userData: { email: string; password: string; full_name: string; phone: string; role: string }) => {
+const createUser = async (userData: { email: string; full_name: string; phone: string; role: string }) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
@@ -75,6 +72,7 @@ const createUser = async (userData: { email: string; password: string; full_name
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(userData),
@@ -96,6 +94,7 @@ const deleteUser = async (userId: string) => {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         'Content-Type': 'application/json',
       },
     }
@@ -125,14 +124,14 @@ export default function ManageUsers() {
     queryFn: fetchUsers,
   });
 
-  // Create user mutation
+  // Create user mutation (invite flow)
   const createMutation = useMutation({
     mutationFn: createUser,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['manage-users'] });
       toast({
-        title: 'User created',
-        description: 'New user has been added successfully.',
+        title: 'Invitation sent',
+        description: 'User will receive an email to set their password and complete registration.',
       });
       setShowAddModal(false);
       resetForm();
@@ -170,12 +169,8 @@ export default function ManageUsers() {
     lastName: '',
     email: '',
     phone: '',
-    password: '',
-    confirmPassword: '',
   });
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const resetForm = () => {
@@ -184,8 +179,6 @@ export default function ManageUsers() {
       lastName: '',
       email: '',
       phone: '',
-      password: '',
-      confirmPassword: '',
     });
     setFormErrors({});
   };
@@ -198,20 +191,6 @@ export default function ManageUsers() {
     else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.email = 'Email is invalid';
     if (!formData.phone.trim()) errors.phone = 'Phone number is required';
     else if (!/^04\d{8}$/.test(formData.phone.replace(/\s/g, ''))) errors.phone = 'Invalid Australian mobile number (e.g., 0400 000 000)';
-    if (!formData.password) {
-      errors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      errors.password = 'Password must be at least 8 characters';
-    } else if (!/[A-Z]/.test(formData.password)) {
-      errors.password = 'Password must contain an uppercase letter';
-    } else if (!/[a-z]/.test(formData.password)) {
-      errors.password = 'Password must contain a lowercase letter';
-    } else if (!/[0-9]/.test(formData.password)) {
-      errors.password = 'Password must contain a number';
-    } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)) {
-      errors.password = 'Password must contain a special character';
-    }
-    if (formData.password !== formData.confirmPassword) errors.confirmPassword = 'Passwords do not match';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -222,7 +201,6 @@ export default function ManageUsers() {
 
     createMutation.mutate({
       email: formData.email,
-      password: formData.password,
       full_name: `${formData.firstName} ${formData.lastName}`,
       phone: formData.phone.replace(/\s/g, ''),
       role: 'technician', // All users are technicians by default
@@ -436,32 +414,9 @@ export default function ManageUsers() {
               </div>
 
               <div className="mb-7">
-                <h3 className="text-[15px] font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200">Password Setup</h3>
-                <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Password *</label>
-                  <div className="relative">
-                    <Key size={18} strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input type={showPassword ? 'text' : 'password'} className={`w-full h-11 pl-11 pr-11 bg-gray-50 border-2 rounded-xl ${formErrors.password ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Minimum 8 characters" />
-                    <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-0 text-gray-400 cursor-pointer p-1 hover:text-gray-600" onClick={() => setShowPassword(!showPassword)}>
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  {formErrors.password && <span className="block text-xs text-red-500 mt-1">{formErrors.password}</span>}
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm Password *</label>
-                  <div className="relative">
-                    <Key size={18} strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input type={showConfirmPassword ? 'text' : 'password'} className={`w-full h-11 pl-11 pr-11 bg-gray-50 border-2 rounded-xl ${formErrors.confirmPassword ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} placeholder="Re-enter password" />
-                    <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-0 text-gray-400 cursor-pointer p-1 hover:text-gray-600" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  {formErrors.confirmPassword && <span className="block text-xs text-red-500 mt-1">{formErrors.confirmPassword}</span>}
-                </div>
                 <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-xl text-sm text-blue-600">
-                  <AlertCircle size={16} strokeWidth={2} className="flex-shrink-0 mt-0.5" />
-                  <span>Password must be 8+ characters with uppercase, lowercase, number, and special character</span>
+                  <Mail size={16} strokeWidth={2} className="flex-shrink-0 mt-0.5" />
+                  <span>An email invitation will be sent to the user. They will set their own password when they accept the invitation.</span>
                 </div>
               </div>
 
@@ -469,15 +424,15 @@ export default function ManageUsers() {
                 <button type="button" className="flex-1 h-13 bg-gray-100 text-gray-700 border-0 rounded-xl font-semibold cursor-pointer hover:bg-gray-200 transition-all md:h-12" onClick={() => { setShowAddModal(false); resetForm(); }}>Cancel</button>
                 <button
                   type="submit"
-                  className="flex-1 h-13 bg-gradient-to-r from-green-500 to-green-600 text-white border-0 rounded-xl font-semibold flex items-center justify-center gap-2 cursor-pointer hover:-translate-y-0.5 transition-all shadow-md md:h-12 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                  className="flex-1 h-13 bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 rounded-xl font-semibold flex items-center justify-center gap-2 cursor-pointer hover:-translate-y-0.5 transition-all shadow-md md:h-12 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                   disabled={createMutation.isPending}
                 >
                   {createMutation.isPending ? (
                     <Loader2 size={20} strokeWidth={2} className="animate-spin" />
                   ) : (
-                    <Check size={20} strokeWidth={2} />
+                    <Send size={20} strokeWidth={2} />
                   )}
-                  {createMutation.isPending ? 'Creating...' : 'Add User'}
+                  {createMutation.isPending ? 'Sending...' : 'Send Invite'}
                 </button>
               </div>
             </form>
