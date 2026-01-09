@@ -52,15 +52,6 @@ const LeadsManagement = () => {
       description: 'View all leads regardless of stage'
     },
     {
-      value: 'hipages_lead',
-      label: 'HiPages Lead',
-      icon: '📱',
-      color: '#9333ea',
-      description: 'Lead from HiPages marketplace - limited info, needs follow-up call',
-      nextActions: ['Call to gather full details', 'Schedule inspection'],
-      availableButtons: ['call', 'viewDetails']
-    },
-    {
       value: 'new_lead',
       label: 'New Lead',
       icon: '🌟',

@@ -1,6 +1,5 @@
 // Lead workflow status flow configuration
 export type LeadStatus =
-  | "hipages_lead"  // HiPages leads (incomplete info, needs follow-up)
   | "new_lead"
   | "contacted"
   | "inspection_waiting"
@@ -28,16 +27,6 @@ export interface StatusFlowConfig {
 }
 
 export const STATUS_FLOW: Record<LeadStatus, StatusFlowConfig> = {
-  'hipages_lead': {
-    next: 'contacted',
-    title: 'HiPages Lead',
-    shortTitle: 'HIPAGES',
-    nextAction: 'Call lead to gather full details and book inspection',
-    iconName: 'Phone',
-    color: 'hsl(280 70% 60%)',
-    bgColor: 'hsl(280 70% 97%)',
-    borderColor: 'hsl(280 70% 60%)',
-  },
   'new_lead': {
     next: 'contacted',
     title: 'New Lead',
@@ -181,7 +170,6 @@ export const STATUS_FLOW: Record<LeadStatus, StatusFlowConfig> = {
 };
 
 export const ALL_STATUSES: LeadStatus[] = [
-  'hipages_lead',
   'new_lead',
   'contacted',
   'inspection_waiting',

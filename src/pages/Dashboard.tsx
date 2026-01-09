@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Bell, Menu, X, ChevronDown, Home, ClipboardList, Calendar as CalendarIcon, FileText, BarChart, TrendingUp, User, Settings as SettingsIcon, LogOut, ChevronRight, Users, Briefcase, CheckCircle, DollarSign } from 'lucide-react';
+import { Plus, Bell, Menu, X, ChevronDown, Home, ClipboardList, Calendar as CalendarIcon, FileText, BarChart, User, Settings as SettingsIcon, LogOut, ChevronRight, Users, Briefcase, CheckCircle, DollarSign } from 'lucide-react';
 import Logo from '@/components/Logo';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { StatCard } from '@/components/dashboard/StatCard';
@@ -292,18 +292,7 @@ export default function Dashboard() {
                 <ChevronRight size={16} strokeWidth={2} className="opacity-30" />
               </button>
               
-              <button 
-                className="w-full flex items-center gap-3 px-6 py-3.5 bg-transparent border-0 text-gray-700 text-[15px] font-medium cursor-pointer transition-all hover:bg-gray-50"
-                onClick={() => {
-                  navigate('/analytics');
-                  setSidebarOpen(false);
-                }}
-              >
-                <TrendingUp size={20} strokeWidth={2} />
-                <span className="flex-1 text-left">Analytics</span>
-                <ChevronRight size={16} strokeWidth={2} className="opacity-30" />
-              </button>
-            </nav>
+              </nav>
             
             {/* Divider */}
             <div className="h-px bg-gray-200 my-4"></div>

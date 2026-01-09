@@ -1,9 +1,8 @@
 /**
- * Type Definitions for Dual-Path Lead Creation Feature
+ * Type Definitions for Lead Creation Feature
  *
- * Supports two lead creation workflows:
- * 1. HiPages Quick Entry - Minimal fields (suburb, postcode, phone, email)
- * 2. Normal Lead Entry - Full details (name, address, urgency, description)
+ * Standard lead creation workflow with full details
+ * (name, address, urgency, description)
  */
 
 import type { Database } from './database.types';
@@ -41,49 +40,7 @@ export interface UrgencyOption {
 }
 
 // ============================================================================
-// HIPAGES LEAD (QUICK ENTRY)
-// ============================================================================
-
-/**
- * Input data for HiPages quick lead entry
- * Minimal fields for fast data entry from HiPages marketplace
- */
-export interface HiPagesLeadInput {
-  // Required fields
-  suburb: string;                          // Melbourne suburb name
-  postcode: string;                        // Victorian postcode (3XXX)
-  phone: string;                           // Australian mobile (04XX XXX XXX)
-  email: string;                           // Customer email
-
-  // Optional fields
-  full_name?: string;                      // Customer name (if provided)
-  notes?: string;                          // Quick notes about the lead
-}
-
-/**
- * Formatted HiPages lead ready for database insertion
- */
-export interface HiPagesLeadData extends LeadInsert {
-  // Mapped from input
-  property_address_suburb: string;         // From: suburb
-  property_address_postcode: string;       // From: postcode
-  phone: string;                           // From: phone (formatted)
-  email: string;                           // From: email (normalized)
-  full_name: string;                       // From: full_name or 'HiPages Lead'
-
-  // Auto-populated
-  lead_source: 'hipages';                  // Always 'hipages'
-  status: LeadStatus;                      // 'hipages_lead' or 'new_lead'
-  property_address_state: 'VIC';           // Always Victoria
-  property_address_street: string;         // Default: 'To be confirmed'
-
-  // Optional from input
-  notes?: string;                          // From: notes
-  property_zone?: number;                  // Auto-calculated from suburb_zones
-}
-
-// ============================================================================
-// NORMAL LEAD (FULL ENTRY)
+// LEAD ENTRY
 // ============================================================================
 
 /**
@@ -180,23 +137,7 @@ export type LeadCreationResult = LeadCreationResponse | LeadCreationError;
 // ============================================================================
 
 /**
- * Form state for HiPages lead entry
- */
-export interface HiPagesLeadFormState {
-  // Form data
-  data: HiPagesLeadInput;
-
-  // Form state
-  isSubmitting: boolean;
-  isValid: boolean;
-  errors: Partial<Record<keyof HiPagesLeadInput, string>>;
-
-  // Submission result
-  result?: LeadCreationResult;
-}
-
-/**
- * Form state for Normal lead entry
+ * Form state for lead entry
  */
 export interface NormalLeadFormState {
   // Form data
@@ -209,27 +150,6 @@ export interface NormalLeadFormState {
 
   // Submission result
   result?: LeadCreationResult;
-}
-
-// ============================================================================
-// LEAD TYPE SELECTOR
-// ============================================================================
-
-/**
- * Lead type for dual-path selection
- */
-export type LeadType = 'hipages' | 'normal';
-
-/**
- * Lead type option for UI selection
- */
-export interface LeadTypeOption {
-  type: LeadType;
-  label: string;
-  description: string;
-  icon: string;                            // Icon name or emoji
-  color: 'orange' | 'blue' | 'green';     // Theme color
-  fields: string[];                        // Field names shown in this type
 }
 
 // ============================================================================
@@ -300,37 +220,6 @@ export const URGENCY_OPTIONS: UrgencyOption[] = [
     label: 'Next couple of months',
     description: 'Planning ahead - 2-3 months',
     color: 'blue',
-  },
-];
-
-/**
- * Lead type options for selector
- */
-export const LEAD_TYPE_OPTIONS: LeadTypeOption[] = [
-  {
-    type: 'hipages',
-    label: 'HiPages Lead',
-    description: 'Quick entry - suburb, postcode, phone, email',
-    icon: '⚡',
-    color: 'orange',
-    fields: ['suburb', 'postcode', 'phone', 'email'],
-  },
-  {
-    type: 'normal',
-    label: 'Normal Lead',
-    description: 'Full entry - complete customer and property details',
-    icon: '📋',
-    color: 'blue',
-    fields: [
-      'full_name',
-      'email',
-      'phone',
-      'street',
-      'suburb',
-      'postcode',
-      'urgency',
-      'issue_description',
-    ],
   },
 ];
 

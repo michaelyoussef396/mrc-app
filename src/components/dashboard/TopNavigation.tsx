@@ -144,7 +144,7 @@ export function TopNavigation() {
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-64">
+            <SheetContent side="right" className="w-64 overflow-y-auto">
               <nav className="flex flex-col space-y-2 mt-8">
                 {navLinks.map((link) => (
                   <Link

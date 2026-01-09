@@ -55,7 +55,7 @@ import type { NormalLeadSchemaType } from '@/lib/validators/lead-creation.schema
 
 interface NormalLeadFormProps {
   onSuccess: () => void;
-  onBack: () => void;
+  onBack?: () => void;
 }
 
 // ============================================================================
@@ -484,17 +484,19 @@ export function NormalLeadForm({
 
       {/* Form Actions */}
       <div className="flex flex-col sm:flex-row gap-2 pt-4">
-        {/* Back Button */}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onBack}
-          disabled={isLoading}
-          className="w-full sm:w-auto h-12 px-6 text-base font-medium"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
+        {/* Back Button - only show if onBack provided */}
+        {onBack && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onBack}
+            disabled={isLoading}
+            className="w-full sm:w-auto h-12 px-6 text-base font-medium"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        )}
 
         {/* Submit Button */}
         <Button
