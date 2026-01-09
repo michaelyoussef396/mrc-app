@@ -1,43 +1,190 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
+import {
+  ArrowLeft,
+  User,
+  Mail,
+  Phone,
   Calendar,
   Edit2,
   Save,
   X,
   Camera,
-  Shield,
-  Bell,
-  Key
+  Key,
+  Loader2
 } from 'lucide-react';
 import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+interface ProfileData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  role: string;
+  joinDate: string;
+  avatar: string;
+}
 
 export default function Profile() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
-  
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
   // User profile data
-  const [profileData, setProfileData] = useState({
-    firstName: 'Admin',
-    lastName: 'User',
-    email: 'admin@mrc.com.au',
-    phone: '0400 000 000',
-    address: '123 Main St, Melbourne VIC 3000',
-    role: 'Administrator',
-    joinDate: 'January 15, 2024',
-    avatar: 'A',
+  const [profileData, setProfileData] = useState<ProfileData>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    role: 'Team Member',
+    joinDate: '',
+    avatar: '',
   });
 
-  const [editData, setEditData] = useState({ ...profileData });
+  const [editData, setEditData] = useState<ProfileData>({ ...profileData });
 
-  const handleSave = () => {
-    setProfileData({ ...editData });
-    setIsEditing(false);
+  // Load user data from Supabase
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        setIsLoading(true);
+
+        // Get current authenticated user
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+        if (authError || !user) {
+          console.error('Auth error:', authError);
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Failed to load user. Please login again.',
+          });
+          navigate('/login');
+          return;
+        }
+
+        setUserId(user.id);
+
+        // Get profile data from profiles table
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('full_name, phone, is_active')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.error('Profile error:', profileError);
+        }
+
+        // Get user role from user_roles table
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+
+        // Parse full_name into first and last name
+        const fullName = profile?.full_name || user.user_metadata?.full_name || '';
+        const nameParts = fullName.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        // Format the join date
+        const joinDate = user.created_at
+          ? new Date(user.created_at).toLocaleDateString('en-AU', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })
+          : '';
+
+        // Get initials for avatar
+        const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() ||
+                        user.email?.charAt(0).toUpperCase() || 'U';
+
+        // Format role display
+        const roleDisplay = roleData?.role
+          ? roleData.role.charAt(0).toUpperCase() + roleData.role.slice(1)
+          : 'Team Member';
+
+        const loadedData: ProfileData = {
+          firstName,
+          lastName,
+          email: user.email || '',
+          phone: profile?.phone || '',
+          role: roleDisplay,
+          joinDate,
+          avatar: initials,
+        };
+
+        setProfileData(loadedData);
+        setEditData(loadedData);
+
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to load profile data.',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [navigate, toast]);
+
+  const handleSave = async () => {
+    if (!userId) return;
+
+    try {
+      setIsSaving(true);
+
+      // Combine first and last name
+      const fullName = `${editData.firstName} ${editData.lastName}`.trim();
+
+      // Update profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          full_name: fullName,
+          phone: editData.phone || null,
+        });
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw profileError;
+      }
+
+      // Update local state
+      setProfileData({
+        ...editData,
+        avatar: `${editData.firstName.charAt(0)}${editData.lastName.charAt(0)}`.toUpperCase() || profileData.avatar,
+      });
+      setIsEditing(false);
+
+      toast({
+        title: 'Success',
+        description: 'Your profile has been updated.',
+      });
+
+    } catch (error) {
+      console.error('Save error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save profile. Please try again.',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -45,12 +192,23 @@ export default function Profile() {
     setIsEditing(false);
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <p className="text-gray-600 font-medium">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 pb-24">
-      
+
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-5 bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-        <button 
+        <button
           className="w-10 h-10 rounded-xl bg-gray-100 border-0 text-gray-700 flex items-center justify-center cursor-pointer transition-all hover:bg-gray-200 hover:text-gray-900"
           onClick={() => navigate('/dashboard')}
         >
@@ -62,10 +220,10 @@ export default function Profile() {
 
       {/* Profile Content */}
       <div className="max-w-3xl mx-auto px-5 py-6">
-        
+
         {/* Profile Card */}
         <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
-          
+
           {/* Avatar Section */}
           <div className="flex flex-col items-center px-6 py-10 bg-gradient-to-br from-blue-900 to-blue-800 relative">
             <div className="relative mb-4">
@@ -91,7 +249,7 @@ export default function Profile() {
           {/* Edit/Save Buttons */}
           <div className="px-6 py-5 border-b border-gray-200">
             {!isEditing ? (
-              <button 
+              <button
                 className="w-full h-12 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-[15px] font-semibold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
                 onClick={() => setIsEditing(true)}
               >
@@ -100,16 +258,22 @@ export default function Profile() {
               </button>
             ) : (
               <div className="flex gap-3">
-                <button 
-                  className="flex-1 h-12 flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-green-600 text-white text-[15px] font-semibold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                <button
+                  className="flex-1 h-12 flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-green-600 text-white text-[15px] font-semibold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={handleSave}
+                  disabled={isSaving}
                 >
-                  <Save size={18} strokeWidth={2} />
-                  Save Changes
+                  {isSaving ? (
+                    <Loader2 size={18} strokeWidth={2} className="animate-spin" />
+                  ) : (
+                    <Save size={18} strokeWidth={2} />
+                  )}
+                  {isSaving ? 'Saving...' : 'Save Changes'}
                 </button>
-                <button 
-                  className="flex-1 h-12 flex items-center justify-center gap-2 bg-gray-100 text-gray-700 text-[15px] font-semibold rounded-xl hover:bg-gray-200 transition-all"
+                <button
+                  className="flex-1 h-12 flex items-center justify-center gap-2 bg-gray-100 text-gray-700 text-[15px] font-semibold rounded-xl hover:bg-gray-200 transition-all disabled:opacity-50"
                   onClick={handleCancel}
+                  disabled={isSaving}
                 >
                   <X size={18} strokeWidth={2} />
                   Cancel
@@ -121,9 +285,9 @@ export default function Profile() {
           {/* Profile Information */}
           <div className="px-6 py-8 border-b border-gray-200">
             <h3 className="text-lg font-bold text-gray-900 mb-6">Personal Information</h3>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              
+
               {/* First Name */}
               <div className="flex flex-col gap-2">
                 <label className="flex items-center gap-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -136,9 +300,10 @@ export default function Profile() {
                     className="h-11 px-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-[15px] font-medium text-gray-900 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
                     value={editData.firstName}
                     onChange={(e) => setEditData({ ...editData, firstName: e.target.value })}
+                    placeholder="Enter first name"
                   />
                 ) : (
-                  <p className="text-[15px] text-gray-900 font-medium">{profileData.firstName}</p>
+                  <p className="text-[15px] text-gray-900 font-medium">{profileData.firstName || '—'}</p>
                 )}
               </div>
 
@@ -154,9 +319,10 @@ export default function Profile() {
                     className="h-11 px-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-[15px] font-medium text-gray-900 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
                     value={editData.lastName}
                     onChange={(e) => setEditData({ ...editData, lastName: e.target.value })}
+                    placeholder="Enter last name"
                   />
                 ) : (
-                  <p className="text-[15px] text-gray-900 font-medium">{profileData.lastName}</p>
+                  <p className="text-[15px] text-gray-900 font-medium">{profileData.lastName || '—'}</p>
                 )}
               </div>
 
@@ -166,15 +332,9 @@ export default function Profile() {
                   <Mail size={16} strokeWidth={2} />
                   Email Address
                 </label>
-                {isEditing ? (
-                  <input
-                    type="email"
-                    className="h-11 px-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-[15px] font-medium text-gray-900 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
-                    value={editData.email}
-                    onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-                  />
-                ) : (
-                  <p className="text-[15px] text-gray-900 font-medium">{profileData.email}</p>
+                <p className="text-[15px] text-gray-900 font-medium">{profileData.email || '—'}</p>
+                {isEditing && (
+                  <p className="text-xs text-gray-500">Email cannot be changed here. Contact admin if needed.</p>
                 )}
               </div>
 
@@ -190,40 +350,23 @@ export default function Profile() {
                     className="h-11 px-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-[15px] font-medium text-gray-900 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
                     value={editData.phone}
                     onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+                    placeholder="04XX XXX XXX"
                   />
                 ) : (
-                  <p className="text-[15px] text-gray-900 font-medium">{profileData.phone}</p>
-                )}
-              </div>
-
-              {/* Address */}
-              <div className="flex flex-col gap-2 sm:col-span-2">
-                <label className="flex items-center gap-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  <MapPin size={16} strokeWidth={2} />
-                  Address
-                </label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    className="h-11 px-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-[15px] font-medium text-gray-900 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
-                    value={editData.address}
-                    onChange={(e) => setEditData({ ...editData, address: e.target.value })}
-                  />
-                ) : (
-                  <p className="text-[15px] text-gray-900 font-medium">{profileData.address}</p>
+                  <p className="text-[15px] text-gray-900 font-medium">{profileData.phone || '—'}</p>
                 )}
               </div>
 
             </div>
           </div>
 
-          {/* Account Settings Section */}
-          <div className="px-6 py-8 border-b border-gray-200">
+          {/* Account Settings Section - Only Change Password */}
+          <div className="px-6 py-8">
             <h3 className="text-lg font-bold text-gray-900 mb-6">Account Settings</h3>
-            
+
             <div className="flex flex-col gap-3">
-              
-              <button 
+
+              <button
                 className="flex items-center gap-3.5 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-white hover:border-blue-500 hover:shadow-sm transition-all text-left"
                 onClick={() => navigate('/forgot-password')}
               >
@@ -237,61 +380,6 @@ export default function Profile() {
                 <ArrowLeft size={18} strokeWidth={2} className="text-gray-400 transform rotate-180" />
               </button>
 
-              <button 
-                className="flex items-center gap-3.5 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-white hover:border-blue-500 hover:shadow-sm transition-all text-left"
-                onClick={() => alert('Notification preferences coming soon!')}
-              >
-                <div className="w-11 h-11 rounded-xl bg-white border border-gray-200 text-blue-500 flex items-center justify-center flex-shrink-0">
-                  <Bell size={20} strokeWidth={2} />
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-[15px] font-semibold text-gray-900 mb-1">Notification Preferences</h4>
-                  <p className="text-sm text-gray-600 m-0">Manage how you receive notifications</p>
-                </div>
-                <ArrowLeft size={18} strokeWidth={2} className="text-gray-400 transform rotate-180" />
-              </button>
-
-              <button 
-                className="flex items-center gap-3.5 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-white hover:border-blue-500 hover:shadow-sm transition-all text-left"
-                onClick={() => alert('Privacy & security settings coming soon!')}
-              >
-                <div className="w-11 h-11 rounded-xl bg-white border border-gray-200 text-blue-500 flex items-center justify-center flex-shrink-0">
-                  <Shield size={20} strokeWidth={2} />
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-[15px] font-semibold text-gray-900 mb-1">Privacy & Security</h4>
-                  <p className="text-sm text-gray-600 m-0">Control your privacy and security settings</p>
-                </div>
-                <ArrowLeft size={18} strokeWidth={2} className="text-gray-400 transform rotate-180" />
-              </button>
-
-            </div>
-          </div>
-
-          {/* Stats Section */}
-          <div className="px-6 py-8">
-            <h3 className="text-lg font-bold text-gray-900 mb-6">Activity Overview</h3>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-5 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-2xl text-center">
-                <div className="text-3xl font-bold text-blue-900 mb-1">47</div>
-                <div className="text-sm text-gray-600 font-semibold">Total Leads</div>
-              </div>
-              
-              <div className="p-5 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-2xl text-center">
-                <div className="text-3xl font-bold text-blue-900 mb-1">12</div>
-                <div className="text-sm text-gray-600 font-semibold">Active Jobs</div>
-              </div>
-              
-              <div className="p-5 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-2xl text-center">
-                <div className="text-3xl font-bold text-blue-900 mb-1">135</div>
-                <div className="text-sm text-gray-600 font-semibold">Completed</div>
-              </div>
-              
-              <div className="p-5 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-2xl text-center">
-                <div className="text-3xl font-bold text-blue-900 mb-1">98%</div>
-                <div className="text-sm text-gray-600 font-semibold">Success Rate</div>
-              </div>
             </div>
           </div>
 
