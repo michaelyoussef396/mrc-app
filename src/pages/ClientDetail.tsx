@@ -124,26 +124,6 @@ const ClientDetail = () => {
     refetchInterval: 30000, // Poll every 30 seconds for auto-save updates
   });
 
-  // Fetch inspector profile (separate query since no FK relationship)
-  const { data: inspectorProfile } = useQuery({
-    queryKey: ['inspector-profile', inspectionData?.inspector_id],
-    queryFn: async () => {
-      if (!inspectionData?.inspector_id) return null;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, full_name')
-        .eq('id', inspectionData.inspector_id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching inspector profile:', error);
-        return null;
-      }
-      return data;
-    },
-    enabled: !!inspectionData?.inspector_id,
-  });
-
   // Fetch inspection areas
   const { data: areasData } = useQuery({
     queryKey: ['inspection-areas', inspectionData?.id],
@@ -921,7 +901,7 @@ const ClientDetail = () => {
                     </div>
                     <div className="info-item">
                       <label className="info-label">Inspector</label>
-                      <div className="info-value">{inspectorProfile?.full_name || '-'}</div>
+                      <div className="info-value">{inspection.inspector_name || '-'}</div>
                     </div>
                     <div className="info-item">
                       <label className="info-label">Requested By</label>

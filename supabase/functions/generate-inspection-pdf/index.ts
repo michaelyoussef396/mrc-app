@@ -74,6 +74,7 @@ interface Inspection {
   lead_id: string
   job_number: string
   inspector_id: string
+  inspector_name?: string
   inspection_date: string
   inspection_start_time: string
   triage_description: string
@@ -740,19 +741,8 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Fetch inspector name from profiles table
-    let inspectorName = 'Inspector'
-    if (inspection.inspector_id) {
-      const { data: inspectorProfile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', inspection.inspector_id)
-        .single()
-
-      if (inspectorProfile?.full_name) {
-        inspectorName = inspectorProfile.full_name
-      }
-    }
+    // Get inspector name from denormalized field on inspection
+    const inspectorName = inspection.inspector_name || 'Inspector'
 
     // Generate signed URLs for all photos (valid for 1 hour)
     // This is needed because the inspection-photos bucket is private

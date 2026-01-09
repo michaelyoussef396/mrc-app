@@ -12,15 +12,34 @@ export interface NotificationData {
 
 export const sendTechnicianNotifications = async (bookingData: NotificationData) => {
   try {
-    // Get all active technicians
-    const { data: technicians, error: techError } = await supabase
-      .from('profiles')
-      .select('id, email, full_name')
-      .eq('is_active', true);
+    // Get all users from Edge Function (uses auth.users + user_metadata)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.warn('No session found, cannot fetch users');
+      return;
+    }
 
-    if (techError) throw techError;
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
-    if (!technicians || technicians.length === 0) {
+    if (!response.ok) {
+      throw new Error('Failed to fetch users');
+    }
+
+    const { users } = await response.json();
+
+    // Filter to only active users (all users shown, but only notify active ones)
+    const technicians = users?.filter((user: { is_active: boolean }) => user.is_active !== false) || [];
+
+    if (technicians.length === 0) {
       console.warn('No active technicians found');
       return;
     }

@@ -12,7 +12,6 @@ interface UserData {
   first_name: string
   last_name: string
   phone?: string
-  role: 'admin' | 'technician' | 'manager'
 }
 
 interface UpdateUserData {
@@ -21,7 +20,6 @@ interface UpdateUserData {
   first_name?: string
   last_name?: string
   phone?: string
-  role?: 'admin' | 'technician' | 'manager'
   is_active?: boolean
 }
 
@@ -115,7 +113,7 @@ Deno.serve(async (req) => {
     const url = new URL(req.url)
     const targetUserId = url.searchParams.get('userId')
 
-    // GET - List all users (reads from user_metadata, falls back to profiles for legacy data)
+    // GET - List all users (reads from auth.users + user_metadata only)
     if (req.method === 'GET') {
       const { data: authUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers()
 
@@ -123,29 +121,16 @@ Deno.serve(async (req) => {
         throw listError
       }
 
-      // Get roles from user_roles table
-      const { data: roles } = await supabaseAdmin
-        .from('user_roles')
-        .select('user_id, role')
-
-      // Get legacy profile data for fallback
-      const { data: profiles } = await supabaseAdmin
-        .from('profiles')
-        .select('id, full_name, phone, is_active')
-
       const users = authUsers.users.map(authUser => {
-        const userRole = roles?.find(r => r.user_id === authUser.id)
-        const profile = profiles?.find(p => p.id === authUser.id)
         const meta = authUser.user_metadata || {}
 
-        // Get first_name and last_name from metadata, or parse from full_name fallback
+        // Get first_name and last_name from metadata, or parse from full_name
         let firstName = meta.first_name || ''
         let lastName = meta.last_name || ''
 
         // Fallback: if no first/last name in metadata, try to parse from full_name
-        if (!firstName && !lastName) {
-          const fullName = meta.full_name || profile?.full_name || ''
-          const nameParts = fullName.trim().split(' ')
+        if (!firstName && !lastName && meta.full_name) {
+          const nameParts = meta.full_name.trim().split(' ')
           firstName = nameParts[0] || ''
           lastName = nameParts.slice(1).join(' ') || ''
         }
@@ -156,9 +141,8 @@ Deno.serve(async (req) => {
           first_name: firstName,
           last_name: lastName,
           full_name: `${firstName} ${lastName}`.trim() || 'Unknown',
-          phone: meta.phone || profile?.phone || '',
-          is_active: meta.is_active ?? profile?.is_active ?? true,
-          role: userRole?.role || meta.role || 'technician',
+          phone: meta.phone || '',
+          is_active: meta.is_active ?? true,
           created_at: authUser.created_at,
           last_sign_in_at: authUser.last_sign_in_at
         }
@@ -170,13 +154,13 @@ Deno.serve(async (req) => {
       )
     }
 
-    // POST - Invite new user (stores data in user_metadata)
+    // POST - Invite new user (stores data in user_metadata only)
     if (req.method === 'POST') {
       const userData: UserData = await req.json()
 
-      if (!userData.email || !userData.first_name || !userData.role) {
+      if (!userData.email || !userData.first_name) {
         return new Response(
-          JSON.stringify({ success: false, error: 'Missing required fields: email, first_name, role' }),
+          JSON.stringify({ success: false, error: 'Missing required fields: email, first_name' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
@@ -188,8 +172,7 @@ Deno.serve(async (req) => {
           data: {
             first_name: userData.first_name,
             last_name: userData.last_name || '',
-            phone: userData.phone || '',
-            role: userData.role
+            phone: userData.phone || ''
           },
           redirectTo: `${Deno.env.get('SITE_URL') || 'https://mrc-app.vercel.app'}/login`
         }
@@ -202,14 +185,6 @@ Deno.serve(async (req) => {
         )
       }
 
-      // Still insert role into user_roles table (roles are managed separately)
-      await supabaseAdmin
-        .from('user_roles')
-        .insert({
-          user_id: inviteData.user.id,
-          role: userData.role
-        })
-
       return new Response(
         JSON.stringify({
           success: true,
@@ -219,8 +194,7 @@ Deno.serve(async (req) => {
             email: inviteData.user.email,
             first_name: userData.first_name,
             last_name: userData.last_name || '',
-            phone: userData.phone || '',
-            role: userData.role
+            phone: userData.phone || ''
           }
         }),
         { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -250,7 +224,6 @@ Deno.serve(async (req) => {
       if (updateData.last_name !== undefined) metadataUpdate.last_name = updateData.last_name
       if (updateData.phone !== undefined) metadataUpdate.phone = updateData.phone
       if (updateData.is_active !== undefined) metadataUpdate.is_active = updateData.is_active
-      if (updateData.role !== undefined) metadataUpdate.role = updateData.role
 
       if (Object.keys(metadataUpdate).length > 0) {
         // Get existing metadata and merge
@@ -271,18 +244,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Update role in user_roles table if provided
-      if (updateData.role) {
-        await supabaseAdmin
-          .from('user_roles')
-          .delete()
-          .eq('user_id', targetUserId)
-
-        await supabaseAdmin
-          .from('user_roles')
-          .insert({ user_id: targetUserId, role: updateData.role })
-      }
-
       return new Response(
         JSON.stringify({ success: true, message: 'User updated successfully' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -297,18 +258,6 @@ Deno.serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
-
-      // Delete from user_roles table
-      await supabaseAdmin
-        .from('user_roles')
-        .delete()
-        .eq('user_id', targetUserId)
-
-      // Delete from profiles table (for legacy cleanup)
-      await supabaseAdmin
-        .from('profiles')
-        .delete()
-        .eq('id', targetUserId)
 
       // Delete auth user
       const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(targetUserId)

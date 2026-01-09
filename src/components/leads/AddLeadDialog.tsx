@@ -86,44 +86,55 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
     },
   });
 
-  // Load technicians when dialog opens
+  // Load technicians when dialog opens (from Edge Function - all users shown)
   useEffect(() => {
     const loadTechnicians = async () => {
       if (!open) return;
 
-      console.log('🔍 Loading technicians from database...');
+      console.log('🔍 Loading technicians from Edge Function...');
 
-      // Query profiles table and join with user_roles to get technicians
-      const { data: userRoles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "technician");
-      
-      if (rolesError) {
-        console.error("Error loading technician roles:", rolesError);
-        setTechnicians([]);
-        return;
-      }
+      try {
+        // Get session for authorization
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          console.warn('No session found, cannot fetch users');
+          setTechnicians([]);
+          return;
+        }
 
-      const technicianIds = userRoles?.map(r => r.user_id) || [];
-      
-      if (technicianIds.length === 0) {
-        console.warn('No technicians found');
-        setTechnicians([]);
-        return;
-      }
+        // Fetch all users from Edge Function
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", technicianIds)
-        .eq("is_active", true)
-        .order("full_name", { ascending: true });
-      
-      console.log('✅ Technicians data:', data);
-      console.log('❌ Error:', error);
-      
-      if (error) {
+        if (!response.ok) {
+          throw new Error('Failed to fetch users');
+        }
+
+        const { users } = await response.json();
+
+        // Map users to technician format (show ALL users as per user decision)
+        const technicianList = users?.map((user: { id: string; full_name: string }) => ({
+          id: user.id,
+          full_name: user.full_name || 'Unknown',
+        })) || [];
+
+        // Sort by name
+        technicianList.sort((a: { full_name: string }, b: { full_name: string }) =>
+          a.full_name.localeCompare(b.full_name)
+        );
+
+        console.log('✅ Technicians data:', technicianList);
+        setTechnicians(technicianList);
+        console.log(`✅ Loaded ${technicianList.length} technicians`);
+      } catch (error) {
         console.error("Error loading technicians:", error);
         toast({
           title: "Warning",
@@ -131,12 +142,9 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
           variant: "destructive",
         });
         setTechnicians([]);
-      } else {
-        setTechnicians(data || []);
-        console.log(`✅ Loaded ${data?.length || 0} technicians`);
       }
     };
-    
+
     loadTechnicians();
   }, [open, toast]);
 

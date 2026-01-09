@@ -22,7 +22,6 @@ interface ProfileData {
   lastName: string;
   email: string;
   phone: string;
-  role: string;
   joinDate: string;
   avatar: string;
 }
@@ -40,7 +39,6 @@ export default function Profile() {
     lastName: '',
     email: '',
     phone: '',
-    role: 'Team Member',
     joinDate: '',
     avatar: '',
   });
@@ -83,13 +81,6 @@ export default function Profile() {
 
         const phone = meta.phone || '';
 
-        // Get user role from user_roles table (roles still managed in DB)
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .single();
-
         // Format the join date
         const joinDate = user.created_at
           ? new Date(user.created_at).toLocaleDateString('en-AU', {
@@ -103,17 +94,11 @@ export default function Profile() {
         const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() ||
                         user.email?.charAt(0).toUpperCase() || 'U';
 
-        // Format role display
-        const roleDisplay = roleData?.role
-          ? roleData.role.charAt(0).toUpperCase() + roleData.role.slice(1)
-          : 'Team Member';
-
         const loadedData: ProfileData = {
           firstName,
           lastName,
           email: user.email || '',
           phone,
-          role: roleDisplay,
           joinDate,
           avatar: initials,
         };
@@ -226,10 +211,9 @@ export default function Profile() {
               </button>
             </div>
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-white mb-1">
+              <h2 className="text-2xl font-bold text-white mb-3">
                 {profileData.firstName} {profileData.lastName}
               </h2>
-              <p className="text-sm text-white/80 mb-3 font-medium">{profileData.role}</p>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/15 backdrop-blur-md rounded-full text-white/90 text-sm font-medium">
                 <Calendar size={14} strokeWidth={2} />
                 <span>Joined {profileData.joinDate}</span>
