@@ -24,6 +24,7 @@ export interface InspectionArea {
   dewPoint: string;
   moistureReadingsEnabled: boolean;
   moistureReadings: MoistureReading[];
+  externalMoisture: string;
   internalNotes: string;
   roomViewPhotos: Photo[];
   infraredEnabled: boolean;
@@ -107,31 +108,26 @@ export interface InspectionFormData {
   additionalEquipmentComments: string;
   parkingOptions: string;
 
-  // Section 9: Cost Estimate (editable)
-  // Job Type Hours (editable inputs)
-  noDemolitionHours: number;
-  demolitionHours: number;
-  constructionHours: number;
-  subfloorHours: number;
+  // Section 9: Cost Estimate - Australian Tier Pricing Model
+  // Labour Hours (editable inputs - 3 job types)
+  noDemolitionHours: number;   // Non-Demolition labour hours
+  demolitionHours: number;     // Demolition labour hours
+  subfloorHours: number;       // Subfloor labour hours
 
-  // Equipment (editable inputs)
-  dehumidifierCount: number;
-  airMoverCount: number;
-  rcdCount: number;
-  equipmentDays: number;
-  estimatedDays: number; // Keep for backwards compatibility
+  // Equipment Cost (direct entry - not qty × rate × days)
+  equipmentCost: number;       // Total equipment cost ex GST
 
   // Manual Override
   manualPriceOverride: boolean;
-  manualTotal: number;
+  manualTotal: number;         // Manual total inc GST
 
-  // Display Values (auto-calculated or manual)
-  laborCost: number;
-  equipmentCost: number;
-  subtotalExGst: number;
-  gstAmount: number;
-  totalIncGst: number;
-  discountPercent: number;
+  // Calculated Values (auto-calculated from tier pricing)
+  // Labour uses tier interpolation: 2h=$X, 8h=$Y with linear interpolation
+  laborCost: number;           // Labour cost after discount (ex GST)
+  discountPercent: number;     // Volume discount (0%, 7.5%, 10.25%, 11.5%, 13% max)
+  subtotalExGst: number;       // Labour after discount + Equipment
+  gstAmount: number;           // GST at 10%
+  totalIncGst: number;         // Final total including GST
 
   // AI Summary
   jobSummaryFinal: string;

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { loadInspectionPhotos } from '@/lib/utils/photoUpload';
+import { calculateCostEstimate, LABOUR_RATES, getDiscountTierDescription } from '@/lib/calculations/pricing';
 
 // Helper to format currency in Australian format
 const formatCurrency = (value: number | null | undefined) => {
@@ -1168,6 +1169,31 @@ const ClientDetail = () => {
                             </div>
                           )}
 
+                          {/* 6b. External Moisture (if set) */}
+                          {area.external_moisture != null && (
+                            <div style={{ marginBottom: '16px' }}>
+                              <div style={{ fontSize: '13px', fontWeight: '600', color: '#6b7280', marginBottom: '8px' }}>
+                                External Moisture
+                              </div>
+                              <div style={{
+                                background: '#f9fafb',
+                                padding: '12px',
+                                borderRadius: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                              }}>
+                                <span style={{ color: '#374151' }}>Reading:</span>
+                                <span style={{
+                                  fontWeight: '600',
+                                  color: area.external_moisture > 15 ? '#dc2626' : '#16a34a'
+                                }}>
+                                  {area.external_moisture}%
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
                           {/* 7. Internal Office Notes */}
                           {area.internal_office_notes && (
                             <div style={{ marginBottom: '16px' }}>
@@ -1990,6 +2016,1200 @@ const ClientDetail = () => {
                         </div>
                       );
                     })()}
+
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 6 OF 10: WASTE DISPOSAL */}
+              {inspection.waste_disposal_required && (
+                <div style={{
+                  background: 'white',
+                  borderRadius: '12px',
+                  marginBottom: '24px',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                  overflow: 'hidden'
+                }}>
+                  {/* Section Header */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                    padding: '16px 24px',
+                    borderBottom: '3px solid #b91c1c'
+                  }}>
+                    <div style={{
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      textTransform: 'uppercase',
+                      color: 'rgba(255, 255, 255, 0.8)',
+                      letterSpacing: '0.05em',
+                      marginBottom: '4px'
+                    }}>
+                      SECTION 6 OF 10
+                    </div>
+                    <div style={{
+                      fontSize: '20px',
+                      fontWeight: '700',
+                      color: 'white'
+                    }}>
+                      WASTE DISPOSAL
+                    </div>
+                  </div>
+
+                  {/* Section Content */}
+                  <div style={{ padding: '24px' }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '20px',
+                      background: '#fef2f2',
+                      borderRadius: '8px',
+                      border: '2px solid #fecaca'
+                    }}>
+                      <div>
+                        <div style={{
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          color: '#991b1b',
+                          marginBottom: '4px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>
+                          Waste Disposal Required
+                        </div>
+                        <div style={{
+                          fontSize: '18px',
+                          fontWeight: '700',
+                          color: '#7f1d1d'
+                        }}>
+                          {inspection.waste_disposal_amount || 'Not specified'}
+                        </div>
+                      </div>
+                      <div style={{
+                        fontSize: '40px'
+                      }}>
+                        🗑️
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 7 OF 10: WORK PROCEDURE */}
+              {(inspection.hepa_vac ||
+                inspection.antimicrobial ||
+                inspection.stain_removing_antimicrobial ||
+                inspection.home_sanitation_fogging ||
+                inspection.drying_equipment_enabled) && (
+                <div style={{
+                  background: 'white',
+                  borderRadius: '12px',
+                  marginBottom: '24px',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                  overflow: 'hidden'
+                }}>
+                  {/* Section Header */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    padding: '16px 24px',
+                    borderBottom: '3px solid #b45309'
+                  }}>
+                    <div style={{
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      textTransform: 'uppercase',
+                      color: 'rgba(255, 255, 255, 0.8)',
+                      letterSpacing: '0.05em',
+                      marginBottom: '4px'
+                    }}>
+                      SECTION 7 OF 10
+                    </div>
+                    <div style={{
+                      fontSize: '20px',
+                      fontWeight: '700',
+                      color: 'white'
+                    }}>
+                      WORK PROCEDURE
+                    </div>
+                  </div>
+
+                  {/* Section Content */}
+                  <div style={{ padding: '24px' }}>
+
+                    {/* Main Procedures Grid */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                      gap: '12px',
+                      marginBottom: '20px'
+                    }}>
+
+                      {/* 1. HEPA VAC */}
+                      {inspection.hepa_vac && (
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '12px 16px',
+                          background: '#f9fafb',
+                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb'
+                        }}>
+                          <span style={{
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            color: '#374151'
+                          }}>
+                            HEPA VAC
+                          </span>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '4px 12px',
+                            borderRadius: '9999px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            background: '#d1fae5',
+                            color: '#065f46'
+                          }}>
+                            ON
+                          </span>
+                        </div>
+                      )}
+
+                      {/* 2. ANTIMICROBIAL */}
+                      {inspection.antimicrobial && (
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '12px 16px',
+                          background: '#f9fafb',
+                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb'
+                        }}>
+                          <span style={{
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            color: '#374151'
+                          }}>
+                            ANTIMICROBIAL
+                          </span>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '4px 12px',
+                            borderRadius: '9999px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            background: '#d1fae5',
+                            color: '#065f46'
+                          }}>
+                            ON
+                          </span>
+                        </div>
+                      )}
+
+                      {/* 3. STAIN REMOVING ANTIMICROBIAL */}
+                      {inspection.stain_removing_antimicrobial && (
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '12px 16px',
+                          background: '#f9fafb',
+                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb'
+                        }}>
+                          <span style={{
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            color: '#374151'
+                          }}>
+                            STAIN REMOVING ANTIMICROBIAL
+                          </span>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '4px 12px',
+                            borderRadius: '9999px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            background: '#d1fae5',
+                            color: '#065f46'
+                          }}>
+                            ON
+                          </span>
+                        </div>
+                      )}
+
+                      {/* 4. HOME SANITATION AND FOGGING */}
+                      {inspection.home_sanitation_fogging && (
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '12px 16px',
+                          background: '#f9fafb',
+                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb'
+                        }}>
+                          <span style={{
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            color: '#374151'
+                          }}>
+                            HOME SANITATION AND FOGGING
+                          </span>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '4px 12px',
+                            borderRadius: '9999px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            background: '#d1fae5',
+                            color: '#065f46'
+                          }}>
+                            ON
+                          </span>
+                        </div>
+                      )}
+
+                    </div>
+
+                    {/* 5. DRYING EQUIPMENT SECTION */}
+                    {inspection.drying_equipment_enabled && (
+                      <div style={{
+                        background: '#fef3c7',
+                        border: '2px solid #fbbf24',
+                        borderRadius: '8px',
+                        padding: '16px'
+                      }}>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '16px',
+                          paddingBottom: '12px',
+                          borderBottom: '2px solid #f59e0b'
+                        }}>
+                          <h4 style={{
+                            fontSize: '15px',
+                            fontWeight: '700',
+                            color: '#92400e',
+                            margin: 0,
+                            textTransform: 'uppercase'
+                          }}>
+                            DRYING EQUIPMENT
+                          </h4>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '4px 12px',
+                            borderRadius: '9999px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            background: '#10b981',
+                            color: 'white'
+                          }}>
+                            ENABLED
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+                          {/* Commercial Dehumidifier */}
+                          {inspection.commercial_dehumidifier_enabled && (
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '12px 16px',
+                              background: 'white',
+                              borderRadius: '6px',
+                              border: '1px solid #fbbf24'
+                            }}>
+                              <div>
+                                <span style={{
+                                  fontSize: '14px',
+                                  fontWeight: '600',
+                                  color: '#374151',
+                                  marginRight: '8px'
+                                }}>
+                                  COMMERCIAL DEHUMIDIFIER
+                                </span>
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  background: '#dbeafe',
+                                  color: '#1e40af'
+                                }}>
+                                  ON
+                                </span>
+                              </div>
+                              <div style={{
+                                fontSize: '18px',
+                                fontWeight: '700',
+                                color: '#1e40af'
+                              }}>
+                                Qty: {inspection.commercial_dehumidifier_qty ?? 0}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Air Movers */}
+                          {inspection.air_movers_enabled && (
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '12px 16px',
+                              background: 'white',
+                              borderRadius: '6px',
+                              border: '1px solid #fbbf24'
+                            }}>
+                              <div>
+                                <span style={{
+                                  fontSize: '14px',
+                                  fontWeight: '600',
+                                  color: '#374151',
+                                  marginRight: '8px'
+                                }}>
+                                  AIR MOVERS
+                                </span>
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  background: '#dbeafe',
+                                  color: '#1e40af'
+                                }}>
+                                  ON
+                                </span>
+                              </div>
+                              <div style={{
+                                fontSize: '18px',
+                                fontWeight: '700',
+                                color: '#1e40af'
+                              }}>
+                                Qty: {inspection.air_movers_qty ?? 0}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* RCD Box */}
+                          {inspection.rcd_box_enabled && (
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '12px 16px',
+                              background: 'white',
+                              borderRadius: '6px',
+                              border: '1px solid #fbbf24'
+                            }}>
+                              <div>
+                                <span style={{
+                                  fontSize: '14px',
+                                  fontWeight: '600',
+                                  color: '#374151',
+                                  marginRight: '8px'
+                                }}>
+                                  RCD BOX
+                                </span>
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  background: '#dbeafe',
+                                  color: '#1e40af'
+                                }}>
+                                  ON
+                                </span>
+                              </div>
+                              <div style={{
+                                fontSize: '18px',
+                                fontWeight: '700',
+                                color: '#1e40af'
+                              }}>
+                                Qty: {inspection.rcd_box_qty ?? 0}
+                              </div>
+                            </div>
+                          )}
+
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 8 OF 10: JOB SUMMARY */}
+              {(inspection.recommended_dehumidifier ||
+                inspection.cause_of_mould ||
+                inspection.additional_info_technician ||
+                inspection.additional_equipment_comments ||
+                inspection.parking_option) && (
+                <div style={{
+                  background: 'white',
+                  borderRadius: '12px',
+                  marginBottom: '24px',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                  overflow: 'hidden'
+                }}>
+                  {/* Section Header - Blue */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    padding: '16px 24px',
+                    borderBottom: '3px solid #1d4ed8'
+                  }}>
+                    <div style={{
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      textTransform: 'uppercase',
+                      color: 'rgba(255, 255, 255, 0.8)',
+                      letterSpacing: '0.05em',
+                      marginBottom: '4px'
+                    }}>
+                      SECTION 8 OF 10
+                    </div>
+                    <div style={{
+                      fontSize: '20px',
+                      fontWeight: '700',
+                      color: 'white'
+                    }}>
+                      JOB SUMMARY
+                    </div>
+                  </div>
+
+                  {/* Section Content */}
+                  <div style={{ padding: '24px' }}>
+
+                    {/* 1 & 2. RECOMMEND DEHUMIDIFIER */}
+                    {inspection.recommended_dehumidifier && (
+                      <div style={{ marginBottom: '20px' }}>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '16px',
+                          background: '#dbeafe',
+                          borderRadius: '8px',
+                          border: '2px solid #3b82f6'
+                        }}>
+                          <div>
+                            <div style={{
+                              fontSize: '13px',
+                              fontWeight: '600',
+                              color: '#1e40af',
+                              marginBottom: '4px',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.05em'
+                            }}>
+                              Recommend Dehumidifier?
+                            </div>
+                            <div style={{
+                              fontSize: '16px',
+                              fontWeight: '600',
+                              color: '#1e3a8a',
+                              marginTop: '4px'
+                            }}>
+                              {inspection.recommended_dehumidifier}
+                            </div>
+                          </div>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '6px 16px',
+                            borderRadius: '9999px',
+                            fontSize: '14px',
+                            fontWeight: '700',
+                            background: '#10b981',
+                            color: 'white'
+                          }}>
+                            YES
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 3. CAUSE OF MOULD */}
+                    {inspection.cause_of_mould && (
+                      <div style={{ marginBottom: '20px' }}>
+                        <div style={{
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          color: '#6b7280',
+                          marginBottom: '8px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>
+                          Cause of Mould
+                        </div>
+                        <div style={{
+                          background: '#f9fafb',
+                          border: '1px solid #e5e7eb',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          whiteSpace: 'pre-wrap',
+                          lineHeight: '1.6',
+                          color: '#374151'
+                        }}>
+                          {inspection.cause_of_mould}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 4. ADDITIONAL INFORMATION FOR TECHNICIAN */}
+                    {inspection.additional_info_technician && (
+                      <div style={{ marginBottom: '20px' }}>
+                        <div style={{
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          color: '#6b7280',
+                          marginBottom: '8px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>
+                          Additional Information for Technician
+                        </div>
+                        <div style={{
+                          background: '#fef3c7',
+                          border: '1px solid #fbbf24',
+                          borderLeft: '4px solid #f59e0b',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          whiteSpace: 'pre-wrap',
+                          lineHeight: '1.6',
+                          color: '#78350f'
+                        }}>
+                          {inspection.additional_info_technician}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 5. ADDITIONAL EQUIPMENT COMMENTS */}
+                    {inspection.additional_equipment_comments && (
+                      <div style={{ marginBottom: '20px' }}>
+                        <div style={{
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          color: '#6b7280',
+                          marginBottom: '8px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>
+                          Additional Equipment Comments for Technicians
+                        </div>
+                        <div style={{
+                          background: '#fef3c7',
+                          border: '1px solid #fbbf24',
+                          borderLeft: '4px solid #f59e0b',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          whiteSpace: 'pre-wrap',
+                          lineHeight: '1.6',
+                          color: '#78350f'
+                        }}>
+                          {inspection.additional_equipment_comments}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 6. PARKING OPTIONS */}
+                    {inspection.parking_option && (
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '12px 16px',
+                        background: '#f9fafb',
+                        borderRadius: '6px',
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        <span style={{
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          color: '#6b7280',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>
+                          Parking Options
+                        </span>
+                        <span style={{
+                          fontSize: '15px',
+                          fontWeight: '600',
+                          color: '#111827'
+                        }}>
+                          {inspection.parking_option}
+                        </span>
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 9 OF 10: COST ESTIMATE */}
+              {(inspection.labor_cost_ex_gst || inspection.equipment_cost_ex_gst || inspection.total_inc_gst) && (
+                <div style={{
+                  background: 'white',
+                  borderRadius: '12px',
+                  marginBottom: '24px',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                  overflow: 'hidden'
+                }}>
+                  {/* Section Header - Green */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    padding: '16px 24px',
+                    borderBottom: '3px solid #047857'
+                  }}>
+                    <div style={{
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      textTransform: 'uppercase',
+                      color: 'rgba(255, 255, 255, 0.8)',
+                      letterSpacing: '0.05em',
+                      marginBottom: '4px'
+                    }}>
+                      SECTION 9 OF 10
+                    </div>
+                    <div style={{
+                      fontSize: '20px',
+                      fontWeight: '700',
+                      color: 'white'
+                    }}>
+                      COST ESTIMATE
+                    </div>
+                  </div>
+
+                  {/* Section Content */}
+                  <div style={{ padding: '24px' }}>
+
+                    {/* LABOUR SECTION - Tier Pricing */}
+                    {(() => {
+                      const totalHours = (inspection.no_demolition_hours ?? 0) + (inspection.demolition_hours ?? 0) + (inspection.subfloor_hours ?? 0);
+                      const hasLabour = totalHours > 0 || (inspection.labor_cost_ex_gst ?? 0) > 0;
+
+                      if (!hasLabour) return null;
+
+                      // Calculate costs using tier pricing
+                      const estimate = calculateCostEstimate({
+                        nonDemoHours: inspection.no_demolition_hours ?? 0,
+                        demolitionHours: inspection.demolition_hours ?? 0,
+                        subfloorHours: inspection.subfloor_hours ?? 0,
+                        equipmentCost: inspection.equipment_cost_ex_gst ?? 0,
+                      });
+
+                      return (
+                        <div style={{ marginBottom: '24px' }}>
+                          <div style={{
+                            fontSize: '15px',
+                            fontWeight: '700',
+                            color: '#111827',
+                            marginBottom: '12px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            paddingBottom: '8px',
+                            borderBottom: '2px solid #3b82f6'
+                          }}>
+                            Labour Breakdown (Tier Pricing)
+                          </div>
+
+                          {/* Labour Table */}
+                          <div style={{
+                            background: '#f9fafb',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            marginBottom: '12px'
+                          }}>
+                            {/* Header Row */}
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: '2fr 1fr 1fr 1fr 1.2fr',
+                              gap: '8px',
+                              padding: '12px',
+                              background: '#e5e7eb',
+                              fontWeight: '600',
+                              fontSize: '12px',
+                              color: '#374151',
+                              textTransform: 'uppercase'
+                            }}>
+                              <div>Type</div>
+                              <div style={{ textAlign: 'center' }}>Hours</div>
+                              <div style={{ textAlign: 'right' }}>2h Rate</div>
+                              <div style={{ textAlign: 'right' }}>8h Rate</div>
+                              <div style={{ textAlign: 'right' }}>Cost</div>
+                            </div>
+
+                            {/* Non-Demolition Row */}
+                            {(inspection.no_demolition_hours ?? 0) > 0 && (
+                              <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: '2fr 1fr 1fr 1fr 1.2fr',
+                                gap: '8px',
+                                padding: '12px',
+                                borderBottom: '1px solid #e5e7eb',
+                                alignItems: 'center'
+                              }}>
+                                <div style={{ fontWeight: '500', color: '#374151' }}>Non-Demolition</div>
+                                <div style={{ textAlign: 'center', color: '#6b7280' }}>{inspection.no_demolition_hours}h</div>
+                                <div style={{ textAlign: 'right', fontSize: '12px', color: '#9ca3af' }}>${LABOUR_RATES.nonDemo.tier2h.toFixed(0)}</div>
+                                <div style={{ textAlign: 'right', fontSize: '12px', color: '#9ca3af' }}>${LABOUR_RATES.nonDemo.tier8h.toFixed(0)}</div>
+                                <div style={{ textAlign: 'right', fontWeight: '600', color: '#3b82f6' }}>
+                                  {formatCurrency(estimate.nonDemoCost)}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Demolition Row */}
+                            {(inspection.demolition_hours ?? 0) > 0 && (
+                              <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: '2fr 1fr 1fr 1fr 1.2fr',
+                                gap: '8px',
+                                padding: '12px',
+                                borderBottom: '1px solid #e5e7eb',
+                                alignItems: 'center'
+                              }}>
+                                <div style={{ fontWeight: '500', color: '#374151' }}>Demolition</div>
+                                <div style={{ textAlign: 'center', color: '#6b7280' }}>{inspection.demolition_hours}h</div>
+                                <div style={{ textAlign: 'right', fontSize: '12px', color: '#9ca3af' }}>${LABOUR_RATES.demolition.tier2h.toFixed(0)}</div>
+                                <div style={{ textAlign: 'right', fontSize: '12px', color: '#9ca3af' }}>${LABOUR_RATES.demolition.tier8h.toFixed(0)}</div>
+                                <div style={{ textAlign: 'right', fontWeight: '600', color: '#3b82f6' }}>
+                                  {formatCurrency(estimate.demolitionCost)}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Subfloor Row */}
+                            {(inspection.subfloor_hours ?? 0) > 0 && (
+                              <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: '2fr 1fr 1fr 1fr 1.2fr',
+                                gap: '8px',
+                                padding: '12px',
+                                borderBottom: '1px solid #e5e7eb',
+                                alignItems: 'center'
+                              }}>
+                                <div style={{ fontWeight: '500', color: '#374151' }}>Subfloor</div>
+                                <div style={{ textAlign: 'center', color: '#6b7280' }}>{inspection.subfloor_hours}h</div>
+                                <div style={{ textAlign: 'right', fontSize: '12px', color: '#9ca3af' }}>${LABOUR_RATES.subfloor.tier2h.toFixed(0)}</div>
+                                <div style={{ textAlign: 'right', fontSize: '12px', color: '#9ca3af' }}>${LABOUR_RATES.subfloor.tier8h.toFixed(0)}</div>
+                                <div style={{ textAlign: 'right', fontWeight: '600', color: '#3b82f6' }}>
+                                  {formatCurrency(estimate.subfloorCost)}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Discount Info */}
+                          {estimate.discountPercent > 0 && (
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '12px 16px',
+                              background: '#fef3c7',
+                              borderRadius: '6px',
+                              marginBottom: '12px'
+                            }}>
+                              <div>
+                                <span style={{
+                                  fontSize: '14px',
+                                  fontWeight: '600',
+                                  color: '#92400e'
+                                }}>
+                                  Multi-Day Discount ({(estimate.discountPercent * 100).toFixed(2)}%)
+                                </span>
+                                <div style={{
+                                  fontSize: '12px',
+                                  color: '#b45309',
+                                  marginTop: '2px'
+                                }}>
+                                  {estimate.discountTierDescription}
+                                </div>
+                              </div>
+                              <span style={{
+                                fontSize: '16px',
+                                fontWeight: '700',
+                                color: '#b45309'
+                              }}>
+                                -{formatCurrency(estimate.discountAmount)}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Labour subtotal (after discount) */}
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '12px 16px',
+                            background: '#dbeafe',
+                            borderRadius: '6px'
+                          }}>
+                            <div>
+                              <span style={{
+                                fontSize: '14px',
+                                fontWeight: '700',
+                                color: '#1e40af'
+                              }}>
+                                Labour Total {estimate.discountPercent > 0 ? '(After Discount)' : ''}
+                              </span>
+                              <div style={{
+                                fontSize: '12px',
+                                color: '#3b82f6',
+                                marginTop: '2px'
+                              }}>
+                                {totalHours} total hours
+                              </div>
+                            </div>
+                            <span style={{
+                              fontSize: '18px',
+                              fontWeight: '700',
+                              color: '#1e40af'
+                            }}>
+                              {formatCurrency(estimate.labourAfterDiscount)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* EQUIPMENT SECTION - Direct Cost Entry */}
+                    {(inspection.equipment_cost_ex_gst ?? 0) > 0 && (
+                      <div style={{ marginBottom: '24px' }}>
+                        <div style={{
+                          fontSize: '15px',
+                          fontWeight: '700',
+                          color: '#111827',
+                          marginBottom: '12px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          paddingBottom: '8px',
+                          borderBottom: '2px solid #8b5cf6'
+                        }}>
+                          Equipment Cost
+                        </div>
+
+                        {/* Equipment Total */}
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '16px',
+                          background: '#ede9fe',
+                          borderRadius: '6px'
+                        }}>
+                          <div>
+                            <span style={{
+                              fontSize: '14px',
+                              fontWeight: '700',
+                              color: '#6d28d9'
+                            }}>
+                              Equipment Total (Ex GST)
+                            </span>
+                            <div style={{
+                              fontSize: '12px',
+                              color: '#7c3aed',
+                              marginTop: '2px'
+                            }}>
+                              Dehumidifiers, air movers, RCD boxes, etc.
+                            </div>
+                          </div>
+                          <span style={{
+                            fontSize: '18px',
+                            fontWeight: '700',
+                            color: '#6d28d9'
+                          }}>
+                            {formatCurrency(inspection.equipment_cost_ex_gst)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* FINANCIAL TOTALS */}
+                    <div style={{
+                      background: '#f0fdf4',
+                      border: '2px solid #10b981',
+                      borderRadius: '8px',
+                      padding: '20px',
+                      marginTop: '24px'
+                    }}>
+
+                      {/* Subtotal (Ex GST) */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '12px 0',
+                        borderBottom: '1px solid #d1fae5'
+                      }}>
+                        <span style={{
+                          fontSize: '15px',
+                          fontWeight: '600',
+                          color: '#065f46'
+                        }}>
+                          Subtotal (Ex GST)
+                        </span>
+                        <span style={{
+                          fontSize: '18px',
+                          fontWeight: '700',
+                          color: '#047857'
+                        }}>
+                          {new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(inspection.subtotal_ex_gst || 0)}
+                        </span>
+                      </div>
+
+                      {/* GST (10%) */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '12px 0',
+                        borderBottom: '2px solid #10b981'
+                      }}>
+                        <span style={{
+                          fontSize: '15px',
+                          fontWeight: '600',
+                          color: '#065f46'
+                        }}>
+                          GST (10%)
+                        </span>
+                        <span style={{
+                          fontSize: '18px',
+                          fontWeight: '700',
+                          color: '#047857'
+                        }}>
+                          {new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(inspection.gst_amount || 0)}
+                        </span>
+                      </div>
+
+                      {/* TOTAL (Inc GST) */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '16px 0 0 0'
+                      }}>
+                        <span style={{
+                          fontSize: '18px',
+                          fontWeight: '700',
+                          color: '#064e3b',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>
+                          TOTAL (Inc GST)
+                        </span>
+                        <span style={{
+                          fontSize: '28px',
+                          fontWeight: '800',
+                          color: '#059669'
+                        }}>
+                          {new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(inspection.total_inc_gst || 0)}
+                        </span>
+                      </div>
+
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 10 OF 10: AI JOB SUMMARY */}
+              {inspection.ai_summary_text && (
+                <div style={{
+                  background: 'white',
+                  borderRadius: '12px',
+                  marginBottom: '24px',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                  overflow: 'hidden'
+                }}>
+                  {/* Section Header - Purple */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                    padding: '16px 24px',
+                    borderBottom: '3px solid #6b21a8'
+                  }}>
+                    <div style={{
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      textTransform: 'uppercase',
+                      color: 'rgba(255, 255, 255, 0.8)',
+                      letterSpacing: '0.05em',
+                      marginBottom: '4px'
+                    }}>
+                      SECTION 10 OF 10
+                    </div>
+                    <div style={{
+                      fontSize: '20px',
+                      fontWeight: '700',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <span>🤖</span>
+                      <span>AI JOB SUMMARY</span>
+                    </div>
+                  </div>
+
+                  {/* Section Content */}
+                  <div style={{ padding: '24px' }}>
+
+                    {/* AI Generated Summary */}
+                    <div style={{ marginBottom: '24px' }}>
+                      <div style={{
+                        background: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)',
+                        border: '2px solid #e9d5ff',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        fontSize: '15px',
+                        lineHeight: '1.8',
+                        color: '#374151',
+                        whiteSpace: 'pre-wrap'
+                      }}>
+                        {inspection.ai_summary_text}
+                      </div>
+
+                      {/* Generation timestamp */}
+                      {inspection.ai_summary_generated_at && (
+                        <div style={{
+                          marginTop: '12px',
+                          fontSize: '13px',
+                          color: '#6b7280',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          <span>🤖</span>
+                          <span>
+                            Generated {new Date(inspection.ai_summary_generated_at).toLocaleString('en-AU', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* PDF Sections (if they exist) */}
+                    {(inspection.what_we_found_text || inspection.what_we_will_do_text || inspection.what_you_get_text) && (
+                      <div style={{
+                        display: 'grid',
+                        gap: '20px',
+                        marginTop: '24px'
+                      }}>
+
+                        {/* What We Found */}
+                        {inspection.what_we_found_text && (
+                          <div>
+                            <div style={{
+                              fontSize: '16px',
+                              fontWeight: '700',
+                              color: '#7c3aed',
+                              marginBottom: '12px',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.05em',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px'
+                            }}>
+                              <span>🔍</span>
+                              <span>What We Found</span>
+                            </div>
+                            <div style={{
+                              background: '#fef3c7',
+                              border: '2px solid #fbbf24',
+                              borderLeft: '4px solid #f59e0b',
+                              borderRadius: '8px',
+                              padding: '16px',
+                              fontSize: '14px',
+                              lineHeight: '1.7',
+                              color: '#78350f',
+                              whiteSpace: 'pre-wrap'
+                            }}>
+                              {inspection.what_we_found_text}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* What We Will Do */}
+                        {inspection.what_we_will_do_text && (
+                          <div>
+                            <div style={{
+                              fontSize: '16px',
+                              fontWeight: '700',
+                              color: '#7c3aed',
+                              marginBottom: '12px',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.05em',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px'
+                            }}>
+                              <span>🛠️</span>
+                              <span>What We Will Do</span>
+                            </div>
+                            <div style={{
+                              background: '#dbeafe',
+                              border: '2px solid #3b82f6',
+                              borderLeft: '4px solid #2563eb',
+                              borderRadius: '8px',
+                              padding: '16px',
+                              fontSize: '14px',
+                              lineHeight: '1.7',
+                              color: '#1e3a8a',
+                              whiteSpace: 'pre-wrap'
+                            }}>
+                              {inspection.what_we_will_do_text}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* What You Get */}
+                        {inspection.what_you_get_text && (
+                          <div>
+                            <div style={{
+                              fontSize: '16px',
+                              fontWeight: '700',
+                              color: '#7c3aed',
+                              marginBottom: '12px',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.05em',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px'
+                            }}>
+                              <span>✨</span>
+                              <span>What You Get</span>
+                            </div>
+                            <div style={{
+                              background: '#d1fae5',
+                              border: '2px solid #10b981',
+                              borderLeft: '4px solid #059669',
+                              borderRadius: '8px',
+                              padding: '16px',
+                              fontSize: '14px',
+                              lineHeight: '1.7',
+                              color: '#065f46',
+                              whiteSpace: 'pre-wrap'
+                            }}>
+                              {inspection.what_you_get_text}
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+                    )}
 
                   </div>
                 </div>

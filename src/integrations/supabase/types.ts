@@ -55,6 +55,27 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: {
+          created_at: string | null
+          key: string
+          updated_at: string | null
+          value: string
+        }
+        Insert: {
+          created_at?: string | null
+          key: string
+          updated_at?: string | null
+          value: string
+        }
+        Update: {
+          created_at?: string | null
+          key?: string
+          updated_at?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
       booking_tokens: {
         Row: {
           created_at: string | null
@@ -93,7 +114,7 @@ export type Database = {
           },
         ]
       }
-      calendar_events: {
+      calendar_bookings: {
         Row: {
           all_day: boolean | null
           assigned_to: string
@@ -159,10 +180,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "calendar_events_inspection_id_fkey"
+            foreignKeyName: "calendar_bookings_inspection_id_fkey"
             columns: ["inspection_id"]
             isOneToOne: false
-            referencedRelation: "inspections"
+            referencedRelation: "inspection_reports"
             referencedColumns: ["id"]
           },
           {
@@ -207,7 +228,7 @@ export type Database = {
             foreignKeyName: "client_booking_tokens_inspection_id_fkey"
             columns: ["inspection_id"]
             isOneToOne: false
-            referencedRelation: "inspections"
+            referencedRelation: "inspection_reports"
             referencedColumns: ["id"]
           },
         ]
@@ -256,6 +277,129 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      editable_fields: {
+        Row: {
+          created_at: string | null
+          edit_icon_position: Json | null
+          field_column: string
+          field_key: string
+          field_label: string
+          field_table: string
+          field_type: string
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+          validation_rules: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          edit_icon_position?: Json | null
+          field_column: string
+          field_key: string
+          field_label: string
+          field_table: string
+          field_type: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          validation_rules?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          edit_icon_position?: Json | null
+          field_column?: string
+          field_key?: string
+          field_label?: string
+          field_table?: string
+          field_type?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          validation_rules?: Json | null
+        }
+        Relationships: []
+      }
+      email_logs: {
+        Row: {
+          clicked_at: string | null
+          created_at: string | null
+          delivered_at: string | null
+          error_message: string | null
+          id: string
+          inspection_id: string | null
+          lead_id: string | null
+          metadata: Json | null
+          opened_at: string | null
+          provider: string | null
+          provider_message_id: string | null
+          recipient_email: string
+          recipient_name: string | null
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+          subject: string
+          template_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          clicked_at?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          inspection_id?: string | null
+          lead_id?: string | null
+          metadata?: Json | null
+          opened_at?: string | null
+          provider?: string | null
+          provider_message_id?: string | null
+          recipient_email: string
+          recipient_name?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          subject: string
+          template_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          clicked_at?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          inspection_id?: string | null
+          lead_id?: string | null
+          metadata?: Json | null
+          opened_at?: string | null
+          provider?: string | null
+          provider_message_id?: string | null
+          recipient_email?: string
+          recipient_name?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          subject?: string
+          template_name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_logs_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       equipment: {
         Row: {
@@ -358,6 +502,7 @@ export type Database = {
           demolition_required: boolean | null
           demolition_time_minutes: number | null
           dew_point: number | null
+          external_moisture: number | null
           humidity: number | null
           id: string
           infrared_enabled: boolean | null
@@ -374,6 +519,7 @@ export type Database = {
           mould_contents: boolean | null
           mould_cornice: boolean | null
           mould_cupboard: boolean | null
+          mould_description: string | null
           mould_flooring: boolean | null
           mould_grout_silicone: boolean | null
           mould_none_visible: boolean | null
@@ -395,6 +541,7 @@ export type Database = {
           demolition_required?: boolean | null
           demolition_time_minutes?: number | null
           dew_point?: number | null
+          external_moisture?: number | null
           humidity?: number | null
           id?: string
           infrared_enabled?: boolean | null
@@ -411,6 +558,7 @@ export type Database = {
           mould_contents?: boolean | null
           mould_cornice?: boolean | null
           mould_cupboard?: boolean | null
+          mould_description?: string | null
           mould_flooring?: boolean | null
           mould_grout_silicone?: boolean | null
           mould_none_visible?: boolean | null
@@ -432,6 +580,7 @@ export type Database = {
           demolition_required?: boolean | null
           demolition_time_minutes?: number | null
           dew_point?: number | null
+          external_moisture?: number | null
           humidity?: number | null
           id?: string
           infrared_enabled?: boolean | null
@@ -448,6 +597,7 @@ export type Database = {
           mould_contents?: boolean | null
           mould_cornice?: boolean | null
           mould_cupboard?: boolean | null
+          mould_description?: string | null
           mould_flooring?: boolean | null
           mould_grout_silicone?: boolean | null
           mould_none_visible?: boolean | null
@@ -469,7 +619,7 @@ export type Database = {
           },
         ]
       }
-      inspections: {
+      inspection_reports: {
         Row: {
           additional_equipment_comments: string | null
           additional_info_technician: string | null
@@ -485,7 +635,7 @@ export type Database = {
           inspection_date: string
           inspection_start_time: string | null
           inspector_id: string
-          job_number: string | null
+          job_number: string
           lead_id: string
           outdoor_comments: string | null
           outdoor_dew_point: number | null
@@ -520,10 +670,10 @@ export type Database = {
           estimated_cost_ex_gst?: number | null
           estimated_cost_inc_gst?: number | null
           id?: string
-          inspection_date: string
+          inspection_date?: string
           inspection_start_time?: string | null
           inspector_id: string
-          job_number?: string | null
+          job_number: string
           lead_id: string
           outdoor_comments?: string | null
           outdoor_dew_point?: number | null
@@ -561,7 +711,7 @@ export type Database = {
           inspection_date?: string
           inspection_start_time?: string | null
           inspector_id?: string
-          job_number?: string | null
+          job_number?: string
           lead_id?: string
           outdoor_comments?: string | null
           outdoor_dew_point?: number | null
@@ -587,6 +737,302 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "inspections_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspections: {
+        Row: {
+          additional_equipment_comments: string | null
+          additional_info_technician: string | null
+          ai_summary_approved: boolean | null
+          ai_summary_generated_at: string | null
+          ai_summary_text: string | null
+          air_mover_count: number | null
+          air_mover_rate: number | null
+          air_movers_enabled: boolean | null
+          air_movers_qty: number | null
+          antimicrobial: boolean | null
+          attention_to: string | null
+          cause_of_mould: string | null
+          commercial_dehumidifier_enabled: boolean | null
+          commercial_dehumidifier_qty: number | null
+          construction_hours: number | null
+          contributing_factors: string | null
+          created_at: string | null
+          dehumidifier_count: number | null
+          dehumidifier_rate: number | null
+          demo_labour_rate: number | null
+          demolition_hours: number | null
+          direction_photos_enabled: boolean | null
+          discount_percent: number | null
+          drying_equipment_enabled: boolean | null
+          dwelling_type: Database["public"]["Enums"]["dwelling_type"] | null
+          equipment_cost_ex_gst: number | null
+          equipment_cost_inc_gst: number | null
+          equipment_days: number | null
+          estimated_cost_ex_gst: number | null
+          estimated_cost_inc_gst: number | null
+          gst_amount: number | null
+          hepa_vac: boolean | null
+          home_sanitation_fogging: boolean | null
+          id: string
+          identified_causes: string | null
+          immediate_actions: string | null
+          inspection_date: string
+          inspection_start_time: string | null
+          inspector_id: string
+          job_number: string | null
+          labor_cost_ex_gst: number | null
+          last_edited_at: string | null
+          last_edited_by: string | null
+          lead_id: string
+          long_term_protection: string | null
+          manual_labor_override: boolean | null
+          manual_price_override: boolean | null
+          manual_total_inc_gst: number | null
+          no_demolition_hours: number | null
+          non_demo_labour_rate: number | null
+          outdoor_comments: string | null
+          outdoor_dew_point: number | null
+          outdoor_humidity: number | null
+          outdoor_temperature: number | null
+          parking_option: string | null
+          pdf_approved: boolean | null
+          pdf_approved_at: string | null
+          pdf_approved_by: string | null
+          pdf_generated_at: string | null
+          pdf_url: string | null
+          pdf_version: number | null
+          property_occupation:
+            | Database["public"]["Enums"]["property_occupation"]
+            | null
+          rcd_box_enabled: boolean | null
+          rcd_box_qty: number | null
+          rcd_count: number | null
+          rcd_rate: number | null
+          recommended_dehumidifier: string | null
+          report_generated: boolean | null
+          report_pdf_url: string | null
+          report_sent_date: string | null
+          requested_by: string | null
+          selected_job_type: Database["public"]["Enums"]["job_type"] | null
+          stain_removing_antimicrobial: boolean | null
+          subfloor_hours: number | null
+          subfloor_labour_rate: number | null
+          subfloor_required: boolean | null
+          subtotal_ex_gst: number | null
+          timeline_text: string | null
+          total_inc_gst: number | null
+          total_time_minutes: number | null
+          triage_description: string | null
+          updated_at: string | null
+          waste_disposal_amount: string | null
+          waste_disposal_cost: number | null
+          waste_disposal_required: boolean | null
+          what_success_looks_like: string | null
+          what_we_discovered: string | null
+          what_we_found_text: string | null
+          what_we_will_do_text: string | null
+          what_you_get_text: string | null
+          why_this_happened: string | null
+        }
+        Insert: {
+          additional_equipment_comments?: string | null
+          additional_info_technician?: string | null
+          ai_summary_approved?: boolean | null
+          ai_summary_generated_at?: string | null
+          ai_summary_text?: string | null
+          air_mover_count?: number | null
+          air_mover_rate?: number | null
+          air_movers_enabled?: boolean | null
+          air_movers_qty?: number | null
+          antimicrobial?: boolean | null
+          attention_to?: string | null
+          cause_of_mould?: string | null
+          commercial_dehumidifier_enabled?: boolean | null
+          commercial_dehumidifier_qty?: number | null
+          construction_hours?: number | null
+          contributing_factors?: string | null
+          created_at?: string | null
+          dehumidifier_count?: number | null
+          dehumidifier_rate?: number | null
+          demo_labour_rate?: number | null
+          demolition_hours?: number | null
+          direction_photos_enabled?: boolean | null
+          discount_percent?: number | null
+          drying_equipment_enabled?: boolean | null
+          dwelling_type?: Database["public"]["Enums"]["dwelling_type"] | null
+          equipment_cost_ex_gst?: number | null
+          equipment_cost_inc_gst?: number | null
+          equipment_days?: number | null
+          estimated_cost_ex_gst?: number | null
+          estimated_cost_inc_gst?: number | null
+          gst_amount?: number | null
+          hepa_vac?: boolean | null
+          home_sanitation_fogging?: boolean | null
+          id?: string
+          identified_causes?: string | null
+          immediate_actions?: string | null
+          inspection_date: string
+          inspection_start_time?: string | null
+          inspector_id: string
+          job_number?: string | null
+          labor_cost_ex_gst?: number | null
+          last_edited_at?: string | null
+          last_edited_by?: string | null
+          lead_id: string
+          long_term_protection?: string | null
+          manual_labor_override?: boolean | null
+          manual_price_override?: boolean | null
+          manual_total_inc_gst?: number | null
+          no_demolition_hours?: number | null
+          non_demo_labour_rate?: number | null
+          outdoor_comments?: string | null
+          outdoor_dew_point?: number | null
+          outdoor_humidity?: number | null
+          outdoor_temperature?: number | null
+          parking_option?: string | null
+          pdf_approved?: boolean | null
+          pdf_approved_at?: string | null
+          pdf_approved_by?: string | null
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
+          pdf_version?: number | null
+          property_occupation?:
+            | Database["public"]["Enums"]["property_occupation"]
+            | null
+          rcd_box_enabled?: boolean | null
+          rcd_box_qty?: number | null
+          rcd_count?: number | null
+          rcd_rate?: number | null
+          recommended_dehumidifier?: string | null
+          report_generated?: boolean | null
+          report_pdf_url?: string | null
+          report_sent_date?: string | null
+          requested_by?: string | null
+          selected_job_type?: Database["public"]["Enums"]["job_type"] | null
+          stain_removing_antimicrobial?: boolean | null
+          subfloor_hours?: number | null
+          subfloor_labour_rate?: number | null
+          subfloor_required?: boolean | null
+          subtotal_ex_gst?: number | null
+          timeline_text?: string | null
+          total_inc_gst?: number | null
+          total_time_minutes?: number | null
+          triage_description?: string | null
+          updated_at?: string | null
+          waste_disposal_amount?: string | null
+          waste_disposal_cost?: number | null
+          waste_disposal_required?: boolean | null
+          what_success_looks_like?: string | null
+          what_we_discovered?: string | null
+          what_we_found_text?: string | null
+          what_we_will_do_text?: string | null
+          what_you_get_text?: string | null
+          why_this_happened?: string | null
+        }
+        Update: {
+          additional_equipment_comments?: string | null
+          additional_info_technician?: string | null
+          ai_summary_approved?: boolean | null
+          ai_summary_generated_at?: string | null
+          ai_summary_text?: string | null
+          air_mover_count?: number | null
+          air_mover_rate?: number | null
+          air_movers_enabled?: boolean | null
+          air_movers_qty?: number | null
+          antimicrobial?: boolean | null
+          attention_to?: string | null
+          cause_of_mould?: string | null
+          commercial_dehumidifier_enabled?: boolean | null
+          commercial_dehumidifier_qty?: number | null
+          construction_hours?: number | null
+          contributing_factors?: string | null
+          created_at?: string | null
+          dehumidifier_count?: number | null
+          dehumidifier_rate?: number | null
+          demo_labour_rate?: number | null
+          demolition_hours?: number | null
+          direction_photos_enabled?: boolean | null
+          discount_percent?: number | null
+          drying_equipment_enabled?: boolean | null
+          dwelling_type?: Database["public"]["Enums"]["dwelling_type"] | null
+          equipment_cost_ex_gst?: number | null
+          equipment_cost_inc_gst?: number | null
+          equipment_days?: number | null
+          estimated_cost_ex_gst?: number | null
+          estimated_cost_inc_gst?: number | null
+          gst_amount?: number | null
+          hepa_vac?: boolean | null
+          home_sanitation_fogging?: boolean | null
+          id?: string
+          identified_causes?: string | null
+          immediate_actions?: string | null
+          inspection_date?: string
+          inspection_start_time?: string | null
+          inspector_id?: string
+          job_number?: string | null
+          labor_cost_ex_gst?: number | null
+          last_edited_at?: string | null
+          last_edited_by?: string | null
+          lead_id?: string
+          long_term_protection?: string | null
+          manual_labor_override?: boolean | null
+          manual_price_override?: boolean | null
+          manual_total_inc_gst?: number | null
+          no_demolition_hours?: number | null
+          non_demo_labour_rate?: number | null
+          outdoor_comments?: string | null
+          outdoor_dew_point?: number | null
+          outdoor_humidity?: number | null
+          outdoor_temperature?: number | null
+          parking_option?: string | null
+          pdf_approved?: boolean | null
+          pdf_approved_at?: string | null
+          pdf_approved_by?: string | null
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
+          pdf_version?: number | null
+          property_occupation?:
+            | Database["public"]["Enums"]["property_occupation"]
+            | null
+          rcd_box_enabled?: boolean | null
+          rcd_box_qty?: number | null
+          rcd_count?: number | null
+          rcd_rate?: number | null
+          recommended_dehumidifier?: string | null
+          report_generated?: boolean | null
+          report_pdf_url?: string | null
+          report_sent_date?: string | null
+          requested_by?: string | null
+          selected_job_type?: Database["public"]["Enums"]["job_type"] | null
+          stain_removing_antimicrobial?: boolean | null
+          subfloor_hours?: number | null
+          subfloor_labour_rate?: number | null
+          subfloor_required?: boolean | null
+          subtotal_ex_gst?: number | null
+          timeline_text?: string | null
+          total_inc_gst?: number | null
+          total_time_minutes?: number | null
+          triage_description?: string | null
+          updated_at?: string | null
+          waste_disposal_amount?: string | null
+          waste_disposal_cost?: number | null
+          waste_disposal_required?: boolean | null
+          what_success_looks_like?: string | null
+          what_we_discovered?: string | null
+          what_we_found_text?: string | null
+          what_we_will_do_text?: string | null
+          what_you_get_text?: string | null
+          why_this_happened?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspections_lead_id_fkey1"
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
@@ -657,7 +1103,7 @@ export type Database = {
             foreignKeyName: "invoices_inspection_id_fkey"
             columns: ["inspection_id"]
             isOneToOne: false
-            referencedRelation: "inspections"
+            referencedRelation: "inspection_reports"
             referencedColumns: ["id"]
           },
           {
@@ -687,7 +1133,6 @@ export type Database = {
           job_scheduled_date: string | null
           lead_number: string | null
           lead_source: string | null
-          lead_source_other: string | null
           notes: string | null
           payment_received_date: string | null
           phone: string
@@ -698,6 +1143,7 @@ export type Database = {
           property_type: string | null
           property_zone: number | null
           quoted_amount: number | null
+          report_pdf_url: string | null
           scheduled_dates: string[] | null
           scheduled_time: string | null
           special_requests: string | null
@@ -722,7 +1168,6 @@ export type Database = {
           job_scheduled_date?: string | null
           lead_number?: string | null
           lead_source?: string | null
-          lead_source_other?: string | null
           notes?: string | null
           payment_received_date?: string | null
           phone: string
@@ -733,6 +1178,7 @@ export type Database = {
           property_type?: string | null
           property_zone?: number | null
           quoted_amount?: number | null
+          report_pdf_url?: string | null
           scheduled_dates?: string[] | null
           scheduled_time?: string | null
           special_requests?: string | null
@@ -757,7 +1203,6 @@ export type Database = {
           job_scheduled_date?: string | null
           lead_number?: string | null
           lead_source?: string | null
-          lead_source_other?: string | null
           notes?: string | null
           payment_received_date?: string | null
           phone?: string
@@ -768,6 +1213,7 @@ export type Database = {
           property_type?: string | null
           property_zone?: number | null
           quoted_amount?: number | null
+          report_pdf_url?: string | null
           scheduled_dates?: string[] | null
           scheduled_time?: string | null
           special_requests?: string | null
@@ -824,9 +1270,14 @@ export type Database = {
           action_url: string | null
           created_at: string | null
           id: string
+          is_read: boolean | null
+          lead_id: string | null
           message: string
+          metadata: Json | null
           priority: string | null
-          read: boolean | null
+          read_at: string | null
+          related_entity_id: string | null
+          related_entity_type: string | null
           title: string
           type: string
           updated_at: string | null
@@ -836,9 +1287,14 @@ export type Database = {
           action_url?: string | null
           created_at?: string | null
           id?: string
+          is_read?: boolean | null
+          lead_id?: string | null
           message: string
+          metadata?: Json | null
           priority?: string | null
-          read?: boolean | null
+          read_at?: string | null
+          related_entity_id?: string | null
+          related_entity_type?: string | null
           title: string
           type: string
           updated_at?: string | null
@@ -848,11 +1304,84 @@ export type Database = {
           action_url?: string | null
           created_at?: string | null
           id?: string
+          is_read?: boolean | null
+          lead_id?: string | null
           message?: string
+          metadata?: Json | null
           priority?: string | null
-          read?: boolean | null
+          read_at?: string | null
+          related_entity_id?: string | null
+          related_entity_type?: string | null
           title?: string
           type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offline_queue: {
+        Row: {
+          action_type: string
+          conflict_data: Json | null
+          created_at: string | null
+          device_info: Json | null
+          id: string
+          last_sync_attempt_at: string | null
+          network_info: Json | null
+          payload: Json
+          priority: number | null
+          record_id: string | null
+          status: string
+          sync_attempts: number | null
+          sync_error: string | null
+          synced_at: string | null
+          table_name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          conflict_data?: Json | null
+          created_at?: string | null
+          device_info?: Json | null
+          id?: string
+          last_sync_attempt_at?: string | null
+          network_info?: Json | null
+          payload: Json
+          priority?: number | null
+          record_id?: string | null
+          status?: string
+          sync_attempts?: number | null
+          sync_error?: string | null
+          synced_at?: string | null
+          table_name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          conflict_data?: Json | null
+          created_at?: string | null
+          device_info?: Json | null
+          id?: string
+          last_sync_attempt_at?: string | null
+          network_info?: Json | null
+          payload?: Json
+          priority?: number | null
+          record_id?: string | null
+          status?: string
+          sync_attempts?: number | null
+          sync_error?: string | null
+          synced_at?: string | null
+          table_name?: string
           updated_at?: string | null
           user_id?: string
         }
@@ -918,6 +1447,47 @@ export type Database = {
         }
         Relationships: []
       }
+      pdf_versions: {
+        Row: {
+          changes_made: Json | null
+          created_at: string | null
+          created_by: string | null
+          file_size_bytes: number | null
+          id: string
+          inspection_id: string
+          pdf_url: string
+          version_number: number
+        }
+        Insert: {
+          changes_made?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          inspection_id: string
+          pdf_url: string
+          version_number: number
+        }
+        Update: {
+          changes_made?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          inspection_id?: string
+          pdf_url?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdf_versions_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       photos: {
         Row: {
           area_id: string | null
@@ -928,10 +1498,12 @@ export type Database = {
           id: string
           inspection_id: string | null
           mime_type: string | null
+          moisture_reading_id: string | null
           order_index: number | null
           photo_type: string
           storage_path: string
           subfloor_id: string | null
+          uploaded_by: string | null
         }
         Insert: {
           area_id?: string | null
@@ -942,10 +1514,12 @@ export type Database = {
           id?: string
           inspection_id?: string | null
           mime_type?: string | null
+          moisture_reading_id?: string | null
           order_index?: number | null
           photo_type: string
           storage_path: string
           subfloor_id?: string | null
+          uploaded_by?: string | null
         }
         Update: {
           area_id?: string | null
@@ -956,10 +1530,12 @@ export type Database = {
           id?: string
           inspection_id?: string | null
           mime_type?: string | null
+          moisture_reading_id?: string | null
           order_index?: number | null
           photo_type?: string
           storage_path?: string
           subfloor_id?: string | null
+          uploaded_by?: string | null
         }
         Relationships: [
           {
@@ -974,6 +1550,13 @@ export type Database = {
             columns: ["inspection_id"]
             isOneToOne: false
             referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photos_moisture_reading_id_fkey"
+            columns: ["moisture_reading_id"]
+            isOneToOne: false
+            referencedRelation: "moisture_readings"
             referencedColumns: ["id"]
           },
           {
@@ -1060,6 +1643,84 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_logs: {
+        Row: {
+          cost_cents: number | null
+          created_at: string | null
+          delivered_at: string | null
+          error_message: string | null
+          id: string
+          inspection_id: string | null
+          lead_id: string | null
+          message: string
+          message_type: string | null
+          metadata: Json | null
+          provider: string | null
+          provider_message_id: string | null
+          recipient_name: string | null
+          recipient_phone: string
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          cost_cents?: number | null
+          created_at?: string | null
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          inspection_id?: string | null
+          lead_id?: string | null
+          message: string
+          message_type?: string | null
+          metadata?: Json | null
+          provider?: string | null
+          provider_message_id?: string | null
+          recipient_name?: string | null
+          recipient_phone: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          cost_cents?: number | null
+          created_at?: string | null
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          inspection_id?: string | null
+          lead_id?: string | null
+          message?: string
+          message_type?: string | null
+          metadata?: Json | null
+          provider?: string | null
+          provider_message_id?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_logs_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sms_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subfloor_data: {
         Row: {
           comments: string | null
@@ -1144,6 +1805,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      suburb_zones: {
+        Row: {
+          created_at: string | null
+          id: string
+          notes: string | null
+          postcode: string
+          region: string | null
+          suburb: string
+          updated_at: string | null
+          zone: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          postcode: string
+          region?: string | null
+          suburb: string
+          updated_at?: string | null
+          zone: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          postcode?: string
+          region?: string | null
+          suburb?: string
+          updated_at?: string | null
+          zone?: number
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -1232,8 +1926,59 @@ export type Database = {
         Args: { amount_ex_gst: number }
         Returns: number
       }
+      calculate_travel_time: {
+        Args: { zone_from: number; zone_to: number }
+        Returns: number
+      }
+      check_booking_conflicts: {
+        Args: {
+          p_end_time: string
+          p_exclude_booking_id?: string
+          p_start_time: string
+          p_technician_ids: string[]
+        }
+        Returns: {
+          booking_id: string
+          conflict_end: string
+          conflict_start: string
+          customer_name: string
+          lead_id: string
+          property_suburb: string
+          technician_id: string
+        }[]
+      }
+      generate_inspection_number: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_lead_number: { Args: never; Returns: string }
+      get_admin_user_ids: {
+        Args: never
+        Returns: {
+          user_id: string
+        }[]
+      }
+      get_pending_sync_items: {
+        Args: { p_limit?: number; p_user_id: string }
+        Returns: {
+          action_type: string
+          created_at: string
+          payload: Json
+          priority: number
+          queue_id: string
+          record_id: string
+          table_name: string
+        }[]
+      }
+      get_suburb_details: {
+        Args: { suburb_name: string }
+        Returns: {
+          notes: string
+          postcode: string
+          region: string
+          suburb: string
+          zone: number
+        }[]
+      }
+      get_zone_by_suburb: { Args: { suburb_name: string }; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1241,7 +1986,26 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_admin: { Args: { _user_id: string }; Returns: boolean }
+      has_travel_time_conflict:
+        | {
+            Args: {
+              p_assigned_to: string
+              p_end_datetime: string
+              p_start_datetime: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              p_new_start_time: string
+              p_new_zone: number
+              p_technician_id: string
+            }
+            Returns: boolean
+          }
+      is_admin:
+        | { Args: never; Returns: boolean }
+        | { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "technician" | "manager"

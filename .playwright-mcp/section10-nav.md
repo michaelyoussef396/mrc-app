@@ -1,0 +1,143 @@
+### Page state
+- Page URL: http://localhost:8080/inspection/new?leadId=ab59470c-51d4-4d94-971b-d5b74244ab20
+- Page Title: MRC - Mould & Restoration Co.
+- Page Snapshot:
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - main [ref=e17]:
+    - generic [ref=e18]:
+      - navigation [ref=e32]:
+        - generic [ref=e33]:
+          - generic [ref=e34]:
+            - img "Mould & Restoration Co." [ref=e35]
+            - link "23" [ref=e36] [cursor=pointer]:
+              - /url: /notifications
+              - generic "23 unread notifications" [ref=e37]:
+                - img [ref=e38]
+                - generic [ref=e41]: "23"
+          - button "A admin" [ref=e44] [cursor=pointer]:
+            - generic [ref=e45]: A
+            - generic [ref=e46]: admin
+            - img [ref=e47]
+      - generic [ref=e49]:
+        - navigation [ref=e50]:
+          - generic [ref=e51]:
+            - button "← Exit" [ref=e52] [cursor=pointer]:
+              - generic [ref=e53]: ←
+              - generic [ref=e54]: Exit
+            - generic [ref=e56]: MRC-2026-0662
+          - generic [ref=e58]: 0% Complete • Section 1 of 10
+        - main [ref=e59]:
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - img [ref=e63]
+              - heading "Basic Information" [level=1] [ref=e66]
+              - paragraph [ref=e67]: Section 1 of 10
+            - generic [ref=e68]:
+              - heading "Customer & Property Information" [level=3] [ref=e69]
+              - generic [ref=e70]:
+                - generic [ref=e71]:
+                  - generic [ref=e72]: Customer
+                  - generic [ref=e73]: Amy Michael
+                - generic [ref=e74]:
+                  - generic [ref=e75]: Phone
+                  - generic [ref=e76]: "0433880403"
+                - generic [ref=e77]:
+                  - generic [ref=e78]: Email
+                  - generic [ref=e79]: michaelyoussef396@gmail.com
+                - generic [ref=e80]:
+                  - generic [ref=e81]: Property
+                  - generic [ref=e82]: 35 wellington street, Mernda, VIC, 3754
+                - generic [ref=e83]:
+                  - generic [ref=e84]: Urgency
+                  - generic [ref=e85]: ASAP
+                - generic [ref=e86]:
+                  - generic [ref=e87]: Scheduled
+                  - generic [ref=e88]: 17 Jan, 11:00 am
+            - generic [ref=e90]:
+              - heading "Basic Information" [level=2] [ref=e91]
+              - generic [ref=e92]:
+                - generic [ref=e93]: Job Number
+                - textbox [ref=e94]: MRC-2026-0662
+              - generic [ref=e95]:
+                - generic [ref=e96]: Triage (Job Description)
+                - textbox [ref=e97]: test run issue description
+              - generic [ref=e98]:
+                - generic [ref=e99]: Address
+                - textbox [ref=e100]: 35 wellington street, Mernda, VIC, 3754
+              - generic [ref=e101]:
+                - generic [ref=e102]: Inspector *
+                - combobox [ref=e103] [cursor=pointer]:
+                  - option "Select inspector..."
+                  - option "Michael Youssef" [selected]
+                  - option "System Administrator"
+              - generic [ref=e104]:
+                - generic [ref=e105]: Requested By
+                - textbox [ref=e106]: Amy Michael
+              - generic [ref=e107]:
+                - generic [ref=e108]: Attention To
+                - textbox "Company or person name" [ref=e109]: attention to
+              - generic [ref=e110]:
+                - generic [ref=e111]: Inspection Date *
+                - textbox [ref=e112]: 2026-01-03
+            - generic [ref=e113]:
+              - button "💾 Save" [ref=e114] [cursor=pointer]:
+                - generic [ref=e115]: 💾
+                - generic [ref=e116]: Save
+              - button "Next →" [ref=e117] [cursor=pointer]:
+                - generic [ref=e118]: Next
+                - generic [ref=e119]: →
+            - generic [ref=e120]:
+              - button "Basic Information" [ref=e121] [cursor=pointer]:
+                - img [ref=e123]
+                - generic [ref=e126]: Basic Information
+              - button "Property Details" [ref=e127] [cursor=pointer]:
+                - img [ref=e129]
+                - generic [ref=e132]: Property Details
+              - button "Area Inspection" [ref=e133] [cursor=pointer]:
+                - img [ref=e135]
+                - generic [ref=e138]: Area Inspection
+              - button "Subfloor" [ref=e139] [cursor=pointer]:
+                - img [ref=e141]
+                - generic [ref=e143]: Subfloor
+              - button "Outdoor Info" [ref=e144] [cursor=pointer]:
+                - img [ref=e146]
+                - generic [ref=e148]: Outdoor Info
+              - button "Waste Disposal" [ref=e149] [cursor=pointer]:
+                - img [ref=e151]
+                - generic [ref=e154]: Waste Disposal
+              - button "Work Procedure" [ref=e155] [cursor=pointer]:
+                - img [ref=e157]
+                - generic [ref=e159]: Work Procedure
+              - button "Job Summary" [ref=e160] [cursor=pointer]:
+                - img [ref=e162]
+                - generic [ref=e165]: Job Summary
+              - button "Cost Estimate" [ref=e166] [cursor=pointer]:
+                - img [ref=e168]
+                - generic [ref=e170]: Cost Estimate
+              - button "Job Summary (AI)" [ref=e171] [cursor=pointer]:
+                - img [ref=e173]
+                - generic [ref=e175]: Job Summary (AI)
+  - generic [ref=e23]:
+    - generic [ref=e24]:
+      - generic [ref=e25]: 🔐
+      - generic [ref=e26]: Session Monitor
+    - generic [ref=e176]:
+      - generic [ref=e177]: ✅
+      - generic [ref=e178]: Active Session
+    - generic [ref=e179]:
+      - generic [ref=e180]:
+        - generic [ref=e181]: 👤
+        - generic [ref=e182]: admin@mrc.com.au
+      - generic [ref=e183]:
+        - generic [ref=e184]: ⏰
+        - generic [ref=e185]: 17:47:27
+      - generic [ref=e186]:
+        - generic [ref=e187]: ⏳
+        - generic [ref=e188]: 37m
+        - generic [ref=e189]: left
+    - generic [ref=e30]: Dev mode only • Updates every 30s
+```

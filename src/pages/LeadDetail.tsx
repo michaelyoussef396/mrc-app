@@ -85,6 +85,21 @@ export default function LeadDetail() {
     },
   });
 
+  // Fetch inspection data for this lead
+  const { data: inspection } = useQuery({
+    queryKey: ["inspection", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inspections")
+        .select("*")
+        .eq("lead_id", id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows found
+      return data;
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -808,11 +823,217 @@ export default function LeadDetail() {
           </TabsContent>
 
           <TabsContent value="inspection" className="mt-6">
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                Inspection details will appear here once inspection is scheduled
-              </CardContent>
-            </Card>
+            {inspection ? (
+              <div className="space-y-6">
+                {/* SECTION 10: AI JOB SUMMARY */}
+                {inspection.ai_summary_text && (
+                  <div style={{
+                    background: 'white',
+                    borderRadius: '12px',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Section Header - Purple */}
+                    <div style={{
+                      background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                      padding: '16px 24px',
+                      borderBottom: '3px solid #6b21a8'
+                    }}>
+                      <div style={{
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        color: 'rgba(255, 255, 255, 0.8)',
+                        letterSpacing: '0.05em',
+                        marginBottom: '4px'
+                      }}>
+                        AI GENERATED
+                      </div>
+                      <div style={{
+                        fontSize: '20px',
+                        fontWeight: '700',
+                        color: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        <span>🤖</span>
+                        <span>JOB SUMMARY</span>
+                      </div>
+                    </div>
+
+                    {/* Section Content */}
+                    <div style={{ padding: '24px' }}>
+                      {/* AI Generated Summary */}
+                      <div style={{ marginBottom: '24px' }}>
+                        <div style={{
+                          background: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)',
+                          border: '2px solid #e9d5ff',
+                          borderRadius: '12px',
+                          padding: '24px',
+                          fontSize: '15px',
+                          lineHeight: '1.8',
+                          color: '#374151',
+                          whiteSpace: 'pre-wrap'
+                        }}>
+                          {inspection.ai_summary_text}
+                        </div>
+
+                        {/* Generation timestamp */}
+                        {inspection.ai_summary_generated_at && (
+                          <div style={{
+                            marginTop: '12px',
+                            fontSize: '13px',
+                            color: '#6b7280',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}>
+                            <span>🤖</span>
+                            <span>
+                              Generated {new Date(inspection.ai_summary_generated_at).toLocaleString('en-AU', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* PDF Sections (if they exist) */}
+                      {(inspection.what_we_found_text || inspection.what_we_will_do_text || inspection.what_you_get_text) && (
+                        <div style={{
+                          display: 'grid',
+                          gap: '20px',
+                          marginTop: '24px'
+                        }}>
+                          {/* What We Found - Yellow/Amber */}
+                          {inspection.what_we_found_text && (
+                            <div>
+                              <div style={{
+                                fontSize: '16px',
+                                fontWeight: '700',
+                                color: '#7c3aed',
+                                marginBottom: '12px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                              }}>
+                                <span>🔍</span>
+                                <span>What We Found</span>
+                              </div>
+                              <div style={{
+                                background: '#fef3c7',
+                                border: '2px solid #fbbf24',
+                                borderLeft: '4px solid #f59e0b',
+                                borderRadius: '8px',
+                                padding: '16px',
+                                fontSize: '14px',
+                                lineHeight: '1.7',
+                                color: '#78350f',
+                                whiteSpace: 'pre-wrap'
+                              }}>
+                                {inspection.what_we_found_text}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* What We Will Do - Blue */}
+                          {inspection.what_we_will_do_text && (
+                            <div>
+                              <div style={{
+                                fontSize: '16px',
+                                fontWeight: '700',
+                                color: '#7c3aed',
+                                marginBottom: '12px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                              }}>
+                                <span>🛠️</span>
+                                <span>What We Will Do</span>
+                              </div>
+                              <div style={{
+                                background: '#dbeafe',
+                                border: '2px solid #3b82f6',
+                                borderLeft: '4px solid #2563eb',
+                                borderRadius: '8px',
+                                padding: '16px',
+                                fontSize: '14px',
+                                lineHeight: '1.7',
+                                color: '#1e3a8a',
+                                whiteSpace: 'pre-wrap'
+                              }}>
+                                {inspection.what_we_will_do_text}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* What You Get - Green */}
+                          {inspection.what_you_get_text && (
+                            <div>
+                              <div style={{
+                                fontSize: '16px',
+                                fontWeight: '700',
+                                color: '#7c3aed',
+                                marginBottom: '12px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                              }}>
+                                <span>✨</span>
+                                <span>What You Get</span>
+                              </div>
+                              <div style={{
+                                background: '#d1fae5',
+                                border: '2px solid #10b981',
+                                borderLeft: '4px solid #059669',
+                                borderRadius: '8px',
+                                padding: '16px',
+                                fontSize: '14px',
+                                lineHeight: '1.7',
+                                color: '#065f46',
+                                whiteSpace: 'pre-wrap'
+                              }}>
+                                {inspection.what_you_get_text}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* If no AI summary yet, show a message */}
+                {!inspection.ai_summary_text && (
+                  <Card>
+                    <CardContent className="py-12 text-center text-muted-foreground">
+                      <div className="flex flex-col items-center gap-4">
+                        <span className="text-4xl">🤖</span>
+                        <p>AI summary has not been generated yet.</p>
+                        <p className="text-sm">Complete the inspection form to generate the AI summary.</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  Inspection details will appear here once inspection is scheduled
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="invoice" className="mt-6">

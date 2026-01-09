@@ -1,0 +1,155 @@
+### New console messages
+- [LOG] GoTrueClient@0 (2.76.1) 2026-01-08T06:04:31.452Z #_acquireLock begin -1 @ http://localhost:808...
+- [LOG] GoTrueClient@0 (2.76.1) 2026-01-08T06:04:31.453Z #_acquireLock lock acquired for storage key s...
+- [LOG] GoTrueClient@0 (2.76.1) 2026-01-08T06:04:31.453Z #_useSession begin @ http://localhost:8080/no...
+- [LOG] GoTrueClient@0 (2.76.1) 2026-01-08T06:04:31.453Z #__loadSession() begin @ http://localhost:808...
+- [LOG] GoTrueClient@0 (2.76.1) 2026-01-08T06:04:31.453Z #getSession() session from storage {access_to...
+- [LOG] GoTrueClient@0 (2.76.1) 2026-01-08T06:04:31.453Z #__loadSession() session has not expired expi...
+- [LOG] GoTrueClient@0 (2.76.1) 2026-01-08T06:04:31.453Z #__loadSession() end @ http://localhost:8080/...
+- [LOG] GoTrueClient@0 (2.76.1) 2026-01-08T06:04:31.453Z #_useSession end @ http://localhost:8080/node...
+- [LOG] GoTrueClient@0 (2.76.1) 2026-01-08T06:04:31.453Z #_acquireLock lock released for storage key s...
+- [LOG] GoTrueClient@0 (2.76.1) 2026-01-08T06:04:31.453Z #_acquireLock end @ http://localhost:8080/nod...
+
+### Page state
+- Page URL: http://localhost:8080/inspection/new?leadId=ab59470c-51d4-4d94-971b-d5b74244ab20
+- Page Title: MRC - Mould & Restoration Co.
+- Page Snapshot:
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - main [ref=e17]:
+    - generic [ref=e18]:
+      - navigation [ref=e43]:
+        - generic [ref=e44]:
+          - generic [ref=e45]:
+            - img "Mould & Restoration Co." [ref=e46]
+            - link "23" [ref=e47] [cursor=pointer]:
+              - /url: /notifications
+              - generic "23 unread notifications" [ref=e48]:
+                - img [ref=e49]
+                - generic [ref=e52]: "23"
+          - button "A admin" [ref=e55] [cursor=pointer]:
+            - generic [ref=e56]: A
+            - generic [ref=e57]: admin
+            - img [ref=e58]
+      - generic [ref=e60]:
+        - navigation [ref=e61]:
+          - generic [ref=e62]:
+            - button "← Exit" [ref=e63] [cursor=pointer]:
+              - generic [ref=e64]: ←
+              - generic [ref=e65]: Exit
+            - generic [ref=e67]: MRC-2026-0662
+          - generic [ref=e69]: 0% Complete • Section 1 of 10
+        - main [ref=e70]:
+          - generic [ref=e71]:
+            - generic [ref=e72]:
+              - img [ref=e74]
+              - heading "Basic Information" [level=1] [ref=e77]
+              - paragraph [ref=e78]: Section 1 of 10
+            - generic [ref=e79]:
+              - heading "Customer & Property Information" [level=3] [ref=e80]
+              - generic [ref=e81]:
+                - generic [ref=e82]:
+                  - generic [ref=e83]: Customer
+                  - generic [ref=e84]: Amy Michael
+                - generic [ref=e85]:
+                  - generic [ref=e86]: Phone
+                  - generic [ref=e87]: "0433880403"
+                - generic [ref=e88]:
+                  - generic [ref=e89]: Email
+                  - generic [ref=e90]: michaelyoussef396@gmail.com
+                - generic [ref=e91]:
+                  - generic [ref=e92]: Property
+                  - generic [ref=e93]: 35 wellington street, Mernda, VIC, 3754
+                - generic [ref=e94]:
+                  - generic [ref=e95]: Urgency
+                  - generic [ref=e96]: ASAP
+                - generic [ref=e97]:
+                  - generic [ref=e98]: Scheduled
+                  - generic [ref=e99]: 17 Jan, 11:00 am
+            - generic [ref=e101]:
+              - heading "Basic Information" [level=2] [ref=e102]
+              - generic [ref=e103]:
+                - generic [ref=e104]: Job Number
+                - textbox [ref=e105]: MRC-2026-0662
+              - generic [ref=e106]:
+                - generic [ref=e107]: Triage (Job Description)
+                - textbox [ref=e108]: test run issue description
+              - generic [ref=e109]:
+                - generic [ref=e110]: Address
+                - textbox [ref=e111]: 35 wellington street, Mernda, VIC, 3754
+              - generic [ref=e112]:
+                - generic [ref=e113]: Inspector *
+                - combobox [ref=e114] [cursor=pointer]:
+                  - option "Select inspector..."
+                  - option "Michael Youssef" [selected]
+                  - option "System Administrator"
+              - generic [ref=e115]:
+                - generic [ref=e116]: Requested By
+                - textbox [ref=e117]: Amy Michael
+              - generic [ref=e118]:
+                - generic [ref=e119]: Attention To
+                - textbox "Company or person name" [ref=e120]: attention to
+              - generic [ref=e121]:
+                - generic [ref=e122]: Inspection Date *
+                - textbox [ref=e123]: 2026-01-03
+            - generic [ref=e124]:
+              - button "💾 Save" [ref=e125] [cursor=pointer]:
+                - generic [ref=e126]: 💾
+                - generic [ref=e127]: Save
+              - button "Next →" [ref=e128] [cursor=pointer]:
+                - generic [ref=e129]: Next
+                - generic [ref=e130]: →
+            - generic [ref=e131]:
+              - button "Basic Information" [ref=e132] [cursor=pointer]:
+                - img [ref=e134]
+                - generic [ref=e137]: Basic Information
+              - button "Property Details" [ref=e138] [cursor=pointer]:
+                - img [ref=e140]
+                - generic [ref=e143]: Property Details
+              - button "Area Inspection" [ref=e144] [cursor=pointer]:
+                - img [ref=e146]
+                - generic [ref=e149]: Area Inspection
+              - button "Subfloor" [ref=e150] [cursor=pointer]:
+                - img [ref=e152]
+                - generic [ref=e154]: Subfloor
+              - button "Outdoor Info" [ref=e155] [cursor=pointer]:
+                - img [ref=e157]
+                - generic [ref=e159]: Outdoor Info
+              - button "Waste Disposal" [ref=e160] [cursor=pointer]:
+                - img [ref=e162]
+                - generic [ref=e165]: Waste Disposal
+              - button "Work Procedure" [ref=e166] [cursor=pointer]:
+                - img [ref=e168]
+                - generic [ref=e170]: Work Procedure
+              - button "Job Summary" [ref=e171] [cursor=pointer]:
+                - img [ref=e173]
+                - generic [ref=e176]: Job Summary
+              - button "Cost Estimate" [ref=e177] [cursor=pointer]:
+                - img [ref=e179]
+                - generic [ref=e181]: Cost Estimate
+              - button "Job Summary (AI)" [ref=e182] [cursor=pointer]:
+                - img [ref=e184]
+                - generic [ref=e186]: Job Summary (AI)
+  - generic [ref=e23]:
+    - generic [ref=e24]:
+      - generic [ref=e25]: 🔐
+      - generic [ref=e26]: Session Monitor
+    - generic [ref=e27]:
+      - generic [ref=e28]: ✅
+      - generic [ref=e29]: Active Session
+    - generic [ref=e30]:
+      - generic [ref=e31]:
+        - generic [ref=e32]: 👤
+        - generic [ref=e33]: admin@mrc.com.au
+      - generic [ref=e34]:
+        - generic [ref=e35]: ⏰
+        - generic [ref=e36]: 17:47:27
+      - generic [ref=e37]:
+        - generic [ref=e38]: ⏳
+        - generic [ref=e39]: 42m
+        - generic [ref=e40]: left
+    - generic [ref=e41]: Dev mode only • Updates every 30s
+```

@@ -22,6 +22,15 @@ interface Lead {
   property_type?: string
 }
 
+interface MoistureReading {
+  id: string
+  area_id: string
+  reading_order: number
+  title: string
+  moisture_percentage: number | null
+  moisture_status: string | null
+}
+
 interface InspectionArea {
   id: string
   area_name: string
@@ -38,6 +47,7 @@ interface InspectionArea {
   mould_contents: boolean
   mould_grout_silicone: boolean
   mould_none_visible: boolean
+  mould_description: string  // Text field for mould visibility
   comments: string
   temperature: number
   humidity: number
@@ -46,6 +56,9 @@ interface InspectionArea {
   demolition_required: boolean
   demolition_time_minutes: number
   demolition_description: string
+  moisture_readings_enabled: boolean
+  moisture_readings?: MoistureReading[]
+  external_moisture: number | null  // Dedicated external moisture field
 }
 
 interface Photo {
@@ -135,8 +148,14 @@ function formatDate(dateString: string | null | undefined): string {
   })
 }
 
-// Get mould locations as a formatted list
-function getMouldLocations(area: InspectionArea): string {
+// Get mould description - uses text field first, falls back to legacy checkboxes for old records
+function getMouldDescription(area: InspectionArea): string {
+  // Primary: Use the mould_description text field if available
+  if (area.mould_description && area.mould_description.trim()) {
+    return area.mould_description.trim()
+  }
+
+  // Fallback: Build from legacy boolean checkboxes (backwards compatibility)
   const locations: string[] = []
   if (area.mould_ceiling) locations.push('Ceiling')
   if (area.mould_cornice) locations.push('Cornice')
@@ -151,6 +170,24 @@ function getMouldLocations(area: InspectionArea): string {
   if (area.mould_grout_silicone) locations.push('Grout/Silicone')
   if (area.mould_none_visible) locations.push('No visible mould')
   return locations.join(', ') || 'Not specified'
+}
+
+// Get valid value - filters out placeholder text and empty values
+function getValidValue(primary: string | null | undefined, fallback: string | null | undefined, defaultValue: string): string {
+  // List of invalid placeholder values to filter out
+  const invalidValues = ['attention to', 'requested by', 'directed to', 'not specified', 'n/a', '']
+
+  // Check primary value
+  if (primary && !invalidValues.includes(primary.toLowerCase().trim())) {
+    return primary
+  }
+
+  // Check fallback value
+  if (fallback && !invalidValues.includes(fallback.toLowerCase().trim())) {
+    return fallback
+  }
+
+  return defaultValue
 }
 
 // Get treatment methods as a list
@@ -281,12 +318,15 @@ function stripMarkdown(text: string | null | undefined): string {
   return plain.trim()
 }
 
-// Get photo URL from storage path
+// Photo URLs will be generated as signed URLs after fetching inspection data
+// This placeholder will be replaced with actual signed URLs
+let photoSignedUrls: Map<string, string> = new Map()
+
+// Get photo URL from storage path (uses pre-generated signed URLs)
 function getPhotoUrl(storagePath: string): string {
   if (!storagePath) return ''
-  // Use the public bucket URL pattern
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
-  return `${supabaseUrl}/storage/v1/object/public/inspection-photos/${storagePath}`
+  // Return the pre-generated signed URL if available
+  return photoSignedUrls.get(storagePath) || ''
 }
 
 // Generate photo HTML element
@@ -319,7 +359,19 @@ function generateAreaPagesHtml(areas: InspectionArea[] | undefined, photos: Phot
 
   return areas.map((area, index) => {
     const areaPhotos = photos?.filter(p => p.area_id === area.id) || []
-    const mouldLocations = getMouldLocations(area)
+    const mouldLocations = getMouldDescription(area)
+
+    // Get moisture readings - sorted by reading_order
+    const moistureReadings = area.moisture_readings?.sort((a, b) => (a.reading_order || 0) - (b.reading_order || 0)) || []
+    // Internal moisture: Use first reading from moisture_readings table
+    const internalMoisture = moistureReadings.find(r => r.title?.toLowerCase().includes('internal')) || moistureReadings[0]
+    // External moisture: Use dedicated area.external_moisture field
+
+    // Separate regular photos from infrared photos
+    const regularPhotos = areaPhotos.filter(p => p.caption !== 'infrared' && p.caption !== 'natural_infrared')
+    const infraredPhoto = areaPhotos.find(p => p.caption === 'infrared')
+    const naturalInfraredPhoto = areaPhotos.find(p => p.caption === 'natural_infrared')
+    const hasInfraredPhotos = infraredPhoto || naturalInfraredPhoto
 
     return `
     <div class="report-page-flex page-break">
@@ -348,19 +400,24 @@ function generateAreaPagesHtml(areas: InspectionArea[] | undefined, photos: Phot
             <div style="flex: 1; min-width: 150px;">DEW POINT: ${area.dew_point || 0}°C</div>
             <div style="flex: 2; min-width: 200px;">VISIBLE MOULD: ${mouldLocations}</div>
           </div>
-          <div style="color: white; font-size: 15px; margin-top: 15px;">EST. JOB TIME: ${area.job_time_minutes || 0} min</div>
+          ${area.moisture_readings_enabled && (internalMoisture || area.external_moisture) ? `
+          <div style="display: flex; flex-wrap: wrap; gap: 15px; color: white; font-size: 15px; margin-top: 15px;">
+            <div style="flex: 1; min-width: 200px;">INTERNAL MOISTURE: ${internalMoisture?.moisture_percentage ?? '-'}%</div>
+            <div style="flex: 1; min-width: 200px;">EXTERNAL MOISTURE: ${area.external_moisture ?? '-'}%</div>
+          </div>
+          ` : ''}
         </div>
 
         <!-- Photos and Notes Row -->
         <div style="display: flex; gap: 20px; margin-top: 20px;">
           <!-- Photo grid (2x2) -->
           <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; max-width: 420px;">
-            ${areaPhotos.slice(0, 4).map((photo, i) => `
+            ${regularPhotos.slice(0, 4).map((photo, i) => `
               <div style="width: 100%; aspect-ratio: 1; background: #e5e5e5; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
                 ${photo.storage_path ? `<img src="${getPhotoUrl(photo.storage_path)}" style="width: 100%; height: 100%; object-fit: cover;" alt="${photo.caption || `Area photo ${i + 1}`}" />` : `<span style="color: #888;">Photo ${i + 1}</span>`}
               </div>
             `).join('')}
-            ${Array(Math.max(0, 4 - (areaPhotos.length || 0))).fill(0).map((_, i) => `
+            ${Array(Math.max(0, 4 - (regularPhotos.length || 0))).fill(0).map((_, i) => `
               <div style="width: 100%; aspect-ratio: 1; background: #e5e5e5; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
                 <span style="color: #888;">No photo</span>
               </div>
@@ -374,12 +431,30 @@ function generateAreaPagesHtml(areas: InspectionArea[] | undefined, photos: Phot
           </div>
         </div>
 
+        ${hasInfraredPhotos ? `
+        <!-- Infrared Photos Row -->
+        <div style="display: flex; gap: 20px; margin-top: 20px;">
+          <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 420px;">
+            <div style="width: 100%; aspect-ratio: 1.5; background: #e5e5e5; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+              ${infraredPhoto?.storage_path ? `<img src="${getPhotoUrl(infraredPhoto.storage_path)}" style="width: 100%; height: 100%; object-fit: cover;" alt="Infrared view" />` : `<span style="color: #888;">Infrared Photo</span>`}
+            </div>
+            <div style="width: 100%; aspect-ratio: 1.5; background: #e5e5e5; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+              ${naturalInfraredPhoto?.storage_path ? `<img src="${getPhotoUrl(naturalInfraredPhoto.storage_path)}" style="width: 100%; height: 100%; object-fit: cover;" alt="Natural infrared view" />` : `<span style="color: #888;">Natural Infrared</span>`}
+            </div>
+          </div>
+          <div style="flex: 1; min-width: 250px;">
+            <div style="font-size: 17px; font-weight: 400; margin-bottom: 10px;">INFRARED NOTES</div>
+            <div style="font-size: 13px; line-height: 1.6;">Thermal imaging reveals moisture patterns not visible to the naked eye, helping identify hidden water damage and potential mould growth areas.</div>
+          </div>
+        </div>
+        ` : ''}
+
         ${area.demolition_required ? `
         <!-- Demolition Info -->
         <div class="content-section" style="margin-top: 30px;">
           <div style="color: #CD0000; font-size: 17px; font-weight: 400; margin-bottom: 10px;">DEMOLITION REQUIRED</div>
           <div style="font-size: 14px; line-height: 1.5;">
-            Time Required: ${area.demolition_time_minutes || 0} minutes<br/>
+            <span style="font-weight: 600;">Demolition List:</span><br/>
             ${area.demolition_description || 'Demolition work required in this area.'}
           </div>
         </div>
@@ -390,7 +465,7 @@ function generateAreaPagesHtml(areas: InspectionArea[] | undefined, photos: Phot
 }
 
 // Generate the HTML report by replacing placeholders
-function generateReportHtml(inspection: Inspection, templateHtml: string): string {
+function generateReportHtml(inspection: Inspection, templateHtml: string, inspectorName: string = 'Inspector'): string {
   const lead = inspection.lead
 
   // Build full property address
@@ -403,7 +478,7 @@ function generateReportHtml(inspection: Inspection, templateHtml: string): strin
 
   // Areas summary
   const areasSummary = inspection.areas?.map(area =>
-    `${area.area_name}: ${getMouldLocations(area)}`
+    `${area.area_name}: ${getMouldDescription(area)}`
   ).join('\n') || 'No areas inspected'
 
   // Build examined areas list (for cover page - one per line)
@@ -415,6 +490,18 @@ function generateReportHtml(inspection: Inspection, templateHtml: string): strin
 
   // Get outdoor photos
   const outdoorPhotos = inspection.photos?.filter(p => p.photo_type === 'outdoor') || []
+
+  // Debug logging for outdoor photos
+  console.log('🏠 OUTDOOR PHOTOS DEBUG:', {
+    totalOutdoorPhotos: outdoorPhotos.length,
+    photos: outdoorPhotos.map(p => ({
+      caption: p.caption,
+      photo_type: p.photo_type,
+      storage_path: p.storage_path,
+      hasSignedUrl: photoSignedUrls.has(p.storage_path)
+    }))
+  })
+
   const outdoorPhoto1Html = outdoorPhotos[0]?.storage_path
     ? `<img src="${getPhotoUrl(outdoorPhotos[0].storage_path)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 15px;" alt="Outdoor photo 1" />`
     : '<span style="color: #888; font-size: 14px;">Photo 1</span>'
@@ -425,8 +512,23 @@ function generateReportHtml(inspection: Inspection, templateHtml: string): strin
     ? `<img src="${getPhotoUrl(outdoorPhotos[2].storage_path)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 15px;" alt="Outdoor photo 3" />`
     : '<span style="color: #888; font-size: 14px;">Photo 3</span>'
 
-  // Get cover photo
-  const coverPhoto = inspection.photos?.find(p => p.photo_type === 'general')
+  // Get cover photo - prioritize front_house, then general, then first outdoor photo
+  const frontHousePhoto = inspection.photos?.find(p => p.caption === 'front_house')
+  const generalPhoto = inspection.photos?.find(p => p.photo_type === 'general')
+  const firstOutdoorPhoto = inspection.photos?.find(p => p.photo_type === 'outdoor')
+  const coverPhoto = frontHousePhoto || generalPhoto || firstOutdoorPhoto
+
+  // Debug logging for cover photo
+  console.log('🖼️ COVER PHOTO DEBUG:', {
+    totalPhotos: inspection.photos?.length || 0,
+    frontHousePhoto: frontHousePhoto ? { caption: frontHousePhoto.caption, storage_path: frontHousePhoto.storage_path } : null,
+    generalPhoto: generalPhoto ? { photo_type: generalPhoto.photo_type, storage_path: generalPhoto.storage_path } : null,
+    firstOutdoorPhoto: firstOutdoorPhoto ? { photo_type: firstOutdoorPhoto.photo_type, caption: firstOutdoorPhoto.caption, storage_path: firstOutdoorPhoto.storage_path } : null,
+    selectedCoverPhoto: coverPhoto ? { storage_path: coverPhoto.storage_path, caption: coverPhoto.caption, photo_type: coverPhoto.photo_type } : null,
+    signedUrlExists: coverPhoto?.storage_path ? photoSignedUrls.has(coverPhoto.storage_path) : false,
+    signedUrl: coverPhoto?.storage_path ? getPhotoUrl(coverPhoto.storage_path) : 'NO STORAGE PATH'
+  })
+
   const coverPhotoHtml = coverPhoto?.storage_path
     ? `<img src="${getPhotoUrl(coverPhoto.storage_path)}" style="width: 100%; height: 100%; object-fit: cover;" alt="Property" />`
     : '<span style="color: #888; font-size: 16px;">Property Photo</span>'
@@ -480,9 +582,9 @@ function generateReportHtml(inspection: Inspection, templateHtml: string): strin
     .replace(/\{\{job_number\}\}/g, inspection.job_number || 'N/A')
     .replace(/\{\{inspection_date\}\}/g, formatDate(inspection.inspection_date))
     .replace(/\{\{inspection_time\}\}/g, inspection.inspection_start_time || '')
-    .replace(/\{\{inspector_name\}\}/g, 'Clayton') // Default inspector
-    .replace(/\{\{requested_by\}\}/g, inspection.requested_by || '')
-    .replace(/\{\{attention_to\}\}/g, inspection.attention_to || lead?.full_name || 'Property Owner')
+    .replace(/\{\{inspector_name\}\}/g, inspectorName)
+    .replace(/\{\{requested_by\}\}/g, getValidValue(inspection.requested_by, lead?.full_name, 'Property Owner'))
+    .replace(/\{\{attention_to\}\}/g, getValidValue(inspection.attention_to, lead?.full_name, 'Property Owner'))
     .replace(/\{\{triage_description\}\}/g, inspection.triage_description || '')
 
     // Outdoor Conditions
@@ -611,13 +713,13 @@ Deno.serve(async (req) => {
 
     console.log(`Generating PDF for inspection: ${inspectionId}, regenerate: ${regenerate}`)
 
-    // Fetch inspection with lead, areas, and photos
+    // Fetch inspection with lead, areas (including moisture readings), and photos
     const { data: inspection, error: fetchError } = await supabase
       .from('inspections')
       .select(`
         *,
         lead:leads(*),
-        areas:inspection_areas(*),
+        areas:inspection_areas(*,moisture_readings(*)),
         photos:photos(*)
       `)
       .eq('id', inspectionId)
@@ -636,6 +738,50 @@ Deno.serve(async (req) => {
       inspection.areas.sort((a: InspectionArea, b: InspectionArea) =>
         (a.area_order || 0) - (b.area_order || 0)
       )
+    }
+
+    // Fetch inspector name from profiles table
+    let inspectorName = 'Inspector'
+    if (inspection.inspector_id) {
+      const { data: inspectorProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', inspection.inspector_id)
+        .single()
+
+      if (inspectorProfile?.full_name) {
+        inspectorName = inspectorProfile.full_name
+      }
+    }
+
+    // Generate signed URLs for all photos (valid for 1 hour)
+    // This is needed because the inspection-photos bucket is private
+    photoSignedUrls = new Map()
+    if (inspection.photos && inspection.photos.length > 0) {
+      console.log(`Generating signed URLs for ${inspection.photos.length} photos...`)
+
+      for (const photo of inspection.photos) {
+        if (photo.storage_path) {
+          try {
+            const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+              .from('inspection-photos')
+              .createSignedUrl(photo.storage_path, 3600) // 1 hour expiry
+
+            if (signedUrlData?.signedUrl && !signedUrlError) {
+              photoSignedUrls.set(photo.storage_path, signedUrlData.signedUrl)
+              console.log(`✓ Signed URL generated for: ${photo.storage_path}`)
+            } else {
+              console.error(`✗ Failed to generate signed URL for ${photo.storage_path}:`, signedUrlError)
+            }
+          } catch (err) {
+            console.error(`✗ Error generating signed URL for ${photo.storage_path}:`, err)
+          }
+        }
+      }
+
+      console.log(`Generated ${photoSignedUrls.size} signed URLs for photos`)
+    } else {
+      console.log('No photos found for this inspection')
     }
 
     // Professional 9-page HTML template with FLEXIBLE layouts that expand with content
@@ -808,7 +954,7 @@ Deno.serve(async (req) => {
 
             <div style="width: 628px; left: 48px; top: 66px; position: absolute; color: black; font-size: 160px; font-family: Inter; font-weight: 400; text-transform: uppercase; letter-spacing: 0.75px; word-wrap: break-word; z-index: 10;">MOULD</div>
             <div style="width: 508.20px; left: 226.40px; top: 167px; position: absolute; color: #150DB8; font-size: 112px; font-family: Inter; font-weight: 400; text-transform: uppercase; letter-spacing: 0.51px; word-wrap: break-word; text-shadow: -5px 0px 8px rgba(0, 0, 0, 0.29); z-index: 10;">REPORT</div>
-            <div style="width: 259px; left: 28px; top: 312.50px; position: absolute; color: black; font-size: 19px; font-family: Inter; font-weight: 400; letter-spacing: 0.05px; word-wrap: break-word; z-index: 10;">ordered by: {{client_name}}<br/>inspector: {{inspector_name}}<br/>date: {{inspection_date}}</div>
+            <div style="width: 259px; left: 28px; top: 312.50px; position: absolute; color: black; font-size: 19px; font-family: Inter; font-weight: 400; letter-spacing: 0.05px; word-wrap: break-word; z-index: 10;">ordered by: {{requested_by}}<br/>inspector: {{inspector_name}}<br/>date: {{inspection_date}}</div>
             <div style="width: 172px; left: 27px; top: 415.50px; position: absolute; z-index: 10;"><span style="color: black; font-size: 17px; font-family: Inter; font-weight: 400; text-transform: uppercase; line-height: 20px; letter-spacing: 0.04px; word-wrap: break-word">directed to:<br/>{{attention_to}}<br/><br/><br/>property type:<br/>{{dwelling_type}}<br/><br/><br/></span><span style="color: black; font-size: 17px; font-family: Inter; font-weight: 400; text-transform: uppercase; line-height: 24px; letter-spacing: 0.04px; word-wrap: break-word">examined areas<br/>{{examined_areas_list}}<br/></span></div>
 
             <!-- Cover photo placeholder -->
@@ -840,24 +986,19 @@ Deno.serve(async (req) => {
             <!-- What We Found Section -->
             <div class="content-section">
                 <div class="section-title">WHAT WE FOUND</div>
-                <div class="section-content">{{ai_summary}}</div>
+                <div class="section-content">{{what_we_found_text}}</div>
             </div>
 
             <!-- What We're Going To Do Section -->
             <div class="content-section">
                 <div class="section-title">WHAT WE'RE GOING TO DO</div>
-                <div class="section-content">{{treatment_plan}}</div>
+                <div class="section-content">{{what_we_will_do_text}}</div>
             </div>
 
             <!-- What You Get Section -->
             <div class="content-section">
                 <div class="section-title">WHAT YOU GET</div>
-                <div class="section-content">
-                    <span style="text-decoration: underline;">12 Month warranty</span> on all treated areas<br/>
-                    Professional material removal where required<br/>
-                    Complete airborne spore elimination<br/>
-                    Detailed documentation for insurance / resale
-                </div>
+                <div class="section-content">{{what_you_get_text}}</div>
             </div>
 
             <!-- Investment Section -->
@@ -1109,7 +1250,7 @@ Deno.serve(async (req) => {
 `
 
     // Generate the populated HTML
-    const populatedHtml = generateReportHtml(inspection as Inspection, templateHtml)
+    const populatedHtml = generateReportHtml(inspection as Inspection, templateHtml, inspectorName)
 
     // Calculate new version number
     const newVersion = regenerate ? (inspection.pdf_version || 0) + 1 : (inspection.pdf_version || 1)

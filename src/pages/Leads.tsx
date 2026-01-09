@@ -289,35 +289,27 @@ export default function Leads() {
                                           <span className="text-sm">Generating PDF...</span>
                                         </div>
                                       ) : (
-                                        <Button
-                                          size="sm"
-                                          className="w-full h-12 bg-purple-600 hover:bg-purple-700"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            e.preventDefault();
-
-                                            console.log('[View & Edit PDF] Desktop button clicked', {
-                                              leadId: lead.id,
-                                              leadName: lead.full_name,
-                                              route: `/report/${lead.id}`
-                                            });
-
-                                            if (!lead.id) {
-                                              console.error('[View & Edit PDF] No lead ID available');
-                                              return;
-                                            }
-
-                                            try {
+                                        <div className="flex flex-col gap-2">
+                                          <Button
+                                            size="sm"
+                                            className="w-full h-12 bg-purple-600 hover:bg-purple-700"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              e.preventDefault();
                                               navigate(`/report/${lead.id}`);
-                                              console.log('[View & Edit PDF] Navigate called successfully');
-                                            } catch (error) {
-                                              console.error('[View & Edit PDF] Navigation error:', error);
-                                              window.location.href = `/report/${lead.id}`;
-                                            }
-                                          }}
-                                        >
-                                          <FileCheck2 className="h-4 w-4 mr-2" /> View & Edit PDF
-                                        </Button>
+                                            }}
+                                          >
+                                            <FileCheck2 className="h-4 w-4 mr-2" /> View & Edit PDF
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="w-full h-12"
+                                            onClick={(e) => handleRegeneratePDF(lead.id, e)}
+                                          >
+                                            <RefreshCw className="h-4 w-4 mr-2" /> Regenerate PDF
+                                          </Button>
+                                        </div>
                                       )}
                                     </div>
                                   )}
@@ -426,35 +418,27 @@ export default function Leads() {
                                     <span className="text-sm">Generating PDF...</span>
                                   </div>
                                 ) : (
-                                  <Button
-                                    size="sm"
-                                    className="w-full h-12 bg-purple-600 hover:bg-purple-700"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-
-                                      console.log('[View & Edit PDF] Mobile button clicked', {
-                                        leadId: lead.id,
-                                        leadName: lead.full_name,
-                                        route: `/report/${lead.id}`
-                                      });
-
-                                      if (!lead.id) {
-                                        console.error('[View & Edit PDF] No lead ID available');
-                                        return;
-                                      }
-
-                                      try {
+                                  <div className="flex flex-col gap-2">
+                                    <Button
+                                      size="sm"
+                                      className="w-full h-12 bg-purple-600 hover:bg-purple-700"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
                                         navigate(`/report/${lead.id}`);
-                                        console.log('[View & Edit PDF] Navigate called successfully');
-                                      } catch (error) {
-                                        console.error('[View & Edit PDF] Navigation error:', error);
-                                        window.location.href = `/report/${lead.id}`;
-                                      }
-                                    }}
-                                  >
-                                    <FileCheck2 className="h-4 w-4 mr-2" /> View & Edit PDF
-                                  </Button>
+                                      }}
+                                    >
+                                      <FileCheck2 className="h-4 w-4 mr-2" /> View & Edit PDF
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="w-full h-12"
+                                      onClick={(e) => handleRegeneratePDF(lead.id, e)}
+                                    >
+                                      <RefreshCw className="h-4 w-4 mr-2" /> Regenerate PDF
+                                    </Button>
+                                  </div>
                                 )}
                               </div>
                             )}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { generateInspectionPDF } from '@/lib/api/pdfGeneration';
 import { 
   Circle, 
   AlertTriangle, 
@@ -39,6 +40,7 @@ const LeadsManagement = () => {
   const [showRemoveReasonModal, setShowRemoveReasonModal] = useState(false);
   const [removeReason, setRemoveReason] = useState('');
   const [selectedLeadForRemoval, setSelectedLeadForRemoval] = useState<any>(null);
+  const [regeneratingPdfForLead, setRegeneratingPdfForLead] = useState<string | null>(null);
 
   // UPDATED 11-STAGE PIPELINE
   const statusOptions: StatusOption[] = [
@@ -83,7 +85,7 @@ const LeadsManagement = () => {
       color: '#a855f7',
       description: 'Review and approve inspection report PDF',
       nextActions: ['View PDF and approve report'],
-      availableButtons: ['viewPDF', 'viewDetails']
+      availableButtons: ['viewPDF', 'regeneratePDF', 'viewDetails']
     },
     {
       value: 'inspection_email_approval',
@@ -532,11 +534,45 @@ const LeadsManagement = () => {
         icon: '👁️',
         label: 'View PDF',
         onClick: () => {
-          // TODO: Open PDF viewer
-          console.log('View PDF for lead:', lead.id);
-          // navigate(`/report/pdf/${lead.id}`);
+          navigate(`/report/${lead.id}`);
         },
         style: 'secondary'
+      },
+      regeneratePDF: {
+        icon: regeneratingPdfForLead === lead.id ? '⏳' : '🔄',
+        label: regeneratingPdfForLead === lead.id ? 'Regenerating...' : 'Regenerate PDF',
+        onClick: async () => {
+          try {
+            setRegeneratingPdfForLead(lead.id);
+            // First get the inspection ID for this lead
+            const { data: inspection, error: inspectionError } = await supabase
+              .from('inspections')
+              .select('id')
+              .eq('lead_id', lead.id)
+              .single();
+
+            if (inspectionError || !inspection) {
+              throw new Error('No inspection found for this lead');
+            }
+
+            await generateInspectionPDF(inspection.id, { regenerate: true });
+            toast({
+              title: "PDF Regenerated",
+              description: "The inspection report has been regenerated with latest data."
+            });
+          } catch (error) {
+            console.error('Failed to regenerate PDF:', error);
+            toast({
+              title: "Error",
+              description: "Failed to regenerate PDF. Please try again.",
+              variant: "destructive"
+            });
+          } finally {
+            setRegeneratingPdfForLead(null);
+          }
+        },
+        style: 'secondary',
+        disabled: regeneratingPdfForLead === lead.id
       },
       approvePDF: {
         icon: '✓',
@@ -560,12 +596,16 @@ const LeadsManagement = () => {
       return (
         <button
           key={actionKey}
-          className={`action-btn action-btn-${config.style}`}
+          className={`action-btn action-btn-${config.style}${config.disabled ? ' opacity-50 cursor-not-allowed' : ''}`}
           onClick={(e) => {
             e.stopPropagation();
-            config.onClick();
+            if (!config.disabled) {
+              config.onClick();
+            }
           }}
+          disabled={config.disabled}
           title={config.label}
+          style={{ minHeight: '48px' }}
         >
           <span className="action-icon">{config.icon}</span>
           <span className="action-label">{config.label}</span>
