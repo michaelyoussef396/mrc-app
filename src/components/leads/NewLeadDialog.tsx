@@ -57,7 +57,7 @@ export function NewLeadDialog({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
-        className="max-w-[95vw] sm:max-w-[600px] p-4 sm:p-6 max-h-[90vh] overflow-y-auto"
+        className="max-w-[95vw] sm:max-w-[600px] p-4 sm:p-6 max-h-[85vh] overflow-y-auto pb-8"
         aria-describedby="lead-creation-description"
       >
         <DialogHeader>

@@ -483,7 +483,7 @@ export function NormalLeadForm({
       </div>
 
       {/* Form Actions */}
-      <div className="flex flex-col sm:flex-row gap-2 pt-4">
+      <div className="flex flex-col sm:flex-row gap-2 pt-4 pb-4">
         {/* Back Button - only show if onBack provided */}
         {onBack && (
           <Button
