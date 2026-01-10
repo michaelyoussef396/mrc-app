@@ -46,7 +46,6 @@ import {
   formatPhoneNumber,
   formatSuburbName,
 } from '@/lib/validators/lead-creation.schemas';
-import { URGENCY_OPTIONS } from '@/types/lead-creation.types';
 import type { NormalLeadSchemaType } from '@/lib/validators/lead-creation.schemas';
 
 // ============================================================================
@@ -85,7 +84,6 @@ export function NormalLeadForm({
       street: '',
       suburb: '',
       postcode: '',
-      urgency: undefined,
       issue_description: '',
       property_type: undefined,
       notes: undefined,
@@ -163,7 +161,6 @@ export function NormalLeadForm({
           property_address_suburb: data.suburb,
           property_address_postcode: data.postcode,
           property_address_state: 'VIC',
-          urgency: data.urgency,
           issue_description: data.issue_description,
           property_type: data.property_type,
           lead_source: data.lead_source || 'website',
@@ -310,58 +307,6 @@ export function NormalLeadForm({
 
       {/* Postcode */}
       {renderTextField('postcode', 'Postcode *', '3XXX', 'text', 4)}
-
-      {/* Booking Urgency - Select Dropdown */}
-      <div className="space-y-2">
-        <Label
-          htmlFor="normal-urgency"
-          className="text-sm font-medium text-gray-700"
-        >
-          Urgency *
-        </Label>
-        <Controller
-          name="urgency"
-          control={control}
-          render={({ field }) => (
-            <Select
-              onValueChange={field.onChange}
-              value={field.value}
-              disabled={isLoading}
-            >
-              <SelectTrigger
-                id="normal-urgency"
-                className={`
-                  h-12 px-3 text-base
-                  ${errors.urgency ? 'border-red-500 focus:ring-red-500' : ''}
-                `}
-                aria-required="true"
-                aria-invalid={errors.urgency ? 'true' : 'false'}
-                aria-describedby={
-                  errors.urgency ? 'normal-urgency-error' : undefined
-                }
-              >
-                <SelectValue placeholder="Select urgency level" />
-              </SelectTrigger>
-              <SelectContent>
-                {URGENCY_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-        {errors.urgency && (
-          <p
-            id="normal-urgency-error"
-            className="text-sm text-red-500 mt-1"
-            role="alert"
-          >
-            {errors.urgency.message}
-          </p>
-        )}
-      </div>
 
       {/* Issue Description - Textarea with Character Counter */}
       <div className="space-y-2">

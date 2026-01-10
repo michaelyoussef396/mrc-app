@@ -244,7 +244,7 @@ export const normalLeadSchema = z.object({
   postcode: victorianPostcodeSchema,
 
   // Issue details
-  urgency: bookingUrgencySchema,
+  urgency: bookingUrgencySchema.optional(),
   issue_description: issueDescriptionSchema,
 
   // Optional fields
