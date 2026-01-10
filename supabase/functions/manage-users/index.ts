@@ -12,6 +12,7 @@ interface UserData {
   first_name: string
   last_name: string
   phone?: string
+  password?: string
 }
 
 interface UpdateUserData {
@@ -154,7 +155,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // POST - Invite new user (stores data in user_metadata only)
+    // POST - Create new user with password (direct creation, no invite needed)
     if (req.method === 'POST') {
       const userData: UserData = await req.json()
 
@@ -165,22 +166,37 @@ Deno.serve(async (req) => {
         )
       }
 
-      // Store profile data in user_metadata
-      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-        userData.email,
-        {
-          data: {
-            first_name: userData.first_name,
-            last_name: userData.last_name || '',
-            phone: userData.phone || ''
-          },
-          redirectTo: `${Deno.env.get('SITE_URL') || 'https://mrc-app.vercel.app'}/login`
-        }
-      )
-
-      if (inviteError) {
+      if (!userData.password) {
         return new Response(
-          JSON.stringify({ success: false, error: inviteError.message }),
+          JSON.stringify({ success: false, error: 'Password is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Validate password strength
+      if (userData.password.length < 8) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Password must be at least 8 characters' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Create user directly with password (no email confirmation needed since admin is creating)
+      const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email: userData.email,
+        password: userData.password,
+        email_confirm: true, // Skip email confirmation since admin is creating
+        user_metadata: {
+          first_name: userData.first_name,
+          last_name: userData.last_name || '',
+          phone: userData.phone || '',
+          is_active: true
+        }
+      })
+
+      if (createError) {
+        return new Response(
+          JSON.stringify({ success: false, error: createError.message }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
@@ -188,10 +204,10 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'Invitation sent successfully. User will receive an email to set their password.',
+          message: 'User created successfully. They can now login with their credentials.',
           user: {
-            id: inviteData.user.id,
-            email: inviteData.user.email,
+            id: createData.user.id,
+            email: createData.user.email,
             first_name: userData.first_name,
             last_name: userData.last_name || '',
             phone: userData.phone || ''

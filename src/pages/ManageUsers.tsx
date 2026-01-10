@@ -15,7 +15,10 @@ import {
   Check,
   AlertCircle,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Lock
 } from 'lucide-react';
 import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,6 +41,8 @@ interface FormData {
   lastName: string;
   email: string;
   phone: string;
+  password: string;
+  confirmPassword: string;
 }
 
 // API functions
@@ -62,7 +67,13 @@ const fetchUsers = async (): Promise<UserType[]> => {
   return result.users;
 };
 
-const createUser = async (userData: { email: string; full_name: string; phone: string; role: string }) => {
+const createUser = async (userData: {
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  password: string;
+}) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
@@ -124,14 +135,14 @@ export default function ManageUsers() {
     queryFn: fetchUsers,
   });
 
-  // Create user mutation (invite flow)
+  // Create user mutation (direct creation with password)
   const createMutation = useMutation({
     mutationFn: createUser,
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['manage-users'] });
       toast({
-        title: 'Invitation sent',
-        description: 'User will receive an email to set their password and complete registration.',
+        title: 'User created successfully',
+        description: `${data.user?.first_name} ${data.user?.last_name} can now login with their credentials.`,
       });
       setShowAddModal(false);
       resetForm();
@@ -169,9 +180,13 @@ export default function ManageUsers() {
     lastName: '',
     email: '',
     phone: '',
+    password: '',
+    confirmPassword: '',
   });
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const resetForm = () => {
     setFormData({
@@ -179,8 +194,23 @@ export default function ManageUsers() {
       lastName: '',
       email: '',
       phone: '',
+      password: '',
+      confirmPassword: '',
     });
     setFormErrors({});
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+  };
+
+  // Password validation helper
+  const validatePassword = (password: string): string | null => {
+    if (!password) return 'Password is required';
+    if (password.length < 8) return 'Password must be at least 8 characters';
+    if (!/[A-Z]/.test(password)) return 'Password must contain an uppercase letter';
+    if (!/[a-z]/.test(password)) return 'Password must contain a lowercase letter';
+    if (!/[0-9]/.test(password)) return 'Password must contain a number';
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return 'Password must contain a special character';
+    return null;
   };
 
   const validateForm = () => {
@@ -191,6 +221,15 @@ export default function ManageUsers() {
     else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.email = 'Email is invalid';
     if (!formData.phone.trim()) errors.phone = 'Phone number is required';
     else if (!/^04\d{8}$/.test(formData.phone.replace(/\s/g, ''))) errors.phone = 'Invalid Australian mobile number (e.g., 0400 000 000)';
+
+    // Password validation
+    const passwordError = validatePassword(formData.password);
+    if (passwordError) errors.password = passwordError;
+
+    // Confirm password
+    if (!formData.confirmPassword) errors.confirmPassword = 'Please confirm the password';
+    else if (formData.password !== formData.confirmPassword) errors.confirmPassword = 'Passwords do not match';
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -200,10 +239,11 @@ export default function ManageUsers() {
     if (!validateForm()) return;
 
     createMutation.mutate({
-      email: formData.email,
-      full_name: `${formData.firstName} ${formData.lastName}`,
+      email: formData.email.toLowerCase().trim(),
+      first_name: formData.firstName.trim(),
+      last_name: formData.lastName.trim(),
       phone: formData.phone.replace(/\s/g, ''),
-      role: 'technician', // All users are technicians by default
+      password: formData.password,
     });
   };
 
@@ -413,14 +453,66 @@ export default function ManageUsers() {
                 </div>
               </div>
 
+              {/* Password Section */}
               <div className="mb-7">
-                <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-xl text-sm text-blue-600">
-                  <Mail size={16} strokeWidth={2} className="flex-shrink-0 mt-0.5" />
-                  <span>An email invitation will be sent to the user. They will set their own password when they accept the invitation.</span>
+                <h3 className="text-[15px] font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200">Set Password</h3>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Password *</label>
+                  <div className="relative">
+                    <Lock size={18} strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      className={`w-full h-12 pl-11 pr-11 bg-gray-50 border-2 rounded-xl text-base md:h-11 md:text-[15px] ${formErrors.password ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`}
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      placeholder="Enter password"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff size={18} strokeWidth={2} /> : <Eye size={18} strokeWidth={2} />}
+                    </button>
+                  </div>
+                  {formErrors.password && <span className="block text-xs text-red-500 mt-1">{formErrors.password}</span>}
+                  <div className="mt-2 p-2.5 bg-gray-50 rounded-lg text-xs text-gray-500">
+                    Password must contain: 8+ characters, uppercase, lowercase, number, and special character (!@#$%^&*)
+                  </div>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm Password *</label>
+                  <div className="relative">
+                    <Lock size={18} strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      className={`w-full h-12 pl-11 pr-11 bg-gray-50 border-2 rounded-xl text-base md:h-11 md:text-[15px] ${formErrors.confirmPassword ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`}
+                      value={formData.confirmPassword}
+                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                      placeholder="Confirm password"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? <EyeOff size={18} strokeWidth={2} /> : <Eye size={18} strokeWidth={2} />}
+                    </button>
+                  </div>
+                  {formErrors.confirmPassword && <span className="block text-xs text-red-500 mt-1">{formErrors.confirmPassword}</span>}
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2.5 pt-6 border-t border-gray-200 md:flex-row md:gap-3">
+              <div className="mb-7">
+                <div className="flex items-start gap-2 p-3 bg-green-50 rounded-xl text-sm text-green-700">
+                  <Check size={16} strokeWidth={2} className="flex-shrink-0 mt-0.5" />
+                  <span>User will be created with the password you set. They can login immediately after creation.</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2.5 pt-6 border-t border-gray-200 md:flex-row md:gap-3 pb-6">
                 <button type="button" className="flex-1 h-13 bg-gray-100 text-gray-700 border-0 rounded-xl font-semibold cursor-pointer hover:bg-gray-200 transition-all md:h-12" onClick={() => { setShowAddModal(false); resetForm(); }}>Cancel</button>
                 <button
                   type="submit"
@@ -430,9 +522,9 @@ export default function ManageUsers() {
                   {createMutation.isPending ? (
                     <Loader2 size={20} strokeWidth={2} className="animate-spin" />
                   ) : (
-                    <Send size={20} strokeWidth={2} />
+                    <UserPlus size={20} strokeWidth={2} />
                   )}
-                  {createMutation.isPending ? 'Sending...' : 'Send Invite'}
+                  {createMutation.isPending ? 'Creating...' : 'Add User'}
                 </button>
               </div>
             </form>
