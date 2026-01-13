@@ -42,7 +42,7 @@ const LeadsManagement = () => {
   const [selectedLeadForRemoval, setSelectedLeadForRemoval] = useState<any>(null);
   const [regeneratingPdfForLead, setRegeneratingPdfForLead] = useState<string | null>(null);
 
-  // UPDATED 11-STAGE PIPELINE
+  // STAGE 1 PIPELINE - 6 Stages Only
   const statusOptions: StatusOption[] = [
     {
       value: 'all',
@@ -56,22 +56,22 @@ const LeadsManagement = () => {
       label: 'New Lead',
       icon: '🌟',
       color: '#3b82f6',
-      description: 'Initial inquiry received from website',
-      nextActions: ['Review inquiry', 'Schedule inspection'],
-      availableButtons: ['call', 'viewDetails']
+      description: 'Initial inquiry received',
+      nextActions: ['Book inspection with customer'],
+      availableButtons: ['call', 'email', 'viewDetails']
     },
     {
       value: 'inspection_waiting',
       label: 'Awaiting Inspection',
       icon: '📅',
-      color: '#8b5cf6',
+      color: '#f59e0b',
       description: 'Inspection scheduled, waiting for appointment',
-      nextActions: ['Start inspection or remove lead'],
+      nextActions: ['Complete inspection and submit form'],
       availableButtons: ['call', 'email', 'startInspection', 'removeLead', 'viewDetails']
     },
     {
       value: 'approve_inspection_report',
-      label: 'Approve Inspection Report',
+      label: 'Approve Report',
       icon: '📋',
       color: '#a855f7',
       description: 'Review and approve inspection report PDF',
@@ -85,246 +85,81 @@ const LeadsManagement = () => {
       color: '#06b6d4',
       description: 'Report approved, ready to send via email',
       nextActions: ['Send inspection report to client'],
-      availableButtons: ['sendEmail', 'viewPDF', 'viewDetails']
+      availableButtons: ['sendEmail', 'viewPDF', 'markClosed', 'viewDetails']
     },
-    { 
-      value: 'job_waiting', 
-      label: 'Awaiting Approval', 
-      icon: '⏳', 
-      color: '#f59e0b',
-      description: 'Waiting for client to approve quote',
-      nextActions: ['Follow up', 'Check decision timeline'],
-      availableButtons: ['call', 'email', 'viewQuote', 'markApproved', 'removeLead', 'viewDetails']
-    },
-    { 
-      value: 'job_completed', 
-      label: 'Job Booked', 
-      icon: '🔨', 
-      color: '#8b5cf6',
-      description: 'Client approved, job scheduled by customer',
-      nextActions: ['Navigate to property', 'Start the job'],
-      availableButtons: ['directions', 'startJob', 'call', 'viewDetails']
-    },
-    { 
-      value: 'job_report_pdf_sent', 
-      label: 'Job In Progress', 
-      icon: '🔧', 
-      color: '#f97316',
-      description: 'Technicians currently on site doing work',
-      nextActions: ['Complete the job when finished'],
-      availableButtons: ['viewDetails', 'completeJob']
-    },
-    { 
-      value: 'inspection_report_pdf_completed', 
-      label: 'Job Complete', 
-      icon: '✅', 
+    {
+      value: 'closed',
+      label: 'Closed',
+      icon: '✅',
       color: '#22c55e',
-      description: 'Work finished, ready for invoicing',
-      nextActions: ['Send invoice'],
-      availableButtons: ['sendInvoice', 'viewDetails']
-    },
-    { 
-      value: 'invoicing_sent', 
-      label: 'Quote Sent', 
-      icon: '💰', 
-      color: '#0ea5e9',
-      description: 'Invoice/quote sent to client',
-      nextActions: ['Wait for payment'],
-      availableButtons: ['resendQuote', 'markPaid', 'viewDetails']
-    },
-    { 
-      value: 'paid', 
-      label: 'Paid', 
-      icon: '💚', 
-      color: '#10b981',
-      description: 'Payment received',
-      nextActions: ['Request Google review'],
-      availableButtons: ['requestReview', 'viewDetails']
-    },
-    { 
-      value: 'google_review', 
-      label: 'Google Review', 
-      icon: '⭐', 
-      color: '#f59e0b',
-      description: 'Requesting/awaiting Google review',
-      nextActions: ['Close job'],
-      availableButtons: ['markClosed', 'viewDetails']
-    },
-    { 
-      value: 'finished', 
-      label: 'Closed', 
-      icon: '🎉', 
-      color: '#059669',
-      description: 'Job fully closed',
+      description: 'Lead completed successfully',
       nextActions: [],
-      availableButtons: ['viewHistory', 'archive']
+      availableButtons: ['viewHistory', 'viewDetails']
     },
-    { 
-      value: 'lost', 
-      label: 'Not Landed', 
-      icon: '❌', 
+    {
+      value: 'not_landed',
+      label: 'Not Landed',
+      icon: '❌',
       color: '#ef4444',
-      description: 'Lead removed or client didn\'t proceed',
+      description: 'Lead lost or rejected',
       nextActions: ['Document reason', 'Follow up later'],
       availableButtons: ['viewHistory', 'addNotes', 'reactivate']
     }
   ];
 
-  // STAGE-SPECIFIC ACTION FUNCTIONS
+  // STAGE-SPECIFIC ACTION FUNCTIONS (Stage 1 Only)
   const stageActions = {
-    markContacted: async (leadId: number) => {
-      await updateLeadStatus(leadId, 'contacted');
-    },
-    
-    sendQuote: (leadId: number) => {
-      navigate(`/quote/create?leadId=${leadId}`);
-    },
-    
-    scheduleInspection: (leadId: number) => {
-      navigate(`/inspection/schedule?leadId=${leadId}`);
-    },
-    
-    resendQuote: async (leadId: number) => {
-      console.log('Resending quote for lead:', leadId);
-    },
-    
     startInspection: (leadId: number) => {
       navigate(`/inspection?leadId=${leadId}`);
     },
-    
-    reschedule: (leadId: number) => {
-      navigate(`/inspection/schedule?leadId=${leadId}&reschedule=true`);
-    },
-    
-    viewInspection: (leadId: number) => {
-      navigate(`/inspection/view?leadId=${leadId}`);
-    },
-    
-    generateReport: async (leadId: number) => {
-      console.log('Generating report for lead:', leadId);
-      navigate(`/report/generate?leadId=${leadId}`);
-    },
-    
-    viewQuote: (leadId: number) => {
-      navigate(`/quote/view?leadId=${leadId}`);
-    },
-    
-    markApproved: async (leadId: number) => {
-      await updateLeadStatus(leadId, 'job-booked');
-    },
-    
-    viewSchedule: (leadId: number) => {
-      navigate(`/calendar?leadId=${leadId}`);
-    },
-    
-    startJob: async (leadId: number) => {
-      const confirmed = window.confirm(
-        'Start this job now?\n\nThis will update the status to "Job In Progress" and notify the client.'
-      );
-      
-      if (confirmed) {
-        // Update lead status
-        await updateLeadStatus(leadId, 'job_report_pdf_sent');
-        
-        // TODO: Send notification to client
-        // await sendClientNotification(leadId, 'job-started');
-        
-        // Show success message
-        alert('Job started! Status updated to "In Progress"');
-      }
-    },
-    
-    viewProgress: (leadId: number) => {
-      navigate(`/job/progress?leadId=${leadId}`);
-    },
-    
-    updateStatus: (leadId: number) => {
-      console.log('Update status for lead:', leadId);
-    },
-    
-    completeJob: async (leadId: number) => {
-      const confirmed = window.confirm(
-        'Mark this job as complete?\n\nThis will update the status to "Job Complete" and notify the client.'
-      );
-      
-      if (confirmed) {
-        await updateLeadStatus(leadId, 'inspection_report_pdf_completed');
-        
-        // TODO: Send client notification
-        // await sendClientNotification(leadId, 'job-completed');
-        
-        alert('Job marked as complete! Status updated.');
-      }
-    },
-    
-    sendInvoice: (leadId: number) => {
-      navigate(`/invoice/create?leadId=${leadId}`);
-    },
-    
-    markPaid: async (leadId: number) => {
-      await updateLeadStatus(leadId, 'paid-closed');
-    },
-    
-    requestFeedback: async (leadId: number) => {
-      console.log('Requesting feedback for lead:', leadId);
-    },
-    
-    requestReview: async (leadId: number) => {
-      console.log('Requesting review for lead:', leadId);
-    },
-    
+
     viewHistory: (leadId: number) => {
       navigate(`/client/${leadId}/history`);
     },
-    
-    archive: async (leadId: number) => {
-      console.log('Archiving lead:', leadId);
-    },
-    
+
     addNotes: (leadId: number) => {
       navigate(`/client/${leadId}?addNotes=true`);
     },
-    
+
     reactivate: async (leadId: number) => {
-      await updateLeadStatus(leadId, 'inspection_waiting');
+      await updateLeadStatus(leadId, 'new_lead');
     },
-    
+
     markClosed: async (leadId: number) => {
-      await updateLeadStatus(leadId, 'finished');
+      await updateLeadStatus(leadId, 'closed');
     },
-    
+
     call: (phone: string) => {
       window.location.href = `tel:${phone}`;
     },
-    
+
     email: (email: string) => {
       window.location.href = `mailto:${email}`;
     },
-    
+
     removeLead: (lead: any) => {
       const confirmed = window.confirm(
         `Are you sure you want to remove "${lead.name}" from active leads?\n\nThis will mark the lead as "Not Landed" and remove it from the active pipeline.`
       );
-      
+
       if (confirmed) {
         setSelectedLeadForRemoval(lead);
         setShowRemoveReasonModal(true);
       }
     },
-    
+
     confirmRemoveLead: async () => {
       if (selectedLeadForRemoval) {
-        // TODO: Update in Supabase
-        await updateLeadStatus(selectedLeadForRemoval.id, 'lost');
-        
+        await updateLeadStatus(selectedLeadForRemoval.id, 'not_landed');
+
         setShowRemoveReasonModal(false);
         setSelectedLeadForRemoval(null);
         setRemoveReason('');
-        
+
         alert('Lead has been removed and marked as "Not Landed"');
       }
     },
-    
+
     viewDetails: (leadId: number, status?: string) => {
       // If lead is NEW, go to simplified new lead view
       if (status === 'new_lead') {
@@ -349,7 +184,8 @@ const LeadsManagement = () => {
 
   const renderActionButtons = (lead: any) => {
     const availableActions = getAvailableActions(lead);
-    
+
+    // Stage 1 button configurations only
     const buttonConfig: any = {
       call: {
         icon: '📞',
@@ -365,7 +201,7 @@ const LeadsManagement = () => {
       },
       removeLead: {
         icon: '❌',
-        label: 'Remove Lead',
+        label: 'Remove',
         onClick: () => stageActions.removeLead(lead),
         style: 'danger'
       },
@@ -375,132 +211,16 @@ const LeadsManagement = () => {
         onClick: () => stageActions.viewDetails(lead.id, lead.status),
         style: 'secondary'
       },
-      markContacted: {
-        icon: '✓',
-        label: 'Contacted',
-        onClick: () => stageActions.markContacted(lead.id),
-        style: 'success'
-      },
-      sendQuote: {
-        icon: '💰',
-        label: 'Quote',
-        onClick: () => stageActions.sendQuote(lead.id),
-        style: 'primary'
-      },
-      scheduleInspection: {
-        icon: '📅',
-        label: 'Schedule',
-        onClick: () => stageActions.scheduleInspection(lead.id),
-        style: 'success'
-      },
-      resendQuote: {
-        icon: '📄',
-        label: 'Resend',
-        onClick: () => stageActions.resendQuote(lead.id),
-        style: 'secondary'
-      },
       startInspection: {
         icon: '📝',
         label: 'Start',
         onClick: () => stageActions.startInspection(lead.id),
         style: 'success'
       },
-      reschedule: {
-        icon: '🔄',
-        label: 'Reschedule',
-        onClick: () => stageActions.reschedule(lead.id),
-        style: 'secondary'
-      },
-      viewInspection: {
-        icon: '📋',
-        label: 'View',
-        onClick: () => stageActions.viewInspection(lead.id),
-        style: 'secondary'
-      },
-      generateReport: {
-        icon: '📄',
-        label: 'Generate',
-        onClick: () => stageActions.generateReport(lead.id),
-        style: 'primary'
-      },
-      viewQuote: {
-        icon: '💰',
-        label: 'View',
-        onClick: () => stageActions.viewQuote(lead.id),
-        style: 'secondary'
-      },
-      markApproved: {
-        icon: '✓',
-        label: 'Approved',
-        onClick: () => stageActions.markApproved(lead.id),
-        style: 'success'
-      },
-      viewSchedule: {
-        icon: '📅',
-        label: 'Schedule',
-        onClick: () => stageActions.viewSchedule(lead.id),
-        style: 'secondary'
-      },
-      directions: {
-        icon: '🗺️',
-        label: 'Directions',
-        onClick: () => {
-          const address = encodeURIComponent(
-            `${lead.property}, ${lead.suburb} ${lead.state} ${lead.postcode}`
-          );
-          window.open(
-            `https://www.google.com/maps/dir/?api=1&destination=${address}`,
-            '_blank'
-          );
-        },
-        style: 'primary'
-      },
-      startJob: {
-        icon: '🚀',
-        label: 'Start Job',
-        onClick: () => stageActions.startJob(lead.id),
-        style: 'success'
-      },
-      completeJob: {
-        icon: '✅',
-        label: 'Complete',
-        onClick: () => stageActions.completeJob(lead.id),
-        style: 'success'
-      },
-      sendInvoice: {
-        icon: '💵',
-        label: 'Invoice',
-        onClick: () => stageActions.sendInvoice(lead.id),
-        style: 'primary'
-      },
-      markPaid: {
-        icon: '💚',
-        label: 'Paid',
-        onClick: () => stageActions.markPaid(lead.id),
-        style: 'success'
-      },
-      requestFeedback: {
-        icon: '⭐',
-        label: 'Feedback',
-        onClick: () => stageActions.requestFeedback(lead.id),
-        style: 'secondary'
-      },
-      requestReview: {
-        icon: '⭐',
-        label: 'Review',
-        onClick: () => stageActions.requestReview(lead.id),
-        style: 'secondary'
-      },
       viewHistory: {
         icon: '📜',
         label: 'History',
         onClick: () => stageActions.viewHistory(lead.id),
-        style: 'secondary'
-      },
-      archive: {
-        icon: '📦',
-        label: 'Archive',
-        onClick: () => stageActions.archive(lead.id),
         style: 'secondary'
       },
       addNotes: {
@@ -510,7 +230,7 @@ const LeadsManagement = () => {
         style: 'secondary'
       },
       markClosed: {
-        icon: '🎉',
+        icon: '✅',
         label: 'Close',
         onClick: () => stageActions.markClosed(lead.id),
         style: 'success'
@@ -531,11 +251,10 @@ const LeadsManagement = () => {
       },
       regeneratePDF: {
         icon: regeneratingPdfForLead === lead.id ? '⏳' : '🔄',
-        label: regeneratingPdfForLead === lead.id ? 'Regenerating...' : 'Regenerate PDF',
+        label: regeneratingPdfForLead === lead.id ? 'Regenerating...' : 'Regenerate',
         onClick: async () => {
           try {
             setRegeneratingPdfForLead(lead.id);
-            // First get the inspection ID for this lead
             const { data: inspection, error: inspectionError } = await supabase
               .from('inspections')
               .select('id')
@@ -565,15 +284,13 @@ const LeadsManagement = () => {
         style: 'secondary',
         disabled: regeneratingPdfForLead === lead.id
       },
-      approvePDF: {
-        icon: '✓',
-        label: 'Approve & Send',
+      sendEmail: {
+        icon: '📧',
+        label: 'Send Report',
         onClick: () => {
-          // TODO: Implement approval logic
-          console.log('Approve PDF for lead:', lead.id);
           toast({
-            title: "Report approved",
-            description: "The report has been sent to the client",
+            title: "Email sent",
+            description: "The inspection report has been sent to the client.",
           });
         },
         style: 'success'
@@ -662,312 +379,16 @@ const LeadsManagement = () => {
     }
   };
 
-  // OLD: Mock data (keeping for reference, but not used)
+  // Stage 1 mock data (unused - for reference only)
   const _MOCK_DATA_UNUSED = () => {
-    const mockLeads = [
-      // 1. NEW_LEAD - Brand new inquiry from website
-      {
-        id: 1,
-        name: 'John Doe',
-        email: 'john@email.com',
-        phone: '0412 345 678',
-        property: '123 Smith Street',
-        suburb: 'Melbourne',
-        state: 'VIC',
-        postcode: '3000',
-        status: 'new_lead',
-        urgency: 'high',
-        source: 'Website Form',
-        dateCreated: '2025-01-29T10:30:00',
-        lastContact: null,
-        estimatedValue: null,
-        issueDescription: 'Visible black mould in bathroom around shower area and on bedroom ceiling near window'
-      },
-      {
-        id: 2,
-        name: 'Emma Wilson',
-        email: 'emma@email.com',
-        phone: '0434 567 890',
-        property: '67 High Street',
-        suburb: 'Preston',
-        state: 'VIC',
-        postcode: '3072',
-        status: 'new_lead',
-        urgency: 'medium',
-        source: 'Google Ads',
-        dateCreated: '2025-01-29T08:15:00',
-        lastContact: null,
-        estimatedValue: null,
-        issueDescription: 'Musty smell in laundry room and visible spots on walls'
-      },
-      
-      // 2. INSPECTION_WAITING - Inspection has been scheduled
-      {
-        id: 3,
-        name: 'Sarah Miller',
-        email: 'sarah@email.com',
-        phone: '0423 456 789',
-        property: '45 Queen Street',
-        suburb: 'Richmond',
-        state: 'VIC',
-        postcode: '3121',
-        status: 'inspection_waiting',
-        urgency: 'high',
-        source: 'Referral',
-        dateCreated: '2025-01-28T14:15:00',
-        lastContact: '2025-01-29T09:30:00',
-        scheduledDate: '2025-01-30T14:00:00',
-        estimatedValue: null,
-        issueDescription: 'Roof leak causing mould growth in multiple rooms - urgent'
-      },
-      {
-        id: 4,
-        name: 'Peter Thompson',
-        email: 'peter@email.com',
-        phone: '0445 123 456',
-        property: '78 Station Road',
-        suburb: 'Box Hill',
-        state: 'VIC',
-        postcode: '3128',
-        status: 'inspection_waiting',
-        urgency: 'medium',
-        source: 'Website Form',
-        dateCreated: '2025-01-27T16:45:00',
-        lastContact: '2025-01-28T10:00:00',
-        scheduledDate: '2025-01-31T10:00:00',
-        estimatedValue: null,
-        issueDescription: 'Black mould in bathroom after recent flooding'
-      },
-      // NEW: APPROVE_INSPECTION_REPORT - Report ready for review
-      {
-        id: 16,
-        name: 'Lisa Anderson',
-        email: 'lisa@email.com',
-        phone: '0412 678 901',
-        property: '92 Park Avenue',
-        suburb: 'Hawthorn',
-        state: 'VIC',
-        postcode: '3122',
-        status: 'approve_inspection_report',
-        urgency: 'medium',
-        source: 'Website Form',
-        dateCreated: '2025-01-26T11:30:00',
-        lastContact: '2025-01-29T10:00:00',
-        estimatedValue: 3200,
-        issueDescription: 'Inspection complete - PDF report ready for approval'
-      },
-      // 3. JOB_WAITING - Awaiting Approval
-      {
-        id: 5,
-        name: 'Jennifer White',
-        email: 'jennifer@email.com',
-        phone: '0456 345 678',
-        property: '45 Collins Street',
-        suburb: 'Essendon',
-        state: 'VIC',
-        postcode: '3040',
-        status: 'job_waiting',
-        urgency: 'low',
-        source: 'Google Ads',
-        dateCreated: '2025-01-23T14:45:00',
-        lastContact: '2025-01-25T11:00:00',
-        estimatedValue: 2800,
-        issueDescription: 'Bathroom and ensuite mould - waiting on insurance approval'
-      },
-      
-      // 4. JOB_COMPLETED - Job Booked
-      {
-        id: 6,
-        name: 'Jessica Taylor',
-        email: 'jessica@email.com',
-        phone: '0478 901 234',
-        property: '34 Lygon Street',
-        suburb: 'Carlton',
-        state: 'VIC',
-        postcode: '3053',
-        status: 'job_completed',
-        urgency: 'high',
-        source: 'Referral',
-        dateCreated: '2025-01-22T13:45:00',
-        lastContact: '2025-01-26T09:00:00',
-        scheduledDate: '2025-01-31T09:00:00',
-        estimatedValue: 6700,
-        issueDescription: 'Extensive mould remediation - multiple rooms and subfloor treatment'
-      },
-      {
-        id: 7,
-        name: 'Andrew Martin',
-        email: 'andrew@email.com',
-        phone: '0467 567 890',
-        property: '89 Main Street',
-        suburb: 'Eltham',
-        state: 'VIC',
-        postcode: '3095',
-        status: 'job_completed',
-        urgency: 'medium',
-        source: 'Website Form',
-        dateCreated: '2025-01-21T09:30:00',
-        lastContact: '2025-01-24T15:00:00',
-        scheduledDate: '2025-02-03T08:00:00',
-        estimatedValue: 3900,
-        issueDescription: 'Kitchen and bathroom mould removal and sanitization',
-        scheduled_dates: ['2025-02-03', '2025-02-04', '2025-02-05'],
-        scheduled_time: '9:00 AM',
-        access_instructions: 'Key under doormat at front entrance. Please park on street.',
-        booked_at: '2025-01-27T15:30:00'
-      },
-      
-      // 5. JOB_REPORT_PDF_SENT - Job In Progress
-      {
-        id: 8,
-        name: 'Michelle Lee',
-        email: 'michelle@email.com',
-        phone: '0423 789 012',
-        property: '56 Railway Parade',
-        suburb: 'Glen Waverley',
-        state: 'VIC',
-        postcode: '3150',
-        status: 'job_report_pdf_sent',
-        urgency: 'high',
-        source: 'Referral',
-        dateCreated: '2025-01-20T11:00:00',
-        lastContact: '2025-01-29T08:00:00',
-        estimatedValue: 5200,
-        issueDescription: 'Full house mould treatment - day 2 of 3'
-      },
-      
-      // 6. INSPECTION_REPORT_PDF_COMPLETED - Job Complete
-      {
-        id: 9,
-        name: 'Daniel Green',
-        email: 'daniel@email.com',
-        phone: '0434 890 123',
-        property: '12 River Street',
-        suburb: 'Kew',
-        state: 'VIC',
-        postcode: '3101',
-        status: 'inspection_report_pdf_completed',
-        urgency: 'low',
-        source: 'Google Ads',
-        dateCreated: '2025-01-18T14:20:00',
-        lastContact: '2025-01-27T16:00:00',
-        estimatedValue: 4100,
-        issueDescription: 'Bathroom and laundry mould remediation - work completed'
-      },
-      
-      // 7. INVOICING_SENT - Quote Sent (after job complete)
-      {
-        id: 10,
-        name: 'Robert Davis',
-        email: 'robert@email.com',
-        phone: '0489 123 456',
-        property: '23 Beach Road',
-        suburb: 'Sandringham',
-        state: 'VIC',
-        postcode: '3191',
-        status: 'invoicing_sent',
-        urgency: 'medium',
-        source: 'Website Form',
-        dateCreated: '2025-01-24T10:15:00',
-        lastContact: '2025-01-26T16:00:00',
-        estimatedValue: 4200,
-        issueDescription: 'Mould remediation complete - invoice sent'
-      },
-      {
-        id: 11,
-        name: 'Sophie Clarke',
-        email: 'sophie@email.com',
-        phone: '0445 234 567',
-        property: '78 Garden Road',
-        suburb: 'Malvern',
-        state: 'VIC',
-        postcode: '3144',
-        status: 'invoicing_sent',
-        urgency: 'medium',
-        source: 'Referral',
-        dateCreated: '2025-01-19T10:45:00',
-        lastContact: '2025-01-28T11:00:00',
-        estimatedValue: 3600,
-        issueDescription: 'Bedroom mould treatment complete - awaiting payment'
-      },
-      
-      // 8. PAID - Payment received
-      {
-        id: 12,
-        name: 'William Johnson',
-        email: 'william@email.com',
-        phone: '0456 678 901',
-        property: '23 Hill Street',
-        suburb: 'Thornbury',
-        state: 'VIC',
-        postcode: '3071',
-        status: 'paid',
-        urgency: 'low',
-        source: 'Website Form',
-        dateCreated: '2025-01-15T09:00:00',
-        lastContact: '2025-01-26T14:00:00',
-        estimatedValue: 2900,
-        issueDescription: 'Kitchen mould removal - paid'
-      },
-      
-      // 9. GOOGLE_REVIEW - Awaiting review
-      {
-        id: 13,
-        name: 'Olivia Harris',
-        email: 'olivia@email.com',
-        phone: '0467 789 012',
-        property: '45 Forest Drive',
-        suburb: 'Doncaster',
-        state: 'VIC',
-        postcode: '3108',
-        status: 'google_review',
-        urgency: 'low',
-        source: 'Referral',
-        dateCreated: '2025-01-14T13:30:00',
-        lastContact: '2025-01-25T10:00:00',
-        estimatedValue: 5800,
-        issueDescription: 'Multiple rooms remediation - awaiting Google review'
-      },
-      
-      // 10. FINISHED - Closed
-      {
-        id: 14,
-        name: 'Sarah Johnson',
-        email: 'sarah.j@email.com',
-        phone: '0411 222 333',
-        property: '12 Ocean Drive',
-        suburb: 'Frankston',
-        state: 'VIC',
-        postcode: '3199',
-        status: 'finished',
-        urgency: 'low',
-        source: 'Website Form',
-        dateCreated: '2025-01-10T09:00:00',
-        lastContact: '2025-01-22T14:00:00',
-        estimatedValue: 3400,
-        issueDescription: 'Bathroom mould - fully closed with positive review'
-      },
-      
-      // 11. LOST - Not Landed
-      {
-        id: 15,
-        name: 'Thomas Wright',
-        email: 'thomas@email.com',
-        phone: '0478 890 123',
-        property: '67 Church Street',
-        suburb: 'Brighton',
-        state: 'VIC',
-        postcode: '3186',
-        status: 'lost',
-        urgency: 'low',
-        source: 'Facebook',
-        dateCreated: '2025-01-20T15:45:00',
-        lastContact: '2025-01-24T09:00:00',
-        estimatedValue: 3200,
-        issueDescription: 'Bathroom mould - decided to go with another company'
-      }
+    return [
+      { id: 1, name: 'John Doe', status: 'new_lead' },
+      { id: 2, name: 'Sarah Miller', status: 'inspection_waiting' },
+      { id: 3, name: 'Lisa Anderson', status: 'approve_inspection_report' },
+      { id: 4, name: 'Peter Thompson', status: 'inspection_email_approval' },
+      { id: 5, name: 'Emma Wilson', status: 'closed' },
+      { id: 6, name: 'Thomas Wright', status: 'not_landed' },
     ];
-    return mockLeads;
   };
 
   const getFilteredLeads = () => {
@@ -1293,8 +714,8 @@ const LeadsManagement = () => {
                     <p className="issue-text">{lead.issueDescription}</p>
                   </div>
 
-                  {/* SCHEDULE INFO BANNER FOR JOB BOOKED */}
-                  {lead.status === 'job_completed' && lead.scheduled_dates && (
+                  {/* SCHEDULE INFO BANNER FOR INSPECTION */}
+                  {lead.status === 'inspection_waiting' && lead.scheduled_dates && (
                     <div className="schedule-info-banner">
                       <div className="schedule-icon">📅</div>
                       <div className="schedule-details">

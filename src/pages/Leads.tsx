@@ -17,17 +17,12 @@ import {
   Calendar,
   DollarSign,
   Sparkles,
-  CheckCircle,
   CheckCircle2,
   Clock,
-  FileText,
-  FileCheck,
   FileCheck2,
   RefreshCw,
-  Wrench,
-  Send,
-  Star,
-  PartyPopper,
+  Mail,
+  XCircle,
   Loader2
 } from "lucide-react";
 import { STATUS_FLOW, ALL_STATUSES, LeadStatus } from "@/lib/statusFlow";
@@ -39,20 +34,14 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
-// Icon mapping
+// Icon mapping for Stage 1 statuses
 const iconMap: Record<string, any> = {
   Sparkles,
-  CheckCircle,
-  CheckCircle2,
   Clock,
-  FileText,
-  FileCheck,
-  Calendar,
-  Wrench,
-  Send,
-  DollarSign,
-  Star,
-  PartyPopper,
+  FileCheck2,
+  Mail,
+  CheckCircle2,
+  XCircle,
 };
 
 export default function Leads() {

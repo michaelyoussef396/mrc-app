@@ -94,7 +94,7 @@ export function useTotalLeadsThisMonth() {
   });
 }
 
-// Hook: Fetch Active Jobs
+// Hook: Fetch Active Jobs (Stage 1: leads being worked on)
 export function useActiveJobs() {
   return useQuery({
     queryKey: ['dashboard', 'active-jobs'],
@@ -106,11 +106,14 @@ export function useActiveJobs() {
       const startOfPreviousWeek = new Date(startOfWeek);
       startOfPreviousWeek.setDate(startOfPreviousWeek.getDate() - 7);
 
-      // Current active jobs count (job_completed OR job_report_pdf_sent)
+      // Stage 1 active statuses: inspection_waiting, approve_inspection_report, inspection_email_approval
+      const activeStatuses = ['inspection_waiting', 'approve_inspection_report', 'inspection_email_approval'];
+
+      // Current active jobs count
       const { count: currentCount, error: currentError } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
-        .in('status', ['job_completed', 'job_report_pdf_sent']);
+        .in('status', activeStatuses);
 
       if (currentError) throw currentError;
 
@@ -118,7 +121,7 @@ export function useActiveJobs() {
       const { count: previousWeekCount, error: previousError } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
-        .in('status', ['job_completed', 'job_report_pdf_sent'])
+        .in('status', activeStatuses)
         .gte('updated_at', startOfPreviousWeek.toISOString())
         .lt('updated_at', startOfWeek.toISOString());
 
@@ -139,7 +142,7 @@ export function useActiveJobs() {
   });
 }
 
-// Hook: Fetch Completed Today
+// Hook: Fetch Completed Today (Stage 1: leads moved to "closed" today)
 export function useCompletedToday() {
   return useQuery({
     queryKey: ['dashboard', 'completed-today'],
@@ -147,18 +150,19 @@ export function useCompletedToday() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
 
-      // Format dates as YYYY-MM-DD for job_completed_date comparison
-      const todayStr = today.toISOString().split('T')[0];
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-      // Completed today count
+      // Completed today count (leads with status "closed" updated today)
       const { count: todayCount, error: todayError } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
-        .eq('job_completed_date', todayStr);
+        .eq('status', 'closed')
+        .gte('updated_at', today.toISOString())
+        .lt('updated_at', tomorrow.toISOString());
 
       if (todayError) throw todayError;
 
@@ -166,7 +170,9 @@ export function useCompletedToday() {
       const { count: yesterdayCount, error: yesterdayError } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
-        .eq('job_completed_date', yesterdayStr);
+        .eq('status', 'closed')
+        .gte('updated_at', yesterday.toISOString())
+        .lt('updated_at', today.toISOString());
 
       if (yesterdayError) throw yesterdayError;
 
@@ -185,7 +191,7 @@ export function useCompletedToday() {
   });
 }
 
-// Hook: Fetch Monthly Revenue
+// Hook: Fetch Monthly Revenue (Stage 1: quoted_amount from closed leads)
 export function useMonthlyRevenue() {
   return useQuery({
     queryKey: ['dashboard', 'monthly-revenue'],
@@ -197,30 +203,32 @@ export function useMonthlyRevenue() {
       const startOfPreviousMonth = new Date(startOfMonth);
       startOfPreviousMonth.setMonth(startOfPreviousMonth.getMonth() - 1);
 
-      // Current month revenue (using payment_received_date)
+      // Current month revenue (quoted_amount from closed leads updated this month)
       const { data: currentData, error: currentError } = await supabase
         .from('leads')
-        .select('invoice_amount')
-        .gte('payment_received_date', startOfMonth.toISOString().split('T')[0]);
+        .select('quoted_amount')
+        .eq('status', 'closed')
+        .gte('updated_at', startOfMonth.toISOString());
 
       if (currentError) throw currentError;
 
       // Previous month revenue
       const { data: previousData, error: previousError } = await supabase
         .from('leads')
-        .select('invoice_amount')
-        .gte('payment_received_date', startOfPreviousMonth.toISOString().split('T')[0])
-        .lt('payment_received_date', startOfMonth.toISOString().split('T')[0]);
+        .select('quoted_amount')
+        .eq('status', 'closed')
+        .gte('updated_at', startOfPreviousMonth.toISOString())
+        .lt('updated_at', startOfMonth.toISOString());
 
       if (previousError) throw previousError;
 
       const currentRevenue = currentData?.reduce(
-        (sum, lead) => sum + (Number(lead.invoice_amount) || 0),
+        (sum, lead) => sum + (Number(lead.quoted_amount) || 0),
         0
       ) || 0;
 
       const previousRevenue = previousData?.reduce(
-        (sum, lead) => sum + (Number(lead.invoice_amount) || 0),
+        (sum, lead) => sum + (Number(lead.quoted_amount) || 0),
         0
       ) || 0;
 

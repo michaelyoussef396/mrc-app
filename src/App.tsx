@@ -31,7 +31,7 @@ const Leads = lazy(() => import("./pages/Leads"));
 const LeadDetail = lazy(() => import("./pages/LeadDetail"));
 const Calendar = lazy(() => import("./pages/Calendar"));
 const InspectionForm = lazy(() => import("./pages/InspectionForm"));
-const ReportsPage = lazy(() => import("./pages/ReportsPage").then(m => ({ default: m.ReportsPage })));
+const Reports = lazy(() => import("./pages/Reports"));
 const SelectLead = lazy(() => import("./pages/SelectLead").then(m => ({ default: m.SelectLead })));
 const RequestInspection = lazy(() => import("./pages/RequestInspection"));
 const InspectionSuccess = lazy(() => import("./pages/InspectionSuccess"));
@@ -86,7 +86,7 @@ const AppContent = () => {
               <Route path="/inspection" element={<InspectionForm />} />
               <Route path="/inspection/new" element={<InspectionForm />} />
               <Route path="/inspection/:id" element={<InspectionForm />} />
-              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/reports" element={<Reports />} />
               <Route path="/inspection/:inspectionId/report" element={<ViewReportPDF />} />
               <Route path="/report/:id" element={<ViewReportPDF />} />
             </Route>

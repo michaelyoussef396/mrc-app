@@ -14,19 +14,14 @@ import {
   Calendar,
   User,
   FileText,
-  DollarSign,
   Clock,
   Sparkles,
-  CheckCircle,
   CheckCircle2,
-  FileCheck,
   FileCheck2,
-  Wrench,
-  Send,
-  Star,
-  PartyPopper,
+  XCircle,
   RefreshCw,
   Edit,
+  Eye,
   Loader2
 } from "lucide-react";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
@@ -35,20 +30,14 @@ import { useState } from "react";
 import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
 import { toast } from "sonner";
 
-// Icon mapping
+// Icon mapping for Stage 1 statuses
 const iconMap: Record<string, any> = {
   Sparkles,
-  CheckCircle,
-  CheckCircle2,
   Clock,
-  FileText,
-  FileCheck,
-  Calendar,
-  Wrench,
-  Send,
-  DollarSign,
-  Star,
-  PartyPopper,
+  FileCheck2,
+  Mail,
+  CheckCircle2,
+  XCircle,
 };
 
 export default function LeadDetail() {
@@ -128,7 +117,7 @@ export default function LeadDetail() {
   const handleApproveReport = async () => {
     const { error } = await supabase
       .from('leads')
-      .update({ status: 'inspection_report_pdf_completed' })
+      .update({ status: 'inspection_email_approval' })
       .eq('id', lead.id);
 
     if (error) {
@@ -143,14 +132,14 @@ export default function LeadDetail() {
       description: 'Inspection report approved and ready to send',
     });
 
-    toast.success('✅ Report approved! Ready to send to customer.');
+    toast.success('Report approved! Ready to send to customer.');
     window.location.reload();
   };
 
   const handleSendReportToCustomer = async () => {
     const { error } = await supabase
       .from('leads')
-      .update({ status: 'job_waiting' })
+      .update({ status: 'closed' })
       .eq('id', lead.id);
 
     if (error) {
@@ -162,10 +151,10 @@ export default function LeadDetail() {
       lead_id: lead.id,
       activity_type: 'report_sent',
       title: 'Report Sent to Customer',
-      description: 'Inspection report emailed to customer with booking link',
+      description: 'Inspection report emailed to customer',
     });
 
-    toast.success('✅ Report sent to customer!');
+    toast.success('Report sent! Lead closed.');
     window.location.reload();
   };
 
@@ -205,43 +194,10 @@ export default function LeadDetail() {
     }
   };
 
-  const handleMarkAsPaid = async () => {
+  const handleMarkNotLanded = async () => {
     const { error } = await supabase
       .from('leads')
-      .update({ status: 'google_review' })
-      .eq('id', lead.id);
-
-    if (error) {
-      toast.error('Failed to mark as paid');
-      return;
-    }
-
-    await supabase.from('activities').insert({
-      lead_id: lead.id,
-      activity_type: 'payment_received',
-      title: 'Payment Received',
-      description: 'Job marked as paid',
-    });
-
-    toast.success('✅ Marked as paid!');
-    window.location.reload();
-  };
-
-  const handleSendReviewRequest = async () => {
-    await supabase.from('activities').insert({
-      lead_id: lead.id,
-      activity_type: 'review_requested',
-      title: 'Review Request Sent',
-      description: 'Google review request sent to customer',
-    });
-
-    toast.success('⭐ Review request sent!');
-  };
-
-  const handleReviewReceived = async () => {
-    const { error } = await supabase
-      .from('leads')
-      .update({ status: 'finished' })
+      .update({ status: 'not_landed' })
       .eq('id', lead.id);
 
     if (error) {
@@ -251,34 +207,34 @@ export default function LeadDetail() {
 
     await supabase.from('activities').insert({
       lead_id: lead.id,
-      activity_type: 'review_received',
-      title: 'Review Received',
-      description: 'Customer left a Google review',
+      activity_type: 'lead_lost',
+      title: 'Lead Not Landed',
+      description: 'Lead marked as not landed',
     });
 
-    toast.success('✅ Review received! Job finished.');
+    toast.success('Lead marked as not landed.');
     window.location.reload();
   };
 
-  const handleSkipReview = async () => {
+  const handleCloseLead = async () => {
     const { error } = await supabase
       .from('leads')
-      .update({ status: 'finished' })
+      .update({ status: 'closed' })
       .eq('id', lead.id);
 
     if (error) {
-      toast.error('Failed to update status');
+      toast.error('Failed to close lead');
       return;
     }
 
     await supabase.from('activities').insert({
       lead_id: lead.id,
-      activity_type: 'review_skipped',
-      title: 'Review Skipped',
-      description: 'Review request skipped',
+      activity_type: 'lead_closed',
+      title: 'Lead Closed',
+      description: 'Lead successfully closed',
     });
 
-    toast.success('⏭️ Review skipped. Job finished.');
+    toast.success('Lead closed successfully!');
     window.location.reload();
   };
 
@@ -286,18 +242,6 @@ export default function LeadDetail() {
     const status = lead.status as LeadStatus;
 
     switch (status) {
-      case "hipages_lead":
-        return (
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" onClick={() => window.location.href = `tel:${lead.phone}`}>
-              <Phone className="h-4 w-4 mr-2" /> Call Lead Now
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => window.location.href = `mailto:${lead.email}`}>
-              <Mail className="h-4 w-4 mr-2" /> Send Email
-            </Button>
-          </div>
-        );
-
       case "new_lead":
         return (
           <div className="flex flex-wrap gap-2">
@@ -307,17 +251,8 @@ export default function LeadDetail() {
             <Button size="lg" onClick={() => setShowBookingModal(true)}>
               <Calendar className="h-4 w-4 mr-2" /> Book Inspection
             </Button>
-          </div>
-        );
-
-      case "contacted":
-        return (
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline" onClick={handleGetDirections}>
-              <MapPin className="h-4 w-4 mr-2" /> Get Directions
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => window.location.href = `tel:${lead.phone}`}>
-              <Phone className="h-4 w-4 mr-2" /> Call Customer
+            <Button size="lg" variant="destructive" onClick={handleMarkNotLanded}>
+              <XCircle className="h-4 w-4 mr-2" /> Not Landed
             </Button>
           </div>
         );
@@ -329,7 +264,10 @@ export default function LeadDetail() {
               <MapPin className="h-4 w-4 mr-2" /> Get Directions
             </Button>
             <Button size="lg" onClick={() => navigate(`/inspection/${lead.id}`)}>
-              📋 Start Inspection
+              <FileText className="h-4 w-4 mr-2" /> Start Inspection
+            </Button>
+            <Button size="lg" variant="destructive" onClick={handleMarkNotLanded}>
+              <XCircle className="h-4 w-4 mr-2" /> Not Landed
             </Button>
           </div>
         );
@@ -352,6 +290,16 @@ export default function LeadDetail() {
             >
               <Edit className="h-4 w-4 mr-2" /> Edit Inspection
             </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-12"
+              onClick={handleRegeneratePDF}
+              disabled={regeneratingPdf}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${regeneratingPdf ? 'animate-spin' : ''}`} />
+              {regeneratingPdf ? 'Regenerating...' : 'Regenerate PDF'}
+            </Button>
           </div>
         );
 
@@ -365,125 +313,29 @@ export default function LeadDetail() {
             >
               <Eye className="h-4 w-4 mr-2" /> View Report
             </Button>
-          </div>
-        );
-
-      case "inspection_completed":
-        return (
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline" onClick={() => navigate(`/report/${lead.id}`)}>
-              📄 View & Generate Report
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate(`/inspection/${lead.id}`)}>
-              ✏️ Edit Inspection
-            </Button>
-          </div>
-        );
-
-      case "inspection_report_pdf_completed":
-        return (
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline" onClick={() => navigate(`/report/${lead.id}`)}>
-              📄 View Report PDF
-            </Button>
             <Button size="lg" onClick={handleSendReportToCustomer}>
-              📧 Send Report to Customer
+              <Mail className="h-4 w-4 mr-2" /> Send Report & Close
             </Button>
           </div>
         );
 
-      case "job_waiting":
+      case "closed":
+        return (
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" variant="outline" onClick={() => navigate(`/report/${lead.id}`)}>
+              <Eye className="h-4 w-4 mr-2" /> View Report
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => window.location.href = `tel:${lead.phone}`}>
+              <Phone className="h-4 w-4 mr-2" /> Call Customer
+            </Button>
+          </div>
+        );
+
+      case "not_landed":
         return (
           <div className="flex flex-wrap gap-2">
             <Button size="lg" variant="outline" onClick={() => window.location.href = `tel:${lead.phone}`}>
-              📞 Follow Up Call
-            </Button>
-            <Button size="lg" variant="outline" onClick={handleCopyBookingLink}>
-              🔗 Copy Booking Link
-            </Button>
-          </div>
-        );
-
-      case "job_completed":
-        return (
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline">
-              🚗 I'm On My Way
-            </Button>
-            <Button size="lg" variant="outline">
-              📋 Start Job
-            </Button>
-            <Button size="lg">
-              ✅ Complete Job
-            </Button>
-          </div>
-        );
-
-      case "job_report_pdf_sent":
-        return (
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline">
-              📄 Preview Report
-            </Button>
-            <Button size="lg">
-              📧 Send Completion Report
-            </Button>
-          </div>
-        );
-
-      case "invoicing_sent":
-        return (
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline">
-              📄 View Invoice
-            </Button>
-            <Button size="lg" variant="outline">
-              🔗 Copy Payment Link
-            </Button>
-            <Button size="lg">
-              💳 Send Invoice
-            </Button>
-          </div>
-        );
-
-      case "paid":
-        return (
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline" onClick={() => window.location.href = `tel:${lead.phone}`}>
-              📞 Call Customer
-            </Button>
-            <Button size="lg" onClick={handleMarkAsPaid}>
-              💰 Mark as Paid
-            </Button>
-          </div>
-        );
-
-      case "google_review":
-        return (
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" onClick={handleSendReviewRequest}>
-              ⭐ Send Review Request
-            </Button>
-            <Button size="lg" variant="secondary" onClick={handleReviewReceived}>
-              ✅ Review Received
-            </Button>
-            <Button size="lg" variant="outline" onClick={handleSkipReview}>
-              ⏭️ Skip Review
-            </Button>
-          </div>
-        );
-
-      case "finished":
-        return (
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline">
-              📊 View Summary
-            </Button>
-            <Button size="lg" variant="outline">
-              📄 Download All Reports
-            </Button>
-            <Button size="lg" variant="secondary">
-              🔄 Reopen Job
+              <Phone className="h-4 w-4 mr-2" /> Call Customer
             </Button>
           </div>
         );
