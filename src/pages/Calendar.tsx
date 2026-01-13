@@ -35,9 +35,21 @@ const EVENT_COLORS: Record<EventType, string> = {
   'other': '#10b981',      // Green
 }
 
-// Format date to YYYY-MM-DD for comparison
+// Parse a date string as LOCAL date (not UTC) to avoid timezone issues
+const parseLocalDate = (dateString: string): Date => {
+  if (!dateString) return new Date()
+  // Handle both "YYYY-MM-DD" and "YYYY-MM-DDTHH:mm:ss" formats
+  const datePart = dateString.split('T')[0]
+  const [year, month, day] = datePart.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+// Format date to YYYY-MM-DD in LOCAL timezone for comparison
 const formatDateKey = (date: Date): string => {
-  return date.toISOString().split('T')[0]
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 // Australian date formatting
@@ -227,8 +239,8 @@ const Calendar = () => {
     today.setHours(0, 0, 0, 0)
 
     return events
-      .filter(event => new Date(event.date) >= today)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .filter(event => parseLocalDate(event.date) >= today)
+      .sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime())
       .slice(0, 5) // Show next 5 upcoming events
   }, [events])
 
@@ -690,7 +702,7 @@ const Calendar = () => {
                 ) : (
                   <div className="space-y-2">
                     {upcomingEvents.map(event => {
-                      const eventDate = new Date(event.date)
+                      const eventDate = parseLocalDate(event.date)
                       const isToday = eventDate.toDateString() === new Date().toDateString()
                       const formattedDate = eventDate.toLocaleDateString('en-AU', {
                         weekday: 'short',
