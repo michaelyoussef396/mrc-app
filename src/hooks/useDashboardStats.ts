@@ -35,6 +35,7 @@ export interface RecentLead {
   status: string;
   lead_source: string;
   full_name: string | null;
+  phone: string | null;
   suburb: string;
   created_at: string;
   display_name: string;
@@ -247,15 +248,14 @@ export function useMonthlyRevenue() {
   });
 }
 
-// Hook: Fetch Recent Leads
+// Hook: Fetch Recent Leads (ALL leads, not filtered by status)
 export function useRecentLeads(limit: number = 10) {
   return useQuery({
     queryKey: ['dashboard', 'recent-leads', limit],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('leads')
-        .select('id, lead_number, status, lead_source, full_name, property_address_suburb, created_at')
-        .eq('status', 'new_lead')
+        .select('id, lead_number, status, lead_source, full_name, phone, property_address_suburb, created_at')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -264,9 +264,10 @@ export function useRecentLeads(limit: number = 10) {
       // Add display_name field and rename suburb
       return data.map(lead => ({
         ...lead,
-        suburb: lead.property_address_suburb,
+        suburb: lead.property_address_suburb || 'Unknown',
+        phone: lead.phone || null,
         display_name: lead.lead_source === 'hipages'
-          ? `HiPages Lead - ${lead.property_address_suburb}`
+          ? `HiPages Lead - ${lead.property_address_suburb || 'Unknown'}`
           : (lead.full_name || 'Lead'),
       })) as RecentLead[];
     },
