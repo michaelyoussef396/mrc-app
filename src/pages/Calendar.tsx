@@ -1,22 +1,18 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
 import { STATUS_FLOW, LeadStatus } from '@/lib/statusFlow'
-import { Loader2, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, MapPin, Phone, User, Clock, ArrowLeft } from 'lucide-react'
+import { Loader2, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, MapPin, Phone, User, Clock, ArrowLeft, List } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
-// Event types for Stage 1
-type EventType = 'inspection' | 'job' | 'follow-up' | 'other'
-
+// Calendar event (only inspections for Stage 1)
 interface CalendarEvent {
   id: string
-  title: string
   date: string
   time: string
-  type: EventType
   status: string
   leadId: string
   leadNumber: string
@@ -24,15 +20,6 @@ interface CalendarEvent {
   address: string
   suburb: string
   phone: string
-  color: string
-}
-
-// Event type colors
-const EVENT_COLORS: Record<EventType, string> = {
-  'inspection': '#3b82f6', // Blue
-  'job': '#f97316',        // Orange
-  'follow-up': '#8b5cf6',  // Purple
-  'other': '#10b981',      // Green
 }
 
 // Parse a date string as LOCAL date (not UTC) to avoid timezone issues
@@ -62,17 +49,27 @@ const formatAustralianDate = (date: Date): string => {
   })
 }
 
+// Format time from "HH:MM:SS" or "HH:MM" to readable format
+const formatTime = (timeStr: string | null): string => {
+  if (!timeStr) return '9:00 AM'
+  const [hours] = timeStr.split(':').map(Number)
+  if (hours === 12) return '12:00 PM'
+  if (hours > 12) return `${hours - 12}:00 PM`
+  if (hours === 0) return '12:00 AM'
+  return `${hours}:00 AM`
+}
+
 const Calendar = () => {
   const navigate = useNavigate()
 
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [view, setView] = useState<'day' | 'week' | 'month'>('month')
+  const [view, setView] = useState<'week' | 'month' | 'upcoming'>('month')
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
 
-  // Fetch leads with scheduled inspections from Supabase
-  const { data: leadsWithInspections, isLoading, error } = useQuery({
-    queryKey: ['calendar-events'],
+  // Fetch leads with scheduled inspections
+  const { data: leadsWithInspections, isLoading: leadsLoading } = useQuery({
+    queryKey: ['calendar-leads'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('leads')
@@ -87,21 +84,19 @@ const Calendar = () => {
           property_address_postcode,
           status,
           inspection_scheduled_date,
-          scheduled_time,
-          job_scheduled_date,
-          scheduled_dates
+          scheduled_time
         `)
-        .or('inspection_scheduled_date.not.is.null,job_scheduled_date.not.is.null')
+        .not('inspection_scheduled_date', 'is', null)
         .order('inspection_scheduled_date', { ascending: true })
 
       if (error) throw error
       return data
     },
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 60000,
   })
 
-  // Also fetch from inspections table for completed/in-progress inspections
-  const { data: inspections } = useQuery({
+  // Fetch inspections (for actual inspection dates)
+  const { data: inspections, isLoading: inspectionsLoading } = useQuery({
     queryKey: ['calendar-inspections'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -110,19 +105,9 @@ const Calendar = () => {
           id,
           lead_id,
           inspection_date,
-          inspection_start_time,
-          leads (
-            id,
-            lead_number,
-            full_name,
-            phone,
-            property_address_street,
-            property_address_suburb,
-            property_address_state,
-            property_address_postcode,
-            status
-          )
+          inspection_start_time
         `)
+        .not('inspection_date', 'is', null)
         .order('inspection_date', { ascending: true })
 
       if (error) throw error
@@ -131,109 +116,54 @@ const Calendar = () => {
     refetchInterval: 60000,
   })
 
-  // Convert leads to calendar events
+  const isLoading = leadsLoading || inspectionsLoading
+
+  // Convert to calendar events - ONE event per lead, using correct date
   const events = useMemo(() => {
     const calendarEvents: CalendarEvent[] = []
+    const processedLeadIds = new Set<string>()
 
-    // Add events from leads with inspection_scheduled_date
-    leadsWithInspections?.forEach(lead => {
-      if (lead.inspection_scheduled_date) {
-        // Determine event type based on status
-        let eventType: EventType = 'inspection'
-        if (lead.status === 'closed' || lead.status === 'not_landed') {
-          eventType = 'other'
-        }
-
-        calendarEvents.push({
-          id: `lead-inspection-${lead.id}`,
-          title: `Inspection - ${lead.full_name}`,
-          date: lead.inspection_scheduled_date,
-          time: lead.scheduled_time || '9:00 AM',
-          type: eventType,
-          status: lead.status,
-          leadId: lead.id,
-          leadNumber: lead.lead_number || '',
-          client: lead.full_name,
-          address: `${lead.property_address_street}, ${lead.property_address_suburb} ${lead.property_address_state} ${lead.property_address_postcode}`,
-          suburb: lead.property_address_suburb,
-          phone: lead.phone,
-          color: EVENT_COLORS[eventType],
-        })
-      }
-
-      // Add job events if job_scheduled_date exists
-      if (lead.job_scheduled_date) {
-        calendarEvents.push({
-          id: `lead-job-${lead.id}`,
-          title: `Job - ${lead.full_name}`,
-          date: lead.job_scheduled_date,
-          time: lead.scheduled_time || '7:00 AM',
-          type: 'job',
-          status: lead.status,
-          leadId: lead.id,
-          leadNumber: lead.lead_number || '',
-          client: lead.full_name,
-          address: `${lead.property_address_street}, ${lead.property_address_suburb} ${lead.property_address_state} ${lead.property_address_postcode}`,
-          suburb: lead.property_address_suburb,
-          phone: lead.phone,
-          color: EVENT_COLORS['job'],
-        })
-      }
-
-      // Add multi-day job events from scheduled_dates array
-      if (lead.scheduled_dates && lead.scheduled_dates.length > 0) {
-        lead.scheduled_dates.forEach((dateStr, index) => {
-          calendarEvents.push({
-            id: `lead-job-day-${lead.id}-${index}`,
-            title: `Job Day ${index + 1} - ${lead.full_name}`,
-            date: dateStr,
-            time: lead.scheduled_time || '7:00 AM',
-            type: 'job',
-            status: lead.status,
-            leadId: lead.id,
-            leadNumber: lead.lead_number || '',
-            client: lead.full_name,
-            address: `${lead.property_address_street}, ${lead.property_address_suburb} ${lead.property_address_state} ${lead.property_address_postcode}`,
-            suburb: lead.property_address_suburb,
-            phone: lead.phone,
-            color: EVENT_COLORS['job'],
-          })
+    // Create a map of lead_id -> inspection data for quick lookup
+    const inspectionMap = new Map<string, { date: string; time: string | null }>()
+    inspections?.forEach(insp => {
+      if (insp.inspection_date) {
+        inspectionMap.set(insp.lead_id, {
+          date: insp.inspection_date,
+          time: insp.inspection_start_time
         })
       }
     })
 
-    // Add events from inspections table (for completed inspections with actual dates)
-    inspections?.forEach(inspection => {
-      const lead = inspection.leads as any
-      if (!lead || !inspection.inspection_date) return
+    // Process each lead - only add ONE event per lead
+    leadsWithInspections?.forEach(lead => {
+      if (processedLeadIds.has(lead.id)) return
+      processedLeadIds.add(lead.id)
 
-      // Check if we already have this event from the leads query
-      const existingEvent = calendarEvents.find(e =>
-        e.leadId === lead.id && e.date === inspection.inspection_date
-      )
-      if (existingEvent) return
+      // Use inspection table date if available (actual date), otherwise use scheduled date
+      const inspectionData = inspectionMap.get(lead.id)
+      const eventDate = inspectionData?.date || lead.inspection_scheduled_date
+      const eventTime = inspectionData?.time || lead.scheduled_time
+
+      if (!eventDate) return
 
       calendarEvents.push({
-        id: `inspection-${inspection.id}`,
-        title: `Inspection - ${lead.full_name}`,
-        date: inspection.inspection_date,
-        time: inspection.inspection_start_time || '9:00 AM',
-        type: 'inspection',
+        id: lead.id,
+        date: eventDate,
+        time: formatTime(eventTime),
         status: lead.status,
         leadId: lead.id,
         leadNumber: lead.lead_number || '',
-        client: lead.full_name,
-        address: `${lead.property_address_street}, ${lead.property_address_suburb} ${lead.property_address_state} ${lead.property_address_postcode}`,
-        suburb: lead.property_address_suburb,
-        phone: lead.phone,
-        color: EVENT_COLORS['inspection'],
+        client: lead.full_name || 'Unknown',
+        address: `${lead.property_address_street || ''}, ${lead.property_address_suburb || ''} ${lead.property_address_state || ''} ${lead.property_address_postcode || ''}`,
+        suburb: lead.property_address_suburb || 'Unknown',
+        phone: lead.phone || '',
       })
     })
 
     return calendarEvents
   }, [leadsWithInspections, inspections])
 
-  // Get upcoming events (today and future only)
+  // Get upcoming events (today and future only) - sorted by date
   const upcomingEvents = useMemo(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -241,7 +171,6 @@ const Calendar = () => {
     return events
       .filter(event => parseLocalDate(event.date) >= today)
       .sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime())
-      .slice(0, 5) // Show next 5 upcoming events
   }, [events])
 
   // Get events for a specific date
@@ -253,11 +182,9 @@ const Calendar = () => {
   // Calendar navigation
   const navigatePeriod = (direction: number) => {
     const newDate = new Date(currentDate)
-    if (view === 'day') {
-      newDate.setDate(currentDate.getDate() + direction)
-    } else if (view === 'week') {
+    if (view === 'week') {
       newDate.setDate(currentDate.getDate() + (direction * 7))
-    } else {
+    } else if (view === 'month') {
       newDate.setMonth(currentDate.getMonth() + direction)
     }
     setCurrentDate(newDate)
@@ -303,9 +230,6 @@ const Calendar = () => {
 
   // Get status badge color
   const getStatusBadgeClass = (status: string): string => {
-    const statusConfig = STATUS_FLOW[status as LeadStatus]
-    if (!statusConfig) return 'bg-gray-100 text-gray-700'
-
     const colorMap: Record<string, string> = {
       'new_lead': 'bg-blue-100 text-blue-700',
       'inspection_waiting': 'bg-amber-100 text-amber-700',
@@ -348,21 +272,6 @@ const Calendar = () => {
     )
   }
 
-  // Error state
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-red-500 font-medium">Failed to load calendar</p>
-          <p className="text-sm text-gray-500 mt-1">Please try refreshing the page</p>
-          <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
-            Refresh
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="calendar-page">
       {/* Navigation */}
@@ -387,45 +296,58 @@ const Calendar = () => {
             onClick={() => navigate('/leads')}
           >
             <Plus className="h-5 w-5 mr-1" />
-            <span className="hidden sm:inline">New Event</span>
+            <span className="hidden sm:inline">New</span>
           </Button>
         </div>
       </nav>
 
       {/* Main Content */}
       <main className="p-4 md:p-6 bg-gray-50 min-h-screen">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-5xl mx-auto">
 
           {/* Calendar Header */}
           <Card className="p-4 mb-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="flex items-center gap-3">
-                <h1 className="text-xl font-bold text-gray-900">
-                  {view === 'day' && formatAustralianDate(currentDate)}
-                  {view === 'week' && `Week of ${currentDate.toLocaleDateString('en-AU', { month: 'long', day: 'numeric', year: 'numeric' })}`}
-                  {view === 'month' && monthName}
-                </h1>
-                <Button variant="outline" size="sm" onClick={goToToday}>
-                  Today
-                </Button>
+                {view !== 'upcoming' && (
+                  <>
+                    <h1 className="text-xl font-bold text-gray-900">
+                      {view === 'week' && `Week of ${currentDate.toLocaleDateString('en-AU', { month: 'long', day: 'numeric', year: 'numeric' })}`}
+                      {view === 'month' && monthName}
+                    </h1>
+                    <Button variant="outline" size="sm" onClick={goToToday}>
+                      Today
+                    </Button>
+                  </>
+                )}
+                {view === 'upcoming' && (
+                  <h1 className="text-xl font-bold text-gray-900">
+                    Upcoming Inspections
+                  </h1>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="icon" onClick={() => navigatePeriod(-1)}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" onClick={() => navigatePeriod(1)}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+                {view !== 'upcoming' && (
+                  <>
+                    <Button variant="outline" size="icon" onClick={() => navigatePeriod(-1)}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => navigatePeriod(1)}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
 
+                {/* View Toggle: Month | Week | Upcoming */}
                 <div className="flex rounded-lg border overflow-hidden ml-2">
                   <Button
-                    variant={view === 'day' ? 'default' : 'ghost'}
+                    variant={view === 'month' ? 'default' : 'ghost'}
                     size="sm"
                     className="rounded-none"
-                    onClick={() => setView('day')}
+                    onClick={() => setView('month')}
                   >
-                    Day
+                    Month
                   </Button>
                   <Button
                     variant={view === 'week' ? 'default' : 'ghost'}
@@ -436,330 +358,312 @@ const Calendar = () => {
                     Week
                   </Button>
                   <Button
-                    variant={view === 'month' ? 'default' : 'ghost'}
+                    variant={view === 'upcoming' ? 'default' : 'ghost'}
                     size="sm"
                     className="rounded-none"
-                    onClick={() => setView('month')}
+                    onClick={() => setView('upcoming')}
                   >
-                    Month
+                    <List className="h-4 w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Upcoming</span>
                   </Button>
                 </div>
               </div>
             </div>
           </Card>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Calendar Grid */}
-            <Card className="lg:col-span-2 p-4">
-              {/* Month View */}
-              {view === 'month' && (
-                <>
-                  {/* Weekday headers */}
-                  <div className="grid grid-cols-7 mb-2">
-                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                      <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
-                        {day}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Calendar days */}
-                  <div className="grid grid-cols-7 gap-1">
-                    {calendarDays.map((day, index) => {
-                      if (!day.date) {
-                        return <div key={index} className="aspect-square" />
-                      }
-
-                      const isCurrentDay = isToday(day.date)
-                      const isSelected = isSameDate(day.date, selectedDate)
-                      const hasEvents = day.events.length > 0
-
-                      return (
-                        <div
-                          key={index}
-                          className={`
-                            aspect-square p-1 rounded-lg cursor-pointer transition-colors
-                            ${isCurrentDay ? 'bg-blue-100 ring-2 ring-blue-500' : ''}
-                            ${isSelected && !isCurrentDay ? 'bg-gray-100' : ''}
-                            ${!isCurrentDay && !isSelected ? 'hover:bg-gray-50' : ''}
-                          `}
-                          onClick={() => setSelectedDate(day.date!)}
-                        >
-                          <div className={`
-                            text-sm font-medium text-center
-                            ${isCurrentDay ? 'text-blue-700' : 'text-gray-900'}
-                          `}>
-                            {day.date.getDate()}
-                          </div>
-
-                          {hasEvents && (
-                            <div className="flex flex-wrap justify-center gap-0.5 mt-1">
-                              {day.events.slice(0, 3).map(event => (
-                                <div
-                                  key={event.id}
-                                  className="w-1.5 h-1.5 rounded-full"
-                                  style={{ backgroundColor: event.color }}
-                                />
-                              ))}
-                              {day.events.length > 3 && (
-                                <span className="text-[10px] text-gray-500">+{day.events.length - 3}</span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </>
-              )}
-
-              {/* Week View */}
-              {view === 'week' && (
-                <div className="overflow-x-auto">
-                  <div className="grid grid-cols-7 gap-2 min-w-[600px]">
-                    {getWeekDates(currentDate).map((date, index) => {
-                      const dayEvents = getEventsForDate(date)
-                      const isCurrentDay = isToday(date)
-
-                      return (
-                        <div key={index} className="min-h-[200px]">
-                          <div className={`
-                            text-center py-2 rounded-t-lg
-                            ${isCurrentDay ? 'bg-blue-500 text-white' : 'bg-gray-100'}
-                          `}>
-                            <div className="text-xs font-medium">
-                              {date.toLocaleDateString('en-AU', { weekday: 'short' })}
-                            </div>
-                            <div className="text-lg font-bold">{date.getDate()}</div>
-                          </div>
-
-                          <div className="space-y-1 p-1">
-                            {dayEvents.map(event => (
-                              <div
-                                key={event.id}
-                                className="p-2 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity"
-                                style={{ backgroundColor: `${event.color}20`, borderLeft: `3px solid ${event.color}` }}
-                                onClick={() => setSelectedEvent(event)}
-                              >
-                                <div className="font-medium truncate">{event.time}</div>
-                                <div className="truncate text-gray-600">{event.client}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Day View */}
-              {view === 'day' && (
-                <div>
-                  <h2 className="text-lg font-semibold mb-4">{formatAustralianDate(currentDate)}</h2>
-
-                  {getEventsForDate(currentDate).length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">
-                      <CalendarIcon className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                      <p className="font-medium">No events scheduled</p>
-                      <p className="text-sm mt-1">Click "New Event" to add one</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {getEventsForDate(currentDate).map(event => (
-                        <div
-                          key={event.id}
-                          className="p-4 rounded-lg border cursor-pointer hover:shadow-md transition-shadow"
-                          style={{ borderLeftWidth: '4px', borderLeftColor: event.color }}
-                          onClick={() => setSelectedEvent(event)}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <Badge className={getStatusBadgeClass(event.status)}>
-                              {getStatusLabel(event.status)}
-                            </Badge>
-                            <span className="text-sm font-medium text-gray-500">{event.time}</span>
-                          </div>
-                          <h3 className="font-semibold">{event.title}</h3>
-                          <p className="text-sm text-gray-600">{event.client}</p>
-                          <p className="text-sm text-gray-500">{event.suburb}</p>
+          {/* Calendar Grid Views (Month & Week) */}
+          {view !== 'upcoming' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Calendar Grid */}
+              <Card className="lg:col-span-2 p-4">
+                {/* Month View */}
+                {view === 'month' && (
+                  <>
+                    {/* Weekday headers */}
+                    <div className="grid grid-cols-7 mb-2">
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                        <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
+                          {day}
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
-              )}
-            </Card>
 
-            {/* Sidebar - Selected Date Events */}
-            <Card className="p-4">
-              <div className="mb-4">
-                <h2 className="font-semibold text-gray-900">
-                  {selectedDate.toLocaleDateString('en-AU', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </h2>
-                <p className="text-sm text-gray-500">
-                  {getEventsForDate(selectedDate).length} event{getEventsForDate(selectedDate).length !== 1 ? 's' : ''}
-                </p>
-              </div>
+                    {/* Calendar days */}
+                    <div className="grid grid-cols-7 gap-1">
+                      {calendarDays.map((day, index) => {
+                        if (!day.date) {
+                          return <div key={index} className="aspect-square" />
+                        }
 
-              {getEventsForDate(selectedDate).length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <CalendarIcon className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm">No events scheduled</p>
+                        const isCurrentDay = isToday(day.date)
+                        const isSelected = isSameDate(day.date, selectedDate)
+                        const hasEvents = day.events.length > 0
+
+                        return (
+                          <div
+                            key={index}
+                            className={`
+                              aspect-square p-1 rounded-lg cursor-pointer transition-colors
+                              ${isCurrentDay ? 'bg-blue-100 ring-2 ring-blue-500' : ''}
+                              ${isSelected && !isCurrentDay ? 'bg-gray-100' : ''}
+                              ${!isCurrentDay && !isSelected ? 'hover:bg-gray-50' : ''}
+                            `}
+                            onClick={() => setSelectedDate(day.date!)}
+                          >
+                            <div className={`
+                              text-sm font-medium text-center
+                              ${isCurrentDay ? 'text-blue-700' : 'text-gray-900'}
+                            `}>
+                              {day.date.getDate()}
+                            </div>
+
+                            {hasEvents && (
+                              <div className="flex flex-wrap justify-center gap-0.5 mt-1">
+                                {day.events.slice(0, 3).map(event => (
+                                  <div
+                                    key={event.id}
+                                    className="w-1.5 h-1.5 rounded-full bg-blue-500"
+                                  />
+                                ))}
+                                {day.events.length > 3 && (
+                                  <span className="text-[10px] text-gray-500">+{day.events.length - 3}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {/* Week View */}
+                {view === 'week' && (
+                  <div className="overflow-x-auto">
+                    <div className="grid grid-cols-7 gap-2 min-w-[600px]">
+                      {getWeekDates(currentDate).map((date, index) => {
+                        const dayEvents = getEventsForDate(date)
+                        const isCurrentDay = isToday(date)
+
+                        return (
+                          <div key={index} className="min-h-[200px]">
+                            <div className={`
+                              text-center py-2 rounded-t-lg
+                              ${isCurrentDay ? 'bg-blue-500 text-white' : 'bg-gray-100'}
+                            `}>
+                              <div className="text-xs font-medium">
+                                {date.toLocaleDateString('en-AU', { weekday: 'short' })}
+                              </div>
+                              <div className="text-lg font-bold">{date.getDate()}</div>
+                            </div>
+
+                            <div className="space-y-1 p-1">
+                              {dayEvents.map(event => (
+                                <div
+                                  key={event.id}
+                                  className="p-2 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity bg-blue-50 border-l-3 border-blue-500"
+                                  style={{ borderLeftWidth: '3px', borderLeftColor: '#3b82f6' }}
+                                  onClick={() => setSelectedEvent(event)}
+                                >
+                                  <div className="font-medium truncate">{event.time}</div>
+                                  <div className="truncate text-gray-600">{event.client}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </Card>
+
+              {/* Sidebar - Selected Date Events */}
+              <Card className="p-4">
+                <div className="mb-4">
+                  <h2 className="font-semibold text-gray-900">
+                    {selectedDate.toLocaleDateString('en-AU', {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    {getEventsForDate(selectedDate).length} inspection{getEventsForDate(selectedDate).length !== 1 ? 's' : ''}
+                  </p>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {getEventsForDate(selectedDate).map(event => (
-                    <div
-                      key={event.id}
-                      className="p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors"
-                      style={{ borderLeftWidth: '4px', borderLeftColor: event.color }}
-                      onClick={() => navigate(`/leads/${event.leadId}`)}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="outline" className="text-xs capitalize">
-                          {event.type}
-                        </Badge>
+
+                {getEventsForDate(selectedDate).length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <CalendarIcon className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No inspections scheduled</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {getEventsForDate(selectedDate).map(event => (
+                      <div
+                        key={event.id}
+                        className="p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors"
+                        style={{ borderLeftWidth: '4px', borderLeftColor: '#3b82f6' }}
+                        onClick={() => navigate(`/leads/${event.leadId}`)}
+                      >
                         <Badge className={getStatusBadgeClass(event.status)}>
                           {getStatusLabel(event.status)}
                         </Badge>
-                      </div>
 
-                      <h3 className="font-medium text-sm">{event.client}</h3>
+                        <h3 className="font-medium text-sm mt-2">{event.client}</h3>
 
-                      <div className="mt-2 space-y-1 text-xs text-gray-500">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>{event.time}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          <span className="truncate">{event.suburb}</span>
-                        </div>
-                        {event.phone && (
+                        <div className="mt-2 space-y-1 text-xs text-gray-500">
                           <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            <span>{event.phone}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-3 flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 h-8 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            window.open(
-                              `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(event.address)}`,
-                              '_blank'
-                            )
-                          }}
-                        >
-                          <MapPin className="h-3 w-3 mr-1" />
-                          Directions
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 h-8 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            window.location.href = `tel:${event.phone}`
-                          }}
-                        >
-                          <Phone className="h-3 w-3 mr-1" />
-                          Call
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Upcoming Inspections */}
-              <div className="mt-6 pt-4 border-t">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4 text-blue-600" />
-                    Coming Up
-                  </h3>
-                  {upcomingEvents.length > 0 && (
-                    <Badge className="bg-blue-100 text-blue-700 text-xs">
-                      {upcomingEvents.length}
-                    </Badge>
-                  )}
-                </div>
-
-                {upcomingEvents.length === 0 ? (
-                  <div className="text-center py-4 text-gray-500">
-                    <p className="text-xs">No upcoming events</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {upcomingEvents.map(event => {
-                      const eventDate = parseLocalDate(event.date)
-                      const isToday = eventDate.toDateString() === new Date().toDateString()
-                      const formattedDate = eventDate.toLocaleDateString('en-AU', {
-                        weekday: 'short',
-                        day: 'numeric',
-                        month: 'short'
-                      })
-
-                      return (
-                        <div
-                          key={event.id}
-                          className="p-2 rounded-lg border cursor-pointer hover:bg-blue-50 transition-colors"
-                          style={{ borderLeftWidth: '3px', borderLeftColor: event.color }}
-                          onClick={() => navigate(`/leads/${event.leadId}`)}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-medium text-gray-900 truncate">
-                              {event.client}
-                            </span>
-                            {isToday && (
-                              <Badge className="bg-green-100 text-green-700 text-[10px] px-1">
-                                Today
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-[11px] text-gray-500">
-                            <span className="font-medium text-blue-600">{formattedDate}</span>
-                            <span>•</span>
+                            <Clock className="h-3 w-3" />
                             <span>{event.time}</span>
                           </div>
-                          <div className="flex items-center gap-1 text-[11px] text-gray-400 mt-1">
+                          <div className="flex items-center gap-1">
                             <MapPin className="h-3 w-3" />
                             <span className="truncate">{event.suburb}</span>
                           </div>
+                          {event.phone && (
+                            <div className="flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              <span>{event.phone}</span>
+                            </div>
+                          )}
                         </div>
-                      )
-                    })}
+
+                        <div className="mt-3 flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-8 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.open(
+                                `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(event.address)}`,
+                                '_blank'
+                              )
+                            }}
+                          >
+                            <MapPin className="h-3 w-3 mr-1" />
+                            Directions
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-8 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.location.href = `tel:${event.phone}`
+                            }}
+                          >
+                            <Phone className="h-3 w-3 mr-1" />
+                            Call
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
-              </div>
+              </Card>
+            </div>
+          )}
 
-              {/* Legend */}
-              <div className="mt-6 pt-4 border-t">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Event Types</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['inspection', 'job', 'follow-up', 'other'] as EventType[]).map(type => (
-                    <div key={type} className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: EVENT_COLORS[type] }}
-                      />
-                      <span className="text-xs text-gray-600 capitalize">{type}</span>
-                    </div>
-                  ))}
+          {/* Upcoming View - Simple List */}
+          {view === 'upcoming' && (
+            <Card className="p-4">
+              {upcomingEvents.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <CalendarIcon className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="font-medium">No upcoming inspections</p>
+                  <p className="text-sm mt-1">Schedule an inspection to see it here</p>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-3">
+                  {upcomingEvents.map(event => {
+                    const eventDate = parseLocalDate(event.date)
+                    const isTodayEvent = isToday(eventDate)
+                    const formattedDate = eventDate.toLocaleDateString('en-AU', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short'
+                    })
+
+                    return (
+                      <div
+                        key={event.id}
+                        className="p-4 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors"
+                        style={{ borderLeftWidth: '4px', borderLeftColor: '#3b82f6' }}
+                        onClick={() => navigate(`/leads/${event.leadId}`)}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="font-semibold text-base truncate">{event.client}</h3>
+                              {isTodayEvent && (
+                                <Badge className="bg-green-100 text-green-700 text-xs">
+                                  Today
+                                </Badge>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
+                              <div className="flex items-center gap-1">
+                                <CalendarIcon className="h-4 w-4 text-blue-600" />
+                                <span className="font-medium text-blue-600">{formattedDate}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-4 w-4" />
+                                <span>{event.time}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <MapPin className="h-4 w-4" />
+                                <span>{event.suburb}</span>
+                              </div>
+                            </div>
+
+                            <div className="mt-2">
+                              <Badge className={getStatusBadgeClass(event.status)}>
+                                {getStatusLabel(event.status)}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-10 w-10 sm:w-auto sm:px-3"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                window.open(
+                                  `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(event.address)}`,
+                                  '_blank'
+                                )
+                              }}
+                            >
+                              <MapPin className="h-4 w-4" />
+                              <span className="hidden sm:inline ml-2">Directions</span>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-10 w-10 sm:w-auto sm:px-3"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                window.location.href = `tel:${event.phone}`
+                              }}
+                            >
+                              <Phone className="h-4 w-4" />
+                              <span className="hidden sm:inline ml-2">Call</span>
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </Card>
-          </div>
+          )}
         </div>
       </main>
 
@@ -774,21 +678,30 @@ const Calendar = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <Badge variant="outline" className="capitalize">{selectedEvent.type}</Badge>
+              <Badge className="bg-blue-100 text-blue-700">Inspection</Badge>
               <Button variant="ghost" size="sm" onClick={() => setSelectedEvent(null)}>
                 X
               </Button>
             </div>
 
-            <h2 className="text-xl font-bold mb-2">{selectedEvent.title}</h2>
+            <h2 className="text-xl font-bold mb-2">{selectedEvent.client}</h2>
             <Badge className={getStatusBadgeClass(selectedEvent.status)}>
               {getStatusLabel(selectedEvent.status)}
             </Badge>
 
             <div className="mt-4 space-y-3">
               <div className="flex items-center gap-3 text-sm">
+                <CalendarIcon className="h-4 w-4 text-gray-400" />
+                <span>{parseLocalDate(selectedEvent.date).toLocaleDateString('en-AU', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric'
+                })}</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
                 <Clock className="h-4 w-4 text-gray-400" />
-                <span>{selectedEvent.date} at {selectedEvent.time}</span>
+                <span>{selectedEvent.time}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <User className="h-4 w-4 text-gray-400" />
