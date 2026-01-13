@@ -1,11 +1,27 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   ArrowLeft,
   Phone,
@@ -15,38 +31,77 @@ import {
   User,
   FileText,
   Clock,
-  Sparkles,
   CheckCircle2,
-  FileCheck2,
   XCircle,
-  RefreshCw,
   Edit,
   Eye,
-  Loader2
+  Loader2,
+  MoreVertical,
+  MessageSquare,
+  Navigation,
+  Trash2,
+  RefreshCw,
+  ChevronRight,
+  AlertTriangle,
+  DollarSign,
+  Sparkles,
+  ClipboardList,
 } from "lucide-react";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
 import { STATUS_FLOW, LeadStatus } from "@/lib/statusFlow";
-import { useState } from "react";
-import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
 import { toast } from "sonner";
 
-// Icon mapping for Stage 1 statuses
-const iconMap: Record<string, any> = {
-  Sparkles,
-  Clock,
-  FileCheck2,
-  Mail,
-  CheckCircle2,
-  XCircle,
+// Australian currency formatter
+const formatCurrency = (value: number | null | undefined) => {
+  if (value === null || value === undefined) return "$0.00";
+  return new Intl.NumberFormat("en-AU", {
+    style: "currency",
+    currency: "AUD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+};
+
+// Australian date formatter
+const formatDate = (dateString: string | null | undefined) => {
+  if (!dateString) return "-";
+  return new Date(dateString).toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+};
+
+// Time formatter
+const formatTime = (timeString: string | null | undefined) => {
+  if (!timeString) return "-";
+  const hour = parseInt(timeString.substring(0, 2));
+  if (hour === 12) return "12:00 PM";
+  if (hour > 12) return `${hour - 12}:00 PM`;
+  return `${hour}:00 AM`;
+};
+
+// Get initials from name
+const getInitials = (name: string | null | undefined) => {
+  if (!name) return "??";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .substring(0, 2);
 };
 
 export default function LeadDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [showBookingModal, setShowBookingModal] = useState(false);
   const [regeneratingPdf, setRegeneratingPdf] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [newStatus, setNewStatus] = useState<LeadStatus | null>(null);
 
-  const { data: lead, isLoading } = useQuery({
+  // Fetch lead data
+  const { data: lead, isLoading, refetch } = useQuery({
     queryKey: ["lead", id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -60,6 +115,7 @@ export default function LeadDetail() {
     },
   });
 
+  // Fetch activities
   const { data: activities } = useQuery({
     queryKey: ["activities", id],
     queryFn: async () => {
@@ -74,7 +130,7 @@ export default function LeadDetail() {
     },
   });
 
-  // Fetch inspection data for this lead
+  // Fetch inspection data
   const { data: inspection } = useQuery({
     queryKey: ["inspection", id],
     queryFn: async () => {
@@ -84,258 +140,241 @@ export default function LeadDetail() {
         .eq("lead_id", id)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows found
+      if (error && error.code !== "PGRST116") throw error;
       return data;
     },
   });
 
+  // Redirect new_lead to NewLeadView
+  useEffect(() => {
+    if (lead && lead.status === "new_lead") {
+      navigate(`/lead/new/${id}`, { replace: true });
+    }
+  }, [lead, id, navigate]);
+
+  // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p>Loading lead details...</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <p className="text-sm text-gray-500">Loading lead details...</p>
+        </div>
       </div>
     );
   }
 
+  // Not found state
   if (!lead) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p>Lead not found</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Lead not found</h2>
+          <p className="text-gray-500 mb-4">
+            This lead may have been deleted or doesn't exist.
+          </p>
+          <Button onClick={() => navigate("/leads")}>Back to Leads</Button>
+        </div>
+      </div>
+    );
+  }
+
+  // If it's a new_lead, the useEffect will redirect. Show loading meanwhile.
+  if (lead.status === "new_lead") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
   }
 
   const statusConfig = STATUS_FLOW[lead.status as LeadStatus];
+  const fullAddress = `${lead.property_address_street}, ${lead.property_address_suburb} ${lead.property_address_state} ${lead.property_address_postcode}`;
 
-  const handleGetDirections = () => {
-    const address = encodeURIComponent(
-      `${lead.property_address_street}, ${lead.property_address_suburb}, VIC ${lead.property_address_postcode}`
+  // Action handlers
+  const handleCall = () => {
+    window.location.href = `tel:${lead.phone}`;
+  };
+
+  const handleEmail = () => {
+    window.location.href = `mailto:${lead.email}`;
+  };
+
+  const handleSMS = () => {
+    window.location.href = `sms:${lead.phone}`;
+  };
+
+  const handleDirections = () => {
+    window.open(
+      `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fullAddress)}`,
+      "_blank"
     );
-    window.open(`https://www.google.com/maps/search/?api=1&query=${address}`, '_blank');
   };
 
-  const handleApproveReport = async () => {
+  const handleChangeStatus = async (status: LeadStatus) => {
     const { error } = await supabase
-      .from('leads')
-      .update({ status: 'inspection_email_approval' })
-      .eq('id', lead.id);
+      .from("leads")
+      .update({ status })
+      .eq("id", lead.id);
 
     if (error) {
-      toast.error('Failed to update status');
+      toast.error("Failed to update status");
       return;
     }
 
-    await supabase.from('activities').insert({
+    await supabase.from("activities").insert({
       lead_id: lead.id,
-      activity_type: 'report_approved',
-      title: 'Report Approved',
-      description: 'Inspection report approved and ready to send',
+      activity_type: "status_change",
+      title: `Status changed to ${STATUS_FLOW[status].shortTitle}`,
+      description: `Lead moved from ${statusConfig.shortTitle} to ${STATUS_FLOW[status].shortTitle}`,
     });
 
-    toast.success('Report approved! Ready to send to customer.');
-    window.location.reload();
+    toast.success(`Status updated to ${STATUS_FLOW[status].shortTitle}`);
+    refetch();
   };
 
-  const handleSendReportToCustomer = async () => {
-    const { error } = await supabase
-      .from('leads')
-      .update({ status: 'closed' })
-      .eq('id', lead.id);
+  const handleDelete = async () => {
+    const { error } = await supabase.from("leads").delete().eq("id", lead.id);
 
     if (error) {
-      toast.error('Failed to send report');
+      toast.error("Failed to delete lead");
       return;
     }
 
-    await supabase.from('activities').insert({
-      lead_id: lead.id,
-      activity_type: 'report_sent',
-      title: 'Report Sent to Customer',
-      description: 'Inspection report emailed to customer',
-    });
-
-    toast.success('Report sent! Lead closed.');
-    window.location.reload();
+    toast.success("Lead deleted");
+    navigate("/leads");
   };
 
-  const handleCopyBookingLink = () => {
-    const bookingUrl = `${window.location.origin}/book/${lead.id}`;
-    navigator.clipboard.writeText(bookingUrl);
-    toast.success('📋 Booking link copied to clipboard!');
-  };
-
-  // Regenerate PDF for the current lead
   const handleRegeneratePDF = async () => {
-    const { data: inspection } = await supabase
-      .from('inspections')
-      .select('id')
-      .eq('lead_id', lead.id)
-      .single();
-
     if (!inspection) {
-      toast.error('No inspection found for this lead');
+      toast.error("No inspection found for this lead");
       return;
     }
 
     setRegeneratingPdf(true);
-
     try {
       const result = await generateInspectionPDF(inspection.id, { regenerate: true });
       if (result.success) {
-        toast.success('PDF regenerated successfully! Refreshing...');
-        setTimeout(() => window.location.reload(), 1500);
+        toast.success("PDF regenerated successfully!");
+        refetch();
       } else {
-        toast.error('Failed to regenerate PDF');
+        toast.error("Failed to regenerate PDF");
       }
     } catch (error) {
-      toast.error('Error regenerating PDF');
+      toast.error("Error regenerating PDF");
     } finally {
       setRegeneratingPdf(false);
     }
   };
 
-  const handleMarkNotLanded = async () => {
-    const { error } = await supabase
-      .from('leads')
-      .update({ status: 'not_landed' })
-      .eq('id', lead.id);
-
-    if (error) {
-      toast.error('Failed to update status');
-      return;
-    }
-
-    await supabase.from('activities').insert({
-      lead_id: lead.id,
-      activity_type: 'lead_lost',
-      title: 'Lead Not Landed',
-      description: 'Lead marked as not landed',
-    });
-
-    toast.success('Lead marked as not landed.');
-    window.location.reload();
-  };
-
-  const handleCloseLead = async () => {
-    const { error } = await supabase
-      .from('leads')
-      .update({ status: 'closed' })
-      .eq('id', lead.id);
-
-    if (error) {
-      toast.error('Failed to close lead');
-      return;
-    }
-
-    await supabase.from('activities').insert({
-      lead_id: lead.id,
-      activity_type: 'lead_closed',
-      title: 'Lead Closed',
-      description: 'Lead successfully closed',
-    });
-
-    toast.success('Lead closed successfully!');
-    window.location.reload();
-  };
-
-  const renderActionButtons = () => {
-    const status = lead.status as LeadStatus;
-
-    switch (status) {
-      case "new_lead":
-        return (
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline" onClick={() => window.location.href = `tel:${lead.phone}`}>
-              <Phone className="h-4 w-4 mr-2" /> Call Customer
-            </Button>
-            <Button size="lg" onClick={() => setShowBookingModal(true)}>
-              <Calendar className="h-4 w-4 mr-2" /> Book Inspection
-            </Button>
-            <Button size="lg" variant="destructive" onClick={handleMarkNotLanded}>
-              <XCircle className="h-4 w-4 mr-2" /> Not Landed
-            </Button>
-          </div>
-        );
-
+  // Render primary CTA based on status
+  const renderPrimaryCTA = () => {
+    switch (lead.status as LeadStatus) {
       case "inspection_waiting":
         return (
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline" onClick={handleGetDirections}>
-              <MapPin className="h-4 w-4 mr-2" /> Get Directions
-            </Button>
-            <Button size="lg" onClick={() => navigate(`/inspection/${lead.id}`)}>
-              <FileText className="h-4 w-4 mr-2" /> Start Inspection
-            </Button>
-            <Button size="lg" variant="destructive" onClick={handleMarkNotLanded}>
-              <XCircle className="h-4 w-4 mr-2" /> Not Landed
-            </Button>
-          </div>
+          <Button
+            size="lg"
+            className="w-full h-14 text-base"
+            onClick={() => navigate(`/inspection/${lead.id}`)}
+          >
+            <FileText className="h-5 w-5 mr-2" />
+            {inspection ? "Continue Inspection" : "Start Inspection"}
+          </Button>
         );
 
       case "approve_inspection_report":
         return (
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-3">
             <Button
               size="lg"
-              className="h-12 bg-purple-600 hover:bg-purple-700"
+              className="w-full h-14 text-base bg-purple-600 hover:bg-purple-700"
               onClick={() => navigate(`/report/${lead.id}`)}
             >
-              <FileCheck2 className="h-4 w-4 mr-2" /> View & Edit PDF
+              <Eye className="h-5 w-5 mr-2" />
+              View & Edit Report
             </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-12"
-              onClick={() => navigate(`/inspection/${lead.id}`)}
-            >
-              <Edit className="h-4 w-4 mr-2" /> Edit Inspection
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="h-12"
-              onClick={handleRegeneratePDF}
-              disabled={regeneratingPdf}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${regeneratingPdf ? 'animate-spin' : ''}`} />
-              {regeneratingPdf ? 'Regenerating...' : 'Regenerate PDF'}
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 h-12"
+                onClick={() => navigate(`/inspection/${lead.id}`)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Inspection
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 h-12"
+                onClick={handleRegeneratePDF}
+                disabled={regeneratingPdf}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${regeneratingPdf ? "animate-spin" : ""}`} />
+                {regeneratingPdf ? "Regenerating..." : "Regenerate PDF"}
+              </Button>
+            </div>
           </div>
         );
 
       case "inspection_email_approval":
         return (
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-3">
             <Button
               size="lg"
-              className="h-12"
+              className="w-full h-14 text-base"
+              onClick={() => handleChangeStatus("closed")}
+            >
+              <Mail className="h-5 w-5 mr-2" />
+              Send Report & Close Lead
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full h-12"
               onClick={() => navigate(`/report/${lead.id}`)}
             >
-              <Eye className="h-4 w-4 mr-2" /> View Report
-            </Button>
-            <Button size="lg" onClick={handleSendReportToCustomer}>
-              <Mail className="h-4 w-4 mr-2" /> Send Report & Close
+              <Eye className="h-4 w-4 mr-2" />
+              View Report
             </Button>
           </div>
         );
 
       case "closed":
         return (
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline" onClick={() => navigate(`/report/${lead.id}`)}>
-              <Eye className="h-4 w-4 mr-2" /> View Report
+          <div className="space-y-3">
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full h-14 text-base"
+              onClick={() => navigate(`/report/${lead.id}`)}
+            >
+              <Eye className="h-5 w-5 mr-2" />
+              View Final Report
             </Button>
-            <Button size="lg" variant="outline" onClick={() => window.location.href = `tel:${lead.phone}`}>
-              <Phone className="h-4 w-4 mr-2" /> Call Customer
+            <Button variant="outline" className="w-full h-12" onClick={handleCall}>
+              <Phone className="h-4 w-4 mr-2" />
+              Call Customer
             </Button>
           </div>
         );
 
       case "not_landed":
         return (
-          <div className="flex flex-wrap gap-2">
-            <Button size="lg" variant="outline" onClick={() => window.location.href = `tel:${lead.phone}`}>
-              <Phone className="h-4 w-4 mr-2" /> Call Customer
+          <div className="space-y-3">
+            <Button
+              size="lg"
+              className="w-full h-14 text-base"
+              onClick={() => handleChangeStatus("new_lead")}
+            >
+              <RefreshCw className="h-5 w-5 mr-2" />
+              Reopen Lead
+            </Button>
+            <Button
+              variant="destructive"
+              className="w-full h-12"
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Permanently
             </Button>
           </div>
         );
@@ -345,577 +384,500 @@ export default function LeadDetail() {
     }
   };
 
-  const renderTimeline = () => {
-    const allStatuses = Object.keys(STATUS_FLOW) as LeadStatus[];
-    const currentStatusIndex = allStatuses.indexOf(lead.status as LeadStatus);
+  // Calculate inspection completion percentage
+  const getInspectionProgress = () => {
+    if (!inspection) return { completed: 0, total: 10, percentage: 0 };
 
-    return (
-      <div className="space-y-6">
-        {allStatuses.map((status, index) => {
-          const config = STATUS_FLOW[status];
-          const isCompleted = index < currentStatusIndex;
-          const isCurrent = index === currentStatusIndex;
-          const isPending = index > currentStatusIndex;
+    let completed = 0;
+    const total = 10;
 
-          return (
-            <div key={status} className="flex gap-4">
-              <div className="flex flex-col items-center">
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${
-                    isCurrent
-                      ? "bg-primary text-primary-foreground"
-                      : isCompleted
-                      ? "bg-green-500 text-white"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {isCompleted ? "✅" : isCurrent ? "🔵" : "⏳"}
-                </div>
-                {index < allStatuses.length - 1 && (
-                  <div
-                    className={`w-0.5 h-12 ${
-                      isCompleted ? "bg-green-500" : "bg-border"
-                    }`}
-                  />
-                )}
-              </div>
+    // Check each section
+    if (inspection.inspection_date) completed++;
+    if (inspection.property_type) completed++;
+    if (inspection.outdoor_observations) completed++;
+    if (inspection.waste_disposal_required !== null) completed++;
+    if (inspection.work_procedure_selected !== null) completed++;
+    if (inspection.labor_hours) completed++;
+    if (inspection.moisture_source_identified !== null) completed++;
+    if (inspection.estimated_total) completed++;
+    if (inspection.ai_summary_text) completed++;
+    if (inspection.pdf_generated_at) completed++;
 
-              <div className={`flex-1 pb-6 ${isCurrent ? "bg-accent p-4 rounded-lg" : ""}`}>
-                <h3 className={`font-semibold ${isCurrent ? "text-lg" : ""}`}>
-                  {config.title}
-                </h3>
-                {isCurrent && (
-                  <>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {config.nextAction}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      Action required
-                    </p>
-                  </>
-                )}
-                {isCompleted && activities && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Completed
-                  </p>
-                )}
-                {isPending && (
-                  <p className="text-xs text-muted-foreground mt-1">Pending...</p>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
+    return {
+      completed,
+      total,
+      percentage: Math.round((completed / total) * 100),
+    };
   };
 
-  return (
-    <div className="w-full max-w-[100vw] overflow-x-hidden">
-      {/* Page Header */}
-      <div className="bg-card border-b px-4 sm:px-6 py-4 sm:py-6">
-        <div className="max-w-[1920px] mx-auto">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/leads")}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Pipeline
-          </Button>
+  const progress = getInspectionProgress();
 
-          <div className="space-y-2 overflow-x-hidden w-full">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold break-words">
-              {lead.lead_number} - {lead.full_name}
-            </h1>
-            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm text-muted-foreground w-full">
-              <span className="flex items-center gap-1 break-words overflow-hidden">
-                <MapPin className="h-4 w-4 flex-shrink-0" />
-                <span className="break-words">
-                  {lead.property_address_street}, {lead.property_address_suburb} {lead.property_address_state} {lead.property_address_postcode}
-                </span>
-              </span>
-              <span className="flex items-center gap-1 break-all overflow-hidden">
-                <Mail className="h-4 w-4 flex-shrink-0" />
-                <span className="break-all overflow-wrap-anywhere">
-                  {lead.email}
-                </span>
-              </span>
-              <span className="flex items-center gap-1">
-                <Phone className="h-4 w-4 flex-shrink-0" />
-                {lead.phone}
-              </span>
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-white border-b shadow-sm">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            {/* Back Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/leads")}
+              className="flex-shrink-0"
+            >
+              <ArrowLeft className="h-5 w-5" />
+              <span className="hidden sm:inline ml-2">Back</span>
+            </Button>
+
+            {/* Customer Name & Avatar */}
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div
+                className="h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0"
+                style={{ backgroundColor: statusConfig?.color || "#6b7280" }}
+              >
+                {getInitials(lead.full_name)}
+              </div>
+              <div className="min-w-0">
+                <h1 className="font-semibold text-base truncate">{lead.full_name}</h1>
+                <Badge
+                  variant="secondary"
+                  className="text-xs"
+                  style={{
+                    backgroundColor: `${statusConfig?.color}20`,
+                    color: statusConfig?.color,
+                    borderColor: statusConfig?.color,
+                  }}
+                >
+                  {statusConfig?.shortTitle}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button variant="outline" size="icon" onClick={handleCall} className="h-10 w-10">
+                <Phone className="h-5 w-5" />
+              </Button>
+
+              {/* MORE OPTIONS Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-10 w-10">
+                    <MoreVertical className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={handleCall}>
+                    <Phone className="h-4 w-4 mr-3" />
+                    Call
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleEmail}>
+                    <Mail className="h-4 w-4 mr-3" />
+                    Email
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSMS}>
+                    <MessageSquare className="h-4 w-4 mr-3" />
+                    SMS
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDirections}>
+                    <Navigation className="h-4 w-4 mr-3" />
+                    Get Directions
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  {/* Change Status Submenu */}
+                  <DropdownMenuItem
+                    onClick={() => setShowStatusDialog(true)}
+                    className="text-blue-600"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-3" />
+                    Change Status
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4 mr-3" />
+                    Delete Lead
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Status Card */}
-      <div className="px-4 sm:px-6 py-4 sm:py-6">
-        <div className="max-w-[1920px] mx-auto">
-        <Card className="border-l-4 overflow-x-hidden w-full" style={{ borderLeftColor: statusConfig.color }}>
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl md:text-2xl break-words">
-                {iconMap[statusConfig.iconName] && 
-                  React.createElement(iconMap[statusConfig.iconName], { size: 24, strokeWidth: 2 })
-                }
-                <span className="break-words">CURRENT STATUS: {statusConfig.title.toUpperCase()}</span>
-              </CardTitle>
-              <Badge variant="outline" className="self-start sm:self-center flex-shrink-0" style={{ borderColor: statusConfig.color, color: statusConfig.color }}>
-                {statusConfig.title}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm font-semibold text-muted-foreground mb-2">📋 Next Action Required:</p>
-              <p className="text-lg">{statusConfig.nextAction}</p>
-            </div>
-
-            {renderActionButtons()}
-
-            <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2">
-              <Clock className="h-4 w-4" />
-              Lead created {new Date(lead.created_at).toLocaleDateString()}
+      {/* Main Content */}
+      <main className="p-4 pb-32 max-w-3xl mx-auto space-y-4">
+        {/* Status Card */}
+        <Card
+          className="border-l-4"
+          style={{ borderLeftColor: statusConfig?.color }}
+        >
+          <CardContent className="pt-4">
+            <div className="flex items-start gap-3">
+              <div
+                className="h-12 w-12 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                style={{ backgroundColor: statusConfig?.color }}
+              >
+                {statusConfig?.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-gray-500">Current Status</p>
+                <h2 className="font-bold text-lg">{statusConfig?.title}</h2>
+                <p className="text-sm text-gray-600 mt-1">{statusConfig?.nextAction}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
-        </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="px-4 sm:px-6 pb-8">
-        <div className="max-w-[1920px] mx-auto">
-        <Tabs defaultValue="overview">
-          <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
-            <TabsList className="w-full sm:w-auto inline-flex">
-              <TabsTrigger value="overview" className="flex-shrink-0">Overview</TabsTrigger>
-              <TabsTrigger value="timeline" className="flex-shrink-0">Timeline</TabsTrigger>
-              <TabsTrigger value="inspection" className="flex-shrink-0">Inspection</TabsTrigger>
-              <TabsTrigger value="invoice" className="flex-shrink-0">Invoice</TabsTrigger>
-              <TabsTrigger value="files" className="flex-shrink-0">Files</TabsTrigger>
-            </TabsList>
-          </div>
+        {/* Primary CTA */}
+        <Card>
+          <CardContent className="pt-4">{renderPrimaryCTA()}</CardContent>
+        </Card>
 
-          <TabsContent value="overview" className="space-y-6 mt-6">
-            {/* HiPages Lead Indicator */}
-            {(lead.status === 'hipages_lead' || lead.lead_source === 'hipages') && (
-              <Card className="border-purple-200 bg-purple-50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-3">
-                    <div className="bg-purple-500 text-white p-2 rounded-lg flex-shrink-0">
-                      <Phone className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-purple-900 mb-1">HiPages Lead - Limited Information</h3>
-                      <p className="text-sm text-purple-800 mb-3">
-                        This lead came from HiPages marketplace and only has basic contact info.
-                        Call the lead to gather full details before scheduling inspection.
-                      </p>
-                      <div className="bg-white p-3 rounded border border-purple-200">
-                        <p className="text-xs font-semibold text-purple-900 mb-2">📋 Next Steps:</p>
-                        <ol className="text-xs text-purple-800 space-y-1 list-decimal list-inside">
-                          <li>Call {lead.phone} to introduce MRC</li>
-                          <li>Ask about mould issue and property details</li>
-                          <li>Gather full name, complete address, property type</li>
-                          <li>Schedule inspection date and time</li>
-                        </ol>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+        {/* Contact Information */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Contact Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">Phone</span>
+              <a
+                href={`tel:${lead.phone}`}
+                className="text-sm font-medium text-blue-600 hover:underline flex items-center gap-1"
+              >
+                <Phone className="h-3 w-3" />
+                {lead.phone}
+              </a>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">Email</span>
+              <a
+                href={`mailto:${lead.email}`}
+                className="text-sm font-medium text-blue-600 hover:underline flex items-center gap-1 truncate max-w-[200px]"
+              >
+                <Mail className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{lead.email}</span>
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Property Information */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              Property Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <p className="text-sm text-gray-500">Address</p>
+              <p className="font-medium">{lead.property_address_street}</p>
+              <p className="text-sm text-gray-600">
+                {lead.property_address_suburb} {lead.property_address_state}{" "}
+                {lead.property_address_postcode}
+              </p>
+            </div>
+            {lead.property_type && (
+              <div>
+                <p className="text-sm text-gray-500">Property Type</p>
+                <p className="font-medium">{lead.property_type}</p>
+              </div>
             )}
+            <Button variant="outline" className="w-full h-12" onClick={handleDirections}>
+              <Navigation className="h-4 w-4 mr-2" />
+              View on Google Maps
+            </Button>
+          </CardContent>
+        </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Customer Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {(lead.status === 'hipages_lead' || lead.lead_source === 'hipages') ? (
-                  // HiPages Lead - Limited Fields
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-muted-foreground">Suburb</p>
-                      <p className="break-words">{lead.property_address_suburb}</p>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-muted-foreground">Postcode</p>
-                      <p className="break-words">{lead.property_address_postcode}</p>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-muted-foreground">Phone</p>
-                      <p className="break-words">
-                        <a href={`tel:${lead.phone}`} className="text-primary hover:underline">{lead.phone}</a>
-                      </p>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-muted-foreground">Email</p>
-                      <p className="break-all overflow-wrap-anywhere text-sm">{lead.email}</p>
-                    </div>
-                    <div className="min-w-0 sm:col-span-2">
-                      <p className="text-sm font-semibold text-muted-foreground">Lead Source</p>
-                      <Badge variant="secondary" className="mt-1">
-                        <Phone className="h-3 w-3 mr-1" />
-                        HiPages Marketplace
-                      </Badge>
-                    </div>
-                  </div>
-                ) : (
-                  // Normal Lead - Full Fields
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-muted-foreground">Full Name</p>
-                      <p className="break-words">{lead.full_name}</p>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-muted-foreground">Email</p>
-                      <p className="break-all overflow-wrap-anywhere text-sm">{lead.email}</p>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-muted-foreground">Phone</p>
-                      <p className="break-words">
-                        <a href={`tel:${lead.phone}`} className="text-primary hover:underline">{lead.phone}</a>
-                      </p>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-muted-foreground">Lead Source</p>
-                      <p className="break-words">{lead.lead_source || "Not specified"}</p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+        {/* Issue Description */}
+        {lead.issue_description && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                Issue Description
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                {lead.issue_description}
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Property Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-muted-foreground">Address</p>
-                  <p className="break-words">{lead.property_address_street}</p>
-                  <p className="break-words">{lead.property_address_suburb} {lead.property_address_state} {lead.property_address_postcode}</p>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-muted-foreground">Property Type</p>
-                  <p className="break-words">{lead.property_type || "Not specified"}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {lead.issue_description && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Issue Description</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="break-words whitespace-pre-wrap">{lead.issue_description}</p>
-                </CardContent>
-              </Card>
+        {/* Lead Details */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Lead Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">Source</span>
+              <span className="text-sm font-medium">{lead.lead_source || "Website"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">Date Created</span>
+              <span className="text-sm font-medium">{formatDate(lead.created_at)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">Lead ID</span>
+              <span className="text-xs font-mono text-gray-500">{lead.lead_number || lead.id.substring(0, 8)}</span>
+            </div>
+            {lead.urgency && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Urgency</span>
+                <Badge variant="secondary" className="capitalize">
+                  {lead.urgency}
+                </Badge>
+              </div>
             )}
+          </CardContent>
+        </Card>
 
-            {/* Activity History */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Activity History
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {activities && activities.length > 0 ? (
-                  <div className="space-y-4">
-                    {activities.map((activity, index) => (
-                      <div
-                        key={activity.id}
-                        className="relative pl-6 pb-4 border-l-2 border-muted last:border-l-0 last:pb-0"
-                      >
-                        {/* Timeline dot */}
-                        <div className="absolute left-[-9px] top-0 h-4 w-4 rounded-full bg-primary border-2 border-background" />
+        {/* Inspection Details - if scheduled */}
+        {lead.inspection_scheduled_date && (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2 text-amber-800">
+                <Calendar className="h-4 w-4" />
+                Inspection Scheduled
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-amber-700">Date</span>
+                <span className="text-sm font-medium text-amber-900">
+                  {formatDate(lead.inspection_scheduled_date)}
+                </span>
+              </div>
+              {lead.scheduled_time && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-amber-700">Time</span>
+                  <span className="text-sm font-medium text-amber-900">
+                    {formatTime(lead.scheduled_time)}
+                  </span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-                        {/* Activity content */}
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold">{activity.title}</p>
-                          {activity.description && (
-                            <p className="text-xs text-muted-foreground">
-                              {activity.description}
-                            </p>
-                          )}
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {new Date(activity.created_at).toLocaleString('en-AU', {
-                              dateStyle: 'medium',
-                              timeStyle: 'short',
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    No activity history yet. Activities will appear here as the lead progresses.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+        {/* Inspection Form Progress - if inspection exists */}
+        {inspection && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ClipboardList className="h-4 w-4" />
+                Inspection Progress
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Completion</span>
+                <span className="text-sm font-bold text-blue-600">{progress.percentage}%</span>
+              </div>
+              <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-600 transition-all duration-500"
+                  style={{ width: `${progress.percentage}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                {progress.completed} of {progress.total} sections completed
+              </p>
+              <Button
+                variant="outline"
+                className="w-full h-12"
+                onClick={() => navigate(`/inspection/${lead.id}`)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                {progress.percentage === 100 ? "View Inspection" : "Continue Inspection"}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
-          <TabsContent value="timeline" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Lead Timeline</CardTitle>
-              </CardHeader>
-              <CardContent>{renderTimeline()}</CardContent>
-            </Card>
-          </TabsContent>
+        {/* Quote/Cost Estimate - if available */}
+        {inspection?.estimated_total && (
+          <Card className="border-green-200 bg-green-50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2 text-green-800">
+                <DollarSign className="h-4 w-4" />
+                Cost Estimate
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-green-700">Subtotal (ex GST)</span>
+                <span className="text-sm font-medium text-green-900">
+                  {formatCurrency(inspection.estimated_subtotal)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-green-700">GST (10%)</span>
+                <span className="text-sm font-medium text-green-900">
+                  {formatCurrency(inspection.estimated_gst)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-green-200">
+                <span className="text-base font-semibold text-green-800">Total (inc GST)</span>
+                <span className="text-lg font-bold text-green-900">
+                  {formatCurrency(inspection.estimated_total)}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-          <TabsContent value="inspection" className="mt-6">
-            {inspection ? (
-              <div className="space-y-6">
-                {/* SECTION 10: AI JOB SUMMARY */}
-                {inspection.ai_summary_text && (
-                  <div style={{
-                    background: 'white',
-                    borderRadius: '12px',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                    overflow: 'hidden'
-                  }}>
-                    {/* Section Header - Purple */}
-                    <div style={{
-                      background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-                      padding: '16px 24px',
-                      borderBottom: '3px solid #6b21a8'
-                    }}>
-                      <div style={{
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        textTransform: 'uppercase',
-                        color: 'rgba(255, 255, 255, 0.8)',
-                        letterSpacing: '0.05em',
-                        marginBottom: '4px'
-                      }}>
-                        AI GENERATED
-                      </div>
-                      <div style={{
-                        fontSize: '20px',
-                        fontWeight: '700',
-                        color: 'white',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                      }}>
-                        <span>🤖</span>
-                        <span>JOB SUMMARY</span>
-                      </div>
-                    </div>
+        {/* AI Summary - if generated */}
+        {inspection?.ai_summary_text && (
+          <Card className="border-purple-200 bg-purple-50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2 text-purple-800">
+                <Sparkles className="h-4 w-4" />
+                AI Job Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-purple-900 whitespace-pre-wrap">
+                {inspection.ai_summary_text}
+              </p>
+              {inspection.ai_summary_generated_at && (
+                <p className="text-xs text-purple-600 mt-3">
+                  Generated {formatDate(inspection.ai_summary_generated_at)}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-                    {/* Section Content */}
-                    <div style={{ padding: '24px' }}>
-                      {/* AI Generated Summary */}
-                      <div style={{ marginBottom: '24px' }}>
-                        <div style={{
-                          background: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)',
-                          border: '2px solid #e9d5ff',
-                          borderRadius: '12px',
-                          padding: '24px',
-                          fontSize: '15px',
-                          lineHeight: '1.8',
-                          color: '#374151',
-                          whiteSpace: 'pre-wrap'
-                        }}>
-                          {inspection.ai_summary_text}
-                        </div>
-
-                        {/* Generation timestamp */}
-                        {inspection.ai_summary_generated_at && (
-                          <div style={{
-                            marginTop: '12px',
-                            fontSize: '13px',
-                            color: '#6b7280',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                          }}>
-                            <span>🤖</span>
-                            <span>
-                              Generated {new Date(inspection.ai_summary_generated_at).toLocaleString('en-AU', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* PDF Sections (if they exist) */}
-                      {(inspection.what_we_found_text || inspection.what_we_will_do_text || inspection.what_you_get_text) && (
-                        <div style={{
-                          display: 'grid',
-                          gap: '20px',
-                          marginTop: '24px'
-                        }}>
-                          {/* What We Found - Yellow/Amber */}
-                          {inspection.what_we_found_text && (
-                            <div>
-                              <div style={{
-                                fontSize: '16px',
-                                fontWeight: '700',
-                                color: '#7c3aed',
-                                marginBottom: '12px',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                              }}>
-                                <span>🔍</span>
-                                <span>What We Found</span>
-                              </div>
-                              <div style={{
-                                background: '#fef3c7',
-                                border: '2px solid #fbbf24',
-                                borderLeft: '4px solid #f59e0b',
-                                borderRadius: '8px',
-                                padding: '16px',
-                                fontSize: '14px',
-                                lineHeight: '1.7',
-                                color: '#78350f',
-                                whiteSpace: 'pre-wrap'
-                              }}>
-                                {inspection.what_we_found_text}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* What We Will Do - Blue */}
-                          {inspection.what_we_will_do_text && (
-                            <div>
-                              <div style={{
-                                fontSize: '16px',
-                                fontWeight: '700',
-                                color: '#7c3aed',
-                                marginBottom: '12px',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                              }}>
-                                <span>🛠️</span>
-                                <span>What We Will Do</span>
-                              </div>
-                              <div style={{
-                                background: '#dbeafe',
-                                border: '2px solid #3b82f6',
-                                borderLeft: '4px solid #2563eb',
-                                borderRadius: '8px',
-                                padding: '16px',
-                                fontSize: '14px',
-                                lineHeight: '1.7',
-                                color: '#1e3a8a',
-                                whiteSpace: 'pre-wrap'
-                              }}>
-                                {inspection.what_we_will_do_text}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* What You Get - Green */}
-                          {inspection.what_you_get_text && (
-                            <div>
-                              <div style={{
-                                fontSize: '16px',
-                                fontWeight: '700',
-                                color: '#7c3aed',
-                                marginBottom: '12px',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                              }}>
-                                <span>✨</span>
-                                <span>What You Get</span>
-                              </div>
-                              <div style={{
-                                background: '#d1fae5',
-                                border: '2px solid #10b981',
-                                borderLeft: '4px solid #059669',
-                                borderRadius: '8px',
-                                padding: '16px',
-                                fontSize: '14px',
-                                lineHeight: '1.7',
-                                color: '#065f46',
-                                whiteSpace: 'pre-wrap'
-                              }}>
-                                {inspection.what_you_get_text}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+        {/* Activity Log */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Activity Log
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {activities && activities.length > 0 ? (
+              <div className="space-y-4">
+                {activities.slice(0, 5).map((activity) => (
+                  <div
+                    key={activity.id}
+                    className="relative pl-6 pb-4 border-l-2 border-gray-200 last:border-l-0 last:pb-0"
+                  >
+                    <div className="absolute left-[-9px] top-0 h-4 w-4 rounded-full bg-blue-600 border-2 border-white" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{activity.title}</p>
+                      {activity.description && (
+                        <p className="text-xs text-gray-500">{activity.description}</p>
                       )}
+                      <p className="text-xs text-gray-400 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {new Date(activity.created_at).toLocaleString("en-AU", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </p>
                     </div>
                   </div>
-                )}
-
-                {/* If no AI summary yet, show a message */}
-                {!inspection.ai_summary_text && (
-                  <Card>
-                    <CardContent className="py-12 text-center text-muted-foreground">
-                      <div className="flex flex-col items-center gap-4">
-                        <span className="text-4xl">🤖</span>
-                        <p>AI summary has not been generated yet.</p>
-                        <p className="text-sm">Complete the inspection form to generate the AI summary.</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                ))}
               </div>
             ) : (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  Inspection details will appear here once inspection is scheduled
-                </CardContent>
-              </Card>
+              <p className="text-sm text-gray-500 text-center py-4">
+                No activity yet. Activities will appear here as the lead progresses.
+              </p>
             )}
-          </TabsContent>
+          </CardContent>
+        </Card>
+      </main>
 
-          <TabsContent value="invoice" className="mt-6">
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                Invoice details will appear here once created
-              </CardContent>
-            </Card>
-          </TabsContent>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete this lead? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-          <TabsContent value="files" className="mt-6">
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                Files and documents will appear here
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-        </div>
-      </div>
+      {/* Change Status Dialog */}
+      <AlertDialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change Status</AlertDialogTitle>
+            <AlertDialogDescription>
+              Select a new status for this lead.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid gap-2 py-4">
+            {(Object.keys(STATUS_FLOW) as LeadStatus[]).map((status) => {
+              const config = STATUS_FLOW[status];
+              const isCurrentStatus = lead.status === status;
 
-      {/* Booking Modal */}
-      <BookInspectionModal
-        open={showBookingModal}
-        onOpenChange={setShowBookingModal}
-        leadId={lead.id}
-        leadNumber={lead.lead_number || ""}
-        customerName={lead.full_name}
-        propertyAddress={`${lead.property_address_street}, ${lead.property_address_suburb}`}
-      />
+              return (
+                <Button
+                  key={status}
+                  variant={isCurrentStatus ? "default" : "outline"}
+                  className="justify-start h-12"
+                  disabled={isCurrentStatus}
+                  onClick={() => {
+                    handleChangeStatus(status);
+                    setShowStatusDialog(false);
+                  }}
+                  style={
+                    isCurrentStatus
+                      ? { backgroundColor: config.color }
+                      : { borderColor: config.color, color: config.color }
+                  }
+                >
+                  <span className="mr-2">{config.icon}</span>
+                  {config.shortTitle}
+                  {isCurrentStatus && (
+                    <Badge variant="secondary" className="ml-auto">
+                      Current
+                    </Badge>
+                  )}
+                </Button>
+              );
+            })}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
