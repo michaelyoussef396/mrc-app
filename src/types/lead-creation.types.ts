@@ -90,7 +90,8 @@ export interface NormalLeadData extends LeadInsert {
   // Optional from input
   property_type?: string;                  // From: property_type
   notes?: string;                          // From: notes
-  property_zone?: number;                  // Auto-calculated from suburb_zones
+  property_lat?: number;                   // From: Google Maps geocoding
+  property_lng?: number;                   // From: Google Maps geocoding
 }
 
 // ============================================================================
@@ -157,13 +158,17 @@ export interface NormalLeadFormState {
 // ============================================================================
 
 /**
- * Suburb lookup result from suburb_zones table
+ * Google Maps geocoded address result
+ * Used for address autocomplete and travel time calculations
  */
-export interface SuburbZone {
+export interface GeocodedAddress {
+  street: string;
   suburb: string;
+  state: string;
   postcode: string;
-  zone: 1 | 2 | 3 | 4;                     // Travel zone (1=closest, 4=furthest)
-  region: string | null;                   // Region name
+  fullAddress: string;
+  lat?: number;
+  lng?: number;
 }
 
 /**
