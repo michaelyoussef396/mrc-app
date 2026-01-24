@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { loadInspectionPhotos } from '@/lib/utils/photoUpload';
 import { calculateCostEstimate, LABOUR_RATES, getDiscountTierDescription } from '@/lib/calculations/pricing';
+import { BookInspectionModal } from '@/components/leads/BookInspectionModal';
+import { AddressAutocomplete, type AddressValue } from '@/components/booking';
 
 // Helper to format currency in Australian format
 const formatCurrency = (value: number | null | undefined) => {
@@ -45,12 +47,10 @@ const ClientDetail = () => {
 
   // Editable fields
   const [editedLead, setEditedLead] = useState<any>({});
+  const [editedAddress, setEditedAddress] = useState<AddressValue | undefined>(undefined);
 
-  // Schedule inspection state
+  // Schedule inspection state (using new smart booking modal)
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [scheduleDate, setScheduleDate] = useState('');
-  const [scheduleTime, setScheduleTime] = useState('');
-  const [scheduleNotes, setScheduleNotes] = useState('');
 
   // Fetch lead data from Supabase using React Query
   const { data: leadData, isLoading: loading } = useQuery({
@@ -74,6 +74,9 @@ const ClientDetail = () => {
         suburb: data.property_address_suburb || '',
         state: data.property_address_state || 'VIC',
         postcode: data.property_address_postcode || '',
+        // Lat/lng for accurate Google Maps
+        property_lat: data.property_lat || null,
+        property_lng: data.property_lng || null,
         status: data.status || 'new_lead',
         urgency: data.urgency || 'medium',
         issueDescription: data.issue_description || '',
@@ -158,6 +161,29 @@ const ClientDetail = () => {
       }
     },
     enabled: !!inspectionData?.id,
+    refetchInterval: 30000,
+  });
+
+  // Fetch calendar booking data for this lead (includes booking notes)
+  const { data: bookingData } = useQuery({
+    queryKey: ['calendar-booking', id],
+    queryFn: async () => {
+      if (!id) return null;
+      const { data, error } = await supabase
+        .from('calendar_bookings')
+        .select('*')
+        .eq('lead_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching booking:', error);
+        return null;
+      }
+      return data;
+    },
+    enabled: !!id,
     refetchInterval: 30000,
   });
 
@@ -297,59 +323,24 @@ const ClientDetail = () => {
   console.log('Areas:', areas);
   console.log('Photos:', photos);
 
-  // Pre-populate modal with existing data when it opens
-  useEffect(() => {
-    if (lead && showScheduleModal) {
-      if (lead.inspection_scheduled_date) {
-        setScheduleDate(lead.inspection_scheduled_date);
-      }
-      if (lead.scheduled_time) {
-        setScheduleTime(lead.scheduled_time);
-      }
-      if (lead.notes) {
-        setScheduleNotes(lead.notes);
-      }
-    }
-  }, [lead, showScheduleModal]);
-
-  // Handle scheduling inspection
-  const handleScheduleInspection = async () => {
-    if (!scheduleDate || !scheduleTime) {
-      alert('Please select a date and time');
-      return;
-    }
-
-    console.log('Saving schedule:', { scheduleDate, scheduleTime, scheduleNotes });
-
-    try {
-      const { error, data } = await supabase
-        .from('leads')
-        .update({
-          status: 'inspection_waiting',
-          inspection_scheduled_date: scheduleDate,
-          scheduled_time: scheduleTime,
-          notes: scheduleNotes,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select();
-
-      console.log('Save result:', { error, data });
-
-      if (error) throw error;
-
-      setShowScheduleModal(false);
-      queryClient.invalidateQueries({ queryKey: ['lead', id] });
-      alert('Inspection scheduled successfully!');
-    } catch (error) {
-      console.error('Error scheduling inspection:', error);
-      alert('Failed to schedule inspection');
-    }
+  // Handle successful booking from the new smart modal
+  const handleBookingSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ['lead', id] });
+    queryClient.invalidateQueries({ queryKey: ['unscheduled-leads'] });
+    queryClient.invalidateQueries({ queryKey: ['calendar-bookings'] });
   };
 
   const handleEdit = () => {
     setEditMode(true);
     setEditedLead({ ...lead });
+    // Initialize address autocomplete with current address
+    setEditedAddress({
+      street: lead?.property || '',
+      suburb: lead?.suburb || '',
+      state: lead?.state || 'VIC',
+      postcode: lead?.postcode || '',
+      fullAddress: `${lead?.property || ''}, ${lead?.suburb || ''} ${lead?.state || ''} ${lead?.postcode || ''}`.trim()
+    });
   };
 
   const handleCancel = () => {
@@ -361,6 +352,23 @@ const ClientDetail = () => {
     setSaving(true);
 
     try {
+      // Use editedAddress if available, otherwise fall back to editedLead
+      const addressData = editedAddress?.street
+        ? {
+            property_address_street: editedAddress.street,
+            property_address_suburb: editedAddress.suburb,
+            property_address_state: editedAddress.state || 'VIC',
+            property_address_postcode: editedAddress.postcode,
+            property_lat: editedAddress.lat || null,
+            property_lng: editedAddress.lng || null,
+          }
+        : {
+            property_address_street: editedLead.property,
+            property_address_suburb: editedLead.suburb,
+            property_address_state: editedLead.state,
+            property_address_postcode: editedLead.postcode,
+          };
+
       // Transform component format back to database fields
       const { error } = await supabase
         .from('leads')
@@ -368,10 +376,7 @@ const ClientDetail = () => {
           full_name: editedLead.name,
           email: editedLead.email,
           phone: editedLead.phone,
-          property_address_street: editedLead.property,
-          property_address_suburb: editedLead.suburb,
-          property_address_state: editedLead.state,
-          property_address_postcode: editedLead.postcode,
+          ...addressData,
           urgency: editedLead.urgency,
           issue_description: editedLead.issueDescription,
           lead_source: editedLead.source,
@@ -629,84 +634,56 @@ const ClientDetail = () => {
           {/* Property Information */}
           <div className="info-card">
             <h2 className="card-title">Property Information</h2>
-            
-            <div className="info-grid">
-              <div className="info-item full-width">
-                <label className="info-label">Address</label>
-                {editMode ? (
-                  <input
-                    type="text"
-                    value={editedLead.property}
-                    onChange={(e) => updateField('property', e.target.value)}
-                    className="edit-input"
-                    placeholder="Street address"
-                  />
-                ) : (
-                  <div className="info-value">📍 {lead.property}</div>
-                )}
-              </div>
 
-              <div className="info-item">
-                <label className="info-label">Suburb</label>
-                {editMode ? (
-                  <input
-                    type="text"
-                    value={editedLead.suburb}
-                    onChange={(e) => updateField('suburb', e.target.value)}
-                    className="edit-input"
-                  />
-                ) : (
-                  <div className="info-value">{lead.suburb}</div>
-                )}
+            {editMode ? (
+              <div className="space-y-4">
+                <AddressAutocomplete
+                  label="Property Address"
+                  placeholder="Start typing address... (e.g., 123 High St)"
+                  value={editedAddress}
+                  onChange={(address) => setEditedAddress(address)}
+                  required
+                />
+                <p className="text-xs text-gray-500">
+                  Select from dropdown to ensure accurate suburb and coordinates
+                </p>
               </div>
+            ) : (
+              <>
+                <div className="info-grid">
+                  <div className="info-item full-width">
+                    <label className="info-label">Address</label>
+                    <div className="info-value">📍 {lead.property}</div>
+                  </div>
 
-              <div className="info-item">
-                <label className="info-label">State</label>
-                {editMode ? (
-                  <select
-                    value={editedLead.state}
-                    onChange={(e) => updateField('state', e.target.value)}
-                    className="edit-select"
-                  >
-                    <option value="VIC">VIC</option>
-                    <option value="NSW">NSW</option>
-                    <option value="QLD">QLD</option>
-                    <option value="SA">SA</option>
-                    <option value="WA">WA</option>
-                    <option value="TAS">TAS</option>
-                    <option value="NT">NT</option>
-                    <option value="ACT">ACT</option>
-                  </select>
-                ) : (
-                  <div className="info-value">{lead.state}</div>
-                )}
-              </div>
+                  <div className="info-item">
+                    <label className="info-label">Suburb</label>
+                    <div className="info-value">{lead.suburb}</div>
+                  </div>
 
-              <div className="info-item">
-                <label className="info-label">Postcode</label>
-                {editMode ? (
-                  <input
-                    type="text"
-                    value={editedLead.postcode}
-                    onChange={(e) => updateField('postcode', e.target.value)}
-                    className="edit-input"
-                    maxLength={4}
-                  />
-                ) : (
-                  <div className="info-value">{lead.postcode}</div>
-                )}
-              </div>
-            </div>
+                  <div className="info-item">
+                    <label className="info-label">State</label>
+                    <div className="info-value">{lead.state}</div>
+                  </div>
 
-            {!editMode && (
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lead.property + ' ' + lead.suburb + ' ' + lead.state)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-secondary btn-map"
-              >
-                🗺️ View on Google Maps
-              </a>
+                  <div className="info-item">
+                    <label className="info-label">Postcode</label>
+                    <div className="info-value">{lead.postcode}</div>
+                  </div>
+                </div>
+
+                <a
+                  href={lead.property_lat && lead.property_lng
+                    ? `https://www.google.com/maps?q=${lead.property_lat},${lead.property_lng}`
+                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lead.property + ' ' + lead.suburb + ' ' + lead.state + ' ' + lead.postcode)}`
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-secondary btn-map"
+                >
+                  🗺️ View on Google Maps
+                </a>
+              </>
             )}
           </div>
 
@@ -830,9 +807,52 @@ const ClientDetail = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Technician from calendar booking - assigned_to contains user ID */}
+                {bookingData?.assigned_to && (
+                  <div className="info-item">
+                    <label className="info-label">Assigned To</label>
+                    <div className="info-value">
+                      👷 Technician Assigned
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {lead.notes && (
+              {/* Booking notes from calendar_bookings.description */}
+              {bookingData?.description && (
+                <div className="info-item" style={{ marginTop: '16px' }}>
+                  <label className="info-label">📝 Notes from Booking Call</label>
+                  <div style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    marginTop: '8px',
+                  }}>
+                    <div style={{
+                      borderBottom: '1px dashed #cbd5e1',
+                      paddingBottom: '8px',
+                      marginBottom: '8px',
+                      fontSize: '12px',
+                      color: '#64748b',
+                    }}>
+                      Notes captured during booking
+                    </div>
+                    <div style={{
+                      whiteSpace: 'pre-wrap',
+                      color: '#334155',
+                      fontSize: '14px',
+                      lineHeight: '1.6',
+                    }}>
+                      {bookingData.description}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Legacy internal notes from leads.notes (if different from booking notes) */}
+              {lead.notes && lead.notes !== bookingData?.description && (
                 <div className="info-item" style={{ marginTop: '16px' }}>
                   <label className="info-label">Internal Notes</label>
                   <div className="info-value" style={{
@@ -3240,215 +3260,22 @@ const ClientDetail = () => {
         </div>
       </main>
 
-      {/* Schedule Inspection Modal */}
-      {showScheduleModal && (
-        <div
-          className="modal-overlay"
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '20px',
+      {/* Schedule Inspection Modal - NEW Smart Booking Modal */}
+      {lead && (
+        <BookInspectionModal
+          open={showScheduleModal}
+          onOpenChange={(open) => {
+            setShowScheduleModal(open);
+            if (!open) {
+              handleBookingSuccess();
+            }
           }}
-          onClick={() => setShowScheduleModal(false)}
-        >
-          <div
-            className="modal-content"
-            style={{
-              background: 'white',
-              borderRadius: '16px',
-              maxWidth: '450px',
-              width: '100%',
-              maxHeight: '90vh',
-              overflow: 'auto',
-              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="modal-header"
-              style={{
-                padding: '20px',
-                borderBottom: '1px solid #eee',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>
-                📅 Schedule Inspection
-              </h2>
-              <button
-                onClick={() => setShowScheduleModal(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: '#666',
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="modal-body" style={{ padding: '20px' }}>
-              <div
-                style={{
-                  background: '#f8f9fa',
-                  padding: '12px 16px',
-                  borderRadius: '8px',
-                  marginBottom: '20px',
-                }}
-              >
-                <p style={{ margin: 0, fontWeight: '500' }}>👤 Client: {lead.name}</p>
-                <p style={{ margin: '4px 0 0', fontSize: '14px', color: '#666' }}>
-                  📍 {lead.property}, {lead.suburb}
-                </p>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label
-                  style={{
-                    display: 'block',
-                    marginBottom: '8px',
-                    fontWeight: '500',
-                  }}
-                >
-                  Inspection Date *
-                </label>
-                <input
-                  type="date"
-                  min={new Date().toISOString().split('T')[0]}
-                  value={scheduleDate}
-                  onChange={(e) => setScheduleDate(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: '1px solid #ddd',
-                    borderRadius: '8px',
-                    fontSize: '16px',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label
-                  style={{
-                    display: 'block',
-                    marginBottom: '8px',
-                    fontWeight: '500',
-                  }}
-                >
-                  Time *
-                </label>
-                <select
-                  value={scheduleTime}
-                  onChange={(e) => setScheduleTime(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: '1px solid #ddd',
-                    borderRadius: '8px',
-                    fontSize: '16px',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  <option value="">Select time...</option>
-                  <option value="07:00">7:00 AM</option>
-                  <option value="08:00">8:00 AM</option>
-                  <option value="09:00">9:00 AM</option>
-                  <option value="10:00">10:00 AM</option>
-                  <option value="11:00">11:00 AM</option>
-                  <option value="12:00">12:00 PM</option>
-                  <option value="13:00">1:00 PM</option>
-                  <option value="14:00">2:00 PM</option>
-                  <option value="15:00">3:00 PM</option>
-                  <option value="16:00">4:00 PM</option>
-                  <option value="17:00">5:00 PM</option>
-                  <option value="18:00">6:00 PM</option>
-                  <option value="19:00">7:00 PM</option>
-                </select>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label
-                  style={{
-                    display: 'block',
-                    marginBottom: '8px',
-                    fontWeight: '500',
-                  }}
-                >
-                  Internal Notes (Optional)
-                </label>
-                <textarea
-                  placeholder="Add any notes about the booking..."
-                  value={scheduleNotes}
-                  onChange={(e) => setScheduleNotes(e.target.value)}
-                  rows={3}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: '1px solid #ddd',
-                    borderRadius: '8px',
-                    fontSize: '16px',
-                    resize: 'vertical',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-            </div>
-
-            <div
-              className="modal-footer"
-              style={{
-                padding: '20px',
-                borderTop: '1px solid #eee',
-                display: 'flex',
-                gap: '12px',
-              }}
-            >
-              <button
-                onClick={() => setShowScheduleModal(false)}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  background: 'white',
-                  fontSize: '16px',
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleScheduleInspection}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  border: 'none',
-                  borderRadius: '8px',
-                  background: '#007AFF',
-                  color: 'white',
-                  fontSize: '16px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                }}
-              >
-                ✓ Confirm Schedule
-              </button>
-            </div>
-          </div>
-        </div>
+          leadId={lead.id}
+          leadNumber={''}
+          customerName={lead.name || 'Unknown'}
+          propertyAddress={`${lead.property || ''}, ${lead.suburb || ''} ${lead.state || ''} ${lead.postcode || ''}`}
+          propertySuburb={lead.suburb || ''}
+        />
       )}
     </div>
   );

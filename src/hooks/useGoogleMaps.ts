@@ -115,6 +115,24 @@ export function useAddressAutocomplete(inputRef: React.RefObject<HTMLInputElemen
     }
   }, [])
 
+  // Initialize services (called on-demand if not already initialized)
+  const initializeServices = useCallback(() => {
+    if (typeof google !== 'undefined' && google.maps && google.maps.places) {
+      if (!autocompleteServiceRef.current) {
+        autocompleteServiceRef.current = new google.maps.places.AutocompleteService()
+      }
+      if (!placesServiceRef.current) {
+        const dummyDiv = document.createElement('div')
+        placesServiceRef.current = new google.maps.places.PlacesService(dummyDiv)
+      }
+      if (!sessionTokenRef.current) {
+        sessionTokenRef.current = new google.maps.places.AutocompleteSessionToken()
+      }
+      return true
+    }
+    return false
+  }, [])
+
   // Get predictions for input text
   const getPlacePredictions = useCallback(async (input: string): Promise<PlacePrediction[]> => {
     if (!input || input.length < 3) {
@@ -122,9 +140,12 @@ export function useAddressAutocomplete(inputRef: React.RefObject<HTMLInputElemen
       return []
     }
 
+    // Try to initialize services if not already done
     if (!autocompleteServiceRef.current) {
-      console.warn('Google Maps Autocomplete service not initialized')
-      return []
+      if (!initializeServices()) {
+        console.warn('Google Maps not loaded yet')
+        return []
+      }
     }
 
     setIsLoading(true)
@@ -158,13 +179,16 @@ export function useAddressAutocomplete(inputRef: React.RefObject<HTMLInputElemen
         }
       )
     })
-  }, [])
+  }, [initializeServices])
 
   // Get details for a selected place
   const getPlaceDetails = useCallback(async (placeId: string): Promise<PlaceDetails | null> => {
+    // Try to initialize services if not already done
     if (!placesServiceRef.current) {
-      console.warn('Google Maps Places service not initialized')
-      return null
+      if (!initializeServices()) {
+        console.warn('Google Maps not loaded yet')
+        return null
+      }
     }
 
     return new Promise((resolve) => {
@@ -202,7 +226,7 @@ export function useAddressAutocomplete(inputRef: React.RefObject<HTMLInputElemen
         }
       )
     })
-  }, [])
+  }, [initializeServices])
 
   // Clear predictions
   const clearPredictions = useCallback(() => {
@@ -246,9 +270,9 @@ export function useLoadGoogleMaps() {
       return
     }
 
-    // Create and load script
+    // Create and load script with loading=async to avoid console warning
     const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`
     script.async = true
     script.defer = true
 

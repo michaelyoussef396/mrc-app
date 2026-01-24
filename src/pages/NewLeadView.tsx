@@ -1,21 +1,19 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
 import {
   ArrowLeft, Phone, Mail, MapPin, Calendar, Clock,
   FileText, AlertTriangle, Sparkles, Globe, CheckCircle,
   X, User, Home, ChevronRight
 } from 'lucide-react'
+import { BookInspectionModal } from '@/components/leads/BookInspectionModal'
 
 const NewLeadView = () => {
   const navigate = useNavigate()
   const { id } = useParams()
+  const queryClient = useQueryClient()
   const [showScheduleModal, setShowScheduleModal] = useState(false)
-  const [scheduleDate, setScheduleDate] = useState('')
-  const [scheduleTime, setScheduleTime] = useState('')
-  const [assignedTo, setAssignedTo] = useState('')
-  const [notes, setNotes] = useState('')
 
   // Fetch lead data from Supabase using React Query
   const { data: lead, isLoading: loading } = useQuery({
@@ -35,47 +33,33 @@ const NewLeadView = () => {
     enabled: !!id,
   })
 
-  // Pre-populate modal with existing data when it opens
-  useEffect(() => {
-    if (lead && showScheduleModal) {
-      if (lead.inspection_scheduled_date) {
-        setScheduleDate(lead.inspection_scheduled_date)
-      }
-      if (lead.scheduled_time) {
-        setScheduleTime(lead.scheduled_time)
-      }
-      if (lead.notes) {
-        setNotes(lead.notes)
-      }
-    }
-  }, [lead, showScheduleModal])
+  // Fetch booking data (includes Notes from Call)
+  const { data: booking } = useQuery({
+    queryKey: ['booking', id],
+    queryFn: async () => {
+      if (!id) return null;
 
-  const handleScheduleInspection = async () => {
-    if (!scheduleDate || !scheduleTime) {
-      alert('Please select a date and time')
-      return
-    }
+      const { data, error } = await supabase
+        .from('calendar_bookings')
+        .select('*')
+        .eq('lead_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
 
-    try {
-      // Update lead status to 'inspection_waiting'
-      const { error } = await supabase
-        .from('leads')
-        .update({
-          status: 'inspection_waiting',
-          inspection_scheduled_date: scheduleDate,
-          scheduled_time: scheduleTime,
-          notes: notes
-        })
-        .eq('id', id)
-      
-      if (error) throw error
-      
-      setShowScheduleModal(false)
-      navigate('/leads')
-    } catch (error) {
-      console.error('Error scheduling inspection:', error)
-      alert('Failed to schedule inspection')
-    }
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    },
+    enabled: !!id,
+  })
+
+  // Handle successful booking
+  const handleBookingSuccess = () => {
+    // Invalidate queries to refresh data
+    queryClient.invalidateQueries({ queryKey: ['lead', id] })
+    queryClient.invalidateQueries({ queryKey: ['booking', id] })
+    queryClient.invalidateQueries({ queryKey: ['unscheduled-leads'] })
+    queryClient.invalidateQueries({ queryKey: ['calendar-bookings'] })
   }
 
   if (loading) {
@@ -222,10 +206,13 @@ const NewLeadView = () => {
                   </p>
                 </div>
               </div>
-              <a 
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                  lead.property_address_street + ' ' + lead.property_address_suburb + ' ' + lead.property_address_state
-                )}`}
+              <a
+                href={lead.property_lat && lead.property_lng
+                  ? `https://www.google.com/maps?q=${lead.property_lat},${lead.property_lng}`
+                  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                      [lead.property_address_street, lead.property_address_suburb, lead.property_address_state, lead.property_address_postcode].filter(Boolean).join(', ')
+                    )}`
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-secondary btn-map"
@@ -430,14 +417,14 @@ const NewLeadView = () => {
                     </div>
                   )}
                 </div>
-                {lead.notes && (
+                {booking?.description && (
                   <div className="info-item" style={{ marginTop: '16px' }}>
-                    <span className="info-label">Internal Notes</span>
-                    <div className="issue-box" style={{ marginTop: '8px' }}>
-                      <div className="issue-icon">
+                    <span className="info-label">Notes from Booking Call</span>
+                    <div className="issue-box" style={{ marginTop: '8px', background: '#eff6ff', borderColor: '#bfdbfe' }}>
+                      <div className="issue-icon" style={{ color: '#3b82f6' }}>
                         <FileText size={20} strokeWidth={2} />
                       </div>
-                      <p className="issue-text">{lead.notes}</p>
+                      <p className="issue-text">{booking.description}</p>
                     </div>
                   </div>
                 )}
@@ -456,103 +443,22 @@ const NewLeadView = () => {
         </div>
       </main>
 
-      {/* Schedule Inspection Modal */}
-      {showScheduleModal && (
-        <div className="modal-overlay" onClick={() => setShowScheduleModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2 className="modal-title">
-                <Calendar size={24} strokeWidth={2} />
-                Schedule Inspection
-              </h2>
-              <button 
-                className="modal-close"
-                onClick={() => setShowScheduleModal(false)}
-              >
-                <X size={20} strokeWidth={2} />
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <div className="client-info-summary">
-                <h4>
-                  <User size={18} strokeWidth={2} />
-                  Client: {lead.full_name}
-                </h4>
-                <p>
-                  <MapPin size={14} strokeWidth={2} />
-                  {lead.property_address_street}, {lead.property_address_suburb}
-                </p>
-                <p>
-                  <Phone size={14} strokeWidth={2} />
-                  {lead.phone}
-                </p>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Inspection Date *</label>
-                <input
-                  type="date"
-                  className="form-input"
-                  min={new Date().toISOString().split('T')[0]}
-                  value={scheduleDate}
-                  onChange={(e) => setScheduleDate(e.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Time *</label>
-                <select 
-                  className="form-select"
-                  value={scheduleTime}
-                  onChange={(e) => setScheduleTime(e.target.value)}
-                >
-                  <option value="">Select time...</option>
-                  <option value="07:00">7:00 AM</option>
-                  <option value="08:00">8:00 AM</option>
-                  <option value="09:00">9:00 AM</option>
-                  <option value="10:00">10:00 AM</option>
-                  <option value="11:00">11:00 AM</option>
-                  <option value="12:00">12:00 PM</option>
-                  <option value="13:00">1:00 PM</option>
-                  <option value="14:00">2:00 PM</option>
-                  <option value="15:00">3:00 PM</option>
-                  <option value="16:00">4:00 PM</option>
-                  <option value="17:00">5:00 PM</option>
-                  <option value="18:00">6:00 PM</option>
-                  <option value="19:00">7:00 PM</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Internal Notes (Optional)</label>
-                <textarea
-                  placeholder="Add any notes about the booking..."
-                  className="form-textarea"
-                  rows={3}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <button 
-                className="btn-secondary"
-                onClick={() => setShowScheduleModal(false)}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn-primary"
-                onClick={handleScheduleInspection}
-              >
-                <CheckCircle size={18} strokeWidth={2} />
-                <span className="btn-label">Confirm Schedule</span>
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Schedule Inspection Modal - NEW Smart Booking Modal */}
+      {lead && (
+        <BookInspectionModal
+          open={showScheduleModal}
+          onOpenChange={(open) => {
+            setShowScheduleModal(open)
+            if (!open) {
+              handleBookingSuccess()
+            }
+          }}
+          leadId={lead.id}
+          leadNumber={lead.lead_number || ''}
+          customerName={lead.full_name || 'Unknown'}
+          propertyAddress={`${lead.property_address_street || ''}, ${lead.property_address_suburb || ''} ${lead.property_address_state || ''} ${lead.property_address_postcode || ''}`}
+          propertySuburb={lead.property_address_suburb || ''}
+        />
       )}
     </div>
   )

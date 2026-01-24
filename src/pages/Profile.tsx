@@ -11,11 +11,13 @@ import {
   X,
   Camera,
   Key,
-  Loader2
+  Loader2,
+  MapPin
 } from 'lucide-react';
 import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { AddressAutocomplete, type AddressValue } from '@/components/booking';
 
 interface ProfileData {
   firstName: string;
@@ -24,6 +26,7 @@ interface ProfileData {
   phone: string;
   joinDate: string;
   avatar: string;
+  startingAddress: AddressValue | null;
 }
 
 export default function Profile() {
@@ -41,6 +44,7 @@ export default function Profile() {
     phone: '',
     joinDate: '',
     avatar: '',
+    startingAddress: null,
   });
 
   const [editData, setEditData] = useState<ProfileData>({ ...profileData });
@@ -81,6 +85,17 @@ export default function Profile() {
 
         const phone = meta.phone || '';
 
+        // Get starting address from user_metadata
+        const startingAddress: AddressValue | null = meta.starting_address ? {
+          street: meta.starting_address.street || '',
+          suburb: meta.starting_address.suburb || '',
+          state: meta.starting_address.state || 'VIC',
+          postcode: meta.starting_address.postcode || '',
+          fullAddress: meta.starting_address.fullAddress || '',
+          lat: meta.starting_address.lat,
+          lng: meta.starting_address.lng,
+        } : null;
+
         // Format the join date
         const joinDate = user.created_at
           ? new Date(user.created_at).toLocaleDateString('en-AU', {
@@ -101,6 +116,7 @@ export default function Profile() {
           phone,
           joinDate,
           avatar: initials,
+          startingAddress,
         };
 
         setProfileData(loadedData);
@@ -131,6 +147,15 @@ export default function Profile() {
           first_name: editData.firstName,
           last_name: editData.lastName,
           phone: editData.phone || '',
+          starting_address: editData.startingAddress ? {
+            street: editData.startingAddress.street,
+            suburb: editData.startingAddress.suburb,
+            state: editData.startingAddress.state,
+            postcode: editData.startingAddress.postcode,
+            fullAddress: editData.startingAddress.fullAddress,
+            lat: editData.startingAddress.lat,
+            lng: editData.startingAddress.lng,
+          } : null,
         }
       });
 
@@ -143,6 +168,7 @@ export default function Profile() {
       setProfileData({
         ...editData,
         avatar: `${editData.firstName.charAt(0)}${editData.lastName.charAt(0)}`.toUpperCase() || profileData.avatar,
+        startingAddress: editData.startingAddress,
       });
       setIsEditing(false);
 
@@ -329,6 +355,31 @@ export default function Profile() {
                   />
                 ) : (
                   <p className="text-[15px] text-gray-900 font-medium">{profileData.phone || '—'}</p>
+                )}
+              </div>
+
+              {/* Starting Address */}
+              <div className="flex flex-col gap-2 sm:col-span-2">
+                <label className="flex items-center gap-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <MapPin size={16} strokeWidth={2} />
+                  Starting Address
+                </label>
+                {isEditing ? (
+                  <AddressAutocomplete
+                    label=""
+                    placeholder="Where you start each day (home address)"
+                    value={editData.startingAddress || undefined}
+                    onChange={(address) => setEditData({ ...editData, startingAddress: address })}
+                  />
+                ) : (
+                  <p className="text-[15px] text-gray-900 font-medium">
+                    {profileData.startingAddress?.fullAddress || '—'}
+                  </p>
+                )}
+                {isEditing && (
+                  <p className="text-xs text-gray-500">
+                    This is used to calculate travel times for your first appointment each day.
+                  </p>
                 )}
               </div>
 

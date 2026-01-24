@@ -163,6 +163,7 @@ export function AddressAutocomplete({
         )}
         <div className="relative mt-1.5">
           <Input
+            value=""
             placeholder={mapsError || 'Loading Google Maps...'}
             disabled
             className="pl-10"
@@ -231,28 +232,34 @@ export function AddressAutocomplete({
           ref={dropdownRef}
           className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto"
         >
-          {predictions.map((prediction, index) => (
-            <button
-              key={prediction.place_id}
-              type="button"
-              className={cn(
-                'w-full px-4 py-3 text-left hover:bg-gray-50 flex items-start gap-3 border-b last:border-b-0',
-                index === selectedIndex && 'bg-blue-50'
-              )}
-              onClick={() => handleSelectPlace(prediction.place_id, prediction.description)}
-              onMouseEnter={() => setSelectedIndex(index)}
-            >
-              <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="font-medium text-sm truncate">
-                  {prediction.structured_formatting.main_text}
-                </p>
-                <p className="text-xs text-gray-500 truncate">
-                  {prediction.structured_formatting.secondary_text}
-                </p>
-              </div>
-            </button>
-          ))}
+          {predictions.map((prediction, index) => {
+            // Parse suburb from secondary_text (e.g., "Kew VIC 3101, Australia" → "Kew")
+            const secondaryParts = prediction.structured_formatting.secondary_text.split(',')
+            const locationPart = secondaryParts[0]?.trim() || ''
+
+            return (
+              <button
+                key={prediction.place_id}
+                type="button"
+                className={cn(
+                  'w-full px-4 py-3 text-left hover:bg-gray-50 flex items-start gap-3 border-b last:border-b-0',
+                  index === selectedIndex && 'bg-blue-50'
+                )}
+                onClick={() => handleSelectPlace(prediction.place_id, prediction.description)}
+                onMouseEnter={() => setSelectedIndex(index)}
+              >
+                <MapPin className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm text-gray-900">
+                    {prediction.structured_formatting.main_text}
+                  </p>
+                  <p className="text-sm text-blue-600 font-medium">
+                    {locationPart}
+                  </p>
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

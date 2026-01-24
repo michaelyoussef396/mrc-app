@@ -18,11 +18,13 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
-  Lock
+  Lock,
+  MapPin
 } from 'lucide-react';
 import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { AddressAutocomplete, type AddressValue } from '@/components/booking';
 
 interface UserType {
   id: string;
@@ -43,6 +45,7 @@ interface FormData {
   phone: string;
   password: string;
   confirmPassword: string;
+  homeAddress: AddressValue | null;
 }
 
 // API functions
@@ -73,6 +76,15 @@ const createUser = async (userData: {
   last_name: string;
   phone: string;
   password: string;
+  home_address?: {
+    street: string;
+    suburb: string;
+    state: string;
+    postcode: string;
+    fullAddress: string;
+    lat?: number;
+    lng?: number;
+  } | null;
 }) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
@@ -182,6 +194,7 @@ export default function ManageUsers() {
     phone: '',
     password: '',
     confirmPassword: '',
+    homeAddress: null,
   });
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -196,6 +209,7 @@ export default function ManageUsers() {
       phone: '',
       password: '',
       confirmPassword: '',
+      homeAddress: null,
     });
     setFormErrors({});
     setShowPassword(false);
@@ -244,6 +258,15 @@ export default function ManageUsers() {
       last_name: formData.lastName.trim(),
       phone: formData.phone.replace(/\s/g, ''),
       password: formData.password,
+      home_address: formData.homeAddress ? {
+        street: formData.homeAddress.street,
+        suburb: formData.homeAddress.suburb,
+        state: formData.homeAddress.state,
+        postcode: formData.homeAddress.postcode,
+        fullAddress: formData.homeAddress.fullAddress,
+        lat: formData.homeAddress.lat,
+        lng: formData.homeAddress.lng,
+      } : null,
     });
   };
 
@@ -450,6 +473,23 @@ export default function ManageUsers() {
                     <input type="tel" className={`w-full h-12 pl-11 pr-3.5 bg-gray-50 border-2 rounded-xl text-base md:h-11 md:text-[15px] ${formErrors.phone ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="0400 000 000" />
                   </div>
                   {formErrors.phone && <span className="block text-xs text-red-500 mt-1">{formErrors.phone}</span>}
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <span className="flex items-center gap-2">
+                      <MapPin size={16} strokeWidth={2} />
+                      Starting Address (Optional)
+                    </span>
+                  </label>
+                  <AddressAutocomplete
+                    label=""
+                    placeholder="Home address for travel time calculations"
+                    value={formData.homeAddress || undefined}
+                    onChange={(address) => setFormData({ ...formData, homeAddress: address })}
+                  />
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    Where they start each day. Used to calculate travel times for first appointments.
+                  </p>
                 </div>
               </div>
 

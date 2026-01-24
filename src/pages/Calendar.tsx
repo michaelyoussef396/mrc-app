@@ -7,6 +7,7 @@ import { Loader2, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, Map
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { LeadsToBook } from '@/components/booking'
 
 // Calendar event (only inspections for Stage 1)
 interface CalendarEvent {
@@ -563,6 +564,18 @@ const Calendar = () => {
                     ))}
                   </div>
                 )}
+
+                {/* Leads Awaiting Inspection */}
+                <div className="mt-4">
+                  <LeadsToBook
+                    selectedDate={selectedDate}
+                    existingAppointments={getEventsForDate(selectedDate).map(event => ({
+                      suburb: event.suburb,
+                      address: event.address,
+                      time: event.time
+                    }))}
+                  />
+                </div>
               </Card>
             </div>
           )}

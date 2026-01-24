@@ -50,11 +50,7 @@ export function WebLeadsWidget() {
       );
     }
     
-    if (lead.status === "contacted") {
-      return <Badge variant="default">✅ Contacted</Badge>;
-    }
-    
-    if (lead.status.includes("inspection")) {
+    if (lead.status === "inspection_waiting") {
       return <Badge variant="default">✅ Inspection Scheduled</Badge>;
     }
     

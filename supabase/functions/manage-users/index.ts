@@ -7,12 +7,23 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
 }
 
+interface AddressData {
+  street: string
+  suburb: string
+  state: string
+  postcode: string
+  fullAddress: string
+  lat?: number
+  lng?: number
+}
+
 interface UserData {
   email: string
   first_name: string
   last_name: string
   phone?: string
   password?: string
+  home_address?: AddressData | null
 }
 
 interface UpdateUserData {
@@ -22,6 +33,7 @@ interface UpdateUserData {
   last_name?: string
   phone?: string
   is_active?: boolean
+  starting_address?: AddressData | null
 }
 
 // Helper to decode JWT and extract user ID
@@ -144,6 +156,7 @@ Deno.serve(async (req) => {
           full_name: `${firstName} ${lastName}`.trim() || 'Unknown',
           phone: meta.phone || '',
           is_active: meta.is_active ?? true,
+          starting_address: meta.starting_address || null,
           created_at: authUser.created_at,
           last_sign_in_at: authUser.last_sign_in_at
         }
@@ -190,7 +203,8 @@ Deno.serve(async (req) => {
           first_name: userData.first_name,
           last_name: userData.last_name || '',
           phone: userData.phone || '',
-          is_active: true
+          is_active: true,
+          starting_address: userData.home_address || null
         }
       })
 
@@ -240,6 +254,7 @@ Deno.serve(async (req) => {
       if (updateData.last_name !== undefined) metadataUpdate.last_name = updateData.last_name
       if (updateData.phone !== undefined) metadataUpdate.phone = updateData.phone
       if (updateData.is_active !== undefined) metadataUpdate.is_active = updateData.is_active
+      if (updateData.starting_address !== undefined) metadataUpdate.starting_address = updateData.starting_address
 
       if (Object.keys(metadataUpdate).length > 0) {
         // Get existing metadata and merge

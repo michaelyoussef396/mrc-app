@@ -145,6 +145,23 @@ export default function LeadDetail() {
     },
   });
 
+  // Fetch booking data (includes Notes from Call)
+  const { data: booking } = useQuery({
+    queryKey: ["booking", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("calendar_bookings")
+        .select("*")
+        .eq("lead_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== "PGRST116") throw error;
+      return data;
+    },
+  });
+
   // Redirect new_lead to NewLeadView
   useEffect(() => {
     if (lead && lead.status === "new_lead") {
@@ -206,10 +223,11 @@ export default function LeadDetail() {
   };
 
   const handleDirections = () => {
-    window.open(
-      `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fullAddress)}`,
-      "_blank"
-    );
+    // Use lat/lng for accuracy if available, otherwise fall back to address string
+    const mapsUrl = lead.property_lat && lead.property_lng
+      ? `https://www.google.com/maps/dir/?api=1&destination=${lead.property_lat},${lead.property_lng}`
+      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fullAddress)}`;
+    window.open(mapsUrl, "_blank");
   };
 
   const handleChangeStatus = async (status: LeadStatus) => {
@@ -651,30 +669,51 @@ export default function LeadDetail() {
           </CardContent>
         </Card>
 
-        {/* Inspection Details - if scheduled */}
+        {/* Inspection Scheduled - with booking notes inside */}
         {lead.inspection_scheduled_date && (
-          <Card className="border-amber-200 bg-amber-50">
+          <Card className="border-l-4 border-l-green-500 border-green-200 bg-green-50">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2 text-amber-800">
-                <Calendar className="h-4 w-4" />
-                Inspection Scheduled
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-amber-700">Date</span>
-                <span className="text-sm font-medium text-amber-900">
+                <CardTitle className="text-base flex items-center gap-2 text-green-800">
+                  <CheckCircle2 className="h-5 w-5" />
+                  Inspection Scheduled
+                </CardTitle>
+                <Badge className="bg-green-600 text-white">Confirmed</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-green-700">Date</span>
+                <span className="text-sm font-medium text-green-900 flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
                   {formatDate(lead.inspection_scheduled_date)}
                 </span>
               </div>
-              {lead.scheduled_time && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-amber-700">Time</span>
-                  <span className="text-sm font-medium text-amber-900">
-                    {formatTime(lead.scheduled_time)}
-                  </span>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-green-700">Time</span>
+                <span className="text-sm font-medium text-green-900 flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  {formatTime(lead.scheduled_time) || formatTime(booking?.start_datetime?.split('T')[1]?.substring(0, 5)) || 'Not set'}
+                </span>
+              </div>
+
+              {/* Booking Notes - inside the scheduled section */}
+              {booking?.description && (
+                <div className="pt-2 border-t border-green-200">
+                  <span className="text-sm text-green-700 uppercase tracking-wide font-medium">Notes from Booking Call</span>
+                  <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap flex items-start gap-2">
+                      <MessageSquare className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                      {booking.description}
+                    </p>
+                  </div>
                 </div>
               )}
+
+              <Button variant="outline" className="w-full h-12 border-green-300 text-green-700 hover:bg-green-100">
+                <Calendar className="h-4 w-4 mr-2" />
+                Reschedule Inspection
+              </Button>
             </CardContent>
           </Card>
         )}

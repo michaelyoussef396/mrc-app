@@ -945,31 +945,48 @@ Expected: OK (120min gap, need 45min travel)
 **Effort:** 8-12 hours
 **Impact:** Automated invoicing (optional)
 
+### 20. Migrate Google Maps Places API (Post-Launch)
+**Priority:** P3 (Post Stage 1)
+**Effort:** 4-6 hours
+**Impact:** Future-proofing - legacy API deprecated for new customers March 2025
+
+**Migration Tasks:**
+- [ ] Migrate from `AutocompleteService` to `AutocompleteSuggestion`
+- [ ] Migrate from `PlacesService` to `Place` class
+- [ ] Update `src/hooks/useGoogleMaps.ts` with new API
+- [ ] Update `src/components/booking/AddressAutocomplete.tsx`
+- [ ] Test all address autocomplete locations (Profile, New Lead, Booking)
+
+**Reference:** https://developers.google.com/maps/documentation/javascript/places-migration-overview
+
+**Note:** Current implementation works fine - Google only deprecated for NEW customers.
+Migration is recommended but not urgent since existing API keys continue to work.
+
 ---
 
 ## 📚 Documentation Tasks
 
-### 20. Update README.md
+### 21. Update README.md
 - [ ] Project overview
 - [ ] Installation instructions
 - [ ] Development workflow
 - [ ] Environment variables needed
 - [ ] Deployment guide
 
-### 21. Create API Documentation
+### 22. Create API Documentation
 - [ ] Document Edge Functions
 - [ ] Document database schema
 - [ ] Document RLS policies
 - [ ] Add code examples
 
-### 22. Create Deployment Guide
+### 23. Create Deployment Guide
 - [ ] Vercel deployment steps
 - [ ] Environment variable setup
 - [ ] Domain configuration
 - [ ] Error tracking setup
 - [ ] Monitoring setup
 
-### 23. Developer Onboarding
+### 24. Developer Onboarding
 - [ ] Code structure overview
 - [ ] Key components explained
 - [ ] Common patterns

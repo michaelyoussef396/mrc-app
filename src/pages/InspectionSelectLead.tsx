@@ -22,7 +22,7 @@ const InspectionSelectLead = () => {
     
     // Mock data - separated by workflow status
     const mockData = {
-      // Leads that need booking (new, contacted, quoted - no inspection scheduled)
+      // Leads that need booking (new_lead - no inspection scheduled)
       needBooking: [
         {
           id: 1,
@@ -44,7 +44,7 @@ const InspectionSelectLead = () => {
           phone: '0423 456 789',
           property: '45 Queen Street, Richmond VIC 3121',
           suburb: 'Richmond',
-          status: 'contacted',
+          status: 'new_lead',
           urgency: 'medium',
           dateCreated: '2025-01-28T14:15:00',
           issueDescription: 'Roof leak causing mould growth',

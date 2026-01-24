@@ -61,22 +61,6 @@ export function ActionsRequired() {
             };
             break;
 
-          case "contacted":
-            if (lead.calendar_bookings?.[0]?.start_datetime) {
-              const inspectionDate = new Date(lead.calendar_bookings[0].start_datetime);
-              if (inspectionDate >= startOfToday && inspectionDate < endOfToday) {
-                action = {
-                  type: "inspection_today",
-                  title: "📋 START INSPECTION",
-                  priority: "today",
-                  lead: lead,
-                  time: inspectionDate,
-                  actions: ["directions", "start", "view"],
-                };
-              }
-            }
-            break;
-
           case "inspection_waiting":
             action = {
               type: "start_inspection",

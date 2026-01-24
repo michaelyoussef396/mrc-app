@@ -47,6 +47,7 @@ import {
   formatSuburbName,
 } from '@/lib/validators/lead-creation.schemas';
 import type { NormalLeadSchemaType } from '@/lib/validators/lead-creation.schemas';
+import { AddressAutocomplete, type AddressValue } from '@/components/booking';
 
 // ============================================================================
 // TYPES
@@ -69,6 +70,8 @@ export function NormalLeadForm({
   const [charCount, setCharCount] = React.useState<number>(0);
   const [showOtherSource, setShowOtherSource] = React.useState<boolean>(false);
   const [otherSourceText, setOtherSourceText] = React.useState<string>('');
+  const [propertyAddress, setPropertyAddress] = React.useState<AddressValue | undefined>(undefined);
+  const [addressError, setAddressError] = React.useState<string | undefined>(undefined);
 
   // ============================================================================
   // FORM SETUP
@@ -147,20 +150,29 @@ export function NormalLeadForm({
    * Handle form submission
    */
   const onSubmit = async (data: NormalLeadSchemaType): Promise<void> => {
+    // Validate address was selected
+    if (!propertyAddress || !propertyAddress.street) {
+      setAddressError('Please select a property address');
+      return;
+    }
+    setAddressError(undefined);
+
     try {
       setIsLoading(true);
 
-      // Insert lead into Supabase
+      // Insert lead into Supabase with lat/lng coordinates
       const { data: leadData, error } = await supabase
         .from('leads')
         .insert({
           full_name: data.full_name,
           email: data.email,
           phone: data.phone,
-          property_address_street: data.street,
-          property_address_suburb: data.suburb,
-          property_address_postcode: data.postcode,
-          property_address_state: 'VIC',
+          property_address_street: propertyAddress.street,
+          property_address_suburb: propertyAddress.suburb,
+          property_address_postcode: propertyAddress.postcode,
+          property_address_state: propertyAddress.state || 'VIC',
+          property_lat: propertyAddress.lat,
+          property_lng: propertyAddress.lng,
           issue_description: data.issue_description,
           property_type: data.property_type,
           lead_source: data.lead_source || 'website',
@@ -292,21 +304,28 @@ export function NormalLeadForm({
         handleEmailBlur
       )}
 
-      {/* Street Address */}
-      {renderTextField('street', 'Street Address *', '123 Main Street')}
-
-      {/* Suburb */}
-      {renderTextField(
-        'suburb',
-        'Suburb *',
-        'Melbourne',
-        'text',
-        undefined,
-        handleSuburbBlur
-      )}
-
-      {/* Postcode */}
-      {renderTextField('postcode', 'Postcode *', '3XXX', 'text', 4)}
+      {/* Property Address - Google Places Autocomplete */}
+      <div className="space-y-2">
+        <AddressAutocomplete
+          label="Property Address *"
+          placeholder="Start typing address... (e.g., 123 High St)"
+          value={propertyAddress}
+          onChange={(address) => {
+            setPropertyAddress(address);
+            setAddressError(undefined);
+            // Update form fields for Zod validation
+            setValue('street', address?.street || '', { shouldValidate: true });
+            setValue('suburb', address?.suburb || '', { shouldValidate: true });
+            setValue('postcode', address?.postcode || '', { shouldValidate: true });
+          }}
+          error={addressError}
+          required
+          disabled={isLoading}
+        />
+        <p className="text-xs text-gray-500">
+          Select from dropdown to ensure accurate suburb and coordinates
+        </p>
+      </div>
 
       {/* Issue Description - Textarea with Character Counter */}
       <div className="space-y-2">
