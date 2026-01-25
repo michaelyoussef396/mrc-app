@@ -93,7 +93,7 @@ export default function ForgotPassword() {
           {/* Back to Login Button */}
           <div className="mt-6">
             <Button
-              onClick={() => navigate('/login')}
+              onClick={() => navigate('/')}
               variant="outline"
               className="w-full"
             >
@@ -176,7 +176,7 @@ export default function ForgotPassword() {
         {/* Back to Login Link */}
         <div className="mt-6">
           <Button
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/')}
             variant="ghost"
             className="w-full"
           >

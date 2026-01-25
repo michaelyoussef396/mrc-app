@@ -25,9 +25,7 @@ export function SessionMonitor() {
 
     console.log('🔍 [SessionMonitor] Initializing...');
 
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-
+    const updateSessionInfo = (session: any) => {
       if (session) {
         const expiresAt = new Date(session.expires_at! * 1000);
         const now = new Date();
@@ -48,10 +46,26 @@ export function SessionMonitor() {
       }
     };
 
-    checkSession();
-    const interval = setInterval(checkSession, 30000); // Update every 30s
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      updateSessionInfo(session);
+    });
 
-    return () => clearInterval(interval);
+    // Subscribe to auth state changes for real-time updates
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      updateSessionInfo(session);
+    });
+
+    // Also update periodically for expiry countdown
+    const interval = setInterval(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      updateSessionInfo(session);
+    }, 30000); // Update every 30s
+
+    return () => {
+      clearInterval(interval);
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Only render in development

@@ -165,7 +165,7 @@ export default function ResetPassword() {
       alert('✅ Password updated successfully! Please login with your new password.');
 
       setTimeout(() => {
-        navigate('/login');
+        navigate('/');
       }, 1000);
 
     } catch (err) {
@@ -301,7 +301,7 @@ export default function ResetPassword() {
 
         <div className="mt-6 text-center">
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/')}
             className="text-sm text-gray-600 hover:text-gray-900 font-medium transition"
           >
             ← Back to Login

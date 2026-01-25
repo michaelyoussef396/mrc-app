@@ -12,10 +12,13 @@ import {
   Camera,
   Key,
   Loader2,
-  MapPin
+  MapPin,
+  Smartphone,
+  Lock
 } from 'lucide-react';
 import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { AddressAutocomplete, type AddressValue } from '@/components/booking';
 
@@ -32,9 +35,12 @@ interface ProfileData {
 export default function Profile() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { forceLogoutAllDevices, currentRole } = useAuth();
+  const isDeveloper = currentRole === 'developer';
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
 
   // User profile data
   const [profileData, setProfileData] = useState<ProfileData>({
@@ -65,7 +71,7 @@ export default function Profile() {
             title: 'Error',
             description: 'Failed to load user. Please login again.',
           });
-          navigate('/login');
+          navigate('/');
           return;
         }
 
@@ -192,6 +198,30 @@ export default function Profile() {
   const handleCancel = () => {
     setEditData({ ...profileData });
     setIsEditing(false);
+  };
+
+  const handleLogoutAllDevices = async () => {
+    if (!confirm('This will log you out from all other devices. Your current session will remain active. Continue?')) {
+      return;
+    }
+
+    setIsLoggingOutAll(true);
+    try {
+      await forceLogoutAllDevices(true); // true = except current session
+      toast({
+        title: 'Success',
+        description: 'Successfully logged out from all other devices.',
+      });
+    } catch (error) {
+      console.error('Force logout error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to log out other devices. Please try again.',
+      });
+    } finally {
+      setIsLoggingOutAll(false);
+    }
   };
 
   if (isLoading) {
@@ -405,6 +435,42 @@ export default function Profile() {
                 </div>
                 <ArrowLeft size={18} strokeWidth={2} className="text-gray-400 transform rotate-180" />
               </button>
+
+              {isDeveloper ? (
+                <button
+                  className="flex items-center gap-3.5 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-white hover:border-orange-500 hover:shadow-sm transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleLogoutAllDevices}
+                  disabled={isLoggingOutAll}
+                >
+                  <div className="w-11 h-11 rounded-xl bg-white border border-gray-200 text-orange-500 flex items-center justify-center flex-shrink-0">
+                    {isLoggingOutAll ? (
+                      <Loader2 size={20} strokeWidth={2} className="animate-spin" />
+                    ) : (
+                      <Smartphone size={20} strokeWidth={2} />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-[15px] font-semibold text-gray-900 mb-1">
+                      {isLoggingOutAll ? 'Logging Out...' : 'Log Out All Devices'}
+                    </h4>
+                    <p className="text-sm text-gray-600 m-0">End all other sessions except this one</p>
+                  </div>
+                  <ArrowLeft size={18} strokeWidth={2} className="text-gray-400 transform rotate-180" />
+                </button>
+              ) : (
+                <div className="flex items-center gap-3.5 p-4 bg-gray-100 border-2 border-gray-200 rounded-xl">
+                  <div className="w-11 h-11 rounded-xl bg-gray-200 border border-gray-300 text-gray-400 flex items-center justify-center flex-shrink-0">
+                    <Smartphone size={20} strokeWidth={2} />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-[15px] font-semibold text-gray-400 mb-1">Log Out All Devices</h4>
+                    <p className="text-sm text-gray-500 m-0 flex items-center gap-1.5">
+                      <Lock size={14} strokeWidth={2} />
+                      Developer only - Contact admin for assistance
+                    </p>
+                  </div>
+                </div>
+              )}
 
             </div>
           </div>

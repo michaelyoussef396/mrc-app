@@ -8,17 +8,23 @@ import {
   Trash2,
   LogOut,
   Key,
-  Loader2
+  Loader2,
+  Smartphone,
+  Lock
 } from 'lucide-react';
 import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Settings() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { forceLogoutAllDevices, signOut, currentRole } = useAuth();
+  const isDeveloper = currentRole === 'developer';
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
 
   const handleSignOut = async () => {
     if (!confirm('Are you sure you want to sign out?')) return;
@@ -33,7 +39,7 @@ export default function Settings() {
           description: 'Failed to sign out. Please try again.',
         });
       } else {
-        navigate('/login');
+        navigate('/');
       }
     } catch (error) {
       console.error('Sign out error:', error);
@@ -44,6 +50,29 @@ export default function Settings() {
       });
     } finally {
       setIsSigningOut(false);
+    }
+  };
+
+  const handleLogoutAllDevices = async () => {
+    const confirmed = window.confirm(
+      'This will log you out from ALL devices including this one. You will need to sign in again. Continue?'
+    );
+
+    if (!confirmed) return;
+
+    setIsLoggingOutAll(true);
+    try {
+      // Pass false = don't except current session (log out everyone)
+      await forceLogoutAllDevices(false);
+
+      // The signOut in forceLogoutAllDevices should redirect to /
+      // But just in case, also call signOut explicitly
+      await signOut();
+
+    } catch (error) {
+      console.error('Force logout failed:', error);
+      // Even if there's an error, sign out the current user
+      await signOut();
     }
   };
 
@@ -100,7 +129,7 @@ export default function Settings() {
         description: 'Your account has been permanently deleted.',
       });
 
-      navigate('/login');
+      navigate('/');
     } catch (error) {
       console.error('Delete account error:', error);
       toast({
@@ -225,6 +254,46 @@ export default function Settings() {
               </div>
               <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
             </button>
+
+            {isDeveloper ? (
+              <button
+                className="flex items-center justify-between gap-3 px-4 py-4 w-full border-b border-gray-100 bg-transparent hover:bg-orange-50 transition-colors cursor-pointer text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleLogoutAllDevices}
+                disabled={isLoggingOutAll}
+              >
+                <div className="flex items-center gap-3.5 flex-1">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-100 to-orange-200 text-orange-600 flex items-center justify-center flex-shrink-0">
+                    {isLoggingOutAll ? (
+                      <Loader2 size={20} strokeWidth={2} className="animate-spin" />
+                    ) : (
+                      <Smartphone size={20} strokeWidth={2} />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-[15px] font-semibold text-orange-600 mb-1">
+                      {isLoggingOutAll ? 'Logging out...' : 'Log out from ALL devices'}
+                    </h3>
+                    <p className="text-sm text-gray-500 m-0">Log out from ALL devices including this one. You will need to sign in again.</p>
+                  </div>
+                </div>
+                <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+              </button>
+            ) : (
+              <div className="flex items-center justify-between gap-3 px-4 py-4 w-full border-b border-gray-100 bg-gray-50">
+                <div className="flex items-center gap-3.5 flex-1">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400 flex items-center justify-center flex-shrink-0">
+                    <Smartphone size={20} strokeWidth={2} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-[15px] font-semibold text-gray-400 mb-1">Log out from ALL devices</h3>
+                    <p className="text-sm text-gray-500 m-0 flex items-center gap-1.5">
+                      <Lock size={14} strokeWidth={2} />
+                      Developer only - Contact admin for assistance
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <button
               className="flex items-center justify-between gap-3 px-4 py-4 w-full bg-transparent hover:bg-red-50 transition-colors cursor-pointer text-left disabled:opacity-50 disabled:cursor-not-allowed"

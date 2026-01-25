@@ -39,7 +39,7 @@ export default function PasswordChanged() {
 
         {/* Subtle Footer Link */}
         <div className="success-footer">
-          <a href="/login" className="back-to-login">← Back to Login</a>
+          <a href="/" className="back-to-login">← Back to Login</a>
         </div>
 
       </div>

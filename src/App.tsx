@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import RoleProtectedRoute from "@/components/RoleProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { GlobalLoader, ProgressBar, PageTransition } from "@/components/loading";
 import { SessionMonitor } from "@/components/debug/SessionMonitor";
@@ -17,6 +18,8 @@ import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import CheckEmail from "./pages/CheckEmail";
 import NotFound from "./pages/NotFound";
+import AdminComingSoon from "./pages/AdminComingSoon";
+import TechnicianComingSoon from "./pages/TechnicianComingSoon";
 
 // Lazy loaded pages (code-split for smaller initial bundle)
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -51,7 +54,7 @@ const queryClient = new QueryClient();
 
 const AppContent = () => {
   const location = useLocation();
-  
+
   return (
     <>
       <ProgressBar />
@@ -60,7 +63,6 @@ const AppContent = () => {
           <Routes>
             {/* Public routes (no layout) */}
             <Route path="/" element={<Login />} />
-            <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/check-email" element={<CheckEmail />} />
             <Route path="/request-inspection" element={<RequestInspection />} />
@@ -68,8 +70,38 @@ const AppContent = () => {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/test-pdf" element={<TestPDFTemplate />} />
 
-            {/* Protected routes (with AppLayout) */}
-            <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+            {/* Role-specific coming soon pages (protected) */}
+            <Route
+              path="/admin-coming-soon"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
+                    <AdminComingSoon />
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/technician-coming-soon"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["technician"]}>
+                    <TechnicianComingSoon />
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Protected routes - Developer/Admin dashboard (with AppLayout) */}
+            <Route
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["developer", "admin"]}>
+                    <AppLayout />
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            >
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/lead/new" element={<NewLead />} />
