@@ -383,6 +383,7 @@ The database is **SIGNIFICANTLY MORE COMPREHENSIVE** than originally planned.
 - ✅ Session management with auto-refresh
 - ✅ Protected routes
 - ✅ User profiles (2 users active)
+- ✅ Email templates configured (9 templates) - See `docs/new-docs/email-templates.md`
 
 #### 2. Lead Management (90%)
 - ✅ Lead capture form (HiPages + Normal)
