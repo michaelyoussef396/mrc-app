@@ -171,7 +171,7 @@ const InspectionSelectLead = () => {
       {/* Navigation */}
       <nav className="select-lead-nav">
         <div className="nav-container">
-          <button className="back-btn" onClick={() => navigate('/dashboard')}>
+          <button className="back-btn" onClick={() => navigate(-1)}>
             <span className="back-arrow">←</span>
             <span>Back</span>
           </button>

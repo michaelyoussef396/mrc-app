@@ -14,9 +14,11 @@ import {
   Loader2,
   MapPin,
   Smartphone,
-  Lock
+  Lock,
+  Shield,
+  Wrench,
+  UserCog
 } from 'lucide-react';
-import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -31,6 +33,48 @@ interface ProfileData {
   avatar: string;
   startingAddress: AddressValue | null;
 }
+
+// Role badge configuration
+const getRoleBadgeConfig = (role: string | null) => {
+  switch (role) {
+    case 'developer':
+      return {
+        label: 'Developer',
+        bgColor: 'bg-blue-100',
+        textColor: 'text-blue-700',
+        borderColor: 'border-blue-200',
+        icon: Wrench,
+        iconColor: 'text-blue-500',
+      };
+    case 'admin':
+      return {
+        label: 'Admin',
+        bgColor: 'bg-green-100',
+        textColor: 'text-green-700',
+        borderColor: 'border-green-200',
+        icon: Shield,
+        iconColor: 'text-green-500',
+      };
+    case 'technician':
+      return {
+        label: 'Technician',
+        bgColor: 'bg-orange-100',
+        textColor: 'text-orange-700',
+        borderColor: 'border-orange-200',
+        icon: UserCog,
+        iconColor: 'text-orange-500',
+      };
+    default:
+      return {
+        label: 'User',
+        bgColor: 'bg-gray-100',
+        textColor: 'text-gray-700',
+        borderColor: 'border-gray-200',
+        icon: User,
+        iconColor: 'text-gray-500',
+      };
+  }
+};
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -236,18 +280,19 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 pb-24">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 pb-8">
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-5 bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+      {/* Header - 48px touch target for back button */}
+      <div className="flex items-center justify-between px-4 py-4 bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <button
-          className="w-10 h-10 rounded-xl bg-gray-100 border-0 text-gray-700 flex items-center justify-center cursor-pointer transition-all hover:bg-gray-200 hover:text-gray-900"
-          onClick={() => navigate('/dashboard')}
+          className="w-12 h-12 rounded-xl bg-gray-100 border-0 text-gray-700 flex items-center justify-center cursor-pointer transition-all hover:bg-gray-200 hover:text-gray-900"
+          onClick={() => navigate(-1)}
+          aria-label="Go back"
         >
           <ArrowLeft size={22} strokeWidth={2} />
         </button>
         <h1 className="text-xl font-bold text-gray-900 m-0">My Profile</h1>
-        <div className="w-10"></div>
+        <div className="w-12"></div>
       </div>
 
       {/* Profile Content */}
@@ -256,7 +301,7 @@ export default function Profile() {
         {/* Profile Card */}
         <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
 
-          {/* Avatar Section */}
+          {/* Avatar Section with Role Badge */}
           <div className="flex flex-col items-center px-6 py-10 bg-gradient-to-br from-blue-900 to-blue-800 relative">
             <div className="relative mb-4">
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white text-4xl font-bold flex items-center justify-center border-4 border-white/20 shadow-xl">
@@ -267,9 +312,22 @@ export default function Profile() {
               </button>
             </div>
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-white mb-3">
+              <h2 className="text-2xl font-bold text-white mb-2">
                 {profileData.firstName} {profileData.lastName}
               </h2>
+
+              {/* Role Badge */}
+              {(() => {
+                const roleBadge = getRoleBadgeConfig(currentRole);
+                const RoleIcon = roleBadge.icon;
+                return (
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 ${roleBadge.bgColor} border ${roleBadge.borderColor} rounded-full ${roleBadge.textColor} text-sm font-semibold mb-3`}>
+                    <RoleIcon size={14} strokeWidth={2} className={roleBadge.iconColor} />
+                    <span>{roleBadge.label}</span>
+                  </div>
+                );
+              })()}
+
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/15 backdrop-blur-md rounded-full text-white/90 text-sm font-medium">
                 <Calendar size={14} strokeWidth={2} />
                 <span>Joined {profileData.joinDate}</span>
@@ -328,7 +386,7 @@ export default function Profile() {
                 {isEditing ? (
                   <input
                     type="text"
-                    className="h-11 px-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-[15px] font-medium text-gray-900 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
+                    className="h-12 px-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-[15px] font-medium text-gray-900 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
                     value={editData.firstName}
                     onChange={(e) => setEditData({ ...editData, firstName: e.target.value })}
                     placeholder="Enter first name"
@@ -347,7 +405,7 @@ export default function Profile() {
                 {isEditing ? (
                   <input
                     type="text"
-                    className="h-11 px-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-[15px] font-medium text-gray-900 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
+                    className="h-12 px-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-[15px] font-medium text-gray-900 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
                     value={editData.lastName}
                     onChange={(e) => setEditData({ ...editData, lastName: e.target.value })}
                     placeholder="Enter last name"
@@ -378,7 +436,7 @@ export default function Profile() {
                 {isEditing ? (
                   <input
                     type="tel"
-                    className="h-11 px-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-[15px] font-medium text-gray-900 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
+                    className="h-12 px-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-[15px] font-medium text-gray-900 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all"
                     value={editData.phone}
                     onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
                     placeholder="04XX XXX XXX"
@@ -426,7 +484,7 @@ export default function Profile() {
                 className="flex items-center gap-3.5 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-white hover:border-blue-500 hover:shadow-sm transition-all text-left"
                 onClick={() => navigate('/forgot-password')}
               >
-                <div className="w-11 h-11 rounded-xl bg-white border border-gray-200 text-blue-500 flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 rounded-xl bg-white border border-gray-200 text-blue-500 flex items-center justify-center flex-shrink-0">
                   <Key size={20} strokeWidth={2} />
                 </div>
                 <div className="flex-1">
@@ -442,7 +500,7 @@ export default function Profile() {
                   onClick={handleLogoutAllDevices}
                   disabled={isLoggingOutAll}
                 >
-                  <div className="w-11 h-11 rounded-xl bg-white border border-gray-200 text-orange-500 flex items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 rounded-xl bg-white border border-gray-200 text-orange-500 flex items-center justify-center flex-shrink-0">
                     {isLoggingOutAll ? (
                       <Loader2 size={20} strokeWidth={2} className="animate-spin" />
                     ) : (
@@ -459,7 +517,7 @@ export default function Profile() {
                 </button>
               ) : (
                 <div className="flex items-center gap-3.5 p-4 bg-gray-100 border-2 border-gray-200 rounded-xl">
-                  <div className="w-11 h-11 rounded-xl bg-gray-200 border border-gray-300 text-gray-400 flex items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 rounded-xl bg-gray-200 border border-gray-300 text-gray-400 flex items-center justify-center flex-shrink-0">
                     <Smartphone size={20} strokeWidth={2} />
                   </div>
                   <div className="flex-1">
@@ -478,9 +536,6 @@ export default function Profile() {
         </div>
 
       </div>
-
-      {/* Mobile Bottom Navigation */}
-      <MobileBottomNav />
     </div>
   );
 }

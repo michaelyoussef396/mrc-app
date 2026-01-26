@@ -145,16 +145,17 @@ export default function Settings() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 pb-24">
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-5 bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+      {/* Header - 48px touch target for back button */}
+      <div className="flex items-center justify-between px-4 py-4 bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <button
-          className="w-10 h-10 rounded-xl bg-gray-100 border-0 text-gray-700 flex items-center justify-center cursor-pointer transition-all hover:bg-gray-200 hover:text-gray-900"
-          onClick={() => navigate('/dashboard')}
+          className="w-12 h-12 rounded-xl bg-gray-100 border-0 text-gray-700 flex items-center justify-center cursor-pointer transition-all hover:bg-gray-200 hover:text-gray-900"
+          onClick={() => navigate(-1)}
+          aria-label="Go back"
         >
           <ArrowLeft size={22} strokeWidth={2} />
         </button>
         <h1 className="text-xl font-bold text-gray-900 m-0">Settings</h1>
-        <div className="w-10"></div>
+        <div className="w-12"></div>
       </div>
 
       {/* Content */}

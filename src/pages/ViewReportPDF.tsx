@@ -436,8 +436,9 @@ export default function ViewReportPDF() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(-1)}
               className="h-12 w-12 min-h-[48px] min-w-[48px]"
+              aria-label="Go back"
             >
               <ArrowLeft className="h-6 w-6" />
             </Button>

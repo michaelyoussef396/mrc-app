@@ -436,11 +436,11 @@ export default function LeadDetail() {
       <header className="sticky top-0 z-50 bg-white border-b shadow-sm">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between gap-3">
-            {/* Back Button */}
+            {/* Back Button - uses browser history */}
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate("/leads")}
+              onClick={() => navigate(-1)}
               className="flex-shrink-0"
             >
               <ArrowLeft className="h-5 w-5" />
