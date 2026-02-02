@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -118,6 +118,8 @@ const getErrorMessage = (error: unknown): { message: string; type: ErrorType } =
 const Login = () => {
   const { signIn, setCurrentRole, session, userRoles } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const successMessage = (location.state as { message?: string })?.message;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("Technician");
@@ -235,10 +237,10 @@ const Login = () => {
         navigate("/dashboard");
         break;
       case "admin":
-        navigate("/admin-coming-soon");
+        navigate("/admin");
         break;
       case "technician":
-        navigate("/technician-coming-soon");
+        navigate("/technician");
         break;
       default:
         navigate("/dashboard");
@@ -406,6 +408,31 @@ const Login = () => {
 
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Success Message from Password Reset */}
+          {successMessage && (
+            <div
+              className="p-4 rounded-xl flex items-center gap-3"
+              style={{
+                backgroundColor: "rgba(52, 199, 89, 0.1)",
+                border: "1px solid rgba(52, 199, 89, 0.3)",
+              }}
+            >
+              <span
+                className="material-symbols-outlined flex-shrink-0"
+                style={{
+                  fontSize: "20px",
+                  color: "#34C759",
+                  fontVariationSettings: "'FILL' 1",
+                }}
+              >
+                check_circle
+              </span>
+              <p className="text-sm font-medium" style={{ color: "#34C759" }}>
+                {successMessage}
+              </p>
+            </div>
+          )}
+
           {/* Lockout Warning Banner */}
           {lockoutRemaining > 0 && (
             <div

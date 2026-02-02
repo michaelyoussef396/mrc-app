@@ -17,7 +17,8 @@ import {
   Lock,
   Shield,
   Wrench,
-  UserCog
+  UserCog,
+  LogOut
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -79,12 +80,13 @@ const getRoleBadgeConfig = (role: string | null) => {
 export default function Profile() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { forceLogoutAllDevices, currentRole } = useAuth();
+  const { forceLogoutAllDevices, currentRole, signOut } = useAuth();
   const isDeveloper = currentRole === 'developer';
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   // User profile data
   const [profileData, setProfileData] = useState<ProfileData>({
@@ -265,6 +267,22 @@ export default function Profile() {
       });
     } finally {
       setIsLoggingOutAll(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      navigate('/');
+    } catch (error) {
+      console.error('Sign out error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to sign out. Please try again.',
+      });
+      setIsSigningOut(false);
     }
   };
 
@@ -529,6 +547,27 @@ export default function Profile() {
                   </div>
                 </div>
               )}
+
+              {/* Sign Out Button */}
+              <button
+                className="flex items-center gap-3.5 p-4 bg-red-50 border-2 border-red-200 rounded-xl cursor-pointer hover:bg-red-100 hover:border-red-300 hover:shadow-sm transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+              >
+                <div className="w-12 h-12 rounded-xl bg-white border border-red-200 text-red-500 flex items-center justify-center flex-shrink-0">
+                  {isSigningOut ? (
+                    <Loader2 size={20} strokeWidth={2} className="animate-spin" />
+                  ) : (
+                    <LogOut size={20} strokeWidth={2} />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-[15px] font-semibold text-red-600 mb-1">
+                    {isSigningOut ? 'Signing Out...' : 'Sign Out'}
+                  </h4>
+                  <p className="text-sm text-red-500/80 m-0">End your current session</p>
+                </div>
+              </button>
 
             </div>
           </div>

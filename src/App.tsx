@@ -19,7 +19,10 @@ import ForgotPassword from "./pages/ForgotPassword";
 import CheckEmail from "./pages/CheckEmail";
 import NotFound from "./pages/NotFound";
 import AdminComingSoon from "./pages/AdminComingSoon";
-import TechnicianComingSoon from "./pages/TechnicianComingSoon";
+// TechnicianComingSoon removed - now using TechnicianDashboard
+import AdminDashboard from "./pages/AdminDashboard";
+import TechnicianDashboard from "./pages/TechnicianDashboard";
+import TechnicianDashboardTest from "./pages/TechnicianDashboardTest";
 
 // Lazy loaded pages (code-split for smaller initial bundle)
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -69,6 +72,31 @@ const AppContent = () => {
             <Route path="/request-inspection/success" element={<InspectionSuccess />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/test-pdf" element={<TestPDFTemplate />} />
+            <Route path="/test/technician" element={<TechnicianDashboardTest />} />
+
+            {/* Admin Dashboard (standalone layout - no AppLayout) */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                    <AdminDashboard />
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Technician Dashboard (standalone layout - no AppLayout) */}
+            <Route
+              path="/technician"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                    <TechnicianDashboard />
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
 
             {/* Role-specific coming soon pages (protected) */}
             <Route
@@ -81,17 +109,6 @@ const AppContent = () => {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/technician-coming-soon"
-              element={
-                <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["technician"]}>
-                    <TechnicianComingSoon />
-                  </RoleProtectedRoute>
-                </ProtectedRoute>
-              }
-            />
-
             {/* Protected routes - Developer/Admin dashboard (with AppLayout) */}
             <Route
               element={
@@ -136,6 +153,11 @@ const App = () => {
 
   // Enable proactive session refresh to prevent timeouts
   useSessionRefresh();
+
+  // One-time cleanup: remove any stale inline overflow styles on body
+  useEffect(() => {
+    document.body.style.overflow = '';
+  }, []);
 
   useEffect(() => {
     // Simulate initial app load

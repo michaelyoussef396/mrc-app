@@ -47,23 +47,26 @@ export function BottomNavbar() {
     }
   };
 
-  // Close menu on escape key
+  // Close menu on escape key & manage body scroll
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         closeQuickActions();
       }
     };
-    
+
     if (showQuickActions) {
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden';
+
+      return () => {
+        document.removeEventListener('keydown', handleEscape);
+        document.body.style.overflow = '';  // Reset to default (empty string, NOT 'auto')
+      };
     }
-    
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'auto';
-    };
+
+    // When showQuickActions is false, only set up escape listener, do NOT touch body overflow
+    return undefined;
   }, [showQuickActions]);
 
   const navItems = [
