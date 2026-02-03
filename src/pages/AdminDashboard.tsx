@@ -627,9 +627,9 @@ export default function AdminDashboard() {
                   </span>
                 </button>
 
-                {/* Schedule - Coming Soon */}
+                {/* Schedule */}
                 <button
-                  onClick={() => handleComingSoon('Schedule')}
+                  onClick={() => navigate('/admin/schedule')}
                   className="flex items-center gap-2 md:gap-3 p-3 md:p-4 rounded-xl transition-colors hover:bg-blue-50 min-h-[64px] relative"
                   style={{ border: '1px solid #e5e5e5' }}
                 >
@@ -647,7 +647,6 @@ export default function AdminDashboard() {
                   <span className="text-xs md:text-sm font-medium" style={{ color: '#1d1d1f' }}>
                     Schedule
                   </span>
-                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ backgroundColor: '#FF9500' }} />
                 </button>
 
                 {/* Reports - Coming Soon */}
