@@ -108,7 +108,7 @@ export default function AdminSchedule() {
 
   return (
     <div
-      className="min-h-screen overflow-hidden"
+      className="h-screen overflow-hidden"
       style={{
         backgroundColor: '#f6f7f8',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
@@ -120,11 +120,11 @@ export default function AdminSchedule() {
         onClose={() => setSidebarOpen(false)}
       />
 
-      {/* Main Content */}
-      <main className="ml-0 lg:ml-[260px] h-screen flex flex-col overflow-hidden">
-        {/* Page Header */}
+      {/* Main Content - Full height layout */}
+      <main className="ml-0 lg:ml-[260px] h-screen flex flex-col">
+        {/* Page Header - Fixed height */}
         <header
-          className="bg-white sticky top-0 z-40"
+          className="bg-white flex-shrink-0 z-40"
           style={{ borderBottom: '1px solid #e5e5e5' }}
         >
           <div className="flex items-center px-6 py-3 justify-between">
@@ -171,34 +171,38 @@ export default function AdminSchedule() {
           </div>
         </header>
 
-        {/* Split Panel Layout */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Calendar Panel (Left 60%) */}
+        {/* Split Panel Layout - Takes remaining height */}
+        <div className="flex flex-1 min-h-0">
+          {/* Calendar Panel (Left 60%) - Scrollable */}
           <section
-            className="w-full lg:w-3/5 flex flex-col bg-white"
+            className="w-full lg:w-3/5 flex flex-col bg-white min-h-0"
             style={{ borderRight: '1px solid #e5e5e5' }}
           >
-            {/* Schedule Header with Navigation and Filters */}
-            <ScheduleHeader
-              weekStart={weekStart}
-              onWeekChange={handleWeekChange}
-              technicians={technicians}
-              selectedTechnician={selectedTechnician}
-              onTechnicianChange={handleTechnicianChange}
-            />
+            {/* Schedule Header with Navigation and Filters - Fixed */}
+            <div className="flex-shrink-0">
+              <ScheduleHeader
+                weekStart={weekStart}
+                onWeekChange={handleWeekChange}
+                technicians={technicians}
+                selectedTechnician={selectedTechnician}
+                onTechnicianChange={handleTechnicianChange}
+              />
+            </div>
 
-            {/* Calendar Grid */}
-            <ScheduleCalendar
-              weekStart={weekStart}
-              events={events}
-              isLoading={isLoading}
-            />
+            {/* Calendar Grid - Scrollable */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <ScheduleCalendar
+                weekStart={weekStart}
+                events={events}
+                isLoading={isLoading}
+              />
+            </div>
           </section>
 
-          {/* Leads Queue Panel (Right 40%) - Hidden on mobile */}
-          <div className="hidden lg:block lg:w-2/5">
+          {/* Leads Queue Panel (Right 40%) - Fixed position, internal scroll */}
+          <aside className="hidden lg:flex lg:w-2/5 flex-col min-h-0">
             <LeadsQueue technicians={technicians} />
-          </div>
+          </aside>
         </div>
 
         {/* Mobile: Bottom Sheet for Leads Queue */}

@@ -11,6 +11,7 @@ export interface CalendarEvent {
   title: string;
   clientName: string;
   suburb: string;
+  postcode: string;
   address: string;
   startDatetime: Date;
   endDatetime: Date;
@@ -154,7 +155,8 @@ export function useScheduleCalendar({
           lead:leads (
             id,
             full_name,
-            property_address_suburb
+            property_address_suburb,
+            property_address_postcode
           )
         `)
         .gte('start_datetime', weekStart.toISOString())
@@ -208,6 +210,7 @@ export function useScheduleCalendar({
           title: booking.title || `${booking.event_type} - ${lead?.full_name || 'Unknown'}`,
           clientName: lead?.full_name || 'Unknown',
           suburb: lead?.property_address_suburb || '',
+          postcode: lead?.property_address_postcode || '',
           address: booking.location_address || '',
           startDatetime: new Date(booking.start_datetime),
           endDatetime: new Date(booking.end_datetime),

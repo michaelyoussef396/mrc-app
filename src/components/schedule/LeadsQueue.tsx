@@ -29,20 +29,20 @@ export function LeadsQueue({ technicians }: LeadsQueueProps) {
   };
 
   return (
-    <aside
-      className="w-full lg:w-2/5 flex flex-col shadow-xl z-20"
+    <div
+      className="h-full flex flex-col"
       style={{
         backgroundColor: '#f6f7f8',
         borderLeft: '1px solid #e5e5e5',
       }}
     >
-      {/* Header */}
+      {/* Header - Fixed */}
       <div
-        className="p-6 pb-4 flex justify-between items-center bg-white"
+        className="flex-shrink-0 px-5 py-4 flex justify-between items-center bg-white"
         style={{ borderBottom: '1px solid #e5e5e5' }}
       >
         <h3
-          className="text-xl font-bold leading-tight tracking-tight"
+          className="text-lg font-bold leading-tight tracking-tight"
           style={{ color: '#1d1d1f' }}
         >
           To Schedule
@@ -68,8 +68,8 @@ export function LeadsQueue({ technicians }: LeadsQueueProps) {
         </span>
       </div>
 
-      {/* Scrollable Lead Cards */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 no-scrollbar">
+      {/* Scrollable Lead Cards - Takes remaining height */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3">
         {isLoading ? (
           // Loading State
           <div className="py-12 text-center">
@@ -120,7 +120,7 @@ export function LeadsQueue({ technicians }: LeadsQueueProps) {
           ))
         )}
       </div>
-    </aside>
+    </div>
   );
 }
 

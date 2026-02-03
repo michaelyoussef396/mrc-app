@@ -61,29 +61,30 @@ export function ScheduleCalendar({
   }
 
   return (
-    <div className="flex flex-1 overflow-hidden relative">
-      {/* Time Column */}
+    <div className="flex h-full">
+      {/* Time Column - Sticky */}
       <div
-        className="w-14 flex-none bg-white z-20 flex flex-col pt-12 overflow-hidden"
+        className="w-14 flex-shrink-0 bg-white z-20"
         style={{ borderRight: '1px solid #e5e5e5' }}
       >
-        <div className="flex-1 overflow-hidden relative">
-          <div className="absolute inset-0 flex flex-col">
-            {TIME_SLOTS.map((slot) => (
-              <div
-                key={slot.time}
-                className="h-20 text-[10px] font-medium text-center relative -top-2"
-                style={{ color: '#617589' }}
-              >
-                {slot.label.replace(':00 ', ' ')}
-              </div>
-            ))}
-          </div>
+        {/* Spacer for day headers */}
+        <div className="h-12" style={{ borderBottom: '1px solid #e5e5e5' }} />
+        {/* Time labels */}
+        <div className="flex flex-col">
+          {TIME_SLOTS.map((slot) => (
+            <div
+              key={slot.time}
+              className="h-16 text-[10px] font-medium text-center flex items-start justify-center pt-0.5"
+              style={{ color: '#617589' }}
+            >
+              {slot.label.replace(':00 ', '')}
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Calendar Grid */}
-      <div className="flex-1 overflow-y-auto no-scrollbar relative flex flex-col">
+      {/* Calendar Grid - Scrollable */}
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Day Headers - Sticky */}
         <div
           className="sticky top-0 z-30 flex bg-white h-12 shadow-sm"
@@ -124,9 +125,9 @@ export function ScheduleCalendar({
 
         {/* Time Grid with Events */}
         <div
-          className="relative flex-1 grid grid-cols-7 divide-x"
+          className="relative grid grid-cols-7 divide-x"
           style={{
-            minHeight: `${TIME_SLOTS.length * 80}px`, // 80px per hour slot
+            minHeight: `${TIME_SLOTS.length * 64}px`, // 64px (h-16) per hour slot
             borderColor: '#e5e5e5',
           }}
         >
@@ -135,7 +136,7 @@ export function ScheduleCalendar({
             {TIME_SLOTS.map((slot) => (
               <div
                 key={slot.time}
-                className="h-20 border-dashed"
+                className="h-16"
                 style={{ borderBottom: '1px dashed #e5e5e5' }}
               />
             ))}
@@ -156,33 +157,35 @@ export function ScheduleCalendar({
                 {dayEvents.map((event) => {
                   const { top, height } = calculateEventPosition(event);
                   const styles = getEventStyles(event);
+                  // Format suburb + postcode
+                  const location = [event.suburb, event.postcode].filter(Boolean).join(' ');
 
                   return (
                     <div
                       key={event.id}
-                      className="absolute left-1 right-1 rounded shadow-sm p-1.5 flex flex-col gap-0.5 cursor-pointer hover:brightness-95 transition-all"
+                      className="absolute left-0.5 right-0.5 rounded-lg shadow-sm p-2 flex flex-col gap-0.5 cursor-pointer hover:brightness-95 transition-all overflow-hidden"
                       style={{
                         top: `${top}%`,
-                        height: `${Math.max(height, 6)}%`, // Minimum 6% height for visibility
+                        height: `${Math.max(height, 8)}%`, // Minimum 8% height for better visibility
                         backgroundColor: styles.bg,
-                        borderLeft: `4px solid ${styles.border}`,
+                        borderLeft: `3px solid ${styles.border}`,
                       }}
                       onClick={() => handleEventClick(event)}
                     >
                       {/* Time and Technician Badge */}
-                      <div className="flex justify-between items-start">
+                      <div className="flex justify-between items-start gap-1">
                         <span
-                          className="text-[10px] font-bold"
+                          className="text-[11px] font-bold"
                           style={{ color: styles.text }}
                         >
                           {event.startDatetime.toLocaleTimeString('en-AU', {
                             hour: 'numeric',
                             minute: '2-digit',
-                            hour12: false,
-                          })}
+                            hour12: true,
+                          }).toLowerCase()}
                         </span>
                         <span
-                          className="w-4 h-4 flex items-center justify-center rounded-full text-[9px] font-bold"
+                          className="w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold flex-shrink-0"
                           style={{
                             backgroundColor: event.technicianColor,
                             color: 'white',
@@ -192,22 +195,21 @@ export function ScheduleCalendar({
                         </span>
                       </div>
 
-                      {/* Client Name */}
+                      {/* Client Name - full name, no truncation */}
                       <p
-                        className="text-xs font-bold leading-tight line-clamp-2"
+                        className="text-[11px] font-bold leading-tight"
                         style={{ color: styles.text }}
                       >
-                        {event.eventType === 'inspection' ? 'Insp: ' : ''}
                         {event.clientName}
                       </p>
 
-                      {/* Suburb */}
-                      {height > 10 && event.suburb && (
+                      {/* Suburb + Postcode - always show if available */}
+                      {location && (
                         <p
-                          className="text-[10px] line-clamp-1"
-                          style={{ color: '#86868b' }}
+                          className="text-[10px] font-medium"
+                          style={{ color: '#617589' }}
                         >
-                          {event.suburb}
+                          {location}
                         </p>
                       )}
                     </div>

@@ -535,11 +535,11 @@ export default function AdminDashboard() {
 
               {unassignedCount > 0 && (
                 <button
-                  onClick={() => navigate('/admin/leads?filter=unassigned')}
+                  onClick={() => navigate('/admin/schedule')}
                   className="w-full mt-4 py-3 text-sm font-medium rounded-xl transition-colors hover:bg-blue-50 min-h-[48px]"
                   style={{ color: '#007AFF', border: '1px solid #007AFF' }}
                 >
-                  View All Leads
+                  Schedule Inspections
                 </button>
               )}
             </div>
