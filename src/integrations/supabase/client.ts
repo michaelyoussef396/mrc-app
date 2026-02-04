@@ -117,8 +117,8 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     // Password updates require recovery session (403 error with regular session)
     flowType: 'implicit',
 
-    // Debug mode (only in development)
-    debug: import.meta.env.DEV,
+    // DISABLED FOR SOFT LAUNCH — causes verbose GoTrueClient logs (#_acquireLock spam)
+    // debug: import.meta.env.DEV,
   },
 
   // Global options
@@ -129,15 +129,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
 });
 
-// Log session state changes in development (helpful for debugging password reset issues)
+// SOFT LAUNCH: Minimal auth state logging (reduced from verbose multi-line output)
 if (import.meta.env.DEV) {
   supabase.auth.onAuthStateChange((event, session) => {
-    console.log('🔐 [Supabase Client] Auth State Change:', event);
-    console.log('📝 [Supabase Client] Session:', session ? 'Active' : 'None');
-    if (session) {
-      console.log('👤 [Supabase Client] User:', session.user.email);
-      console.log('⏰ [Supabase Client] Expires:', new Date(session.expires_at! * 1000).toLocaleString());
-      console.log('💾 [Supabase Client] Storage:', getRememberMePreference() ? 'localStorage (persistent)' : 'sessionStorage (session-only)');
-    }
+    console.log(`🔐 Auth: ${event}${session ? ` (${session.user.email})` : ''}`);
   });
 }

@@ -26,6 +26,8 @@ import TechnicianDashboardTest from "./pages/TechnicianDashboardTest";
 
 // Lazy loaded pages (code-split for smaller initial bundle)
 const AdminSchedule = lazy(() => import("./pages/AdminSchedule"));
+const AdminTechnicians = lazy(() => import("./pages/AdminTechnicians"));
+const AdminTechnicianDetail = lazy(() => import("./pages/AdminTechnicianDetail"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const NewLead = lazy(() => import("./pages/NewLead"));
 const ClientDetail = lazy(() => import("./pages/ClientDetail"));
@@ -94,6 +96,30 @@ const AppContent = () => {
                 <ProtectedRoute>
                   <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
                     <AdminSchedule />
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin Technicians (standalone layout - no AppLayout) */}
+            <Route
+              path="/admin/technicians"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                    <AdminTechnicians />
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin Technician Detail (standalone layout - no AppLayout) */}
+            <Route
+              path="/admin/technicians/:id"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                    <AdminTechnicianDetail />
                   </RoleProtectedRoute>
                 </ProtectedRoute>
               }

@@ -1,78 +1,8 @@
-import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useState } from 'react';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import { ScheduleHeader, ScheduleCalendar, LeadsQueue } from '@/components/schedule';
 import { useScheduleCalendar, getWeekStart } from '@/hooks/useScheduleCalendar';
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-interface Technician {
-  id: string;
-  name: string;
-  color: string;
-}
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-// Fetch active technicians from manage-users edge function
-async function fetchTechnicians(): Promise<Technician[]> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error('Not authenticated');
-
-  try {
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    const result = await response.json();
-    if (!result.success) throw new Error(result.error);
-
-    // Transform to Technician format with colors
-    return result.users
-      .filter((u: any) => u.is_active)
-      .map((u: any) => {
-        const name = u.full_name || u.first_name || u.email?.split('@')[0] || 'Unknown';
-        return {
-          id: u.id,
-          name: name,
-          color: getTechnicianColor(name),
-        };
-      });
-  } catch (error) {
-    console.error('[AdminSchedule] Failed to fetch technicians:', error);
-    // Return default technicians as fallback
-    return [
-      { id: 'clayton', name: 'Clayton', color: '#007AFF' },
-      { id: 'glen', name: 'Glen', color: '#34C759' },
-    ];
-  }
-}
-
-function getTechnicianColor(name: string): string {
-  const nameLower = name?.toLowerCase() || '';
-  if (nameLower.includes('clayton')) return '#007AFF';
-  if (nameLower.includes('glen')) return '#34C759';
-  // Generate a consistent color for other technicians
-  const colors = ['#FF9500', '#FF3B30', '#5856D6', '#AF52DE', '#00C7BE'];
-  let hash = 0;
-  for (let i = 0; i < nameLower.length; i++) {
-    hash = nameLower.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
-}
+import { useTechnicians } from '@/hooks/useTechnicians';
 
 // ============================================================================
 // COMPONENT
@@ -83,12 +13,16 @@ export default function AdminSchedule() {
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [selectedTechnician, setSelectedTechnician] = useState<string | null>(null);
 
-  // Fetch technicians
-  const { data: technicians = [] } = useQuery({
-    queryKey: ['schedule-technicians'],
-    queryFn: fetchTechnicians,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+  // Fetch technicians using the shared hook
+  const { data: technicians = [], isLoading: techniciansLoading, error: techniciansError } = useTechnicians();
+
+  // Log technician fetch results for debugging
+  if (techniciansError) {
+    console.error('[AdminSchedule] Technicians error:', techniciansError);
+  }
+  if (technicians.length > 0) {
+    console.log('[AdminSchedule] Technicians loaded:', technicians.map(t => ({ id: t.id, name: t.name })));
+  }
 
   // Fetch calendar events
   const { events, isLoading, refetch } = useScheduleCalendar({
@@ -173,9 +107,9 @@ export default function AdminSchedule() {
 
         {/* Split Panel Layout - Takes remaining height */}
         <div className="flex flex-1 min-h-0">
-          {/* Calendar Panel (Left 60%) - Scrollable */}
+          {/* Calendar Panel (Left 70%) - Scrollable */}
           <section
-            className="w-full lg:w-3/5 flex flex-col bg-white min-h-0"
+            className="w-full lg:w-[70%] flex flex-col bg-white min-h-0"
             style={{ borderRight: '1px solid #e5e5e5' }}
           >
             {/* Schedule Header with Navigation and Filters - Fixed */}
@@ -199,8 +133,8 @@ export default function AdminSchedule() {
             </div>
           </section>
 
-          {/* Leads Queue Panel (Right 40%) - Fixed position, internal scroll */}
-          <aside className="hidden lg:flex lg:w-2/5 flex-col min-h-0">
+          {/* Leads Queue Panel (Right 30%) - Fixed position, internal scroll */}
+          <aside className="hidden lg:flex lg:w-[30%] flex-col min-h-0">
             <LeadsQueue technicians={technicians} />
           </aside>
         </div>

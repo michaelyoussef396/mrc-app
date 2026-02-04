@@ -627,25 +627,47 @@ export default function AdminDashboard() {
                   </span>
                 </button>
 
-                {/* Schedule */}
+                {/* Approve Reports - Leads needing PDF approval */}
                 <button
-                  onClick={() => navigate('/admin/schedule')}
-                  className="flex items-center gap-2 md:gap-3 p-3 md:p-4 rounded-xl transition-colors hover:bg-blue-50 min-h-[64px] relative"
+                  onClick={() => navigate('/admin/leads?status=approve_inspection_report')}
+                  className="flex items-center gap-2 md:gap-3 p-3 md:p-4 rounded-xl transition-colors hover:bg-orange-50 min-h-[64px] relative"
                   style={{ border: '1px solid #e5e5e5' }}
                 >
                   <div
                     className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: 'rgba(0, 122, 255, 0.1)' }}
+                    style={{ backgroundColor: 'rgba(255, 149, 0, 0.1)' }}
                   >
                     <span
                       className="material-symbols-outlined"
-                      style={{ fontSize: '20px', color: '#007AFF' }}
+                      style={{ fontSize: '20px', color: '#FF9500' }}
                     >
-                      calendar_add_on
+                      fact_check
                     </span>
                   </div>
                   <span className="text-xs md:text-sm font-medium" style={{ color: '#1d1d1f' }}>
-                    Schedule
+                    Approve Reports
+                  </span>
+                </button>
+
+                {/* Calendar - Goes to /admin/schedule */}
+                <button
+                  onClick={() => navigate('/admin/schedule')}
+                  className="flex items-center gap-2 md:gap-3 p-3 md:p-4 rounded-xl transition-colors hover:bg-purple-50 min-h-[64px] relative"
+                  style={{ border: '1px solid #e5e5e5' }}
+                >
+                  <div
+                    className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: 'rgba(147, 51, 234, 0.1)' }}
+                  >
+                    <span
+                      className="material-symbols-outlined"
+                      style={{ fontSize: '20px', color: 'rgb(147, 51, 234)' }}
+                    >
+                      calendar_month
+                    </span>
+                  </div>
+                  <span className="text-xs md:text-sm font-medium" style={{ color: '#1d1d1f' }}>
+                    Calendar
                   </span>
                 </button>
 
@@ -668,29 +690,6 @@ export default function AdminDashboard() {
                   </div>
                   <span className="text-xs md:text-sm font-medium" style={{ color: '#1d1d1f' }}>
                     Reports
-                  </span>
-                  <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ backgroundColor: '#FF9500' }} />
-                </button>
-
-                {/* Calendar - Coming Soon */}
-                <button
-                  onClick={() => handleComingSoon('Calendar')}
-                  className="flex items-center gap-2 md:gap-3 p-3 md:p-4 rounded-xl transition-colors hover:bg-purple-50 min-h-[64px] relative"
-                  style={{ border: '1px solid #e5e5e5' }}
-                >
-                  <div
-                    className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: 'rgba(147, 51, 234, 0.1)' }}
-                  >
-                    <span
-                      className="material-symbols-outlined"
-                      style={{ fontSize: '20px', color: 'rgb(147, 51, 234)' }}
-                    >
-                      calendar_month
-                    </span>
-                  </div>
-                  <span className="text-xs md:text-sm font-medium" style={{ color: '#1d1d1f' }}>
-                    Calendar
                   </span>
                   <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ backgroundColor: '#FF9500' }} />
                 </button>

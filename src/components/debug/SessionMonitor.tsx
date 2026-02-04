@@ -15,6 +15,12 @@ interface SessionInfo {
  * Only renders in development mode (import.meta.env.DEV)
  */
 export function SessionMonitor() {
+  // DISABLED FOR SOFT LAUNCH — re-enable when scaling to white-label
+  // This removes one onAuthStateChange listener and the 30s polling interval
+  // Also removes the fixed overlay that interfered with scroll diagnostics
+  return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-unreachable
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
     hasSession: false,
   });

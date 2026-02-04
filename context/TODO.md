@@ -910,7 +910,37 @@ Expected: OK (120min gap, need 45min travel)
 
 ## ⚪ LOW PRIORITY (Week 4 / Sprint 2)
 
-### 13. Add Error Boundaries
+### 13. Technician Onboarding Flow (Add New Technician)
+**Priority:** P3 (Sprint 2)
+**Status:** ❌ Not Started
+**Effort:** 6-8 hours
+**Impact:** Admin workflow for adding new technicians
+
+**Implementation Tasks:**
+- [ ] Create "Add Technician" modal/page
+- [ ] Form fields: name, email, phone, home address (starting location)
+- [ ] Create Supabase auth user via edge function
+- [ ] Assign technician role automatically
+- [ ] Send welcome email with password reset link
+- [ ] Add to technician selector dropdowns throughout app
+
+**Related Files:**
+- `src/pages/AdminTechnicians.tsx` - Add "Add Technician" button
+- `supabase/functions/manage-users/index.ts` - Extend with user creation
+- `src/components/technicians/AddTechnicianModal.tsx` - New modal
+
+**Acceptance Criteria:**
+- Admin can add new technician without database access
+- New technician receives welcome email
+- New technician appears in all technician selectors
+- Proper validation (email unique, required fields)
+
+**Depends On:** Admin Technicians page complete (✅)
+**Blocks:** Team expansion
+
+---
+
+### 14. Add Error Boundaries
 **Priority:** P3
 **Effort:** 2-3 hours
 **Impact:** Better error recovery

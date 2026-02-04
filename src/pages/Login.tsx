@@ -4,13 +4,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import logoLarge from "@/assets/logo-large.png";
-import {
-  isLockedOut,
-  recordFailedAttempt,
-  clearLoginAttempts,
-  getRemainingAttempts,
-  formatLockoutTime,
-} from "@/utils/rateLimiter";
+
+// DISABLED FOR SOFT LAUNCH — re-enable when scaling to white-label
+// 30-minute lockout after 5 failed attempts is too strict for 4 gloved technicians
+// import {
+//   isLockedOut,
+//   recordFailedAttempt,
+//   clearLoginAttempts,
+//   getRemainingAttempts,
+//   formatLockoutTime,
+// } from "@/utils/rateLimiter";
 
 type Role = "Admin" | "Technician" | "Developer";
 
@@ -127,26 +130,27 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [lockoutRemaining, setLockoutRemaining] = useState<number>(0);
+  // DISABLED FOR SOFT LAUNCH — re-enable when scaling to white-label
+  // const [lockoutRemaining, setLockoutRemaining] = useState<number>(0);
 
-  // Check lockout status on mount and update every second
-  useEffect(() => {
-    const checkLockout = () => {
-      const { locked, remainingMs } = isLockedOut();
-      if (locked) {
-        setLockoutRemaining(remainingMs);
-      } else {
-        setLockoutRemaining(0);
-      }
-    };
+  // DISABLED FOR SOFT LAUNCH — lockout check removed
+  // useEffect(() => {
+  //   const checkLockout = () => {
+  //     const { locked, remainingMs } = isLockedOut();
+  //     if (locked) {
+  //       setLockoutRemaining(remainingMs);
+  //     } else {
+  //       setLockoutRemaining(0);
+  //     }
+  //   };
+  //
+  //   checkLockout();
+  //   const interval = setInterval(checkLockout, 1000);
+  //   return () => clearInterval(interval);
+  // }, []);
 
-    checkLockout();
-    const interval = setInterval(checkLockout, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Computed value for whether form is disabled
-  const isFormDisabled = isLoading || lockoutRemaining > 0;
+  // SOFT LAUNCH: Form disabled only when loading (no lockout)
+  const isFormDisabled = isLoading;
 
   // Redirect if already logged in with a valid role
   useEffect(() => {
@@ -256,15 +260,15 @@ const Login = () => {
       return;
     }
 
-    // Check if locked out
-    const { locked, remainingMs } = isLockedOut();
-    if (locked) {
-      setErrors({
-        auth: `Account temporarily locked for security. Try again in ${formatLockoutTime(remainingMs)}.`,
-        type: "lockout",
-      });
-      return;
-    }
+    // DISABLED FOR SOFT LAUNCH — lockout check removed
+    // const { locked, remainingMs } = isLockedOut();
+    // if (locked) {
+    //   setErrors({
+    //     auth: `Account temporarily locked for security. Try again in ${formatLockoutTime(remainingMs)}.`,
+    //     type: "lockout",
+    //   });
+    //   return;
+    // }
 
     // Reset errors
     setErrors({});
@@ -285,34 +289,12 @@ const Login = () => {
         localStorage.removeItem("mrc_remembered_email");
       }
 
-      // Sign in and get user roles
-      const { error, userRoles: fetchedRoles } = await signIn(
-        email,
-        password,
-        rememberMe
-      );
+      // Sign in - roles are fetched by AuthContext's onAuthStateChange listener
+      const { error } = await signIn(email, password, rememberMe);
 
       if (error) {
-        // Record failed attempt
-        recordFailedAttempt();
-        const remaining = getRemainingAttempts();
-
-        // Get user-friendly error message
         const { message, type } = getErrorMessage(error);
-
-        // Handle rate limiting messages
-        if (remaining === 0) {
-          setErrors({
-            auth: "Too many failed attempts. Your account is temporarily locked for 30 minutes.",
-            type: "lockout",
-          });
-        } else if (remaining <= 3) {
-          // Show remaining attempts after 2 failures
-          setErrors({
-            auth: `${message} ${remaining} attempt${remaining === 1 ? "" : "s"} remaining before temporary lockout.`,
-            type,
-          });
-        } else if (type === "network") {
+        if (type === "network") {
           setErrors({ network: message, type });
         } else {
           setErrors({ auth: message, type });
@@ -320,32 +302,11 @@ const Login = () => {
         return;
       }
 
-      // Check if user has any roles
-      if (!fetchedRoles || fetchedRoles.length === 0) {
-        setErrors({
-          auth: "Your account hasn't been set up yet. Please contact support.",
-          type: "role",
-        });
-        return;
-      }
-
-      // Check role access - user must have the selected role
-      const selectedRoleLower = role.toLowerCase();
-
-      if (!fetchedRoles.includes(selectedRoleLower)) {
-        setErrors({
-          auth: `You don't have access to the ${role} portal. Please select a different role.`,
-          type: "role",
-        });
-        return;
-      }
-
-      // Success - clear login attempts
-      clearLoginAttempts();
-
-      // Set current role and redirect
-      setCurrentRole(selectedRoleLower);
-      redirectByRole(selectedRoleLower);
+      // Sign in succeeded — set role and redirect
+      // Roles are fetched by AuthContext's onAuthStateChange listener
+      // RoleProtectedRoute will wait for roles to load before granting access
+      setCurrentRole(role.toLowerCase());
+      redirectByRole(role.toLowerCase());
 
     } catch (err) {
       // Handle unexpected errors (network issues, etc.)
@@ -433,36 +394,10 @@ const Login = () => {
             </div>
           )}
 
-          {/* Lockout Warning Banner */}
-          {lockoutRemaining > 0 && (
-            <div
-              className="p-4 rounded-xl flex flex-col items-center gap-2"
-              style={{
-                backgroundColor: "rgba(255, 149, 0, 0.1)",
-                border: "1px solid rgba(255, 149, 0, 0.3)",
-              }}
-            >
-              <span
-                className="material-symbols-outlined"
-                style={{
-                  fontSize: "28px",
-                  color: "#FF9500",
-                  fontVariationSettings: "'FILL' 1",
-                }}
-              >
-                lock_clock
-              </span>
-              <p className="text-sm font-medium" style={{ color: "#CC7700" }}>
-                Account temporarily locked
-              </p>
-              <p className="text-sm" style={{ color: "#CC7700" }}>
-                Try again in {formatLockoutTime(lockoutRemaining)}
-              </p>
-            </div>
-          )}
+          {/* DISABLED FOR SOFT LAUNCH — Lockout Warning Banner removed */}
 
           {/* Network Error Banner */}
-          {errors.network && !lockoutRemaining && (
+          {errors.network && (
             <div
               className="p-3 rounded-xl flex items-center gap-3"
               style={{
@@ -646,7 +581,7 @@ const Login = () => {
           </div>
 
           {/* Auth Error Message */}
-          {errors.auth && !lockoutRemaining && (
+          {errors.auth && (
             <div
               className="p-3 rounded-xl flex items-center gap-3"
               style={{
@@ -715,13 +650,6 @@ const Login = () => {
                   />
                 </svg>
                 Signing in...
-              </>
-            ) : lockoutRemaining > 0 ? (
-              <>
-                <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>
-                  lock
-                </span>
-                Account Locked
               </>
             ) : (
               "Sign In"

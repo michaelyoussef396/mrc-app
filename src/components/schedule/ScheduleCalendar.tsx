@@ -166,7 +166,7 @@ export function ScheduleCalendar({
                       className="absolute left-0.5 right-0.5 rounded-lg shadow-sm p-2 flex flex-col gap-0.5 cursor-pointer hover:brightness-95 transition-all overflow-hidden"
                       style={{
                         top: `${top}%`,
-                        height: `${Math.max(height, 8)}%`, // Minimum 8% height for better visibility
+                        height: `${height}%`, // Height already has minimum in calculateEventPosition
                         backgroundColor: styles.bg,
                         borderLeft: `3px solid ${styles.border}`,
                       }}

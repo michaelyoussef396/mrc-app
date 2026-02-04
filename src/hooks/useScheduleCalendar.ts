@@ -177,23 +177,38 @@ export function useScheduleCalendar({
 
       console.log('[ScheduleCalendar] Raw data:', data);
 
-      // Fetch technician names
+      // Fetch technician names from edge function
       const technicianIds = [...new Set((data || []).map(e => e.assigned_to).filter(Boolean))];
       let technicianMap: Record<string, string> = {};
 
       if (technicianIds.length > 0) {
-        // Fetch from users via edge function or use cached mapping
-        // For now, we'll try to get names from user_profiles or use a simple mapping
-        const { data: profiles } = await supabase
-          .from('user_profiles')
-          .select('id, first_name, last_name')
-          .in('id', technicianIds);
-
-        if (profiles) {
-          profiles.forEach(p => {
-            const fullName = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown';
-            technicianMap[p.id] = fullName;
-          });
+        try {
+          // Get session for authentication
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            // Fetch users from manage-users edge function
+            const response = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`,
+              {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${session.access_token}`,
+                  'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+            const result = await response.json();
+            if (result.success && result.users) {
+              result.users.forEach((u: any) => {
+                if (technicianIds.includes(u.id)) {
+                  technicianMap[u.id] = u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email;
+                }
+              });
+            }
+          }
+        } catch (err) {
+          console.warn('[ScheduleCalendar] Failed to fetch technician names:', err);
         }
       }
 
@@ -265,7 +280,15 @@ export function getEventsForDate(events: CalendarEvent[], date: Date): CalendarE
 
 /**
  * Calculate event position and height based on time
- * Returns top percentage and height percentage for a 12-hour grid (7AM-7PM)
+ * Returns top percentage and height percentage for the calendar grid
+ *
+ * IMPORTANT: The grid has 13 TIME_SLOTS (7AM-7PM inclusive), each 64px (h-16)
+ * Total grid height = 13 * 64 = 832px
+ *
+ * Position calculation:
+ * - 7AM = row 0 = 0% of grid
+ * - 8AM = row 1 = (1/13) * 100 = 7.69%
+ * - 10AM = row 3 = (3/13) * 100 = 23.08%
  */
 export function calculateEventPosition(event: CalendarEvent): {
   top: number;
@@ -276,19 +299,28 @@ export function calculateEventPosition(event: CalendarEvent): {
   const endHour = event.endDatetime.getHours();
   const endMinutes = event.endDatetime.getMinutes();
 
-  // Grid starts at 7AM (hour 7) and ends at 7PM (hour 19)
-  // Total grid height represents 12 hours (7-19)
+  // Grid starts at 7AM (hour 7)
+  // The grid has 13 TIME_SLOTS (rows), so we use 13 as the denominator
   const gridStartHour = 7;
-  const gridEndHour = 19;
-  const totalHours = gridEndHour - gridStartHour; // 12 hours
+  const totalSlots = 13; // Number of time slots in the grid (7AM to 7PM inclusive)
 
-  // Calculate start position as percentage
+  // Calculate start position as percentage of total grid
+  // Each slot = 1/13 of the grid (7.69%)
   const startOffset = (startHour - gridStartHour) + (startMinutes / 60);
-  const top = Math.max(0, (startOffset / totalHours) * 100);
+  const top = Math.max(0, (startOffset / totalSlots) * 100);
 
   // Calculate duration in hours
   const durationHours = (endHour - startHour) + ((endMinutes - startMinutes) / 60);
-  const height = Math.min((durationHours / totalHours) * 100, 100 - top);
+  const height = Math.max((durationHours / totalSlots) * 100, 7.69); // Minimum 1 slot height
+
+  // Debug logging
+  console.log('[Calendar] Event position:', {
+    title: event.title || event.clientName,
+    startTime: `${startHour}:${startMinutes.toString().padStart(2, '0')}`,
+    startOffset: startOffset.toFixed(2),
+    top: top.toFixed(2) + '%',
+    height: height.toFixed(2) + '%',
+  });
 
   return { top, height };
 }

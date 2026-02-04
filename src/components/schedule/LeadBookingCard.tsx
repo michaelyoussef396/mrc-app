@@ -52,15 +52,28 @@ export function LeadBookingCard({
 
   const handleBookInspection = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    console.log('[LeadBookingCard] Book Inspection clicked');
 
     if (!selectedDate || !selectedTime || !selectedTechnician) {
+      console.log('[LeadBookingCard] Validation failed:', { selectedDate, selectedTime, selectedTechnician });
       toast.error('Please fill in all required fields');
       return;
     }
 
+    console.log('[LeadBookingCard] Form data:', {
+      leadId: lead.id,
+      customerName: lead.fullName,
+      propertyAddress: lead.propertyAddress,
+      inspectionDate: selectedDate,
+      inspectionTime: selectedTime,
+      technicianId: selectedTechnician,
+      internalNotes: internalNotes || undefined,
+    });
+
     setIsSubmitting(true);
 
     try {
+      console.log('[LeadBookingCard] Calling bookInspection...');
       const result = await bookInspection(
         {
           leadId: lead.id,
@@ -74,6 +87,8 @@ export function LeadBookingCard({
         queryClient
       );
 
+      console.log('[LeadBookingCard] bookInspection result:', result);
+
       if (result.success) {
         toast.success('Inspection booked successfully!');
         // Reset form
@@ -81,11 +96,14 @@ export function LeadBookingCard({
         setSelectedTime('');
         setSelectedTechnician('');
         setInternalNotes('');
+        // Collapse the card after successful booking
+        onToggle();
       } else {
+        console.error('[LeadBookingCard] Booking failed:', result.error);
         toast.error(result.error || 'Failed to book inspection');
       }
     } catch (error) {
-      console.error('Booking error:', error);
+      console.error('[LeadBookingCard] Booking error:', error);
       toast.error('An unexpected error occurred');
     } finally {
       setIsSubmitting(false);

@@ -2,10 +2,16 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import { User, Session } from "@supabase/supabase-js";
 import { supabase, setRememberMePreference, clearAuthTokens } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { logLoginActivity } from "@/services/loginActivityService";
+
+// DISABLED FOR SOFT LAUNCH — re-enable when scaling to white-label
+// These features add external API calls (FingerprintJS, 3 IP geolocation APIs) on every login
+// import { logLoginActivity } from "@/services/loginActivityService";
+// import { getDeviceInfo } from "@/utils/deviceFingerprint";
+// import { getLocationInfo, formatLocation } from "@/utils/ipLocation";
+
 import {
-  createSession,
-  endSession,
+  // createSession,  // DISABLED FOR SOFT LAUNCH
+  // endSession,     // DISABLED FOR SOFT LAUNCH
   forceLogoutAllDevices as forceLogoutAllDevicesService,
   getActiveSessions as getActiveSessionsService,
   getUserDevices as getUserDevicesService,
@@ -15,8 +21,6 @@ import {
   UserDevice,
   UserSession,
 } from "@/services/sessionService";
-import { getDeviceInfo } from "@/utils/deviceFingerprint";
-import { getLocationInfo, formatLocation } from "@/utils/ipLocation";
 
 interface AuthContextType {
   user: User | null;
@@ -25,7 +29,7 @@ interface AuthContextType {
   userRoles: string[];              // ['admin', 'technician', 'developer']
   currentRole: string | null;       // Currently selected role
   setCurrentRole: (role: string) => void;
-  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: any; userRoles?: string[] }>;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
   updatePassword: (newPassword: string) => Promise<{ error: any }>;
@@ -49,69 +53,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentRole, setCurrentRoleState] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  /**
-   * Fetch user roles using simple direct queries (no RPC)
-   * This fixes the timeout issue by avoiding complex RPC calls
-   */
-  const fetchUserRoles = useCallback(async (userId: string): Promise<string[]> => {
-    try {
-      // Use AbortController for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-      // Simple query: get role_ids from user_roles
-      const { data: userRoleData, error: userRoleError } = await supabase
-        .from('user_roles')
-        .select('role_id')
-        .eq('user_id', userId);
-
-      clearTimeout(timeoutId);
-
-      if (userRoleError) {
-        console.error('Error fetching user_roles:', userRoleError);
-        return [];
-      }
-
-      if (!userRoleData || userRoleData.length === 0) {
-        console.log('No roles found for user');
-        return [];
-      }
-
-      // Get role names from roles table
-      const roleIds = userRoleData.map(r => r.role_id).filter(Boolean);
-
-      if (roleIds.length === 0) {
-        return [];
-      }
-
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('roles')
-        .select('name')
-        .in('id', roleIds);
-
-      if (rolesError) {
-        console.error('Error fetching roles:', rolesError);
-        return [];
-      }
-
-      if (!rolesData) {
-        return [];
-      }
-
-      const roleNames = rolesData.map(r => r.name).filter(Boolean) as string[];
-      console.log('Fetched roles:', roleNames);
-      return roleNames;
-
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
-        console.error('Role fetch timed out');
-      } else {
-        console.error('Error in fetchUserRoles:', err);
-      }
-      return [];
-    }
-  }, []);
-
   // Set current role and persist to localStorage
   const setCurrentRole = useCallback((role: string) => {
     setCurrentRoleState(role);
@@ -126,107 +67,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Fallback timeout - never stay loading forever (10 seconds max)
-    const loadingTimeout = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn('⚠️ [Auth] Loading timeout - forcing completion');
-        setLoading(false);
-      }
-    }, 10000);
-
-    // Initialize auth state
-    const initAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (!mounted) return;
-
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          // Fetch roles with timeout protection
-          const roles = await Promise.race([
-            fetchUserRoles(session.user.id),
-            new Promise<string[]>((resolve) =>
-              setTimeout(() => {
-                console.warn('⚠️ [Auth] Role fetch timeout');
-                resolve([]);
-              }, 5000)
-            )
-          ]);
-
-          if (mounted) {
-            setUserRoles(roles);
-
-            // Restore current role from localStorage
-            const savedRole = localStorage.getItem('mrc_current_role');
-            if (savedRole && roles.includes(savedRole.toLowerCase())) {
-              setCurrentRoleState(savedRole.toLowerCase());
-            }
-          }
-        }
-
-        if (mounted) {
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('❌ [Auth] Init error:', error);
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    initAuth();
-
-    // Set up auth state listener
+    // Single unified auth state listener - handles ALL auth events including initial load
+    // Following Supabase best practice: onAuthStateChange fires INITIAL_SESSION on mount
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!mounted) return;
 
+        console.log(`[Auth] Event: ${event}, user: ${session?.user?.email || 'none'}`);
+
+        // Synchronously update session/user state
         setSession(session);
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          // Fetch roles with timeout protection
-          const roles = await Promise.race([
-            fetchUserRoles(session.user.id),
-            new Promise<string[]>((resolve) =>
-              setTimeout(() => resolve([]), 5000)
-            )
-          ]);
+          // Fetch roles without blocking the auth state change callback
+          const userId = session.user.id;
+          console.log('[Auth] Starting role fetch for:', userId);
 
-          if (mounted) {
-            setUserRoles(roles);
-
-            // Restore current role from localStorage if available
-            const savedRole = localStorage.getItem('mrc_current_role');
-            if (savedRole && roles.includes(savedRole.toLowerCase())) {
-              setCurrentRoleState(savedRole.toLowerCase());
+          // Use async IIFE inside setTimeout to not block Supabase
+          setTimeout(async () => {
+            if (!mounted) {
+              console.log('[Auth] Unmounted, skipping');
+              return;
             }
-          }
-        } else {
+
+            try {
+              console.log('[Auth] Query 1: user_roles');
+              const { data: userRoleData, error: userRoleError } = await supabase
+                .from('user_roles')
+                .select('role_id')
+                .eq('user_id', userId);
+
+              console.log('[Auth] user_roles result:', { data: userRoleData, error: userRoleError });
+
+              if (!mounted) return;
+              if (userRoleError || !userRoleData?.length) {
+                console.log('[Auth] No roles or error, setting loading=false');
+                setLoading(false);
+                return;
+              }
+
+              const roleIds = userRoleData.map(r => r.role_id).filter(Boolean);
+              console.log('[Auth] Query 2: roles with ids:', roleIds);
+
+              const { data: rolesData, error: rolesError } = await supabase
+                .from('roles')
+                .select('name')
+                .in('id', roleIds);
+
+              console.log('[Auth] roles result:', { data: rolesData, error: rolesError });
+
+              if (!mounted) return;
+
+              const roleNames = (rolesData || []).map(r => r.name).filter(Boolean) as string[];
+              console.log('[Auth] Setting roles:', roleNames);
+              setUserRoles(roleNames);
+
+              const savedRole = localStorage.getItem('mrc_current_role');
+              if (savedRole && roleNames.includes(savedRole.toLowerCase())) {
+                setCurrentRoleState(savedRole.toLowerCase());
+              }
+
+              setLoading(false);
+              console.log('[Auth] Done, loading=false');
+            } catch (err) {
+              console.error('[Auth] Exception:', err);
+              if (mounted) setLoading(false);
+            }
+          }, 0);
+        } else if (event === 'SIGNED_OUT') {
           setUserRoles([]);
           setCurrentRoleState(null);
-        }
-
-        if (mounted) {
           setLoading(false);
-        }
-
-        if (event === 'SIGNED_OUT') {
           navigate('/');
+        } else {
+          // No session (initial load with no auth, or other events)
+          setLoading(false);
         }
       }
     );
 
     return () => {
       mounted = false;
-      clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
-  }, [fetchUserRoles, navigate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const signIn = async (email: string, password: string, rememberMe: boolean = true) => {
     try {
@@ -239,88 +165,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        // Schedule failed login logging in background (non-blocking)
-        setTimeout(() => {
-          logLoginActivity({
-            userId: data?.user?.id,
-            email,
-            success: false,
-            errorMessage: error.message,
-          }).catch(console.error);
-        }, 0);
-
-        return { error, userRoles: [] };
+        return { error };
       }
 
-      // Fetch user roles after successful sign in
-      if (data.user) {
-        const roles = await fetchUserRoles(data.user.id);
-        setUserRoles(roles);
-
-        // Schedule ALL security logging in background after login completes
-        // This ensures login redirect happens immediately
-        setTimeout(() => {
-          // Log successful login activity
-          logLoginActivity({
-            userId: data.user!.id,
-            email,
-            success: true,
-          }).catch(console.error);
-
-          // Create session record with device/location tracking
-          (async () => {
-            try {
-              const [deviceInfo, locationInfo] = await Promise.all([
-                getDeviceInfo().catch(() => null),
-                getLocationInfo().catch(() => null),
-              ]);
-
-              if (deviceInfo && data.session) {
-                // Get device ID from database
-                const { data: deviceData } = await supabase
-                  .from('user_devices')
-                  .select('id')
-                  .eq('user_id', data.user!.id)
-                  .eq('device_fingerprint', deviceInfo.fingerprint)
-                  .maybeSingle();
-
-                await createSession(
-                  data.user!.id,
-                  deviceData?.id || null,
-                  data.session.access_token,
-                  locationInfo?.ip,
-                  locationInfo ? formatLocation(locationInfo) : undefined
-                );
-              }
-            } catch (err) {
-              console.error('Error creating session record:', err);
-            }
-          })();
-        }, 0);
-
-        return { error: null, userRoles: roles };
-      }
-
-      return { error: null, userRoles: [] };
+      // Don't fetch roles here — onAuthStateChange SIGNED_IN handler already does it
+      // Just return success. The roles will be set by the auth state listener.
+      return { error: null };
     } catch (error) {
-      // Schedule failed login logging in background
-      setTimeout(() => {
-        logLoginActivity({
-          email,
-          success: false,
-          errorMessage: error instanceof Error ? error.message : 'Unknown error',
-        }).catch(console.error);
-      }, 0);
-
-      return { error, userRoles: [] };
+      return { error };
     }
   };
 
   const signOut = async () => {
-    // End session record if exists
-    if (user && session) {
-      endSession(user.id, session.access_token, 'logout').catch(console.error);
-    }
+    // DISABLED FOR SOFT LAUNCH — re-enable when scaling to white-label
+    // if (user && session) {
+    //   endSession(user.id, session.access_token, 'logout').catch(console.error);
+    // }
 
     // Clear auth tokens and role state
     clearAuthTokens();
