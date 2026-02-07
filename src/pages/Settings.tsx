@@ -10,7 +10,8 @@ import {
   Key,
   Loader2,
   Smartphone,
-  Lock
+  Lock,
+  HelpCircle
 } from 'lucide-react';
 import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
 import { supabase } from '@/integrations/supabase/client';
@@ -219,6 +220,31 @@ export default function Settings() {
                 <div className="flex-1">
                   <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Manage Users</h3>
                   <p className="text-sm text-gray-600 m-0">Add or remove technicians and admins</p>
+                </div>
+              </div>
+              <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            </button>
+
+          </div>
+        </div>
+
+        {/* Support Section */}
+        <div className="mb-8">
+          <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3 ml-1">Support</h2>
+
+          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+
+            <button
+              className="flex items-center justify-between gap-3 px-4 py-4 w-full bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
+              onClick={() => navigate('/help')}
+            >
+              <div className="flex items-center gap-3.5 flex-1">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600 flex items-center justify-center flex-shrink-0">
+                  <HelpCircle size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Help & Support</h3>
+                  <p className="text-sm text-gray-600 m-0">Contact developer for assistance</p>
                 </div>
               </div>
               <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />

@@ -3,6 +3,19 @@
 @tailwind utilities;
 
 /* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Hide scrollbar while maintaining scroll functionality */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ============================================
    NEW LEAD WIZARD - MULTI-STEP FORM
    ============================================ */
 

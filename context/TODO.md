@@ -60,9 +60,16 @@
 
 ### 2. Implement PDF Generation (Puppeteer Edge Function)
 **Priority:** P0 - BLOCKER
-**Status:** ❌ Not Started
-**Effort:** 12-16 hours
+**Status:** ⚠️ 40% (Template complete, integration pending)
+**Effort:** 8-10 hours remaining
 **Impact:** Cannot send professional reports to customers
+
+**Completed:**
+- [x] 13-page HTML template complete (`inspection-report-pdf/complete-report.html`)
+- [x] All branding and styling (Garet Heavy, Galvji fonts)
+- [x] 46 template variables identified and documented
+- [x] PDF generation tested via Chrome headless
+- [x] Documentation created (`docs/pdf-report/`)
 
 **Implementation Tasks:**
 
@@ -72,13 +79,12 @@
 - [ ] Install Puppeteer for Deno
 - [ ] Setup environment variables for secrets
 
-**2.2. Build HTML Template**
-- [ ] Create `template.html` with MRC branding
-- [ ] Add all 9 inspection sections to template
-- [ ] Include photo embedding logic
-- [ ] Add professional CSS styling
-- [ ] Include ABN, logo, company details
-- [ ] Test template rendering locally
+**2.2. Template Integration (Template exists - wire up data)**
+- [x] 13-page HTML template complete
+- [ ] Map 46 template variables to database fields (see `docs/pdf-report/DATA-REQUIREMENTS.md`)
+- [ ] Implement dynamic photo URL insertion from Supabase Storage
+- [ ] Handle repeatable "Areas Inspected" pages (1 page per area)
+- [ ] Test with real inspection data
 
 **2.3. Implement PDF Generation Logic**
 ```typescript
@@ -991,6 +997,40 @@ Expected: OK (120min gap, need 45min travel)
 
 **Note:** Current implementation works fine - Google only deprecated for NEW customers.
 Migration is recommended but not urgent since existing API keys continue to work.
+
+---
+
+## 📁 PDF Report Documentation
+
+**Status:** ✅ Complete (2025-02-07)
+**Location:** `docs/pdf-report/`
+
+### Documentation Files Created
+
+| File | Description |
+|------|-------------|
+| `docs/pdf-report/README.md` | Overview, page structure, generation commands |
+| `docs/pdf-report/TEMPLATE-VARIABLES.md` | All 46 template variables documented |
+| `docs/pdf-report/DATA-REQUIREMENTS.md` | Database field mappings and queries |
+| `docs/pdf-report/templates/complete-report-backup.html` | Backup of working template |
+
+### Template Summary
+- **Pages:** 13 (expandable for multiple areas)
+- **Template Variables:** 46 unique variables
+- **Static Pages:** 5 (TOC, Services, Terms x2, Contact)
+- **Dynamic Pages:** 8 (Cover, Value Prop, Analysis, Outdoor, Areas x2, Inventory, Estimate)
+
+### PDF Integration Tasks Remaining
+- [ ] Create Edge Function for PDF generation
+- [ ] Map database fields to 46 template variables
+- [ ] Implement photo URL insertion from Supabase Storage
+- [ ] Handle repeatable "Areas Inspected" pages
+- [ ] Test with real inspection data
+- [ ] Add "Generate PDF" button to inspection form
+- [ ] Add "Download PDF" functionality
+- [ ] Email attachment integration
+
+**Reference:** See `docs/pdf-report/` for complete documentation.
 
 ---
 

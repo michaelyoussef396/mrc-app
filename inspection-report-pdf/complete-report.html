@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mould & Restoration Co. - Complete Report</title>
+    <style>
+        /* Custom Font Declarations */
+        @font-face {
+            font-family: 'Garet Heavy';
+            src: url('/fonts/Garet-Heavy.otf') format('opentype');
+            font-weight: 800;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Galvji';
+            src: url('/fonts/Galvji.ttc') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        /*
+         * APPROVED COLOUR PALETTE - DO NOT USE OTHER COLOURS
+         * WHITE:     #FFFFFF - Backgrounds, text on dark backgrounds
+         * BLUE:      #121D73 - Primary brand, headings, navy backgrounds
+         * DARK GREY: #252525 - Body text, secondary text
+         * RED:       #E30000 - Warnings, alerts, important notes
+         * BLACK:     #000000 - "MOULD" title, primary headings
+         */
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Galvji', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: #FFFFFF;
+        }
+
+        .report-page {
+            width: 794px;
+            height: 1123px;
+            margin: 0 auto;
+            background: white;
+            position: relative;
+        }
+
+        .report-page-2 {
+            width: 794px;
+            height: 800px;
+            margin: 0 auto;
+            background: white;
+            position: relative;
+        }
+
+        .page-break {
+            page-break-after: always;
+            break-after: page;
+        }
+
+        @media print {
+    /* Remove browser-generated headers and footers */
+    @page {
+        margin: 0;
+        size: A4;
+    }
+
+    /* Hide default print headers/footers */
+    html {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Force exact color reproduction */
+    *, *::before, *::after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Remove ALL box shadows, borders, and outlines */
+    * {
+        box-shadow: none !important;
+        border: none !important;
+        outline: none !important;
+    }
+
+    /* Make ALL divs transparent by default */
+    div {
+        background-color: transparent !important;
+    }
+
+    /* Ensure body renders correctly */
+    body {
+        background: white !important;
+    }
+
+    /* Page containers should be white */
+    .report-page, .report-page-2 {
+        margin: 0;
+        page-break-after: always;
+        background: white !important;
+    }
+
+    /* The main wrapper divs should be white */
+    .report-page > div[style*="width: 100%"],
+    .report-page-2 > div[style*="width: 100%"] {
+        background: white !important;
+    }
+
+    /* KEEP navy blue boxes - be very specific */
+    div[style*="background: #121D73"] {
+        background: #121D73 !important;
+    }
+
+    /* KEEP gray boxes - be very specific */
+    div[style*="background: #f5f5f5"] {
+        background: #f5f5f5 !important;
+    }
+
+    /* KEEP the last page background image */
+    div[style*="background-image: url('/assets/backgrounds/contact-background.png')"] {
+        background-image: url('/assets/backgrounds/contact-background.png') !important;
+        background-color: transparent !important;
+    }
+
+    /* Remove text-shadow that might render as gray */
+    div[style*="text-shadow"] {
+        text-shadow: none !important;
+    }
+
+    /* Ensure images render cleanly */
+    img {
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    /* Remove the photo container shadow on page 1 */
+    div[style*="box-shadow: -16px 0px 57px"] {
+        box-shadow: none !important;
+        background: transparent !important;
+    }
+}
+        
+    </style>
+</head>
+<body>
+
+    <!-- Page 1: Cover (Approved) -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: #FFFFFF; overflow: hidden">
+            <!-- Diagonal background shape -->
+            <img src="/assets/backgrounds/diagonal-bg-shape-2.svg" style="width: 1977.96px; height: 1952.33px; left: -349.62px; top: 249.77px; position: absolute; display: block;" alt="" />
+
+            <!-- MOULD title - BLACK #000000, Garet Heavy -->
+            <div style="width: 700px; left: 48px; top: 66px; position: absolute; color: #000000; font-size: 160px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 0.75px; white-space: nowrap; z-index: 10;">mould</div>
+
+            <!-- REPORT title - NAVY BLUE #121D73, Garet Heavy -->
+            <div style="width: 520px; left: 226.40px; top: 167px; position: absolute; color: #121D73; font-size: 112px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 0.51px; white-space: nowrap; text-shadow: -5px 0px 8px rgba(0, 0, 0, 0.29); z-index: 10;">report</div>
+
+            <!-- Order info - Labels in Garet Heavy, values in Galvji -->
+            <div style="width: 259px; left: 28px; top: 312.50px; position: absolute; z-index: 10;">
+                <span style="color: #252525; font-size: 17px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05px;">ORDERED BY:</span><br/>
+                <span style="color: #252525; font-size: 17px; font-family: 'Galvji'; font-weight: 400;">{{ordered_by}}</span><br/>
+                <span style="color: #252525; font-size: 17px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05px;">INSPECTOR:</span><br/>
+                <span style="color: #252525; font-size: 17px; font-family: 'Galvji'; font-weight: 400;">{{inspector}}</span><br/>
+                <span style="color: #252525; font-size: 17px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05px;">DATE:</span><br/>
+                <span style="color: #252525; font-size: 17px; font-family: 'Galvji'; font-weight: 400;">{{inspection_date}}</span>
+            </div>
+
+            <!-- Property details - Labels in Garet Heavy, values in Galvji -->
+            <div style="width: 200px; left: 27px; top: 450px; position: absolute; z-index: 10;">
+                <span style="color: #252525; font-size: 17px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04px;">DIRECTED TO:</span><br/>
+                <span style="color: #252525; font-size: 17px; font-family: 'Galvji'; font-weight: 400; text-transform: uppercase; line-height: 22px;">{{directed_to}}</span><br/><br/>
+                <span style="color: #252525; font-size: 17px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04px;">PROPERTY TYPE:</span><br/>
+                <span style="color: #252525; font-size: 17px; font-family: 'Galvji'; font-weight: 400; text-transform: uppercase; line-height: 22px;">{{property_type}}</span><br/><br/>
+                <span style="color: #252525; font-size: 17px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04px;">EXAMINED AREAS:</span><br/>
+                <span style="color: #252525; font-size: 17px; font-family: 'Galvji'; font-weight: 400; text-transform: uppercase; line-height: 22px;">{{examined_areas}}</span>
+            </div>
+
+            <!-- Photo container -->
+            <div style="width: 486.20px; height: 363.79px; left: 273.98px; top: 418.92px; position: absolute; z-index: 2;"></div>
+            <img style="width: 468px; height: 350px; left: 283px; top: 426px; position: absolute; z-index: 3; object-fit: cover;" src="/assets/photos/page1.png" alt="Property" />
+
+            <!-- Address - WHITE #FFFFFF on navy background -->
+            <div style="width: 377.30px; left: 318.85px; top: 796.50px; position: absolute; color: #FFFFFF; font-size: 23px; font-family: 'Galvji'; font-weight: 400; text-transform: uppercase; letter-spacing: 0.07px; word-wrap: break-word; z-index: 10;">{{property_address}}</div>
+
+            <!-- Logo -->
+            <img style="width: 119px; height: 39px; left: 641px; top: 930px; position: absolute; z-index: 10;" src="/assets/logos/logo-bottom-right.png" alt="MRC Logo" />
+
+            <!-- Tagline - WHITE #FFFFFF -->
+            <div style="width: 220px; left: 540px; top: 980px; position: absolute; color: #FFFFFF; font-size: 16px; font-family: 'Galvji'; font-weight: 400; line-height: 24px; text-align: right; z-index: 10;">Restoring your spaces,<br/>protecting your health.</div>
+
+            <!-- Contact footer - WHITE #FFFFFF -->
+            <div style="width: 748.40px; left: 23.30px; top: 1089px; position: absolute; text-align: center; color: #FFFFFF; font-size: 14px; font-family: 'Galvji'; font-weight: 400; text-transform: uppercase; letter-spacing: 0.02px; word-wrap: break-word; z-index: 10;">1800 954 117 | mouldandrestoration.com.au | admin@mouldandrestoration.com.au</div>
+
+            <!-- Divider line - WHITE #FFFFFF -->
+            <div style="width: 748.38px; height: 1px; left: 23.82px; top: 1076.29px; position: absolute; background: #FFFFFF; z-index: 10;"></div>
+        </div>
+    </div>
+
+    <!-- Page 2: Table of Contents -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: #FFFFFF; overflow: hidden">
+
+            <!-- Title: "table of" - BLACK #000000, Garet Heavy -->
+            <div style="position: absolute; left: 53px; top: 39px; color: #000000; font-size: 48px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: lowercase; letter-spacing: 1.6px; line-height: 1; z-index: 10;">table of</div>
+
+            <!-- Title: "contents" - NAVY BLUE #121D73, Garet Heavy -->
+            <div style="position: absolute; left: 54px; top: 100px; color: #121D73; font-size: 48px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: lowercase; letter-spacing: 1.6px; line-height: 1; z-index: 10;">contents</div>
+
+            <!-- Logo (top right) -->
+            <img style="position: absolute; right: 27px; top: 28px; width: 55px; height: 54px; object-fit: contain; z-index: 10;" src="/assets/logos/logo-mrc.png" alt="MRC Logo" />
+
+            <!-- Menu Items Container -->
+            <div style="position: absolute; left: 57px; top: 200px; width: 680px;">
+
+                <!-- Item 1: services -->
+                <div style="margin-bottom: 0;">
+                    <div style="color: #000000; font-size: 28px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: lowercase; letter-spacing: 1.6px; line-height: 1; padding-bottom: 14px;">services</div>
+                    <div style="width: 641px; height: 2px; background-color: #000000; margin-bottom: 28px;"></div>
+                </div>
+
+                <!-- Item 2: summary -->
+                <div style="margin-bottom: 0;">
+                    <div style="color: #000000; font-size: 28px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: lowercase; letter-spacing: 1.6px; line-height: 1; padding-bottom: 14px;">summary</div>
+                    <div style="width: 641px; height: 2px; background-color: #000000; margin-bottom: 28px;"></div>
+                </div>
+
+                <!-- Item 3: areas inspected -->
+                <div style="margin-bottom: 0;">
+                    <div style="color: #000000; font-size: 28px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: lowercase; letter-spacing: 1.6px; line-height: 1; padding-bottom: 14px;">areas inspected</div>
+                    <div style="width: 641px; height: 2px; background-color: #000000; margin-bottom: 28px;"></div>
+                </div>
+
+                <!-- Item 4: outdoor environment analysis -->
+                <div style="margin-bottom: 0;">
+                    <div style="color: #000000; font-size: 28px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: lowercase; letter-spacing: 1.6px; line-height: 1; padding-bottom: 14px;">outdoor environment analysis</div>
+                    <div style="width: 641px; height: 2px; background-color: #000000; margin-bottom: 28px;"></div>
+                </div>
+
+                <!-- Item 5: service overview -->
+                <div style="margin-bottom: 0;">
+                    <div style="color: #000000; font-size: 28px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: lowercase; letter-spacing: 1.6px; line-height: 1; padding-bottom: 14px;">service overview</div>
+                    <div style="width: 641px; height: 2px; background-color: #000000; margin-bottom: 28px;"></div>
+                </div>
+
+                <!-- Item 6: key treatment data -->
+                <div style="margin-bottom: 0;">
+                    <div style="color: #000000; font-size: 28px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: lowercase; letter-spacing: 1.6px; line-height: 1; padding-bottom: 14px;">key treatment data</div>
+                    <div style="width: 641px; height: 2px; background-color: #000000; margin-bottom: 28px;"></div>
+                </div>
+
+                <!-- Item 7: terms & conditions -->
+                <div style="margin-bottom: 0;">
+                    <div style="color: #000000; font-size: 28px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: lowercase; letter-spacing: 1.6px; line-height: 1; padding-bottom: 14px;">terms & conditions</div>
+                    <div style="width: 641px; height: 2px; background-color: #000000; margin-bottom: 28px;"></div>
+                </div>
+
+                <!-- Item 8: guarantee certificate -->
+                <div style="margin-bottom: 0;">
+                    <div style="color: #000000; font-size: 28px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: lowercase; letter-spacing: 1.6px; line-height: 1; padding-bottom: 14px;">guarantee certificate</div>
+                    <div style="width: 641px; height: 2px; background-color: #000000; margin-bottom: 28px;"></div>
+                </div>
+
+                <!-- Item 9: project procedures -->
+                <div style="margin-bottom: 0;">
+                    <div style="color: #000000; font-size: 28px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: lowercase; letter-spacing: 1.6px; line-height: 1; padding-bottom: 14px;">project procedures</div>
+                    <div style="width: 641px; height: 2px; background-color: #000000; margin-bottom: 28px;"></div>
+                </div>
+
+                <!-- Item 10: financial position -->
+                <div style="margin-bottom: 0;">
+                    <div style="color: #000000; font-size: 28px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: lowercase; letter-spacing: 1.6px; line-height: 1; padding-bottom: 14px;">financial position</div>
+                    <div style="width: 641px; height: 2px; background-color: #000000; margin-bottom: 28px;"></div>
+                </div>
+
+                <!-- Item 11: visual mould cleaning estimate -->
+                <div style="margin-bottom: 0;">
+                    <div style="color: #000000; font-size: 28px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: lowercase; letter-spacing: 1.6px; line-height: 1; padding-bottom: 14px;">visual mould cleaning estimate</div>
+                    <div style="width: 641px; height: 2px; background-color: #000000;"></div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Page 3: Our Services -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: #FFFFFF; overflow: hidden">
+
+            <!-- Title: "OUR" - BLACK #000000, Garet Heavy -->
+            <div style="position: absolute; left: 36px; top: 30px; color: #000000; font-size: 48px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: 1; z-index: 10;">OUR</div>
+
+            <!-- Title: "SERVICES" - NAVY BLUE #121D73, Garet Heavy -->
+            <div style="position: absolute; left: 38px; top: 93px; color: #121D73; font-size: 48px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: 1; z-index: 10;">SERVICES</div>
+
+            <!-- Logo (top right) -->
+            <img style="position: absolute; right: 27px; top: 26px; width: 55px; height: 54px; object-fit: contain; z-index: 10;" src="/assets/logos/logo-mrc.png" alt="MRC Logo" />
+
+            <!-- ============ LEFT COLUMN ============ -->
+
+            <!-- Service 1: Experience (book icon) -->
+            <img style="position: absolute; left: 37px; top: 207px; width: 81px; height: 81px; object-fit: contain;" src="/assets/icons/book.png" alt="Experience icon" />
+            <div style="position: absolute; left: 136px; top: 222px; width: 240px; color: #252525; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: 23px; letter-spacing: 1.6px;">Decades of knowledge<br/>Ensuring top-tier mould<br/>Remediation.</div>
+
+            <!-- Service 2: Customisation -->
+            <img style="position: absolute; left: 29px; top: 339px; width: 91px; height: 82px; object-fit: contain;" src="/assets/icons/customisation.png" alt="Customisation icon" />
+            <div style="position: absolute; left: 135px; top: 353px; width: 240px; color: #252525; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: 23px; letter-spacing: 1.6px;">Customised treatments<br/>Designed for your<br/>Property's unique needs</div>
+
+            <!-- Service 3: Equipment (spray-gun) -->
+            <img style="position: absolute; left: 33px; top: 466px; width: 84px; height: 92px; object-fit: contain;" src="/assets/icons/spray-gun.png" alt="Equipment icon" />
+            <div style="position: absolute; left: 134px; top: 484px; width: 240px; color: #252525; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: 23px; letter-spacing: 1.6px;">Advanced equipment<br/>For efficient and<br/>Effective solutions</div>
+
+            <!-- Service 4: Trust -->
+            <img style="position: absolute; left: 34px; top: 603px; width: 83px; height: 81px; object-fit: contain;" src="/assets/icons/trust.png" alt="Trust icon" />
+            <div style="position: absolute; left: 134px; top: 615px; width: 240px; color: #252525; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: 23px; letter-spacing: 1.6px;">Trust in our certified<br/>Professionals for peace<br/>of mind</div>
+
+            <!-- ============ RIGHT COLUMN ============ -->
+
+            <!-- Service 5: Inspection -->
+            <img style="position: absolute; left: 425px; top: 210px; width: 84px; height: 84px; object-fit: contain;" src="/assets/icons/inspection.png" alt="Inspection icon" />
+            <div style="position: absolute; left: 525px; top: 222px; width: 240px; color: #252525; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: 23px; letter-spacing: 1.6px;">Thorough inspections<br/>Capturing every mould -<br/>related detail</div>
+
+            <!-- Service 6: Review (satisfaction) -->
+            <img style="position: absolute; left: 428px; top: 340px; width: 77px; height: 83px; object-fit: contain;" src="/assets/icons/review.png" alt="Review icon" />
+            <div style="position: absolute; left: 525px; top: 353px; width: 250px; color: #252525; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: 23px; letter-spacing: 1.6px;">Consistent satisfaction<br/>With countless successful<br/>Projects completed</div>
+
+            <!-- Service 7: Transparency -->
+            <img style="position: absolute; left: 426px; top: 472px; width: 82px; height: 80px; object-fit: contain;" src="/assets/icons/transparency.png" alt="Transparency icon" />
+            <div style="position: absolute; left: 525px; top: 485px; width: 240px; color: #252525; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: 23px; letter-spacing: 1.6px;">We prioritise<br/>Transparency and clarity<br/>with our clients</div>
+
+            <!-- Service 8: Guarantee -->
+            <img style="position: absolute; left: 428px; top: 604px; width: 78px; height: 77px; object-fit: contain;" src="/assets/icons/guarantee.png" alt="Guarantee icon" />
+            <div style="position: absolute; left: 526px; top: 614px; width: 240px; color: #252525; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: 23px; letter-spacing: 1.6px;">Guaranteeing our work<br/>for a full year post -<br/>treatment</div>
+
+            <!-- ============ IICRC CERTIFICATION LOGO ============ -->
+            <img style="position: absolute; left: 57px; top: 798px; width: 91px; height: 135px; object-fit: contain;" src="/assets/icons/iicrc-certified-seeklogo.png" alt="IICRC Certified" />
+
+        </div>
+    </div>
+
+    <!-- Page 4: Value Proposition -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: #FFFFFF; overflow: hidden">
+
+            <!-- Background shape -->
+            <img src="/assets/backgrounds/background-shape-page2.svg" style="width: 906.498px; height: 1162.014px; left: -23.91px; top: -17.35px; position: absolute; display: block;" alt="" />
+
+            <!-- VALUE text - BLACK #000000, Garet Heavy -->
+            <div style="width: 300px; left: 26.5px; top: 28px; position: absolute; color: #000000; font-size: 70px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1.6px; z-index: 10;">VALUE</div>
+
+            <!-- PROPOSITION text - NAVY BLUE #121D73, Garet Heavy -->
+            <div style="width: 550px; left: 30.65px; top: 87.5px; position: absolute; color: #121D73; font-size: 67px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1.6px; z-index: 10;">PROPOSITION</div>
+
+            <!-- WHAT WE FOUND section - Garet Heavy heading -->
+            <div style="width: 350px; left: 30.35px; top: 195.5px; position: absolute; color: #000000; font-size: 33px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1px; z-index: 10;">WHAT WE FOUND</div>
+
+            <!-- Body text - Galvji, Dark Grey #252525 -->
+            <div style="width: 720px; left: 31px; top: 237.5px; position: absolute; color: #252525; font-size: 20px; font-family: 'Galvji'; font-weight: 400; line-height: 29.7px; letter-spacing: 0.5px; z-index: 10;">{{what_we_found_text}}</div>
+
+            <!-- WHAT WE'RE GOING TO DO section - Garet Heavy heading -->
+            <div style="width: 500px; left: 30.35px; top: 378.5px; position: absolute; color: #000000; font-size: 33px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1px; z-index: 10;">WHAT WE'RE GOING TO DO</div>
+
+            <!-- Body text - Galvji, Dark Grey #252525 -->
+            <div style="width: 720px; left: 30px; top: 426.5px; position: absolute; color: #252525; font-size: 20px; font-family: 'Galvji'; font-weight: 400; line-height: 29.7px; letter-spacing: 0.5px; z-index: 10;">{{what_we_will_do_text}}</div>
+
+            <!-- WHAT YOU GET section - Garet Heavy heading -->
+            <div style="width: 300px; left: 30.35px; top: 690.5px; position: absolute; color: #000000; font-size: 33px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1px; z-index: 10;">WHAT YOU GET</div>
+
+            <!-- Body text - Galvji, Dark Grey #252525 - FIXED CONTENT -->
+            <div style="width: 550px; left: 32px; top: 738px; position: absolute; color: #252525; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: 28px; letter-spacing: 0.5px; z-index: 10;">12 MONTH WARRANTY on all treated areas<br/>Professional material removal where required<br/>Complete airborne spore elimination<br/>Detailed documentation for insurance / resale</div>
+
+            <!-- INVESTMENT section - Garet Heavy heading -->
+            <div style="width: 280px; left: 29.35px; top: 965px; position: absolute; color: #000000; font-size: 33px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1px; z-index: 10;">INVESTMENT</div>
+
+            <!-- Price box - Navy #121D73 -->
+            <div style="width: 284.137px; height: 38.166px; left: 26.13px; top: 1010.24px; position: absolute; background: #121D73; border-radius: 19px; z-index: 10;"></div>
+
+            <!-- Price text - Galvji, White -->
+            <div style="width: 245.2px; left: 45.9px; top: 1021.5px; position: absolute; color: #FFFFFF; font-size: 22px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.5px; z-index: 11;">{{investment_total}} + GST</div>
+
+            <!-- Logo (top right) -->
+            <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: contain; z-index: 10;" src="/assets/logos/logo-mrc.png" alt="MRC Logo" />
+
+        </div>
+    </div>
+
+    <!-- Page 5: Problem Analysis & Recommendations -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: #FFFFFF; overflow: hidden">
+
+            <!-- Background shape -->
+            <img src="/assets/backgrounds/background-shape-page2.svg" style="width: 906.498px; height: 1162.014px; left: -23.91px; top: -17.35px; position: absolute; display: block;" alt="" />
+
+            <!-- PROBLEM title - BLACK #000000, Garet Heavy -->
+            <div style="width: 400px; left: 41px; top: 25px; position: absolute; color: #000000; font-size: 56px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">PROBLEM</div>
+
+            <!-- ANALYSIS & RECOMMENDATIONS subtitle - NAVY BLUE #121D73, Garet Heavy -->
+            <div style="width: 600px; left: 40px; top: 85px; position: absolute; color: #121D73; font-size: 23px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">ANALYSIS & RECOMMENDATIONS</div>
+
+            <!-- Logo (top right) -->
+            <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: contain; z-index: 10;" src="/assets/logos/logo-mrc.png" alt="MRC Logo" />
+
+            <!-- IDENTIFIED ISSUES section - Garet Heavy heading -->
+            <div style="width: 350px; left: 40px; top: 160px; position: absolute; color: #000000; font-size: 26px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1px; z-index: 10;">IDENTIFIED ISSUES</div>
+
+            <!-- Identified Issues body text - Galvji, Dark Grey #252525 -->
+            <div style="width: 700px; left: 40px; top: 200px; position: absolute; color: #252525; font-size: 17px; font-family: 'Galvji'; font-weight: 400; line-height: 26px; letter-spacing: 0.5px; z-index: 10;">{{identified_issues_text}}</div>
+
+            <!-- ROOT CAUSE ANALYSIS section - Garet Heavy heading -->
+            <div style="width: 400px; left: 40px; top: 380px; position: absolute; color: #000000; font-size: 26px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1px; z-index: 10;">ROOT CAUSE ANALYSIS</div>
+
+            <!-- Root Cause body text - Galvji, Dark Grey #252525 -->
+            <div style="width: 700px; left: 40px; top: 420px; position: absolute; color: #252525; font-size: 17px; font-family: 'Galvji'; font-weight: 400; line-height: 26px; letter-spacing: 0.5px; z-index: 10;">{{root_cause_analysis_text}}</div>
+
+            <!-- RECOMMENDATIONS section - Garet Heavy heading -->
+            <div style="width: 400px; left: 40px; top: 600px; position: absolute; color: #000000; font-size: 26px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1px; z-index: 10;">RECOMMENDATIONS</div>
+
+            <!-- Recommendations body text - Galvji, Dark Grey #252525 -->
+            <div style="width: 700px; left: 40px; top: 640px; position: absolute; color: #252525; font-size: 17px; font-family: 'Galvji'; font-weight: 400; line-height: 26px; letter-spacing: 0.5px; z-index: 10;">{{recommendations_text}}</div>
+
+            <!-- PRIORITY LEVEL section - Garet Heavy heading -->
+            <div style="width: 300px; left: 40px; top: 880px; position: absolute; color: #000000; font-size: 26px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1px; z-index: 10;">PRIORITY LEVEL</div>
+
+            <!-- Priority badge - Navy #121D73 -->
+            <div style="width: 180px; height: 38px; left: 40px; top: 925px; position: absolute; background: #121D73; border-radius: 19px; z-index: 10;"></div>
+
+            <!-- Priority text - Galvji, White -->
+            <div style="width: 160px; left: 60px; top: 936px; position: absolute; color: #FFFFFF; font-size: 18px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.5px; z-index: 11;">{{priority_level}}</div>
+
+        </div>
+    </div>
+
+    <!-- Page 6: Outdoor Environment Analysis -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: white; overflow: hidden">
+
+            <!-- Background shape 1 -->
+            <img src="/assets/backgrounds/background-shape-1-page3.svg" style="width: 857.581px; height: 1075.776px; left: -39.29px; top: -6.55px; position: absolute; display: block;" alt="" />
+
+            <!-- Background shape 2 (navy blue diagonal) -->
+            <img src="/assets/backgrounds/background-shape-2-page3.svg" style="width: 1520.83px; height: 1429.098px; left: -154.65px; top: 166.27px; position: absolute; display: block;" alt="" />
+
+            <!-- OUTDOOR ENVIRONMENT heading - Garet Heavy, Black -->
+            <div style="width: 642.6px; left: 21.7px; top: 34px; position: absolute; color: #000000; font-size: 46px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.182px; word-wrap: break-word">OUTDOOR ENVIRONMENT</div>
+
+            <!-- ANALYSIS subheading - Garet Heavy, Navy Blue -->
+            <div style="width: 187.4px; left: 24.3px; top: 83px; position: absolute; color: #121D73; font-size: 34px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.124px; word-wrap: break-word">ANALYSIS</div>
+
+            <!-- OUTDOOR TEMPERATURE section - Garet Heavy labels, Galvji values -->
+            <div style="width: 190px; left: 62px; top: 262.5px; position: absolute; color: #000000; font-size: 23px; font-family: 'Garet Heavy'; font-weight: 800; line-height: 20.8px; letter-spacing: 0.0682px; word-wrap: break-word">OUTDOOR<br/>TEMPERATURE</div>
+
+            <div style="width: 74.2px; left: 62.9px; top: 315.5px; position: absolute; color: #252525; font-size: 22px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; word-wrap: break-word">{{outdoor_temperature}}</div>
+
+            <!-- Photo 1 (top right) -->
+            <img style="width: 372px; height: 259px; left: 342px; top: 181px; position: absolute; object-fit: cover; object-position: 50% 50%; border-radius: 15px;" src="/assets/photos/page2-1.png" alt="Outdoor photo 1" />
+
+            <!-- OUTDOOR HUMIDITY section - Garet Heavy labels, Galvji values -->
+            <div style="width: 128px; left: 59px; top: 562px; position: absolute; color: #000000; font-size: 23px; font-family: 'Garet Heavy'; font-weight: 800; line-height: 20.8px; letter-spacing: 0.0682px; word-wrap: break-word">OUTDOOR<br/>HUMIDITY</div>
+
+            <div style="width: 73.3px; left: 57.85px; top: 615px; position: absolute; color: #252525; font-size: 23px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; word-wrap: break-word">{{outdoor_humidity}}</div>
+
+            <!-- Photo 2 (middle right) -->
+            <img style="width: 372px; height: 259px; left: 342px; top: 466px; position: absolute; object-fit: cover; object-position: 50% 50%; border-radius: 15px;" src="/assets/photos/page2-2.png" alt="Outdoor photo 2" />
+
+            <!-- OUTDOOR DEW POINT section (on navy background) - Garet Heavy labels, Galvji values -->
+            <div style="width: 143px; left: 59px; top: 846.5px; position: absolute; color: #FFFFFF; font-size: 23px; font-family: 'Garet Heavy'; font-weight: 800; line-height: 20.8px; letter-spacing: 0.0682px; word-wrap: break-word">OUTDOOR<br/>DEW POINT</div>
+
+            <div style="width: 63.2px; left: 58.9px; top: 904.5px; position: absolute; color: #FFFFFF; font-size: 22px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; word-wrap: break-word">{{outdoor_dew_point}}</div>
+
+            <!-- Photo 3 (bottom right) -->
+            <img style="width: 370px; height: 257px; left: 343px; top: 752px; position: absolute; object-fit: cover; object-position: 50% 50%; border-radius: 15px;" src="/assets/photos/outdoor-photo-3.png" alt="Outdoor photo 3" />
+
+            <!-- Logo -->
+            <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: contain;" src="/assets/logos/logo-mrc.png" alt="MRC Logo" />
+
+        </div>
+    </div>
+
+    <!-- Page 7: Areas Inspected (REPEATABLE) -->
+    <!-- NOTE: This page template should be repeated for each inspected area. The system should generate one instance of this page per area in the inspection data. -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: #FFFFFF; overflow: hidden">
+
+            <!-- Background shape -->
+            <img src="/assets/backgrounds/background-shape-page4.svg" style="width: 884.026px; height: 1152px; left: -19.01px; top: -7.01px; position: absolute; display: block;" alt="" />
+
+            <!-- AREAS INSPECTED heading - Garet Heavy -->
+            <div style="width: 700px; left: 31.6px; top: 40.5px; position: absolute; font-size: 48px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.195px; word-wrap: break-word">
+                <span style="color: #000000;">AREA </span><span style="color: #121D73;">INSPECTED:</span><span style="color: #000000;"> {{area_name}}</span>
+            </div>
+
+            <!-- Description text - Galvji -->
+            <div style="width: 616px; left: 35px; top: 165px; position: absolute; color: #252525; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">Our thorough inspection assessed various zones of the property, identifying areas with mould presence and others remaining unaffected, ensuring a complete understanding of the situation.</div>
+
+            <!-- Environmental readings box (navy blue) -->
+            <div style="width: 542.447px; height: 136.814px; left: 126.02px; top: 241.11px; position: absolute; background: #121D73; border-radius: 20px;"></div>
+
+            <!-- Row 1: Temperature and Humidity - Galvji -->
+            <div style="width: 194.5px; left: 158.25px; top: 249.5px; position: absolute; color: #FFFFFF; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">TEMPERATURE: {{area_temperature}}</div>
+
+            <div style="width: 140.5px; left: 461.25px; top: 249.5px; position: absolute; color: #FFFFFF; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">HUMIDITY: {{area_humidity}}</div>
+
+            <!-- Row 2: Dew Point and Visible Mould - Galvji -->
+            <div style="width: 147.5px; left: 182.25px; top: 304.5px; position: absolute; color: #FFFFFF; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">DEW POINT: {{area_dew_point}}</div>
+
+            <div style="width: 200.5px; left: 421.25px; top: 304px; position: absolute; color: #FFFFFF; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">VISIBLE MOULD: {{visible_mould}}</div>
+
+            <!-- Row 3: Internal and External Moisture - Galvji -->
+            <div style="width: 231.5px; left: 140.25px; top: 349.5px; position: absolute; color: #FFFFFF; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">INTERNAL MOISTURE: {{internal_moisture}}</div>
+
+            <div style="width: 234.5px; left: 414.25px; top: 348.5px; position: absolute; color: #FFFFFF; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">EXTERNAL MOISTURE: {{external_moisture}}</div>
+
+            <!-- Photo grid (left side) - 2x2 grid -->
+            <div style="width: 418px; height: 333px; left: 34px; top: 402px; position: absolute; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px;">
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/photos/page3-1.png" alt="Area photo 1" />
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/photos/page3-2.png" alt="Area photo 2" />
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/photos/page3-3.png" alt="Area photo 3" />
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/photos/page3-4.png" alt="Area photo 4" />
+            </div>
+
+            <!-- AREA NOTES heading - Garet Heavy -->
+            <div style="width: 122.7px; left: 470.15px; top: 409px; position: absolute; color: #000000; font-size: 17px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.0372px; word-wrap: break-word">AREA NOTES</div>
+
+            <!-- AREA NOTES content - Galvji -->
+            <div style="width: 296px; left: 467px; top: 437px; position: absolute; color: #252525; font-size: 13px; font-family: 'Galvji'; font-weight: 400; line-height: 20.9px; letter-spacing: 0.0197px; word-wrap: break-word; white-space: pre-wrap;">{{area_notes}}</div>
+
+            <!-- Extra photos grid (bottom left) - 2 photos side by side (infrared photos) -->
+            <div style="width: 416px; height: 167px; left: 35px; top: 856px; position: absolute; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/photos/inflared.png" alt="Infrared photo 1" />
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/photos/page4.png" alt="Infrared photo 2" />
+            </div>
+
+            <!-- EXTRA NOTES heading - Garet Heavy -->
+            <div style="width: 133.7px; left: 482.15px; top: 864px; position: absolute; color: #000000; font-size: 17px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.0372px; word-wrap: break-word">EXTRA NOTES</div>
+
+            <!-- EXTRA NOTES content - Galvji -->
+            <div style="width: 260.3px; left: 483.35px; top: 893.5px; position: absolute; color: #252525; font-size: 13px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0197px; word-wrap: break-word">{{extra_notes}}</div>
+
+            <!-- Logo -->
+            <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: contain;" src="/assets/logos/logo-mrc.png" alt="MRC Logo" />
+
+        </div>
+    </div>
+
+        <!-- Page 7.5: Areas Inspected (REPEATABLE) -->
+    <!-- NOTE: This page template should be repeated for each inspected area. The system should generate one instance of this page per area in the inspection data. -->
+    <div class="report-page-2 page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: #FFFFFF; overflow: hidden">
+
+            <!-- Background shape -->
+            <img src="/assets/backgrounds/background-shape-page4.svg" style="width: 884.026px; height: 1152px; left: -19.01px; top: -7.01px; position: absolute; display: block;" alt="" />
+
+            <!-- AREAS INSPECTED heading - Garet Heavy -->
+            <div style="width: 700px; left: 31.6px; top: 40.5px; position: absolute; font-size: 48px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.195px; word-wrap: break-word">
+                <span style="color: #000000;">AREA </span><span style="color: #121D73;">INSPECTED:</span><span style="color: #000000;"> {{area_name_2}}</span>
+            </div>
+
+            <!-- Description text - Galvji -->
+            <div style="width: 616px; left: 35px; top: 165px; position: absolute; color: #252525; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">Our thorough inspection assessed various zones of the property, identifying areas with mould presence and others remaining unaffected, ensuring a complete understanding of the situation.</div>
+
+            <!-- Environmental readings box (navy blue) -->
+            <div style="width: 542.447px; height: 136.814px; left: 126.02px; top: 241.11px; position: absolute; background: #121D73; border-radius: 20px;"></div>
+
+            <!-- Row 1: Temperature and Humidity - Galvji -->
+            <div style="width: 194.5px; left: 158.25px; top: 249.5px; position: absolute; color: #FFFFFF; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">TEMPERATURE: {{area_temperature_2}}</div>
+
+            <div style="width: 140.5px; left: 461.25px; top: 249.5px; position: absolute; color: #FFFFFF; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">HUMIDITY: {{area_humidity_2}}</div>
+
+            <!-- Row 2: Dew Point and Visible Mould - Galvji -->
+            <div style="width: 147.5px; left: 182.25px; top: 304.5px; position: absolute; color: #FFFFFF; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">DEW POINT: {{area_dew_point_2}}</div>
+
+            <div style="width: 200.5px; left: 421.25px; top: 304px; position: absolute; color: #FFFFFF; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">VISIBLE MOULD: {{visible_mould_2}}</div>
+
+            <!-- Row 3: Internal and External Moisture - Galvji -->
+            <div style="width: 231.5px; left: 140.25px; top: 349.5px; position: absolute; color: #FFFFFF; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">INTERNAL MOISTURE: {{internal_moisture_2}}</div>
+
+            <div style="width: 234.5px; left: 414.25px; top: 348.5px; position: absolute; color: #FFFFFF; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">EXTERNAL MOISTURE: {{external_moisture_2}}</div>
+
+            <!-- Photo grid (left side) - 2x2 grid -->
+            <div style="width: 418px; height: 333px; left: 34px; top: 402px; position: absolute; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px;">
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/photos/area-1.png" alt="Area photo 1" />
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/photos/area-2.png" alt="Area photo 2" />
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/photos/area-3.png" alt="Area photo 3" />
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/photos/area-4.png" alt="Area photo 4" />
+            </div>
+
+            <!-- AREA NOTES heading - Garet Heavy -->
+            <div style="width: 122.7px; left: 470.15px; top: 409px; position: absolute; color: #000000; font-size: 17px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.0372px; word-wrap: break-word">AREA NOTES</div>
+
+            <!-- AREA NOTES content - Galvji -->
+            <div style="width: 296px; left: 467px; top: 437px; position: absolute; color: #252525; font-size: 13px; font-family: 'Galvji'; font-weight: 400; line-height: 20.9px; letter-spacing: 0.0197px; word-wrap: break-word; white-space: pre-wrap;">{{area_notes_2}}</div>
+
+            <!-- Logo -->
+            <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: contain;" src="/assets/logos/logo-mrc.png" alt="MRC Logo" />
+
+        </div>
+    </div>
+
+    <!-- Page 8: Inventory Assessment -->
+<div class="report-page page-break">
+    <div style="width: 100%; height: 100%; position: relative; background: #FFFFFF; overflow: hidden">
+
+        <!-- Background shape -->
+        <img src="/assets/backgrounds/background-shape-page4.svg" style="width: 884.026px; height: 1152px; left: -19.01px; top: -7.01px; position: absolute; display: block;" alt="" />
+
+        <!-- Logo -->
+        <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: contain;" src="/assets/logos/logo-mrc.png" alt="MRC Logo" />
+
+        <!-- INVENTORY ASSESSMENT heading - Garet Heavy -->
+        <div style="width: 600px; left: 32px; top: 41px; position: absolute; font-size: 42px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.195px; word-wrap: break-word; z-index: 10;">
+            <span style="color: #000000;">INVENTORY </span><span style="color: #121D73;">ASSESSMENT</span>
+        </div>
+
+        <!-- Description text - Galvji -->
+        <div style="width: 700px; left: 35px; top: 110px; position: absolute; color: #252525; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: 22px; letter-spacing: 0.0252px; word-wrap: break-word; z-index: 10;">{{inventory_description}}</div>
+
+        <!-- Navy box with VCAT note -->
+        <div style="width: 700px; left: 35px; top: 172px; position: absolute; background: #121D73; border-radius: 15px; padding: 18px; z-index: 10;">
+            <div style="color: #FFFFFF; font-size: 14px; font-family: 'Galvji'; font-weight: 400; line-height: 21px; letter-spacing: 0.0252px; word-wrap: break-word;">
+                <span style="font-size: 16px; font-family: 'Garet Heavy'; font-weight: 800;">VCAT DOCUMENTATION:</span><br/>
+                This inventory list provides detailed documentation of salvageable and non-salvageable items for tribunal proceedings. All items have been assessed based on hygienist testing confirming mould spore exposure.
+            </div>
+        </div>
+
+        <!-- ENSUITE SECTION -->
+        <div style="left: 35px; top: 310px; position: absolute; width: 700px; z-index: 10;">
+            <div style="color: #121D73; font-size: 24px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.0682px; margin-bottom: 10px;">{{inventory_area_1}} - ITEMS AFFECTED</div>
+
+            <div style="color: #252525; font-size: 15px; font-family: 'Galvji'; font-weight: 400; line-height: 22px; letter-spacing: 0.0252px; word-wrap: break-word;">
+                <span style="font-family: 'Garet Heavy'; font-weight: 800; color: #000000;">Non-Salvageable Items:</span><br/>
+                {{non_salvageable_items_1}}
+            </div>
+
+            <div style="color: #E30000; font-size: 13px; font-family: 'Galvji'; font-weight: 400; line-height: 19px; letter-spacing: 0.0197px; word-wrap: break-word; margin-top: 10px; display: block;">Note: These items require proper disposal due to direct substrate contamination and porous nature preventing effective decontamination.</div>
+        </div>
+
+        <!-- BEDROOM 1 SECTION -->
+        <div style="left: 35px; top: 490px; position: absolute; width: 700px; z-index: 10;">
+            <div style="color: #121D73; font-size: 24px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.0682px; margin-bottom: 10px;">{{inventory_area_2}} - CROSS-CONTAMINATED ITEMS</div>
+
+            <!-- SALVAGEABLE subsection -->
+            <div style="margin-bottom: 25px;">
+                <div style="color: #121D73; font-size: 17px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.0372px; margin-bottom: 8px;">✓ SALVAGEABLE (Professional Treatment Required)</div>
+
+                <div style="color: #252525; font-size: 14px; font-family: 'Galvji'; font-weight: 400; line-height: 21px; letter-spacing: 0.0197px; word-wrap: break-word;">
+                    {{salvageable_items}}
+                </div>
+
+                <div style="color: #252525; font-size: 14px; font-family: 'Galvji'; font-weight: 400; line-height: 21px; letter-spacing: 0.0197px; word-wrap: break-word; margin-top: 8px;">
+                    <span style="font-family: 'Garet Heavy'; font-weight: 800; color: #000000;">Treatment Protocol:</span> HEPA vacuuming followed by antimicrobial solution application as per MRC standards.
+                </div>
+            </div>
+
+            <!-- NON-SALVAGEABLE subsection -->
+            <div style="margin-top: 20px;">
+                <div style="color: #E30000; font-size: 17px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.0372px; margin-bottom: 8px;">✗ NON-SALVAGEABLE (Disposal Required)</div>
+
+                <div style="color: #252525; font-size: 14px; font-family: 'Galvji'; font-weight: 400; line-height: 21px; letter-spacing: 0.0197px; word-wrap: break-word;">
+                    {{non_salvageable_items_2}}
+                </div>
+
+                <div style="color: #252525; font-size: 14px; font-family: 'Galvji'; font-weight: 400; line-height: 21px; letter-spacing: 0.0197px; word-wrap: break-word; margin-top: 8px;">
+                    <span style="font-family: 'Garet Heavy'; font-weight: 800; color: #000000;">Disposal Protocol:</span> Double-bagged and properly disposed of according to contamination protocols.
+                </div>
+            </div>
+        </div>
+
+        <!-- IMPORTANT NOTE at bottom -->
+        <div style="width: 700px; left: 35px; top: 900px; position: absolute; background: #f5f5f5; border-left: 4px solid #121D73; padding: 15px; border-radius: 5px; z-index: 10;">
+            <div style="color: #252525; font-size: 13px; font-family: 'Galvji'; font-weight: 400; line-height: 20px; letter-spacing: 0.0197px; word-wrap: break-word;">
+                <span style="color: #121D73; font-family: 'Garet Heavy'; font-weight: 800;">ONSITE CONFIRMATION:</span> The final determination of salvageable vs non-salvageable items will be confirmed during the onsite treatment process in consultation with the tenant. This assessment is based on hygienist testing and visual inspection conducted on {{inspection_date}}. All salvageable items will receive professional decontamination treatment as outlined in the scope of works.
+            </div>
+        </div>
+
+        <!-- VCAT REFERENCE -->
+        <div style="width: 200px; left: 35px; top: 1020px; position: absolute; z-index: 10;">
+            <div style="color: #121D73; font-size: 12px; font-family: 'Galvji'; font-weight: 400; line-height: 18px; letter-spacing: 0.015px; word-wrap: break-word;">
+                <span style="font-family: 'Garet Heavy'; font-weight: 800;">VCAT DOCUMENTATION</span><br/>
+                Reference: {{property_address}}<br/>
+                Date: {{inspection_date}}<br/>
+                Inspector: {{inspector}}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+    <!-- Page 10: Visual Mould Cleaning Estimate -->
+    <div class="report-page page-break">
+        <div style="width: 794px; height: 1123px; position: relative; background: #FFFFFF; overflow: hidden">
+
+            <!-- Background shape (top) -->
+            <img src="/assets/backgrounds/background-shape-top-page6.svg" style="width: 849.199px; height: 1036.646px; left: -27.6px; top: -7.95px; position: absolute; display: block; z-index: 0;" alt="" />
+
+            <!-- Background shape (bottom) -->
+            <img src="/assets/backgrounds/background-shape-bottom-page6.svg" style="width: 817.362px; height: 389.815px; left: -11.95px; top: 827.09px; position: absolute; display: block; z-index: 0;" alt="" />
+
+            <!-- Logo (top right) -->
+            <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: contain; z-index: 10;" src="/assets/logos/logo-mrc.png" alt="MRC Logo" />
+
+            <!-- Title - VISUAL MOULD (black) - Garet Heavy -->
+            <div style="left: 37px; top: 32.5px; position: absolute; color: #000000; font-size: 40px; font-family: 'Garet Heavy'; font-weight: 800; line-height: 40px; letter-spacing: 0.1519px; word-wrap: break-word; z-index: 5;">VISUAL MOULD</div>
+
+            <!-- Title - CLEANING ESTIMATE (blue) - Garet Heavy -->
+            <div style="left: 37px; top: 76.5px; position: absolute; color: #121D73; font-size: 40px; font-family: 'Garet Heavy'; font-weight: 800; line-height: 40px; letter-spacing: 0.1519px; word-wrap: break-word; z-index: 5;">CLEANING ESTIMATE</div>
+
+            <!-- OPTION 1: SURFACE TREATMENT ONLY - Garet Heavy -->
+            <div style="left: 37px; top: 145px; position: absolute; color: #252525; font-size: 17px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.0393px; word-wrap: break-word; z-index: 5;">OPTION 1: SURFACE TREATMENT ONLY</div>
+
+            <!-- TOTAL ESTIMATED COST OF OPTION 1 label - Galvji -->
+            <div style="left: 36.4px; top: 180px; position: absolute; color: #252525; font-size: 12px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.015px; word-wrap: break-word; z-index: 5;">TOTAL ESTIMATED COST OF OPTION 1</div>
+
+            <!-- Option 1 Price Badge (navy blue rounded rectangle) -->
+            <div style="width: 170.579px; height: 27.042px; left: 299.79px; top: 171.31px; position: absolute; background: #121D73; border-radius: 20px; z-index: 5;"></div>
+
+            <!-- Option 1 Price Text - Galvji -->
+            <div style="left: 320.2px; top: 178.5px; position: absolute; color: #FFFFFF; font-size: 16px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0303px; word-wrap: break-word; z-index: 6;">{{option_1_price}}</div>
+
+            <!-- Option 1 Description - Galvji -->
+            <div style="width: 622px; left: 37px; top: 214px; position: absolute; color: #252525; font-size: 14px; font-family: 'Galvji'; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">A. Eradication of visible mould from all impacted zones as detailed in the prior report.<br/><br/>B. Diminishment of airborne mould spores within the property through sanitisation.</div>
+
+            <!-- OPTION 2: COMPREHENSIVE TREATMENT - Garet Heavy -->
+            <div style="left: 37px; top: 400px; position: absolute; color: #252525; font-size: 17px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.0393px; word-wrap: break-word; z-index: 5;">OPTION 2: COMPREHENSIVE TREATMENT</div>
+
+            <!-- TOTAL ESTIMATED COST OF OPTION 2 label - Galvji -->
+            <div style="left: 36.4px; top: 434px; position: absolute; color: #252525; font-size: 12px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.015px; word-wrap: break-word; z-index: 5;">TOTAL ESTIMATED COST OF OPTION 2</div>
+
+            <!-- Option 2 Price Badge (navy blue rounded rectangle) -->
+            <div style="width: 198.412px; height: 28.264px; left: 299.87px; top: 424.95px; position: absolute; background: #121D73; border-radius: 20px; z-index: 5;"></div>
+
+            <!-- Option 2 Price Text - Galvji -->
+            <div style="left: 308.2px; top: 433.5px; position: absolute; color: #FFFFFF; font-size: 16px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.0342px; word-wrap: break-word; z-index: 6;">{{option_2_price}}</div>
+
+            <!-- Option 2 Description - Galvji -->
+            <div style="width: 622px; left: 37px; top: 476px; position: absolute; color: #252525; font-size: 14px; font-family: 'Galvji'; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">A. Eradication of visible mould from all impacted zones as detailed in the prior report.<br/><br/>B. Removal of mould-affected materials and infrastructural components.<br/><br/>C. Diminishment of airborne mould spores within the property through sanitisation.<br/><br/>D. Proper Disposal and handling of removed mould-affected materials.</div>
+
+            <!-- EQUIPMENT COSTS heading - Garet Heavy -->
+            <div style="left: 38px; top: 670.5px; position: absolute; color: #252525; font-size: 19px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.0475px; word-wrap: break-word; z-index: 5;">EQUIPMENT COSTS</div>
+
+            <!-- Equipment costs list - Galvji -->
+            <div style="width: 271px; left: 38px; top: 695px; position: absolute; color: #252525; font-size: 14px; font-family: 'Galvji'; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">Commercial dehumidifier: {{equipment_dehumidifier}}<br/>Air Mover: {{equipment_air_mover}}<br/>RCD Box: {{equipment_rcd_box}}<br/>Capped at <span style="text-decoration: underline;">{{equipment_max_days}}</span></div>
+
+            <!-- Red note (right side) - Galvji -->
+            <div style="width: 309px; left: 450px; top: 666.5px; position: absolute; color: #E30000; font-size: 14px; font-family: 'Galvji'; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">PLEASE NOTE: Mould & Restoration CO. Specialises in the removal of these materials and does not provide replacement services. Clients are advised to arrange for replacement through other specialised services.</div>
+
+            <!-- Before Photo (left) -->
+            <img style="width: 406px; height: 403px; left: -6px; top: 827px; position: absolute; object-fit: cover; object-position: 50% 50%; z-index: 1;" src="/assets/photos/before-photo-page6.png" alt="Before photo" />
+
+            <!-- After Photo (right) -->
+            <img style="width: 402px; height: 406px; left: 400px; top: 827px; position: absolute; object-fit: cover; object-position: 50% 50%; z-index: 1;" src="/assets/photos/after-photo-page6.png" alt="After photo" />
+
+            <!-- BEFORE badge -->
+            <img style="width: 129px; height: 37px; left: 135px; top: 1069px; position: absolute; object-fit: cover; object-position: 50% 50%; z-index: 5;" src="/assets/photos/before-badge-page6.png" alt="Before" />
+
+            <!-- AFTER badge -->
+            <img style="width: 129px; height: 37px; left: 539px; top: 1069px; position: absolute; object-fit: cover; object-position: 50% 50%; z-index: 5;" src="/assets/photos/after-badge-page6.png" alt="After" />
+
+        </div>
+    </div>
+
+    <!-- Page 11: Terms & Conditions -->
+    <div class="report-page page-break">
+        <div style="width: 794px; height: 1123px; position: relative; background: #FFFFFF; overflow: hidden">
+
+            <!-- Background shape -->
+            <img src="/assets/backgrounds/background-shape-page7.svg" style="width: 799.011px; height: 1144.992px; left: 0; top: 0; position: absolute; display: block; z-index: 0;" alt="" />
+
+            <!-- Logo (top right) -->
+            <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: contain; z-index: 10;" src="/assets/logos/logo-mrc.png" alt="MRC Logo" />
+
+            <!-- Title - TERMS & (black) - Garet Heavy -->
+            <div style="left: 37px; top: 39px; position: absolute; color: #000000; font-size: 56px; font-family: 'Garet Heavy'; font-weight: 800; line-height: 56px; letter-spacing: 0.2309px; word-wrap: break-word; z-index: 5;">TERMS &</div>
+
+            <!-- Title - CONDITIONS (blue) - Garet Heavy -->
+            <div style="left: 37px; top: 95px; position: absolute; color: #121D73; font-size: 56px; font-family: 'Garet Heavy'; font-weight: 800; line-height: 56px; letter-spacing: 0.2309px; word-wrap: break-word; z-index: 5;">CONDITIONS</div>
+
+            <!-- Intro paragraph - Galvji -->
+            <div style="width: 687px; left: 39px; top: 211.5px; position: absolute; color: #252525; font-size: 17px; font-family: 'Galvji'; font-weight: 400; line-height: 26px; letter-spacing: 0.04px; word-wrap: break-word; z-index: 5;">The subsequent terms and conditions govern the provision of services by Mould & Restoration Co. By agreeing to and scheduling the services outlined in this report, you, herein referred to as the 'Client', are implicitly agreeing to the stipulated terms and conditions.</div>
+
+            <!-- WARRANTY heading (blue, underlined) - Garet Heavy -->
+            <div style="left: 36.65px; top: 408px; position: absolute; color: #121D73; font-size: 27px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.0869px; text-decoration: underline; text-underline-position: from-font; word-wrap: break-word; z-index: 5;">WARRANTY</div>
+
+            <!-- Warranty description paragraph - Galvji -->
+            <div style="width: 689px; left: 39px; top: 458px; position: absolute; color: #252525; font-size: 17px; font-family: 'Galvji'; font-weight: 400; line-height: 26px; letter-spacing: 0.035px; word-wrap: break-word; z-index: 5;">Mould & Restoration Co. provides a 12-month warranty on all services rendered to eradicate mould from affected locations. The warranty holds under the subsequent circumstances:</div>
+
+            <!-- Warranty conditions - Galvji -->
+            <div style="width: 707px; left: 40px; top: 570.5px; position: absolute; color: #252525; font-size: 17px; font-family: 'Galvji'; font-weight: 400; line-height: 26px; letter-spacing: 0.035px; word-wrap: break-word; z-index: 5;">
+                <p style="margin-bottom: 14px;">The root cause of the mould issue has been addressed, and all the recommendations given in the report, including essential repairs and inspections, have been actioned.</p>
+
+                <p style="margin-bottom: 14px;">No natural disasters or unforeseen events compromising the structure of the premises have occurred after our services, such as floods, storms, or any kind of damage. The report provides opinions, not design specifications.</p>
+
+                <p style="margin-bottom: 14px;">The areas serviced have not undergone subsequent alterations or repairs. Any changes made post-service will fall under the accountability of the third-party making those alterations.</p>
+
+                <p style="margin-bottom: 14px;">Should there be any concerns or questions regarding the work performed by Mould & Restoration Co. technicians, the Client should notify us within 5 business days post service completion.</p>
+
+                <p style="margin-bottom: 0;">The provided invoice is settled in full within a <span style="text-decoration: underline; text-decoration-skip-ink: none; text-underline-position: from-font;">maximum of 30 days</span> from the invoice date. If payments remain unsettled, the warranty stands void.</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Page 12: Terms & Conditions - Payment Terms -->
+    <div class="report-page page-break">
+        <div style="width: 794px; height: 1123px; position: relative; background: #FFFFFF; overflow: hidden">
+
+            <!-- Background shape -->
+            <img src="/assets/backgrounds/background-shape-page8.svg" style="width: 793.999px; height: 1124.002px; left: 0; top: -0.01px; position: absolute; display: block; z-index: 0;" alt="" />
+
+            <!-- Logo (top right) -->
+            <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: contain; z-index: 10;" src="/assets/logos/logo-mrc.png" alt="MRC Logo" />
+
+            <!-- Title - TERMS & (black) - Garet Heavy -->
+            <div style="left: 37px; top: 39px; position: absolute; color: #000000; font-size: 56px; font-family: 'Garet Heavy'; font-weight: 800; line-height: 56px; letter-spacing: 0.2309px; word-wrap: break-word; z-index: 5;">TERMS &</div>
+
+            <!-- Title - CONDITIONS (blue) - Garet Heavy -->
+            <div style="left: 37px; top: 95px; position: absolute; color: #121D73; font-size: 56px; font-family: 'Garet Heavy'; font-weight: 800; line-height: 56px; letter-spacing: 0.2309px; word-wrap: break-word; z-index: 5;">CONDITIONS</div>
+
+            <!-- PAYMENT TERMS heading (blue, underlined) - Garet Heavy -->
+            <div style="left: 36.6px; top: 204px; position: absolute; color: #121D73; font-size: 28px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.0918px; text-decoration: underline; text-underline-position: from-font; word-wrap: break-word; z-index: 5;">PAYMENT TERMS</div>
+
+            <!-- Intro paragraph - Galvji -->
+            <div style="width: 623px; left: 40px; top: 261.5px; position: absolute; color: #252525; font-size: 17px; font-family: 'Galvji'; font-weight: 400; line-height: 26px; letter-spacing: 0.04px; word-wrap: break-word; z-index: 5;">
+                <p style="margin-bottom: 0;">Our invoicing procedures and charges are delineated in our Customer</p>
+                <p>Relationship Agreement.</p>
+            </div>
+
+            <!-- Payment terms paragraphs - Galvji -->
+            <div style="width: 707px; left: 40px; top: 330.5px; position: absolute; color: #252525; font-size: 16px; font-family: 'Galvji'; font-weight: 400; line-height: 24px; letter-spacing: 0.035px; word-wrap: break-word; z-index: 5;">
+                <p style="margin-bottom: 14px;">Payments are to be made by the due date specified on the invoice. We accept payments in cash, visa, mastercard, and cheque.</p>
+
+                <p style="margin-bottom: 14px;">Any account unsettled for over 60 days will be reported to our credit reporting agency, potentially impacting your credit history for the next five years. Mould & Restoration Co. also reserves the prerogative to initiate legal proceedings for the recovery of any unpaid amounts.</p>
+
+                <p style="margin-bottom: 0;">In the event of default, the Client will be responsible for covering all collection-related costs, including any legal and court fees should Mould & Restoration Co. pursue the Client for payment.</p>
+            </div>
+
+            <!-- Red NOTE - Galvji -->
+            <div style="width: 347px; left: 48px; top: 675.5px; position: absolute; color: #E30000; font-size: 17px; font-family: 'Galvji'; font-weight: 400; line-height: 26px; letter-spacing: 0.04px; word-wrap: break-word; z-index: 5;">NOTE: Acceptance of the above terms and conditions is inferred upon the scheduling of services as detailed in the provided report.</div>
+
+            <!-- Photo background shape -->
+            <img src="/assets/backgrounds/photo-background-page8.svg" style="width: 542.757px; height: 471.911px; left: 411px; top: 703px; position: absolute; display: block; z-index: 1;" alt="" />
+
+            <!-- Technician photo -->
+            <img style="width: 488.757px; height: 417.911px; left: 437.54px; top: 727.08px; position: absolute; object-fit: cover; object-position: 50% 50%; border-radius: 30px; z-index: 2;" src="/assets/photos/technician-photo-page8.png" alt="Technician disinfecting" />
+
+        </div>
+    </div>
+
+    <!-- Page 13: Remember Us - Contact Information -->
+    <div class="report-page">
+        <div style="width: 794px; height: 1123px; position: relative; background-image: url('/assets/backgrounds/contact-background.png'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+
+            <!-- Title - REMEMBER US FOR (black) - Garet Heavy -->
+            <div style="width: 100%; left: 0; top: 70px; position: absolute; text-align: center; color: #000000; font-size: 59px; font-family: 'Garet Heavy'; font-weight: 800; line-height: 65px; letter-spacing: 0.25px; word-wrap: break-word; z-index: 5;">REMEMBER US FOR</div>
+
+            <!-- Title - MOULD REMEDIATION (blue) - Garet Heavy -->
+            <div style="width: 100%; left: 0; top: 140px; position: absolute; text-align: center; color: #121D73; font-size: 53px; font-family: 'Garet Heavy'; font-weight: 800; line-height: 60px; letter-spacing: 0.22px; word-wrap: break-word; z-index: 5;">MOULD REMEDIATION</div>
+
+            <!-- BUSINESS HOURS row -->
+            <div style="position: absolute; left: 38px; top: 309px; z-index: 100;">
+                <img style="width: 72px; height: 72px; display: block;" src="/assets/icons/icon-clock-page9.png" alt="Business hours icon" />
+            </div>
+            <div style="position: absolute; left: 147px; top: 309px; z-index: 100; width: 600px;">
+                <div style="color: #FFFFFF; font-size: 23px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.069px; margin-bottom: 6px; text-shadow: 0 0 4px rgba(0,0,0,0.5);">BUSINESS HOURS</div>
+                <div style="color: #FFFFFF; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.054px; text-shadow: 0 0 4px rgba(0,0,0,0.5);">MONDAY TO SUNDAY - 7AM TO 7PM</div>
+            </div>
+
+            <!-- EMAIL row -->
+            <div style="position: absolute; left: 42px; top: 430px; z-index: 100;">
+                <img style="width: 65px; height: 45px; display: block;" src="/assets/icons/icon-email-page9.png" alt="Email icon" />
+            </div>
+            <div style="position: absolute; left: 137px; top: 430px; z-index: 100; width: 600px;">
+                <div style="color: #FFFFFF; font-size: 23px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.069px; margin-bottom: 10px; text-shadow: 0 0 4px rgba(0,0,0,0.5);">EMAIL</div>
+                <div style="color: #FFFFFF; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.045px; text-shadow: 0 0 4px rgba(0,0,0,0.5);">admin@mouldandrestoration.com.au</div>
+            </div>
+
+            <!-- WEBSITE row -->
+            <div style="position: absolute; left: 45px; top: 526px; z-index: 100;">
+                <img style="width: 59px; height: 57px; display: block;" src="/assets/icons/icon-web-page9.png" alt="Website icon" />
+            </div>
+            <div style="position: absolute; left: 142px; top: 526px; z-index: 100; width: 600px;">
+                <div style="color: #FFFFFF; font-size: 23px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.069px; margin-bottom: 10px; text-shadow: 0 0 4px rgba(0,0,0,0.5);">WEBSITE</div>
+                <div style="color: #FFFFFF; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.045px; text-shadow: 0 0 4px rgba(0,0,0,0.5);">mouldandrestoration.com.au</div>
+            </div>
+
+            <!-- PHONE row -->
+            <div style="position: absolute; left: 46px; top: 632px; z-index: 100;">
+                <img style="width: 59px; height: 59px; display: block;" src="/assets/icons/icon-phone-page9.png" alt="Phone icon" />
+            </div>
+            <div style="position: absolute; left: 139px; top: 632px; z-index: 100; width: 600px;">
+                <div style="color: #FFFFFF; font-size: 23px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; letter-spacing: 0.069px; margin-bottom: 10px; text-shadow: 0 0 4px rgba(0,0,0,0.5);">PHONE</div>
+                <div style="color: #FFFFFF; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: normal; letter-spacing: 0.045px; text-shadow: 0 0 4px rgba(0,0,0,0.5);">1800 954 117</div>
+            </div>
+
+            <!-- MRC Logo (bottom right) -->
+            <img style="width: 176px; height: 59px; position: absolute; right: 94px; bottom: 180px; z-index: 10;" src="/assets/logos/logo-large-page9.png" alt="MRC Logo" />
+
+            <!-- Tagline - Galvji -->
+            <div style="position: absolute; right: 58px; bottom: 100px; color: #FFFFFF; font-size: 24px; font-family: 'Galvji'; font-weight: 400; line-height: 36px; text-align: right; z-index: 10;">
+                <div>Restoring your spaces,</div>
+                <div>protecting your health.</div>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>

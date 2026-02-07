@@ -48,6 +48,10 @@ const Notifications = lazy(() => import("./pages/Notifications"));
 const TestPDFTemplate = lazy(() => import("./pages/TestPDFTemplate"));
 const ViewReportPDF = lazy(() => import("./pages/ViewReportPDF"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const HelpSupport = lazy(() => import("./pages/HelpSupport"));
+const TechnicianJobs = lazy(() => import("./pages/TechnicianJobs"));
+const TechnicianAlerts = lazy(() => import("./pages/TechnicianAlerts"));
+const TechnicianInspectionForm = lazy(() => import("./pages/TechnicianInspectionForm"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -125,6 +129,20 @@ const AppContent = () => {
               }
             />
 
+            {/* Admin Leads Management (standalone layout - no AppLayout) */}
+            <Route
+              path="/admin/leads"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <LeadsManagement />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
             {/* Technician Dashboard (standalone layout - no AppLayout) */}
             <Route
               path="/technician"
@@ -132,6 +150,62 @@ const AppContent = () => {
                 <ProtectedRoute>
                   <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
                     <TechnicianDashboard />
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Technician Profile (standalone - uses shared Profile component) */}
+            <Route
+              path="/technician/profile"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <Profile />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Technician Jobs (standalone - My Jobs page) */}
+            <Route
+              path="/technician/jobs"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <TechnicianJobs />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Technician Alerts (standalone - Notifications page) */}
+            <Route
+              path="/technician/alerts"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <TechnicianAlerts />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Technician Inspection Form (standalone - New inspection form) */}
+            <Route
+              path="/technician/inspection"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <TechnicianInspectionForm />
+                    </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>
               }
@@ -166,6 +240,7 @@ const AppContent = () => {
               <Route path="/profile" element={<Profile />} />
               <Route path="/manage-users" element={<ManageUsers />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/help" element={<HelpSupport />} />
               <Route path="/leads" element={<LeadsManagement />} />
               <Route path="/lead/new/:id" element={<NewLeadView />} />
               <Route path="/leads-pipeline" element={<Leads />} />

@@ -107,7 +107,9 @@ export default function TechnicianDashboard() {
   };
 
   const handleStartInspection = (jobId: string) => {
-    navigate(`/inspection/${jobId}`);
+    // TODO: When wired to real data, pass leadId from the job/booking
+    // For now, mock data uses jobId as leadId placeholder
+    navigate(`/technician/inspection?leadId=${jobId}`);
   };
 
   const handleGetDirections = (address: string) => {
