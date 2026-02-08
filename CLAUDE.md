@@ -25,11 +25,12 @@
 
 ## Context Files
 ```
-context/MRC-PRD.md           # Product requirements
-context/MRC-TECHNICAL-SPEC.md # Technical specs
-context/TASKS.md              # All tasks
-context/PLANNING.md           # Architecture decisions
-context/DATABASE-SCHEMA.md    # Database structure
+context/PRD.md                # Product requirements
+context/PM_WORKFLOW.md        # Workflow guide
+context/active_sprint.md      # Current sprint spec
+context/MASTER-TODO.md        # Master backlog
+context/AGENTS.md             # Agent instructions
+context/Channel.md            # Communication channel
 ```
 
 ---
@@ -94,16 +95,15 @@ context/DATABASE-SCHEMA.md    # Database structure
 
 ---
 
-## Recent Session (2025-11-21)
+## Recent Session (2026-02-08)
 
-### Inspection Form Sections 4-7 Complete
-- Section 5 (Outdoor): Fixed direction photos button
-- Section 6 (Waste Disposal): Added `waste_disposal_amount` column
-- Section 7 (Work Procedure): Added 11 fields (toggles + equipment)
-- Bug Fix: RCD Box loading - changed `||` to `??` for nullish coalescing
+### Phase 1: Technician Role (Current)
+- **Status:** 🟡 80% Complete
+- **Completed:** Dashboard, Jobs Page, Inspection Form UI (10 sections)
+- **Next:** Skills Infrastructure, Database Wiring, PDF Generation
 
-**Progress:** 6/11 phases (55%)
+**Critical Next Step:** Run `claude` with `context/active_sprint.md` to build skills library.
 
 ---
 
-*Last Updated: 2025-11-21*
+*Last Updated: 2026-02-08*

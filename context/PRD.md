@@ -1,8 +1,8 @@
 # MRC Lead Management System - Product Requirements Document (PRD)
 
-**Version:** 1.0
-**Date:** November 11, 2025
-**Status:** Sprint 1 - Production Demo Ready
+**Version:** 2.0
+**Date:** February 7, 2025
+**Status:** In Development - Phase 1 Technician Role (80% Complete)
 **Project:** Mould & Restoration Co. Lead Management System
 
 ---
@@ -640,78 +640,61 @@ Final Calculation:
 
 ---
 
-### **3. Inspection Form** (`/inspection/new`)
+### **3. Inspection Form** (`/technician/inspection?leadId={id}`)
 
 **Mobile-First Design:**
-- One section visible at a time (accordion)
-- Large touch targets (48px min)
+- One section visible at a time (accordion style)
+- Large touch targets (48px min) for work gloves
 - Sticky header with progress bar
-- Floating "Save Draft" button
+- Floating "Save" button
 - Offline mode indicator
 
-**Auto-Save:**
-- Every 30 seconds to localStorage
-- On input blur (field loses focus)
-- Before photo upload
-- Visual indicator: "Last saved: 2 minutes ago"
+**10-Step Inspection Workflow (Implemented):**
 
-**Offline Mode:**
-- Detect `navigator.onLine`
-- Show banner: "⚠️ You're offline. Changes saved locally."
-- Queue form submission
-- Sync when connection restored
-- Show sync status: "Syncing... ✓ Synced"
+1. **Basic Information:** Job #, Triage, Address, Inspector, Date.
+2. **Property Details:** Occupation (Vacant/Tenanted), Dwelling Type (House/Unit/Apartment).
+3. **Area Inspection (Repeatable):**
+    - Temp/Humidity/Dew Point readings
+    - Visible mould locations
+    - Moisture readings table (Repeatable)
+    - Room Photos (4 max) & Infrared Toggle
+    - Demolition requirements per area
+4. **Subfloor Assessment:**
+    - Toggle enabled/disabled
+    - Readings & Observation notes
+    - Photos (up to 20)
+    - Sanitation & Racking toggles
+5. **Outdoor Info:**
+    - Climate readings (Temp/Humidity/Dew Point)
+    - Photos: Front Door, Front House, Mailbox, Street
+    - Direction photos toggle
+6. **Waste Disposal:**
+    - Size selection (Small/Medium/Large/XL)
+7. **Work Procedure:**
+    - HEPA Vac, Antimicrobial, Fogging toggles
+    - Drying Equipment: Dehumidifier/Air Mover/RCD Box quantities
+8. **Job Summary:**
+    - Recommendation Dehumidifier size
+    - Cause of Mould textarea
+    - Parking options
+9. **Cost Estimate:**
+    - **Live Calculation:** Updates as hours/equipment change
+    - **Breakdown Display:** Tiered rates (2h/8h), Equipment costs, GST
+    - **Discount Logic:**
+        - &le; 8 hours: 0% discount
+        - 9-16 hours: 7.5% discount
+        - 17-24 hours: 10.25% discount
+        - 25-32 hours: 11.5% discount
+        - 33+ hours: **Capped at 13%** (Strict Business Rule)
+10. **AI Job Summary:**
+    - "Generate AI Summary" button
+    - Generates: Findings, Causes, Recommendations, Conclusion
+    - Editable textareas for final refinement
 
-**Photo Upload:**
-- Camera integration: `<input type="file" accept="image/*" capture="environment">`
-- Client-side compression (max 1920px width)
-- Preview thumbnails
-- Upload to Supabase Storage
-- Progress indicator per photo
-- Reorder/delete photos
-
-**Field Validation:**
-- Required fields marked with *
-- Inline validation (on blur)
-- Temperature: Numeric, -10°C to 50°C
-- Humidity: Numeric, 0-100%
-- Moisture readings: 0-100%
-
-**Dynamic Sections:**
-- Subfloor toggle: Shows/hides subfloor section + adds page to PDF
-- Demolition toggle: Shows/hides demolition fields + adds page to PDF
-- Inventory Assessment toggle: Shows/hides inventory section + adds page to PDF
-- Infrared toggle: Shows/hides infrared photo upload
-- Waste disposal toggle: Shows/hides amount field
-- Drying equipment toggle: Shows quantity inputs
-
-**AI Summary Generation:**
-- After all sections filled, "Generate Summary" button
-- Loading state: "Analyzing inspection data..."
-- Calls Claude API with your exact prompt
-- Returns formatted markdown
-- Technician can edit before approving
-- Character count (ensure fits in PDF layout)
-
-**Cost Calculation:**
-- Real-time updates as technician enters hours
-- Shows breakdown:
-  - Labor: $X,XXX.XX
-  - Equipment: $XXX.XX
-  - Subtotal: $X,XXX.XX (ex GST)
-  - GST (10%): $XXX.XX
-  - **Total: $X,XXX.XX (inc GST)**
-- Editable override fields
-- Discount logic applied automatically
-
-**Submit Behavior:**
-- Final validation check
-- Confirm modal: "Ready to generate report?"
-- Show loading: "Generating PDF... this may take 30 seconds"
-- Call Supabase Edge Function (PDF generation)
-- Success: "✓ Report generated!" + redirect to approval page
-- Error: Clear message + retry button
-
+**Auto-Save & Offline:**
+- Saves to `localStorage` every 30 seconds
+- Syncs to Supabase `inspections` table when online
+- Service Worker caches static assets for offline load
 ---
 
 ### **4. Notification System**
@@ -1105,6 +1088,29 @@ CREATE TABLE email_logs (
 ```
 
 ---
+
+## 🏗️ Technical Architecture (Serverless)
+
+### **Edge Functions**
+We use Supabase Edge Functions (Deno/TypeScript) for critical business logic to ensure security and performance.
+
+| Function Name | Trigger | Purpose |
+| :--- | :--- | :--- |
+| `generate-inspection-pdf` | Form Submit | Renders HTML template with Puppeteer, saves to Storage. |
+| `send-email` | DB Trigger / API | Sends transactional emails via Resend API. |
+| `generate-ai-summary` | API Call | Calls Anthropic Claude API to summarize inspection data. |
+
+### **Offline Architecture (PWA)**
+- **Service Worker:** Caches app shell (HTML/CSS/JS) for instant load.
+- **IndexedDB:** Stores inspection drafts locally (`mrc-offline` db).
+- **Sync Queue:** Array of operations (`POST/PUT`) stored in localStorage when offline; replayed when `navigator.onLine` becomes true.
+
+### **Database Wiring**
+- **RLS Policies:** Strict Row Level Security. Technicians see assigned jobs; Admins see all.
+- **Storage:** `inspection-photos` bucket (private), `pdfs` bucket (private).
+
+---
+
 
 ### **Edge Function: generate-inspection-pdf**
 
