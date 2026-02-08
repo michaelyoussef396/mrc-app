@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 
 export interface Job {
   id: string;
+  leadId?: string;
   customerName: string;
   time: string;
   jobType: string;
@@ -46,8 +47,8 @@ export default function JobsList({ jobs, title }: JobsListProps) {
     }
   };
 
-  const handleJobClick = (jobId: string) => {
-    navigate(`/inspection/${jobId}`);
+  const handleViewLead = (job: Job) => {
+    navigate(`/technician/job/${job.leadId || job.id}`);
   };
 
   return (
@@ -68,7 +69,7 @@ export default function JobsList({ jobs, title }: JobsListProps) {
           return (
             <div
               key={job.id}
-              className="flex flex-col bg-white p-4 rounded-xl transition-transform active:scale-[0.99]"
+              className="flex flex-col bg-white p-4 rounded-xl"
               style={{
                 boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                 opacity: job.status === 'pending' ? 0.9 : 1,
@@ -101,32 +102,38 @@ export default function JobsList({ jobs, title }: JobsListProps) {
                 </span>
               </div>
 
-              {/* Bottom Row - Name, Type & Action */}
-              <div className="flex justify-between items-end">
-                <div>
-                  <p
-                    className="text-base font-bold"
-                    style={{ color: '#1d1d1f' }}
-                  >
-                    {job.customerName}
-                  </p>
-                  <p className="text-sm mt-0.5" style={{ color: '#86868b' }}>
-                    {job.jobType} • {job.area}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleJobClick(job.id)}
-                  className="w-12 h-12 flex items-center justify-center rounded-full bg-gray-50 hover:bg-gray-100 transition-colors"
-                  style={{ minWidth: '48px', minHeight: '48px' }}
+              {/* Middle Row - Name & Type */}
+              <div className="mb-3">
+                <p
+                  className="text-base font-bold"
+                  style={{ color: '#1d1d1f' }}
                 >
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ fontSize: '20px', color: '#86868b' }}
-                  >
-                    chevron_right
-                  </span>
-                </button>
+                  {job.customerName}
+                </p>
+                <p className="text-sm mt-0.5" style={{ color: '#86868b' }}>
+                  {job.jobType} • {job.area}
+                </p>
               </div>
+
+              {/* View Lead Button */}
+              <button
+                onClick={() => handleViewLead(job)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer"
+                style={{
+                  height: '48px',
+                  minHeight: '48px',
+                  backgroundColor: '#f0f2f4',
+                  color: '#1d1d1f',
+                }}
+              >
+                <span
+                  className="material-symbols-outlined"
+                  style={{ fontSize: '18px', color: '#007AFF' }}
+                >
+                  visibility
+                </span>
+                <span>View Lead</span>
+              </button>
             </div>
           );
         })}

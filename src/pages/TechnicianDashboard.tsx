@@ -15,6 +15,7 @@ import {
 function mapToJob(tj: TechnicianJob): Job {
   return {
     id: tj.id,
+    leadId: tj.leadId,
     customerName: tj.clientName,
     time: tj.time,
     jobType: tj.title || tj.eventType,
@@ -50,6 +51,12 @@ export default function TechnicianDashboard() {
     const tj = techJobMap.get(jobId);
     const leadId = tj?.leadId || jobId;
     navigate(`/technician/inspection?leadId=${leadId}`);
+  };
+
+  const handleViewLead = (jobId: string) => {
+    const tj = techJobMap.get(jobId);
+    const leadId = tj?.leadId || jobId;
+    navigate(`/technician/job/${leadId}`);
   };
 
   const handleGetDirections = (address: string) => {
@@ -142,6 +149,7 @@ export default function TechnicianDashboard() {
             travelTime={techJobMap.get(nextJob.id)?.travelTimeMinutes ?? undefined}
             onStartInspection={() => handleStartInspection(nextJob.id)}
             onGetDirections={() => handleGetDirections(nextJob.address || '')}
+            onViewLead={() => handleViewLead(nextJob.id)}
           />
 
           {/* Remaining Jobs List */}

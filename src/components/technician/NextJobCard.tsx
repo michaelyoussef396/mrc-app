@@ -7,6 +7,7 @@ interface NextJobCardProps {
   travelTime?: number;
   onStartInspection: () => void;
   onGetDirections: () => void;
+  onViewLead?: () => void;
 }
 
 export default function NextJobCard({
@@ -18,6 +19,7 @@ export default function NextJobCard({
   travelTime = 12,
   onStartInspection,
   onGetDirections,
+  onViewLead,
 }: NextJobCardProps) {
   return (
     <section className="px-4 py-4 w-full max-w-lg mx-auto">
@@ -107,6 +109,28 @@ export default function NextJobCard({
             </span>
             <span>Get Directions ({travelTime} min)</span>
           </button>
+
+          {/* Tertiary Action - View Lead */}
+          {onViewLead && (
+            <button
+              onClick={onViewLead}
+              className="flex w-full cursor-pointer items-center justify-center rounded-xl px-6 gap-2 text-sm font-semibold transition-colors"
+              style={{
+                height: '48px',
+                minHeight: '48px',
+                backgroundColor: 'transparent',
+                color: '#007AFF',
+              }}
+            >
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: '18px' }}
+              >
+                visibility
+              </span>
+              <span>View Lead</span>
+            </button>
+          )}
         </div>
       </div>
     </section>
