@@ -309,9 +309,11 @@ export function calculateEventPosition(event: CalendarEvent): {
   const startOffset = (startHour - gridStartHour) + (startMinutes / 60);
   const top = Math.max(0, (startOffset / totalSlots) * 100);
 
-  // Calculate duration in hours
-  const durationHours = (endHour - startHour) + ((endMinutes - startMinutes) / 60);
-  const height = Math.max((durationHours / totalSlots) * 100, 7.69); // Minimum 1 slot height
+  // Calculate duration in hours (guard against negative/zero for malformed events)
+  let durationHours = (endHour - startHour) + ((endMinutes - startMinutes) / 60);
+  if (durationHours <= 0) durationHours = 1;
+  let height = Math.max((durationHours / totalSlots) * 100, 7.69); // Minimum 1 slot height
+  if (top + height > 100) height = 100 - top;
 
   // Debug logging
   console.log('[Calendar] Event position:', {

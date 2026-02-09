@@ -5,9 +5,24 @@ import { supabase } from '@/integrations/supabase/client'
 import {
   ArrowLeft, Phone, Mail, MapPin, Calendar, Clock,
   FileText, AlertTriangle, Sparkles, Globe, CheckCircle,
-  X, User, Home, ChevronRight
+  X, User, Home, ChevronRight, Navigation, Loader2, Users
 } from 'lucide-react'
 import { BookInspectionModal } from '@/components/leads/BookInspectionModal'
+
+interface TriageResult {
+  technician_id: string
+  technician_name: string
+  travel_time_minutes: number | null
+  distance_km: number | null
+  source: 'google_api' | 'haversine'
+}
+
+interface TriageResponse {
+  lead_id: string
+  lead_address: string
+  ranked_technicians: TriageResult[]
+  recommended_technician_id: string | null
+}
 
 const NewLeadView = () => {
   const navigate = useNavigate()
@@ -51,6 +66,23 @@ const NewLeadView = () => {
       return data;
     },
     enabled: !!id,
+  })
+
+  // Fetch triage data (smart technician assignment)
+  const { data: triage, isLoading: triageLoading } = useQuery<TriageResponse>({
+    queryKey: ['triage', id],
+    queryFn: async () => {
+      if (!id) throw new Error('Lead ID is required');
+
+      const { data, error } = await supabase.functions.invoke('calculate-travel-time', {
+        body: { action: 'triage_lead', lead_id: id }
+      });
+
+      if (error) throw error;
+      return data as TriageResponse;
+    },
+    enabled: !!id && lead?.status === 'new_lead',
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   })
 
   // Handle successful booking
@@ -314,6 +346,97 @@ const NewLeadView = () => {
               </div>
             </div>
           </div>
+
+          {/* Smart Assignment Card */}
+          {lead.status === 'new_lead' && (
+            <div className="info-card" style={{ borderLeft: '4px solid #007AFF' }}>
+              <div className="card-header">
+                <h2 className="card-title">
+                  <Navigation size={24} strokeWidth={2} style={{ color: '#007AFF' }} />
+                  Smart Assignment
+                </h2>
+                {triage?.recommended_technician_id && (
+                  <span className="status-badge" style={{ background: '#007AFF', color: 'white' }}>
+                    AI Recommended
+                  </span>
+                )}
+              </div>
+
+              <div className="info-section">
+                {triageLoading ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 0' }}>
+                    <Loader2 size={20} className="animate-spin" style={{ color: '#007AFF' }} />
+                    <span style={{ color: '#6b7280', fontSize: '14px' }}>Calculating technician distances...</span>
+                  </div>
+                ) : triage?.ranked_technicians && triage.ranked_technicians.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {triage.ranked_technicians.map((tech, idx) => {
+                      const isRecommended = tech.technician_id === triage.recommended_technician_id;
+                      return (
+                        <div
+                          key={tech.technician_id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '12px 16px',
+                            borderRadius: '12px',
+                            background: isRecommended ? '#eff6ff' : '#f9fafb',
+                            border: isRecommended ? '2px solid #007AFF' : '1px solid #e5e7eb',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{
+                              width: '32px', height: '32px', borderRadius: '50%',
+                              background: isRecommended ? '#007AFF' : '#d1d5db',
+                              color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: '14px', fontWeight: 600,
+                            }}>
+                              {idx + 1}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: '15px', color: '#111827' }}>
+                                {tech.technician_name}
+                                {isRecommended && (
+                                  <span style={{ marginLeft: '8px', fontSize: '12px', color: '#007AFF', fontWeight: 500 }}>
+                                    Best Match
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
+                                {tech.source === 'google_api' ? 'Google Maps' : 'Estimate'}
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            {tech.travel_time_minutes !== null ? (
+                              <>
+                                <div style={{ fontWeight: 700, fontSize: '16px', color: isRecommended ? '#007AFF' : '#111827' }}>
+                                  {tech.travel_time_minutes} min
+                                </div>
+                                {tech.distance_km !== null && (
+                                  <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                                    {tech.distance_km} km
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div style={{ fontSize: '13px', color: '#9ca3af' }}>Unknown</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : !triageLoading ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 0' }}>
+                    <Users size={20} style={{ color: '#9ca3af' }} />
+                    <span style={{ color: '#6b7280', fontSize: '14px' }}>No technician data available</span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
 
           {/* Action Card - Completely Redesigned */}
           <div className="action-card-redesign">

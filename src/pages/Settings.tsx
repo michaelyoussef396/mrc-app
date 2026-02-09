@@ -14,6 +14,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
+import TechnicianBottomNav from '@/components/technician/TechnicianBottomNav';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +24,7 @@ export default function Settings() {
   const { toast } = useToast();
   const { forceLogoutAllDevices, signOut, currentRole } = useAuth();
   const isDeveloper = currentRole === 'developer';
+  const isTechnician = currentRole === 'technician';
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
@@ -170,7 +172,7 @@ export default function Settings() {
 
             <button
               className="flex items-center justify-between gap-3 px-4 py-4 w-full border-b border-gray-100 bg-transparent hover:bg-gray-50 transition-colors cursor-pointer text-left"
-              onClick={() => navigate('/profile')}
+              onClick={() => navigate(isTechnician ? '/technician/profile' : '/profile')}
             >
               <div className="flex items-center gap-3.5 flex-1">
                 <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600 flex items-center justify-center flex-shrink-0">
@@ -203,7 +205,8 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* User Management Section */}
+        {/* User Management Section - Admin/Developer only */}
+        {!isTechnician && (
         <div className="mb-8">
           <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3 ml-1">User Management</h2>
 
@@ -227,6 +230,7 @@ export default function Settings() {
 
           </div>
         </div>
+        )}
 
         {/* Support Section */}
         <div className="mb-8">
@@ -360,8 +364,8 @@ export default function Settings() {
 
       </div>
 
-      {/* Mobile Bottom Navigation */}
-      <MobileBottomNav />
+      {/* Mobile Bottom Navigation - Role-aware */}
+      {isTechnician ? <TechnicianBottomNav /> : <MobileBottomNav />}
     </div>
   );
 }

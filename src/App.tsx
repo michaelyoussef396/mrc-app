@@ -52,6 +52,7 @@ const HelpSupport = lazy(() => import("./pages/HelpSupport"));
 const TechnicianJobs = lazy(() => import("./pages/TechnicianJobs"));
 const TechnicianAlerts = lazy(() => import("./pages/TechnicianAlerts"));
 const TechnicianInspectionForm = lazy(() => import("./pages/TechnicianInspectionForm"));
+const TechnicianJobDetail = lazy(() => import("./pages/TechnicianJobDetail"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -205,6 +206,34 @@ const AppContent = () => {
                   <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <TechnicianInspectionForm />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Technician Job Detail (handoff page) */}
+            <Route
+              path="/technician/job/:id"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <TechnicianJobDetail />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Technician Settings (standalone - uses shared Settings component) */}
+            <Route
+              path="/technician/settings"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <Settings />
                     </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>

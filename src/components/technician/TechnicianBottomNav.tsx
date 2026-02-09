@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { SyncIndicator } from '@/lib/offline/SyncIndicator';
 
 interface NavItem {
   icon: string;
@@ -38,6 +39,10 @@ export default function TechnicianBottomNav() {
   const isActive = (path: string) => {
     if (path === '/technician') {
       return location.pathname === '/technician';
+    }
+    // Profile tab should highlight for both profile and settings
+    if (path === '/technician/profile') {
+      return location.pathname === '/technician/profile' || location.pathname === '/technician/settings';
     }
     return location.pathname.startsWith(path);
   };
@@ -98,7 +103,7 @@ export default function TechnicianBottomNav() {
           <button
             onClick={() => {
               setShowProfileMenu(false);
-              navigate('/settings');
+              navigate('/technician/settings');
             }}
             className="w-full px-4 py-3 text-left text-sm font-medium hover:bg-gray-50 flex items-center gap-3 active:bg-gray-100"
             style={{ color: '#1d1d1f', minHeight: '48px' }}
@@ -131,6 +136,11 @@ export default function TechnicianBottomNav() {
           </button>
         </div>
       )}
+
+      {/* Sync Status Indicator */}
+      <div className="flex justify-center pb-1">
+        <SyncIndicator />
+      </div>
 
       <div className="flex justify-around items-end h-[60px] pb-2 max-w-lg mx-auto">
         {navItems.map((item) => {

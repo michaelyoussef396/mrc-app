@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client'
+import { syncManager, resizePhoto } from '@/lib/offline'
 
 export interface PhotoUploadResult {
   storage_path: string
@@ -17,7 +18,35 @@ export interface PhotoMetadata {
 }
 
 /**
- * Upload a photo to Supabase Storage and save metadata to photos table
+ * Queue a photo for offline upload. Resizes and stores in IndexedDB.
+ * Use this when offline or when you want to batch photos for later sync.
+ */
+export async function queuePhotoOffline(
+  file: File,
+  metadata: PhotoMetadata & { inspectionDraftId: string }
+): Promise<string> {
+  const resized = await resizePhoto(file)
+  const id = crypto.randomUUID()
+
+  await syncManager.queuePhoto({
+    id,
+    inspectionDraftId: metadata.inspectionDraftId,
+    blob: resized,
+    originalFileName: file.name,
+    photoType: metadata.photo_type,
+    areaId: metadata.area_id,
+    subfloorId: metadata.subfloor_id,
+    caption: metadata.caption,
+    orderIndex: metadata.order_index || 0,
+  })
+
+  console.log(`[PhotoUpload] Queued offline: ${file.name} → ${resized.size} bytes (resized)`)
+  return id
+}
+
+/**
+ * Upload a photo to Supabase Storage and save metadata to photos table.
+ * If offline, automatically queues for later sync.
  * @param file The image file to upload
  * @param metadata Photo metadata including inspection_id, area_id, etc.
  * @returns Promise with storage_path, photo_id, and signed_url

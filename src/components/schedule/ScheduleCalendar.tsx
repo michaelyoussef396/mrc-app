@@ -17,6 +17,7 @@ interface ScheduleCalendarProps {
   weekStart: Date;
   events: CalendarEvent[];
   isLoading: boolean;
+  onEventClick?: (event: CalendarEvent) => void;
 }
 
 // ============================================================================
@@ -27,24 +28,65 @@ export function ScheduleCalendar({
   weekStart,
   events,
   isLoading,
+  onEventClick,
 }: ScheduleCalendarProps) {
   const navigate = useNavigate();
   const weekDates = getWeekDates(weekStart);
 
   const handleEventClick = (event: CalendarEvent) => {
-    if (event.leadId) {
+    if (onEventClick) {
+      onEventClick(event);
+    } else if (event.leadId) {
       navigate(`/leads/${event.leadId}`);
     }
   };
 
-  // Get event background color based on type
+  // Get event background color based on type and status
   const getEventStyles = (event: CalendarEvent) => {
+    if (event.status === 'cancelled') {
+      return {
+        bg: 'rgba(239, 68, 68, 0.08)',
+        border: '#ef4444',
+        text: '#9ca3af',
+        opacity: 0.5,
+        strikethrough: true,
+      };
+    }
+    if (event.status === 'completed') {
+      return {
+        bg: 'rgba(34, 197, 94, 0.1)',
+        border: '#22c55e',
+        text: '#15803d',
+        opacity: 1,
+        strikethrough: false,
+      };
+    }
+    if (event.status === 'in_progress') {
+      return {
+        bg: 'rgba(234, 179, 8, 0.1)',
+        border: '#eab308',
+        text: '#a16207',
+        opacity: 1,
+        strikethrough: false,
+      };
+    }
     const isInspection = event.eventType === 'inspection';
     return {
       bg: isInspection ? 'rgba(19, 127, 236, 0.1)' : 'rgba(34, 197, 94, 0.1)',
       border: isInspection ? '#137fec' : '#22c55e',
       text: isInspection ? '#137fec' : '#15803d',
+      opacity: 1,
+      strikethrough: false,
     };
+  };
+
+  // Calculate duration label
+  const getDurationLabel = (event: CalendarEvent): string => {
+    const ms = event.endDatetime.getTime() - event.startDatetime.getTime();
+    const hours = Math.max(ms / (1000 * 60 * 60), 0);
+    if (hours <= 0) return '1h';
+    if (hours === Math.floor(hours)) return `${hours}h`;
+    return `${hours.toFixed(1)}h`;
   };
 
   if (isLoading) {
@@ -157,8 +199,8 @@ export function ScheduleCalendar({
                 {dayEvents.map((event) => {
                   const { top, height } = calculateEventPosition(event);
                   const styles = getEventStyles(event);
-                  // Format suburb + postcode
                   const location = [event.suburb, event.postcode].filter(Boolean).join(' ');
+                  const duration = getDurationLabel(event);
 
                   return (
                     <div
@@ -166,13 +208,14 @@ export function ScheduleCalendar({
                       className="absolute left-0.5 right-0.5 rounded-lg shadow-sm p-2 flex flex-col gap-0.5 cursor-pointer hover:brightness-95 transition-all overflow-hidden"
                       style={{
                         top: `${top}%`,
-                        height: `${height}%`, // Height already has minimum in calculateEventPosition
+                        height: `${height}%`,
                         backgroundColor: styles.bg,
                         borderLeft: `3px solid ${styles.border}`,
+                        opacity: styles.opacity,
                       }}
                       onClick={() => handleEventClick(event)}
                     >
-                      {/* Time and Technician Badge */}
+                      {/* Time + Duration and Technician Badge */}
                       <div className="flex justify-between items-start gap-1">
                         <span
                           className="text-[11px] font-bold"
@@ -183,27 +226,43 @@ export function ScheduleCalendar({
                             minute: '2-digit',
                             hour12: true,
                           }).toLowerCase()}
+                          <span className="font-medium opacity-75 ml-0.5">({duration})</span>
                         </span>
-                        <span
-                          className="w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold flex-shrink-0"
-                          style={{
-                            backgroundColor: event.technicianColor,
-                            color: 'white',
-                          }}
-                        >
-                          {event.technicianInitial}
-                        </span>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {/* Status icon */}
+                          {event.status === 'completed' && (
+                            <span className="material-symbols-outlined text-green-600" style={{ fontSize: '14px' }}>check_circle</span>
+                          )}
+                          {event.status === 'in_progress' && (
+                            <span className="material-symbols-outlined text-yellow-600" style={{ fontSize: '14px' }}>pending</span>
+                          )}
+                          {event.status === 'cancelled' && (
+                            <span className="material-symbols-outlined text-red-400" style={{ fontSize: '14px' }}>cancel</span>
+                          )}
+                          <span
+                            className="w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold"
+                            style={{
+                              backgroundColor: event.technicianColor,
+                              color: 'white',
+                            }}
+                          >
+                            {event.technicianInitial}
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Client Name - full name, no truncation */}
+                      {/* Client Name */}
                       <p
                         className="text-[11px] font-bold leading-tight"
-                        style={{ color: styles.text }}
+                        style={{
+                          color: styles.text,
+                          textDecoration: styles.strikethrough ? 'line-through' : undefined,
+                        }}
                       >
                         {event.clientName}
                       </p>
 
-                      {/* Suburb + Postcode - always show if available */}
+                      {/* Suburb + Postcode */}
                       {location && (
                         <p
                           className="text-[10px] font-medium"

@@ -89,6 +89,26 @@ interface AvailabilityResponse {
   used_override_address?: boolean  // Flag indicating manual address was used
 }
 
+interface TriageLeadRequest {
+  action: 'triage_lead'
+  lead_id: string
+}
+
+interface TriageResult {
+  technician_id: string
+  technician_name: string
+  travel_time_minutes: number | null
+  distance_km: number | null
+  source: 'google_api' | 'haversine'
+}
+
+interface TriageLeadResponse {
+  lead_id: string
+  lead_address: string
+  ranked_technicians: TriageResult[]
+  recommended_technician_id: string | null
+}
+
 interface ErrorResponse {
   error: string
   details?: string
@@ -138,6 +158,163 @@ async function calculateTravelTime(
   } catch (error) {
     console.error('Travel time calculation error:', error)
     return null
+  }
+}
+
+// Haversine formula to estimate straight-line distance between two coordinates
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+// Estimate travel time from haversine distance (assumes avg 40km/h in Melbourne metro)
+function estimateTravelMinutes(distanceKm: number): number {
+  return Math.ceil(distanceKm / 40 * 60)
+}
+
+// Melbourne postcode centroid lookup (common suburbs)
+const MELBOURNE_POSTCODE_COORDS: Record<string, [number, number]> = {
+  '3000': [-37.8136, 144.9631], // Melbourne CBD
+  '3004': [-37.8390, 144.9830], // St Kilda Road
+  '3006': [-37.8230, 144.9540], // Southbank
+  '3008': [-37.8117, 144.9393], // Docklands
+  '3011': [-37.7985, 144.8870], // Footscray
+  '3012': [-37.7870, 144.8530], // Brooklyn
+  '3013': [-37.7650, 144.8640], // Yarraville
+  '3020': [-37.7730, 144.8370], // Albion
+  '3021': [-37.7544, 144.7966], // St Albans
+  '3031': [-37.7840, 144.9320], // Flemington
+  '3032': [-37.7730, 144.9210], // Ascot Vale
+  '3040': [-37.7630, 144.9330], // Essendon
+  '3042': [-37.7320, 144.8870], // Airport West
+  '3046': [-37.7150, 144.9230], // Glenroy
+  '3050': [-37.7900, 144.9570], // Royal Park
+  '3051': [-37.8000, 144.9490], // North Melbourne
+  '3052': [-37.8030, 144.9610], // Parkville
+  '3053': [-37.8040, 144.9700], // Carlton
+  '3054': [-37.7930, 144.9730], // Carlton North
+  '3055': [-37.7830, 144.9560], // Brunswick West
+  '3056': [-37.7670, 144.9600], // Brunswick
+  '3057': [-37.7840, 144.9770], // Brunswick East
+  '3058': [-37.7440, 144.9660], // Coburg
+  '3060': [-37.7280, 144.9470], // Fawkner
+  '3065': [-37.8000, 144.9820], // Fitzroy
+  '3066': [-37.7950, 144.9890], // Collingwood
+  '3067': [-37.7920, 144.9980], // Abbotsford
+  '3068': [-37.7850, 144.9820], // Clifton Hill
+  '3070': [-37.7710, 144.9990], // Northcote
+  '3071': [-37.7590, 145.0000], // Thornbury
+  '3072': [-37.7430, 145.0070], // Preston
+  '3073': [-37.7270, 145.0110], // Reservoir
+  '3078': [-37.7700, 145.0210], // Alphington
+  '3079': [-37.7560, 145.0310], // Ivanhoe
+  '3081': [-37.7340, 145.0360], // Heidelberg
+  '3101': [-37.8110, 145.0660], // Kew
+  '3103': [-37.8050, 145.0930], // Balwyn
+  '3104': [-37.7870, 145.1000], // Balwyn North
+  '3121': [-37.8190, 144.9930], // Richmond
+  '3122': [-37.8230, 145.0360], // Hawthorn
+  '3123': [-37.8320, 145.0590], // Hawthorn East
+  '3124': [-37.8450, 145.0830], // Camberwell
+  '3125': [-37.8510, 145.1100], // Burwood
+  '3126': [-37.8280, 145.0930], // Canterbury
+  '3127': [-37.8220, 145.1110], // Mont Albert
+  '3128': [-37.8190, 145.1310], // Box Hill
+  '3130': [-37.8150, 145.1530], // Blackburn
+  '3131': [-37.8250, 145.1720], // Forest Hill
+  '3132': [-37.8220, 145.1900], // Mitcham
+  '3133': [-37.8320, 145.2060], // Vermont
+  '3134': [-37.8060, 145.2040], // Ringwood
+  '3141': [-37.8440, 144.9940], // South Yarra
+  '3142': [-37.8470, 145.0100], // Toorak
+  '3143': [-37.8560, 145.0140], // Armadale
+  '3144': [-37.8630, 145.0340], // Malvern
+  '3145': [-37.8720, 145.0550], // Caulfield
+  '3146': [-37.8780, 145.0830], // Glen Iris
+  '3147': [-37.8790, 145.1050], // Ashburton
+  '3148': [-37.8870, 145.1210], // Ashwood
+  '3150': [-37.8850, 145.1650], // Glen Waverley
+  '3161': [-37.8630, 145.0100], // Caulfield North
+  '3162': [-37.8760, 145.0160], // Caulfield South
+  '3163': [-37.8870, 145.0190], // Carnegie
+  '3165': [-37.9030, 145.0460], // Bentleigh East
+  '3166': [-37.8960, 145.0870], // Oakleigh
+  '3168': [-37.9150, 145.1210], // Clayton
+  '3170': [-37.9080, 145.1560], // Mulgrave
+  '3171': [-37.9300, 145.1210], // Springvale
+  '3172': [-37.9530, 145.1150], // Dingley Village
+  '3175': [-37.9530, 145.1620], // Dandenong
+  '3178': [-37.8720, 145.2260], // Rowville
+  '3180': [-37.8470, 145.2380], // Knox
+  '3182': [-37.8670, 144.9920], // St Kilda
+  '3183': [-37.8730, 144.9960], // Balaclava
+  '3184': [-37.8860, 144.9890], // Elwood
+  '3185': [-37.8830, 145.0020], // Elsternwick
+  '3186': [-37.8950, 144.9860], // Brighton
+  '3188': [-37.9270, 145.0130], // Hampton
+  '3189': [-37.9400, 145.0210], // Moorabbin
+  '3190': [-37.9520, 145.0370], // Highett
+  '3192': [-37.9530, 145.0110], // Cheltenham
+  '3193': [-37.9430, 144.9990], // Black Rock
+  '3194': [-37.9560, 144.9810], // Mentone
+  '3195': [-37.9710, 145.0350], // Mordialloc
+  '3196': [-37.9910, 145.0630], // Chelsea
+  '3199': [-38.0960, 145.1290], // Frankston
+  '3200': [-38.1050, 145.1470], // Frankston North
+  '3204': [-37.8930, 144.9990], // Bentleigh
+  '3207': [-37.8330, 144.9320], // Port Melbourne
+  '3350': [-37.5500, 143.8500], // Ballarat
+  '3550': [-36.7570, 144.2790], // Bendigo
+  '3630': [-36.3570, 145.3990], // Shepparton
+  '3820': [-38.0290, 145.7760], // Warragul
+  '3840': [-38.1850, 146.0410], // Traralgon
+  '3930': [-38.0200, 145.2640], // Langwarrin
+  '3977': [-38.0890, 145.2830], // Cranbourne
+}
+
+// Calculate multi-origin travel times using Google Distance Matrix (multi-origin)
+async function calculateMultiOriginTravelTimes(
+  origins: string[],
+  destination: string,
+  apiKey: string
+): Promise<Array<{ duration_minutes: number; distance_km: number } | null>> {
+  try {
+    const params = new URLSearchParams({
+      origins: origins.join('|'),
+      destinations: destination,
+      departure_time: 'now',
+      traffic_model: 'best_guess',
+      units: 'metric',
+      key: apiKey
+    })
+
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?${params}`
+    const response = await fetch(url)
+    const data = await response.json()
+
+    if (data.status !== 'OK') {
+      console.error('Google Maps API error:', data.status, data.error_message)
+      return origins.map(() => null)
+    }
+
+    return data.rows.map((row: any) => {
+      const element = row.elements?.[0]
+      if (!element || element.status !== 'OK') return null
+      return {
+        duration_minutes: Math.ceil(
+          (element.duration_in_traffic?.value || element.duration.value) / 60
+        ),
+        distance_km: Math.round((element.distance.value / 1000) * 10) / 10
+      }
+    })
+  } catch (error) {
+    console.error('Multi-origin travel time error:', error)
+    return origins.map(() => null)
   }
 }
 
@@ -206,6 +383,215 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json()
+
+    // ========================================================================
+    // ACTION: triage_lead
+    // ========================================================================
+    if (body.action === 'triage_lead') {
+      const { lead_id } = body as TriageLeadRequest
+
+      if (!lead_id) {
+        return new Response(
+          JSON.stringify({
+            error: 'Missing required field',
+            details: 'lead_id is required'
+          } as ErrorResponse),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      if (!supabaseUrl || !serviceRoleKey) {
+        return new Response(
+          JSON.stringify({ error: 'Server configuration error' } as ErrorResponse),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const supabase = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { autoRefreshToken: false, persistSession: false }
+      })
+
+      // 1. Get lead address
+      const { data: lead, error: leadError } = await supabase
+        .from('leads')
+        .select('property_address_street, property_address_suburb, property_address_state, property_address_postcode')
+        .eq('id', lead_id)
+        .single()
+
+      if (leadError || !lead) {
+        return new Response(
+          JSON.stringify({ error: 'Lead not found' } as ErrorResponse),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const leadAddress = [
+        lead.property_address_street,
+        lead.property_address_suburb,
+        lead.property_address_state,
+        lead.property_address_postcode
+      ].filter(Boolean).join(', ')
+
+      const leadPostcode = lead.property_address_postcode || ''
+
+      // 2. Get all technician user IDs via user_roles + roles tables
+      const { data: techRoleData, error: roleError } = await supabase
+        .from('roles')
+        .select('id')
+        .eq('name', 'technician')
+        .single()
+
+      if (roleError || !techRoleData) {
+        return new Response(
+          JSON.stringify({ error: 'Technician role not found' } as ErrorResponse),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const { data: techUserRoles, error: techRolesError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role_id', techRoleData.id)
+
+      if (techRolesError || !techUserRoles?.length) {
+        return new Response(
+          JSON.stringify({ error: 'No technicians found' } as ErrorResponse),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // 3. Get each technician's name and starting_address from auth user_metadata
+      const techsWithAddresses: Array<{
+        id: string
+        name: string
+        address: string | null
+        postcode: string | null
+      }> = []
+
+      for (const role of techUserRoles) {
+        const { data: techUser, error: techErr } = await supabase.auth.admin.getUserById(role.user_id)
+        if (techErr || !techUser?.user) continue
+
+        const meta = techUser.user.user_metadata || {}
+        const startAddr = meta.starting_address
+        techsWithAddresses.push({
+          id: role.user_id,
+          name: `${meta.first_name || ''} ${meta.last_name || ''}`.trim() || 'Unknown',
+          address: startAddr?.fullAddress || null,
+          postcode: startAddr?.postcode || null,
+        })
+      }
+
+      if (techsWithAddresses.length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'No technicians found' } as ErrorResponse),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Technicians that have addresses for Google API
+      const techsForApi = techsWithAddresses.filter(t => t.address)
+      const origins = techsForApi.map(t => t.address!)
+
+      // 4. Try Google Distance Matrix API with multi-origin
+      let apiResults: Array<{ duration_minutes: number; distance_km: number } | null> = []
+
+      if (origins.length > 0 && apiKey) {
+        apiResults = await calculateMultiOriginTravelTimes(origins, leadAddress, apiKey)
+      }
+
+      // 5. Build ranked results combining API and haversine fallback
+      const rankedTechnicians: TriageResult[] = []
+
+      // Process technicians with API results
+      for (let i = 0; i < techsForApi.length; i++) {
+        const tech = techsForApi[i]
+        const apiResult = apiResults[i]
+
+        if (apiResult) {
+          rankedTechnicians.push({
+            technician_id: tech.id,
+            technician_name: tech.name,
+            travel_time_minutes: apiResult.duration_minutes,
+            distance_km: apiResult.distance_km,
+            source: 'google_api'
+          })
+        } else {
+          // API failed for this tech, try haversine with postcode
+          const techPostcode = tech.postcode
+          if (techPostcode && MELBOURNE_POSTCODE_COORDS[techPostcode] && leadPostcode && MELBOURNE_POSTCODE_COORDS[leadPostcode]) {
+            const [lat1, lon1] = MELBOURNE_POSTCODE_COORDS[techPostcode]
+            const [lat2, lon2] = MELBOURNE_POSTCODE_COORDS[leadPostcode]
+            const dist = haversineKm(lat1, lon1, lat2, lon2)
+            rankedTechnicians.push({
+              technician_id: tech.id,
+              technician_name: tech.name,
+              travel_time_minutes: estimateTravelMinutes(dist),
+              distance_km: Math.round(dist * 10) / 10,
+              source: 'haversine'
+            })
+          } else {
+            rankedTechnicians.push({
+              technician_id: tech.id,
+              technician_name: tech.name,
+              travel_time_minutes: null,
+              distance_km: null,
+              source: 'haversine'
+            })
+          }
+        }
+      }
+
+      // Process technicians without addresses (haversine only)
+      const techsWithoutAddress = techsWithAddresses.filter(t => !t.address)
+      for (const tech of techsWithoutAddress) {
+        const techPostcode = tech.postcode
+        if (techPostcode && MELBOURNE_POSTCODE_COORDS[techPostcode] && leadPostcode && MELBOURNE_POSTCODE_COORDS[leadPostcode]) {
+          const [lat1, lon1] = MELBOURNE_POSTCODE_COORDS[techPostcode]
+          const [lat2, lon2] = MELBOURNE_POSTCODE_COORDS[leadPostcode]
+          const dist = haversineKm(lat1, lon1, lat2, lon2)
+          rankedTechnicians.push({
+            technician_id: tech.id,
+            technician_name: tech.name,
+            travel_time_minutes: estimateTravelMinutes(dist),
+            distance_km: Math.round(dist * 10) / 10,
+            source: 'haversine'
+          })
+        } else {
+          rankedTechnicians.push({
+            technician_id: tech.id,
+            technician_name: tech.name,
+            travel_time_minutes: null,
+            distance_km: null,
+            source: 'haversine'
+          })
+        }
+      }
+
+      // 6. Sort by travel time (nulls last)
+      rankedTechnicians.sort((a, b) => {
+        if (a.travel_time_minutes === null && b.travel_time_minutes === null) return 0
+        if (a.travel_time_minutes === null) return 1
+        if (b.travel_time_minutes === null) return -1
+        return a.travel_time_minutes - b.travel_time_minutes
+      })
+
+      const recommendedId = rankedTechnicians.length > 0 && rankedTechnicians[0].travel_time_minutes !== null
+        ? rankedTechnicians[0].technician_id
+        : null
+
+      const triageResponse: TriageLeadResponse = {
+        lead_id,
+        lead_address: leadAddress,
+        ranked_technicians: rankedTechnicians,
+        recommended_technician_id: recommendedId
+      }
+
+      return new Response(
+        JSON.stringify(triageResponse),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     // ========================================================================
     // ACTION: check_availability

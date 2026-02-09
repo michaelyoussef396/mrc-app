@@ -3,7 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { generateInspectionPDF } from '@/lib/api/pdfGeneration';
-import { ChevronDown, Search, X, LayoutGrid, List } from 'lucide-react';
+import { ChevronDown, Search, X, LayoutGrid, List, Loader2, Clock, Copy, ExternalLink } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 // Components
 import AdminSidebar from '@/components/admin/AdminSidebar';
@@ -54,6 +70,20 @@ const LeadsManagement = () => {
   const [removeReason, setRemoveReason] = useState('');
   const [selectedLeadForRemoval, setSelectedLeadForRemoval] = useState<TransformedLead | null>(null);
   const [regeneratingPdfForLead, setRegeneratingPdfForLead] = useState<string | null>(null);
+
+  // Archive dialog
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [archiveTargetId, setArchiveTargetId] = useState<string | number | null>(null);
+
+  // History dialog
+  const [historyLeadId, setHistoryLeadId] = useState<string | number | null>(null);
+  const [historyActivities, setHistoryActivities] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Email composer dialog
+  const [emailTargetLead, setEmailTargetLead] = useState<TransformedLead | null>(null);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
 
   // ============================================================================
   // STAGE-SPECIFIC ACTION FUNCTIONS
@@ -161,9 +191,37 @@ const LeadsManagement = () => {
   };
 
   const updateLeadStatus = async (leadId: number | string, newStatus: string) => {
+    // Optimistic local update
+    const previousLeads = leads;
     setLeads(prev =>
       prev.map(lead => (lead.id === leadId ? { ...lead, status: newStatus } : lead))
     );
+
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ status: newStatus })
+        .eq('id', leadId);
+
+      if (error) throw error;
+
+      // Log activity
+      await supabase.from('activities').insert({
+        lead_id: leadId,
+        activity_type: 'status_change',
+        title: `Status changed to ${newStatus.replace(/_/g, ' ')}`,
+        description: `Lead status updated to ${newStatus}`,
+      });
+    } catch (error) {
+      console.error('Failed to update lead status:', error);
+      // Revert on failure
+      setLeads(previousLeads);
+      toast({
+        title: 'Error',
+        description: 'Failed to update lead status. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   // ============================================================================
@@ -181,6 +239,7 @@ const LeadsManagement = () => {
       const { data, error } = await supabase
         .from('leads')
         .select('*')
+        .is('archived_at', null)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -302,22 +361,94 @@ const LeadsManagement = () => {
   };
 
   const handleSendEmail = (id: string | number) => {
-    // TODO: Implement email composer with MRC template
-    // This will be implemented in Phase 2
+    const lead = leads.find(l => l.id === id);
+    if (!lead) return;
+    setEmailSubject(`Your Inspection Report - ${lead.property || lead.suburb}`);
+    setEmailBody(
+      `Dear ${lead.name},\n\nThank you for choosing Mould & Restoration Co. for your inspection.\n\nPlease find your comprehensive inspection report for ${lead.property}.\n\nIf you have any questions, please don't hesitate to contact us on 0433 880 403.\n\nKind regards,\nMould & Restoration Co.`
+    );
+    setEmailTargetLead(lead);
   };
 
   const handleArchive = (id: string | number) => {
-    // TODO: Implement archive lead functionality
-    // This will move the lead to an archived state
+    setArchiveTargetId(id);
+    setShowArchiveDialog(true);
+  };
+
+  const confirmArchive = async () => {
+    if (!archiveTargetId) return;
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('id', archiveTargetId);
+
+      if (error) throw error;
+
+      await supabase.from('activities').insert({
+        lead_id: archiveTargetId,
+        activity_type: 'archived',
+        title: 'Lead archived',
+      });
+
+      setLeads(prev => prev.filter(l => l.id !== archiveTargetId));
+      toast({ title: 'Lead archived', description: 'The lead has been hidden from the pipeline.' });
+    } catch (error) {
+      console.error('Failed to archive lead:', error);
+      toast({ title: 'Error', description: 'Failed to archive lead.', variant: 'destructive' });
+    } finally {
+      setShowArchiveDialog(false);
+      setArchiveTargetId(null);
+    }
   };
 
   const handleReactivate = (id: string | number) => {
     stageActions.reactivate(id);
   };
 
-  const handleViewHistory = (id: string | number) => {
-    // TODO: Implement history view
-    // This will show the activity timeline for the lead
+  const handleViewHistory = async (id: string | number) => {
+    setHistoryLeadId(id);
+    setHistoryLoading(true);
+    setHistoryActivities([]);
+
+    try {
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*')
+        .eq('lead_id', id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setHistoryActivities(data || []);
+    } catch (error) {
+      console.error('Failed to load history:', error);
+      toast({ title: 'Error', description: 'Failed to load activity history.', variant: 'destructive' });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleEmailAction = async (type: 'mailto' | 'copy') => {
+    if (!emailTargetLead) return;
+
+    if (type === 'mailto') {
+      const mailto = `mailto:${emailTargetLead.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+      window.open(mailto, '_blank');
+      toast({ title: 'Email opened', description: 'Email opened in your email app.' });
+    } else {
+      await navigator.clipboard.writeText(emailBody);
+      toast({ title: 'Copied', description: 'Email body copied to clipboard.' });
+    }
+
+    // Log activity
+    await supabase.from('activities').insert({
+      lead_id: emailTargetLead.id,
+      activity_type: 'email_sent',
+      title: 'Email sent to client',
+      description: `Subject: ${emailSubject}`,
+    });
+
+    setEmailTargetLead(null);
   };
 
   // ============================================================================
@@ -669,6 +800,133 @@ const LeadsManagement = () => {
           </div>
         </div>
       )}
+
+      {/* Archive Confirmation Dialog */}
+      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this lead?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This lead will be hidden from the pipeline. You can still find it in the database if needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmArchive}>Archive</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* View History Dialog */}
+      <Dialog open={historyLeadId !== null} onOpenChange={(open) => { if (!open) setHistoryLeadId(null); }}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="w-5 h-5" />
+              Activity History
+            </DialogTitle>
+          </DialogHeader>
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+            </div>
+          ) : historyActivities.length === 0 ? (
+            <div className="text-center py-12">
+              <span className="material-symbols-outlined text-4xl text-slate-300 mb-2 block">history</span>
+              <p className="text-sm text-slate-500">No activity recorded for this lead</p>
+            </div>
+          ) : (
+            <div className="relative pl-6">
+              {/* Timeline line */}
+              <div className="absolute left-[9px] top-2 bottom-2 w-0.5 bg-slate-200" />
+              <div className="space-y-4">
+                {historyActivities.map((activity) => (
+                  <div key={activity.id} className="relative">
+                    {/* Dot */}
+                    <div className="absolute -left-6 top-1.5 w-[18px] h-[18px] rounded-full border-2 border-white bg-blue-500 shadow-sm" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">{activity.title}</p>
+                      {activity.description && (
+                        <p className="text-xs text-slate-500 mt-0.5">{activity.description}</p>
+                      )}
+                      <p className="text-xs text-slate-400 mt-1">
+                        {new Date(activity.created_at).toLocaleDateString('en-AU', {
+                          day: 'numeric', month: 'short', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit',
+                          timeZone: 'Australia/Melbourne',
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Composer Dialog */}
+      <Dialog open={emailTargetLead !== null} onOpenChange={(open) => { if (!open) setEmailTargetLead(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Send Email to Client</DialogTitle>
+          </DialogHeader>
+          {emailTargetLead && (
+            <div className="space-y-4">
+              {/* To */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">To</label>
+                <div className="h-10 px-3 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-600 flex items-center">
+                  {emailTargetLead.email || 'No email on file'}
+                </div>
+              </div>
+              {/* Subject */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Subject</label>
+                <input
+                  type="text"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+              {/* Body */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Message</label>
+                <textarea
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  rows={8}
+                  className="w-full p-3 rounded-lg border border-slate-200 text-sm resize-none
+                    focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleEmailAction('mailto')}
+                  disabled={!emailTargetLead.email}
+                  className="flex-1 h-11 px-4 rounded-lg bg-blue-600 text-white text-sm font-medium
+                    hover:bg-blue-700 transition-colors flex items-center justify-center gap-2
+                    disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Send via Email App
+                </button>
+                <button
+                  onClick={() => handleEmailAction('copy')}
+                  className="h-11 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
+                    hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copy
+                </button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

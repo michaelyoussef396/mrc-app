@@ -76,6 +76,36 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          metadata: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       booking_tokens: {
         Row: {
           created_at: string | null
@@ -1124,6 +1154,7 @@ export type Database = {
           assigned_to: string | null
           booked_at: string | null
           created_at: string | null
+          created_by: string | null
           email: string
           full_name: string
           id: string
@@ -1136,6 +1167,7 @@ export type Database = {
           job_scheduled_date: string | null
           lead_number: string | null
           lead_source: string | null
+          lead_source_other: string | null
           notes: string | null
           payment_received_date: string | null
           phone: string
@@ -1143,6 +1175,8 @@ export type Database = {
           property_address_state: string | null
           property_address_street: string
           property_address_suburb: string
+          property_lat: number | null
+          property_lng: number | null
           property_type: string | null
           property_zone: number | null
           quoted_amount: number | null
@@ -1159,6 +1193,7 @@ export type Database = {
           assigned_to?: string | null
           booked_at?: string | null
           created_at?: string | null
+          created_by?: string | null
           email: string
           full_name: string
           id?: string
@@ -1171,6 +1206,7 @@ export type Database = {
           job_scheduled_date?: string | null
           lead_number?: string | null
           lead_source?: string | null
+          lead_source_other?: string | null
           notes?: string | null
           payment_received_date?: string | null
           phone: string
@@ -1178,6 +1214,8 @@ export type Database = {
           property_address_state?: string | null
           property_address_street: string
           property_address_suburb: string
+          property_lat?: number | null
+          property_lng?: number | null
           property_type?: string | null
           property_zone?: number | null
           quoted_amount?: number | null
@@ -1194,6 +1232,7 @@ export type Database = {
           assigned_to?: string | null
           booked_at?: string | null
           created_at?: string | null
+          created_by?: string | null
           email?: string
           full_name?: string
           id?: string
@@ -1206,6 +1245,7 @@ export type Database = {
           job_scheduled_date?: string | null
           lead_number?: string | null
           lead_source?: string | null
+          lead_source_other?: string | null
           notes?: string | null
           payment_received_date?: string | null
           phone?: string
@@ -1213,6 +1253,8 @@ export type Database = {
           property_address_state?: string | null
           property_address_street?: string
           property_address_suburb?: string
+          property_lat?: number | null
+          property_lng?: number | null
           property_type?: string | null
           property_zone?: number | null
           quoted_amount?: number | null
@@ -1223,6 +1265,69 @@ export type Database = {
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string | null
           urgency?: string | null
+        }
+        Relationships: []
+      }
+      login_activity: {
+        Row: {
+          browser: string | null
+          browser_version: string | null
+          city: string | null
+          country: string | null
+          created_at: string | null
+          device_fingerprint: string | null
+          device_type: string | null
+          email: string
+          error_message: string | null
+          id: string
+          ip_address: string | null
+          os: string | null
+          os_version: string | null
+          region: string | null
+          success: boolean
+          timezone: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          browser?: string | null
+          browser_version?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          device_fingerprint?: string | null
+          device_type?: string | null
+          email: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          os?: string | null
+          os_version?: string | null
+          region?: string | null
+          success?: boolean
+          timezone?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          browser?: string | null
+          browser_version?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          device_fingerprint?: string | null
+          device_type?: string | null
+          email?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          os?: string | null
+          os_version?: string | null
+          region?: string | null
+          success?: boolean
+          timezone?: string | null
+          user_agent?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -1598,6 +1703,66 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          onboarding_completed: boolean | null
+          onboarding_completed_at: string | null
+          onboarding_skipped: boolean | null
+          onboarding_step: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          onboarding_completed?: boolean | null
+          onboarding_completed_at?: string | null
+          onboarding_skipped?: boolean | null
+          onboarding_step?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          onboarding_completed?: boolean | null
+          onboarding_completed_at?: string | null
+          onboarding_skipped?: boolean | null
+          onboarding_step?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      roles: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          display_name: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          display_name: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       sms_logs: {
         Row: {
           cost_cents: number | null
@@ -1761,38 +1926,188 @@ export type Database = {
           },
         ]
       }
-      suburb_zones: {
+      suspicious_activity: {
         Row: {
+          activity_type: string
+          created_at: string | null
+          description: string | null
+          details: Json | null
+          id: string
+          login_activity_id: string | null
+          reviewed: boolean | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          severity: string
+          user_id: string | null
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string | null
+          description?: string | null
+          details?: Json | null
+          id?: string
+          login_activity_id?: string | null
+          reviewed?: boolean | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          severity: string
+          user_id?: string | null
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string | null
+          description?: string | null
+          details?: Json | null
+          id?: string
+          login_activity_id?: string | null
+          reviewed?: boolean | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          severity?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suspicious_activity_login_activity_id_fkey"
+            columns: ["login_activity_id"]
+            isOneToOne: false
+            referencedRelation: "login_activity"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_devices: {
+        Row: {
+          browser: string | null
+          created_at: string | null
+          device_fingerprint: string
+          device_name: string | null
+          device_type: string | null
+          first_ip: string | null
+          first_location: string | null
+          id: string
+          is_current: boolean | null
+          is_trusted: boolean | null
+          last_used_at: string | null
+          os: string | null
+          user_id: string
+        }
+        Insert: {
+          browser?: string | null
+          created_at?: string | null
+          device_fingerprint: string
+          device_name?: string | null
+          device_type?: string | null
+          first_ip?: string | null
+          first_location?: string | null
+          id?: string
+          is_current?: boolean | null
+          is_trusted?: boolean | null
+          last_used_at?: string | null
+          os?: string | null
+          user_id: string
+        }
+        Update: {
+          browser?: string | null
+          created_at?: string | null
+          device_fingerprint?: string
+          device_name?: string | null
+          device_type?: string | null
+          first_ip?: string | null
+          first_location?: string | null
+          id?: string
+          is_current?: boolean | null
+          is_trusted?: boolean | null
+          last_used_at?: string | null
+          os?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          assigned_by: string | null
           created_at: string | null
           id: string
-          notes: string | null
-          postcode: string
-          region: string | null
-          suburb: string
-          updated_at: string | null
-          zone: number
+          role_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          created_at?: string | null
+          id?: string
+          role_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_by?: string | null
+          created_at?: string | null
+          id?: string
+          role_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_sessions: {
+        Row: {
+          created_at: string | null
+          device_id: string | null
+          end_reason: string | null
+          ended_at: string | null
+          id: string
+          ip_address: string | null
+          is_active: boolean | null
+          last_activity_at: string | null
+          location: string | null
+          session_token: string
+          started_at: string | null
+          user_id: string
         }
         Insert: {
           created_at?: string | null
+          device_id?: string | null
+          end_reason?: string | null
+          ended_at?: string | null
           id?: string
-          notes?: string | null
-          postcode: string
-          region?: string | null
-          suburb: string
-          updated_at?: string | null
-          zone: number
+          ip_address?: string | null
+          is_active?: boolean | null
+          last_activity_at?: string | null
+          location?: string | null
+          session_token: string
+          started_at?: string | null
+          user_id: string
         }
         Update: {
           created_at?: string | null
+          device_id?: string | null
+          end_reason?: string | null
+          ended_at?: string | null
           id?: string
-          notes?: string | null
-          postcode?: string
-          region?: string | null
-          suburb?: string
-          updated_at?: string | null
-          zone?: number
+          ip_address?: string | null
+          is_active?: boolean | null
+          last_activity_at?: string | null
+          location?: string | null
+          session_token?: string
+          started_at?: string | null
+          user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_sessions_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "user_devices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -1864,7 +2179,12 @@ export type Database = {
           zone: number
         }[]
       }
+      get_user_roles_by_id: { Args: { p_user_id: string }; Returns: string[] }
       get_zone_by_suburb: { Args: { suburb_name: string }; Returns: number }
+      has_role: {
+        Args: { _role_name: string; _user_id: string }
+        Returns: boolean
+      }
       has_travel_time_conflict:
         | {
             Args: {
@@ -1882,6 +2202,9 @@ export type Database = {
             }
             Returns: boolean
           }
+      is_admin:
+        | { Args: never; Returns: boolean }
+        | { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       booking_status:
@@ -1917,6 +2240,8 @@ export type Database = {
         | "paid"
         | "google_review"
         | "finished"
+        | "closed"
+        | "not_landed"
       moisture_status: "dry" | "elevated" | "wet" | "very_wet"
       payment_method: "bank_transfer" | "credit_card" | "cash" | "cheque"
       property_occupation:
@@ -2090,6 +2415,8 @@ export const Constants = {
         "paid",
         "google_review",
         "finished",
+        "closed",
+        "not_landed",
       ],
       moisture_status: ["dry", "elevated", "wet", "very_wet"],
       payment_method: ["bank_transfer", "credit_card", "cash", "cheque"],

@@ -3,8 +3,6 @@
  * Status-specific card for the lead pipeline with action buttons
  */
 
-import { toast } from 'sonner';
-
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -120,21 +118,15 @@ export default function LeadCard({
   const badgeStyle = statusBadgeStyles[lead.status] || 'bg-slate-100 text-slate-600 border-slate-200';
   const statusLabel = statusLabels[lead.status] || lead.status;
 
-  // TODO: Implement archive lead functionality
   const handleArchive = () => {
-    toast.info('Archive feature coming soon');
     onArchive(lead.id);
   };
 
-  // TODO: Implement email composer with MRC template
   const handleSendEmail = () => {
-    toast.info('Email feature coming soon');
     onSendEmail(lead.id);
   };
 
-  // TODO: Implement history view
   const handleViewHistory = () => {
-    toast.info('History feature coming soon');
     onViewHistory(lead.id);
   };
 

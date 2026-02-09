@@ -14,8 +14,8 @@ import {
 } from '@/lib/calculations/pricing';
 import {
   uploadInspectionPhoto,
-  uploadMultiplePhotos,
   deleteInspectionPhoto,
+  loadInspectionPhotos,
 } from '@/lib/utils/photoUpload';
 import type {
   InspectionFormData,
@@ -1894,6 +1894,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
 
 // Section 10: AI Job Summary
 function Section10AISummary({ formData, onChange }: SectionProps) {
+  const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(
     !!(formData.jobSummaryFinal || formData.whatWeFoundText || formData.whatWeWillDoText)
@@ -1908,45 +1909,108 @@ function Section10AISummary({ formData, onChange }: SectionProps) {
   const handleGenerateAll = async () => {
     setIsGenerating(true);
 
-    // TODO: Implement actual AI generation using OpenAI
-    // For now, simulate with mock data
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      // Build payload matching the Edge Function's InspectionFormData interface
+      const payload = {
+        propertyAddress: formData.address,
+        inspectionDate: formData.inspectionDate,
+        inspector: formData.inspector,
+        triage: formData.triage,
+        requestedBy: formData.requestedBy,
+        attentionTo: formData.attentionTo,
+        propertyOccupation: formData.propertyOccupation,
+        dwellingType: formData.dwellingType,
+        areas: formData.areas.map((a) => ({
+          areaName: a.areaName,
+          mouldVisibility: [] as string[],
+          commentsForReport: a.commentsForReport,
+          temperature: a.temperature,
+          humidity: a.humidity,
+          dewPoint: a.dewPoint,
+          timeWithoutDemo: a.timeWithoutDemo,
+          demolitionRequired: a.demolitionRequired,
+          demolitionTime: a.demolitionTime,
+          demolitionDescription: a.demolitionDescription,
+          moistureReadings: a.moistureReadings.map((r) => ({ title: r.title, reading: r.reading })),
+          infraredEnabled: a.infraredEnabled,
+          infraredObservations: a.infraredObservations,
+        })),
+        subfloorEnabled: formData.subfloorEnabled,
+        subfloorObservations: formData.subfloorObservations,
+        subfloorComments: formData.subfloorComments,
+        subfloorLandscape: formData.subfloorLandscape,
+        subfloorSanitation: formData.subfloorSanitation,
+        subfloorRacking: formData.subfloorRacking,
+        subfloorTreatmentTime: formData.subfloorTreatmentTime,
+        outdoorTemperature: formData.outdoorTemperature,
+        outdoorHumidity: formData.outdoorHumidity,
+        outdoorDewPoint: formData.outdoorDewPoint,
+        outdoorComments: formData.outdoorComments,
+        wasteDisposalEnabled: formData.wasteDisposalEnabled,
+        wasteDisposalAmount: formData.wasteDisposalAmount,
+        hepaVac: formData.hepaVac,
+        antimicrobial: formData.antimicrobial,
+        stainRemovingAntimicrobial: formData.stainRemovingAntimicrobial,
+        homeSanitationFogging: formData.homeSanitationFogging,
+        commercialDehumidifierEnabled: formData.commercialDehumidifierEnabled,
+        commercialDehumidifierQty: formData.commercialDehumidifierQty,
+        airMoversEnabled: formData.airMoversEnabled,
+        airMoversQty: formData.airMoversQty,
+        rcdBoxEnabled: formData.rcdBoxEnabled,
+        rcdBoxQty: formData.rcdBoxQty,
+        recommendDehumidifier: formData.recommendDehumidifier,
+        dehumidifierSize: formData.dehumidifierSize,
+        causeOfMould: formData.causeOfMould,
+        additionalInfoForTech: formData.additionalInfoForTech,
+        additionalEquipmentComments: formData.additionalEquipmentComments,
+        parkingOptions: formData.parkingOptions,
+        laborCost: formData.laborCost,
+        equipmentCost: formData.equipmentCost,
+        subtotalExGst: formData.subtotalExGst,
+        gstAmount: formData.gstAmount,
+        totalIncGst: formData.totalIncGst,
+      };
 
-    // Mock generated content based on form data
-    const areaNames = formData.areas.map((a) => a.areaName || 'unnamed area').join(', ');
-    const hasSubfloor = formData.subfloorEnabled;
-    const hasDemolition = formData.areas.some((a) => a.demolitionRequired);
+      const { data, error } = await supabase.functions.invoke('generate-inspection-summary', {
+        body: { formData: payload, structured: true },
+      });
 
-    onChange('jobSummaryFinal',
-      `Comprehensive mould inspection conducted at ${formData.address || 'the property'}. ` +
-      `Areas inspected: ${areaNames || 'multiple rooms'}. ` +
-      `${hasDemolition ? 'Demolition work will be required in affected areas. ' : ''}` +
-      `${hasSubfloor ? 'Subfloor inspection revealed issues requiring treatment. ' : ''}` +
-      `Full remediation plan has been prepared with estimated timeline and costs.`
-    );
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'AI generation failed');
 
-    onChange('whatWeFoundText',
-      `During our inspection, we identified mould growth in the following areas: ${areaNames || 'various rooms'}.\n\n` +
-      `${formData.areas[0]?.mouldDescription ? `Primary observations: ${formData.areas[0].mouldDescription}\n\n` : ''}` +
-      `Environmental readings indicate ${formData.areas[0]?.humidity ? `humidity levels of ${formData.areas[0].humidity}%` : 'elevated moisture levels'} ` +
-      `which is conducive to mould growth.\n\n` +
-      `${formData.causeOfMould ? `Identified cause: ${formData.causeOfMould}` : 'Further investigation may be needed to identify the root cause.'}`
-    );
+      // Map structured response to form fields
+      onChange('whatWeFoundText', data.what_we_found || '');
+      onChange('whatWeWillDoText', data.what_we_will_do || '');
+      onChange('whatYouGetText', data.what_you_get || '');
 
-    onChange('whatWeWillDoText',
-      `Our treatment plan includes:\n\n` +
-      `${formData.hepaVac ? '• HEPA vacuuming of all affected surfaces\n' : ''}` +
-      `${formData.antimicrobial ? '• Application of antimicrobial treatment\n' : ''}` +
-      `${formData.stainRemovingAntimicrobial ? '• Stain-removing antimicrobial application\n' : ''}` +
-      `${formData.homeSanitationFogging ? '• Whole-home sanitation fogging\n' : ''}` +
-      `${hasDemolition ? '• Removal of affected materials as required\n' : ''}` +
-      `${hasSubfloor ? '• Subfloor treatment and sanitation\n' : ''}` +
-      `${formData.dryingEquipmentEnabled ? `• Drying equipment deployment (${formData.commercialDehumidifierQty || 0} dehumidifiers, ${formData.airMoversQty || 0} air movers)\n` : ''}` +
-      `\nEstimated duration: ${formData.noDemolitionHours + formData.demolitionHours + formData.subfloorHours || 0} hours over ${Math.ceil((formData.noDemolitionHours + formData.demolitionHours + formData.subfloorHours) / 8) || 1} day(s).`
-    );
+      // Concatenate job summary sections into jobSummaryFinal
+      const summaryParts = [
+        data.what_we_discovered,
+        data.identified_causes,
+        data.contributing_factors,
+        data.why_this_happened,
+        data.immediate_actions,
+        data.long_term_protection,
+        data.what_success_looks_like,
+        data.timeline_text,
+      ].filter(Boolean);
+      onChange('jobSummaryFinal', summaryParts.join('\n\n'));
 
-    setHasGenerated(true);
-    setIsGenerating(false);
+      setHasGenerated(true);
+    } catch (err: any) {
+      console.error('[AI Generate] Error:', err);
+      // Fallback: show error toast but keep the form usable
+      const errorMsg = err?.message || 'Failed to generate AI summary';
+      // If it's a network/auth error, show specific message
+      if (errorMsg.includes('not configured')) {
+        onChange('jobSummaryFinal', '');
+        onChange('whatWeFoundText', '');
+        onChange('whatWeWillDoText', '');
+      }
+      toast({ title: 'Generation Failed', description: errorMsg, variant: 'destructive' });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleRegenerateSection = async (section: 'jobSummary' | 'whatWeFound' | 'whatWeWillDo') => {
@@ -1955,26 +2019,73 @@ function Section10AISummary({ formData, onChange }: SectionProps) {
       whatWeFound: whatWeFoundFeedback,
       whatWeWillDo: whatWeWillDoFeedback,
     };
+    const contentMap = {
+      jobSummary: formData.jobSummaryFinal,
+      whatWeFound: formData.whatWeFoundText,
+      whatWeWillDo: formData.whatWeWillDoText,
+    };
 
     const feedback = feedbackMap[section];
+    const currentContent = contentMap[section];
     setRegeneratingSection(section);
 
-    // TODO: Implement actual AI regeneration with feedback
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      // Map section names to Edge Function section params
+      const edgeFnSection = section === 'jobSummary' ? undefined : section;
 
-    // Mock: append feedback acknowledgment to existing text
-    if (section === 'jobSummary') {
-      onChange('jobSummaryFinal', formData.jobSummaryFinal + `\n\n[Regenerated with feedback: "${feedback}"]`);
-      setJobSummaryFeedback('');
-    } else if (section === 'whatWeFound') {
-      onChange('whatWeFoundText', formData.whatWeFoundText + `\n\n[Regenerated with feedback: "${feedback}"]`);
-      setWhatWeFoundFeedback('');
-    } else if (section === 'whatWeWillDo') {
-      onChange('whatWeWillDoText', formData.whatWeWillDoText + `\n\n[Regenerated with feedback: "${feedback}"]`);
-      setWhatWeWillDoFeedback('');
+      const payload = {
+        propertyAddress: formData.address,
+        areas: formData.areas.map((a) => ({
+          areaName: a.areaName,
+          mouldVisibility: [] as string[],
+          commentsForReport: a.commentsForReport,
+          temperature: a.temperature,
+          humidity: a.humidity,
+          moistureReadings: a.moistureReadings.map((r) => ({ title: r.title, reading: r.reading })),
+          timeWithoutDemo: a.timeWithoutDemo,
+          demolitionRequired: a.demolitionRequired,
+          demolitionTime: a.demolitionTime,
+        })),
+        causeOfMould: formData.causeOfMould,
+        hepaVac: formData.hepaVac,
+        antimicrobial: formData.antimicrobial,
+        stainRemovingAntimicrobial: formData.stainRemovingAntimicrobial,
+        homeSanitationFogging: formData.homeSanitationFogging,
+        subfloorEnabled: formData.subfloorEnabled,
+      };
+
+      const { data, error } = await supabase.functions.invoke('generate-inspection-summary', {
+        body: {
+          formData: payload,
+          section: edgeFnSection,
+          customPrompt: feedback,
+          currentContent,
+          ...(section === 'jobSummary' ? { feedback } : {}),
+        },
+      });
+
+      if (error) throw error;
+
+      if (section === 'jobSummary') {
+        onChange('jobSummaryFinal', data?.summary || data?.what_we_discovered || formData.jobSummaryFinal);
+        setJobSummaryFeedback('');
+      } else if (section === 'whatWeFound') {
+        onChange('whatWeFoundText', data?.summary || formData.whatWeFoundText);
+        setWhatWeFoundFeedback('');
+      } else if (section === 'whatWeWillDo') {
+        onChange('whatWeWillDoText', data?.summary || formData.whatWeWillDoText);
+        setWhatWeWillDoFeedback('');
+      }
+    } catch (err: any) {
+      console.error('[AI Regenerate] Error:', err);
+      toast({
+        title: 'Regeneration Failed',
+        description: err?.message || 'Failed to regenerate section',
+        variant: 'destructive',
+      });
+    } finally {
+      setRegeneratingSection(null);
     }
-
-    setRegeneratingSection(null);
   };
 
   // Initial state - show generate button
@@ -2278,7 +2389,7 @@ export default function TechnicianInspectionForm() {
     whatYouGetText: '',
   });
 
-  // Fetch lead and booking data
+  // Fetch lead, booking, and existing inspection data
   useEffect(() => {
     async function fetchData() {
       if (!leadId) {
@@ -2316,14 +2427,6 @@ export default function TechnicianInspectionForm() {
         if (leadError) throw leadError;
         setLead(leadData);
 
-        // Pre-fill form data from lead
-        setFormData((prev) => ({
-          ...prev,
-          triage: leadData.issue_description || '',
-          address: getFullAddress(leadData),
-          requestedBy: leadData.full_name || '',
-        }));
-
         // Fetch booking data
         const { data: bookingData } = await supabase
           .from('calendar_bookings')
@@ -2336,11 +2439,216 @@ export default function TechnicianInspectionForm() {
         if (bookingData) {
           setBooking(bookingData);
         }
+
+        // Check for existing inspection for this lead
+        const { data: existingInspection } = await supabase
+          .from('inspections')
+          .select('*')
+          .eq('lead_id', leadId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingInspection) {
+          // Load existing inspection data
+          setCurrentInspectionId(existingInspection.id);
+
+          // Load inspection areas with their moisture readings
+          const { data: areasData } = await supabase
+            .from('inspection_areas')
+            .select('*')
+            .eq('inspection_id', existingInspection.id)
+            .order('area_order', { ascending: true });
+
+          // Load moisture readings for all areas
+          const areaIds = (areasData || []).map((a: any) => a.id);
+          let moistureReadingsData: any[] = [];
+          if (areaIds.length > 0) {
+            const { data: mrData } = await supabase
+              .from('moisture_readings')
+              .select('*')
+              .in('area_id', areaIds)
+              .order('reading_order', { ascending: true });
+            moistureReadingsData = mrData || [];
+          }
+
+          // Load subfloor data
+          const { data: subfloorData } = await supabase
+            .from('subfloor_data')
+            .select('*')
+            .eq('inspection_id', existingInspection.id)
+            .maybeSingle();
+
+          // Load subfloor readings
+          let subfloorReadingsData: any[] = [];
+          if (subfloorData) {
+            const { data: srData } = await supabase
+              .from('subfloor_readings')
+              .select('*')
+              .eq('subfloor_id', subfloorData.id)
+              .order('reading_order', { ascending: true });
+            subfloorReadingsData = srData || [];
+          }
+
+          // Load photos
+          let photosData: any[] = [];
+          try {
+            photosData = await loadInspectionPhotos(existingInspection.id);
+          } catch (err) {
+            console.warn('[InspectionForm] Failed to load photos:', err);
+          }
+
+          // Map DB inspection data -> formData
+          const ins = existingInspection;
+
+          // Reconstruct infrared observations from boolean columns
+          const reconstructInfraredObservations = (area: any): string[] => {
+            const obs: string[] = [];
+            if (area.infrared_observation_no_active) obs.push('No Active Water Intrusion Detected');
+            if (area.infrared_observation_water_infiltration) obs.push('Active Water Infiltration');
+            if (area.infrared_observation_past_ingress) obs.push('Past Water Ingress (Dried)');
+            if (area.infrared_observation_condensation) obs.push('Condensation Pattern');
+            if (area.infrared_observation_missing_insulation) obs.push('Missing/Inadequate Insulation');
+            return obs;
+          };
+
+          // Map areas from DB
+          const mappedAreas: InspectionArea[] = (areasData || []).map((area: any) => {
+            const areaReadings = moistureReadingsData.filter((r: any) => r.area_id === area.id);
+            const areaPhotos = photosData.filter((p: any) => p.area_id === area.id);
+            const roomViewPhotos = areaPhotos
+              .filter((p: any) => p.photo_type === 'area')
+              .map((p: any) => ({ id: p.id, name: p.file_name || '', url: p.signed_url, timestamp: p.created_at }));
+            const infraredPhoto = areaPhotos.find((p: any) => p.photo_type === 'area' && p.caption === 'infrared');
+            const naturalInfraredPhoto = areaPhotos.find((p: any) => p.photo_type === 'area' && p.caption === 'natural_infrared');
+
+            return {
+              id: area.id,
+              areaName: area.area_name || '',
+              mouldDescription: area.mould_description || '',
+              commentsForReport: area.comments || '',
+              temperature: area.temperature != null ? String(area.temperature) : '',
+              humidity: area.humidity != null ? String(area.humidity) : '',
+              dewPoint: area.dew_point != null ? String(area.dew_point) : '',
+              moistureReadingsEnabled: area.moisture_readings_enabled || false,
+              moistureReadings: areaReadings.map((r: any) => ({
+                id: r.id,
+                title: r.title || '',
+                reading: r.moisture_percentage != null ? String(r.moisture_percentage) : '',
+                photo: null, // Moisture reading photos loaded separately if needed
+              })),
+              externalMoisture: area.external_moisture != null ? String(area.external_moisture) : '',
+              internalNotes: area.internal_office_notes || '',
+              roomViewPhotos,
+              infraredEnabled: area.infrared_enabled || false,
+              infraredPhoto: infraredPhoto ? { id: infraredPhoto.id, name: infraredPhoto.file_name || '', url: infraredPhoto.signed_url, timestamp: infraredPhoto.created_at } : null,
+              naturalInfraredPhoto: naturalInfraredPhoto ? { id: naturalInfraredPhoto.id, name: naturalInfraredPhoto.file_name || '', url: naturalInfraredPhoto.signed_url, timestamp: naturalInfraredPhoto.created_at } : null,
+              infraredObservations: reconstructInfraredObservations(area),
+              timeWithoutDemo: area.job_time_minutes ? area.job_time_minutes / 60 : 0,
+              demolitionRequired: area.demolition_required || false,
+              demolitionTime: area.demolition_time_minutes ? area.demolition_time_minutes / 60 : 0,
+              demolitionDescription: area.demolition_description || '',
+            };
+          });
+
+          // Map subfloor readings
+          const mappedSubfloorReadings: SubfloorReading[] = subfloorReadingsData.map((r: any) => ({
+            id: r.id,
+            reading: r.moisture_percentage != null ? String(r.moisture_percentage) : '',
+            location: r.location || '',
+          }));
+
+          // Map photos to outdoor/subfloor categories
+          const generalPhotos = photosData.filter((p: any) => p.photo_type === 'general' || p.photo_type === 'outdoor');
+          const subfloorPhotos = photosData.filter((p: any) => p.photo_type === 'subfloor');
+          const mapPhoto = (p: any): Photo => ({ id: p.id, name: p.file_name || '', url: p.signed_url, timestamp: p.created_at });
+
+          const frontDoorPhoto = generalPhotos.find((p: any) => p.caption === 'front_door');
+          const frontHousePhoto = generalPhotos.find((p: any) => p.caption === 'front_house');
+          const mailboxPhoto = generalPhotos.find((p: any) => p.caption === 'mailbox');
+          const streetPhoto = generalPhotos.find((p: any) => p.caption === 'street');
+          const directionPhoto = generalPhotos.find((p: any) => p.caption === 'direction');
+
+          setFormData((prev) => ({
+            ...prev,
+            jobNumber: ins.job_number || prev.jobNumber,
+            triage: ins.triage_description || leadData.issue_description || '',
+            address: getFullAddress(leadData),
+            inspector: ins.inspector_name || prev.inspector,
+            requestedBy: ins.requested_by || leadData.full_name || '',
+            attentionTo: ins.attention_to || '',
+            inspectionDate: ins.inspection_date || prev.inspectionDate,
+            propertyOccupation: ins.property_occupation || '',
+            dwellingType: ins.dwelling_type || '',
+            areas: mappedAreas.length > 0 ? mappedAreas : [createEmptyArea()],
+            subfloorEnabled: ins.subfloor_required || false,
+            subfloorObservations: subfloorData?.observations || '',
+            subfloorLandscape: subfloorData?.landscape || '',
+            subfloorComments: subfloorData?.comments || '',
+            subfloorReadings: mappedSubfloorReadings,
+            subfloorPhotos: subfloorPhotos.map(mapPhoto),
+            subfloorSanitation: subfloorData?.sanitation_required || false,
+            subfloorRacking: subfloorData?.racking_required || false,
+            subfloorTreatmentTime: subfloorData?.treatment_time_minutes ? subfloorData.treatment_time_minutes / 60 : 0,
+            outdoorTemperature: ins.outdoor_temperature != null ? String(ins.outdoor_temperature) : '',
+            outdoorHumidity: ins.outdoor_humidity != null ? String(ins.outdoor_humidity) : '',
+            outdoorDewPoint: ins.outdoor_dew_point != null ? String(ins.outdoor_dew_point) : '',
+            outdoorComments: ins.outdoor_comments || '',
+            frontDoorPhoto: frontDoorPhoto ? mapPhoto(frontDoorPhoto) : null,
+            frontHousePhoto: frontHousePhoto ? mapPhoto(frontHousePhoto) : null,
+            mailboxPhoto: mailboxPhoto ? mapPhoto(mailboxPhoto) : null,
+            streetPhoto: streetPhoto ? mapPhoto(streetPhoto) : null,
+            directionPhotosEnabled: ins.direction_photos_enabled || false,
+            directionPhoto: directionPhoto ? mapPhoto(directionPhoto) : null,
+            wasteDisposalEnabled: ins.waste_disposal_required || false,
+            wasteDisposalAmount: ins.waste_disposal_amount || '',
+            hepaVac: ins.hepa_vac || false,
+            antimicrobial: ins.antimicrobial || false,
+            stainRemovingAntimicrobial: ins.stain_removing_antimicrobial || false,
+            homeSanitationFogging: ins.home_sanitation_fogging || false,
+            dryingEquipmentEnabled: ins.drying_equipment_enabled || false,
+            commercialDehumidifierEnabled: ins.commercial_dehumidifier_enabled || false,
+            commercialDehumidifierQty: ins.commercial_dehumidifier_qty || 0,
+            airMoversEnabled: ins.air_movers_enabled || false,
+            airMoversQty: ins.air_movers_qty || 0,
+            rcdBoxEnabled: ins.rcd_box_enabled || false,
+            rcdBoxQty: ins.rcd_box_qty || 0,
+            recommendDehumidifier: ins.recommended_dehumidifier != null,
+            dehumidifierSize: ins.recommended_dehumidifier || '',
+            causeOfMould: ins.cause_of_mould || '',
+            additionalInfoForTech: ins.additional_info_technician || '',
+            additionalEquipmentComments: ins.additional_equipment_comments || '',
+            parkingOptions: ins.parking_option || '',
+            noDemolitionHours: ins.no_demolition_hours ? Number(ins.no_demolition_hours) : 0,
+            demolitionHours: ins.demolition_hours ? Number(ins.demolition_hours) : 0,
+            subfloorHours: ins.subfloor_hours ? Number(ins.subfloor_hours) : 0,
+            equipmentCost: ins.equipment_cost_ex_gst ? Number(ins.equipment_cost_ex_gst) : 0,
+            manualPriceOverride: ins.manual_price_override || false,
+            manualTotal: ins.manual_total_inc_gst ? Number(ins.manual_total_inc_gst) : 0,
+            laborCost: ins.labor_cost_ex_gst ? Number(ins.labor_cost_ex_gst) : 0,
+            discountPercent: ins.discount_percent ? Number(ins.discount_percent) : 0,
+            subtotalExGst: ins.subtotal_ex_gst ? Number(ins.subtotal_ex_gst) : 0,
+            gstAmount: ins.gst_amount ? Number(ins.gst_amount) : 0,
+            totalIncGst: ins.total_inc_gst ? Number(ins.total_inc_gst) : 0,
+            jobSummaryFinal: ins.ai_summary_text || '',
+            whatWeFoundText: ins.what_we_found_text || '',
+            whatWeWillDoText: ins.what_we_will_do_text || '',
+            whatYouGetText: ins.what_you_get_text || '',
+          }));
+        } else {
+          // No existing inspection - pre-fill from lead data
+          setFormData((prev) => ({
+            ...prev,
+            triage: leadData.issue_description || '',
+            address: getFullAddress(leadData),
+            requestedBy: leadData.full_name || '',
+          }));
+        }
       } catch (err) {
         console.error('[InspectionForm] Error fetching data:', err);
         toast({
           title: 'Error',
-          description: 'Failed to load lead data',
+          description: 'Failed to load data',
           variant: 'destructive',
         });
       } finally {
@@ -2363,23 +2671,6 @@ export default function TechnicianInspectionForm() {
       }));
     }
   }, [user]);
-
-  // Navigation handlers
-  const handlePrevious = () => {
-    setCurrentSection((prev) => Math.max(1, prev - 1));
-  };
-
-  const handleNext = () => {
-    if (currentSection === TOTAL_SECTIONS) {
-      // Complete form
-      toast({
-        title: 'Form Complete',
-        description: 'Inspection form has been completed!',
-      });
-      return;
-    }
-    setCurrentSection((prev) => Math.min(TOTAL_SECTIONS, prev + 1));
-  };
 
   // Form field handlers
   const handleChange = (field: keyof InspectionFormData, value: any) => {
@@ -2526,9 +2817,8 @@ export default function TechnicianInspectionForm() {
     }
   };
 
-  // Photo handlers
+  // Photo handlers - upload to Supabase Storage
   const handlePhotoCapture = async (type: string, areaId?: string, readingId?: string) => {
-    // Create file input
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -2538,56 +2828,113 @@ export default function TechnicianInspectionForm() {
       const files = Array.from(e.target.files) as File[];
       if (files.length === 0) return;
 
+      // Require saved inspection before uploading photos
+      if (!currentInspectionId) {
+        toast({
+          title: 'Save First',
+          description: 'Save the inspection before uploading photos',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       toast({
         title: 'Uploading...',
         description: `Uploading ${files.length} photo(s)`,
       });
 
-      // For now, create local photo objects
-      // TODO: Implement actual Supabase upload when inspection exists
-      const newPhotos: Photo[] = files.map((file) => ({
-        id: crypto.randomUUID(),
-        name: file.name,
-        url: URL.createObjectURL(file),
-        timestamp: new Date().toISOString(),
-      }));
-
-      // Update state based on photo type
-      if (areaId && readingId) {
-        handleMoistureReadingChange(areaId, readingId, 'photo', newPhotos[0]);
-      } else if (areaId && type === 'roomView') {
-        const area = formData.areas.find((a) => a.id === areaId);
-        const currentPhotos = area?.roomViewPhotos || [];
-        if (currentPhotos.length + newPhotos.length > 4) {
-          toast({ title: 'Limit reached', description: 'Maximum 4 photos', variant: 'destructive' });
-          return;
+      try {
+        // Determine photo_type and caption for metadata
+        let photoType: 'area' | 'subfloor' | 'general' | 'outdoor' = 'general';
+        let caption: string | undefined;
+        if (areaId) {
+          photoType = 'area';
+          if (type === 'infrared') caption = 'infrared';
+          else if (type === 'naturalInfrared') caption = 'natural_infrared';
+        } else if (type === 'subfloor') {
+          photoType = 'subfloor';
+        } else if (['frontDoor', 'frontHouse', 'mailbox', 'street', 'direction'].includes(type)) {
+          photoType = 'outdoor';
+          const captionMap: Record<string, string> = {
+            frontDoor: 'front_door', frontHouse: 'front_house',
+            mailbox: 'mailbox', street: 'street', direction: 'direction',
+          };
+          caption = captionMap[type];
         }
-        handleAreaChange(areaId, 'roomViewPhotos', [...currentPhotos, ...newPhotos]);
-      } else if (areaId && type === 'infrared') {
-        handleAreaChange(areaId, 'infraredPhoto', newPhotos[0]);
-      } else if (areaId && type === 'naturalInfrared') {
-        handleAreaChange(areaId, 'naturalInfraredPhoto', newPhotos[0]);
-      } else if (type === 'subfloor') {
-        handleChange('subfloorPhotos', [...formData.subfloorPhotos, ...newPhotos]);
-      } else if (type === 'frontDoor') {
-        handleChange('frontDoorPhoto', newPhotos[0]);
-      } else if (type === 'frontHouse') {
-        handleChange('frontHousePhoto', newPhotos[0]);
-      } else if (type === 'mailbox') {
-        handleChange('mailboxPhoto', newPhotos[0]);
-      } else if (type === 'street') {
-        handleChange('streetPhoto', newPhotos[0]);
-      } else if (type === 'direction') {
-        handleChange('directionPhoto', newPhotos[0]);
-      }
 
-      toast({ title: 'Photos added', description: `${files.length} photo(s) uploaded` });
+        // Upload each file
+        const newPhotos: Photo[] = [];
+        for (const file of files) {
+          const result = await uploadInspectionPhoto(file, {
+            inspection_id: currentInspectionId,
+            area_id: areaId,
+            photo_type: photoType,
+            caption,
+            moisture_reading_id: readingId,
+          });
+          newPhotos.push({
+            id: result.photo_id,
+            name: file.name,
+            url: result.signed_url,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        // Update state based on photo type
+        if (areaId && readingId) {
+          handleMoistureReadingChange(areaId, readingId, 'photo', newPhotos[0]);
+        } else if (areaId && type === 'roomView') {
+          const area = formData.areas.find((a) => a.id === areaId);
+          const currentPhotos = area?.roomViewPhotos || [];
+          if (currentPhotos.length + newPhotos.length > 4) {
+            toast({ title: 'Limit reached', description: 'Maximum 4 photos', variant: 'destructive' });
+            return;
+          }
+          handleAreaChange(areaId, 'roomViewPhotos', [...currentPhotos, ...newPhotos]);
+        } else if (areaId && type === 'infrared') {
+          handleAreaChange(areaId, 'infraredPhoto', newPhotos[0]);
+        } else if (areaId && type === 'naturalInfrared') {
+          handleAreaChange(areaId, 'naturalInfraredPhoto', newPhotos[0]);
+        } else if (type === 'subfloor') {
+          handleChange('subfloorPhotos', [...formData.subfloorPhotos, ...newPhotos]);
+        } else if (type === 'frontDoor') {
+          handleChange('frontDoorPhoto', newPhotos[0]);
+        } else if (type === 'frontHouse') {
+          handleChange('frontHousePhoto', newPhotos[0]);
+        } else if (type === 'mailbox') {
+          handleChange('mailboxPhoto', newPhotos[0]);
+        } else if (type === 'street') {
+          handleChange('streetPhoto', newPhotos[0]);
+        } else if (type === 'direction') {
+          handleChange('directionPhoto', newPhotos[0]);
+        }
+
+        toast({ title: 'Photos added', description: `${newPhotos.length} photo(s) uploaded` });
+      } catch (err: any) {
+        console.error('[PhotoCapture] Upload error:', err);
+        toast({
+          title: 'Upload Failed',
+          description: err?.message || 'Failed to upload photo(s)',
+          variant: 'destructive',
+        });
+      }
     };
 
     input.click();
   };
 
-  const handlePhotoRemove = (type: string, photoId: string, areaId?: string, readingId?: string) => {
+  const handlePhotoRemove = async (type: string, photoId: string, areaId?: string, readingId?: string) => {
+    // Try to delete from Supabase if it's a real DB photo (not a blob URL)
+    const isDbPhoto = photoId && !photoId.startsWith('blob:') && photoId.length === 36;
+    if (isDbPhoto) {
+      try {
+        await deleteInspectionPhoto(photoId);
+      } catch (err) {
+        console.warn('[PhotoRemove] Delete error (continuing anyway):', err);
+      }
+    }
+
+    // Remove from local state
     if (areaId && readingId) {
       handleMoistureReadingChange(areaId, readingId, 'photo', null);
     } else if (areaId && type === 'roomView') {
@@ -2623,20 +2970,285 @@ export default function TechnicianInspectionForm() {
     navigate(-1);
   };
 
-  // Save handler
+  // Save handler - multi-table upsert to Supabase
   const handleSave = async () => {
+    if (!leadId || !user) return;
     setIsSaving(true);
 
-    // TODO: Save to Supabase inspections table
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      // 1. Upsert inspections row
+      const inspectionRow: Record<string, any> = {
+        lead_id: leadId,
+        inspector_id: user.id,
+        inspector_name: formData.inspector,
+        job_number: formData.jobNumber,
+        triage_description: formData.triage,
+        requested_by: formData.requestedBy,
+        attention_to: formData.attentionTo,
+        inspection_date: formData.inspectionDate || new Date().toISOString().split('T')[0],
+        property_occupation: formData.propertyOccupation || null,
+        dwelling_type: formData.dwellingType || null,
+        outdoor_temperature: formData.outdoorTemperature ? parseFloat(formData.outdoorTemperature) : null,
+        outdoor_humidity: formData.outdoorHumidity ? parseFloat(formData.outdoorHumidity) : null,
+        outdoor_dew_point: formData.outdoorDewPoint ? parseFloat(formData.outdoorDewPoint) : null,
+        outdoor_comments: formData.outdoorComments || null,
+        direction_photos_enabled: formData.directionPhotosEnabled,
+        waste_disposal_required: formData.wasteDisposalEnabled,
+        waste_disposal_amount: formData.wasteDisposalAmount || null,
+        hepa_vac: formData.hepaVac,
+        antimicrobial: formData.antimicrobial,
+        stain_removing_antimicrobial: formData.stainRemovingAntimicrobial,
+        home_sanitation_fogging: formData.homeSanitationFogging,
+        drying_equipment_enabled: formData.dryingEquipmentEnabled,
+        commercial_dehumidifier_enabled: formData.commercialDehumidifierEnabled,
+        commercial_dehumidifier_qty: formData.commercialDehumidifierQty || 0,
+        air_movers_enabled: formData.airMoversEnabled,
+        air_movers_qty: formData.airMoversQty || 0,
+        rcd_box_enabled: formData.rcdBoxEnabled,
+        rcd_box_qty: formData.rcdBoxQty || 0,
+        recommended_dehumidifier: formData.recommendDehumidifier ? (formData.dehumidifierSize || null) : null,
+        cause_of_mould: formData.causeOfMould || null,
+        additional_info_technician: formData.additionalInfoForTech || null,
+        additional_equipment_comments: formData.additionalEquipmentComments || null,
+        parking_option: formData.parkingOptions || null,
+        subfloor_required: formData.subfloorEnabled,
+        no_demolition_hours: formData.noDemolitionHours || 0,
+        demolition_hours: formData.demolitionHours || 0,
+        subfloor_hours: formData.subfloorHours || 0,
+        equipment_cost_ex_gst: formData.equipmentCost || 0,
+        manual_price_override: formData.manualPriceOverride,
+        manual_total_inc_gst: formData.manualTotal || 0,
+        labor_cost_ex_gst: formData.laborCost || 0,
+        discount_percent: formData.discountPercent || 0,
+        subtotal_ex_gst: formData.subtotalExGst || 0,
+        gst_amount: formData.gstAmount || 0,
+        total_inc_gst: formData.totalIncGst || 0,
+        ai_summary_text: formData.jobSummaryFinal || null,
+        what_we_found_text: formData.whatWeFoundText || null,
+        what_we_will_do_text: formData.whatWeWillDoText || null,
+        what_you_get_text: formData.whatYouGetText || null,
+        updated_at: new Date().toISOString(),
+      };
 
-    setHasUnsavedChanges(false);
-    setIsSaving(false);
+      let inspectionId = currentInspectionId;
 
-    toast({
-      title: 'Saved',
-      description: `Section ${currentSection} saved successfully`,
-    });
+      if (inspectionId) {
+        // UPDATE existing inspection
+        const { error: updateError } = await supabase
+          .from('inspections')
+          .update(inspectionRow)
+          .eq('id', inspectionId);
+        if (updateError) throw updateError;
+      } else {
+        // INSERT new inspection
+        const { data: insertData, error: insertError } = await supabase
+          .from('inspections')
+          .insert(inspectionRow)
+          .select('id')
+          .single();
+        if (insertError) throw insertError;
+        inspectionId = insertData.id;
+        setCurrentInspectionId(inspectionId);
+      }
+
+      // 2. Upsert inspection_areas
+      // Map infrared observation strings to boolean columns
+      const mapInfraredToBooleans = (observations: string[]) => ({
+        infrared_observation_no_active: observations.includes('No Active Water Intrusion Detected'),
+        infrared_observation_water_infiltration: observations.includes('Active Water Infiltration'),
+        infrared_observation_past_ingress: observations.includes('Past Water Ingress (Dried)'),
+        infrared_observation_condensation: observations.includes('Condensation Pattern'),
+        infrared_observation_missing_insulation: observations.includes('Missing/Inadequate Insulation'),
+      });
+
+      // Get existing area IDs from DB to detect deletions
+      const { data: existingAreasDb } = await supabase
+        .from('inspection_areas')
+        .select('id')
+        .eq('inspection_id', inspectionId);
+      const existingAreaIds = new Set((existingAreasDb || []).map((a: any) => a.id));
+      const currentAreaIds = new Set(formData.areas.map((a) => a.id));
+
+      // Delete removed areas
+      const areasToDelete = [...existingAreaIds].filter((id) => !currentAreaIds.has(id));
+      if (areasToDelete.length > 0) {
+        await supabase.from('inspection_areas').delete().in('id', areasToDelete);
+      }
+
+      // Upsert each area
+      for (let i = 0; i < formData.areas.length; i++) {
+        const area = formData.areas[i];
+        const areaRow: Record<string, any> = {
+          inspection_id: inspectionId,
+          area_order: i,
+          area_name: area.areaName || `Area ${i + 1}`,
+          mould_description: area.mouldDescription || null,
+          comments: area.commentsForReport || null,
+          temperature: area.temperature ? parseFloat(area.temperature) : null,
+          humidity: area.humidity ? parseFloat(area.humidity) : null,
+          dew_point: area.dewPoint ? parseFloat(area.dewPoint) : null,
+          moisture_readings_enabled: area.moistureReadingsEnabled,
+          external_moisture: area.externalMoisture ? parseFloat(area.externalMoisture) : null,
+          internal_office_notes: area.internalNotes || null,
+          infrared_enabled: area.infraredEnabled,
+          ...mapInfraredToBooleans(area.infraredObservations || []),
+          job_time_minutes: Math.round((area.timeWithoutDemo || 0) * 60),
+          demolition_required: area.demolitionRequired,
+          demolition_time_minutes: Math.round((area.demolitionTime || 0) * 60),
+          demolition_description: area.demolitionDescription || null,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (existingAreaIds.has(area.id)) {
+          // UPDATE existing area
+          const { error: areaUpdateErr } = await supabase
+            .from('inspection_areas')
+            .update(areaRow)
+            .eq('id', area.id);
+          if (areaUpdateErr) console.error('[Save] Area update error:', areaUpdateErr);
+        } else {
+          // INSERT new area with the client-generated UUID
+          const { error: areaInsertErr } = await supabase
+            .from('inspection_areas')
+            .insert({ id: area.id, ...areaRow });
+          if (areaInsertErr) console.error('[Save] Area insert error:', areaInsertErr);
+        }
+
+        // 3. Upsert moisture_readings for this area
+        if (area.moistureReadingsEnabled && area.moistureReadings.length > 0) {
+          // Get existing reading IDs
+          const { data: existingReadingsDb } = await supabase
+            .from('moisture_readings')
+            .select('id')
+            .eq('area_id', area.id);
+          const existingReadingIds = new Set((existingReadingsDb || []).map((r: any) => r.id));
+          const currentReadingIds = new Set(area.moistureReadings.map((r) => r.id));
+
+          // Delete removed readings
+          const readingsToDelete = [...existingReadingIds].filter((id) => !currentReadingIds.has(id));
+          if (readingsToDelete.length > 0) {
+            await supabase.from('moisture_readings').delete().in('id', readingsToDelete);
+          }
+
+          // Upsert each reading
+          for (let j = 0; j < area.moistureReadings.length; j++) {
+            const reading = area.moistureReadings[j];
+            const readingRow = {
+              area_id: area.id,
+              reading_order: j,
+              title: reading.title || null,
+              moisture_percentage: reading.reading ? parseFloat(reading.reading) : 0,
+            };
+
+            if (existingReadingIds.has(reading.id)) {
+              await supabase.from('moisture_readings').update(readingRow).eq('id', reading.id);
+            } else {
+              await supabase.from('moisture_readings').insert({ id: reading.id, ...readingRow });
+            }
+          }
+        }
+      }
+
+      // 4. Upsert subfloor_data
+      if (formData.subfloorEnabled) {
+        const subfloorRow = {
+          inspection_id: inspectionId,
+          observations: formData.subfloorObservations || null,
+          comments: formData.subfloorComments || null,
+          landscape: formData.subfloorLandscape || null,
+          sanitation_required: formData.subfloorSanitation,
+          racking_required: formData.subfloorRacking,
+          treatment_time_minutes: Math.round((formData.subfloorTreatmentTime || 0) * 60),
+          updated_at: new Date().toISOString(),
+        };
+
+        // Check if subfloor_data exists
+        const { data: existingSubfloor } = await supabase
+          .from('subfloor_data')
+          .select('id')
+          .eq('inspection_id', inspectionId)
+          .maybeSingle();
+
+        let subfloorId: string;
+        if (existingSubfloor) {
+          subfloorId = existingSubfloor.id;
+          await supabase.from('subfloor_data').update(subfloorRow).eq('id', subfloorId);
+        } else {
+          const { data: newSubfloor, error: sfInsertErr } = await supabase
+            .from('subfloor_data')
+            .insert(subfloorRow)
+            .select('id')
+            .single();
+          if (sfInsertErr) throw sfInsertErr;
+          subfloorId = newSubfloor.id;
+        }
+
+        // 5. Upsert subfloor_readings
+        if (formData.subfloorReadings.length > 0) {
+          const { data: existingSrDb } = await supabase
+            .from('subfloor_readings')
+            .select('id')
+            .eq('subfloor_id', subfloorId);
+          const existingSrIds = new Set((existingSrDb || []).map((r: any) => r.id));
+          const currentSrIds = new Set(formData.subfloorReadings.map((r) => r.id));
+
+          const srToDelete = [...existingSrIds].filter((id) => !currentSrIds.has(id));
+          if (srToDelete.length > 0) {
+            await supabase.from('subfloor_readings').delete().in('id', srToDelete);
+          }
+
+          for (let k = 0; k < formData.subfloorReadings.length; k++) {
+            const sr = formData.subfloorReadings[k];
+            const srRow = {
+              subfloor_id: subfloorId,
+              reading_order: k,
+              moisture_percentage: sr.reading ? parseFloat(sr.reading) : 0,
+              location: sr.location || 'Unknown',
+            };
+
+            if (existingSrIds.has(sr.id)) {
+              await supabase.from('subfloor_readings').update(srRow).eq('id', sr.id);
+            } else {
+              await supabase.from('subfloor_readings').insert({ id: sr.id, ...srRow });
+            }
+          }
+        }
+      }
+
+      setHasUnsavedChanges(false);
+      toast({
+        title: 'Saved',
+        description: `Section ${currentSection} saved successfully`,
+      });
+    } catch (err: any) {
+      console.error('[InspectionForm] Save error:', err);
+      toast({
+        title: 'Save Failed',
+        description: err?.message || 'Failed to save inspection data',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Navigation handlers (auto-save on section change)
+  const handlePrevious = () => {
+    if (hasUnsavedChanges) handleSave();
+    setCurrentSection((prev) => Math.max(1, prev - 1));
+  };
+
+  const handleNext = () => {
+    if (currentSection === TOTAL_SECTIONS) {
+      handleSave();
+      toast({
+        title: 'Form Complete',
+        description: 'Inspection form has been completed!',
+      });
+      return;
+    }
+    if (hasUnsavedChanges) handleSave();
+    setCurrentSection((prev) => Math.min(TOTAL_SECTIONS, prev + 1));
   };
 
   // Section props

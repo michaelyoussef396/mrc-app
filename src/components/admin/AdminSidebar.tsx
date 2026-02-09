@@ -13,8 +13,8 @@ const navItems: NavItem[] = [
   { icon: 'inbox', label: 'Leads', path: '/admin/leads', badge: 12 },
   { icon: 'calendar_month', label: 'Schedule', path: '/admin/schedule' },
   { icon: 'groups', label: 'Technicians', path: '/admin/technicians' },
-  { icon: 'assessment', label: 'Reports', path: '/admin/reports' },
-  { icon: 'settings', label: 'Settings', path: '/admin/settings' },
+  { icon: 'assessment', label: 'Reports', path: '/reports' },
+  { icon: 'settings', label: 'Settings', path: '/settings' },
 ];
 
 interface AdminSidebarProps {
@@ -106,6 +106,7 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
       {/* Bottom Section - Help */}
       <div className="p-4 border-t border-white/10">
         <button
+          onClick={() => handleNavClick('/help')}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/10 hover:text-white transition-all min-h-[48px]"
         >
           <span

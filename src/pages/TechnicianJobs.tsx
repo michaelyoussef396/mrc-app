@@ -109,7 +109,7 @@ function JobsHeader({
   onSearch: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-20 w-full bg-white/90 backdrop-blur-md border-b border-gray-200">
+    <header className="sticky top-0 z-20 w-full bg-white/90 backdrop-blur-md border-b border-gray-200 overflow-x-hidden">
       <div className="px-4 pt-12 pb-2">
         {/* Title Row */}
         <div className="flex items-center justify-between mb-4">
@@ -132,12 +132,11 @@ function JobsHeader({
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`px-4 py-2 text-sm rounded-full whitespace-nowrap flex-shrink-0 transition-colors ${
-                  isActive
+                className={`px-5 py-3 text-sm rounded-full whitespace-nowrap flex-shrink-0 transition-colors ${isActive
                     ? 'bg-[#007AFF] text-white font-semibold'
                     : 'bg-white border border-gray-200 text-[#86868b] hover:bg-gray-50'
-                }`}
-                style={{ minHeight: '40px' }}
+                  }`}
+                style={{ minHeight: '48px' }}
               >
                 {tab.label}
               </button>
@@ -230,28 +229,39 @@ function ActiveJobCard({
         </button>
       </div>
 
-      {/* Primary Action Button */}
+      {/* Primary Action Buttons */}
       {isToday ? (
-        <button
-          onClick={onStartJob}
-          className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-[#007AFF] text-white text-base font-bold shadow-lg active:scale-[0.98] transition-all"
-          style={{ boxShadow: '0 4px 12px rgba(0, 122, 255, 0.2)' }}
-        >
-          {job.status === 'in_progress' && (
-            <span className="material-symbols-outlined">play_arrow</span>
-          )}
-          {buttonLabel}
-          {job.status !== 'in_progress' && (
-            <span className="material-symbols-outlined">{buttonIcon}</span>
-          )}
-        </button>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={onStartJob}
+            className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-[#007AFF] text-white text-base font-bold shadow-lg active:scale-[0.98] transition-all"
+            style={{ boxShadow: '0 4px 12px rgba(0, 122, 255, 0.2)' }}
+          >
+            {job.status === 'in_progress' && (
+              <span className="material-symbols-outlined">play_arrow</span>
+            )}
+            {buttonLabel}
+            {job.status !== 'in_progress' && (
+              <span className="material-symbols-outlined">{buttonIcon}</span>
+            )}
+          </button>
+          <button
+            onClick={onViewDetails}
+            className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-[#1d1d1f] text-sm font-semibold hover:bg-gray-50 transition-colors"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+              visibility
+            </span>
+            View Lead
+          </button>
+        </div>
       ) : (
         <button
           onClick={onViewDetails}
           className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-[#f0f2f4] text-[#1d1d1f] text-base font-semibold hover:bg-gray-200 transition-colors"
         >
           <span className="material-symbols-outlined">visibility</span>
-          View Details
+          View Lead
         </button>
       )}
     </div>
@@ -259,7 +269,7 @@ function ActiveJobCard({
 }
 
 // Completed Job Card Component (different layout per design)
-function CompletedJobCard({ job }: { job: TechnicianJob }) {
+function CompletedJobCard({ job, onViewLead }: { job: TechnicianJob; onViewLead: () => void }) {
   return (
     <article className="flex flex-col gap-3 rounded-xl bg-white p-4 shadow-sm border border-gray-100">
       {/* Top Row - Status & Date */}
@@ -298,6 +308,17 @@ function CompletedJobCard({ job }: { job: TechnicianJob }) {
         </span>
         <p className="text-sm font-medium text-[#34C759]">Completed at {job.time}</p>
       </div>
+
+      {/* View Lead Button */}
+      <button
+        onClick={onViewLead}
+        className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-[#f0f2f4] text-[#1d1d1f] text-sm font-semibold hover:bg-gray-200 transition-colors"
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+          visibility
+        </span>
+        View Lead
+      </button>
     </article>
   );
 }
@@ -443,15 +464,15 @@ export default function TechnicianJobs() {
   };
 
   const handleStartJob = (job: TechnicianJob) => {
-    navigate(`/technician/inspection?leadId=${job.leadId}`);
+    navigate(`/technician/job/${job.leadId}`);
   };
 
   const handleViewDetails = (job: TechnicianJob) => {
-    navigate(`/technician/inspection?leadId=${job.leadId}`);
+    navigate(`/technician/job/${job.leadId}`);
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col bg-[#f5f7f8]">
+    <div className="min-h-screen w-full flex flex-col bg-[#f5f7f8] overflow-x-hidden">
       {/* Sticky Header with Tabs */}
       <JobsHeader
         activeTab={activeTab}
@@ -482,7 +503,7 @@ export default function TechnicianJobs() {
                 <div className="space-y-4">
                   {jobsByDate[date].map((job) =>
                     activeTab === 'completed' || job.status === 'completed' ? (
-                      <CompletedJobCard key={job.id} job={job} />
+                      <CompletedJobCard key={job.id} job={job} onViewLead={() => handleViewDetails(job)} />
                     ) : (
                       <ActiveJobCard
                         key={job.id}

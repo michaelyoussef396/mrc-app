@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase, setRememberMePreference, clearAuthTokens } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+
 import { useNavigate } from "react-router-dom";
 
 // DISABLED FOR SOFT LAUNCH — re-enable when scaling to white-label
@@ -24,6 +26,8 @@ import {
 
 interface AuthContextType {
   user: User | null;
+  profile: Database['public']['Tables']['profiles']['Row'] | null;
+
   session: Session | null;
   loading: boolean;
   userRoles: string[];              // ['admin', 'technician', 'developer']
@@ -47,6 +51,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Database['public']['Tables']['profiles']['Row'] | null>(null);
+
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRoles, setUserRoles] = useState<string[]>([]);
@@ -92,6 +98,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             try {
+              console.log('[Auth] Query 0: profile');
+              const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single();
+
+              if (!profileError) setProfile(profileData);
+
               console.log('[Auth] Query 1: user_roles');
               const { data: userRoleData, error: userRoleError } = await supabase
                 .from('user_roles')
@@ -137,6 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }, 0);
         } else if (event === 'SIGNED_OUT') {
           setUserRoles([]);
+          setProfile(null);
           setCurrentRoleState(null);
           setLoading(false);
           navigate('/');
@@ -151,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signIn = async (email: string, password: string, rememberMe: boolean = true) => {
@@ -251,6 +267,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        profile,
         session,
         loading,
         userRoles,

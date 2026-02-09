@@ -133,7 +133,13 @@ export default function AllCompleteState({ completedJobs, totalJobs }: AllComple
                 {job.time}
               </p>
               <button
-                onClick={() => navigate(`/inspection/${job.id}/report`)}
+                onClick={() => {
+                  if (job.inspectionId) {
+                    navigate(`/inspection/${job.inspectionId}/report`);
+                  } else {
+                    alert('Report not generated yet.');
+                  }
+                }}
                 className="flex items-center gap-1 text-xs font-bold px-3 py-2 -mr-2 rounded-lg hover:bg-blue-50 transition-colors"
                 style={{ color: '#007AFF', minHeight: '48px' }}
               >

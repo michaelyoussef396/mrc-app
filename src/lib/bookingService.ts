@@ -26,6 +26,44 @@ export interface BookInspectionResult {
 // ============================================================================
 
 /**
+ * Check for booking conflicts - prevents double-booking a technician
+ */
+export async function checkBookingConflict(
+  technicianId: string,
+  startDatetime: Date,
+  endDatetime: Date
+): Promise<{ hasConflict: boolean; conflictDetails?: string }> {
+  const { data, error } = await supabase
+    .from('calendar_bookings')
+    .select('id, title, start_datetime, end_datetime')
+    .eq('assigned_to', technicianId)
+    .neq('status', 'cancelled')
+    .lt('start_datetime', endDatetime.toISOString())
+    .gt('end_datetime', startDatetime.toISOString());
+
+  if (error) {
+    console.error('[BookingService] Conflict check error:', error);
+    return { hasConflict: false };
+  }
+
+  if (data && data.length > 0) {
+    const conflict = data[0];
+    const conflictStart = new Date(conflict.start_datetime);
+    const time = conflictStart.toLocaleTimeString('en-AU', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+    return {
+      hasConflict: true,
+      conflictDetails: `Already booked at ${time} (${conflict.title})`,
+    };
+  }
+
+  return { hasConflict: false };
+}
+
+/**
  * Book an inspection - creates calendar booking, updates lead, logs activity
  * Extracted from BookInspectionModal for reuse across the app
  */
@@ -56,6 +94,19 @@ export async function bookInspection(
     // Combine date and time - Fixed 1 hour duration
     const startDateTime = new Date(`${inspectionDate}T${inspectionTime}:00`);
     const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000); // Always 1 hour
+
+    // 0. Check for booking conflicts
+    const { hasConflict, conflictDetails } = await checkBookingConflict(
+      technicianId,
+      startDateTime,
+      endDateTime
+    );
+    if (hasConflict) {
+      return {
+        success: false,
+        error: `Technician already booked at this time. ${conflictDetails}`,
+      };
+    }
 
     console.log('[BookingService] Creating calendar booking...', {
       start: startDateTime.toISOString(),

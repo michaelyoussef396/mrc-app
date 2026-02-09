@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 // ============================================================================
 // TYPES
@@ -13,6 +14,7 @@ export interface TechnicianJob {
   id: string;
   bookingId: string;
   leadId: string;
+  inspectionId?: string;
   title: string;
   eventType: string;
   status: JobStatus;
@@ -115,6 +117,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
   const [allJobs, setAllJobs] = useState<TechnicianJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isInitialLoad = useRef(true);
 
   const fetchJobs = useCallback(async () => {
     if (!user?.id) {
@@ -123,7 +126,10 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
       return;
     }
 
-    setIsLoading(true);
+    // Only show loading spinner on initial load, not on realtime refreshes
+    if (isInitialLoad.current) {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
@@ -146,6 +152,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
           location_address,
           travel_time_minutes,
           lead_id,
+          inspection_id,
           lead:leads (
             id,
             full_name,
@@ -182,6 +189,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
           id: booking.id,
           bookingId: booking.id,
           leadId: lead?.id || booking.lead_id || '',
+          inspectionId: booking.inspection_id || undefined,
           title: booking.title || 'Inspection',
           eventType: booking.event_type || 'inspection',
           status: (booking.status as JobStatus) || 'scheduled',
@@ -205,6 +213,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
 
       console.log('[TechnicianJobs] Transformed:', transformedJobs.length, 'jobs');
       setAllJobs(transformedJobs);
+      isInitialLoad.current = false;
     } catch (err) {
       console.error('[TechnicianJobs] Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load jobs');
@@ -213,9 +222,64 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
     }
   }, [user?.id]);
 
+  // Initial fetch
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
+
+  // Realtime subscription for calendar_bookings changes
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('[TechnicianJobs] Setting up realtime subscription');
+
+    const channel = supabase
+      .channel(`technician-jobs-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'calendar_bookings',
+          filter: `assigned_to=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('[TechnicianJobs] Realtime event:', payload.eventType, payload);
+
+          // Show toast notifications for relevant events
+          const newRecord = payload.new as Record<string, any> | undefined;
+          const oldRecord = payload.old as Record<string, any> | undefined;
+
+          if (payload.eventType === 'INSERT' && newRecord) {
+            toast.success('New job assigned', {
+              description: newRecord.title || 'A new job has been added to your schedule',
+              duration: 5000,
+            });
+          } else if (payload.eventType === 'UPDATE' && newRecord) {
+            toast.info('Job updated', {
+              description: newRecord.title || 'A job in your schedule has been updated',
+              duration: 4000,
+            });
+          } else if (payload.eventType === 'DELETE' && oldRecord) {
+            toast.info('Job removed', {
+              description: 'A job has been removed from your schedule',
+              duration: 4000,
+            });
+          }
+
+          // Refresh the jobs list
+          fetchJobs();
+        }
+      )
+      .subscribe((status) => {
+        console.log('[TechnicianJobs] Realtime subscription status:', status);
+      });
+
+    return () => {
+      console.log('[TechnicianJobs] Unsubscribing from realtime');
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, fetchJobs]);
 
   // Filter jobs based on active tab
   const today = getTodayDate();

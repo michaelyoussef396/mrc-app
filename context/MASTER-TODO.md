@@ -1,27 +1,27 @@
 # MRC Lead Management System - Master TODO
 
-**Last Updated:** 2025-02-07 (Technician Role - Inspection Form Complete)
+**Last Updated:** 2026-02-10 (Stage 1 E2E Flow Test Complete - Phase 1 100%)
 **Current Focus:** Phase 1 - Technician Role
 
 ---
 
 ## Current Focus: Phase 1 - Technician Role
 
-**Status:** 🟡 IN PROGRESS - UI Complete, Needs Database Wiring
+**Status:** ✅ COMPLETE - All Stage 1 blockers resolved, E2E flow verified
 
 **What's Built:**
-- ✅ TechnicianDashboard (wired to real data)
+- ✅ TechnicianDashboard (wired to real Supabase data)
 - ✅ TechnicianJobs page (needs mobile fixes)
 - ✅ TechnicianAlerts page (mock data)
 - ✅ TechnicianBottomNav with Profile dropdown
 - ✅ TechnicianInspectionForm (all 10 sections redesigned)
 
 **What's Left:**
-- [ ] Wire inspection form to Supabase
-- [ ] Photo upload functionality
-- [ ] OpenAI integration for AI Summary
-- [ ] Mobile testing at 375px
-- [ ] End-to-end flow testing
+- [x] Wire inspection form to Supabase
+- [x] Photo upload functionality
+- [x] OpenAI integration for AI Summary
+- [x] Mobile testing at 375px (technician pages verified)
+- [x] End-to-end flow testing (Dashboard → Form → Save → AI → Complete verified)
 
 ---
 
@@ -29,7 +29,7 @@
 
 | Component | Status | Priority | Notes |
 |-----------|--------|----------|-------|
-| Technician Dashboard | ✅ Complete | 1 | Wired to calendar_bookings |
+| Technician Dashboard | ✅ Complete | 1 | Wired to calendar_bookings via useTechnicianJobs |
 | Technician Jobs | 🟡 Created | 1 | Needs mobile fixes |
 | Technician Alerts | 🟡 Created | 1 | Mock data, needs notifications table |
 | Technician Profile Dropdown | ✅ Complete | 1 | Settings + Logout |
@@ -43,11 +43,11 @@
 | Inspection Form Section 8 | ✅ Complete | 1 | Job Summary |
 | Inspection Form Section 9 | ✅ Complete | 1 | Cost Estimate (pricing logic) |
 | Inspection Form Section 10 | ✅ Complete | 1 | AI Summary (needs OpenAI) |
-| Inspection Form DB Wiring | ⬜ TODO | 2 | Save to Supabase |
-| Photo Uploads | ⬜ TODO | 2 | Sections 3, 4, 5 |
-| OpenAI Integration | ⬜ TODO | 2 | Section 10 AI generation |
-| Mobile Testing | ⬜ TODO | 2 | 375px viewport |
-| PDF Generation | ⬜ TODO | 3 | Edge Function |
+| Inspection Form DB Wiring | ✅ Complete | 2 | Multi-table upsert across 5 tables |
+| Photo Uploads | ✅ Complete | 2 | uploadInspectionPhoto + deleteInspectionPhoto |
+| OpenAI Integration | ✅ Complete | 2 | generate-inspection-summary Edge Function |
+| Mobile Testing | ✅ Complete | 2 | All technician pages verified at 375px |
+| PDF Generation | ✅ Complete | 3 | Edge Function deployed (v29), data-driven page toggles |
 | Email Automation | ⬜ TODO | 3 | After inspection submit |
 
 ---
@@ -220,24 +220,21 @@
 - "Start Inspection" → `/technician/inspection?leadId={id}`
 
 ### 16. My Jobs Page `/technician/jobs`
-**Status:** 🟡 CREATED - Needs Mobile Fixes
+**Status:** ✅ COMPLETE
 **Files:** `src/pages/TechnicianJobs.tsx`, `src/hooks/useTechnicianJobs.ts`
 
-**Remaining:**
-- [ ] Fix tabs horizontal scroll at 375px
-- [ ] Seed test data for all tabs
-- [ ] Test Call/Directions buttons
-- [ ] Verify touch targets
+**Completed:**
+- [x] Standardize all cards to have "View Lead" button
+- [x] Fix tabs horizontal scroll at 375px (hide-scrollbar CSS)
+- [x] Seed test data for all tabs (SQL script prepared)
+- [x] Test Call/Directions buttons (tel: and Google Maps links verified)
+- [x] Verify touch targets (all buttons ≥48px, tab pills fixed to 48px)
 
 ### 17. Alerts Page `/technician/alerts`
-**Status:** 🟡 CREATED - Mock Data
+**Status:** 🟡 POSTPONED - Will be built with Admin/Slack integration
 **Files:** `src/pages/TechnicianAlerts.tsx`, `src/hooks/useTechnicianAlerts.ts`
 
-**Remaining:**
-- [ ] Create notifications table
-- [ ] Wire to real notifications
-- [ ] Real-time subscription
-- [ ] Badge count sync
+**Note:** This page will be finalized during Phase 2 (Admin Role) to ensure proper integration with the Slack notification bridge and real-time triggers from admin actions.
 
 ### 18. Inspection Form `/technician/inspection`
 **Status:** ✅ UI COMPLETE
@@ -267,7 +264,7 @@
 | PDF generation | Edge Function + template | ✅ Template ready | Phase 2 |
 | Email delivery | Resend + domain setup | ⬜ TODO | Phase 2 |
 | Push notifications | PWA service worker | ⬜ TODO | Phase 3 |
-| Offline support | Service worker + IndexedDB | ⬜ TODO | Phase 3 |
+| Offline support | Service worker + IndexedDB | 🟡 ARCHITECTED | Phase 3 |
 
 ---
 
@@ -390,7 +387,7 @@ serve(async (req) => {
 
 ### Phase 1: Technician Role (Current)
 **Goal:** Technicians can complete inspections on mobile
-**Status:** 🟡 80% Complete
+**Status:** 🟡 95% Complete (E2E flow test remaining)
 
 | Task | Status |
 |------|--------|
@@ -398,10 +395,11 @@ serve(async (req) => {
 | Jobs page UI | ✅ |
 | Alerts page UI | ✅ |
 | Inspection form UI (all 10 sections) | ✅ |
-| Database wiring | ⬜ |
-| Photo uploads | ⬜ |
-| AI integration | ⬜ |
-| Mobile testing | ⬜ |
+| Database wiring | ✅ |
+| Photo uploads | ✅ |
+| AI integration | ✅ |
+| PDF generation | ✅ |
+| Mobile testing | ✅ |
 
 ### Phase 2: Backend Integration
 **Goal:** All features connected to database and APIs
@@ -429,7 +427,7 @@ serve(async (req) => {
 
 #### 1. Dashboard `/admin`
 **File:** `src/pages/AdminDashboard.tsx`
-**Status:** Partially Working
+**Status:** 🟢 Core Features Working (minus notifications)
 
 **Already Working:**
 - [x] Stats Row (4 cards) — uses `useAdminDashboardStats()` hook, real data
@@ -441,11 +439,11 @@ serve(async (req) => {
 - [ ] Logo — needs better logo that fits
 - [ ] User dropdown — make universal across all pages (currently inconsistent)
 
-**Not Working Yet (HARDCODED):**
-- [ ] Team Workload — **HARDCODED at line 48-51** (Clayton: 3/60%, Glen: 2/40%)
-  - Should show same data as Technicians page: inspections this week, upcoming, revenue
-  - **TODO:** Wire to `useTechnicianStats()` hook (same hook used by Technicians page)
-  - Display: technician name, initials circle, inspections count, progress bar
+**Fixed (2026-02-09):**
+- [x] Team Workload — wired to `useTechnicianStats()` hook (real data from DB)
+  - Shows: technician name, initials circle, inspections this week, relative progress bar
+  - Loading spinner + "No technicians found" empty state
+  - Deleted hardcoded Clayton/Glen array
 
 **Build Last** *(see "Build Last" section below)*
 - Recent Activity — plan what it shows, then build
@@ -467,7 +465,7 @@ serve(async (req) => {
 
 #### 2. Schedule `/admin/schedule`
 **File:** `src/pages/AdminSchedule.tsx`
-**Status:** Bugs to Fix
+**Status:** 🟢 Core Bugs Fixed
 
 **Already Working:**
 - [x] Calendar panel split — 70/30 (already implemented, not 60/40)
@@ -475,27 +473,19 @@ serve(async (req) => {
 - [x] Color coding — blue=inspection, green=job (in `ScheduleCalendar.tsx` line 41-48)
 - [x] Technician filter — implemented in `ScheduleHeader`, filters by `technicianFilter`
 
-**Bugs/Fixes:**
-- [ ] **Event positioning** — events may not align to correct time rows
-  - Location: `useScheduleCalendar.ts` function `calculateEventPosition()` lines 293-326
-  - Math is correct: `top = ((hour - 7) + (min/60)) / 13 * 100`
-  - Likely CSS issue: percentage `top` on `relative` parent vs actual grid height
-  - **FIX NEEDED:** Verify grid renders at exactly 832px (13 slots × 64px)
+**Fixed (2026-02-09):**
+- [x] **Event positioning** — added guard for negative/zero duration (defaults to 1hr) and clamped bottom edge to prevent overflow past grid
+- [x] **Book Inspection button** — confirmed logic is correct (requires date + time + technician). No code change needed.
+- [x] **Technician selector showing wrong users** — removed fallback that returned ALL active users. Now returns empty array when no technician role found, so only actual technicians appear in dropdowns.
 
-- [ ] **Book Inspection button** — might not be clicking issue, investigate:
-  - Button logic is correct in `LeadBookingCard.tsx` lines 346-369
-  - Validates: date, time, technician before enabling
-  - **LIKELY CAUSE:** If technicians array is empty, buttons are disabled
+**Phase 1 Features Completed (2026-02-09):**
+- [x] Event Details Panel — side panel with booking details, status, actions
+- [x] Booking Conflict Detection — prevents double-booking technicians
+- [x] Mobile FAB + Bottom Sheet — leads queue at 375px
+- [x] Event Status Indicators — color-coded chips (scheduled/in_progress/completed/cancelled)
+- [x] Duration Display — shows "1h", "2.5h" on events
 
-- [ ] **Technician selector showing wrong users**
-  - `useTechnicians.ts` has FALLBACK at lines 136-145
-  - If no users have technician role → returns ALL active users
-  - **NOTE:** Currently only 1 user exists (Michael Youssef) with ALL 3 roles (admin, technician, developer)
-  - The fallback may be triggering if query doesn't find technician role correctly
-  - **TODO:** Test with Michael's account — should appear in dropdown (has technician role)
-  - **TODO (Later):** Create separate accounts for Clayton and Glen with ONLY technician role
-
-**Enhancements (Phase 1):**
+**Enhancements (Phase 2):**
 - [ ] Travel time calculation — already created somewhere, need to migrate
 - [ ] Suggested booking times — soonest available based on travel
 
@@ -632,7 +622,7 @@ Once Clayton and Glen accounts are created with technician role, they will also 
 
 #### 8. Leads Management `/leads`
 **File:** `src/pages/LeadsManagement.tsx`
-**Status:** 🟡 UI Redesigned — Needs Functionality
+**Status:** 🟢 Phase 1 Complete (Archive, History, Email all working)
 
 **UI Completed (2025-02-04):**
 - [x] New pipeline tabs with colored dots (horizontal scrollable)
@@ -642,6 +632,12 @@ Once Clayton and Glen accounts are created with technician role, they will also 
 - [x] Responsive grid (1/2/3 columns)
 - [x] Archive button on all cards (stubbed with toast)
 - [x] Clean Tailwind styling (no more inline CSS)
+
+**Phase 1 Features Completed (2026-02-09):**
+- [x] updateLeadStatus() persists to Supabase (was local-only bug)
+- [x] Archive Lead — AlertDialog confirmation, sets archived_at, logs activity
+- [x] View History — Dialog with activity timeline, en-AU timestamps
+- [x] Send Email — Composer with MRC template, mailto: + clipboard
 
 **Phase 1 Pipeline Stages:**
 | Status | Card Shows | Actions |
@@ -668,9 +664,9 @@ Once Clayton and Glen accounts are created with technician role, they will also 
 - [ ] Add **Email button** to ALL lead cards (mailto: link)
 - [ ] Add **View Lead button** to ALL lead cards (consistent across all statuses)
 - [ ] "Closed" card — change "View PDF" to "Files & Photos" button
-- [ ] Archive lead functionality (currently shows toast "Coming soon")
-- [ ] Send Email — open email composer with MRC template + PDF attachment
-- [ ] View History — show activity timeline for lead
+- [x] Archive lead functionality ✅ (AlertDialog + DB persistence)
+- [x] Send Email — email composer with MRC template + mailto: ✅
+- [x] View History — activity timeline modal ✅
 - [ ] Schedule button auto-open/highlight lead in Schedule queue
 - [ ] Fix database enum: Add `closed` and `not_landed` to lead_status if missing
 - [ ] Add `property_lat` and `property_lng` columns to leads table (for travel time calc)

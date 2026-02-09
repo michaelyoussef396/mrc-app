@@ -4,7 +4,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/types/database.types';
+import type { Database } from '@/integrations/supabase/types';
 
 type LeadInsert = Database['public']['Tables']['leads']['Insert'];
 
@@ -114,29 +114,29 @@ export const URGENCY_OPTIONS: Array<{
   label: string;
   description: string;
 }> = [
-  {
-    value: 'ASAP',
-    label: 'ASAP - As soon as possible',
-    description: 'Urgent - need help immediately'
-  },
-  {
-    value: 'within_week',
-    label: 'Within a week',
-    description: 'Need service in the next 7 days'
-  },
-  {
-    value: 'couple_weeks',
-    label: 'Next couple of weeks',
-    description: 'Flexible - within 2 weeks'
-  },
-  {
-    value: 'within_month',
-    label: 'Within a month',
-    description: 'Not urgent - within 30 days'
-  },
-  {
-    value: 'couple_months',
-    label: 'Next couple of months',
-    description: 'Planning ahead - 2-3 months'
-  },
-];
+    {
+      value: 'ASAP',
+      label: 'ASAP - As soon as possible',
+      description: 'Urgent - need help immediately'
+    },
+    {
+      value: 'within_week',
+      label: 'Within a week',
+      description: 'Need service in the next 7 days'
+    },
+    {
+      value: 'couple_weeks',
+      label: 'Next couple of weeks',
+      description: 'Flexible - within 2 weeks'
+    },
+    {
+      value: 'within_month',
+      label: 'Within a month',
+      description: 'Not urgent - within 30 days'
+    },
+    {
+      value: 'couple_months',
+      label: 'Next couple of months',
+      description: 'Planning ahead - 2-3 months'
+    },
+  ];

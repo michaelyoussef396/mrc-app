@@ -8,6 +8,7 @@ import CreateLeadModal from '@/components/admin/CreateLeadModal';
 import { useAdminDashboardStats } from '@/hooks/useAdminDashboardStats';
 import { useTodaysSchedule } from '@/hooks/useTodaysSchedule';
 import { useUnassignedLeads } from '@/hooks/useUnassignedLeads';
+import { useTechnicianStats } from '@/hooks/useTechnicianStats';
 
 // Status badge styling based on lead status
 const getStatusStyle = (status: string) => {
@@ -45,11 +46,6 @@ const getTechnicianColor = (name: string) => {
   return '#86868b';
 };
 
-const teamWorkload = [
-  { name: 'Clayton', initials: 'C', color: '#007AFF', inspections: 3, progress: 60 },
-  { name: 'Glen', initials: 'G', color: '#34C759', inspections: 2, progress: 40 },
-];
-
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -84,6 +80,9 @@ export default function AdminDashboard() {
     totalCount: unassignedCount,
     isLoading: unassignedLoading
   } = useUnassignedLeads();
+
+  // Fetch technician stats for Team Workload
+  const { data: technicianStats, isLoading: techLoading } = useTechnicianStats();
 
   // Format currency for Australian dollars
   const formatCurrency = (amount: number) => {
@@ -557,38 +556,53 @@ export default function AdminDashboard() {
               </h2>
 
               <div className="space-y-4">
-                {teamWorkload.map((tech) => (
-                  <div key={tech.name} className="flex items-center gap-3 md:gap-4">
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0"
-                      style={{ backgroundColor: tech.color }}
-                    >
-                      {tech.initials}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium truncate" style={{ color: '#1d1d1f' }}>
-                          {tech.name}
-                        </span>
-                        <span className="text-xs flex-shrink-0 ml-2" style={{ color: '#86868b' }}>
-                          {tech.inspections} inspections
-                        </span>
-                      </div>
-                      <div
-                        className="h-2 rounded-full overflow-hidden"
-                        style={{ backgroundColor: '#f0f0f0' }}
-                      >
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${tech.progress}%`,
-                            backgroundColor: tech.color,
-                          }}
-                        />
-                      </div>
-                    </div>
+                {techLoading ? (
+                  <div className="py-8 text-center">
+                    <div className="w-5 h-5 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin mx-auto" />
                   </div>
-                ))}
+                ) : !technicianStats || technicianStats.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <span className="material-symbols-outlined text-[32px] mb-2 opacity-50" style={{ color: '#86868b' }}>group</span>
+                    <p className="text-sm" style={{ color: '#86868b' }}>No technicians found</p>
+                  </div>
+                ) : (
+                  technicianStats.map((tech) => {
+                    const maxInspections = Math.max(...technicianStats.map(t => t.inspectionsThisWeek), 1);
+                    const progress = (tech.inspectionsThisWeek / maxInspections) * 100;
+                    return (
+                      <div key={tech.id} className="flex items-center gap-3 md:gap-4">
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0"
+                          style={{ backgroundColor: tech.color }}
+                        >
+                          {tech.initials}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium truncate" style={{ color: '#1d1d1f' }}>
+                              {tech.fullName}
+                            </span>
+                            <span className="text-xs flex-shrink-0 ml-2" style={{ color: '#86868b' }}>
+                              {tech.inspectionsThisWeek} inspections
+                            </span>
+                          </div>
+                          <div
+                            className="h-2 rounded-full overflow-hidden"
+                            style={{ backgroundColor: '#f0f0f0' }}
+                          >
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${progress}%`,
+                                backgroundColor: tech.color,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
 

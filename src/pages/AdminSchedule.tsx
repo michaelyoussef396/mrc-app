@@ -1,8 +1,15 @@
 import { useState } from 'react';
 import AdminSidebar from '@/components/admin/AdminSidebar';
-import { ScheduleHeader, ScheduleCalendar, LeadsQueue } from '@/components/schedule';
-import { useScheduleCalendar, getWeekStart } from '@/hooks/useScheduleCalendar';
+import { ScheduleHeader, ScheduleCalendar, LeadsQueue, EventDetailsPanel } from '@/components/schedule';
+import { useScheduleCalendar, getWeekStart, CalendarEvent } from '@/hooks/useScheduleCalendar';
 import { useTechnicians } from '@/hooks/useTechnicians';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 
 // ============================================================================
 // COMPONENT
@@ -12,6 +19,8 @@ export default function AdminSchedule() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [selectedTechnician, setSelectedTechnician] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [mobileQueueOpen, setMobileQueueOpen] = useState(false);
 
   // Fetch technicians using the shared hook
   const { data: technicians = [], isLoading: techniciansLoading, error: techniciansError } = useTechnicians();
@@ -129,6 +138,7 @@ export default function AdminSchedule() {
                 weekStart={weekStart}
                 events={events}
                 isLoading={isLoading}
+                onEventClick={(event) => setSelectedEvent(event)}
               />
             </div>
           </section>
@@ -139,11 +149,30 @@ export default function AdminSchedule() {
           </aside>
         </div>
 
-        {/* Mobile: Bottom Sheet for Leads Queue */}
-        <div className="lg:hidden">
-          {/* Add a floating action button or bottom sheet trigger here if needed */}
+        {/* Mobile: FAB to open Leads Queue Sheet */}
+        <div className="lg:hidden fixed bottom-6 right-6 z-50">
+          <Sheet open={mobileQueueOpen} onOpenChange={setMobileQueueOpen}>
+            <SheetTrigger asChild>
+              <button
+                className="w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+                style={{ minWidth: '48px', minHeight: '48px' }}
+              >
+                <span className="material-symbols-outlined text-2xl">calendar_add_on</span>
+              </button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl">
+              <LeadsQueue technicians={technicians} />
+            </SheetContent>
+          </Sheet>
         </div>
       </main>
+
+      {/* Event Details Panel */}
+      <EventDetailsPanel
+        event={selectedEvent}
+        open={selectedEvent !== null}
+        onClose={() => setSelectedEvent(null)}
+      />
     </div>
   );
 }

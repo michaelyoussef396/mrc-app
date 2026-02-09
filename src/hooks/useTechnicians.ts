@@ -107,14 +107,8 @@ async function fetchTechnicians(): Promise<Technician[]> {
     }
 
     if (!roleData) {
-      console.warn('[useTechnicians] No technician role found - returning all active users as technicians');
-      // Fallback: return all active users as technicians
-      return allUsers.map(user => ({
-        id: user.id,
-        name: user.full_name || `${user.first_name} ${user.last_name}`.trim() || user.email,
-        color: getTechnicianColor(user.full_name || user.first_name),
-        initials: getTechnicianInitials(user.full_name || user.first_name),
-      }));
+      console.warn('[useTechnicians] No technician role found - returning empty list');
+      return [];
     }
 
     const technicianRoleId = roleData.id;
@@ -134,14 +128,8 @@ async function fetchTechnicians(): Promise<Technician[]> {
     console.log('[useTechnicians] Users with technician role:', userRolesData);
 
     if (!userRolesData || userRolesData.length === 0) {
-      console.warn('[useTechnicians] No users with technician role - returning all active users');
-      // Fallback: return all active users
-      return allUsers.map(user => ({
-        id: user.id,
-        name: user.full_name || `${user.first_name} ${user.last_name}`.trim() || user.email,
-        color: getTechnicianColor(user.full_name || user.first_name),
-        initials: getTechnicianInitials(user.full_name || user.first_name),
-      }));
+      console.warn('[useTechnicians] No users with technician role - returning empty list');
+      return [];
     }
 
     // Step 5: Filter users to only those with technician role
