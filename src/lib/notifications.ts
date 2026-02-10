@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { sendEmail } from '@/lib/api/notifications';
 
 export interface NotificationData {
   leadId: string;
@@ -62,11 +63,29 @@ export const sendTechnicianNotifications = async (bookingData: NotificationData)
 
     console.log(`Sent notifications to ${technicians.length} technicians`);
 
-    // TODO: Send email notifications
-    // This would require setting up an edge function with Resend
-    
-    // TODO: Send SMS notifications (optional)
-    // This would require setting up an edge function with Twilio or similar
+    // Send email notifications to technicians (fire-and-forget)
+    for (const tech of technicians) {
+      if (tech.email) {
+        sendEmail({
+          to: tech.email,
+          subject: `New Job Booked — ${bookingData.clientName}`,
+          html: `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+              <h2 style="color: #1d1d1f;">New Job Booked</h2>
+              <p><strong>Client:</strong> ${bookingData.clientName}</p>
+              <p><strong>Date:</strong> ${bookingData.selectedDates[0]}</p>
+              <p><strong>Time:</strong> ${bookingData.selectedTimeSlot}</p>
+              <p><strong>Property:</strong> ${bookingData.property}, ${bookingData.suburb}</p>
+              <p><strong>Quote:</strong> $${bookingData.quoteAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</p>
+              <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;">
+              <p style="color: #86868b; font-size: 12px;">Mould &amp; Restoration Co — Automated Notification</p>
+            </div>
+          `,
+          leadId: bookingData.leadId,
+          templateName: 'job-booked-technician',
+        });
+      }
+    }
 
   } catch (error) {
     console.error('Error sending technician notifications:', error);
@@ -167,20 +186,40 @@ export const sendClientNotification = async (leadId: string, type: 'job-started'
 
     if (!lead) return;
 
-    if (type === 'job-started') {
-      // TODO: Implement SMS notification
-      console.log(`Sending job started notification to ${lead.full_name}`);
-      
-      // TODO: Send email notification via edge function
-      // await sendEmail({
-      //   to: lead.email,
-      //   subject: 'Your Mould Remediation Service Has Started',
-      //   template: 'job-started-client',
-      //   data: {
-      //     clientName: lead.full_name,
-      //     property: lead.property_address_street,
-      //   }
-      // });
+    if (type === 'job-started' && lead.email) {
+      sendEmail({
+        to: lead.email,
+        subject: 'Your Mould Remediation Service Has Started',
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+            <h2 style="color: #1d1d1f;">Service Has Started</h2>
+            <p>Hi ${lead.full_name},</p>
+            <p>We're writing to let you know that our technician has arrived at <strong>${lead.property_address_street}</strong> and has started the mould remediation service.</p>
+            <p>If you have any questions, please don't hesitate to contact us.</p>
+            <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;">
+            <p style="color: #86868b; font-size: 12px;">Mould &amp; Restoration Co<br>Melbourne, VIC</p>
+          </div>
+        `,
+        leadId,
+        templateName: 'job-started-client',
+      });
+    } else if (type === 'job-completed' && lead.email) {
+      sendEmail({
+        to: lead.email,
+        subject: 'Your Mould Remediation Service is Complete',
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+            <h2 style="color: #1d1d1f;">Service Complete</h2>
+            <p>Hi ${lead.full_name},</p>
+            <p>The mould remediation service at <strong>${lead.property_address_street}</strong> has been completed. You will receive your inspection report shortly.</p>
+            <p>If you have any questions, please don't hesitate to contact us.</p>
+            <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;">
+            <p style="color: #86868b; font-size: 12px;">Mould &amp; Restoration Co<br>Melbourne, VIC</p>
+          </div>
+        `,
+        leadId,
+        templateName: 'job-completed-client',
+      });
     }
   } catch (error) {
     console.error('Error sending client notification:', error);

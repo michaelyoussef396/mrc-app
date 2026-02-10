@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
+import { sendSlackNotification } from '@/lib/api/notifications';
 
 // ============================================================================
 // TYPES
@@ -449,6 +450,14 @@ export default function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLe
 
       // Log audit entry (non-blocking)
       logAuditEntry(data.id);
+
+      // Slack notification (fire-and-forget)
+      sendSlackNotification({
+        event: 'new_lead',
+        leadId: data.id,
+        leadName: formData.fullName,
+        propertyAddress: `${formData.propertyAddress}, ${formData.suburb} ${formData.state} ${formData.postcode}`,
+      });
 
       setCreatedLeadId(data.id);
       setModalState('success');
