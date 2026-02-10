@@ -6,7 +6,7 @@ export function MobileBottomNav() {
     { label: "Home", icon: Home, path: "/dashboard" },
     { label: "Leads", icon: Users, path: "/leads" },
     { label: "Calendar", icon: Calendar, path: "/calendar" },
-    { label: "Inspections", icon: Microscope, path: "/inspections" },
+    { label: "Inspections", icon: Microscope, path: "/inspection/select-lead" },
     { label: "Reports", icon: FileText, path: "/reports" },
   ];
 

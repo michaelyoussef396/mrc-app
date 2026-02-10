@@ -18,8 +18,7 @@ import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import CheckEmail from "./pages/CheckEmail";
 import NotFound from "./pages/NotFound";
-import AdminComingSoon from "./pages/AdminComingSoon";
-// TechnicianComingSoon removed - now using TechnicianDashboard
+// AdminComingSoon and TechnicianComingSoon removed - using real dashboards
 import AdminDashboard from "./pages/AdminDashboard";
 import TechnicianDashboard from "./pages/TechnicianDashboard";
 import TechnicianDashboardTest from "./pages/TechnicianDashboardTest";
@@ -79,8 +78,9 @@ const AppContent = () => {
             <Route path="/request-inspection" element={<RequestInspection />} />
             <Route path="/request-inspection/success" element={<InspectionSuccess />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/test-pdf" element={<TestPDFTemplate />} />
-            <Route path="/test/technician" element={<TechnicianDashboardTest />} />
+            {/* Test routes - developer only */}
+            <Route path="/test-pdf" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={["developer"]}><Suspense fallback={<PageLoader />}><TestPDFTemplate /></Suspense></RoleProtectedRoute></ProtectedRoute>} />
+            <Route path="/test/technician" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={["developer"]}><TechnicianDashboardTest /></RoleProtectedRoute></ProtectedRoute>} />
 
             {/* Admin Dashboard (standalone layout - no AppLayout) */}
             <Route
@@ -138,6 +138,48 @@ const AppContent = () => {
                   <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <LeadsManagement />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin Reports (standalone layout - no AppLayout) */}
+            <Route
+              path="/admin/reports"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <Reports />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin Settings (standalone layout - no AppLayout) */}
+            <Route
+              path="/admin/settings"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <Settings />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin Help (standalone layout - no AppLayout) */}
+            <Route
+              path="/admin/help"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <HelpSupport />
                     </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>
@@ -240,17 +282,20 @@ const AppContent = () => {
               }
             />
 
-            {/* Role-specific coming soon pages (protected) */}
+            {/* Technician Help (standalone - uses shared HelpSupport component) */}
             <Route
-              path="/admin-coming-soon"
+              path="/technician/help"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["admin"]}>
-                    <AdminComingSoon />
+                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <HelpSupport />
+                    </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>
               }
             />
+
             {/* Protected routes - Developer/Admin dashboard (with AppLayout) */}
             <Route
               element={

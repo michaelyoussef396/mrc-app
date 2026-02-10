@@ -5,7 +5,9 @@
 
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Phone, Mail, Headphones, MessageCircle } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
+import TechnicianBottomNav from '@/components/technician/TechnicianBottomNav';
 
 // Developer contact details (HARDCODED)
 const DEVELOPER_PHONE = '0433880403';
@@ -14,6 +16,8 @@ const DEVELOPER_EMAIL = 'michaelyoussef396@gmail.com';
 
 export default function HelpSupport() {
   const navigate = useNavigate();
+  const { currentRole } = useAuth();
+  const isTechnician = currentRole === 'technician';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 pb-24">
@@ -108,7 +112,7 @@ export default function HelpSupport() {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <MobileBottomNav />
+      {isTechnician ? <TechnicianBottomNav /> : <MobileBottomNav />}
     </div>
   );
 }
