@@ -1,5 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
-import { sendEmail } from '@/lib/api/notifications';
+import {
+  sendEmail,
+  buildJobBookedTechnicianHtml,
+  buildJobStartedHtml,
+  buildJobCompletedHtml,
+} from '@/lib/api/notifications';
 
 export interface NotificationData {
   leadId: string;
@@ -69,18 +74,14 @@ export const sendTechnicianNotifications = async (bookingData: NotificationData)
         sendEmail({
           to: tech.email,
           subject: `New Job Booked — ${bookingData.clientName}`,
-          html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-              <h2 style="color: #1d1d1f;">New Job Booked</h2>
-              <p><strong>Client:</strong> ${bookingData.clientName}</p>
-              <p><strong>Date:</strong> ${bookingData.selectedDates[0]}</p>
-              <p><strong>Time:</strong> ${bookingData.selectedTimeSlot}</p>
-              <p><strong>Property:</strong> ${bookingData.property}, ${bookingData.suburb}</p>
-              <p><strong>Quote:</strong> $${bookingData.quoteAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</p>
-              <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;">
-              <p style="color: #86868b; font-size: 12px;">Mould &amp; Restoration Co — Automated Notification</p>
-            </div>
-          `,
+          html: buildJobBookedTechnicianHtml({
+            clientName: bookingData.clientName,
+            date: bookingData.selectedDates[0],
+            time: bookingData.selectedTimeSlot,
+            property: bookingData.property,
+            suburb: bookingData.suburb,
+            quoteAmount: bookingData.quoteAmount,
+          }),
           leadId: bookingData.leadId,
           templateName: 'job-booked-technician',
         });
@@ -190,16 +191,10 @@ export const sendClientNotification = async (leadId: string, type: 'job-started'
       sendEmail({
         to: lead.email,
         subject: 'Your Mould Remediation Service Has Started',
-        html: `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-            <h2 style="color: #1d1d1f;">Service Has Started</h2>
-            <p>Hi ${lead.full_name},</p>
-            <p>We're writing to let you know that our technician has arrived at <strong>${lead.property_address_street}</strong> and has started the mould remediation service.</p>
-            <p>If you have any questions, please don't hesitate to contact us.</p>
-            <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;">
-            <p style="color: #86868b; font-size: 12px;">Mould &amp; Restoration Co<br>Melbourne, VIC</p>
-          </div>
-        `,
+        html: buildJobStartedHtml({
+          customerName: lead.full_name,
+          address: lead.property_address_street,
+        }),
         leadId,
         templateName: 'job-started-client',
       });
@@ -207,16 +202,10 @@ export const sendClientNotification = async (leadId: string, type: 'job-started'
       sendEmail({
         to: lead.email,
         subject: 'Your Mould Remediation Service is Complete',
-        html: `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-            <h2 style="color: #1d1d1f;">Service Complete</h2>
-            <p>Hi ${lead.full_name},</p>
-            <p>The mould remediation service at <strong>${lead.property_address_street}</strong> has been completed. You will receive your inspection report shortly.</p>
-            <p>If you have any questions, please don't hesitate to contact us.</p>
-            <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;">
-            <p style="color: #86868b; font-size: 12px;">Mould &amp; Restoration Co<br>Melbourne, VIC</p>
-          </div>
-        `,
+        html: buildJobCompletedHtml({
+          customerName: lead.full_name,
+          address: lead.property_address_street,
+        }),
         leadId,
         templateName: 'job-completed-client',
       });

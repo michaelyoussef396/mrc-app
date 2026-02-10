@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { QueryClient } from '@tanstack/react-query';
+import { sendEmail, sendSlackNotification, buildBookingConfirmationHtml } from '@/lib/api/notifications';
 
 // ============================================================================
 // TYPES
@@ -176,6 +177,41 @@ export async function bookInspection(
     queryClient.invalidateQueries({ queryKey: ['schedule-calendar'] });
     queryClient.invalidateQueries({ queryKey: ['unscheduled-leads'] });
     queryClient.invalidateQueries({ queryKey: ['leads-to-schedule'] });
+
+    // 5. Fire-and-forget notifications
+    const displayDate = formatDateForDisplay(inspectionDate);
+    const displayTime = formatTimeForDisplay(inspectionTime);
+
+    sendSlackNotification({
+      event: 'inspection_booked',
+      leadId,
+      leadName: customerName,
+      propertyAddress,
+      bookingDate: `${displayDate} at ${displayTime}`,
+    });
+
+    // Email booking confirmation to customer
+    supabase
+      .from('leads')
+      .select('email')
+      .eq('id', leadId)
+      .single()
+      .then(({ data: leadData }) => {
+        if (leadData?.email) {
+          sendEmail({
+            to: leadData.email,
+            subject: `Inspection Booking Confirmed — ${displayDate}`,
+            html: buildBookingConfirmationHtml({
+              customerName,
+              date: displayDate,
+              time: displayTime,
+              address: propertyAddress,
+            }),
+            leadId,
+            templateName: 'booking-confirmation',
+          });
+        }
+      });
 
     return {
       success: true,

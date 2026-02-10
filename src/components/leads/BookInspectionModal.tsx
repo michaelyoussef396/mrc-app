@@ -12,6 +12,7 @@ import { Calendar, User, Loader2, Star, Check, MapPin, Clock, Info, AlertTriangl
 import { useBookingValidation, formatTimeDisplay, type DateRecommendation } from "@/hooks/useBookingValidation";
 import { cn } from "@/lib/utils";
 import { AddressAutocomplete, type AddressValue } from "@/components/booking";
+import { sendEmail, sendSlackNotification, buildBookingConfirmationHtml } from "@/lib/api/notifications";
 
 interface BookInspectionModalProps {
   open: boolean;
@@ -261,6 +262,46 @@ export function BookInspectionModal({
       queryClient.invalidateQueries({ queryKey: ["lead", leadId] });
       queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
       queryClient.invalidateQueries({ queryKey: ["unscheduled-leads"] });
+
+      // Fire-and-forget notifications
+      const techName = selectedTechnician?.full_name || selectedTechnician?.first_name || '';
+      const displayDate = new Date(formData.inspectionDate + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const displayTime = formatTimeDisplay(formData.inspectionTime);
+
+      // Slack: inspection_booked
+      sendSlackNotification({
+        event: 'inspection_booked',
+        leadId,
+        leadName: customerName,
+        propertyAddress,
+        technicianName: techName,
+        bookingDate: `${displayDate} at ${displayTime}`,
+      });
+
+      // Email booking confirmation to customer (fetch email from lead)
+      supabase
+        .from('leads')
+        .select('email')
+        .eq('id', leadId)
+        .single()
+        .then(({ data: leadData }) => {
+          if (leadData?.email) {
+            sendEmail({
+              to: leadData.email,
+              subject: `Inspection Booking Confirmed — ${displayDate}`,
+              html: buildBookingConfirmationHtml({
+                customerName,
+                date: displayDate,
+                time: displayTime,
+                address: propertyAddress,
+                technicianName: techName || undefined,
+              }),
+              leadId,
+              templateName: 'booking-confirmation',
+            });
+          }
+        });
+
       onOpenChange(false);
     } catch (error) {
       console.error("Error booking inspection:", error);

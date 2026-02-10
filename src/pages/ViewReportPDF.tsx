@@ -30,7 +30,7 @@ import {
   getPDFVersionHistory,
   updateFieldAndRegenerate
 } from '@/lib/api/pdfGeneration'
-import { sendEmail, sendSlackNotification } from '@/lib/api/notifications'
+import { sendEmail, sendSlackNotification, buildReportApprovedHtml } from '@/lib/api/notifications'
 
 interface Inspection {
   id: string
@@ -269,16 +269,11 @@ export default function ViewReportPDF() {
           sendEmail({
             to: lead.email,
             subject: `Your Inspection Report — ${inspection.job_number || 'Mould & Restoration Co'}`,
-            html: `
-              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-                <h2 style="color: #1d1d1f;">Your Inspection Report is Ready</h2>
-                <p>Hi ${lead.full_name},</p>
-                <p>Your mould inspection report for <strong>${address}</strong> has been approved and is ready for your review.</p>
-                <p>If you have any questions about the report or would like to discuss next steps, please don't hesitate to contact us.</p>
-                <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;">
-                <p style="color: #86868b; font-size: 12px;">Mould &amp; Restoration Co<br>Melbourne, VIC</p>
-              </div>
-            `,
+            html: buildReportApprovedHtml({
+              customerName: lead.full_name,
+              address,
+              jobNumber: inspection.job_number || undefined,
+            }),
             leadId: lead.id,
             inspectionId: inspection.id,
             templateName: 'report-approved',
