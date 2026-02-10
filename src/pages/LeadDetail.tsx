@@ -409,17 +409,17 @@ export default function LeadDetail() {
     let completed = 0;
     const total = 10;
 
-    // Check each section
-    if (inspection.inspection_date) completed++;
-    if (inspection.property_type) completed++;
-    if (inspection.outdoor_observations) completed++;
-    if (inspection.waste_disposal_required !== null) completed++;
-    if (inspection.work_procedure_selected !== null) completed++;
-    if (inspection.labor_hours) completed++;
-    if (inspection.moisture_source_identified !== null) completed++;
-    if (inspection.estimated_total) completed++;
-    if (inspection.ai_summary_text) completed++;
-    if (inspection.pdf_generated_at) completed++;
+    // Check each section using actual DB column names
+    if (inspection.inspection_date) completed++;                                     // S1: Basic Info
+    if (inspection.dwelling_type) completed++;                                       // S2: Property Details
+    if (inspection.outdoor_temperature) completed++;                                 // S5: Outdoor
+    if (inspection.waste_disposal_required !== null && inspection.waste_disposal_required !== undefined) completed++; // S6: Waste Disposal
+    if (inspection.hepa_vac !== null && inspection.hepa_vac !== undefined) completed++; // S7: Equipment
+    if (inspection.no_demolition_hours) completed++;                                 // S9: Cost Estimate (hours)
+    if (inspection.cause_of_mould) completed++;                                      // S8: Job Summary
+    if (inspection.total_inc_gst) completed++;                                       // S9: Cost Estimate (total)
+    if (inspection.ai_summary_text) completed++;                                     // S10: AI Summary
+    if (inspection.pdf_generated_at) completed++;                                    // Report generated
 
     return {
       completed,
