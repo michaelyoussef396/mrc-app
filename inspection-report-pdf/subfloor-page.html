@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subfloor Page - Preview</title>
+    <style>
+        /* Custom Font Declarations */
+        @font-face {
+            font-family: 'Garet Heavy';
+            src: url('./fonts/Garet-Heavy.otf') format('opentype');
+            font-weight: 800;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Galvji';
+            src: url('./fonts/Galvji.ttc') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Galvji', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: #e0e0e0;
+        }
+
+        .report-page {
+            width: 794px;
+            height: 1123px;
+            margin: 20px auto;
+            background: white;
+            position: relative;
+        }
+
+        .page-break {
+            page-break-after: always;
+            break-after: page;
+        }
+
+        @media print {
+            @page {
+                margin: 0;
+                size: A4;
+            }
+
+            body {
+                background: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            *,
+            *::before,
+            *::after {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .report-page {
+                margin: 0;
+                page-break-after: always;
+                background: white !important;
+            }
+
+            div[style*="color: #FFFFFF"] {
+                color: #FFFFFF !important;
+            }
+
+            div[style*="background: #121D73"] {
+                background: #121D73 !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Page: Subfloor (NEW - insert after Areas Inspected, before Outdoor Environment) -->
+    <div class="report-page page-break">
+        <div style="width: 794px; height: 1123px; position: relative; background: #FFFFFF; overflow: hidden">
+
+            <!-- Background image -->
+            <img src="./assets/backgrounds/Subfloor Background P9 (1).png" style="width: 794px; height: 1123px; left: 0; top: 0; position: absolute; display: block; object-fit: cover; z-index: 0;" alt="" />
+
+            <!-- Navy blue panel (right side) -->
+            <div style="left: 463px; top: 111px; width: 331px; height: 1012px; position: absolute; background: #121D73; border-radius: 10px 0 0 0; z-index: 1;"></div>
+
+            <!-- SUBFLOOR title - BLACK #000000, Garet Heavy -->
+            <div style="width: 400px; left: 46px; top: 37px; position: absolute; color: #000000; font-size: 56px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">SUBFLOOR</div>
+
+            <!-- Logo (top right) -->
+            <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: contain; z-index: 10;" src="./assets/logos/logo-mrc.png" alt="MRC Logo" />
+
+            <!-- Photo grid: 2 columns x 5 rows (left side) -->
+            <div style="width: 440px; left: 12px; top: 140px; position: absolute; display: grid; grid-template-columns: 214px 214px; grid-template-rows: repeat(5, 153px); gap: 10px; z-index: 10;">
+                <img src="{{subfloor_photo_1}}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" alt="Subfloor photo 1" />
+                <img src="{{subfloor_photo_2}}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" alt="Subfloor photo 2" />
+                <img src="{{subfloor_photo_3}}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" alt="Subfloor photo 3" />
+                <img src="{{subfloor_photo_4}}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" alt="Subfloor photo 4" />
+                <img src="{{subfloor_photo_5}}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" alt="Subfloor photo 5" />
+                <img src="{{subfloor_photo_6}}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" alt="Subfloor photo 6" />
+                <img src="{{subfloor_photo_7}}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" alt="Subfloor photo 7" />
+                <img src="{{subfloor_photo_8}}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" alt="Subfloor photo 8" />
+                <img src="{{subfloor_photo_9}}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" alt="Subfloor photo 9" />
+                <img src="{{subfloor_photo_10}}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" alt="Subfloor photo 10" />
+            </div>
+
+            <!-- === RIGHT PANEL: Section headings + body text (white on navy) === -->
+            <!-- 4 sections evenly distributed across panel height (111px–1123px = 1012px) -->
+            <!-- Each section gets ~240px of vertical space -->
+
+            <!-- SUBFLOOR OBSERVATION heading -->
+            <div style="width: 290px; left: 484px; top: 150px; position: absolute; color: #FFFFFF; font-size: 16px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">SUBFLOOR OBSERVATION</div>
+
+            <!-- Observation body text -->
+            <div style="width: 290px; left: 484px; top: 178px; position: absolute; color: #FFFFFF; font-size: 13px; font-family: 'Galvji'; font-weight: 400; line-height: 20px; letter-spacing: 0.5px; z-index: 10; white-space: pre-wrap;">{{subfloor_observation}}</div>
+
+            <!-- SUBFLOOR LANDSCAPE heading -->
+            <div style="width: 290px; left: 484px; top: 390px; position: absolute; color: #FFFFFF; font-size: 16px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">SUBFLOOR LANDSCAPE</div>
+
+            <!-- Landscape body text -->
+            <div style="width: 290px; left: 484px; top: 418px; position: absolute; color: #FFFFFF; font-size: 13px; font-family: 'Galvji'; font-weight: 400; line-height: 20px; letter-spacing: 0.5px; z-index: 10; white-space: pre-wrap;">{{subfloor_landscape}}</div>
+
+            <!-- SUBFLOOR COMMENTS heading -->
+            <div style="width: 290px; left: 484px; top: 630px; position: absolute; color: #FFFFFF; font-size: 16px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">SUBFLOOR COMMENTS</div>
+
+            <!-- Comments body text -->
+            <div style="width: 290px; left: 484px; top: 658px; position: absolute; color: #FFFFFF; font-size: 13px; font-family: 'Galvji'; font-weight: 400; line-height: 20px; letter-spacing: 0.5px; z-index: 10; white-space: pre-wrap;">{{subfloor_comments}}</div>
+
+            <!-- MOISTURE LEVELS heading -->
+            <div style="width: 290px; left: 484px; top: 870px; position: absolute; color: #FFFFFF; font-size: 16px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">MOISTURE LEVELS</div>
+
+            <!-- Moisture body text -->
+            <div style="width: 290px; left: 484px; top: 898px; position: absolute; color: #FFFFFF; font-size: 13px; font-family: 'Galvji'; font-weight: 400; line-height: 20px; letter-spacing: 0.5px; z-index: 10; white-space: pre-wrap;">{{subfloor_moisture_levels}}</div>
+
+        </div>
+    </div>
+
+</body>
+
+</html>
