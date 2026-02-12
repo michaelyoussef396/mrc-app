@@ -2863,14 +2863,15 @@ export default function TechnicianInspectionForm() {
         }
 
         // Upload each file
+        // NOTE: Do NOT pass moisture_reading_id here — the reading may not be saved to DB yet.
+        // Photos are linked to moisture readings during handleSave() after readings are persisted.
         const newPhotos: Photo[] = [];
         for (const file of files) {
           const result = await uploadInspectionPhoto(file, {
             inspection_id: currentInspectionId,
             area_id: areaId,
             photo_type: photoType,
-            caption,
-            moisture_reading_id: readingId,
+            caption: readingId ? 'moisture' : caption,
           });
           newPhotos.push({
             id: result.photo_id,
@@ -3130,7 +3131,7 @@ export default function TechnicianInspectionForm() {
             await supabase.from('moisture_readings').delete().in('id', readingsToDelete);
           }
 
-          // Upsert each reading
+          // Upsert each reading, then link its photo
           for (let j = 0; j < area.moistureReadings.length; j++) {
             const reading = area.moistureReadings[j];
             const readingRow = {
@@ -3144,6 +3145,14 @@ export default function TechnicianInspectionForm() {
               await supabase.from('moisture_readings').update(readingRow).eq('id', reading.id);
             } else {
               await supabase.from('moisture_readings').insert({ id: reading.id, ...readingRow });
+            }
+
+            // Link photo to this moisture reading (photo was uploaded without moisture_reading_id)
+            if (reading.photo) {
+              await supabase
+                .from('photos')
+                .update({ moisture_reading_id: reading.id })
+                .eq('id', reading.photo.id);
             }
           }
         }
