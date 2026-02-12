@@ -1040,7 +1040,8 @@ const InspectionForm = () => {
         scheduledDate: `${passedLead.inspectionDate}T${passedLead.inspectionTime}:00`,
         affectedAreas: passedLead.affectedAreas,
         propertyType: passedLead.propertyType,
-        urgency: passedLead.urgency
+        urgency: passedLead.urgency,
+        internalNotes: passedLead.internalNotes || ''
       }
 
       setLead(leadData)
@@ -1145,7 +1146,8 @@ const InspectionForm = () => {
         issueDescription: leadData.issue_description || 'No issue description provided',
         scheduledDate: leadData.inspection_scheduled_date || new Date().toISOString().split('T')[0],
         propertyType: leadData.property_type,
-        urgency: leadData.urgency
+        urgency: leadData.urgency,
+        internalNotes: leadData.internal_notes || ''
       }
 
       setLead(formattedLead)
@@ -3277,6 +3279,14 @@ const InspectionForm = () => {
                   </div>
                 )}
               </div>
+              {lead.internalNotes && (
+                <div style={{ marginTop: '12px', padding: '12px 14px', background: '#F5F5F7', borderRadius: '10px', borderLeft: '3px solid #86868B' }}>
+                  <span className="summary-label" style={{ display: 'block', marginBottom: '4px' }}>Internal Notes</span>
+                  <span className="summary-value" style={{ whiteSpace: 'pre-wrap', color: '#48484A', fontSize: '13px', lineHeight: '1.5' }}>
+                    {lead.internalNotes}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
