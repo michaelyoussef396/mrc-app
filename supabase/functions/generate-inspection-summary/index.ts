@@ -290,40 +290,87 @@ function formatFormDataForPrompt(formData: InspectionFormData): string {
   return lines.join('\n')
 }
 
-// Helper: call OpenRouter and return the response text
+// Models to try in order (fallback if rate-limited)
+const FREE_MODELS = [
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'mistralai/mistral-small-3.1-24b-instruct:free',
+  'google/gemma-3-27b-it:free',
+  'qwen/qwen3-coder:free',
+]
+
+// Helper: call OpenRouter with automatic model fallback
 async function callOpenRouter(apiKey: string, prompt: string, maxTokens: number): Promise<string> {
-  const response = await fetch(
-    'https://openrouter.ai/api/v1/chat/completions',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://mrc-app.vercel.app',
-        'X-Title': 'MRC Inspection App'
-      },
-      body: JSON.stringify({
-        model: 'mistralai/devstral-2512:free',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: maxTokens,
-        top_p: 0.95
-      })
+  let lastError = ''
+
+  for (const model of FREE_MODELS) {
+    console.log(`Trying model: ${model}...`)
+    const response = await fetch(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://mrc-app.vercel.app',
+          'X-Title': 'MRC Inspection App'
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+          max_tokens: maxTokens,
+          top_p: 0.95
+        })
+      }
+    )
+
+    if (response.status === 429) {
+      console.warn(`Model ${model} rate-limited, trying next...`)
+      lastError = `All models rate-limited`
+      continue
     }
-  )
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('OpenRouter API error:', response.status, errorText)
-    throw new Error(`OpenRouter API error: ${response.status}`)
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`OpenRouter API error with ${model}:`, response.status, errorText)
+      lastError = `${model}: ${response.status}`
+      continue
+    }
+
+    const result = await response.json()
+    const text = result?.choices?.[0]?.message?.content
+    if (!text) {
+      console.error(`No content from ${model}:`, JSON.stringify(result).slice(0, 500))
+      lastError = `${model}: empty response`
+      continue
+    }
+
+    console.log(`Success with model: ${model}`)
+    return text.trim()
   }
 
-  const result = await response.json()
-  const text = result?.choices?.[0]?.message?.content
-  if (!text) {
-    throw new Error('No text in OpenRouter response')
+  throw new Error(`OpenRouter API failed: ${lastError}`)
+}
+
+// Helper: extract JSON from AI response that may include markdown fencing or preamble
+function extractJson(raw: string): string {
+  let text = raw.trim()
+  // Remove markdown code fences
+  const jsonBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/)
+  if (jsonBlockMatch) {
+    text = jsonBlockMatch[1].trim()
   }
-  return text.trim()
+  // If still not starting with {, try to find the first {
+  if (!text.startsWith('{')) {
+    const idx = text.indexOf('{')
+    if (idx !== -1) text = text.slice(idx)
+  }
+  // Trim trailing content after last }
+  const lastBrace = text.lastIndexOf('}')
+  if (lastBrace !== -1 && lastBrace < text.length - 1) {
+    text = text.slice(0, lastBrace + 1)
+  }
+  return text
 }
 
 Deno.serve(async (req) => {
@@ -406,14 +453,9 @@ Return ONLY the JSON object, no other text:`
 
       try {
         const generatedText = await callOpenRouter(openrouterApiKey, prompt, 3000)
+        console.log('Raw AI response (first 300 chars):', generatedText.slice(0, 300))
 
-        // Clean up markdown code blocks if present
-        let cleanedText = generatedText
-        if (cleanedText.startsWith('```json')) cleanedText = cleanedText.slice(7)
-        if (cleanedText.startsWith('```')) cleanedText = cleanedText.slice(3)
-        if (cleanedText.endsWith('```')) cleanedText = cleanedText.slice(0, -3)
-        cleanedText = cleanedText.trim()
-
+        const cleanedText = extractJson(generatedText)
         const structuredData: StructuredSummary = JSON.parse(cleanedText)
 
         return new Response(
@@ -426,11 +468,12 @@ Return ONLY the JSON object, no other text:`
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       } catch (parseError) {
-        console.error('Structured generation failed:', parseError)
+        const errMsg = parseError instanceof Error ? parseError.message : 'Unknown parse error'
+        console.error('Structured generation failed:', errMsg)
         return new Response(
           JSON.stringify({
             success: false,
-            error: 'Failed to generate AI summary. Please try again.',
+            error: `AI generation failed: ${errMsg}`,
           }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
