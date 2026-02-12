@@ -5322,77 +5322,6 @@ const InspectionForm = () => {
               </div>
             )}          </div>
 
-          {/* Navigation Buttons */}
-          <div className="form-navigation">
-            {currentSection > 0 && (
-              <button
-                type="button"
-                className="btn-nav btn-previous"
-                onClick={handlePrevious}
-              >
-                <span>←</span>
-                <span>Previous</span>
-              </button>
-            )}
-
-            {/* Save Button - Always visible */}
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={handleSave}
-              disabled={saving}
-              style={{
-                minWidth: '120px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px'
-              }}
-            >
-              {saving ? (
-                <>
-                  <span className="loading-spinner-small"></span>
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <>
-                  <span>💾</span>
-                  <span>Save</span>
-                </>
-              )}
-            </button>
-
-            {currentSection < sections.length - 1 ? (
-              <button
-                type="button"
-                className="btn-nav btn-next"
-                onClick={handleNext}
-              >
-                <span>Next</span>
-                <span>→</span>
-              </button>
-            ) : (
-              <button 
-                type="button"
-                className="btn-primary btn-submit"
-                onClick={handleSubmit}
-                disabled={saving}
-              >
-                {saving ? (
-                  <>
-                    <span className="loading-spinner-small"></span>
-                    <span>Submitting...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>✓</span>
-                    <span>Complete Inspection</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-
           {/* Quick Section Navigation */}
           <div className="section-dots">
             {sections.map((section, index) => (
@@ -5410,6 +5339,79 @@ const InspectionForm = () => {
           </div>
         </div>
       </main>
+
+      {/* Fixed Bottom Navigation */}
+      <nav className="form-navigation">
+        {currentSection > 0 && (
+          <button
+            type="button"
+            className="btn-nav btn-previous"
+            onClick={handlePrevious}
+          >
+            <span>←</span>
+            <span>Previous</span>
+          </button>
+        )}
+
+        {/* Save Button - Always visible */}
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={handleSave}
+          disabled={saving}
+          style={{
+            minWidth: '120px',
+            minHeight: '48px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
+          }}
+        >
+          {saving ? (
+            <>
+              <span className="loading-spinner-small"></span>
+              <span>Saving...</span>
+            </>
+          ) : (
+            <>
+              <span>💾</span>
+              <span>Save</span>
+            </>
+          )}
+        </button>
+
+        {currentSection < sections.length - 1 ? (
+          <button
+            type="button"
+            className="btn-nav btn-next"
+            onClick={handleNext}
+          >
+            <span>Next</span>
+            <span>→</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn-primary btn-submit"
+            onClick={handleSubmit}
+            disabled={saving}
+            style={{ minHeight: '48px' }}
+          >
+            {saving ? (
+              <>
+                <span className="loading-spinner-small"></span>
+                <span>Submitting...</span>
+              </>
+            ) : (
+              <>
+                <span>✓</span>
+                <span>Complete Inspection</span>
+              </>
+            )}
+          </button>
+        )}
+      </nav>
       </div>
     </>
   )
