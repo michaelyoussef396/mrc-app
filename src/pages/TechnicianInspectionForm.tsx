@@ -24,6 +24,32 @@ import type {
   Photo,
 } from '@/types/inspection';
 
+// Helper: invoke edge functions via direct fetch (bypasses supabase.functions.invoke timeout issues)
+async function invokeEdgeFunction(functionName: string, body: object): Promise<{ data: any; error: any }> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token || supabaseAnonKey;
+    const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'apikey': supabaseAnonKey,
+      },
+      body: JSON.stringify(body),
+    });
+    const responseData = await response.json();
+    if (!response.ok) {
+      return { data: null, error: { message: responseData.error || `HTTP ${response.status}` } };
+    }
+    return { data: responseData, error: null };
+  } catch (error: any) {
+    return { data: null, error: { message: error.message || 'Network error' } };
+  }
+}
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -2091,8 +2117,8 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
     setIsGenerating(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-inspection-summary', {
-        body: { formData: buildPayload(), structured: true },
+      const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
+        formData: buildPayload(), structured: true,
       });
 
       if (error) throw error;
@@ -2140,13 +2166,11 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
     setRegeneratingSection(section);
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-inspection-summary', {
-        body: {
-          formData: buildPayload(),
-          section,
-          customPrompt: feedback,
-          currentContent,
-        },
+      const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
+        formData: buildPayload(),
+        section,
+        customPrompt: feedback,
+        currentContent,
       });
 
       if (error) throw error;
