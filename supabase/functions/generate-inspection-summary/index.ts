@@ -1,5 +1,5 @@
 // Supabase Edge Function: generate-inspection-summary
-// Calls OpenRouter AI to generate 4 professional inspection report sections
+// Calls OpenRouter AI to generate 5 professional inspection report sections (MRC template format)
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -101,7 +101,7 @@ interface InspectionFormData {
 interface RequestBody {
   formData: InspectionFormData
   feedback?: string
-  section?: 'whatWeFound' | 'whatWeWillDo' | 'problemAnalysis' | 'demolitionDetails'
+  section?: 'whatWeFound' | 'whatWeWillDo' | 'problemAnalysis' | 'demolitionDetails' | 'overviewConclusion'
   structured?: boolean
   customPrompt?: string
   currentContent?: string
@@ -111,6 +111,7 @@ interface StructuredSummary {
   what_we_found: string
   what_we_will_do: string
   problem_analysis: string
+  overview_conclusion: string
   demolition_details: string
 }
 
@@ -385,49 +386,52 @@ Deno.serve(async (req) => {
     const hasDemolition = formData.areas?.some(a => a.demolitionRequired) || false
 
     // ================================================================
-    // STRUCTURED MODE — generate all 4 sections as JSON
+    // STRUCTURED MODE — generate all 5 sections as JSON (MRC template)
     // ================================================================
     if (structured) {
       const demolitionInstruction = hasDemolition
-        ? `"demolition_details": "Detailed description of all demolition work required across all areas. For each area needing demolition, describe what will be removed/demolished and why. Include total demolition hours. Be specific about materials being removed (e.g., plasterboard, carpet, timber)."`
+        ? `"demolition_details": "Demolition details formatted as:\\n\\n**Demolition Scope:**\\n- [Area]: [what materials are being removed and why]\\n- ...\\n\\n**Total Demolition Time:** X hours\\n\\n**Post-Demolition:** Brief description of area preparation after demolition."`
         : `"demolition_details": ""`
 
       const prompt = `You are creating a professional mould inspection report for Mould & Restoration Co. (MRC), a Melbourne-based mould remediation company.
 
-Based on the inspection data below, generate content for the 4 report sections.
+Based on the inspection data below, generate content for 5 report sections using the MRC template format.
 
 IMPORTANT: Return ONLY valid JSON with no additional text. Use this exact structure:
 
 {
-  "what_we_found": "2-3 paragraphs (150-200 words) summarising what the inspection discovered. Describe where mould was found, severity, moisture levels, affected surfaces, and any infrared or subfloor findings. Reference specific rooms/areas by name. Mention temperature, humidity and moisture readings where relevant.",
-  "what_we_will_do": "2-3 paragraphs (150-200 words) explaining the complete treatment plan. Cover all treatment methods being used (HEPA vacuuming, antimicrobial treatment, etc.), drying equipment deployment, and expected timeline. Mention specific equipment quantities. If subfloor treatment is needed, include it. End with expected outcomes.",
-  "problem_analysis": "3-4 paragraphs (200-300 words) providing deep analysis. Paragraph 1: Root cause analysis - what caused the mould and why. Paragraph 2: Contributing environmental factors (humidity, ventilation, building issues). Paragraph 3: Recommendations for preventing recurrence (ongoing ventilation, dehumidifier use, maintenance). Paragraph 4: Expected outcomes if recommendations are followed.",
+  "what_we_found": "Use this exact format:\\n\\n🧱 **Summary of Findings**\\n\\nDuring the inspection at [address], the following was observed:\\n\\n**Affected Areas:**\\n1. **[Room Name]** — [description of mould found, severity, surfaces affected]\\n2. **[Room Name]** — [description]\\n...\\n\\n**Environmental Readings:**\\n- Indoor Temperature: [X]°C | Humidity: [X]% | Dew Point: [X]°C\\n- Outdoor Temperature: [X]°C | Humidity: [X]% | Dew Point: [X]°C\\n\\n**Moisture Readings:**\\n- [Location]: [reading]%\\n- ...\\n\\n**Infrared Observations:**\\n- [observations if any]\\n\\nOverall, [brief summary sentence about severity and scope].",
+
+  "problem_analysis": "Use this exact format:\\n\\n🔍 **Identified Causes**\\n\\n**Primary Cause:**\\n[One clear sentence identifying the main cause of mould growth based on inspection evidence]\\n\\n**Contributing Factors:**\\n1. [Factor 1 — e.g., Poor ventilation in affected rooms]\\n2. [Factor 2 — e.g., Elevated moisture levels indicating water ingress]\\n3. [Factor 3 — e.g., Building characteristics contributing to condensation]\\n4. [Factor 4 if applicable]",
+
+  "what_we_will_do": "Use this exact format:\\n\\n📋 **Recommendations**\\n\\n⚠️ **Immediate Actions Required:**\\n1. [Action — e.g., HEPA vacuum all affected surfaces to remove loose spores]\\n2. [Action — e.g., Apply antimicrobial treatment to all mould-affected areas]\\n3. [Action — e.g., Deploy drying equipment: Xq commercial dehumidifiers, Xq air movers]\\n4. [Additional actions as needed]\\n\\n✅ **Ongoing Prevention:**\\n1. [Recommendation — e.g., Maintain indoor humidity below 60%]\\n2. [Recommendation — e.g., Ensure adequate ventilation in affected rooms]\\n3. [Recommendation — e.g., Regular inspection of moisture-prone areas]\\n4. [Additional recommendations as applicable]",
+
+  "overview_conclusion": "Use this exact format:\\n\\n📌 **Overview & Conclusion**\\n\\nThe inspection at [address] revealed [severity level] mould contamination affecting [number] area(s). The primary cause has been identified as [main cause].\\n\\n**Recommended Treatment Plan:**\\nMRC will carry out a comprehensive remediation program including [list key treatments]. The estimated treatment time is [X] hours across all affected areas.\\n\\n**Expected Outcome:**\\nFollowing the recommended treatment and prevention measures, the property should achieve [expected result]. Regular maintenance and monitoring will ensure long-term mould prevention.\\n\\n**Estimated Cost:** $[total] (inc. GST)",
+
   ${demolitionInstruction}
 }
 
 FORMATTING RULES:
 - Use Australian English (mould, colour, etc.)
 - Use \\n for line breaks within fields
+- Use markdown formatting: **bold** for headers and emphasis
+- Use numbered lists (1. 2. 3.) and bullet points (-)
+- Use emoji markers exactly as shown: 🧱 🔍 📋 📌 ⚠️ ✅
 - Be professional but customer-friendly
 - Be specific to the actual inspection data — reference real room names, readings, and findings
-- Do NOT use generic filler text
+- Do NOT use generic filler text or placeholder brackets
+- Replace all [placeholders] with actual data from the inspection
 - Each section should be unique content, not repeating the same information
-
-CRITICAL PLAIN TEXT RULE:
-- Return ONLY plain text within each JSON field
-- No asterisks (**bold**), no bullet points (* or -), no headers (#)
-- No HTML tags — use \\n for line breaks
-- Write in clear sentences and paragraphs only
 
 INSPECTION DATA:
 ${formattedData}
 
 Return ONLY the JSON object, no other text:`
 
-      console.log('Calling OpenRouter API for STRUCTURED output (4 sections)...')
+      console.log('Calling OpenRouter API for STRUCTURED output (5 sections)...')
 
       try {
-        const generatedText = await callOpenRouter(openrouterApiKey, prompt, 3000)
+        const generatedText = await callOpenRouter(openrouterApiKey, prompt, 4000)
         console.log('Raw AI response (first 300 chars):', generatedText.slice(0, 300))
 
         const cleanedText = extractJson(generatedText)
@@ -474,11 +478,11 @@ CRITICAL INSTRUCTIONS:
 2. If they say "make it shorter" → reduce word count by 30-50%
 3. If they say "make it more detailed" → expand with more specifics from the data
 4. If they say "add detail about X" → expand that specific topic
-5. Keep the same format unless they ask to change it
+5. Keep the same MRC template format (emoji headers, **bold**, numbered/bullet lists)
 6. Use Australian English (mould not mold)
 7. Maintain professional tone for customer-facing report
 
-CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting. No asterisks, no bullet points, no headers. Write in clear sentences and paragraphs only.
+FORMATTING: Keep the same markdown format — **bold** headers, numbered lists, bullet points, emoji markers (🧱 🔍 📋 📌 ⚠️ ✅).
 
 [Inspection data for reference]:
 ${formattedData}
@@ -487,69 +491,140 @@ Now regenerate following their instruction. Return ONLY the regenerated text:`
 
     if (section === 'whatWeFound') {
       if (isRegeneration) {
-        prompt = regenPreamble('What We Found')
+        prompt = regenPreamble('Summary of Findings')
       } else {
-        prompt = `You are writing the "What We Found" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+        prompt = `You are writing the "🧱 Summary of Findings" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
 
-Write a customer-friendly summary (2-3 paragraphs, 150-200 words) of what the inspection found. Focus on:
-- Where mould was found and its severity (reference specific rooms)
-- Moisture readings and what they indicate
-- Any infrared findings
-- Subfloor conditions if applicable
-- Temperature and humidity comparisons (indoor vs outdoor)
+Use this exact MRC template format:
 
-Use Australian English (mould not mold). Write in a professional but approachable tone suitable for homeowners.
+🧱 **Summary of Findings**
 
-CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting. No asterisks, no bullet points, no headers. Write in clear sentences and paragraphs only.
+During the inspection at [address], the following was observed:
+
+**Affected Areas:**
+1. **[Room Name]** — [description of mould found, severity, surfaces affected]
+2. **[Room Name]** — [description]
+
+**Environmental Readings:**
+- Indoor Temperature: [X]°C | Humidity: [X]% | Dew Point: [X]°C
+- Outdoor Temperature: [X]°C | Humidity: [X]% | Dew Point: [X]°C
+
+**Moisture Readings:**
+- [Location]: [reading]%
+
+**Infrared Observations:**
+- [observations if any]
+
+Overall, [brief summary sentence about severity and scope].
+
+RULES:
+- Use Australian English (mould not mold)
+- Replace ALL [placeholders] with actual data from the inspection
+- Use **bold** for headers, numbered lists for areas, bullet points for readings
+- Be specific — reference real room names, readings, and findings
 
 INSPECTION DATA:
 ${formattedData}
 
-Generate the "What We Found" section:`
+Generate the "Summary of Findings" section:`
       }
     } else if (section === 'whatWeWillDo') {
       if (isRegeneration) {
-        prompt = regenPreamble("What We're Going To Do")
+        prompt = regenPreamble('Recommendations')
       } else {
-        prompt = `You are writing the "What We're Going To Do" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+        prompt = `You are writing the "📋 Recommendations" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
 
-Write a clear treatment plan summary (2-3 paragraphs, 150-200 words) explaining what remediation work will be performed. Focus on:
-- Treatment methods (HEPA vacuuming, antimicrobial treatment, stain removal, fogging)
-- Any demolition or material removal required
-- Drying equipment to be deployed (specific quantities)
-- Subfloor treatment if applicable
-- Approximate timeline and expected outcomes
+Use this exact MRC template format:
 
-Use Australian English. Write in a reassuring, professional tone that builds confidence.
+📋 **Recommendations**
 
-CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting. No asterisks, no bullet points, no headers. Write in clear sentences and paragraphs only.
+⚠️ **Immediate Actions Required:**
+1. [Action — e.g., HEPA vacuum all affected surfaces to remove loose spores]
+2. [Action — e.g., Apply antimicrobial treatment to all mould-affected areas]
+3. [Action — e.g., Deploy drying equipment: Xq commercial dehumidifiers, Xq air movers]
+4. [Additional actions as needed]
+
+✅ **Ongoing Prevention:**
+1. [Recommendation — e.g., Maintain indoor humidity below 60%]
+2. [Recommendation — e.g., Ensure adequate ventilation in affected rooms]
+3. [Recommendation — e.g., Regular inspection of moisture-prone areas]
+
+RULES:
+- Use Australian English
+- Replace ALL [placeholders] with actual data from the inspection
+- Use ⚠️ for immediate actions, ✅ for ongoing prevention
+- Include specific equipment quantities and treatment methods
+- Be professional but reassuring
 
 INSPECTION DATA:
 ${formattedData}
 
-Generate the "What We're Going To Do" section:`
+Generate the "Recommendations" section:`
       }
     } else if (section === 'problemAnalysis') {
       maxTokens = 800
       if (isRegeneration) {
-        prompt = regenPreamble('Problem Analysis & Recommendations')
+        prompt = regenPreamble('Identified Causes')
       } else {
-        prompt = `You are writing the "Problem Analysis & Recommendations" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+        prompt = `You are writing the "🔍 Identified Causes" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
 
-Write a detailed analysis (3-4 paragraphs, 200-300 words):
-- Paragraph 1: Root cause analysis — what caused the mould growth based on the inspection evidence
-- Paragraph 2: Contributing environmental factors (humidity levels, ventilation issues, building characteristics)
-- Paragraph 3: Specific recommendations for preventing recurrence (ventilation improvements, dehumidifier use, maintenance schedule)
-- Paragraph 4: Expected outcomes if recommendations are followed, and warranty information
+Use this exact MRC template format:
 
-Use Australian English. Write in a professional, authoritative tone suitable for a technical report.
+🔍 **Identified Causes**
 
-CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting. No asterisks, no bullet points, no headers. Write in clear sentences and paragraphs only.
+**Primary Cause:**
+[One clear sentence identifying the main cause of mould growth based on inspection evidence]
+
+**Contributing Factors:**
+1. [Factor 1 — e.g., Poor ventilation in affected rooms]
+2. [Factor 2 — e.g., Elevated moisture levels indicating water ingress]
+3. [Factor 3 — e.g., Building characteristics contributing to condensation]
+4. [Factor 4 if applicable]
+
+RULES:
+- Use Australian English
+- Be specific — use actual data from the inspection (humidity levels, moisture readings, dwelling type)
+- Primary cause should be one clear, authoritative sentence
+- Contributing factors should be numbered and specific
+- Reference actual environmental readings as evidence
 
 INSPECTION DATA:
 ${formattedData}
 
-Generate the "Problem Analysis & Recommendations" section:`
+Generate the "Identified Causes" section:`
+      }
+    } else if (section === 'overviewConclusion') {
+      maxTokens = 800
+      if (isRegeneration) {
+        prompt = regenPreamble('Overview & Conclusion')
+      } else {
+        prompt = `You are writing the "📌 Overview & Conclusion" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+
+Use this exact MRC template format:
+
+📌 **Overview & Conclusion**
+
+The inspection at [address] revealed [severity level] mould contamination affecting [number] area(s). The primary cause has been identified as [main cause].
+
+**Recommended Treatment Plan:**
+MRC will carry out a comprehensive remediation program including [list key treatments]. The estimated treatment time is [X] hours across all affected areas.
+
+**Expected Outcome:**
+Following the recommended treatment and prevention measures, the property should achieve [expected result]. Regular maintenance and monitoring will ensure long-term mould prevention.
+
+**Estimated Cost:** $[total] (inc. GST)
+
+RULES:
+- Use Australian English
+- Replace ALL [placeholders] with actual data from the inspection
+- Include total treatment hours (sum of all area times)
+- Include the total cost from the cost estimate if available
+- Be confident and professional — this is the summary the client reads last
+
+INSPECTION DATA:
+${formattedData}
+
+Generate the "Overview & Conclusion" section:`
       }
     } else if (section === 'demolitionDetails') {
       if (isRegeneration) {
@@ -557,16 +632,21 @@ Generate the "Problem Analysis & Recommendations" section:`
       } else {
         prompt = `You are writing the "Demolition Details" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
 
-Write a detailed description (1-2 paragraphs, 100-150 words) of all demolition work required. Focus on:
-- Which areas/rooms require demolition
-- What materials will be removed (plasterboard, carpet, timber, etc.)
-- Why demolition is necessary in each area
-- Total demolition hours
-- How the area will be prepared after demolition
+Use this format:
 
-Use Australian English. Write in a professional, clear tone.
+**Demolition Scope:**
+- **[Area/Room]**: [what materials are being removed (plasterboard, carpet, timber) and why]
+- **[Area/Room]**: [description]
 
-CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting. No asterisks, no bullet points, no headers. Write in clear sentences and paragraphs only.
+**Total Demolition Time:** [X] hours
+
+**Post-Demolition:** [Brief description of area preparation after demolition]
+
+RULES:
+- Use Australian English
+- Be specific about materials being removed and why
+- Include total demolition hours
+- Reference actual areas from the inspection data
 
 INSPECTION DATA:
 ${formattedData}

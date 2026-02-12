@@ -2036,7 +2036,7 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(
-    !!(formData.whatWeFoundText || formData.whatWeWillDoText || formData.problemAnalysisContent)
+    !!(formData.whatWeFoundText || formData.whatWeWillDoText || formData.problemAnalysisContent || formData.jobSummaryFinal)
   );
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
 
@@ -2044,6 +2044,7 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
   const [whatWeFoundFeedback, setWhatWeFoundFeedback] = useState('');
   const [whatWeWillDoFeedback, setWhatWeWillDoFeedback] = useState('');
   const [problemAnalysisFeedback, setProblemAnalysisFeedback] = useState('');
+  const [overviewConclusionFeedback, setOverviewConclusionFeedback] = useState('');
   const [demolitionFeedback, setDemolitionFeedback] = useState('');
 
   const hasDemolition = formData.areas.some((a) => a.demolitionRequired);
@@ -2128,6 +2129,7 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
       onChange('whatWeFoundText', data.what_we_found || '');
       onChange('whatWeWillDoText', data.what_we_will_do || '');
       onChange('problemAnalysisContent', data.problem_analysis || '');
+      onChange('jobSummaryFinal', data.overview_conclusion || '');
       onChange('demolitionContent', data.demolition_details || '');
 
       setHasGenerated(true);
@@ -2139,25 +2141,28 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
     }
   };
 
-  type SectionKey = 'whatWeFound' | 'whatWeWillDo' | 'problemAnalysis' | 'demolitionDetails';
+  type SectionKey = 'whatWeFound' | 'whatWeWillDo' | 'problemAnalysis' | 'overviewConclusion' | 'demolitionDetails';
 
   const handleRegenerateSection = async (section: SectionKey) => {
     const feedbackMap: Record<SectionKey, string> = {
       whatWeFound: whatWeFoundFeedback,
       whatWeWillDo: whatWeWillDoFeedback,
       problemAnalysis: problemAnalysisFeedback,
+      overviewConclusion: overviewConclusionFeedback,
       demolitionDetails: demolitionFeedback,
     };
     const contentMap: Record<SectionKey, string> = {
       whatWeFound: formData.whatWeFoundText,
       whatWeWillDo: formData.whatWeWillDoText,
       problemAnalysis: formData.problemAnalysisContent,
+      overviewConclusion: formData.jobSummaryFinal,
       demolitionDetails: formData.demolitionContent,
     };
     const fieldMap: Record<SectionKey, keyof InspectionFormData> = {
       whatWeFound: 'whatWeFoundText',
       whatWeWillDo: 'whatWeWillDoText',
       problemAnalysis: 'problemAnalysisContent',
+      overviewConclusion: 'jobSummaryFinal',
       demolitionDetails: 'demolitionContent',
     };
 
@@ -2181,6 +2186,7 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
       if (section === 'whatWeFound') setWhatWeFoundFeedback('');
       else if (section === 'whatWeWillDo') setWhatWeWillDoFeedback('');
       else if (section === 'problemAnalysis') setProblemAnalysisFeedback('');
+      else if (section === 'overviewConclusion') setOverviewConclusionFeedback('');
       else if (section === 'demolitionDetails') setDemolitionFeedback('');
     } catch (err: any) {
       console.error('[AI Regenerate] Error:', err);
@@ -2259,7 +2265,7 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
           <h3 className="text-xl font-bold text-[#1d1d1f] mb-2">AI-Powered Report</h3>
           <p className="text-[#86868b] text-sm mb-6">
             Generate all report sections using AI based on your inspection data from Sections 1-9.
-            The AI will create: What We Found, What We Will Do, Problem Analysis, and Demolition Details.
+            The AI will create: Summary of Findings, Identified Causes, Recommendations, Overview & Conclusion, and Demolition Details.
           </p>
 
           <button
@@ -2320,25 +2326,31 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
         )}
       </button>
 
-      {/* 1. What We Found */}
+      {/* 1. Summary of Findings */}
       {renderSectionCard(
-        'What We Found', 'search', 'whatWeFoundText', 'whatWeFound',
+        'Summary of Findings', 'search', 'whatWeFoundText', 'whatWeFound',
         whatWeFoundFeedback, setWhatWeFoundFeedback, "e.g., 'Add more detail about bathroom'"
       )}
 
-      {/* 2. What We Will Do */}
+      {/* 2. Identified Causes */}
       {renderSectionCard(
-        "What We're Going To Do", 'handyman', 'whatWeWillDoText', 'whatWeWillDo',
-        whatWeWillDoFeedback, setWhatWeWillDoFeedback, "e.g., 'Include equipment details'"
-      )}
-
-      {/* 3. Problem Analysis & Recommendations */}
-      {renderSectionCard(
-        'Problem Analysis & Recommendations', 'analytics', 'problemAnalysisContent', 'problemAnalysis',
+        'Identified Causes', 'analytics', 'problemAnalysisContent', 'problemAnalysis',
         problemAnalysisFeedback, setProblemAnalysisFeedback, "e.g., 'Focus more on ventilation'", 8
       )}
 
-      {/* 4. Demolition Details (only if demolition is required) */}
+      {/* 3. Recommendations */}
+      {renderSectionCard(
+        'Recommendations', 'handyman', 'whatWeWillDoText', 'whatWeWillDo',
+        whatWeWillDoFeedback, setWhatWeWillDoFeedback, "e.g., 'Include equipment details'"
+      )}
+
+      {/* 4. Overview & Conclusion */}
+      {renderSectionCard(
+        'Overview & Conclusion', 'summarize', 'jobSummaryFinal', 'overviewConclusion',
+        overviewConclusionFeedback, setOverviewConclusionFeedback, "e.g., 'Make it more concise'", 8
+      )}
+
+      {/* 5. Demolition Details (only if demolition is required) */}
       {hasDemolition && renderSectionCard(
         'Demolition Details', 'construction', 'demolitionContent', 'demolitionDetails',
         demolitionFeedback, setDemolitionFeedback, "e.g., 'Add more about plasterboard removal'"
