@@ -180,8 +180,11 @@ function createEmptyArea(): InspectionArea {
     temperature: '',
     humidity: '',
     dewPoint: '',
-    moistureReadingsEnabled: false,
-    moistureReadings: [],
+    moistureReadingsEnabled: true,
+    moistureReadings: [
+      { id: crypto.randomUUID(), title: '', reading: '', photo: null },
+      { id: crypto.randomUUID(), title: '', reading: '', photo: null },
+    ],
     externalMoisture: '',
     internalNotes: '',
     roomViewPhotos: [],
@@ -872,85 +875,101 @@ function Section3AreaInspection({
                 </FormField>
               </div>
 
-              {/* Moisture Readings Toggle */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <span className="font-medium text-[#1d1d1f]">Moisture Readings</span>
-                <ToggleSwitch
-                  checked={area.moistureReadingsEnabled}
-                  onChange={(checked) => onAreaChange?.(area.id, 'moistureReadingsEnabled', checked)}
-                />
-              </div>
-
-              {/* Moisture Readings Section */}
-              {area.moistureReadingsEnabled && (
-                <div className="space-y-3 pl-4 border-l-2 border-[#007AFF]">
-                  {area.moistureReadings.map((reading, rIndex) => (
-                    <div key={reading.id} className="bg-gray-50 rounded-lg p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-[#86868b]">Reading {rIndex + 1}</span>
-                        <button
-                          onClick={() => onMoistureReadingRemove?.(area.id, reading.id)}
-                          className="text-red-500 p-1"
-                        >
-                          <span className="material-symbols-outlined text-lg">close</span>
-                        </button>
-                      </div>
+              {/* Internal Moisture % */}
+              {area.moistureReadings[0] && (() => {
+                const reading = area.moistureReadings[0];
+                return (
+                  <div className="bg-blue-50 rounded-xl p-4 space-y-3 border border-blue-100">
+                    <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
+                      Internal Moisture %
+                    </span>
+                    <div className="flex gap-3">
                       <input
-                        type="text"
-                        value={reading.title}
-                        onChange={(e) => onMoistureReadingChange?.(area.id, reading.id, 'title', e.target.value)}
-                        placeholder="Location (e.g., Wall near window)"
-                        className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4"
+                        type="number"
+                        value={reading.reading}
+                        onChange={(e) => onMoistureReadingChange?.(area.id, reading.id, 'reading', e.target.value)}
+                        placeholder="0-100"
+                        min="0"
+                        max="100"
+                        className="flex-1 h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4"
                       />
-                      <div className="flex gap-3">
-                        <input
-                          type="number"
-                          value={reading.reading}
-                          onChange={(e) => onMoistureReadingChange?.(area.id, reading.id, 'reading', e.target.value)}
-                          placeholder="0-100%"
-                          className="flex-1 h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4"
-                        />
-                        {reading.photo ? (
-                          <div className="relative w-12 h-12">
-                            <img src={reading.photo.url} alt="" className="w-full h-full rounded-lg object-cover" />
-                            <button
-                              onClick={() => onPhotoRemove?.('moisture', reading.photo!.id, area.id, reading.id)}
-                              className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ) : (
+                      {reading.photo ? (
+                        <div className="relative w-12 h-12 flex-shrink-0">
+                          <img src={reading.photo.url} alt="" className="w-full h-full rounded-lg object-cover" />
                           <button
-                            onClick={() => onPhotoCapture?.('single', area.id, reading.id)}
-                            className="w-12 h-12 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-[#007AFF]"
+                            onClick={() => onPhotoRemove?.('moisture', reading.photo!.id, area.id, reading.id)}
+                            className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs"
                           >
-                            <span className="material-symbols-outlined">photo_camera</span>
+                            ×
                           </button>
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => onPhotoCapture?.('single', area.id, reading.id)}
+                          className="w-12 h-12 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-[#007AFF] flex-shrink-0"
+                        >
+                          <span className="material-symbols-outlined">photo_camera</span>
+                        </button>
+                      )}
                     </div>
-                  ))}
-                  <button
-                    onClick={() => onMoistureReadingAdd?.(area.id)}
-                    className="w-full h-12 bg-white border border-dashed border-[#007AFF] rounded-lg text-[#007AFF] font-medium flex items-center justify-center gap-2"
-                  >
-                    <span className="material-symbols-outlined">add</span>
-                    Add Reading
-                  </button>
-
-                  {/* External Moisture */}
-                  <FormField label="External Moisture %">
                     <input
-                      type="number"
-                      value={area.externalMoisture}
-                      onChange={(e) => onAreaChange?.(area.id, 'externalMoisture', e.target.value)}
-                      placeholder="0-100"
+                      type="text"
+                      value={reading.title}
+                      onChange={(e) => onMoistureReadingChange?.(area.id, reading.id, 'title', e.target.value)}
+                      placeholder="Location (e.g., Wall near window)"
                       className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4"
                     />
-                  </FormField>
-                </div>
-              )}
+                  </div>
+                );
+              })()}
+
+              {/* External Moisture % */}
+              {area.moistureReadings[1] && (() => {
+                const reading = area.moistureReadings[1];
+                return (
+                  <div className="bg-amber-50 rounded-xl p-4 space-y-3 border border-amber-100">
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-700">
+                      External Moisture %
+                    </span>
+                    <div className="flex gap-3">
+                      <input
+                        type="number"
+                        value={reading.reading}
+                        onChange={(e) => onMoistureReadingChange?.(area.id, reading.id, 'reading', e.target.value)}
+                        placeholder="0-100"
+                        min="0"
+                        max="100"
+                        className="flex-1 h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4"
+                      />
+                      {reading.photo ? (
+                        <div className="relative w-12 h-12 flex-shrink-0">
+                          <img src={reading.photo.url} alt="" className="w-full h-full rounded-lg object-cover" />
+                          <button
+                            onClick={() => onPhotoRemove?.('moisture', reading.photo!.id, area.id, reading.id)}
+                            className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => onPhotoCapture?.('single', area.id, reading.id)}
+                          className="w-12 h-12 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-[#007AFF] flex-shrink-0"
+                        >
+                          <span className="material-symbols-outlined">photo_camera</span>
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={reading.title}
+                      onChange={(e) => onMoistureReadingChange?.(area.id, reading.id, 'title', e.target.value)}
+                      placeholder="Location (e.g., External wall cavity)"
+                      className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4"
+                    />
+                  </div>
+                );
+              })()}
 
               {/* Internal Notes */}
               <FormField label="Internal Notes (Not in Report)">
@@ -2530,13 +2549,26 @@ export default function TechnicianInspectionForm() {
               temperature: area.temperature != null ? String(area.temperature) : '',
               humidity: area.humidity != null ? String(area.humidity) : '',
               dewPoint: area.dew_point != null ? String(area.dew_point) : '',
-              moistureReadingsEnabled: area.moisture_readings_enabled || false,
-              moistureReadings: areaReadings.map((r: any) => ({
-                id: r.id,
-                title: r.title || '',
-                reading: r.moisture_percentage != null ? String(r.moisture_percentage) : '',
-                photo: null, // Moisture reading photos loaded separately if needed
-              })),
+              moistureReadingsEnabled: true,
+              moistureReadings: (() => {
+                // Map DB readings by reading_order (0=internal, 1=external)
+                const mapped: MoistureReading[] = areaReadings.map((r: any) => {
+                  const moisturePhoto = areaPhotos.find((p: any) => p.moisture_reading_id === r.id);
+                  return {
+                    id: r.id,
+                    title: r.title || '',
+                    reading: r.moisture_percentage != null ? String(r.moisture_percentage) : '',
+                    photo: moisturePhoto
+                      ? { id: moisturePhoto.id, name: moisturePhoto.file_name || '', url: moisturePhoto.signed_url, timestamp: moisturePhoto.created_at }
+                      : null,
+                  };
+                });
+                // Ensure exactly 2 entries: [internal, external]
+                while (mapped.length < 2) {
+                  mapped.push({ id: crypto.randomUUID(), title: '', reading: '', photo: null });
+                }
+                return mapped.slice(0, 2);
+              })(),
               externalMoisture: area.external_moisture != null ? String(area.external_moisture) : '',
               internalNotes: area.internal_office_notes || '',
               roomViewPhotos,
@@ -3088,8 +3120,8 @@ export default function TechnicianInspectionForm() {
           temperature: area.temperature ? parseFloat(area.temperature) : null,
           humidity: area.humidity ? parseFloat(area.humidity) : null,
           dew_point: area.dewPoint ? parseFloat(area.dewPoint) : null,
-          moisture_readings_enabled: area.moistureReadingsEnabled,
-          external_moisture: area.externalMoisture ? parseFloat(area.externalMoisture) : null,
+          moisture_readings_enabled: true,
+          external_moisture: area.moistureReadings[1]?.reading ? parseFloat(area.moistureReadings[1].reading) : null,
           internal_office_notes: area.internalNotes || null,
           infrared_enabled: area.infraredEnabled,
           ...mapInfraredToBooleans(area.infraredObservations || []),
@@ -3115,8 +3147,8 @@ export default function TechnicianInspectionForm() {
           if (areaInsertErr) console.error('[Save] Area insert error:', areaInsertErr);
         }
 
-        // 3. Upsert moisture_readings for this area
-        if (area.moistureReadingsEnabled && area.moistureReadings.length > 0) {
+        // 3. Upsert moisture_readings for this area (always 2: internal + external)
+        if (area.moistureReadings.length > 0) {
           // Get existing reading IDs
           const { data: existingReadingsDb } = await supabase
             .from('moisture_readings')

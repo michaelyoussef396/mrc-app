@@ -146,8 +146,11 @@ const InspectionForm = () => {
       temperature: '',
       humidity: '',
       dewPoint: '',
-      moistureReadingsEnabled: false,
-      moistureReadings: [],
+      moistureReadingsEnabled: true,
+      moistureReadings: [
+        { id: crypto.randomUUID(), title: '', reading: '', photo: null },
+        { id: crypto.randomUUID(), title: '', reading: '', photo: null },
+      ],
       externalMoisture: '',
       internalNotes: '',
       roomViewPhotos: [],
@@ -572,8 +575,15 @@ const InspectionForm = () => {
               temperature: dbArea.temperature?.toString() || '',
               humidity: dbArea.humidity?.toString() || '',
               dewPoint: dbArea.dew_point?.toString() || '',
-              moistureReadingsEnabled: dbArea.moisture_readings_enabled || false,
-              moistureReadings,
+              moistureReadingsEnabled: true,
+              moistureReadings: (() => {
+                // Ensure exactly 2 entries: [internal, external]
+                const arr = [...moistureReadings];
+                while (arr.length < 2) {
+                  arr.push({ id: crypto.randomUUID(), title: '', reading: '', photo: null });
+                }
+                return arr.slice(0, 2);
+              })(),
               externalMoisture: dbArea.external_moisture?.toString() || '',
               internalNotes: dbArea.internal_office_notes || '',
               roomViewPhotos,
@@ -1510,8 +1520,11 @@ const InspectionForm = () => {
       temperature: '',
       humidity: '',
       dewPoint: '',
-      moistureReadingsEnabled: false,
-      moistureReadings: [],
+      moistureReadingsEnabled: true,
+      moistureReadings: [
+        { id: crypto.randomUUID(), title: '', reading: '', photo: null },
+        { id: crypto.randomUUID(), title: '', reading: '', photo: null },
+      ],
       externalMoisture: '',
       internalNotes: '',
       roomViewPhotos: [],
@@ -2327,8 +2340,8 @@ const InspectionForm = () => {
           humidity: parseFloat(area.humidity) || undefined,
           dew_point: parseFloat(area.dewPoint) || undefined,
           internal_office_notes: area.internalNotes,
-          moisture_readings_enabled: area.moistureReadingsEnabled,
-          external_moisture: parseFloat(area.externalMoisture) || undefined,
+          moisture_readings_enabled: true,
+          external_moisture: area.moistureReadings[1]?.reading ? parseFloat(area.moistureReadings[1].reading) : null,
           infrared_enabled: area.infraredEnabled,
           // Map infrared observations to boolean fields
           infrared_observation_no_active: area.infraredObservations.includes('No Active Water Intrusion Detected'),
@@ -2361,7 +2374,7 @@ const InspectionForm = () => {
           moistureReadings: area.moistureReadings
         })
 
-        if (area.moistureReadingsEnabled && area.moistureReadings.length > 0) {
+        if (area.moistureReadings.length > 0) {
           console.log(`✅ SAVING ${area.moistureReadings.length} moisture readings for area "${area.areaName}"`)
           // UPSERT moisture readings to preserve IDs (critical for photo linking)
           for (let j = 0; j < area.moistureReadings.length; j++) {
@@ -3536,106 +3549,81 @@ const InspectionForm = () => {
                       </div>
                     </div>
 
-                    {/* Moisture Readings Toggle */}
-                    <div className="form-group">
-                      <div className="toggle-section-header">
-                        <label className="form-label">Moisture Readings</label>
-                        <button
-                          type="button"
-                          className={`toggle-switch ${area.moistureReadingsEnabled ? 'active' : ''}`}
-                          onClick={() => handleAreaChange(area.id, 'moistureReadingsEnabled', !area.moistureReadingsEnabled)}
-                        >
-                          <span className="toggle-label">
-                            {area.moistureReadingsEnabled ? 'Enabled' : 'Disabled'}
-                          </span>
-                        </button>
-                      </div>
-
-                      {area.moistureReadingsEnabled && (
-                        <div className="moisture-readings-section">
-                          <p className="field-hint">Minimum 2 moisture reading photos required *</p>
-                          {area.moistureReadings.map((reading, idx) => (
-                            <div key={reading.id} className="reading-item">
-                              <div className="reading-header">
-                                <span className="reading-number">Reading {idx + 1}</span>
-                                <button
-                                  type="button"
-                                  className="btn-remove"
-                                  onClick={() => removeMoistureReading(area.id, reading.id)}
-                                >
-                                  <X size={16} strokeWidth={2} />
-                                </button>
-                              </div>
-
-                              <div className="reading-inputs">
-                                <input
-                                  type="text"
-                                  placeholder="Location (e.g., Wall behind shower)"
-                                  value={reading.title}
-                                  onChange={(e) => updateMoistureReading(area.id, reading.id, 'title', e.target.value)}
-                                  className="form-input"
-                                />
-
-                                <input
-                                  type="text"
-                                  placeholder="Reading value"
-                                  value={reading.reading}
-                                  onChange={(e) => updateMoistureReading(area.id, reading.id, 'reading', e.target.value)}
-                                  className="form-input"
-                                />
-
-                                {!reading.photo ? (
-                                  <button
-                                    type="button"
-                                    className="btn-photo-small"
-                                    onClick={() => handlePhotoCapture('moistureReading', area.id, reading.id)}
-                                  >
-                                    📷 Add Photo
-                                  </button>
-                                ) : (
-                                  <div className="photo-item-small">
-                                    <img src={reading.photo.url} alt="Moisture reading" />
-                                    <button
-                                      type="button"
-                                      className="photo-remove-small"
-                                      onClick={() => removePhoto('moistureReading', reading.photo!.id, area.id, reading.id)}
-                                    >
-                                      <X size={14} strokeWidth={2} />
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
+                    {/* Internal Moisture % */}
+                    {area.moistureReadings[0] && (
+                      <div className="form-group" style={{ background: '#EFF6FF', padding: '16px', borderRadius: '12px', border: '1px solid #BFDBFE' }}>
+                        <label className="form-label" style={{ color: '#1D4ED8', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Internal Moisture %</label>
+                        <div style={{ display: 'flex', gap: '12px', marginBottom: '8px' }}>
+                          <input
+                            type="number"
+                            placeholder="0-100"
+                            min="0"
+                            max="100"
+                            value={area.moistureReadings[0].reading}
+                            onChange={(e) => updateMoistureReading(area.id, area.moistureReadings[0].id, 'reading', e.target.value)}
+                            className="form-input"
+                            style={{ flex: 1 }}
+                          />
+                          {!area.moistureReadings[0].photo ? (
+                            <button type="button" className="btn-photo-small" onClick={() => handlePhotoCapture('moistureReading', area.id, area.moistureReadings[0].id)}>
+                              📷 Photo
+                            </button>
+                          ) : (
+                            <div className="photo-item-small">
+                              <img src={area.moistureReadings[0].photo.url} alt="Internal moisture" />
+                              <button type="button" className="photo-remove-small" onClick={() => removePhoto('moistureReading', area.moistureReadings[0].photo!.id, area.id, area.moistureReadings[0].id)}>
+                                <X size={14} strokeWidth={2} />
+                              </button>
                             </div>
-                          ))}
-
-                          <button
-                            type="button"
-                            className="btn-secondary btn-add"
-                            onClick={() => addMoistureReading(area.id)}
-                          >
-                            <span>+</span>
-                            <span>Add Moisture Reading</span>
-                          </button>
-
-                          {/* External Moisture - dedicated field for PDF */}
-                          <div className="form-group" style={{ marginTop: '16px' }}>
-                            <label className="form-label">External Moisture (%)</label>
-                            <p className="field-hint">Reading from external wall or outside surface</p>
-                            <input
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              max="100"
-                              value={area.externalMoisture || ''}
-                              onChange={(e) => handleAreaChange(area.id, 'externalMoisture', e.target.value)}
-                              placeholder="e.g., 15.5"
-                              className="form-input"
-                              style={{ maxWidth: '200px' }}
-                            />
-                          </div>
+                          )}
                         </div>
-                      )}
-                    </div>
+                        <input
+                          type="text"
+                          placeholder="Location (e.g., Wall near window)"
+                          value={area.moistureReadings[0].title}
+                          onChange={(e) => updateMoistureReading(area.id, area.moistureReadings[0].id, 'title', e.target.value)}
+                          className="form-input"
+                        />
+                      </div>
+                    )}
+
+                    {/* External Moisture % */}
+                    {area.moistureReadings[1] && (
+                      <div className="form-group" style={{ background: '#FFFBEB', padding: '16px', borderRadius: '12px', border: '1px solid #FDE68A' }}>
+                        <label className="form-label" style={{ color: '#B45309', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>External Moisture %</label>
+                        <div style={{ display: 'flex', gap: '12px', marginBottom: '8px' }}>
+                          <input
+                            type="number"
+                            placeholder="0-100"
+                            min="0"
+                            max="100"
+                            value={area.moistureReadings[1].reading}
+                            onChange={(e) => updateMoistureReading(area.id, area.moistureReadings[1].id, 'reading', e.target.value)}
+                            className="form-input"
+                            style={{ flex: 1 }}
+                          />
+                          {!area.moistureReadings[1].photo ? (
+                            <button type="button" className="btn-photo-small" onClick={() => handlePhotoCapture('moistureReading', area.id, area.moistureReadings[1].id)}>
+                              📷 Photo
+                            </button>
+                          ) : (
+                            <div className="photo-item-small">
+                              <img src={area.moistureReadings[1].photo.url} alt="External moisture" />
+                              <button type="button" className="photo-remove-small" onClick={() => removePhoto('moistureReading', area.moistureReadings[1].photo!.id, area.id, area.moistureReadings[1].id)}>
+                                <X size={14} strokeWidth={2} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Location (e.g., External wall cavity)"
+                          value={area.moistureReadings[1].title}
+                          onChange={(e) => updateMoistureReading(area.id, area.moistureReadings[1].id, 'title', e.target.value)}
+                          className="form-input"
+                        />
+                      </div>
+                    )}
 
                     {/* Internal Office Notes */}
                     <div className="form-group">
