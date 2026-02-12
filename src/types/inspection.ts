@@ -133,9 +133,11 @@ export interface InspectionFormData {
   jobSummaryFinal: string;
   regenerationFeedback: string;
 
-  // PDF Section Fields
+  // PDF Section Fields (AI-generated)
   whatWeFoundText: string;
   whatWeWillDoText: string;
   whatYouGetText: string;
+  problemAnalysisContent: string;
+  demolitionContent: string;
 
 }

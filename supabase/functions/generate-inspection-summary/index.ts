@@ -1,5 +1,5 @@
 // Supabase Edge Function: generate-inspection-summary
-// Calls OpenRouter AI to generate a professional inspection summary
+// Calls OpenRouter AI to generate 4 professional inspection report sections
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,6 +15,8 @@ interface InspectionFormData {
   propertySuburb?: string
   propertyState?: string
   propertyPostcode?: string
+  issueDescription?: string
+  internalNotes?: string
 
   // Inspection Details
   inspectionDate?: string
@@ -28,6 +30,7 @@ interface InspectionFormData {
   // Areas
   areas?: Array<{
     areaName: string
+    mouldDescription?: string
     mouldVisibility: string[]
     commentsForReport: string
     temperature?: string
@@ -46,13 +49,16 @@ interface InspectionFormData {
   }>
 
   // Subfloor
-  subfloorEnabled?: boolean
   subfloorObservations?: string
   subfloorComments?: string
   subfloorLandscape?: string
   subfloorSanitation?: boolean
   subfloorRacking?: boolean
   subfloorTreatmentTime?: number
+  subfloorReadings?: Array<{
+    reading: string
+    location: string
+  }>
 
   // Outdoor
   outdoorTemperature?: string
@@ -95,26 +101,17 @@ interface InspectionFormData {
 interface RequestBody {
   formData: InspectionFormData
   feedback?: string
-  section?: 'whatWeFound' | 'whatWeWillDo' | 'whatYouGet'
-  structured?: boolean  // When true, returns all 11 fields as JSON
-  customPrompt?: string  // User's custom instruction for regeneration
-  currentContent?: string  // Current content being regenerated
+  section?: 'whatWeFound' | 'whatWeWillDo' | 'problemAnalysis' | 'demolitionDetails'
+  structured?: boolean
+  customPrompt?: string
+  currentContent?: string
 }
 
 interface StructuredSummary {
-  // Page 2 fields
   what_we_found: string
   what_we_will_do: string
-  what_you_get: string
-  // Page 5 fields (Job Summary sections)
-  what_we_discovered: string
-  identified_causes: string
-  contributing_factors: string
-  why_this_happened: string
-  immediate_actions: string
-  long_term_protection: string
-  what_success_looks_like: string
-  timeline_text: string
+  problem_analysis: string
+  demolition_details: string
 }
 
 function formatFormDataForPrompt(formData: InspectionFormData): string {
@@ -134,6 +131,14 @@ function formatFormDataForPrompt(formData: InspectionFormData): string {
   }
   if (formData.propertyOccupation) lines.push(`Occupation Status: ${formData.propertyOccupation}`)
   if (formData.dwellingType) lines.push(`Dwelling Type: ${formData.dwellingType}`)
+
+  // Lead Context (from admin notes / client complaint)
+  if (formData.issueDescription || formData.internalNotes) {
+    lines.push('')
+    lines.push('=== CLIENT COMPLAINT / LEAD CONTEXT ===')
+    if (formData.issueDescription) lines.push(`Client Issue Description: ${formData.issueDescription}`)
+    if (formData.internalNotes) lines.push(`Internal Notes: ${formData.internalNotes}`)
+  }
 
   // Inspection Details
   lines.push('')
@@ -159,6 +164,10 @@ function formatFormDataForPrompt(formData: InspectionFormData): string {
       lines.push(``)
       lines.push(`--- Area ${index + 1}: ${area.areaName} ---`)
 
+      if (area.mouldDescription) {
+        lines.push(`Mould Description: ${area.mouldDescription}`)
+      }
+
       if (area.mouldVisibility && area.mouldVisibility.length > 0) {
         lines.push(`Mould Visible On: ${area.mouldVisibility.join(', ')}`)
       }
@@ -171,10 +180,10 @@ function formatFormDataForPrompt(formData: InspectionFormData): string {
         lines.push(`Comments: ${area.commentsForReport}`)
       }
 
-      lines.push(`Estimated Time: ${area.timeWithoutDemo} minutes`)
+      lines.push(`Estimated Treatment Time: ${area.timeWithoutDemo} hours`)
 
       if (area.demolitionRequired) {
-        lines.push(`Demolition Required: Yes (${area.demolitionTime} minutes)`)
+        lines.push(`Demolition Required: Yes (${area.demolitionTime} hours)`)
         if (area.demolitionDescription) {
           lines.push(`Demolition Details: ${area.demolitionDescription}`)
         }
@@ -193,8 +202,11 @@ function formatFormDataForPrompt(formData: InspectionFormData): string {
     })
   }
 
-  // Subfloor
-  if (formData.subfloorEnabled) {
+  // Subfloor (always include if data exists)
+  const hasSubfloorData = formData.subfloorObservations || formData.subfloorComments ||
+    formData.subfloorLandscape || formData.subfloorSanitation || formData.subfloorRacking ||
+    (formData.subfloorReadings && formData.subfloorReadings.length > 0)
+  if (hasSubfloorData) {
     lines.push('')
     lines.push('=== SUBFLOOR INSPECTION ===')
     if (formData.subfloorLandscape) lines.push(`Landscape: ${formData.subfloorLandscape}`)
@@ -202,7 +214,13 @@ function formatFormDataForPrompt(formData: InspectionFormData): string {
     if (formData.subfloorComments) lines.push(`Comments: ${formData.subfloorComments}`)
     if (formData.subfloorSanitation) lines.push('Sanitation Required: Yes')
     if (formData.subfloorRacking) lines.push('Racking Required: Yes')
-    if (formData.subfloorTreatmentTime) lines.push(`Treatment Time: ${formData.subfloorTreatmentTime} minutes`)
+    if (formData.subfloorTreatmentTime) lines.push(`Treatment Time: ${formData.subfloorTreatmentTime} hours`)
+    if (formData.subfloorReadings && formData.subfloorReadings.length > 0) {
+      lines.push('Subfloor Moisture Readings:')
+      formData.subfloorReadings.forEach(reading => {
+        lines.push(`  - ${reading.location}: ${reading.reading}%`)
+      })
+    }
   }
 
   // Waste Disposal
@@ -248,7 +266,7 @@ function formatFormDataForPrompt(formData: InspectionFormData): string {
 
   if (formData.additionalInfoForTech) {
     lines.push('')
-    lines.push('=== ADDITIONAL INFORMATION FOR TECHNICIAN ===')
+    lines.push('=== ADDITIONAL INFORMATION ===')
     lines.push(formData.additionalInfoForTech)
   }
 
@@ -272,14 +290,48 @@ function formatFormDataForPrompt(formData: InspectionFormData): string {
   return lines.join('\n')
 }
 
+// Helper: call OpenRouter and return the response text
+async function callOpenRouter(apiKey: string, prompt: string, maxTokens: number): Promise<string> {
+  const response = await fetch(
+    'https://openrouter.ai/api/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://mrc-app.vercel.app',
+        'X-Title': 'MRC Inspection App'
+      },
+      body: JSON.stringify({
+        model: 'mistralai/devstral-2512:free',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: maxTokens,
+        top_p: 0.95
+      })
+    }
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('OpenRouter API error:', response.status, errorText)
+    throw new Error(`OpenRouter API error: ${response.status}`)
+  }
+
+  const result = await response.json()
+  const text = result?.choices?.[0]?.message?.content
+  if (!text) {
+    throw new Error('No text in OpenRouter response')
+  }
+  return text.trim()
+}
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Only accept POST requests
     if (req.method !== 'POST') {
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }),
@@ -287,7 +339,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get OpenRouter API key from environment
     const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY')
     if (!openrouterApiKey) {
       console.error('OPENROUTER_API_KEY not configured')
@@ -297,8 +348,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Parse request body
-    const { formData, feedback, section, structured, customPrompt, currentContent }: RequestBody = await req.json()
+    const { formData, section, structured, customPrompt, currentContent }: RequestBody = await req.json()
 
     if (!formData) {
       return new Response(
@@ -307,117 +357,65 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Format the inspection data for the prompt
     const formattedData = formatFormDataForPrompt(formData)
 
-    let prompt: string
-    let maxTokens = 1500
+    // Check if any area requires demolition (for conditional demolition section)
+    const hasDemolition = formData.areas?.some(a => a.demolitionRequired) || false
 
-    // Handle STRUCTURED mode - returns all 11 fields as JSON
+    // ================================================================
+    // STRUCTURED MODE — generate all 4 sections as JSON
+    // ================================================================
     if (structured) {
-      maxTokens = 3000
-      prompt = `You are creating a professional mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+      const demolitionInstruction = hasDemolition
+        ? `"demolition_details": "Detailed description of all demolition work required across all areas. For each area needing demolition, describe what will be removed/demolished and why. Include total demolition hours. Be specific about materials being removed (e.g., plasterboard, carpet, timber)."`
+        : `"demolition_details": ""`
 
-Based on the inspection data below, generate content for ALL sections of the PDF report.
+      const prompt = `You are creating a professional mould inspection report for Mould & Restoration Co. (MRC), a Melbourne-based mould remediation company.
+
+Based on the inspection data below, generate content for the 4 report sections.
 
 IMPORTANT: Return ONLY valid JSON with no additional text. Use this exact structure:
 
 {
-  "what_we_found": "2-3 paragraphs summarising mould findings for the customer (Page 2)",
-  "what_we_will_do": "2-3 paragraphs explaining treatment plan (Page 2)",
-  "what_you_get": "12 Month warranty on all treated areas\\nProfessional material removal where required\\nComplete airborne spore elimination\\nDetailed documentation for insurance / resale",
-  "what_we_discovered": "2-3 sentences summarising what was discovered during inspection",
-  "identified_causes": "2-3 sentences describing the primary cause of mould growth",
-  "contributing_factors": "- Indoor humidity levels at X%\n- Internal moisture readings of X%\n- Additional contributing factors",
-  "why_this_happened": "2-3 sentences explaining root cause and how it occurred",
-  "immediate_actions": "1. First immediate action required\n2. Second immediate action\n3. Additional actions as needed",
-  "long_term_protection": "- First long-term protection measure\n- Second protection measure\n- Additional measures",
-  "what_success_looks_like": "2-3 sentences describing expected outcomes after treatment",
-  "timeline_text": "1-2 sentences with treatment timeline (e.g., MRC treatment: 1 day onsite + 3 days air scrubber)"
+  "what_we_found": "2-3 paragraphs (150-200 words) summarising what the inspection discovered. Describe where mould was found, severity, moisture levels, affected surfaces, and any infrared or subfloor findings. Reference specific rooms/areas by name. Mention temperature, humidity and moisture readings where relevant.",
+  "what_we_will_do": "2-3 paragraphs (150-200 words) explaining the complete treatment plan. Cover all treatment methods being used (HEPA vacuuming, antimicrobial treatment, etc.), drying equipment deployment, and expected timeline. Mention specific equipment quantities. If subfloor treatment is needed, include it. End with expected outcomes.",
+  "problem_analysis": "3-4 paragraphs (200-300 words) providing deep analysis. Paragraph 1: Root cause analysis - what caused the mould and why. Paragraph 2: Contributing environmental factors (humidity, ventilation, building issues). Paragraph 3: Recommendations for preventing recurrence (ongoing ventilation, dehumidifier use, maintenance). Paragraph 4: Expected outcomes if recommendations are followed.",
+  ${demolitionInstruction}
 }
 
 FORMATTING RULES:
 - Use Australian English (mould, colour, etc.)
 - Use \\n for line breaks within fields
 - Be professional but customer-friendly
-- Be specific to the actual inspection data provided
+- Be specific to the actual inspection data — reference real room names, readings, and findings
+- Do NOT use generic filler text
+- Each section should be unique content, not repeating the same information
 
 CRITICAL PLAIN TEXT RULE:
-- Return ONLY plain text. Do NOT use any markdown formatting.
-- No asterisks (**bold**), no bullet points (* or -), no headers (#).
-- No HTML tags (<br/>, <span>, etc.) - use \\n for line breaks instead.
-- Write in clear sentences and paragraphs only.
-- For lists, use simple lines with \\n between items.
+- Return ONLY plain text within each JSON field
+- No asterisks (**bold**), no bullet points (* or -), no headers (#)
+- No HTML tags — use \\n for line breaks
+- Write in clear sentences and paragraphs only
 
 INSPECTION DATA:
 ${formattedData}
 
 Return ONLY the JSON object, no other text:`
 
-      console.log('Calling OpenRouter API for STRUCTURED output...')
-      const openrouterResponse = await fetch(
-        'https://openrouter.ai/api/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openrouterApiKey}`,
-            'HTTP-Referer': 'https://mrc-app.vercel.app',
-            'X-Title': 'MRC Inspection App'
-          },
-          body: JSON.stringify({
-            model: 'mistralai/devstral-2512:free',
-            messages: [
-              {
-                role: 'user',
-                content: prompt
-              }
-            ],
-            temperature: 0.7,
-            max_tokens: maxTokens,
-            top_p: 0.95
-          })
-        }
-      )
+      console.log('Calling OpenRouter API for STRUCTURED output (4 sections)...')
 
-      if (!openrouterResponse.ok) {
-        const errorText = await openrouterResponse.text()
-        console.error('OpenRouter API error (structured):', openrouterResponse.status, errorText)
-        return new Response(
-          JSON.stringify({ error: 'Failed to generate structured summary. Please try again.', details: errorText }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      const openrouterResult = await openrouterResponse.json()
-      const generatedText = openrouterResult?.choices?.[0]?.message?.content
-
-      if (!generatedText) {
-        console.error('No text in OpenRouter response (structured):', JSON.stringify(openrouterResult))
-        return new Response(
-          JSON.stringify({ error: 'No structured summary generated. Please try again.' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      // Parse the JSON response
       try {
-        // Clean up the response - remove any markdown code blocks if present
-        let cleanedText = generatedText.trim()
-        if (cleanedText.startsWith('```json')) {
-          cleanedText = cleanedText.slice(7)
-        }
-        if (cleanedText.startsWith('```')) {
-          cleanedText = cleanedText.slice(3)
-        }
-        if (cleanedText.endsWith('```')) {
-          cleanedText = cleanedText.slice(0, -3)
-        }
+        const generatedText = await callOpenRouter(openrouterApiKey, prompt, 3000)
+
+        // Clean up markdown code blocks if present
+        let cleanedText = generatedText
+        if (cleanedText.startsWith('```json')) cleanedText = cleanedText.slice(7)
+        if (cleanedText.startsWith('```')) cleanedText = cleanedText.slice(3)
+        if (cleanedText.endsWith('```')) cleanedText = cleanedText.slice(0, -3)
         cleanedText = cleanedText.trim()
 
         const structuredData: StructuredSummary = JSON.parse(cleanedText)
 
-        // Return the structured response
         return new Response(
           JSON.stringify({
             success: true,
@@ -428,28 +426,25 @@ Return ONLY the JSON object, no other text:`
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       } catch (parseError) {
-        console.error('Failed to parse structured JSON:', parseError, 'Raw text:', generatedText)
+        console.error('Structured generation failed:', parseError)
         return new Response(
           JSON.stringify({
             success: false,
-            error: 'Failed to parse AI response as JSON. Please try again.',
-            raw_response: generatedText
+            error: 'Failed to generate AI summary. Please try again.',
           }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
     }
 
-    // Handle section-specific prompts for PDF sections
-    // Check if this is a REGENERATION request with custom instructions
-    // Note: customPrompt and currentContent are already destructured from request body on line 301
+    // ================================================================
+    // SECTION-SPECIFIC REGENERATION
+    // ================================================================
     const isRegeneration = customPrompt && currentContent
+    let prompt: string
+    let maxTokens = 500
 
-    if (section === 'whatWeFound') {
-      maxTokens = 400
-      if (isRegeneration) {
-        // REGENERATION MODE with custom instruction
-        prompt = `You previously generated this "What We Found" content for a mould inspection report:
+    const regenPreamble = (sectionName: string) => `You previously generated this "${sectionName}" content for a mould inspection report:
 
 "${currentContent}"
 
@@ -459,30 +454,35 @@ The user wants you to regenerate it with this specific change:
 CRITICAL INSTRUCTIONS:
 1. Follow the user's instruction EXACTLY
 2. If they say "make it shorter" → reduce word count by 30-50%
-3. If they say "make it more technical" → use technical mould/moisture terminology
+3. If they say "make it more detailed" → expand with more specifics from the data
 4. If they say "add detail about X" → expand that specific topic
-5. Keep the same format (paragraphs) unless they ask to change it
+5. Keep the same format unless they ask to change it
 6. Use Australian English (mould not mold)
 7. Maintain professional tone for customer-facing report
 
-CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting whatsoever. No asterisks (**bold** or *italic*), no bullet points (* or -), no headers (#), no numbered lists (1. 2. 3.). Write in clear sentences and paragraphs only. The output goes directly into a text field - any markdown symbols will appear as ugly raw text to the customer.
+CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting. No asterisks, no bullet points, no headers. Write in clear sentences and paragraphs only.
 
 [Inspection data for reference]:
 ${formattedData}
 
 Now regenerate following their instruction. Return ONLY the regenerated text:`
+
+    if (section === 'whatWeFound') {
+      if (isRegeneration) {
+        prompt = regenPreamble('What We Found')
       } else {
-        // INITIAL GENERATION MODE
         prompt = `You are writing the "What We Found" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
 
-Write a customer-friendly summary (2-3 paragraphs, 100-150 words) of what the inspection found. Focus on:
-- Where mould was found and its severity
-- Any moisture issues discovered
-- Key areas of concern
+Write a customer-friendly summary (2-3 paragraphs, 150-200 words) of what the inspection found. Focus on:
+- Where mould was found and its severity (reference specific rooms)
+- Moisture readings and what they indicate
+- Any infrared findings
+- Subfloor conditions if applicable
+- Temperature and humidity comparisons (indoor vs outdoor)
 
 Use Australian English (mould not mold). Write in a professional but approachable tone suitable for homeowners.
 
-CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting. No asterisks (**bold**), no bullet points (* or -), no headers (#). Write in clear sentences and paragraphs only.
+CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting. No asterisks, no bullet points, no headers. Write in clear sentences and paragraphs only.
 
 INSPECTION DATA:
 ${formattedData}
@@ -490,252 +490,86 @@ ${formattedData}
 Generate the "What We Found" section:`
       }
     } else if (section === 'whatWeWillDo') {
-      maxTokens = 400
       if (isRegeneration) {
-        // REGENERATION MODE with custom instruction
-        prompt = `You previously generated this "What We're Going To Do" content for a mould inspection report:
-
-"${currentContent}"
-
-The user wants you to regenerate it with this specific change:
-"${customPrompt}"
-
-CRITICAL INSTRUCTIONS:
-1. Follow the user's instruction EXACTLY
-2. If they say "make it shorter" → reduce word count by 30-50%
-3. If they say "make it more technical" → use technical remediation terminology
-4. If they say "add detail about equipment" → expand on dehumidifiers, air movers, etc.
-5. Keep the same format (paragraphs) unless they ask to change it
-6. Use Australian English
-7. Maintain reassuring, professional tone
-
-CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting whatsoever. No asterisks (**bold** or *italic*), no bullet points (* or -), no headers (#), no numbered lists (1. 2. 3.). Write in clear sentences and paragraphs only. The output goes directly into a text field - any markdown symbols will appear as ugly raw text to the customer.
-
-[Inspection data for reference]:
-${formattedData}
-
-Now regenerate following their instruction. Return ONLY the regenerated text:`
+        prompt = regenPreamble("What We're Going To Do")
       } else {
-        // INITIAL GENERATION MODE
         prompt = `You are writing the "What We're Going To Do" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
 
-Write a clear treatment plan summary (2-3 paragraphs, 100-150 words) explaining what remediation work will be performed. Focus on:
-- Treatment methods (HEPA vacuuming, antimicrobial treatment, etc.)
-- Any demolition or removal work required
-- Drying equipment to be used (dehumidifiers, air movers)
-- Approximate timeline
+Write a clear treatment plan summary (2-3 paragraphs, 150-200 words) explaining what remediation work will be performed. Focus on:
+- Treatment methods (HEPA vacuuming, antimicrobial treatment, stain removal, fogging)
+- Any demolition or material removal required
+- Drying equipment to be deployed (specific quantities)
+- Subfloor treatment if applicable
+- Approximate timeline and expected outcomes
 
 Use Australian English. Write in a reassuring, professional tone that builds confidence.
 
-CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting. No asterisks (**bold**), no bullet points (* or -), no headers (#). Write in clear sentences and paragraphs only.
+CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting. No asterisks, no bullet points, no headers. Write in clear sentences and paragraphs only.
 
 INSPECTION DATA:
 ${formattedData}
 
 Generate the "What We're Going To Do" section:`
       }
-    } else if (section === 'whatYouGet') {
-      maxTokens = 350
+    } else if (section === 'problemAnalysis') {
+      maxTokens = 800
       if (isRegeneration) {
-        // REGENERATION MODE with custom instruction
-        prompt = `You previously generated this "What You Get" benefits list for a mould inspection report:
-
-"${currentContent}"
-
-The user wants you to regenerate it with this specific change:
-"${customPrompt}"
-
-CRITICAL INSTRUCTIONS:
-1. Follow the user's instruction EXACTLY
-2. If they say "make it shorter" → reduce to 3-4 benefits
-3. If they say "emphasize warranty" → put more focus on the 12 Month warranty
-4. If they say "add more benefits" → include additional value propositions
-5. Keep each benefit on a separate line
-6. Start with "12 Month warranty on all treated areas" unless told otherwise
-7. Use Australian English, upbeat positive tone
-
-CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting whatsoever. No asterisks (**bold** or *italic*), no bullet points (* or -), no headers (#), no numbered lists (1. 2. 3.), no HTML tags. Write each benefit as a simple sentence on its own line. The output goes directly into a text field - any formatting symbols will appear as ugly raw text to the customer.
-
-[Inspection data for reference]:
-${formattedData}
-
-Now regenerate following their instruction. Return ONLY the regenerated benefits list:`
+        prompt = regenPreamble('Problem Analysis & Recommendations')
       } else {
-        // INITIAL GENERATION MODE
-        prompt = `You are writing the "What You Get" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+        prompt = `You are writing the "Problem Analysis & Recommendations" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
 
-Generate a simple list of benefits the client receives. Write each benefit on a new line.
-Start with "12 Month warranty on all treated areas" as the first benefit.
+Write a detailed analysis (3-4 paragraphs, 200-300 words):
+- Paragraph 1: Root cause analysis — what caused the mould growth based on the inspection evidence
+- Paragraph 2: Contributing environmental factors (humidity levels, ventilation issues, building characteristics)
+- Paragraph 3: Specific recommendations for preventing recurrence (ventilation improvements, dehumidifier use, maintenance schedule)
+- Paragraph 4: Expected outcomes if recommendations are followed, and warranty information
 
-Include benefits like:
-- Professional material removal where required
-- Complete airborne spore elimination
-- Detailed documentation for insurance / resale
-- Peace of mind from professional remediation
-- Certificate of completion
+Use Australian English. Write in a professional, authoritative tone suitable for a technical report.
 
-Use Australian English. Write in an upbeat, positive tone.
-
-CRITICAL PLAIN TEXT RULE: Return ONLY plain text. NO HTML tags, NO markdown formatting. Write each benefit on a separate line. Write 4-6 benefits total.
-
-Example format:
-12 Month warranty on all treated areas
-Professional material removal where required
-Complete airborne spore elimination
+CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting. No asterisks, no bullet points, no headers. Write in clear sentences and paragraphs only.
 
 INSPECTION DATA:
 ${formattedData}
 
-Generate the "What You Get" benefits list:`
+Generate the "Problem Analysis & Recommendations" section:`
+      }
+    } else if (section === 'demolitionDetails') {
+      if (isRegeneration) {
+        prompt = regenPreamble('Demolition Details')
+      } else {
+        prompt = `You are writing the "Demolition Details" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+
+Write a detailed description (1-2 paragraphs, 100-150 words) of all demolition work required. Focus on:
+- Which areas/rooms require demolition
+- What materials will be removed (plasterboard, carpet, timber, etc.)
+- Why demolition is necessary in each area
+- Total demolition hours
+- How the area will be prepared after demolition
+
+Use Australian English. Write in a professional, clear tone.
+
+CRITICAL PLAIN TEXT RULE: Return ONLY plain text. No markdown formatting. No asterisks, no bullet points, no headers. Write in clear sentences and paragraphs only.
+
+INSPECTION DATA:
+${formattedData}
+
+Generate the "Demolition Details" section:`
       }
     } else {
-      // Default: Full comprehensive report
-      prompt = `You are creating a professional mould inspection summary report for Mould & Restoration Co. (MRC), a Melbourne-based mould remediation company.
-
-Use this exact structure:
-
-Mould and Restoration Co. Inspection Report Summary - Causes and Prevention
-
-[Full Property Address]
-
----
-
-Summary of Findings
-
-[Single comprehensive paragraph: What was found + primary cause + immediate risks + context]
-
----
-
-Identified Causes
-
-Primary Cause:
-[Single clear statement of main issue]
-
-Contributing Factors:
-1. [First contributing factor]
-2. [Second contributing factor]
-3. [Additional factors as needed - usually 3-6 total]
-
----
-
-Recommendations
-
-Immediate Actions:
-1. [Urgent action 1] - [explanation]
-2. [Urgent action 2] - [explanation]
-
-Ongoing Prevention:
-1. [Important prevention measure] - [explanation]
-2. [Maintenance measure] - [explanation]
-3. [Additional prevention] - [explanation]
-
----
-
-Overview and Conclusion
-
-[Comprehensive closing paragraph: Restate cause, summarize interventions, emphasize benefits, end positively]
-
-WRITING STYLE:
-- Use "as there is" (for evidence), "On the other hand", "However", "It is recommended"
-- Australian English (mould not mold)
-- Be comprehensive but every line must add value
-
-CRITICAL PLAIN TEXT RULE:
-- Return ONLY plain text. No markdown formatting.
-- No asterisks (**bold**), no bullet points (* or -), no headers (#).
-- No emojis (⚠️, ✅, 🧱, 🔍, 📋, 📌).
-- Write in clear sentences and paragraphs only.
-- Use simple numbered lists (1. 2. 3.) where appropriate.
-- Use "---" section dividers if needed for structure.
-
-INSPECTION DATA:
+      // Default fallback — should not normally reach here
+      prompt = `Generate a brief professional mould inspection summary based on this data:
 ${formattedData}
 
-Generate the full inspection summary report:`
-
-      // If feedback is provided, modify the prompt for regeneration (only for full report)
-      if (feedback && feedback.trim()) {
-        prompt = `You are creating a professional mould inspection summary report for Mould & Restoration Co. (MRC).
-
-The user has requested changes. Please regenerate with this feedback incorporated:
-
-USER FEEDBACK: "${feedback}"
-
-Use the same structure (Summary of Findings, Identified Causes, Recommendations, Conclusion) but address the user's feedback.
-
-INSPECTION DATA:
-${formattedData}
-
-Generate the updated inspection summary report:`
-      }
+Use Australian English. Plain text only, no markdown.`
     }
 
-    // Call OpenRouter API with mistralai/devstral-2512:free (free model)
-    console.log('Calling OpenRouter API with mistralai/devstral-2512:free...')
-    const openrouterResponse = await fetch(
-      'https://openrouter.ai/api/v1/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openrouterApiKey}`,
-          'HTTP-Referer': 'https://mrc-app.vercel.app',
-          'X-Title': 'MRC Inspection App'
-        },
-        body: JSON.stringify({
-          model: 'mistralai/devstral-2512:free',
-          messages: [
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: maxTokens,
-          top_p: 0.95
-        })
-      }
-    )
+    console.log(`Calling OpenRouter API for section: ${section || 'default'}...`)
+    const generatedText = await callOpenRouter(openrouterApiKey, prompt, maxTokens)
 
-    if (!openrouterResponse.ok) {
-      const errorText = await openrouterResponse.text()
-      console.error('OpenRouter API error:', openrouterResponse.status, errorText)
-
-      // Parse error to provide more helpful message
-      let errorMessage = 'Failed to generate summary. Please try again.'
-      try {
-        const errorJson = JSON.parse(errorText)
-        if (errorJson?.error?.message) {
-          errorMessage = `OpenRouter API error: ${errorJson.error.message}`
-        }
-      } catch {
-        // Keep default error message
-      }
-
-      return new Response(
-        JSON.stringify({ error: errorMessage, details: errorText }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const openrouterResult = await openrouterResponse.json()
-
-    // Extract the generated text from OpenRouter response
-    const generatedText = openrouterResult?.choices?.[0]?.message?.content
-
-    if (!generatedText) {
-      console.error('No text in OpenRouter response:', JSON.stringify(openrouterResult))
-      return new Response(
-        JSON.stringify({ error: 'No summary generated. Please try again.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Return the generated summary
     return new Response(
       JSON.stringify({
         success: true,
-        summary: generatedText.trim(),
+        summary: generatedText,
         generated_at: new Date().toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

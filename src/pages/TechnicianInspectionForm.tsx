@@ -2006,86 +2006,93 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
 }
 
 // Section 10: AI Job Summary
-function Section10AISummary({ formData, onChange }: SectionProps) {
+function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?: LeadData | null }) {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(
-    !!(formData.jobSummaryFinal || formData.whatWeFoundText || formData.whatWeWillDoText)
+    !!(formData.whatWeFoundText || formData.whatWeWillDoText || formData.problemAnalysisContent)
   );
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
 
   // Feedback inputs for each section
-  const [jobSummaryFeedback, setJobSummaryFeedback] = useState('');
   const [whatWeFoundFeedback, setWhatWeFoundFeedback] = useState('');
   const [whatWeWillDoFeedback, setWhatWeWillDoFeedback] = useState('');
+  const [problemAnalysisFeedback, setProblemAnalysisFeedback] = useState('');
+  const [demolitionFeedback, setDemolitionFeedback] = useState('');
+
+  const hasDemolition = formData.areas.some((a) => a.demolitionRequired);
+
+  // Build the full payload for the edge function
+  const buildPayload = () => ({
+    propertyAddress: formData.address,
+    clientName: lead?.full_name,
+    issueDescription: lead?.issue_description || undefined,
+    internalNotes: lead?.internal_notes || undefined,
+    inspectionDate: formData.inspectionDate,
+    inspector: formData.inspector,
+    triage: formData.triage,
+    requestedBy: formData.requestedBy,
+    attentionTo: formData.attentionTo,
+    propertyOccupation: formData.propertyOccupation,
+    dwellingType: formData.dwellingType,
+    areas: formData.areas.map((a) => ({
+      areaName: a.areaName,
+      mouldDescription: a.mouldDescription,
+      mouldVisibility: [] as string[],
+      commentsForReport: a.commentsForReport,
+      temperature: a.temperature,
+      humidity: a.humidity,
+      dewPoint: a.dewPoint,
+      timeWithoutDemo: a.timeWithoutDemo,
+      demolitionRequired: a.demolitionRequired,
+      demolitionTime: a.demolitionTime,
+      demolitionDescription: a.demolitionDescription,
+      moistureReadings: a.moistureReadings.map((r) => ({ title: r.title, reading: r.reading })),
+      infraredEnabled: a.infraredEnabled,
+      infraredObservations: a.infraredObservations,
+    })),
+    subfloorObservations: formData.subfloorObservations,
+    subfloorComments: formData.subfloorComments,
+    subfloorLandscape: formData.subfloorLandscape,
+    subfloorSanitation: formData.subfloorSanitation,
+    subfloorRacking: formData.subfloorRacking,
+    subfloorTreatmentTime: formData.subfloorTreatmentTime,
+    subfloorReadings: formData.subfloorReadings.map((r) => ({ reading: r.reading, location: r.location })),
+    outdoorTemperature: formData.outdoorTemperature,
+    outdoorHumidity: formData.outdoorHumidity,
+    outdoorDewPoint: formData.outdoorDewPoint,
+    outdoorComments: formData.outdoorComments,
+    wasteDisposalEnabled: formData.wasteDisposalEnabled,
+    wasteDisposalAmount: formData.wasteDisposalAmount,
+    hepaVac: formData.hepaVac,
+    antimicrobial: formData.antimicrobial,
+    stainRemovingAntimicrobial: formData.stainRemovingAntimicrobial,
+    homeSanitationFogging: formData.homeSanitationFogging,
+    commercialDehumidifierEnabled: formData.commercialDehumidifierEnabled,
+    commercialDehumidifierQty: formData.commercialDehumidifierQty,
+    airMoversEnabled: formData.airMoversEnabled,
+    airMoversQty: formData.airMoversQty,
+    rcdBoxEnabled: formData.rcdBoxEnabled,
+    rcdBoxQty: formData.rcdBoxQty,
+    recommendDehumidifier: formData.recommendDehumidifier,
+    dehumidifierSize: formData.dehumidifierSize,
+    causeOfMould: formData.causeOfMould,
+    additionalInfoForTech: formData.additionalInfoForTech,
+    additionalEquipmentComments: formData.additionalEquipmentComments,
+    parkingOptions: formData.parkingOptions,
+    laborCost: formData.laborCost,
+    equipmentCost: formData.equipmentCost,
+    subtotalExGst: formData.subtotalExGst,
+    gstAmount: formData.gstAmount,
+    totalIncGst: formData.totalIncGst,
+  });
 
   const handleGenerateAll = async () => {
     setIsGenerating(true);
 
     try {
-      // Build payload matching the Edge Function's InspectionFormData interface
-      const payload = {
-        propertyAddress: formData.address,
-        inspectionDate: formData.inspectionDate,
-        inspector: formData.inspector,
-        triage: formData.triage,
-        requestedBy: formData.requestedBy,
-        attentionTo: formData.attentionTo,
-        propertyOccupation: formData.propertyOccupation,
-        dwellingType: formData.dwellingType,
-        areas: formData.areas.map((a) => ({
-          areaName: a.areaName,
-          mouldVisibility: [] as string[],
-          commentsForReport: a.commentsForReport,
-          temperature: a.temperature,
-          humidity: a.humidity,
-          dewPoint: a.dewPoint,
-          timeWithoutDemo: a.timeWithoutDemo,
-          demolitionRequired: a.demolitionRequired,
-          demolitionTime: a.demolitionTime,
-          demolitionDescription: a.demolitionDescription,
-          moistureReadings: a.moistureReadings.map((r) => ({ title: r.title, reading: r.reading })),
-          infraredEnabled: a.infraredEnabled,
-          infraredObservations: a.infraredObservations,
-        })),
-        subfloorEnabled: formData.subfloorEnabled,
-        subfloorObservations: formData.subfloorObservations,
-        subfloorComments: formData.subfloorComments,
-        subfloorLandscape: formData.subfloorLandscape,
-        subfloorSanitation: formData.subfloorSanitation,
-        subfloorRacking: formData.subfloorRacking,
-        subfloorTreatmentTime: formData.subfloorTreatmentTime,
-        outdoorTemperature: formData.outdoorTemperature,
-        outdoorHumidity: formData.outdoorHumidity,
-        outdoorDewPoint: formData.outdoorDewPoint,
-        outdoorComments: formData.outdoorComments,
-        wasteDisposalEnabled: formData.wasteDisposalEnabled,
-        wasteDisposalAmount: formData.wasteDisposalAmount,
-        hepaVac: formData.hepaVac,
-        antimicrobial: formData.antimicrobial,
-        stainRemovingAntimicrobial: formData.stainRemovingAntimicrobial,
-        homeSanitationFogging: formData.homeSanitationFogging,
-        commercialDehumidifierEnabled: formData.commercialDehumidifierEnabled,
-        commercialDehumidifierQty: formData.commercialDehumidifierQty,
-        airMoversEnabled: formData.airMoversEnabled,
-        airMoversQty: formData.airMoversQty,
-        rcdBoxEnabled: formData.rcdBoxEnabled,
-        rcdBoxQty: formData.rcdBoxQty,
-        recommendDehumidifier: formData.recommendDehumidifier,
-        dehumidifierSize: formData.dehumidifierSize,
-        causeOfMould: formData.causeOfMould,
-        additionalInfoForTech: formData.additionalInfoForTech,
-        additionalEquipmentComments: formData.additionalEquipmentComments,
-        parkingOptions: formData.parkingOptions,
-        laborCost: formData.laborCost,
-        equipmentCost: formData.equipmentCost,
-        subtotalExGst: formData.subtotalExGst,
-        gstAmount: formData.gstAmount,
-        totalIncGst: formData.totalIncGst,
-      };
-
       const { data, error } = await supabase.functions.invoke('generate-inspection-summary', {
-        body: { formData: payload, structured: true },
+        body: { formData: buildPayload(), structured: true },
       });
 
       if (error) throw error;
@@ -2094,48 +2101,38 @@ function Section10AISummary({ formData, onChange }: SectionProps) {
       // Map structured response to form fields
       onChange('whatWeFoundText', data.what_we_found || '');
       onChange('whatWeWillDoText', data.what_we_will_do || '');
-      onChange('whatYouGetText', data.what_you_get || '');
-
-      // Concatenate job summary sections into jobSummaryFinal
-      const summaryParts = [
-        data.what_we_discovered,
-        data.identified_causes,
-        data.contributing_factors,
-        data.why_this_happened,
-        data.immediate_actions,
-        data.long_term_protection,
-        data.what_success_looks_like,
-        data.timeline_text,
-      ].filter(Boolean);
-      onChange('jobSummaryFinal', summaryParts.join('\n\n'));
+      onChange('problemAnalysisContent', data.problem_analysis || '');
+      onChange('demolitionContent', data.demolition_details || '');
 
       setHasGenerated(true);
     } catch (err: any) {
       console.error('[AI Generate] Error:', err);
-      // Fallback: show error toast but keep the form usable
-      const errorMsg = err?.message || 'Failed to generate AI summary';
-      // If it's a network/auth error, show specific message
-      if (errorMsg.includes('not configured')) {
-        onChange('jobSummaryFinal', '');
-        onChange('whatWeFoundText', '');
-        onChange('whatWeWillDoText', '');
-      }
-      toast({ title: 'Generation Failed', description: errorMsg, variant: 'destructive' });
+      toast({ title: 'Generation Failed', description: err?.message || 'Failed to generate AI summary', variant: 'destructive' });
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleRegenerateSection = async (section: 'jobSummary' | 'whatWeFound' | 'whatWeWillDo') => {
-    const feedbackMap = {
-      jobSummary: jobSummaryFeedback,
+  type SectionKey = 'whatWeFound' | 'whatWeWillDo' | 'problemAnalysis' | 'demolitionDetails';
+
+  const handleRegenerateSection = async (section: SectionKey) => {
+    const feedbackMap: Record<SectionKey, string> = {
       whatWeFound: whatWeFoundFeedback,
       whatWeWillDo: whatWeWillDoFeedback,
+      problemAnalysis: problemAnalysisFeedback,
+      demolitionDetails: demolitionFeedback,
     };
-    const contentMap = {
-      jobSummary: formData.jobSummaryFinal,
+    const contentMap: Record<SectionKey, string> = {
       whatWeFound: formData.whatWeFoundText,
       whatWeWillDo: formData.whatWeWillDoText,
+      problemAnalysis: formData.problemAnalysisContent,
+      demolitionDetails: formData.demolitionContent,
+    };
+    const fieldMap: Record<SectionKey, keyof InspectionFormData> = {
+      whatWeFound: 'whatWeFoundText',
+      whatWeWillDo: 'whatWeWillDoText',
+      problemAnalysis: 'problemAnalysisContent',
+      demolitionDetails: 'demolitionContent',
     };
 
     const feedback = feedbackMap[section];
@@ -2143,52 +2140,24 @@ function Section10AISummary({ formData, onChange }: SectionProps) {
     setRegeneratingSection(section);
 
     try {
-      // Map section names to Edge Function section params
-      const edgeFnSection = section === 'jobSummary' ? undefined : section;
-
-      const payload = {
-        propertyAddress: formData.address,
-        areas: formData.areas.map((a) => ({
-          areaName: a.areaName,
-          mouldVisibility: [] as string[],
-          commentsForReport: a.commentsForReport,
-          temperature: a.temperature,
-          humidity: a.humidity,
-          moistureReadings: a.moistureReadings.map((r) => ({ title: r.title, reading: r.reading })),
-          timeWithoutDemo: a.timeWithoutDemo,
-          demolitionRequired: a.demolitionRequired,
-          demolitionTime: a.demolitionTime,
-        })),
-        causeOfMould: formData.causeOfMould,
-        hepaVac: formData.hepaVac,
-        antimicrobial: formData.antimicrobial,
-        stainRemovingAntimicrobial: formData.stainRemovingAntimicrobial,
-        homeSanitationFogging: formData.homeSanitationFogging,
-        subfloorEnabled: formData.subfloorEnabled,
-      };
-
       const { data, error } = await supabase.functions.invoke('generate-inspection-summary', {
         body: {
-          formData: payload,
-          section: edgeFnSection,
+          formData: buildPayload(),
+          section,
           customPrompt: feedback,
           currentContent,
-          ...(section === 'jobSummary' ? { feedback } : {}),
         },
       });
 
       if (error) throw error;
 
-      if (section === 'jobSummary') {
-        onChange('jobSummaryFinal', data?.summary || data?.what_we_discovered || formData.jobSummaryFinal);
-        setJobSummaryFeedback('');
-      } else if (section === 'whatWeFound') {
-        onChange('whatWeFoundText', data?.summary || formData.whatWeFoundText);
-        setWhatWeFoundFeedback('');
-      } else if (section === 'whatWeWillDo') {
-        onChange('whatWeWillDoText', data?.summary || formData.whatWeWillDoText);
-        setWhatWeWillDoFeedback('');
-      }
+      onChange(fieldMap[section], data?.summary || currentContent);
+
+      // Clear feedback
+      if (section === 'whatWeFound') setWhatWeFoundFeedback('');
+      else if (section === 'whatWeWillDo') setWhatWeWillDoFeedback('');
+      else if (section === 'problemAnalysis') setProblemAnalysisFeedback('');
+      else if (section === 'demolitionDetails') setDemolitionFeedback('');
     } catch (err: any) {
       console.error('[AI Regenerate] Error:', err);
       toast({
@@ -2201,6 +2170,59 @@ function Section10AISummary({ formData, onChange }: SectionProps) {
     }
   };
 
+  // Reusable section card with textarea + feedback + regenerate
+  const renderSectionCard = (
+    title: string,
+    icon: string,
+    fieldKey: keyof InspectionFormData,
+    sectionKey: SectionKey,
+    feedbackValue: string,
+    setFeedback: (v: string) => void,
+    placeholder: string,
+    rows = 6,
+  ) => (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="p-4 bg-gray-50 border-b border-gray-100">
+        <h3 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
+          <span className="material-symbols-outlined text-[#007AFF]">{icon}</span>
+          {title}
+        </h3>
+      </div>
+      <div className="p-4 space-y-3">
+        <textarea
+          rows={rows}
+          value={formData[fieldKey] as string}
+          onChange={(e) => onChange(fieldKey, e.target.value)}
+          className="w-full bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4 py-3 resize-none focus:ring-2 focus:ring-[#007AFF] focus:border-transparent"
+        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={feedbackValue}
+            onChange={(e) => setFeedback(e.target.value)}
+            placeholder={placeholder}
+            className="flex-1 h-12 bg-gray-50 text-[#1d1d1f] text-sm rounded-lg border border-gray-200 px-4"
+          />
+          <button
+            onClick={() => handleRegenerateSection(sectionKey)}
+            disabled={regeneratingSection === sectionKey || !feedbackValue}
+            className="h-12 px-4 bg-[#007AFF] text-white font-medium rounded-lg flex items-center gap-1 disabled:opacity-50"
+            style={{ minWidth: '48px' }}
+          >
+            {regeneratingSection === sectionKey ? (
+              <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-lg">refresh</span>
+                <span className="hidden sm:inline">Regenerate</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   // Initial state - show generate button
   if (!hasGenerated) {
     return (
@@ -2210,10 +2232,10 @@ function Section10AISummary({ formData, onChange }: SectionProps) {
           <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-[#007AFF] rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="material-symbols-outlined text-white text-3xl">auto_awesome</span>
           </div>
-          <h3 className="text-xl font-bold text-[#1d1d1f] mb-2">AI-Powered Summary</h3>
+          <h3 className="text-xl font-bold text-[#1d1d1f] mb-2">AI-Powered Report</h3>
           <p className="text-[#86868b] text-sm mb-6">
-            Generate a complete job summary using AI based on all your inspection data from Sections 1-9.
-            The AI will create three sections: Job Summary, What We Found, and What We Will Do.
+            Generate all report sections using AI based on your inspection data from Sections 1-9.
+            The AI will create: What We Found, What We Will Do, Problem Analysis, and Demolition Details.
           </p>
 
           <button
@@ -2229,7 +2251,7 @@ function Section10AISummary({ formData, onChange }: SectionProps) {
             ) : (
               <>
                 <span className="material-symbols-outlined">auto_awesome</span>
-                Generate AI Summary
+                Generate AI Report
               </>
             )}
           </button>
@@ -2243,8 +2265,8 @@ function Section10AISummary({ formData, onChange }: SectionProps) {
           <div className="space-y-2 text-sm text-[#1d1d1f]">
             <p>• {formData.areas.length} area(s) inspected</p>
             <p>• Property: {formData.dwellingType || 'Not specified'}, {formData.propertyOccupation || 'Not specified'}</p>
-            <p>• Subfloor: {formData.subfloorEnabled ? 'Included' : 'Not included'}</p>
-            <p>• Demolition: {formData.areas.some((a) => a.demolitionRequired) ? 'Required' : 'Not required'}</p>
+            <p>• Subfloor data: {formData.subfloorObservations ? 'Yes' : 'None'}</p>
+            <p>• Demolition: {hasDemolition ? 'Required' : 'Not required'}</p>
             <p>• Equipment: {(formData.commercialDehumidifierQty || 0) + (formData.airMoversQty || 0) + (formData.rcdBoxQty || 0)} items</p>
           </div>
         </div>
@@ -2274,131 +2296,29 @@ function Section10AISummary({ formData, onChange }: SectionProps) {
         )}
       </button>
 
-      {/* Job Summary Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 bg-gray-50 border-b border-gray-100">
-          <h3 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#007AFF]">summarize</span>
-            Job Summary
-          </h3>
-        </div>
-        <div className="p-4 space-y-3">
-          <textarea
-            rows={6}
-            value={formData.jobSummaryFinal}
-            onChange={(e) => onChange('jobSummaryFinal', e.target.value)}
-            className="w-full bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4 py-3 resize-none focus:ring-2 focus:ring-[#007AFF] focus:border-transparent"
-          />
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={jobSummaryFeedback}
-              onChange={(e) => setJobSummaryFeedback(e.target.value)}
-              placeholder="Feedback (e.g., 'Make it shorter')"
-              className="flex-1 h-12 bg-gray-50 text-[#1d1d1f] text-sm rounded-lg border border-gray-200 px-4"
-            />
-            <button
-              onClick={() => handleRegenerateSection('jobSummary')}
-              disabled={regeneratingSection === 'jobSummary' || !jobSummaryFeedback}
-              className="h-12 px-4 bg-[#007AFF] text-white font-medium rounded-lg flex items-center gap-1 disabled:opacity-50"
-              style={{ minWidth: '48px' }}
-            >
-              {regeneratingSection === 'jobSummary' ? (
-                <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-lg">refresh</span>
-                  <span className="hidden sm:inline">Regenerate</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* 1. What We Found */}
+      {renderSectionCard(
+        'What We Found', 'search', 'whatWeFoundText', 'whatWeFound',
+        whatWeFoundFeedback, setWhatWeFoundFeedback, "e.g., 'Add more detail about bathroom'"
+      )}
 
-      {/* What We Found Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 bg-gray-50 border-b border-gray-100">
-          <h3 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#007AFF]">search</span>
-            What We Found
-          </h3>
-        </div>
-        <div className="p-4 space-y-3">
-          <textarea
-            rows={6}
-            value={formData.whatWeFoundText}
-            onChange={(e) => onChange('whatWeFoundText', e.target.value)}
-            className="w-full bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4 py-3 resize-none focus:ring-2 focus:ring-[#007AFF] focus:border-transparent"
-          />
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={whatWeFoundFeedback}
-              onChange={(e) => setWhatWeFoundFeedback(e.target.value)}
-              placeholder="Feedback (e.g., 'Add more detail about bathroom')"
-              className="flex-1 h-12 bg-gray-50 text-[#1d1d1f] text-sm rounded-lg border border-gray-200 px-4"
-            />
-            <button
-              onClick={() => handleRegenerateSection('whatWeFound')}
-              disabled={regeneratingSection === 'whatWeFound' || !whatWeFoundFeedback}
-              className="h-12 px-4 bg-[#007AFF] text-white font-medium rounded-lg flex items-center gap-1 disabled:opacity-50"
-              style={{ minWidth: '48px' }}
-            >
-              {regeneratingSection === 'whatWeFound' ? (
-                <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-lg">refresh</span>
-                  <span className="hidden sm:inline">Regenerate</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* 2. What We Will Do */}
+      {renderSectionCard(
+        "What We're Going To Do", 'handyman', 'whatWeWillDoText', 'whatWeWillDo',
+        whatWeWillDoFeedback, setWhatWeWillDoFeedback, "e.g., 'Include equipment details'"
+      )}
 
-      {/* What We Will Do Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 bg-gray-50 border-b border-gray-100">
-          <h3 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#007AFF]">handyman</span>
-            What We Will Do
-          </h3>
-        </div>
-        <div className="p-4 space-y-3">
-          <textarea
-            rows={6}
-            value={formData.whatWeWillDoText}
-            onChange={(e) => onChange('whatWeWillDoText', e.target.value)}
-            className="w-full bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4 py-3 resize-none focus:ring-2 focus:ring-[#007AFF] focus:border-transparent"
-          />
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={whatWeWillDoFeedback}
-              onChange={(e) => setWhatWeWillDoFeedback(e.target.value)}
-              placeholder="Feedback (e.g., 'Include equipment list')"
-              className="flex-1 h-12 bg-gray-50 text-[#1d1d1f] text-sm rounded-lg border border-gray-200 px-4"
-            />
-            <button
-              onClick={() => handleRegenerateSection('whatWeWillDo')}
-              disabled={regeneratingSection === 'whatWeWillDo' || !whatWeWillDoFeedback}
-              className="h-12 px-4 bg-[#007AFF] text-white font-medium rounded-lg flex items-center gap-1 disabled:opacity-50"
-              style={{ minWidth: '48px' }}
-            >
-              {regeneratingSection === 'whatWeWillDo' ? (
-                <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-lg">refresh</span>
-                  <span className="hidden sm:inline">Regenerate</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* 3. Problem Analysis & Recommendations */}
+      {renderSectionCard(
+        'Problem Analysis & Recommendations', 'analytics', 'problemAnalysisContent', 'problemAnalysis',
+        problemAnalysisFeedback, setProblemAnalysisFeedback, "e.g., 'Focus more on ventilation'", 8
+      )}
+
+      {/* 4. Demolition Details (only if demolition is required) */}
+      {hasDemolition && renderSectionCard(
+        'Demolition Details', 'construction', 'demolitionContent', 'demolitionDetails',
+        demolitionFeedback, setDemolitionFeedback, "e.g., 'Add more about plasterboard removal'"
+      )}
 
       {/* Note about AI */}
       <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
@@ -2500,6 +2420,8 @@ export default function TechnicianInspectionForm() {
     whatWeFoundText: '',
     whatWeWillDoText: '',
     whatYouGetText: '',
+    problemAnalysisContent: '',
+    demolitionContent: '',
   });
 
   // Fetch lead, booking, and existing inspection data
@@ -2761,6 +2683,8 @@ export default function TechnicianInspectionForm() {
             whatWeFoundText: ins.what_we_found_text || '',
             whatWeWillDoText: ins.what_we_will_do_text || '',
             whatYouGetText: ins.what_you_get_text || '',
+            problemAnalysisContent: ins.problem_analysis_content || '',
+            demolitionContent: ins.demolition_content || '',
           }));
         } else {
           // No existing inspection - pre-fill from lead data
@@ -3171,6 +3095,8 @@ export default function TechnicianInspectionForm() {
         what_we_found_text: formData.whatWeFoundText || null,
         what_we_will_do_text: formData.whatWeWillDoText || null,
         what_you_get_text: formData.whatYouGetText || null,
+        problem_analysis_content: formData.problemAnalysisContent || null,
+        demolition_content: formData.demolitionContent || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -3461,7 +3387,7 @@ export default function TechnicianInspectionForm() {
         {currentSection === 7 && <Section7WorkProcedure {...sectionProps} />}
         {currentSection === 8 && <Section8JobSummary {...sectionProps} />}
         {currentSection === 9 && <Section9CostEstimate {...sectionProps} />}
-        {currentSection === 10 && <Section10AISummary {...sectionProps} />}
+        {currentSection === 10 && <Section10AISummary {...sectionProps} lead={lead} />}
       </main>
 
       <Footer
