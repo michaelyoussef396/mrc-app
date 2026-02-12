@@ -1189,18 +1189,18 @@ function Section4Subfloor({
       {/* Landscape */}
       <FormField label="Subfloor Landscape">
         <div className="flex gap-3">
-          {['Flat Block', 'Sloping Block'].map((option) => (
+          {([['flat_block', 'Flat Block'], ['sloping_block', 'Sloping Block']] as const).map(([value, label]) => (
             <button
-              key={option}
+              key={value}
               type="button"
-              onClick={() => onChange('subfloorLandscape', option)}
+              onClick={() => onChange('subfloorLandscape', value)}
               className={`flex-1 h-12 rounded-lg font-medium transition-colors ${
-                formData.subfloorLandscape === option
+                formData.subfloorLandscape === value
                   ? 'bg-[#007AFF] text-white'
                   : 'bg-white border border-gray-200 text-[#1d1d1f]'
               }`}
             >
-              {option}
+              {label}
             </button>
           ))}
         </div>
@@ -2689,7 +2689,7 @@ export default function TechnicianInspectionForm() {
             propertyOccupation: ins.property_occupation || '',
             dwellingType: ins.dwelling_type || '',
             areas: mappedAreas.length > 0 ? mappedAreas : [createEmptyArea()],
-            subfloorEnabled: ins.subfloor_required || false,
+            subfloorEnabled: true,
             subfloorObservations: subfloorData?.observations || '',
             subfloorLandscape: subfloorData?.landscape || '',
             subfloorComments: subfloorData?.comments || '',
@@ -3289,7 +3289,8 @@ export default function TechnicianInspectionForm() {
         let subfloorId: string;
         if (existingSubfloor) {
           subfloorId = existingSubfloor.id;
-          await supabase.from('subfloor_data').update(subfloorRow).eq('id', subfloorId);
+          const { error: sfUpdateErr } = await supabase.from('subfloor_data').update(subfloorRow).eq('id', subfloorId);
+          if (sfUpdateErr) console.error('[Save] Subfloor update error:', sfUpdateErr);
         } else {
           const { data: newSubfloor, error: sfInsertErr } = await supabase
             .from('subfloor_data')
