@@ -29,7 +29,7 @@ const AdminTechnicians = lazy(() => import("./pages/AdminTechnicians"));
 const AdminTechnicianDetail = lazy(() => import("./pages/AdminTechnicianDetail"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const NewLead = lazy(() => import("./pages/NewLead"));
-const ClientDetail = lazy(() => import("./pages/ClientDetail"));
+
 const LeadsManagement = lazy(() => import("./pages/LeadsManagement"));
 const NewLeadView = lazy(() => import("./pages/NewLeadView"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -310,7 +310,7 @@ const AppContent = () => {
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/lead/new" element={<NewLead />} />
               <Route path="/inspection/select-lead" element={<SelectLead />} />
-              <Route path="/client/:id" element={<ClientDetail />} />
+
               <Route path="/profile" element={<Profile />} />
               <Route path="/manage-users" element={<ManageUsers />} />
               <Route path="/settings" element={<Settings />} />

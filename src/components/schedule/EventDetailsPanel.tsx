@@ -92,7 +92,7 @@ export function EventDetailsPanel({ event, open, onClose }: EventDetailsPanelPro
 
   const handleViewLead = () => {
     if (event.leadId) {
-      navigate(`/client/${event.leadId}`);
+      navigate(`/leads/${event.leadId}`);
       onClose();
     }
   };

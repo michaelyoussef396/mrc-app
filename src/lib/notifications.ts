@@ -56,7 +56,7 @@ export const sendTechnicianNotifications = async (bookingData: NotificationData)
       type: 'job-booked',
       title: 'New Job Booked! 🎉',
       message: `${bookingData.clientName} booked service for ${bookingData.selectedDates[0]} at ${bookingData.selectedTimeSlot}`,
-      action_url: `/client/${bookingData.leadId}`,
+      action_url: `/leads/${bookingData.leadId}`,
       priority: 'high'
     }));
 

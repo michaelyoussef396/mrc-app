@@ -95,11 +95,11 @@ const LeadsManagement = () => {
     },
 
     viewHistory: (leadId: number | string) => {
-      navigate(`/client/${leadId}/history`);
+      navigate(`/leads/${leadId}`);
     },
 
     addNotes: (leadId: number | string) => {
-      navigate(`/client/${leadId}?addNotes=true`);
+      navigate(`/leads/${leadId}`);
     },
 
     reactivate: async (leadId: number | string) => {
@@ -150,8 +150,8 @@ const LeadsManagement = () => {
       if (status === 'new_lead') {
         navigate(`/lead/new/${leadId}`);
       } else {
-        // Otherwise, go to full client detail page
-        navigate(`/client/${leadId}`);
+        // Otherwise, go to full lead detail page
+        navigate(`/leads/${leadId}`);
       }
     },
 
