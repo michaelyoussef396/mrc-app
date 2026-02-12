@@ -1,5 +1,5 @@
 // Supabase Edge Function: generate-inspection-summary
-// Calls OpenRouter AI to generate 5 professional inspection report sections (MRC template format)
+// Calls OpenRouter AI to generate professional inspection report sections (MRC style)
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -115,135 +115,113 @@ interface StructuredSummary {
   demolition_details: string
 }
 
-function formatFormDataForPrompt(formData: InspectionFormData): string {
+// ============================================================================
+// MRC SYSTEM PROMPT — defines the report writing style
+// ============================================================================
+const MRC_SYSTEM_PROMPT = `You are a professional mould inspection report writer for Mould & Restoration Co. (MRC), a Melbourne-based mould remediation company. You follow the MRC reporting template style.
+
+Your writing style:
+- Use phrases like "as there is", "on the other hand", "however", "it is recommended"
+- Be specific with locations, measurements, and observations
+- Reference actual inspection data (temperatures, humidity, moisture readings)
+- Professional but accessible language
+- Australian English spelling (mould, colour, vapour, etc.)
+- Be comprehensive but concise
+- Each section exactly 2 paragraphs maximum
+- Write in flowing prose paragraphs — do NOT use bullet points, numbered lists, or emoji headers
+- Do NOT use markdown formatting (no **, no #, no - bullets)
+- Write as if composing a formal inspection report for a homeowner`
+
+// ============================================================================
+// FORMAT INSPECTION DATA as structured user prompt
+// ============================================================================
+function buildUserPrompt(formData: InspectionFormData): string {
   const lines: string[] = []
 
-  // Property Information
-  lines.push('=== PROPERTY INFORMATION ===')
-  if (formData.clientName) lines.push(`Client Name: ${formData.clientName}`)
-  if (formData.propertyAddress) {
-    const fullAddress = [
-      formData.propertyAddress,
-      formData.propertySuburb,
-      formData.propertyState,
-      formData.propertyPostcode
-    ].filter(Boolean).join(', ')
-    lines.push(`Property Address: ${fullAddress}`)
+  // Property & Client
+  const fullAddress = [
+    formData.propertyAddress,
+    formData.propertySuburb,
+    formData.propertyState,
+    formData.propertyPostcode
+  ].filter(Boolean).join(', ')
+
+  lines.push(`PROPERTY: ${fullAddress || 'Not specified'}`)
+  if (formData.clientName) lines.push(`CUSTOMER: ${formData.clientName}`)
+  if (formData.inspectionDate) lines.push(`INSPECTION DATE: ${formData.inspectionDate}`)
+  if (formData.inspector) lines.push(`INSPECTOR: ${formData.inspector}`)
+  if (formData.dwellingType) lines.push(`DWELLING TYPE: ${formData.dwellingType}`)
+  if (formData.propertyOccupation) lines.push(`OCCUPATION: ${formData.propertyOccupation}`)
+
+  // Initial issue from lead
+  if (formData.issueDescription) {
+    lines.push(`\nINITIAL ISSUE: ${formData.issueDescription}`)
   }
-  if (formData.propertyOccupation) lines.push(`Occupation Status: ${formData.propertyOccupation}`)
-  if (formData.dwellingType) lines.push(`Dwelling Type: ${formData.dwellingType}`)
-
-  // Lead Context (from admin notes / client complaint)
-  if (formData.issueDescription || formData.internalNotes) {
-    lines.push('')
-    lines.push('=== CLIENT COMPLAINT / LEAD CONTEXT ===')
-    if (formData.issueDescription) lines.push(`Client Issue Description: ${formData.issueDescription}`)
-    if (formData.internalNotes) lines.push(`Internal Notes: ${formData.internalNotes}`)
-  }
-
-  // Inspection Details
-  lines.push('')
-  lines.push('=== INSPECTION DETAILS ===')
-  if (formData.inspectionDate) lines.push(`Inspection Date: ${formData.inspectionDate}`)
-  if (formData.requestedBy) lines.push(`Requested By: ${formData.requestedBy}`)
-  if (formData.attentionTo) lines.push(`Attention To: ${formData.attentionTo}`)
-  if (formData.triage) lines.push(`Initial Triage: ${formData.triage}`)
-
-  // Outdoor Conditions
-  lines.push('')
-  lines.push('=== OUTDOOR CONDITIONS ===')
-  if (formData.outdoorTemperature) lines.push(`Temperature: ${formData.outdoorTemperature}C`)
-  if (formData.outdoorHumidity) lines.push(`Humidity: ${formData.outdoorHumidity}%`)
-  if (formData.outdoorDewPoint) lines.push(`Dew Point: ${formData.outdoorDewPoint}C`)
-  if (formData.outdoorComments) lines.push(`Comments: ${formData.outdoorComments}`)
 
   // Areas Inspected
   if (formData.areas && formData.areas.length > 0) {
-    lines.push('')
-    lines.push('=== AREAS INSPECTED ===')
-    formData.areas.forEach((area, index) => {
-      lines.push(``)
-      lines.push(`--- Area ${index + 1}: ${area.areaName} ---`)
-
-      if (area.mouldDescription) {
-        lines.push(`Mould Description: ${area.mouldDescription}`)
-      }
-
-      if (area.mouldVisibility && area.mouldVisibility.length > 0) {
-        lines.push(`Mould Visible On: ${area.mouldVisibility.join(', ')}`)
-      }
-
-      if (area.temperature) lines.push(`Temperature: ${area.temperature}C`)
-      if (area.humidity) lines.push(`Humidity: ${area.humidity}%`)
-      if (area.dewPoint) lines.push(`Dew Point: ${area.dewPoint}C`)
-
-      if (area.commentsForReport) {
-        lines.push(`Comments: ${area.commentsForReport}`)
-      }
-
-      lines.push(`Estimated Treatment Time: ${area.timeWithoutDemo} hours`)
-
-      if (area.demolitionRequired) {
-        lines.push(`Demolition Required: Yes (${area.demolitionTime} hours)`)
-        if (area.demolitionDescription) {
-          lines.push(`Demolition Details: ${area.demolitionDescription}`)
-        }
-      }
+    lines.push('\nAREAS INSPECTED:')
+    formData.areas.forEach((area) => {
+      lines.push(`\n- Area: ${area.areaName}`)
+      if (area.mouldDescription) lines.push(`  Mould Description: ${area.mouldDescription}`)
+      if (area.temperature) lines.push(`  Temperature: ${area.temperature}°C`)
+      if (area.humidity) lines.push(`  Humidity: ${area.humidity}%`)
+      if (area.dewPoint) lines.push(`  Dew Point: ${area.dewPoint}°C`)
 
       if (area.moistureReadings && area.moistureReadings.length > 0) {
-        lines.push('Moisture Readings:')
-        area.moistureReadings.forEach(reading => {
-          lines.push(`  - ${reading.title}: ${reading.reading}%`)
-        })
+        const readings = area.moistureReadings.map(r => `${r.title}: ${r.reading}%`).join(', ')
+        lines.push(`  Moisture Readings: ${readings}`)
+      }
+
+      if (area.commentsForReport) lines.push(`  Comments: ${area.commentsForReport}`)
+      lines.push(`  Treatment Time: ${area.timeWithoutDemo} hours`)
+
+      if (area.demolitionRequired) {
+        lines.push(`  Demolition Required: Yes (${area.demolitionTime} hours)`)
+        if (area.demolitionDescription) lines.push(`  Demolition Description: ${area.demolitionDescription}`)
       }
 
       if (area.infraredEnabled && area.infraredObservations && area.infraredObservations.length > 0) {
-        lines.push(`Infrared Observations: ${area.infraredObservations.join(', ')}`)
+        lines.push(`  Infrared Observations: ${area.infraredObservations.join(', ')}`)
       }
     })
   }
 
-  // Subfloor (always include if data exists)
+  // Subfloor
   const hasSubfloorData = formData.subfloorObservations || formData.subfloorComments ||
-    formData.subfloorLandscape || formData.subfloorSanitation || formData.subfloorRacking ||
-    (formData.subfloorReadings && formData.subfloorReadings.length > 0)
+    formData.subfloorLandscape || (formData.subfloorReadings && formData.subfloorReadings.length > 0)
   if (hasSubfloorData) {
-    lines.push('')
-    lines.push('=== SUBFLOOR INSPECTION ===')
-    if (formData.subfloorLandscape) lines.push(`Landscape: ${formData.subfloorLandscape}`)
-    if (formData.subfloorObservations) lines.push(`Observations: ${formData.subfloorObservations}`)
-    if (formData.subfloorComments) lines.push(`Comments: ${formData.subfloorComments}`)
-    if (formData.subfloorSanitation) lines.push('Sanitation Required: Yes')
-    if (formData.subfloorRacking) lines.push('Racking Required: Yes')
-    if (formData.subfloorTreatmentTime) lines.push(`Treatment Time: ${formData.subfloorTreatmentTime} hours`)
+    lines.push('\nSUBFLOOR DATA:')
+    if (formData.subfloorObservations) lines.push(`- Observation: ${formData.subfloorObservations}`)
+    if (formData.subfloorLandscape) lines.push(`- Landscape: ${formData.subfloorLandscape}`)
+    if (formData.subfloorComments) lines.push(`- Comments: ${formData.subfloorComments}`)
+    if (formData.subfloorSanitation) lines.push('- Sanitation Required: Yes')
+    if (formData.subfloorRacking) lines.push('- Racking Required: Yes')
+    if (formData.subfloorTreatmentTime) lines.push(`- Treatment Time: ${formData.subfloorTreatmentTime} hours`)
     if (formData.subfloorReadings && formData.subfloorReadings.length > 0) {
-      lines.push('Subfloor Moisture Readings:')
-      formData.subfloorReadings.forEach(reading => {
-        lines.push(`  - ${reading.location}: ${reading.reading}%`)
-      })
+      const readings = formData.subfloorReadings.map(r => `${r.reading}% at ${r.location}`).join(', ')
+      lines.push(`- Moisture Readings: ${readings}`)
     }
   }
 
-  // Waste Disposal
-  if (formData.wasteDisposalEnabled) {
-    lines.push('')
-    lines.push('=== WASTE DISPOSAL ===')
-    if (formData.wasteDisposalAmount) lines.push(`Waste Amount: ${formData.wasteDisposalAmount}`)
-  }
+  // Environmental Data
+  lines.push('\nENVIRONMENTAL DATA:')
+  if (formData.outdoorTemperature) lines.push(`- Outdoor Temp: ${formData.outdoorTemperature}°C`)
+  if (formData.outdoorHumidity) lines.push(`- Outdoor Humidity: ${formData.outdoorHumidity}%`)
+  if (formData.outdoorDewPoint) lines.push(`- Outdoor Dew Point: ${formData.outdoorDewPoint}°C`)
+  if (formData.outdoorComments) lines.push(`- Outdoor Comments: ${formData.outdoorComments}`)
 
-  // Work Procedure / Treatment Plan
-  lines.push('')
-  lines.push('=== TREATMENT PLAN ===')
+  // Treatment Plan
   const treatments: string[] = []
   if (formData.hepaVac) treatments.push('HEPA Vacuum')
   if (formData.antimicrobial) treatments.push('Antimicrobial Treatment')
   if (formData.stainRemovingAntimicrobial) treatments.push('Stain-Removing Antimicrobial')
   if (formData.homeSanitationFogging) treatments.push('Home Sanitation/Fogging')
   if (treatments.length > 0) {
-    lines.push(`Treatments: ${treatments.join(', ')}`)
+    lines.push(`\nTREATMENT METHODS: ${treatments.join(', ')}`)
   }
 
-  // Drying Equipment
+  // Equipment
   const equipment: string[] = []
   if (formData.commercialDehumidifierEnabled && formData.commercialDehumidifierQty) {
     equipment.push(`${formData.commercialDehumidifierQty}x Commercial Dehumidifier`)
@@ -255,44 +233,44 @@ function formatFormDataForPrompt(formData: InspectionFormData): string {
     equipment.push(`${formData.rcdBoxQty}x RCD Safety Box`)
   }
   if (equipment.length > 0) {
-    lines.push(`Drying Equipment: ${equipment.join(', ')}`)
+    lines.push(`DRYING EQUIPMENT: ${equipment.join(', ')}`)
   }
 
-  // Cause and Additional Info
+  // Waste
+  if (formData.wasteDisposalEnabled && formData.wasteDisposalAmount) {
+    lines.push(`WASTE DISPOSAL: ${formData.wasteDisposalAmount}`)
+  }
+
+  // Cause
   if (formData.causeOfMould) {
-    lines.push('')
-    lines.push('=== CAUSE OF MOULD ===')
-    lines.push(formData.causeOfMould)
+    lines.push(`\nIDENTIFIED CAUSE OF MOULD: ${formData.causeOfMould}`)
   }
 
-  if (formData.additionalInfoForTech) {
-    lines.push('')
-    lines.push('=== ADDITIONAL INFORMATION ===')
-    lines.push(formData.additionalInfoForTech)
-  }
+  // Additional context
+  if (formData.additionalInfoForTech) lines.push(`ADDITIONAL INFO: ${formData.additionalInfoForTech}`)
+  if (formData.additionalEquipmentComments) lines.push(`EQUIPMENT NOTES: ${formData.additionalEquipmentComments}`)
+  if (formData.internalNotes) lines.push(`\nINTERNAL NOTES: ${formData.internalNotes}`)
 
-  if (formData.additionalEquipmentComments) {
-    lines.push('')
-    lines.push('=== EQUIPMENT COMMENTS ===')
-    lines.push(formData.additionalEquipmentComments)
-  }
-
-  // Cost Estimate
+  // Cost
   if (formData.totalIncGst && formData.totalIncGst > 0) {
-    lines.push('')
-    lines.push('=== COST ESTIMATE ===')
-    lines.push(`Labor: $${(formData.laborCost || 0).toFixed(2)} (ex GST)`)
-    lines.push(`Equipment: $${(formData.equipmentCost || 0).toFixed(2)} (ex GST)`)
-    lines.push(`Subtotal: $${(formData.subtotalExGst || 0).toFixed(2)} (ex GST)`)
-    lines.push(`GST (10%): $${(formData.gstAmount || 0).toFixed(2)}`)
-    lines.push(`Total: $${(formData.totalIncGst || 0).toFixed(2)} (inc GST)`)
+    lines.push(`\nCOST ESTIMATE:`)
+    lines.push(`- Labor: $${(formData.laborCost || 0).toFixed(2)} (ex GST)`)
+    lines.push(`- Equipment: $${(formData.equipmentCost || 0).toFixed(2)} (ex GST)`)
+    lines.push(`- Total: $${(formData.totalIncGst || 0).toFixed(2)} (inc GST)`)
   }
 
   return lines.join('\n')
 }
 
-// Helper: call OpenRouter API
-async function callOpenRouter(apiKey: string, prompt: string, maxTokens: number): Promise<string> {
+// ============================================================================
+// CALL OPENROUTER API — now with system + user messages
+// ============================================================================
+async function callOpenRouter(
+  apiKey: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number
+): Promise<string> {
   const response = await fetch(
     'https://openrouter.ai/api/v1/chat/completions',
     {
@@ -301,11 +279,14 @@ async function callOpenRouter(apiKey: string, prompt: string, maxTokens: number)
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
         'HTTP-Referer': 'https://mrc-app.vercel.app',
-        'X-Title': 'MRC Inspection App'
+        'X-Title': 'MRC Inspection Report Generator'
       },
       body: JSON.stringify({
         model: 'google/gemini-2.0-flash-001',
-        messages: [{ role: 'user', content: prompt }],
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
         temperature: 0.7,
         max_tokens: maxTokens,
         top_p: 0.95
@@ -331,17 +312,14 @@ async function callOpenRouter(apiKey: string, prompt: string, maxTokens: number)
 // Helper: extract JSON from AI response that may include markdown fencing or preamble
 function extractJson(raw: string): string {
   let text = raw.trim()
-  // Remove markdown code fences
   const jsonBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/)
   if (jsonBlockMatch) {
     text = jsonBlockMatch[1].trim()
   }
-  // If still not starting with {, try to find the first {
   if (!text.startsWith('{')) {
     const idx = text.indexOf('{')
     if (idx !== -1) text = text.slice(idx)
   }
-  // Trim trailing content after last }
   const lastBrace = text.lastIndexOf('}')
   if (lastBrace !== -1 && lastBrace < text.length - 1) {
     text = text.slice(0, lastBrace + 1)
@@ -349,6 +327,9 @@ function extractJson(raw: string): string {
   return text
 }
 
+// ============================================================================
+// MAIN HANDLER
+// ============================================================================
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -380,58 +361,46 @@ Deno.serve(async (req) => {
       )
     }
 
-    const formattedData = formatFormDataForPrompt(formData)
-
-    // Check if any area requires demolition (for conditional demolition section)
+    const userDataPrompt = buildUserPrompt(formData)
     const hasDemolition = formData.areas?.some(a => a.demolitionRequired) || false
 
     // ================================================================
-    // STRUCTURED MODE — generate all 5 sections as JSON (MRC template)
+    // STRUCTURED MODE — generate all sections as JSON
     // ================================================================
     if (structured) {
-      const demolitionInstruction = hasDemolition
-        ? `"demolition_details": "Demolition details formatted as:\\n\\n**Demolition Scope:**\\n- [Area]: [what materials are being removed and why]\\n- ...\\n\\n**Total Demolition Time:** X hours\\n\\n**Post-Demolition:** Brief description of area preparation after demolition."`
+      const demolitionField = hasDemolition
+        ? `"demolition_details": "1-2 paragraphs detailing all demolition work required. For each area, describe what materials will be removed (plasterboard, carpet, timber), why demolition is necessary, and how the area will be prepared after removal. Include total demolition hours."`
         : `"demolition_details": ""`
 
-      const prompt = `You are creating a professional mould inspection report for Mould & Restoration Co. (MRC), a Melbourne-based mould remediation company.
+      const structuredUserPrompt = `Generate the inspection report sections for this property.
 
-Based on the inspection data below, generate content for 5 report sections using the MRC template format.
+${userDataPrompt}
 
 IMPORTANT: Return ONLY valid JSON with no additional text. Use this exact structure:
 
 {
-  "what_we_found": "Use this exact format:\\n\\n🧱 **Summary of Findings**\\n\\nDuring the inspection at [address], the following was observed:\\n\\n**Affected Areas:**\\n1. **[Room Name]** — [description of mould found, severity, surfaces affected]\\n2. **[Room Name]** — [description]\\n...\\n\\n**Environmental Readings:**\\n- Indoor Temperature: [X]°C | Humidity: [X]% | Dew Point: [X]°C\\n- Outdoor Temperature: [X]°C | Humidity: [X]% | Dew Point: [X]°C\\n\\n**Moisture Readings:**\\n- [Location]: [reading]%\\n- ...\\n\\n**Infrared Observations:**\\n- [observations if any]\\n\\nOverall, [brief summary sentence about severity and scope].",
-
-  "problem_analysis": "Use this exact format:\\n\\n🔍 **Identified Causes**\\n\\n**Primary Cause:**\\n[One clear sentence identifying the main cause of mould growth based on inspection evidence]\\n\\n**Contributing Factors:**\\n1. [Factor 1 — e.g., Poor ventilation in affected rooms]\\n2. [Factor 2 — e.g., Elevated moisture levels indicating water ingress]\\n3. [Factor 3 — e.g., Building characteristics contributing to condensation]\\n4. [Factor 4 if applicable]",
-
-  "what_we_will_do": "Use this exact format:\\n\\n📋 **Recommendations**\\n\\n⚠️ **Immediate Actions Required:**\\n1. [Action — e.g., HEPA vacuum all affected surfaces to remove loose spores]\\n2. [Action — e.g., Apply antimicrobial treatment to all mould-affected areas]\\n3. [Action — e.g., Deploy drying equipment: Xq commercial dehumidifiers, Xq air movers]\\n4. [Additional actions as needed]\\n\\n✅ **Ongoing Prevention:**\\n1. [Recommendation — e.g., Maintain indoor humidity below 60%]\\n2. [Recommendation — e.g., Ensure adequate ventilation in affected rooms]\\n3. [Recommendation — e.g., Regular inspection of moisture-prone areas]\\n4. [Additional recommendations as applicable]",
-
-  "overview_conclusion": "Use this exact format:\\n\\n📌 **Overview & Conclusion**\\n\\nThe inspection at [address] revealed [severity level] mould contamination affecting [number] area(s). The primary cause has been identified as [main cause].\\n\\n**Recommended Treatment Plan:**\\nMRC will carry out a comprehensive remediation program including [list key treatments]. The estimated treatment time is [X] hours across all affected areas.\\n\\n**Expected Outcome:**\\nFollowing the recommended treatment and prevention measures, the property should achieve [expected result]. Regular maintenance and monitoring will ensure long-term mould prevention.\\n\\n**Estimated Cost:** $[total] (inc. GST)",
-
-  ${demolitionInstruction}
+  "what_we_found": "WHAT WE FOUND section. Exactly 2 paragraphs describing: what mould/moisture issues were identified, where they were found, severity, underlying causes, and structural concerns. Use specific inspection data — temperatures, humidity percentages, moisture readings, room names.",
+  "what_we_will_do": "WHAT WE'RE GOING TO DO section. Exactly 2 paragraphs describing: the remediation approach, step-by-step process, timeline, equipment to be deployed, and expected outcomes. Be specific about demolition if required, equipment quantities, and treatment methods.",
+  "problem_analysis": "IDENTIFIED CAUSES section. Exactly 2 paragraphs. First paragraph: the primary root cause of the mould growth based on evidence (moisture readings, humidity levels, building characteristics). Second paragraph: contributing environmental factors and how they interact to create conditions for mould growth.",
+  "overview_conclusion": "OVERVIEW & CONCLUSION section. Exactly 2 paragraphs. First paragraph: summary of the inspection findings, number of areas affected, overall severity. Second paragraph: the recommended treatment plan, expected timeline, estimated cost, and expected outcomes. End with a recommendation for ongoing prevention.",
+  ${demolitionField}
 }
 
-FORMATTING RULES:
-- Use Australian English (mould, colour, etc.)
-- Use \\n for line breaks within fields
-- Use markdown formatting: **bold** for headers and emphasis
-- Use numbered lists (1. 2. 3.) and bullet points (-)
-- Use emoji markers exactly as shown: 🧱 🔍 📋 📌 ⚠️ ✅
-- Be professional but customer-friendly
-- Be specific to the actual inspection data — reference real room names, readings, and findings
-- Do NOT use generic filler text or placeholder brackets
-- Replace all [placeholders] with actual data from the inspection
-- Each section should be unique content, not repeating the same information
+CRITICAL RULES:
+- Write in flowing prose paragraphs ONLY — no bullet points, no numbered lists, no emoji, no markdown
+- Use phrases like "as there is", "on the other hand", "however", "it is recommended"
+- Reference specific room names, actual temperature/humidity/moisture readings from the data
+- Australian English (mould, colour, vapour)
+- Each field must be exactly 2 paragraphs separated by \\n\\n
+- Do NOT leave any placeholder brackets — use real data from the inspection
+- Use \\n\\n to separate paragraphs within each field
 
-INSPECTION DATA:
-${formattedData}
+Return ONLY the JSON object:`
 
-Return ONLY the JSON object, no other text:`
-
-      console.log('Calling OpenRouter API for STRUCTURED output (5 sections)...')
+      console.log('Calling OpenRouter API for STRUCTURED output...')
 
       try {
-        const generatedText = await callOpenRouter(openrouterApiKey, prompt, 4000)
+        const generatedText = await callOpenRouter(openrouterApiKey, MRC_SYSTEM_PROMPT, structuredUserPrompt, 4000)
         console.log('Raw AI response (first 300 chars):', generatedText.slice(0, 300))
 
         const cleanedText = extractJson(generatedText)
@@ -463,9 +432,10 @@ Return ONLY the JSON object, no other text:`
     // SECTION-SPECIFIC REGENERATION
     // ================================================================
     const isRegeneration = customPrompt && currentContent
-    let prompt: string
-    let maxTokens = 500
+    let userPrompt: string
+    let maxTokens = 800
 
+    // Regeneration preamble — used when user provides feedback to refine a section
     const regenPreamble = (sectionName: string) => `You previously generated this "${sectionName}" content for a mould inspection report:
 
 "${currentContent}"
@@ -475,194 +445,111 @@ The user wants you to regenerate it with this specific change:
 
 CRITICAL INSTRUCTIONS:
 1. Follow the user's instruction EXACTLY
-2. If they say "make it shorter" → reduce word count by 30-50%
-3. If they say "make it more detailed" → expand with more specifics from the data
-4. If they say "add detail about X" → expand that specific topic
-5. Keep the same MRC template format (emoji headers, **bold**, numbered/bullet lists)
+2. If they say "make it shorter" — reduce word count by 30-50%
+3. If they say "make it more detailed" — expand with more specifics from the data
+4. If they say "add detail about X" — expand that specific topic
+5. Keep the same flowing prose style — 2 paragraphs, no bullet points, no markdown
 6. Use Australian English (mould not mold)
-7. Maintain professional tone for customer-facing report
-
-FORMATTING: Keep the same markdown format — **bold** headers, numbered lists, bullet points, emoji markers (🧱 🔍 📋 📌 ⚠️ ✅).
+7. Maintain professional tone for a customer-facing report
 
 [Inspection data for reference]:
-${formattedData}
+${userDataPrompt}
 
-Now regenerate following their instruction. Return ONLY the regenerated text:`
+Now regenerate following their instruction. Return ONLY the regenerated text (2 paragraphs, no JSON wrapping):`
 
     if (section === 'whatWeFound') {
       if (isRegeneration) {
-        prompt = regenPreamble('Summary of Findings')
+        userPrompt = regenPreamble('What We Found')
       } else {
-        prompt = `You are writing the "🧱 Summary of Findings" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+        userPrompt = `Generate the "WHAT WE FOUND" section for this mould inspection report.
 
-Use this exact MRC template format:
+${userDataPrompt}
 
-🧱 **Summary of Findings**
+Write exactly 2 paragraphs describing:
+- What mould/moisture issues were identified
+- Where they were found (reference specific rooms by name)
+- Severity of the contamination
+- Underlying causes based on the evidence
+- Any structural concerns or infrared findings
 
-During the inspection at [address], the following was observed:
-
-**Affected Areas:**
-1. **[Room Name]** — [description of mould found, severity, surfaces affected]
-2. **[Room Name]** — [description]
-
-**Environmental Readings:**
-- Indoor Temperature: [X]°C | Humidity: [X]% | Dew Point: [X]°C
-- Outdoor Temperature: [X]°C | Humidity: [X]% | Dew Point: [X]°C
-
-**Moisture Readings:**
-- [Location]: [reading]%
-
-**Infrared Observations:**
-- [observations if any]
-
-Overall, [brief summary sentence about severity and scope].
-
-RULES:
-- Use Australian English (mould not mold)
-- Replace ALL [placeholders] with actual data from the inspection
-- Use **bold** for headers, numbered lists for areas, bullet points for readings
-- Be specific — reference real room names, readings, and findings
-
-INSPECTION DATA:
-${formattedData}
-
-Generate the "Summary of Findings" section:`
+Use specific data: temperatures, humidity percentages, moisture readings, dew points.
+Write in flowing prose — no bullet points, no lists, no markdown.
+Return ONLY the 2 paragraphs, nothing else.`
       }
     } else if (section === 'whatWeWillDo') {
       if (isRegeneration) {
-        prompt = regenPreamble('Recommendations')
+        userPrompt = regenPreamble("What We're Going To Do")
       } else {
-        prompt = `You are writing the "📋 Recommendations" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+        userPrompt = `Generate the "WHAT WE'RE GOING TO DO" section for this mould inspection report.
 
-Use this exact MRC template format:
+${userDataPrompt}
 
-📋 **Recommendations**
+Write exactly 2 paragraphs describing:
+- The complete remediation approach and step-by-step process
+- Treatment methods (HEPA vacuuming, antimicrobial, stain removal, fogging)
+- Equipment to be deployed (specific quantities of dehumidifiers, air movers)
+- Any demolition or material removal required
+- Expected timeline and outcomes
 
-⚠️ **Immediate Actions Required:**
-1. [Action — e.g., HEPA vacuum all affected surfaces to remove loose spores]
-2. [Action — e.g., Apply antimicrobial treatment to all mould-affected areas]
-3. [Action — e.g., Deploy drying equipment: Xq commercial dehumidifiers, Xq air movers]
-4. [Additional actions as needed]
-
-✅ **Ongoing Prevention:**
-1. [Recommendation — e.g., Maintain indoor humidity below 60%]
-2. [Recommendation — e.g., Ensure adequate ventilation in affected rooms]
-3. [Recommendation — e.g., Regular inspection of moisture-prone areas]
-
-RULES:
-- Use Australian English
-- Replace ALL [placeholders] with actual data from the inspection
-- Use ⚠️ for immediate actions, ✅ for ongoing prevention
-- Include specific equipment quantities and treatment methods
-- Be professional but reassuring
-
-INSPECTION DATA:
-${formattedData}
-
-Generate the "Recommendations" section:`
+Write in flowing prose — no bullet points, no lists, no markdown.
+Be reassuring and professional. Return ONLY the 2 paragraphs, nothing else.`
       }
     } else if (section === 'problemAnalysis') {
-      maxTokens = 800
       if (isRegeneration) {
-        prompt = regenPreamble('Identified Causes')
+        userPrompt = regenPreamble('Identified Causes')
       } else {
-        prompt = `You are writing the "🔍 Identified Causes" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+        userPrompt = `Generate the "IDENTIFIED CAUSES" section for this mould inspection report.
 
-Use this exact MRC template format:
+${userDataPrompt}
 
-🔍 **Identified Causes**
+Write exactly 2 paragraphs:
+Paragraph 1: The primary root cause of the mould growth based on inspection evidence — reference specific humidity levels, moisture readings, and building characteristics.
+Paragraph 2: Contributing environmental factors and how they interact to create conditions for mould growth.
 
-**Primary Cause:**
-[One clear sentence identifying the main cause of mould growth based on inspection evidence]
-
-**Contributing Factors:**
-1. [Factor 1 — e.g., Poor ventilation in affected rooms]
-2. [Factor 2 — e.g., Elevated moisture levels indicating water ingress]
-3. [Factor 3 — e.g., Building characteristics contributing to condensation]
-4. [Factor 4 if applicable]
-
-RULES:
-- Use Australian English
-- Be specific — use actual data from the inspection (humidity levels, moisture readings, dwelling type)
-- Primary cause should be one clear, authoritative sentence
-- Contributing factors should be numbered and specific
-- Reference actual environmental readings as evidence
-
-INSPECTION DATA:
-${formattedData}
-
-Generate the "Identified Causes" section:`
+Write in flowing prose — no bullet points, no lists, no markdown.
+Return ONLY the 2 paragraphs, nothing else.`
       }
     } else if (section === 'overviewConclusion') {
-      maxTokens = 800
       if (isRegeneration) {
-        prompt = regenPreamble('Overview & Conclusion')
+        userPrompt = regenPreamble('Overview & Conclusion')
       } else {
-        prompt = `You are writing the "📌 Overview & Conclusion" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+        userPrompt = `Generate the "OVERVIEW & CONCLUSION" section for this mould inspection report.
 
-Use this exact MRC template format:
+${userDataPrompt}
 
-📌 **Overview & Conclusion**
+Write exactly 2 paragraphs:
+Paragraph 1: Summary of the overall inspection findings — number of areas affected, overall severity, key concerns.
+Paragraph 2: The recommended treatment plan, expected timeline, estimated cost (if available), expected outcomes, and a recommendation for ongoing prevention.
 
-The inspection at [address] revealed [severity level] mould contamination affecting [number] area(s). The primary cause has been identified as [main cause].
-
-**Recommended Treatment Plan:**
-MRC will carry out a comprehensive remediation program including [list key treatments]. The estimated treatment time is [X] hours across all affected areas.
-
-**Expected Outcome:**
-Following the recommended treatment and prevention measures, the property should achieve [expected result]. Regular maintenance and monitoring will ensure long-term mould prevention.
-
-**Estimated Cost:** $[total] (inc. GST)
-
-RULES:
-- Use Australian English
-- Replace ALL [placeholders] with actual data from the inspection
-- Include total treatment hours (sum of all area times)
-- Include the total cost from the cost estimate if available
-- Be confident and professional — this is the summary the client reads last
-
-INSPECTION DATA:
-${formattedData}
-
-Generate the "Overview & Conclusion" section:`
+Write in flowing prose — no bullet points, no lists, no markdown.
+Return ONLY the 2 paragraphs, nothing else.`
       }
     } else if (section === 'demolitionDetails') {
       if (isRegeneration) {
-        prompt = regenPreamble('Demolition Details')
+        userPrompt = regenPreamble('Demolition Details')
       } else {
-        prompt = `You are writing the "Demolition Details" section for a mould inspection report for Mould & Restoration Co. (MRC), Melbourne.
+        userPrompt = `Generate the "DEMOLITION DETAILS" section for this mould inspection report.
 
-Use this format:
+${userDataPrompt}
 
-**Demolition Scope:**
-- **[Area/Room]**: [what materials are being removed (plasterboard, carpet, timber) and why]
-- **[Area/Room]**: [description]
+Write 1-2 paragraphs describing:
+- Which areas/rooms require demolition
+- What materials will be removed (plasterboard, carpet, timber, etc.) and why
+- Total demolition hours required
+- How the area will be prepared after demolition
 
-**Total Demolition Time:** [X] hours
-
-**Post-Demolition:** [Brief description of area preparation after demolition]
-
-RULES:
-- Use Australian English
-- Be specific about materials being removed and why
-- Include total demolition hours
-- Reference actual areas from the inspection data
-
-INSPECTION DATA:
-${formattedData}
-
-Generate the "Demolition Details" section:`
+Write in flowing prose — no bullet points, no lists, no markdown.
+Return ONLY the paragraph(s), nothing else.`
       }
     } else {
-      // Default fallback — should not normally reach here
-      prompt = `Generate a brief professional mould inspection summary based on this data:
-${formattedData}
+      userPrompt = `Generate a brief professional mould inspection summary based on this data:
+${userDataPrompt}
 
-Use Australian English. Plain text only, no markdown.`
+Write 2 paragraphs in flowing prose. Australian English. No markdown.`
     }
 
     console.log(`Calling OpenRouter API for section: ${section || 'default'}...`)
-    const generatedText = await callOpenRouter(openrouterApiKey, prompt, maxTokens)
+    const generatedText = await callOpenRouter(openrouterApiKey, MRC_SYSTEM_PROMPT, userPrompt, maxTokens)
 
     return new Response(
       JSON.stringify({
