@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,6 +47,7 @@ import {
   Sparkles,
   ClipboardList,
 } from "lucide-react";
+import { NewLeadView } from "@/components/leads/NewLeadView";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
 import { STATUS_FLOW, LeadStatus } from "@/lib/statusFlow";
 import { toast } from "sonner";
@@ -162,13 +163,6 @@ export default function LeadDetail() {
     },
   });
 
-  // Redirect new_lead to NewLeadView
-  useEffect(() => {
-    if (lead && lead.status === "new_lead") {
-      navigate(`/lead/new/${id}`, { replace: true });
-    }
-  }, [lead, id, navigate]);
-
   // Loading state
   if (isLoading) {
     return (
@@ -197,11 +191,69 @@ export default function LeadDetail() {
     );
   }
 
-  // If it's a new_lead, the useEffect will redirect. Show loading meanwhile.
+  // Shared handlers (needed by NewLeadView and the main view)
+  const handleChangeStatus = async (status: LeadStatus) => {
+    const currentConfig = STATUS_FLOW[lead.status as LeadStatus];
+    const { error } = await supabase
+      .from("leads")
+      .update({ status })
+      .eq("id", lead.id);
+
+    if (error) {
+      toast.error("Failed to update status");
+      return;
+    }
+
+    await supabase.from("activities").insert({
+      lead_id: lead.id,
+      activity_type: "status_change",
+      title: `Status changed to ${STATUS_FLOW[status].shortTitle}`,
+      description: `Lead moved from ${currentConfig.shortTitle} to ${STATUS_FLOW[status].shortTitle}`,
+    });
+
+    toast.success(`Status updated to ${STATUS_FLOW[status].shortTitle}`);
+    refetch();
+  };
+
+  const handleDelete = async () => {
+    const { error } = await supabase.from("leads").delete().eq("id", lead.id);
+
+    if (error) {
+      toast.error("Failed to delete lead");
+      return;
+    }
+
+    toast.success("Lead deleted");
+    navigate("/leads");
+  };
+
+  // Render dedicated view for new leads
   if (lead.status === "new_lead") {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="min-h-screen bg-gray-50">
+        <NewLeadView
+          lead={lead}
+          onStatusChange={handleChangeStatus}
+          onRefetch={() => refetch()}
+        />
+
+        {/* Reuse existing delete + status dialogs */}
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to permanently delete this lead? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
@@ -228,40 +280,6 @@ export default function LeadDetail() {
       ? `https://www.google.com/maps/dir/?api=1&destination=${lead.property_lat},${lead.property_lng}`
       : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fullAddress)}`;
     window.open(mapsUrl, "_blank");
-  };
-
-  const handleChangeStatus = async (status: LeadStatus) => {
-    const { error } = await supabase
-      .from("leads")
-      .update({ status })
-      .eq("id", lead.id);
-
-    if (error) {
-      toast.error("Failed to update status");
-      return;
-    }
-
-    await supabase.from("activities").insert({
-      lead_id: lead.id,
-      activity_type: "status_change",
-      title: `Status changed to ${STATUS_FLOW[status].shortTitle}`,
-      description: `Lead moved from ${statusConfig.shortTitle} to ${STATUS_FLOW[status].shortTitle}`,
-    });
-
-    toast.success(`Status updated to ${STATUS_FLOW[status].shortTitle}`);
-    refetch();
-  };
-
-  const handleDelete = async () => {
-    const { error } = await supabase.from("leads").delete().eq("id", lead.id);
-
-    if (error) {
-      toast.error("Failed to delete lead");
-      return;
-    }
-
-    toast.success("Lead deleted");
-    navigate("/leads");
   };
 
   const handleRegeneratePDF = async () => {

@@ -145,14 +145,8 @@ const LeadsManagement = () => {
       }
     },
 
-    viewDetails: (leadId: number | string, status?: string) => {
-      // If lead is NEW, go to simplified new lead view
-      if (status === 'new_lead') {
-        navigate(`/lead/new/${leadId}`);
-      } else {
-        // Otherwise, go to full lead detail page
-        navigate(`/leads/${leadId}`);
-      }
+    viewDetails: (leadId: number | string, _status?: string) => {
+      navigate(`/leads/${leadId}`);
     },
 
     viewPDF: (leadId: number | string) => {
