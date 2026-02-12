@@ -3372,6 +3372,26 @@ const InspectionForm = () => {
                     className="form-input"
                   />
                 </div>
+
+                {/* Internal Notes from Scheduling */}
+                <div className="form-group">
+                  <label className="form-label">Internal Notes</label>
+                  <div
+                    style={{
+                      background: '#F5F5F7',
+                      padding: '14px 16px',
+                      borderRadius: '12px',
+                      border: '1px solid #E5E5EA',
+                      fontSize: '14px',
+                      lineHeight: '1.5',
+                      color: lead?.internalNotes ? '#1D1D1F' : '#86868B',
+                      whiteSpace: 'pre-wrap',
+                      minHeight: '48px',
+                    }}
+                  >
+                    {lead?.internalNotes || 'No internal notes added'}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -5350,7 +5370,7 @@ const InspectionForm = () => {
         </div>
       </main>
 
-      {/* Fixed Bottom Navigation */}
+      </div>
       <nav className="form-navigation">
         {currentSection > 0 && (
           <button
@@ -5422,7 +5442,6 @@ const InspectionForm = () => {
           </button>
         )}
       </nav>
-      </div>
     </>
   )
 }
