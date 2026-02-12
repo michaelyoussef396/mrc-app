@@ -994,51 +994,80 @@ function Section3AreaInspection({
                 />
               </FormField>
 
-              {/* Room View Photos */}
-              <FormField label="Room View Photos (Max 4)">
-                <PhotoUploadButton
-                  onClick={() => onPhotoCapture?.('roomView', area.id)}
-                  label="Add Photos"
-                  count={area.roomViewPhotos.length}
-                  maxCount={4}
-                />
-                <PhotoGrid
-                  photos={area.roomViewPhotos}
-                  onRemove={(photoId) => onPhotoRemove?.('roomView', photoId, area.id)}
-                />
-              </FormField>
+              {/* ── PHOTO GALLERY ── */}
+              <div className="space-y-4">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#86868b] ml-1">
+                  Photo Gallery
+                </span>
 
-              {/* Infrared Toggle */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <span className="font-medium text-[#1d1d1f]">Infrared Inspection</span>
-                <ToggleSwitch
-                  checked={area.infraredEnabled}
-                  onChange={(checked) => onAreaChange?.(area.id, 'infraredEnabled', checked)}
-                />
-              </div>
-
-              {/* Infrared Section */}
-              {area.infraredEnabled && (
-                <div className="space-y-4 pl-4 border-l-2 border-[#007AFF]">
-                  <FormField label="Infrared Photo">
-                    <SinglePhoto
-                      photo={area.infraredPhoto}
-                      onCapture={() => onPhotoCapture?.('infrared', area.id)}
-                      onRemove={() => onPhotoRemove?.('infrared', area.infraredPhoto?.id || '', area.id)}
-                      label="Capture Infrared"
+                {/* Room View Photos */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-lg text-slate-600">photo_library</span>
+                    <span className="text-sm font-semibold text-[#1d1d1f]">Room View Photos</span>
+                    <span className="text-xs text-[#86868b] ml-auto">{area.roomViewPhotos.length}/4</span>
+                  </div>
+                  {area.roomViewPhotos.length < 4 && (
+                    <PhotoUploadButton
+                      onClick={() => onPhotoCapture?.('roomView', area.id)}
+                      label="Add Room Photos"
+                      count={area.roomViewPhotos.length}
+                      maxCount={4}
                     />
-                  </FormField>
+                  )}
+                  <PhotoGrid
+                    photos={area.roomViewPhotos}
+                    onRemove={(photoId) => onPhotoRemove?.('roomView', photoId, area.id)}
+                  />
+                </div>
 
-                  <FormField label="Natural Light Comparison">
+                {/* Infrared Inspection Photo */}
+                <div className="bg-purple-50 rounded-xl border border-purple-100 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-lg text-purple-600">infrared</span>
+                      <span className="text-sm font-semibold text-purple-900">Infrared Inspection</span>
+                    </div>
+                    <ToggleSwitch
+                      checked={area.infraredEnabled}
+                      onChange={(checked) => onAreaChange?.(area.id, 'infraredEnabled', checked)}
+                    />
+                  </div>
+                  {area.infraredEnabled && (
+                    <div className="space-y-3">
+                      <SinglePhoto
+                        photo={area.infraredPhoto}
+                        onCapture={() => onPhotoCapture?.('infrared', area.id)}
+                        onRemove={() => onPhotoRemove?.('infrared', area.infraredPhoto?.id || '', area.id)}
+                        label="Capture Infrared"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Natural Light Comparison Photo */}
+                {area.infraredEnabled && (
+                  <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-lg text-emerald-600">wb_sunny</span>
+                      <span className="text-sm font-semibold text-emerald-900">Natural Light Comparison</span>
+                    </div>
                     <SinglePhoto
                       photo={area.naturalInfraredPhoto}
                       onCapture={() => onPhotoCapture?.('naturalInfrared', area.id)}
                       onRemove={() => onPhotoRemove?.('naturalInfrared', area.naturalInfraredPhoto?.id || '', area.id)}
-                      label="Capture Natural"
+                      label="Capture Natural Light"
                     />
-                  </FormField>
+                  </div>
+                )}
 
-                  <FormField label="Infrared Observations">
+                {/* Infrared Observations */}
+                {area.infraredEnabled && (
+                  <div className="bg-purple-50 rounded-xl border border-purple-100 p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-lg text-purple-600">checklist</span>
+                      <span className="text-sm font-semibold text-purple-900">Infrared Observations</span>
+                    </div>
                     <div className="space-y-2">
                       {INFRARED_OBSERVATIONS.map((obs) => (
                         <label
@@ -1056,9 +1085,9 @@ function Section3AreaInspection({
                         </label>
                       ))}
                     </div>
-                  </FormField>
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
 
               {/* Time Without Demo */}
               <FormField label="Time Without Demolition (Hours)" required>
