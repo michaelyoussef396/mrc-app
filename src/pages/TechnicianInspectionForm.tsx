@@ -1162,148 +1162,182 @@ function Section4Subfloor({
 }: SectionProps) {
   return (
     <section className="space-y-5">
-      {/* Main Toggle */}
-      <div className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-gray-100">
-        <div>
-          <span className="font-semibold text-[#1d1d1f]">Subfloor Inspection Required</span>
-          <p className="text-sm text-[#86868b]">Enable to add subfloor details</p>
+      {/* Section Header */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center">
+            <span className="material-symbols-outlined text-xl text-orange-600">foundation</span>
+          </div>
+          <div>
+            <h3 className="font-semibold text-[#1d1d1f]">Subfloor Assessment</h3>
+            <p className="text-sm text-[#86868b]">Document subfloor condition and findings</p>
+          </div>
         </div>
-        <ToggleSwitch
-          checked={formData.subfloorEnabled}
-          onChange={(checked) => onChange('subfloorEnabled', checked)}
-        />
       </div>
 
-      {formData.subfloorEnabled && (
-        <div className="space-y-5">
-          {/* Observations */}
-          <FormField label="Subfloor Observations">
-            <textarea
-              rows={3}
-              value={formData.subfloorObservations}
-              onChange={(e) => onChange('subfloorObservations', e.target.value)}
-              placeholder="Raw observations from subfloor..."
-              className="w-full bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4 py-3 resize-none"
-            />
-          </FormField>
+      {/* Observations */}
+      <FormField label="Subfloor Observation">
+        <textarea
+          rows={3}
+          value={formData.subfloorObservations}
+          onChange={(e) => onChange('subfloorObservations', e.target.value)}
+          placeholder="Describe subfloor condition..."
+          className="w-full bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4 py-3 resize-none"
+        />
+      </FormField>
 
-          {/* Landscape */}
-          <FormField label="Block Landscape">
-            <div className="flex gap-3">
-              {['Flat Block', 'Sloping Block'].map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => onChange('subfloorLandscape', option)}
-                  className={`flex-1 h-12 rounded-lg font-medium transition-colors ${
-                    formData.subfloorLandscape === option
-                      ? 'bg-[#007AFF] text-white'
-                      : 'bg-white border border-gray-200 text-[#1d1d1f]'
-                  }`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          </FormField>
+      {/* Landscape */}
+      <FormField label="Subfloor Landscape">
+        <div className="flex gap-3">
+          {['Flat Block', 'Sloping Block'].map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onChange('subfloorLandscape', option)}
+              className={`flex-1 h-12 rounded-lg font-medium transition-colors ${
+                formData.subfloorLandscape === option
+                  ? 'bg-[#007AFF] text-white'
+                  : 'bg-white border border-gray-200 text-[#1d1d1f]'
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </FormField>
 
-          {/* Comments */}
-          <FormField label="Subfloor Comments">
-            <textarea
-              rows={2}
-              value={formData.subfloorComments}
-              onChange={(e) => onChange('subfloorComments', e.target.value)}
-              placeholder="Additional comments..."
-              className="w-full bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4 py-3 resize-none"
-            />
-          </FormField>
+      {/* Comments */}
+      <FormField label="Subfloor Comments">
+        <textarea
+          rows={3}
+          value={formData.subfloorComments}
+          onChange={(e) => onChange('subfloorComments', e.target.value)}
+          placeholder="Additional notes..."
+          className="w-full bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4 py-3 resize-none"
+        />
+      </FormField>
 
-          {/* Moisture Readings */}
-          <FormField label="Subfloor Moisture Readings">
-            <div className="space-y-3">
-              {formData.subfloorReadings.map((reading, index) => (
-                <div key={reading.id} className="flex gap-3 items-start">
-                  <div className="flex-1 space-y-2">
-                    <input
-                      type="text"
-                      value={reading.location}
-                      onChange={(e) => onSubfloorReadingChange?.(reading.id, 'location', e.target.value)}
-                      placeholder="Location"
-                      className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4"
-                    />
-                    <input
-                      type="text"
-                      value={reading.reading}
-                      onChange={(e) => onSubfloorReadingChange?.(reading.id, 'reading', e.target.value)}
-                      placeholder="Reading %"
-                      className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4"
-                    />
-                  </div>
-                  <button
-                    onClick={() => onSubfloorReadingRemove?.(reading.id)}
-                    className="p-3 text-red-500 hover:bg-red-50 rounded-lg"
-                    style={{ minWidth: '48px', minHeight: '48px' }}
-                  >
-                    <span className="material-symbols-outlined">delete</span>
-                  </button>
-                </div>
-              ))}
+      {/* ── SUBFLOOR MOISTURE READINGS ── */}
+      <div className="space-y-3">
+        <span className="text-xs font-bold uppercase tracking-wider text-[#86868b] ml-1">
+          Subfloor Moisture Readings
+        </span>
+
+        {formData.subfloorReadings.map((reading, index) => (
+          <div key={reading.id} className="bg-orange-50 rounded-xl border border-orange-100 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-orange-700">
+                Reading {index + 1}
+              </span>
               <button
-                onClick={onSubfloorReadingAdd}
-                className="w-full h-12 bg-white border border-dashed border-[#007AFF] rounded-lg text-[#007AFF] font-medium flex items-center justify-center gap-2"
+                onClick={() => onSubfloorReadingRemove?.(reading.id)}
+                className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                style={{ minWidth: '48px', minHeight: '48px' }}
               >
-                <span className="material-symbols-outlined">add</span>
-                Add Reading
+                <span className="material-symbols-outlined text-lg">delete</span>
               </button>
             </div>
-          </FormField>
 
-          {/* Photos */}
-          <FormField label="Subfloor Photos">
+            <input
+              type="text"
+              value={reading.location}
+              onChange={(e) => onSubfloorReadingChange?.(reading.id, 'location', e.target.value)}
+              placeholder="Location (e.g., Under shower area)"
+              className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4"
+            />
+
+            <input
+              type="number"
+              value={reading.reading}
+              onChange={(e) => onSubfloorReadingChange?.(reading.id, 'reading', e.target.value)}
+              placeholder="Moisture % (0-100)"
+              min="0"
+              max="100"
+              className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4"
+            />
+          </div>
+        ))}
+
+        <button
+          onClick={onSubfloorReadingAdd}
+          className="w-full h-14 bg-white border-2 border-dashed border-orange-300 rounded-xl text-orange-600 font-medium flex items-center justify-center gap-2 hover:bg-orange-50 active:bg-orange-100 transition-colors"
+          style={{ minHeight: '56px' }}
+        >
+          <span className="material-symbols-outlined">add</span>
+          Add Another Reading
+        </button>
+      </div>
+
+      {/* ── SUBFLOOR PHOTOS ── */}
+      <div className="space-y-4">
+        <span className="text-xs font-bold uppercase tracking-wider text-[#86868b] ml-1">
+          Subfloor Documentation Photos
+        </span>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-lg text-slate-600">photo_library</span>
+            <span className="text-sm font-semibold text-[#1d1d1f]">Subfloor Photos</span>
+            <span className="text-xs text-[#86868b] ml-auto">{formData.subfloorPhotos.length}/20</span>
+          </div>
+          {formData.subfloorPhotos.length < 20 && (
             <PhotoUploadButton
               onClick={() => onPhotoCapture?.('subfloor')}
               label="Add Subfloor Photos"
               count={formData.subfloorPhotos.length}
               maxCount={20}
             />
-            <PhotoGrid
-              photos={formData.subfloorPhotos}
-              onRemove={(photoId) => onPhotoRemove?.('subfloor', photoId)}
-            />
-          </FormField>
+          )}
+          <PhotoGrid
+            photos={formData.subfloorPhotos}
+            onRemove={(photoId) => onPhotoRemove?.('subfloor', photoId)}
+          />
+        </div>
+      </div>
 
-          {/* Sanitation Toggle */}
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+      {/* ── SANITATION & TREATMENT ── */}
+      <div className="space-y-4">
+        <span className="text-xs font-bold uppercase tracking-wider text-[#86868b] ml-1">
+          Treatment Details
+        </span>
+
+        {/* Sanitation Toggle */}
+        <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-lg text-teal-600">sanitizer</span>
             <span className="font-medium text-[#1d1d1f]">Subfloor Sanitation</span>
+          </div>
+          <ToggleSwitch
+            checked={formData.subfloorSanitation}
+            onChange={(checked) => onChange('subfloorSanitation', checked)}
+          />
+        </div>
+
+        {/* Racking (only if sanitation enabled) */}
+        {formData.subfloorSanitation && (
+          <div className="flex items-center justify-between p-4 bg-teal-50 rounded-xl border border-teal-100 ml-4">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-lg text-teal-600">shelves</span>
+              <span className="font-medium text-[#1d1d1f]">Racking Required</span>
+            </div>
             <ToggleSwitch
-              checked={formData.subfloorSanitation}
-              onChange={(checked) => onChange('subfloorSanitation', checked)}
+              checked={formData.subfloorRacking}
+              onChange={(checked) => onChange('subfloorRacking', checked)}
             />
           </div>
+        )}
 
-          {/* Racking (only if sanitation enabled) */}
-          {formData.subfloorSanitation && (
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg ml-4 border-l-2 border-[#007AFF]">
-              <span className="font-medium text-[#1d1d1f]">Racking Required</span>
-              <ToggleSwitch
-                checked={formData.subfloorRacking}
-                onChange={(checked) => onChange('subfloorRacking', checked)}
-              />
-            </div>
-          )}
-
-          {/* Treatment Time */}
-          <FormField label="Treatment Time (Hours)">
-            <NumberInput
-              value={formData.subfloorTreatmentTime}
-              onChange={(value) => onChange('subfloorTreatmentTime', value)}
-              step={0.5}
-              placeholder="Enter hours"
-              unit="hrs"
-            />
-          </FormField>
-        </div>
-      )}
+        {/* Treatment Time */}
+        <FormField label="Treatment Time (Hours)">
+          <NumberInput
+            value={formData.subfloorTreatmentTime}
+            onChange={(value) => onChange('subfloorTreatmentTime', value)}
+            step={0.5}
+            placeholder="Enter hours"
+            unit="hrs"
+          />
+        </FormField>
+      </div>
     </section>
   );
 }
@@ -2393,7 +2427,7 @@ export default function TechnicianInspectionForm() {
     propertyOccupation: '',
     dwellingType: '',
     areas: [createEmptyArea()],
-    subfloorEnabled: false,
+    subfloorEnabled: true,
     subfloorObservations: '',
     subfloorLandscape: '',
     subfloorComments: '',
@@ -3232,8 +3266,8 @@ export default function TechnicianInspectionForm() {
         }
       }
 
-      // 4. Upsert subfloor_data
-      if (formData.subfloorEnabled) {
+      // 4. Upsert subfloor_data (always saved — no toggle gate)
+      {
         const subfloorRow = {
           inspection_id: inspectionId,
           observations: formData.subfloorObservations || null,
