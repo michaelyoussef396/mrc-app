@@ -94,139 +94,130 @@ export function useTravelTime() {
 
 /**
  * Hook for Google Maps address autocomplete
+ * Uses the new Places API (AutocompleteSuggestion + Place) instead of
+ * the deprecated AutocompleteService + PlacesService.
  */
-export function useAddressAutocomplete(inputRef: React.RefObject<HTMLInputElement>) {
+export function useAddressAutocomplete(_inputRef: React.RefObject<HTMLInputElement | null>) {
   const [predictions, setPredictions] = useState<PlacePrediction[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null)
-  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null)
-  const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sessionTokenRef = useRef<any>(null)
+  const initializedRef = useRef(false)
 
-  // Initialize Google Maps services
-  useEffect(() => {
-    if (typeof google !== 'undefined' && google.maps && google.maps.places) {
-      autocompleteServiceRef.current = new google.maps.places.AutocompleteService()
+  // Lazily initialize the Places library via importLibrary
+  const ensureInitialized = useCallback(async (): Promise<boolean> => {
+    if (initializedRef.current) return true
+    if (typeof google === 'undefined' || !google.maps) return false
 
-      // Create a dummy div for PlacesService (required)
-      const dummyDiv = document.createElement('div')
-      placesServiceRef.current = new google.maps.places.PlacesService(dummyDiv)
-
+    try {
+      // importLibrary returns immediately if already loaded via &libraries=places
+      await google.maps.importLibrary('places')
       sessionTokenRef.current = new google.maps.places.AutocompleteSessionToken()
-    }
-  }, [])
-
-  // Initialize services (called on-demand if not already initialized)
-  const initializeServices = useCallback(() => {
-    if (typeof google !== 'undefined' && google.maps && google.maps.places) {
-      if (!autocompleteServiceRef.current) {
-        autocompleteServiceRef.current = new google.maps.places.AutocompleteService()
-      }
-      if (!placesServiceRef.current) {
-        const dummyDiv = document.createElement('div')
-        placesServiceRef.current = new google.maps.places.PlacesService(dummyDiv)
-      }
-      if (!sessionTokenRef.current) {
-        sessionTokenRef.current = new google.maps.places.AutocompleteSessionToken()
-      }
+      initializedRef.current = true
       return true
+    } catch {
+      console.warn('Failed to load Places library')
+      return false
     }
-    return false
   }, [])
 
-  // Get predictions for input text
+  // Get predictions for input text using AutocompleteSuggestion (new API)
   const getPlacePredictions = useCallback(async (input: string): Promise<PlacePrediction[]> => {
     if (!input || input.length < 3) {
       setPredictions([])
       return []
     }
 
-    // Try to initialize services if not already done
-    if (!autocompleteServiceRef.current) {
-      if (!initializeServices()) {
-        console.warn('Google Maps not loaded yet')
-        return []
-      }
+    if (!await ensureInitialized()) {
+      console.warn('Google Maps not loaded yet')
+      return []
     }
 
     setIsLoading(true)
 
-    return new Promise((resolve) => {
-      autocompleteServiceRef.current!.getPlacePredictions(
-        {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const PlacesNS = google.maps.places as any
+
+      const { suggestions } = await PlacesNS.AutocompleteSuggestion
+        .fetchAutocompleteSuggestions({
           input,
-          componentRestrictions: { country: 'au' },
-          types: ['address'],
-          sessionToken: sessionTokenRef.current!
-        },
-        (results, status) => {
-          setIsLoading(false)
+          includedRegionCodes: ['au'],
+          language: 'en',
+          sessionToken: sessionTokenRef.current,
+        })
 
-          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-            const mapped = results.map(r => ({
-              place_id: r.place_id,
-              description: r.description,
-              structured_formatting: {
-                main_text: r.structured_formatting.main_text,
-                secondary_text: r.structured_formatting.secondary_text
-              }
-            }))
-            setPredictions(mapped)
-            resolve(mapped)
-          } else {
-            setPredictions([])
-            resolve([])
+      // Map new API response to our PlacePrediction interface
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mapped: PlacePrediction[] = (suggestions || [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((s: any) => s.placePrediction)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((s: any) => {
+          const p = s.placePrediction
+          return {
+            place_id: p.placeId,
+            description: p.text.text,
+            structured_formatting: {
+              main_text: p.mainText?.text || p.text.text,
+              secondary_text: p.secondaryText?.text || '',
+            },
           }
-        }
-      )
-    })
-  }, [initializeServices])
+        })
 
-  // Get details for a selected place
+      setPredictions(mapped)
+      return mapped
+    } catch (err) {
+      console.error('Autocomplete suggestions error:', err)
+      setPredictions([])
+      return []
+    } finally {
+      setIsLoading(false)
+    }
+  }, [ensureInitialized])
+
+  // Get details for a selected place using Place.fetchFields (new API)
   const getPlaceDetails = useCallback(async (placeId: string): Promise<PlaceDetails | null> => {
-    // Try to initialize services if not already done
-    if (!placesServiceRef.current) {
-      if (!initializeServices()) {
-        console.warn('Google Maps not loaded yet')
-        return null
-      }
+    if (!await ensureInitialized()) {
+      console.warn('Google Maps not loaded yet')
+      return null
     }
 
-    return new Promise((resolve) => {
-      placesServiceRef.current!.getDetails(
-        {
-          placeId,
-          fields: ['formatted_address', 'address_components', 'geometry'],
-          sessionToken: sessionTokenRef.current!
-        },
-        (place, status) => {
-          // Reset session token after getDetails
-          sessionTokenRef.current = new google.maps.places.AutocompleteSessionToken()
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const PlacesNS = google.maps.places as any
 
-          if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-            const addressComponents = place.address_components || []
+      const place = new PlacesNS.Place({ id: placeId })
+      await place.fetchFields({
+        fields: ['formattedAddress', 'addressComponents', 'location'],
+      })
 
-            const getComponent = (type: string) =>
-              addressComponents.find(c => c.types.includes(type))?.long_name
+      // Reset session token after fetching details (completes the billing session)
+      sessionTokenRef.current = new google.maps.places.AutocompleteSessionToken()
 
-            const details: PlaceDetails = {
-              formatted_address: place.formatted_address || '',
-              street_number: getComponent('street_number'),
-              street_name: getComponent('route'),
-              suburb: getComponent('locality') || getComponent('sublocality'),
-              state: getComponent('administrative_area_level_1'),
-              postcode: getComponent('postal_code'),
-              lat: place.geometry?.location?.lat() || 0,
-              lng: place.geometry?.location?.lng() || 0
-            }
+      // New API uses longText instead of long_name
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const getComponent = (type: string): string | undefined =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        place.addressComponents?.find((c: any) => c.types.includes(type))?.longText
 
-            resolve(details)
-          } else {
-            resolve(null)
-          }
-        }
-      )
-    })
-  }, [initializeServices])
+      const details: PlaceDetails = {
+        formatted_address: place.formattedAddress || '',
+        street_number: getComponent('street_number'),
+        street_name: getComponent('route'),
+        suburb: getComponent('locality') || getComponent('sublocality'),
+        state: getComponent('administrative_area_level_1'),
+        postcode: getComponent('postal_code'),
+        lat: place.location?.lat() || 0,
+        lng: place.location?.lng() || 0,
+      }
+
+      return details
+    } catch (err) {
+      console.error('Place details error:', err)
+      return null
+    }
+  }, [ensureInitialized])
 
   // Clear predictions
   const clearPredictions = useCallback(() => {
