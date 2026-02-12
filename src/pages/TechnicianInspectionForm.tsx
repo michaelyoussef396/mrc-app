@@ -2036,15 +2036,15 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(
-    !!(formData.whatWeFoundText || formData.whatWeWillDoText || formData.problemAnalysisContent || formData.jobSummaryFinal)
+    !!(formData.whatWeFoundText || formData.whatWeWillDoText || formData.problemAnalysisContent)
   );
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
 
   // Feedback inputs for each section
   const [whatWeFoundFeedback, setWhatWeFoundFeedback] = useState('');
   const [whatWeWillDoFeedback, setWhatWeWillDoFeedback] = useState('');
-  const [problemAnalysisFeedback, setProblemAnalysisFeedback] = useState('');
-  const [overviewConclusionFeedback, setOverviewConclusionFeedback] = useState('');
+  const [whatYouGetFeedback, setWhatYouGetFeedback] = useState('');
+  const [detailedAnalysisFeedback, setDetailedAnalysisFeedback] = useState('');
   const [demolitionFeedback, setDemolitionFeedback] = useState('');
 
   const hasDemolition = formData.areas.some((a) => a.demolitionRequired);
@@ -2075,6 +2075,7 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
       demolitionTime: a.demolitionTime,
       demolitionDescription: a.demolitionDescription,
       moistureReadings: a.moistureReadings.map((r) => ({ title: r.title, reading: r.reading })),
+      externalMoisture: a.externalMoisture,
       infraredEnabled: a.infraredEnabled,
       infraredObservations: a.infraredObservations,
     })),
@@ -2128,8 +2129,8 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
       // Map structured response to form fields
       onChange('whatWeFoundText', data.what_we_found || '');
       onChange('whatWeWillDoText', data.what_we_will_do || '');
-      onChange('problemAnalysisContent', data.problem_analysis || '');
-      onChange('jobSummaryFinal', data.overview_conclusion || '');
+      onChange('whatYouGetText', data.what_you_get || '');
+      onChange('problemAnalysisContent', data.detailed_analysis || '');
       onChange('demolitionContent', data.demolition_details || '');
 
       setHasGenerated(true);
@@ -2141,28 +2142,28 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
     }
   };
 
-  type SectionKey = 'whatWeFound' | 'whatWeWillDo' | 'problemAnalysis' | 'overviewConclusion' | 'demolitionDetails';
+  type SectionKey = 'whatWeFound' | 'whatWeWillDo' | 'whatYouGet' | 'detailedAnalysis' | 'demolitionDetails';
 
   const handleRegenerateSection = async (section: SectionKey) => {
     const feedbackMap: Record<SectionKey, string> = {
       whatWeFound: whatWeFoundFeedback,
       whatWeWillDo: whatWeWillDoFeedback,
-      problemAnalysis: problemAnalysisFeedback,
-      overviewConclusion: overviewConclusionFeedback,
+      whatYouGet: whatYouGetFeedback,
+      detailedAnalysis: detailedAnalysisFeedback,
       demolitionDetails: demolitionFeedback,
     };
     const contentMap: Record<SectionKey, string> = {
       whatWeFound: formData.whatWeFoundText,
       whatWeWillDo: formData.whatWeWillDoText,
-      problemAnalysis: formData.problemAnalysisContent,
-      overviewConclusion: formData.jobSummaryFinal,
+      whatYouGet: formData.whatYouGetText,
+      detailedAnalysis: formData.problemAnalysisContent,
       demolitionDetails: formData.demolitionContent,
     };
     const fieldMap: Record<SectionKey, keyof InspectionFormData> = {
       whatWeFound: 'whatWeFoundText',
       whatWeWillDo: 'whatWeWillDoText',
-      problemAnalysis: 'problemAnalysisContent',
-      overviewConclusion: 'jobSummaryFinal',
+      whatYouGet: 'whatYouGetText',
+      detailedAnalysis: 'problemAnalysisContent',
       demolitionDetails: 'demolitionContent',
     };
 
@@ -2185,8 +2186,8 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
       // Clear feedback
       if (section === 'whatWeFound') setWhatWeFoundFeedback('');
       else if (section === 'whatWeWillDo') setWhatWeWillDoFeedback('');
-      else if (section === 'problemAnalysis') setProblemAnalysisFeedback('');
-      else if (section === 'overviewConclusion') setOverviewConclusionFeedback('');
+      else if (section === 'whatYouGet') setWhatYouGetFeedback('');
+      else if (section === 'detailedAnalysis') setDetailedAnalysisFeedback('');
       else if (section === 'demolitionDetails') setDemolitionFeedback('');
     } catch (err: any) {
       console.error('[AI Regenerate] Error:', err);
@@ -2265,7 +2266,7 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
           <h3 className="text-xl font-bold text-[#1d1d1f] mb-2">AI-Powered Report</h3>
           <p className="text-[#86868b] text-sm mb-6">
             Generate all report sections using AI based on your inspection data from Sections 1-9.
-            The AI will create: Summary of Findings, Identified Causes, Recommendations, Overview & Conclusion, and Demolition Details.
+            The AI will create: Value Proposition (What We Found, What We'll Do, What You Get), Detailed Analysis, and Demolition Details.
           </p>
 
           <button
@@ -2326,28 +2327,28 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
         )}
       </button>
 
-      {/* 1. Summary of Findings */}
+      {/* 1. What We Found (Value Prop - short) */}
       {renderSectionCard(
-        'Summary of Findings', 'search', 'whatWeFoundText', 'whatWeFound',
-        whatWeFoundFeedback, setWhatWeFoundFeedback, "e.g., 'Add more detail about bathroom'"
+        'What We Found', 'search', 'whatWeFoundText', 'whatWeFound',
+        whatWeFoundFeedback, setWhatWeFoundFeedback, "e.g., 'Add more detail about bathroom'", 3
       )}
 
-      {/* 2. Identified Causes */}
+      {/* 2. What We're Going To Do (Value Prop - short) */}
       {renderSectionCard(
-        'Identified Causes', 'analytics', 'problemAnalysisContent', 'problemAnalysis',
-        problemAnalysisFeedback, setProblemAnalysisFeedback, "e.g., 'Focus more on ventilation'", 8
+        "What We're Going To Do", 'handyman', 'whatWeWillDoText', 'whatWeWillDo',
+        whatWeWillDoFeedback, setWhatWeWillDoFeedback, "e.g., 'Mention equipment details'", 3
       )}
 
-      {/* 3. Recommendations */}
+      {/* 3. What You Get (Value Prop - bullets) */}
       {renderSectionCard(
-        'Recommendations', 'handyman', 'whatWeWillDoText', 'whatWeWillDo',
-        whatWeWillDoFeedback, setWhatWeWillDoFeedback, "e.g., 'Include equipment details'"
+        'What You Get', 'verified', 'whatYouGetText', 'whatYouGet',
+        whatYouGetFeedback, setWhatYouGetFeedback, "e.g., 'Add insurance detail'", 5
       )}
 
-      {/* 4. Overview & Conclusion */}
+      {/* 4. Detailed Analysis (comprehensive) */}
       {renderSectionCard(
-        'Overview & Conclusion', 'summarize', 'jobSummaryFinal', 'overviewConclusion',
-        overviewConclusionFeedback, setOverviewConclusionFeedback, "e.g., 'Make it more concise'", 8
+        'Detailed Analysis', 'analytics', 'problemAnalysisContent', 'detailedAnalysis',
+        detailedAnalysisFeedback, setDetailedAnalysisFeedback, "e.g., 'Expand recommendations'", 14
       )}
 
       {/* 5. Demolition Details (only if demolition is required) */}
