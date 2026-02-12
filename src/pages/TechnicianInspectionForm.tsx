@@ -1691,11 +1691,16 @@ function Section8JobSummary({ formData, onChange }: SectionProps) {
 
 // Section 9: Cost Estimate
 function Section9CostEstimate({ formData, onChange }: SectionProps) {
+  // Auto-calculate labour hours from Section 3 (areas) and Section 4 (subfloor)
+  const calculatedNonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
+  const calculatedDemoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
+  const calculatedSubfloorHours = formData.subfloorTreatmentTime || 0;
+
   // Calculate cost estimate
   const costResult = calculateCostEstimate({
-    nonDemoHours: formData.noDemolitionHours || 0,
-    demolitionHours: formData.demolitionHours || 0,
-    subfloorHours: formData.subfloorHours || 0,
+    nonDemoHours: calculatedNonDemoHours,
+    demolitionHours: calculatedDemoHours,
+    subfloorHours: calculatedSubfloorHours,
     dehumidifierQty: formData.commercialDehumidifierQty || 0,
     airMoverQty: formData.airMoversQty || 0,
     rcdQty: formData.rcdBoxQty || 0,
@@ -1703,8 +1708,60 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
     manualTotal: formData.manualTotal,
   });
 
+  const totalLabourHours = calculatedNonDemoHours + calculatedDemoHours + calculatedSubfloorHours;
+
   return (
     <section className="space-y-5">
+      {/* Labour Hours — Auto-calculated from Sections 3 & 4 */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
+        <h3 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
+          <span className="material-symbols-outlined text-[#007AFF]">schedule</span>
+          Labour Hours
+        </h3>
+        <p className="text-xs text-[#86868b] -mt-2">Auto-calculated from Area Inspection &amp; Subfloor sections</p>
+
+        {/* Per-area breakdown */}
+        {formData.areas.map((area, idx) => (
+          <div key={area.id} className="bg-gray-50 rounded-lg p-3 space-y-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#86868b]">
+              {area.areaName || `Area ${idx + 1}`}
+            </span>
+            <div className="flex justify-between text-sm">
+              <span className="text-[#1d1d1f]">Surface Treatment</span>
+              <span className="font-medium text-[#1d1d1f]">{area.timeWithoutDemo || 0}h</span>
+            </div>
+            {area.demolitionRequired && (
+              <div className="flex justify-between text-sm">
+                <span className="text-[#1d1d1f]">Demolition</span>
+                <span className="font-medium text-[#1d1d1f]">{area.demolitionTime || 0}h</span>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Subfloor hours */}
+        <div className="bg-orange-50 rounded-lg p-3">
+          <div className="flex justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm text-orange-600">foundation</span>
+              <span className="text-[#1d1d1f]">Subfloor Treatment</span>
+            </div>
+            <span className="font-medium text-[#1d1d1f]">{calculatedSubfloorHours}h</span>
+          </div>
+        </div>
+
+        {/* Total Hours */}
+        <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+          <div className="flex justify-between items-center">
+            <span className="font-semibold text-blue-900">Total Labour Hours</span>
+            <span className="font-bold text-blue-600 text-lg">{totalLabourHours}h</span>
+          </div>
+          <p className="text-xs text-blue-600 mt-1">
+            {calculatedNonDemoHours}h surface + {calculatedDemoHours}h demolition + {calculatedSubfloorHours}h subfloor
+          </p>
+        </div>
+      </div>
+
       {/* Tier Pricing Reference */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 bg-gray-50 border-b border-gray-100">
@@ -1724,7 +1781,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
             </thead>
             <tbody className="text-[#1d1d1f]">
               <tr>
-                <td className="py-1">No Demolition</td>
+                <td className="py-1">Surface Treatment</td>
                 <td className="py-1 text-right">{formatCurrency(LABOUR_RATES.nonDemo.tier2h)}</td>
                 <td className="py-1 text-right">{formatCurrency(LABOUR_RATES.nonDemo.tier8h)}</td>
               </tr>
@@ -1744,44 +1801,6 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
             2h minimum charge • Linear interpolation 2-8h • Day blocks for 8h+
           </p>
         </div>
-      </div>
-
-      {/* Labour Hours Inputs */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
-        <h3 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-          <span className="material-symbols-outlined text-[#007AFF]">schedule</span>
-          Labour Hours
-        </h3>
-
-        <FormField label="No Demolition Hours">
-          <NumberInput
-            value={formData.noDemolitionHours}
-            onChange={(value) => onChange('noDemolitionHours', value)}
-            step={0.5}
-            placeholder="0"
-            unit="hrs"
-          />
-        </FormField>
-
-        <FormField label="Demolition Hours">
-          <NumberInput
-            value={formData.demolitionHours}
-            onChange={(value) => onChange('demolitionHours', value)}
-            step={0.5}
-            placeholder="0"
-            unit="hrs"
-          />
-        </FormField>
-
-        <FormField label="Subfloor Hours">
-          <NumberInput
-            value={formData.subfloorHours}
-            onChange={(value) => onChange('subfloorHours', value)}
-            step={0.5}
-            placeholder="0"
-            unit="hrs"
-          />
-        </FormField>
       </div>
 
       {/* Labour Calculation Breakdown */}
@@ -2779,6 +2798,22 @@ export default function TechnicianInspectionForm() {
       }));
     }
   }, [user]);
+
+  // Auto-sync labour hours from areas/subfloor into formData for save
+  useEffect(() => {
+    const nonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
+    const demoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
+    const sfHours = formData.subfloorTreatmentTime || 0;
+
+    if (formData.noDemolitionHours !== nonDemoHours || formData.demolitionHours !== demoHours || formData.subfloorHours !== sfHours) {
+      setFormData((prev) => ({
+        ...prev,
+        noDemolitionHours: nonDemoHours,
+        demolitionHours: demoHours,
+        subfloorHours: sfHours,
+      }));
+    }
+  }, [formData.areas, formData.subfloorTreatmentTime]);
 
   // Form field handlers
   const handleChange = (field: keyof InspectionFormData, value: any) => {
