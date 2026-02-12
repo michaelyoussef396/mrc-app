@@ -467,8 +467,16 @@ export default function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLe
       sendSlackNotification({
         event: 'new_lead',
         leadId: data.id,
-        leadName: formData.fullName,
-        propertyAddress: `${formData.propertyAddress}, ${formData.suburb} ${formData.state} ${formData.postcode}`,
+        full_name: formData.fullName,
+        phone: formData.phone,
+        email: formData.email,
+        street_address: formData.propertyAddress,
+        suburb: formData.suburb,
+        postcode: formData.postcode,
+        state: formData.state,
+        issue_description: formData.issueDescription,
+        lead_source: formData.source,
+        created_at: new Date().toISOString(),
       });
 
       setCreatedLeadId(data.id);

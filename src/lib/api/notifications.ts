@@ -15,15 +15,31 @@ interface SendEmailParams {
   templateName?: string;
 }
 
-interface SendSlackNotificationParams {
-  event: 'new_lead' | 'inspection_booked' | 'report_ready' | 'report_approved';
+interface SendSlackNewLeadParams {
+  event: 'new_lead';
+  leadId?: string;
+  full_name: string;
+  phone?: string;
+  email?: string;
+  street_address?: string;
+  suburb?: string;
+  postcode?: string;
+  state?: string;
+  issue_description?: string;
+  lead_source?: string;
+  created_at?: string;
+}
+
+interface SendSlackGenericParams {
+  event: 'inspection_booked' | 'report_ready' | 'report_approved';
   leadId?: string;
   leadName?: string;
   propertyAddress?: string;
   technicianName?: string;
   bookingDate?: string;
-  additionalInfo?: Record<string, string>;
 }
+
+type SendSlackNotificationParams = SendSlackNewLeadParams | SendSlackGenericParams;
 
 // ============================================================================
 // EMAIL TEMPLATE
