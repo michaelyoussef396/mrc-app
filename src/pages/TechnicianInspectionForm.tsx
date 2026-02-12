@@ -2266,7 +2266,7 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
           <h3 className="text-xl font-bold text-[#1d1d1f] mb-2">AI-Powered Report</h3>
           <p className="text-[#86868b] text-sm mb-6">
             Generate all report sections using AI based on your inspection data from Sections 1-9.
-            The AI will create: Value Proposition (What We Found, What We'll Do, What You Get), Detailed Analysis, and Demolition Details.
+            The AI will create: Value Proposition, Problem Analysis & Recommendations, Treatment Plan, and Demolition Details.
           </p>
 
           <button
@@ -2333,22 +2333,22 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
         whatWeFoundFeedback, setWhatWeFoundFeedback, "e.g., 'Add more detail about bathroom'", 3
       )}
 
-      {/* 2. What We're Going To Do (Value Prop - short) */}
-      {renderSectionCard(
-        "What We're Going To Do", 'handyman', 'whatWeWillDoText', 'whatWeWillDo',
-        whatWeWillDoFeedback, setWhatWeWillDoFeedback, "e.g., 'Mention equipment details'", 3
-      )}
-
-      {/* 3. What You Get (Value Prop - bullets) */}
+      {/* 2. What You Get (Value Prop - bullets) */}
       {renderSectionCard(
         'What You Get', 'verified', 'whatYouGetText', 'whatYouGet',
         whatYouGetFeedback, setWhatYouGetFeedback, "e.g., 'Add insurance detail'", 5
       )}
 
-      {/* 4. Detailed Analysis (comprehensive) */}
+      {/* 3. Problem Analysis & Recommendations (MAIN SECTION) */}
       {renderSectionCard(
-        'Detailed Analysis', 'analytics', 'problemAnalysisContent', 'detailedAnalysis',
-        detailedAnalysisFeedback, setDetailedAnalysisFeedback, "e.g., 'Expand recommendations'", 14
+        'Problem Analysis & Recommendations', 'analytics', 'problemAnalysisContent', 'detailedAnalysis',
+        detailedAnalysisFeedback, setDetailedAnalysisFeedback, "e.g., 'Expand recommendations'", 16
+      )}
+
+      {/* 4. What We're Going To Do (treatment plan) */}
+      {renderSectionCard(
+        "What We're Going To Do", 'handyman', 'whatWeWillDoText', 'whatWeWillDo',
+        whatWeWillDoFeedback, setWhatWeWillDoFeedback, "e.g., 'Add equipment quantities'", 8
       )}
 
       {/* 5. Demolition Details (only if demolition is required) */}

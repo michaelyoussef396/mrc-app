@@ -123,23 +123,32 @@ const MRC_SYSTEM_PROMPT = `You are an expert mould inspection report writer for 
 
 You create professional, comprehensive inspection reports using MRC's proven template format.
 
+The PROBLEM ANALYSIS & RECOMMENDATIONS section is the core of every report. This is where you:
+1. Clearly identify what was found with specific data (temperatures, humidity, moisture readings, dimensions)
+2. Explain the primary cause in one clear statement
+3. List 3-6 contributing factors with specific evidence
+4. Explain WHY this happened (mechanism/root cause)
+5. Provide specific, actionable recommendations prioritized by urgency
+6. Paint a clear picture of success and timeline
+
 Style requirements:
-- Specific with locations, measurements, and actual inspection data (temperatures, humidity %, moisture readings)
+- Use specific addresses, measurements, and actual inspection data throughout
+- Reference actual temperatures, humidity percentages, moisture readings from inspection
 - Professional but accessible language
 - Australian English spelling and terminology (mould, colour, vapour)
-- Evidence-based recommendations
-- Include specific timelines and outcomes
-- Reference actual findings from inspection data
-- Each section is thorough but concise - no filler
+- Evidence-based, specific recommendations (not vague)
+- Include actual timelines with specific day counts
+- Each line adds value - no filler
 - Build confidence through detailed analysis and clear action plans
 
-You will generate content for THREE report sections when provided inspection data:
+You will generate content for FOUR report sections when provided inspection data:
 
-1. VALUE PROPOSITION - concise summary (what found, what we do, benefits)
-2. DETAILED ANALYSIS - comprehensive inspection findings, causes, and recommendations
-3. DEMOLITION DETAILS - specifications for material removal (if applicable)
+1. VALUE PROPOSITION - concise summary (what found + what you get)
+2. PROBLEM ANALYSIS & RECOMMENDATIONS - the MAIN section (comprehensive findings, causes, recommendations)
+3. WHAT WE'RE GOING TO DO - detailed treatment plan
+4. DEMOLITION DETAILS - specifications for material removal (if applicable)
 
-Match the professional tone and structure of the provided examples exactly.`
+Match the professional tone and structure exactly.`
 
 // ============================================================================
 // FORMAT INSPECTION DATA as structured user prompt
@@ -171,7 +180,7 @@ function buildUserPrompt(formData: InspectionFormData): string {
   if (formData.areas && formData.areas.length > 0) {
     lines.push('\nAREAS INSPECTED:')
     formData.areas.forEach((area) => {
-      lines.push(`\nArea: ${area.areaName}`)
+      lines.push(`\nAREA: ${area.areaName}`)
       if (area.mouldDescription) lines.push(`- Mould Description: ${area.mouldDescription}`)
       if (area.temperature) lines.push(`- Temperature: ${area.temperature}°C`)
       if (area.humidity) lines.push(`- Humidity: ${area.humidity}%`)
@@ -185,8 +194,8 @@ function buildUserPrompt(formData: InspectionFormData): string {
 
       if (area.externalMoisture) lines.push(`- External Moisture: ${area.externalMoisture}%`)
       if (area.commentsForReport) lines.push(`- Comments: ${area.commentsForReport}`)
+      lines.push(`- Demolition Required: ${area.demolitionRequired ? 'YES' : 'NO'}`)
       lines.push(`- Time Without Demolition: ${area.timeWithoutDemo} hours`)
-      lines.push(`- Demolition Required: ${area.demolitionRequired ? 'Yes' : 'No'}`)
 
       if (area.demolitionRequired) {
         lines.push(`- Demolition Time: ${area.demolitionTime} hours`)
@@ -203,7 +212,7 @@ function buildUserPrompt(formData: InspectionFormData): string {
   const hasSubfloorData = formData.subfloorObservations || formData.subfloorComments ||
     formData.subfloorLandscape || (formData.subfloorReadings && formData.subfloorReadings.length > 0)
   if (hasSubfloorData) {
-    lines.push('\nSUBFLOOR DATA:')
+    lines.push('\nSUBFLOOR ASSESSMENT:')
     if (formData.subfloorObservations) lines.push(`- Observation: ${formData.subfloorObservations}`)
     if (formData.subfloorLandscape) lines.push(`- Landscape: ${formData.subfloorLandscape}`)
     if (formData.subfloorComments) lines.push(`- Comments: ${formData.subfloorComments}`)
@@ -211,18 +220,19 @@ function buildUserPrompt(formData: InspectionFormData): string {
     if (formData.subfloorRacking) lines.push('- Racking Required: Yes')
     if (formData.subfloorTreatmentTime) lines.push(`- Treatment Time: ${formData.subfloorTreatmentTime} hours`)
     if (formData.subfloorReadings && formData.subfloorReadings.length > 0) {
+      lines.push('- Moisture Readings:')
       formData.subfloorReadings.forEach(r => {
-        lines.push(`- Moisture Reading: ${r.reading}% at ${r.location}`)
+        lines.push(`  • ${r.reading}% at ${r.location}`)
       })
     }
   }
 
   // Environmental Data
-  lines.push('\nENVIRONMENTAL CONDITIONS:')
-  if (formData.outdoorTemperature) lines.push(`- Outdoor Temp: ${formData.outdoorTemperature}°C`)
-  if (formData.outdoorHumidity) lines.push(`- Outdoor Humidity: ${formData.outdoorHumidity}%`)
-  if (formData.outdoorDewPoint) lines.push(`- Outdoor Dew Point: ${formData.outdoorDewPoint}°C`)
-  if (formData.outdoorComments) lines.push(`- Outdoor Comments: ${formData.outdoorComments}`)
+  lines.push('\nOUTDOOR CONDITIONS:')
+  if (formData.outdoorTemperature) lines.push(`- Temperature: ${formData.outdoorTemperature}°C`)
+  if (formData.outdoorHumidity) lines.push(`- Humidity: ${formData.outdoorHumidity}%`)
+  if (formData.outdoorDewPoint) lines.push(`- Dew Point: ${formData.outdoorDewPoint}°C`)
+  if (formData.outdoorComments) lines.push(`- Comments: ${formData.outdoorComments}`)
 
   // Treatment Plan
   const treatments: string[] = []
@@ -382,7 +392,7 @@ Deno.serve(async (req) => {
     // ================================================================
     if (structured) {
       const demolitionInstruction = hasDemolition
-        ? `"demolition_details": "Generate DEMOLITION DETAILS section. For each area requiring demolition, write: [Area Name] followed by specific dimensions and materials to be removed, description of affected areas. Cover all demolition areas from the inspection data."`
+        ? `"demolition_details": "Generate DEMOLITION DETAILS section with header: **Specifications for Material Removal**\\n\\nThen for each area requiring demolition, write:\\n**[Area Name]**\\n[Specific dimensions and materials to be removed — plasterboard, carpet, timber etc.]\\n[Description of affected areas and scope of removal]\\n\\nCover all demolition areas from the inspection data. Include total demolition hours."`
         : `"demolition_details": ""`
 
       const structuredUserPrompt = `Generate professional inspection report sections for this property.
@@ -392,30 +402,32 @@ ${userDataPrompt}
 IMPORTANT: Return ONLY valid JSON with no additional text. Use this exact structure:
 
 {
-  "what_we_found": "VALUE PROPOSITION - WHAT WE FOUND subsection. Write 1-2 concise sentences describing the main issue and its impact. Keep it brief — this is a summary for the cover page.",
-  "what_we_will_do": "VALUE PROPOSITION - WHAT WE'RE GOING TO DO subsection. Write 1-2 concise sentences describing the remediation approach. Keep it brief — this is a summary for the cover page.",
+  "what_we_found": "VALUE PROPOSITION - WHAT WE FOUND subsection. Write 1-2 concise sentences describing the main issue and its impact on the property. Keep it brief — this is a summary for the cover page.",
   "what_you_get": "VALUE PROPOSITION - WHAT YOU GET subsection. Write exactly these 4 bullet points separated by \\n:\\n- 12 Month warranty on all treated areas\\n- Professional material removal where required\\n- Complete airborne spore elimination\\n- Detailed documentation for insurance / resale",
-  "detailed_analysis": "Generate the FULL DETAILED ANALYSIS section with these subsections separated by \\n\\n:\\n\\nWHAT WE DISCOVERED\\n[Comprehensive paragraph: specific address, what was found, severity, impact. Reference inspection data: temp, humidity, moisture readings, areas affected.]\\n\\nIDENTIFIED CAUSES\\n\\nThe primary cause is [single clear statement]\\n\\nCONTRIBUTING FACTORS\\n[List each factor with specific data, one per line starting with - ]\\n\\nWHY THIS HAPPENED\\n[Paragraph explaining mechanism: how this type of failure occurs, why moisture persists, consequences]\\n\\nRECOMMENDATIONS\\n\\nIMMEDIATE ACTIONS WEEK 1\\n[Numbered list of actions, one per line starting with 1. 2. 3. etc.]\\n\\nLONG-TERM PROTECTION\\n[List each measure, one per line starting with - ]\\n\\nWHAT SUCCESS LOOKS LIKE\\n[Paragraph describing expected outcomes and restoration]\\n\\nTIMELINE\\n[Specific timeline for each phase and total project duration]",
+  "detailed_analysis": "This is the MAIN SECTION — Problem Analysis & Recommendations. Generate using this EXACT format with subsections separated by \\n\\n:\\n\\n**WHAT WE DISCOVERED**\\n[Comprehensive paragraph: specific address, what was found, severity, impact. Reference inspection data: temp, humidity, moisture readings, areas affected. Be specific with room names and measurements.]\\n\\n**\\ud83d\\udd0d IDENTIFIED CAUSES**\\n\\n**Primary Cause:**\\n- [Single clear statement of main issue]\\n\\n**Contributing Factors:**\\n1. [Factor 1 with specific data from inspection]\\n2. [Factor 2 with specific data]\\n3. [Factor 3 with specific data]\\n4. [Factor 4 if applicable]\\n5. [Factor 5 if applicable]\\n6. [Factor 6 if applicable]\\n\\n**WHY THIS HAPPENED**\\n[Paragraph explaining mechanism: how this type of failure occurs, why moisture persists, consequences if not addressed]\\n\\n**\\ud83d\\udccb RECOMMENDATIONS**\\n\\n**IMMEDIATE ACTIONS WEEK 1**\\n1. [Urgent action 1 with explanation]\\n2. [Urgent action 2 with explanation]\\n3. [Urgent action 3 with explanation]\\n4. [Urgent action 4 with explanation]\\n\\n**LONG-TERM PROTECTION**\\n- [Protection measure 1 with explanation]\\n- [Protection measure 2 with explanation]\\n- [Protection measure 3 with explanation]\\n\\n**WHAT SUCCESS LOOKS LIKE**\\n[Paragraph describing expected outcomes, air quality restoration, timeline for reoccupancy, warranty coverage]\\n\\n**TIMELINE**\\n- MRC treatment: X days\\n- Drying equipment: X days\\n- Specialist work (if needed): X days\\n- Total project: X days\\n- Property reoccupancy: X hours/days after completion",
+  "what_we_will_do": "WHAT WE'RE GOING TO DO section — detailed treatment plan. Write 2-3 paragraphs describing: the complete remediation approach, step-by-step treatment process (HEPA vacuuming, antimicrobial application, stain removal, fogging), equipment to be deployed (specific quantities of dehumidifiers, air movers, RCD boxes), any demolition or material removal required, drying period, and expected outcomes. Be specific with quantities and timelines. This is a standalone section, not a 1-2 sentence summary.",
   ${demolitionInstruction}
 }
 
 CRITICAL RULES:
 - what_we_found: 1-2 sentences ONLY (cover page summary)
-- what_we_will_do: 1-2 sentences ONLY (cover page summary)
 - what_you_get: Always the same 4 bullet points listed above
-- detailed_analysis: Comprehensive multi-subsection analysis using the exact format specified
+- detailed_analysis: This is the MAIN SECTION — must be comprehensive with all subsections using ** bold headers and emoji icons
+- what_we_will_do: 2-3 detailed paragraphs about the treatment plan (NOT a short summary)
 - Reference specific room names, actual temperature/humidity/moisture readings from the data
 - Australian English (mould, colour, vapour)
 - Do NOT leave any placeholder brackets — use real data from the inspection
-- Use \\n\\n to separate subsections within detailed_analysis
+- Use \\n\\n to separate subsections
 - Use \\n for line breaks within lists
+- Contributing Factors MUST be numbered (1. 2. 3. etc.)
+- Include specific timelines with actual day counts calculated from treatment hours
 
 Return ONLY the JSON object:`
 
       console.log('Calling OpenRouter API for STRUCTURED output...')
 
       try {
-        const generatedText = await callOpenRouter(openrouterApiKey, MRC_SYSTEM_PROMPT, structuredUserPrompt, 4000)
+        const generatedText = await callOpenRouter(openrouterApiKey, MRC_SYSTEM_PROMPT, structuredUserPrompt, 5000)
         console.log('Raw AI response (first 300 chars):', generatedText.slice(0, 300))
 
         const cleanedText = extractJson(generatedText)
@@ -480,23 +492,31 @@ Now regenerate following their instruction. Return ONLY the regenerated text (no
 
 ${userDataPrompt}
 
-Write 1-2 concise sentences describing the main issue found and its impact.
+Write 1-2 concise sentences describing the main issue found and its impact on the property.
 This appears on the cover/summary page so keep it brief but impactful.
 Reference specific areas and severity.
 Return ONLY the 1-2 sentences, nothing else.`
       }
     } else if (section === 'whatWeWillDo') {
+      maxTokens = 1500
       if (isRegeneration) {
-        userPrompt = regenPreamble("What We're Going To Do", 'Keep it to 1-2 concise sentences — this is a cover page summary')
+        userPrompt = regenPreamble("What We're Going To Do", 'Write 2-3 detailed paragraphs about the complete treatment plan including specific equipment quantities, treatment methods, timelines')
       } else {
-        userPrompt = `Generate the VALUE PROPOSITION "WHAT WE'RE GOING TO DO" subsection for this mould inspection report.
+        userPrompt = `Generate the "WHAT WE'RE GOING TO DO" section for this mould inspection report.
 
 ${userDataPrompt}
 
-Write 1-2 concise sentences describing the remediation approach.
-This appears on the cover/summary page so keep it brief but reassuring.
-Mention key treatment methods and expected outcome.
-Return ONLY the 1-2 sentences, nothing else.`
+Write 2-3 detailed paragraphs describing:
+- The complete remediation approach and step-by-step treatment process
+- Treatment methods: HEPA vacuuming, antimicrobial application, stain removal, fogging
+- Equipment to be deployed with specific quantities (dehumidifiers, air movers, RCD boxes)
+- Any demolition or material removal required
+- Drying period and monitoring
+- Expected outcomes and timeline
+
+Be specific with quantities, methods, and timelines. This is a standalone treatment plan section.
+Australian English. Professional but reassuring tone.
+Return ONLY the paragraphs, nothing else.`
       }
     } else if (section === 'whatYouGet') {
       if (isRegeneration) {
@@ -512,74 +532,80 @@ Return ONLY the 1-2 sentences, nothing else.`
 Return ONLY the 4 bullet points, nothing else.`
       }
     } else if (section === 'detailedAnalysis') {
-      maxTokens = 3000
+      maxTokens = 3500
       if (isRegeneration) {
-        userPrompt = regenPreamble('Detailed Analysis', 'Maintain the multi-subsection format with WHAT WE DISCOVERED, IDENTIFIED CAUSES, CONTRIBUTING FACTORS, WHY THIS HAPPENED, RECOMMENDATIONS, WHAT SUCCESS LOOKS LIKE, TIMELINE')
+        userPrompt = regenPreamble('Problem Analysis & Recommendations', 'Maintain the multi-subsection format with **bold headers**, emoji icons (🔍 📋), numbered Contributing Factors, and all subsections: WHAT WE DISCOVERED, IDENTIFIED CAUSES, WHY THIS HAPPENED, RECOMMENDATIONS, WHAT SUCCESS LOOKS LIKE, TIMELINE')
       } else {
-        userPrompt = `Generate the FULL DETAILED ANALYSIS section for this mould inspection report.
+        userPrompt = `Generate the PROBLEM ANALYSIS & RECOMMENDATIONS section for this mould inspection report. This is the MAIN section of the report.
 
 ${userDataPrompt}
 
-Use this exact format with these subsections:
+Use this EXACT format with **bold** headers and emoji icons:
 
-WHAT WE DISCOVERED
-[Comprehensive paragraph: specific address, what was found, severity, impact. Reference temp, humidity, moisture readings, areas affected.]
+**WHAT WE DISCOVERED**
+[Comprehensive paragraph: specific address, what was found, severity, impact. Reference temp, humidity, moisture readings, areas affected. Be specific with room names and measurements.]
 
-IDENTIFIED CAUSES
+**🔍 IDENTIFIED CAUSES**
 
-The primary cause is [single clear statement based on inspection evidence]
+**Primary Cause:**
+- [Single clear statement of main issue based on inspection evidence]
 
-CONTRIBUTING FACTORS
-- [Factor 1 with specific data from inspection]
-- [Factor 2 with specific data]
-- [Factor 3 with specific data]
-- [Continue as needed based on data]
+**Contributing Factors:**
+1. [Factor 1 with specific data from inspection]
+2. [Factor 2 with specific data]
+3. [Factor 3 with specific data]
+4. [Factor 4 if applicable]
+5. [Factor 5 if applicable]
+6. [Factor 6 if applicable]
 
-WHY THIS HAPPENED
-[Paragraph explaining mechanism: how this type of failure occurs, why moisture persists, consequences]
+**WHY THIS HAPPENED**
+[Paragraph explaining mechanism: how this type of failure occurs, why moisture persists, consequences if not addressed]
 
-RECOMMENDATIONS
+**📋 RECOMMENDATIONS**
 
-IMMEDIATE ACTIONS WEEK 1
-1. [Action 1]
-2. [Action 2]
-3. [Action 3]
-4. [Action 4]
+**IMMEDIATE ACTIONS WEEK 1**
+1. [Urgent action 1 with explanation]
+2. [Urgent action 2 with explanation]
+3. [Urgent action 3 with explanation]
+4. [Urgent action 4 with explanation]
 
-LONG-TERM PROTECTION
-- [Protection measure 1]
-- [Protection measure 2]
-- [Protection measure 3]
+**LONG-TERM PROTECTION**
+- [Protection measure 1 with explanation]
+- [Protection measure 2 with explanation]
+- [Protection measure 3 with explanation]
 
-WHAT SUCCESS LOOKS LIKE
-[Paragraph describing expected outcomes and restoration]
+**WHAT SUCCESS LOOKS LIKE**
+[Paragraph describing expected outcomes, air quality restoration, timeline for reoccupancy, warranty coverage]
 
-TIMELINE
-[Specific timeline for each phase and total project duration]
+**TIMELINE**
+- MRC treatment: X days
+- Drying equipment: X days
+- Specialist work (if needed): X days
+- Total project: X days
+- Property reoccupancy: X hours/days after completion
 
-CRITICAL: Use real data from the inspection — temperatures, humidity, moisture readings, room names. Do NOT use placeholder brackets. Australian English.
+CRITICAL: Use real data from the inspection — temperatures, humidity, moisture readings, room names. Do NOT use placeholder brackets. Australian English. Include specific timelines with actual day counts.
 Return ONLY the formatted analysis text, no JSON wrapping.`
       }
     } else if (section === 'demolitionDetails') {
       if (isRegeneration) {
-        userPrompt = regenPreamble('Demolition Details', 'Use the format: area name, then specifications for material removal')
+        userPrompt = regenPreamble('Demolition Details', 'Use **bold** for area names and the Specifications header. List specific materials and dimensions.')
       } else {
         userPrompt = `Generate the DEMOLITION DETAILS section for this mould inspection report.
 
 ${userDataPrompt}
 
-Use this format:
+Use this format with **bold** headers:
 
-Specifications for Material Removal
+**Specifications for Material Removal**
 
-[For each area requiring demolition]:
-[Area Name]
-[Specific dimensions and materials to be removed]
-[Description of affected areas]
+**[Area Name]**
+[Specific dimensions and materials to be removed — plasterboard, carpet, timber etc.]
+[Description of affected areas and scope of removal]
 
 [Continue for all demolition areas]
 
-Reference specific rooms, materials (plasterboard, carpet, timber), and demolition hours from the data.
+Reference specific rooms, materials, dimensions, and demolition hours from the data.
 Return ONLY the formatted demolition details, no JSON wrapping.`
       }
     } else {
