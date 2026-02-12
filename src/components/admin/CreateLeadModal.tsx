@@ -22,6 +22,8 @@ interface LeadFormData {
   suburb: string;
   postcode: string;
   state: string;
+  lat: number | null;
+  lng: number | null;
   issueDescription: string;
   source: string;
 }
@@ -52,6 +54,8 @@ const initialFormData: LeadFormData = {
   suburb: '',
   postcode: '',
   state: 'VIC',
+  lat: null,
+  lng: null,
   issueDescription: '',
   source: '',
 };
@@ -252,6 +256,8 @@ export default function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLe
         suburb: details.suburb || prev.suburb,
         postcode: details.postcode || prev.postcode,
         state: details.state || prev.state,
+        lat: details.lat || null,
+        lng: details.lng || null,
       }));
 
       // Clear address errors
@@ -422,7 +428,7 @@ export default function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLe
     recordAttempt();
 
     try {
-      const insertData = {
+      const insertData: Record<string, unknown> = {
         full_name: sanitizeInput(formData.fullName),
         phone: formData.phone.replace(/[\s\-\(\)]/g, ''),
         email: formData.email.toLowerCase().trim(),
@@ -435,6 +441,12 @@ export default function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLe
         status: 'new_lead',
         created_by: user.id,
       };
+
+      // Include coordinates if available from Google Places
+      if (formData.lat != null && formData.lng != null) {
+        insertData.property_lat = formData.lat;
+        insertData.property_lng = formData.lng;
+      }
 
       // Insert lead into database
       const { data, error } = await supabase
@@ -483,16 +495,6 @@ export default function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLe
     }
   };
 
-  // Reset form for adding another lead
-  const handleAddAnother = () => {
-    setFormData(initialFormData);
-    setErrors({});
-    setModalState('idle');
-    setCreatedLeadId(null);
-    setShowPredictions(false);
-    setDuplicateWarning(null);
-    clearPredictions();
-  };
 
   if (!isOpen) return null;
 
@@ -544,31 +546,9 @@ export default function CreateLeadModal({ isOpen, onClose, onSuccess }: CreateLe
             <h3 className="text-xl font-bold mb-2" style={{ color: '#1d1d1f' }}>
               Lead Created Successfully!
             </h3>
-            <p className="text-sm text-center mb-8" style={{ color: '#86868b' }}>
+            <p className="text-sm text-center" style={{ color: '#86868b' }}>
               {formData.fullName} has been added to your pipeline
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
-              <button
-                onClick={handleAddAnother}
-                className="flex-1 px-6 py-3 rounded-xl font-semibold transition-colors"
-                style={{ color: '#86868b', border: '1px solid #e5e5e5' }}
-              >
-                Add Another
-              </button>
-              <button
-                onClick={() => {
-                  onClose();
-                  // Navigate to lead detail if needed
-                  if (createdLeadId) {
-                    window.location.href = `/lead/${createdLeadId}`;
-                  }
-                }}
-                className="flex-1 px-6 py-3 rounded-xl font-semibold text-white shadow-lg transition-all hover:opacity-90 active:scale-[0.98]"
-                style={{ backgroundColor: '#007AFF', boxShadow: '0 4px 14px rgba(0, 122, 255, 0.25)' }}
-              >
-                View Lead
-              </button>
-            </div>
           </div>
         )}
 

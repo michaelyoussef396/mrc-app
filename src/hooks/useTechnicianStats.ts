@@ -107,24 +107,31 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
 
     // Step 2: Fetch all users from edge function
     console.log('[useTechnicianStats] Fetching users from manage-users edge function...');
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-          'Content-Type': 'application/json',
-        },
+    let allUsers: UserFromAPI[] = [];
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const result = await response.json();
+      if (!result.success) {
+        console.error('[useTechnicianStats] Edge function error:', result.error);
+        throw new Error(result.error || 'Failed to fetch users');
       }
-    );
 
-    const result = await response.json();
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to fetch users');
+      allUsers = result.users.filter((u: UserFromAPI) => u.is_active);
+    } catch (fetchError) {
+      console.error('[useTechnicianStats] Failed to fetch users, returning empty list:', fetchError);
+      return [];
     }
-
-    const allUsers: UserFromAPI[] = result.users.filter((u: UserFromAPI) => u.is_active);
     console.log('[useTechnicianStats] Active users:', allUsers.length);
 
     // Step 3: Get technician role ID

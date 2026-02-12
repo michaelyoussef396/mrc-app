@@ -240,7 +240,7 @@ export default function AdminDashboard() {
                             key={item.id}
                             className="hover:bg-gray-50 cursor-pointer transition-colors"
                             style={{ borderBottom: '1px solid #f0f0f0' }}
-                            onClick={() => item.leadId && navigate(`/lead/${item.leadId}`)}
+                            onClick={() => item.leadId && navigate(`/leads/${item.leadId}`)}
                           >
                             <td className="py-4 px-2">
                               <span className="text-sm font-medium" style={{ color: '#1d1d1f' }}>
@@ -316,7 +316,7 @@ export default function AdminDashboard() {
                         key={item.id}
                         className="p-4 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
                         style={{ border: '1px solid #f0f0f0' }}
-                        onClick={() => item.leadId && navigate(`/lead/${item.leadId}`)}
+                        onClick={() => item.leadId && navigate(`/leads/${item.leadId}`)}
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">
@@ -498,7 +498,7 @@ export default function AdminDashboard() {
                   {unassignedLeadsData.slice(0, 5).map((lead) => (
                     <div
                       key={lead.id}
-                      onClick={() => navigate(`/lead/${lead.id}`)}
+                      onClick={() => navigate(`/leads/${lead.id}`)}
                       className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer min-h-[56px]"
                       style={{ border: '1px solid #f0f0f0' }}
                     >

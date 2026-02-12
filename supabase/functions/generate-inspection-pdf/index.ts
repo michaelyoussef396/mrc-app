@@ -1,8 +1,13 @@
 // Supabase Edge Function: generate-inspection-pdf
 // Generates PDF report by populating HTML template with inspection data
-// Returns: Populated HTML for client-side PDF generation OR direct PDF URL
+// Template is fetched from Supabase Storage (pdf-templates bucket)
+// Returns: Populated HTML for client-side PDF generation OR stored HTML URL
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+// Static PDF assets hosted in Supabase Storage (public bucket)
+const ASSET_BASE = 'https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets'
+const TEMPLATE_URL = 'https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-templates/inspection-report-template-final.html'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,7 +52,7 @@ interface InspectionArea {
   mould_contents: boolean
   mould_grout_silicone: boolean
   mould_none_visible: boolean
-  mould_description: string  // Text field for mould visibility
+  mould_description: string
   comments: string
   temperature: number
   humidity: number
@@ -58,7 +63,7 @@ interface InspectionArea {
   demolition_description: string
   moisture_readings_enabled: boolean
   moisture_readings?: MoistureReading[]
-  external_moisture: number | null  // Dedicated external moisture field
+  external_moisture: number | null
 }
 
 interface Photo {
@@ -67,6 +72,26 @@ interface Photo {
   photo_type: string
   caption: string
   area_id?: string
+  subfloor_id?: string
+}
+
+interface SubfloorData {
+  id: string
+  inspection_id: string
+  observations: string | null
+  comments: string | null
+  landscape: string | null
+  sanitation_required: boolean
+  racking_required: boolean
+  treatment_time_minutes: number | null
+}
+
+interface SubfloorReading {
+  id: string
+  subfloor_id: string
+  reading_order: number
+  moisture_percentage: number | null
+  location: string | null
 }
 
 interface Inspection {
@@ -104,6 +129,7 @@ interface Inspection {
   rcd_box_qty: number
   pdf_url?: string
   pdf_version: number
+  subfloor_required: boolean
   // Page 2 AI-generated fields
   what_we_found_text?: string
   what_we_will_do_text?: string
@@ -151,12 +177,10 @@ function formatDate(dateString: string | null | undefined): string {
 
 // Get mould description - uses text field first, falls back to legacy checkboxes for old records
 function getMouldDescription(area: InspectionArea): string {
-  // Primary: Use the mould_description text field if available
   if (area.mould_description && area.mould_description.trim()) {
     return area.mould_description.trim()
   }
 
-  // Fallback: Build from legacy boolean checkboxes (backwards compatibility)
   const locations: string[] = []
   if (area.mould_ceiling) locations.push('Ceiling')
   if (area.mould_cornice) locations.push('Cornice')
@@ -175,15 +199,12 @@ function getMouldDescription(area: InspectionArea): string {
 
 // Get valid value - filters out placeholder text and empty values
 function getValidValue(primary: string | null | undefined, fallback: string | null | undefined, defaultValue: string): string {
-  // List of invalid placeholder values to filter out
   const invalidValues = ['attention to', 'requested by', 'directed to', 'not specified', 'n/a', '']
 
-  // Check primary value
   if (primary && !invalidValues.includes(primary.toLowerCase().trim())) {
     return primary
   }
 
-  // Check fallback value
   if (fallback && !invalidValues.includes(fallback.toLowerCase().trim())) {
     return fallback
   }
@@ -216,34 +237,6 @@ function getEquipmentList(inspection: Inspection): string {
   return equipment.join(', ') || 'None required'
 }
 
-// Format "What You Get" section - plain text to HTML with underlined warranty
-function formatWhatYouGet(text: string | null | undefined): string {
-  if (!text) {
-    return '<span style="text-decoration: underline;">12 Month warranty</span> on all treated areas<br/>Professional material removal where required<br/>Complete airborne spore elimination<br/>Detailed documentation for insurance / resale'
-  }
-
-  // Split by newlines and filter empty lines
-  const lines = text.split(/[\n\r]+/).filter(line => line.trim())
-
-  if (lines.length === 0) {
-    return '<span style="text-decoration: underline;">12 Month warranty</span> on all treated areas<br/>Professional material removal where required<br/>Complete airborne spore elimination<br/>Detailed documentation for insurance / resale'
-  }
-
-  // Process each line - underline warranty text in first line
-  const formattedLines = lines.map((line, index) => {
-    const trimmed = line.trim()
-    if (index === 0) {
-      // First line: underline "12 Month warranty" if present
-      if (trimmed.toLowerCase().includes('warranty')) {
-        return trimmed.replace(/(12 Month warranty)/i, '<span style="text-decoration: underline;">$1</span>')
-      }
-    }
-    return trimmed
-  })
-
-  return formattedLines.join('<br/>')
-}
-
 // Convert markdown to HTML for PDF display
 function markdownToHtml(text: string | null | undefined): string {
   if (!text) return ''
@@ -256,13 +249,12 @@ function markdownToHtml(text: string | null | undefined): string {
   // Convert italic *text* to <em>text</em> (but not if part of bold)
   html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
 
-  // Convert headers (## Header) to styled divs
+  // Convert headers
   html = html.replace(/^### (.+)$/gm, '<div style="font-weight: 600; margin-top: 12px; margin-bottom: 4px;">$1</div>')
   html = html.replace(/^## (.+)$/gm, '<div style="font-weight: 600; font-size: 16px; margin-top: 16px; margin-bottom: 6px;">$1</div>')
   html = html.replace(/^# (.+)$/gm, '<div style="font-weight: 700; font-size: 18px; margin-top: 20px; margin-bottom: 8px;">$1</div>')
 
-  // Convert bullet points - wrap in proper list structure
-  // First, identify and wrap consecutive bullet lines
+  // Convert bullet points
   const lines = html.split('\n')
   const processedLines: string[] = []
   let inList = false
@@ -290,183 +282,171 @@ function markdownToHtml(text: string | null | undefined): string {
   }
 
   html = processedLines.join('\n')
-
-  // Clean up empty paragraphs
   html = html.replace(/<p style="margin: 8px 0;"><\/p>/g, '')
 
   return html
 }
 
-// Strip all markdown to plain text (for simpler sections)
+// Strip all markdown to plain text
 function stripMarkdown(text: string | null | undefined): string {
   if (!text) return ''
 
   let plain = text
-
-  // Remove bold/italic markers
   plain = plain.replace(/\*\*([^*]+)\*\*/g, '$1')
   plain = plain.replace(/\*([^*]+)\*/g, '$1')
-
-  // Remove headers markers
   plain = plain.replace(/^#{1,3}\s+/gm, '')
-
-  // Convert bullet points to simple format
   plain = plain.replace(/^[-*•]\s+/gm, '• ')
-
-  // Clean up extra whitespace
   plain = plain.replace(/\n{3,}/g, '\n\n')
 
   return plain.trim()
 }
 
-// Photo URLs will be generated as signed URLs after fetching inspection data
-// This placeholder will be replaced with actual signed URLs
+// Photo signed URLs map (populated during request processing)
 let photoSignedUrls: Map<string, string> = new Map()
 
 // Get photo URL from storage path (uses pre-generated signed URLs)
 function getPhotoUrl(storagePath: string): string {
   if (!storagePath) return ''
-  // Return the pre-generated signed URL if available
   return photoSignedUrls.get(storagePath) || ''
 }
 
-// Generate photo HTML element
-function generatePhotoHtml(photos: Photo[] | undefined, photoType: string, fallbackText: string): string {
-  const photo = photos?.find(p => p.photo_type === photoType)
-  if (photo?.storage_path) {
-    const url = getPhotoUrl(photo.storage_path)
-    return `<img src="${url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" alt="${photo.caption || photoType}" />`
-  }
-  return `<span style="color: #888; font-size: 14px;">${fallbackText}</span>`
-}
+// ===================================================================
+// TEMPLATE POPULATION FUNCTIONS
+// ===================================================================
 
-// Generate dynamic area pages HTML - FLEXIBLE LAYOUT
-function generateAreaPagesHtml(areas: InspectionArea[] | undefined, photos: Photo[] | undefined): string {
+// Extract the Areas Inspected page block from the template
+// The template has a single Area page with {{area_*}} placeholders
+// We duplicate it once per inspected area
+function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, photos: Photo[] | undefined): string {
+  // Find the Area page block: between "Page 8: Areas Inspected" comment and "Page 9:" comment
+  const areaPageRegex = /(<!-- Page 8: Areas Inspected[\s\S]*?<\/div>\s*<\/div>)\s*(?=\s*<!-- Page 9)/
+  const match = html.match(areaPageRegex)
+
+  if (!match) {
+    console.warn('Could not find Areas Inspected page block in template')
+    return html
+  }
+
+  const areaTemplate = match[1]
+
   if (!areas || areas.length === 0) {
-    return `
-    <div class="report-page-flex page-break">
-      <div class="bg-gradient"></div>
-      <div class="content-wrapper">
-        <div class="page-header">
-          <div style="font-size: 48px; font-family: Inter; font-weight: 400;">
-            <span style="color: black;">AREA </span><span style="color: #150DB8;">INSPECTED:</span><span style="color: black;"> None</span>
-          </div>
-          <div class="logo-box">MRC</div>
-        </div>
-        <div style="margin-top: 60px; font-size: 18px; color: #666;">No areas were inspected during this assessment.</div>
-      </div>
-    </div>`
+    // No areas — replace with a "None" page
+    const emptyPage = areaTemplate
+      .replace(/\{\{area_name\}\}/g, 'None')
+      .replace(/\{\{area_temperature\}\}/g, '-')
+      .replace(/\{\{area_humidity\}\}/g, '-')
+      .replace(/\{\{area_dew_point\}\}/g, '-')
+      .replace(/\{\{visible_mould\}\}/g, 'N/A')
+      .replace(/\{\{internal_moisture\}\}/g, '-')
+      .replace(/\{\{external_moisture\}\}/g, '-')
+      .replace(/\{\{area_photo_[1-4]\}\}/g, '')
+      .replace(/\{\{area_infrared_photo\}\}/g, '')
+      .replace(/\{\{area_natural_infrared_photo\}\}/g, '')
+      .replace(/\{\{area_notes\}\}/g, 'No areas were inspected during this assessment.')
+      .replace(/\{\{extra_notes\}\}/g, '')
+
+    return html.replace(areaPageRegex, emptyPage + '\n\n')
   }
 
-  return areas.map((area, index) => {
+  // Generate one page per area
+  const areaPages = areas.map(area => {
+    let page = areaTemplate
     const areaPhotos = photos?.filter(p => p.area_id === area.id) || []
+
+    // Environmental readings
+    page = page.replace(/\{\{area_name\}\}/g, area.area_name || 'Unnamed Area')
+    page = page.replace(/\{\{area_temperature\}\}/g, `${area.temperature || 0}°C`)
+    page = page.replace(/\{\{area_humidity\}\}/g, `${area.humidity || 0}%`)
+    page = page.replace(/\{\{area_dew_point\}\}/g, `${area.dew_point || 0}°C`)
+
+    // Mould description
     const mouldLocations = getMouldDescription(area)
+    page = page.replace(/\{\{visible_mould\}\}/g, mouldLocations)
 
-    // Get moisture readings - sorted by reading_order
+    // Moisture readings
     const moistureReadings = area.moisture_readings?.sort((a, b) => (a.reading_order || 0) - (b.reading_order || 0)) || []
-    // Internal moisture: Use first reading from moisture_readings table
     const internalMoisture = moistureReadings.find(r => r.title?.toLowerCase().includes('internal')) || moistureReadings[0]
-    // External moisture: Use dedicated area.external_moisture field
+    page = page.replace(/\{\{internal_moisture\}\}/g, internalMoisture?.moisture_percentage != null ? `${internalMoisture.moisture_percentage}%` : '-')
+    page = page.replace(/\{\{external_moisture\}\}/g, area.external_moisture != null ? `${area.external_moisture}%` : '-')
 
-    // Separate regular photos from infrared photos
+    // Area photos (regular, non-infrared)
     const regularPhotos = areaPhotos.filter(p => p.caption !== 'infrared' && p.caption !== 'natural_infrared')
+    for (let i = 1; i <= 4; i++) {
+      const photo = regularPhotos[i - 1]
+      const url = photo?.storage_path ? getPhotoUrl(photo.storage_path) : ''
+      page = page.replace(new RegExp(`\\{\\{area_photo_${i}\\}\\}`, 'g'), url)
+    }
+
+    // Infrared photos
     const infraredPhoto = areaPhotos.find(p => p.caption === 'infrared')
     const naturalInfraredPhoto = areaPhotos.find(p => p.caption === 'natural_infrared')
-    const hasInfraredPhotos = infraredPhoto || naturalInfraredPhoto
+    page = page.replace(/\{\{area_infrared_photo\}\}/g, infraredPhoto?.storage_path ? getPhotoUrl(infraredPhoto.storage_path) : '')
+    page = page.replace(/\{\{area_natural_infrared_photo\}\}/g, naturalInfraredPhoto?.storage_path ? getPhotoUrl(naturalInfraredPhoto.storage_path) : '')
 
-    return `
-    <div class="report-page-flex page-break">
-      <div class="bg-gradient"></div>
-      <div class="content-wrapper">
-        <!-- Header with Logo -->
-        <div class="page-header">
-          <div style="font-size: 42px; font-family: Inter; font-weight: 400; max-width: 650px;">
-            <span style="color: black;">AREA </span><span style="color: #150DB8;">INSPECTED:</span><span style="color: black;"> ${area.area_name}</span>
-          </div>
-          <div class="logo-box">MRC</div>
-        </div>
+    // Notes
+    page = page.replace(/\{\{area_notes\}\}/g, area.comments || 'No notes recorded for this area.')
+    page = page.replace(/\{\{extra_notes\}\}/g, infraredPhoto || naturalInfraredPhoto
+      ? 'Thermal imaging reveals moisture patterns not visible to the naked eye.'
+      : '')
 
-        <!-- Description text -->
-        <div class="content-section">
-          <div style="color: black; font-size: 15px; line-height: 1.5;">Our thorough inspection assessed various zones of the property, identifying areas with mould presence and others remaining unaffected, ensuring a complete understanding of the situation.</div>
-        </div>
+    return page
+  }).join('\n\n')
 
-        <!-- Environmental readings box (navy blue) -->
-        <div style="background: #121D73; border-radius: 20px; padding: 20px 30px; margin: 20px auto; max-width: 600px;">
-          <div style="display: flex; flex-wrap: wrap; gap: 15px; color: white; font-size: 15px;">
-            <div style="flex: 1; min-width: 150px;">TEMPERATURE: ${area.temperature || 0}°C</div>
-            <div style="flex: 1; min-width: 150px;">HUMIDITY: ${area.humidity || 0}%</div>
-          </div>
-          <div style="display: flex; flex-wrap: wrap; gap: 15px; color: white; font-size: 15px; margin-top: 15px;">
-            <div style="flex: 1; min-width: 150px;">DEW POINT: ${area.dew_point || 0}°C</div>
-            <div style="flex: 2; min-width: 200px;">VISIBLE MOULD: ${mouldLocations}</div>
-          </div>
-          ${area.moisture_readings_enabled && (internalMoisture || area.external_moisture) ? `
-          <div style="display: flex; flex-wrap: wrap; gap: 15px; color: white; font-size: 15px; margin-top: 15px;">
-            <div style="flex: 1; min-width: 200px;">INTERNAL MOISTURE: ${internalMoisture?.moisture_percentage ?? '-'}%</div>
-            <div style="flex: 1; min-width: 200px;">EXTERNAL MOISTURE: ${area.external_moisture ?? '-'}%</div>
-          </div>
-          ` : ''}
-        </div>
-
-        <!-- Photos and Notes Row -->
-        <div style="display: flex; gap: 20px; margin-top: 20px;">
-          <!-- Photo grid (2x2) -->
-          <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; max-width: 420px;">
-            ${regularPhotos.slice(0, 4).map((photo, i) => `
-              <div style="width: 100%; aspect-ratio: 1; background: #e5e5e5; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                ${photo.storage_path ? `<img src="${getPhotoUrl(photo.storage_path)}" style="width: 100%; height: 100%; object-fit: cover;" alt="${photo.caption || `Area photo ${i + 1}`}" />` : `<span style="color: #888;">Photo ${i + 1}</span>`}
-              </div>
-            `).join('')}
-            ${Array(Math.max(0, 4 - (regularPhotos.length || 0))).fill(0).map((_, i) => `
-              <div style="width: 100%; aspect-ratio: 1; background: #e5e5e5; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                <span style="color: #888;">No photo</span>
-              </div>
-            `).join('')}
-          </div>
-
-          <!-- Area Notes -->
-          <div style="flex: 1; min-width: 250px;">
-            <div style="font-size: 17px; font-weight: 400; margin-bottom: 10px;">AREA NOTES</div>
-            <div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap;">${area.comments || 'No notes recorded for this area.'}</div>
-          </div>
-        </div>
-
-        ${hasInfraredPhotos ? `
-        <!-- Infrared Photos Row -->
-        <div style="display: flex; gap: 20px; margin-top: 20px;">
-          <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 420px;">
-            <div style="width: 100%; aspect-ratio: 1.5; background: #e5e5e5; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-              ${infraredPhoto?.storage_path ? `<img src="${getPhotoUrl(infraredPhoto.storage_path)}" style="width: 100%; height: 100%; object-fit: cover;" alt="Infrared view" />` : `<span style="color: #888;">Infrared Photo</span>`}
-            </div>
-            <div style="width: 100%; aspect-ratio: 1.5; background: #e5e5e5; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-              ${naturalInfraredPhoto?.storage_path ? `<img src="${getPhotoUrl(naturalInfraredPhoto.storage_path)}" style="width: 100%; height: 100%; object-fit: cover;" alt="Natural infrared view" />` : `<span style="color: #888;">Natural Infrared</span>`}
-            </div>
-          </div>
-          <div style="flex: 1; min-width: 250px;">
-            <div style="font-size: 17px; font-weight: 400; margin-bottom: 10px;">INFRARED NOTES</div>
-            <div style="font-size: 13px; line-height: 1.6;">Thermal imaging reveals moisture patterns not visible to the naked eye, helping identify hidden water damage and potential mould growth areas.</div>
-          </div>
-        </div>
-        ` : ''}
-
-        ${area.demolition_required ? `
-        <!-- Demolition Info -->
-        <div class="content-section" style="margin-top: 30px;">
-          <div style="color: #CD0000; font-size: 17px; font-weight: 400; margin-bottom: 10px;">DEMOLITION REQUIRED</div>
-          <div style="font-size: 14px; line-height: 1.5;">
-            <span style="font-weight: 600;">Demolition List:</span><br/>
-            ${area.demolition_description || 'Demolition work required in this area.'}
-          </div>
-        </div>
-        ` : ''}
-      </div>
-    </div>`
-  }).join('')
+  return html.replace(areaPageRegex, areaPages + '\n\n')
 }
 
-// Generate the HTML report by replacing placeholders
-function generateReportHtml(inspection: Inspection, templateHtml: string, inspectorName: string = 'Inspector'): string {
+// Handle the Subfloor page — remove if not required, populate if present
+function handleSubfloorPage(
+  html: string,
+  inspection: Inspection,
+  subfloorData: SubfloorData | null,
+  subfloorReadings: SubfloorReading[],
+  subfloorPhotos: Photo[]
+): string {
+  // Find the Subfloor page block: between "Page 9: Subfloor" and "Page 10:"
+  const subfloorPageRegex = /\s*<!-- Page 9: Subfloor[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 10)/
+
+  if (!inspection.subfloor_required || !subfloorData) {
+    // Remove the entire subfloor page
+    return html.replace(subfloorPageRegex, '\n\n')
+  }
+
+  // Populate subfloor placeholders
+  // Photos (up to 10)
+  for (let i = 1; i <= 10; i++) {
+    const photo = subfloorPhotos[i - 1]
+    const url = photo?.storage_path ? getPhotoUrl(photo.storage_path) : ''
+    html = html.replace(new RegExp(`\\{\\{subfloor_photo_${i}\\}\\}`, 'g'), url)
+  }
+
+  // Text fields
+  html = html.replace(/\{\{subfloor_observation\}\}/g, subfloorData.observations || 'No observations recorded.')
+  html = html.replace(/\{\{subfloor_landscape\}\}/g, subfloorData.landscape
+    ? subfloorData.landscape.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    : 'Not specified')
+  html = html.replace(/\{\{subfloor_comments\}\}/g, subfloorData.comments || 'No comments recorded.')
+
+  // Moisture levels - format from readings
+  const moistureLevels = subfloorReadings.length > 0
+    ? subfloorReadings
+        .sort((a, b) => (a.reading_order || 0) - (b.reading_order || 0))
+        .map(r => `${r.location || 'Location ' + (r.reading_order + 1)}: ${r.moisture_percentage ?? '-'}%`)
+        .join('\n')
+    : 'No moisture readings recorded.'
+  html = html.replace(/\{\{subfloor_moisture_levels\}\}/g, moistureLevels)
+
+  return html
+}
+
+// Generate the full populated HTML report
+function generateReportHtml(
+  inspection: Inspection,
+  templateHtml: string,
+  inspectorName: string,
+  subfloorData: SubfloorData | null,
+  subfloorReadings: SubfloorReading[],
+  subfloorPhotos: Photo[]
+): string {
   const lead = inspection.lead
 
   // Build full property address
@@ -477,204 +457,118 @@ function generateReportHtml(inspection: Inspection, templateHtml: string, inspec
     lead.property_address_postcode
   ].filter(Boolean).join(', ') : 'Address not available'
 
-  // Areas summary
-  const areasSummary = inspection.areas?.map(area =>
-    `${area.area_name}: ${getMouldDescription(area)}`
-  ).join('\n') || 'No areas inspected'
-
-  // Build examined areas list (for cover page - one per line)
+  // Build examined areas list
   const examinedAreas = inspection.areas?.map(a => a.area_name).join(', ') || 'None'
-  const examinedAreasList = inspection.areas?.map(a => a.area_name).join('<br/>') || 'None'
-
-  // Generate dynamic area pages
-  const areasPagesHtml = generateAreaPagesHtml(inspection.areas, inspection.photos)
-
-  // Get outdoor photos
-  const outdoorPhotos = inspection.photos?.filter(p => p.photo_type === 'outdoor') || []
-
-  // Debug logging for outdoor photos
-  console.log('🏠 OUTDOOR PHOTOS DEBUG:', {
-    totalOutdoorPhotos: outdoorPhotos.length,
-    photos: outdoorPhotos.map(p => ({
-      caption: p.caption,
-      photo_type: p.photo_type,
-      storage_path: p.storage_path,
-      hasSignedUrl: photoSignedUrls.has(p.storage_path)
-    }))
-  })
-
-  const outdoorPhoto1Html = outdoorPhotos[0]?.storage_path
-    ? `<img src="${getPhotoUrl(outdoorPhotos[0].storage_path)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 15px;" alt="Outdoor photo 1" />`
-    : '<span style="color: #888; font-size: 14px;">Photo 1</span>'
-  const outdoorPhoto2Html = outdoorPhotos[1]?.storage_path
-    ? `<img src="${getPhotoUrl(outdoorPhotos[1].storage_path)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 15px;" alt="Outdoor photo 2" />`
-    : '<span style="color: #888; font-size: 14px;">Photo 2</span>'
-  const outdoorPhoto3Html = outdoorPhotos[2]?.storage_path
-    ? `<img src="${getPhotoUrl(outdoorPhotos[2].storage_path)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 15px;" alt="Outdoor photo 3" />`
-    : '<span style="color: #888; font-size: 14px;">Photo 3</span>'
 
   // Get cover photo - prioritize front_house, then general, then first outdoor photo
   const frontHousePhoto = inspection.photos?.find(p => p.caption === 'front_house')
   const generalPhoto = inspection.photos?.find(p => p.photo_type === 'general')
   const firstOutdoorPhoto = inspection.photos?.find(p => p.photo_type === 'outdoor')
   const coverPhoto = frontHousePhoto || generalPhoto || firstOutdoorPhoto
+  const coverPhotoUrl = coverPhoto?.storage_path ? getPhotoUrl(coverPhoto.storage_path) : ''
 
-  // Debug logging for cover photo
-  console.log('🖼️ COVER PHOTO DEBUG:', {
-    totalPhotos: inspection.photos?.length || 0,
-    frontHousePhoto: frontHousePhoto ? { caption: frontHousePhoto.caption, storage_path: frontHousePhoto.storage_path } : null,
-    generalPhoto: generalPhoto ? { photo_type: generalPhoto.photo_type, storage_path: generalPhoto.storage_path } : null,
-    firstOutdoorPhoto: firstOutdoorPhoto ? { photo_type: firstOutdoorPhoto.photo_type, caption: firstOutdoorPhoto.caption, storage_path: firstOutdoorPhoto.storage_path } : null,
-    selectedCoverPhoto: coverPhoto ? { storage_path: coverPhoto.storage_path, caption: coverPhoto.caption, photo_type: coverPhoto.photo_type } : null,
-    signedUrlExists: coverPhoto?.storage_path ? photoSignedUrls.has(coverPhoto.storage_path) : false,
-    signedUrl: coverPhoto?.storage_path ? getPhotoUrl(coverPhoto.storage_path) : 'NO STORAGE PATH'
-  })
+  // Outdoor photos
+  const outdoorPhotos = inspection.photos?.filter(p => p.photo_type === 'outdoor') || []
 
-  const coverPhotoHtml = coverPhoto?.storage_path
-    ? `<img src="${getPhotoUrl(coverPhoto.storage_path)}" style="width: 100%; height: 100%; object-fit: cover;" alt="Property" />`
-    : '<span style="color: #888; font-size: 16px;">Property Photo</span>'
-
-  // Generate treatment plan from treatment methods and equipment
+  // Treatment plan
   const treatmentMethods = getTreatmentMethods(inspection)
   const equipmentList = getEquipmentList(inspection)
-  const treatmentPlan = `We'll set up professional equipment including ${equipmentList || 'air scrubbers'}. ` +
-    `Treatment will include ${treatmentMethods || 'standard mould removal procedures'}. ` +
-    `Cross-contaminated salvageable items will be professionally treated, while non-salvageable materials will be double-bagged and properly disposed of. ` +
-    `All work follows strict safety protocols with full PPE and containment procedures.`
 
-  // Problem discovered (based on AI summary or default)
-  const problemDiscovered = inspection.ai_summary_text ||
-    `During our comprehensive inspection at ${propertyAddress}, we identified mould growth in the examined areas. ` +
-    `This has resulted in contamination that requires professional treatment to ensure the health and safety of occupants.`
+  // Problem analysis content
+  const problemAnalysis = inspection.ai_summary_text
+    ? markdownToHtml(inspection.ai_summary_text)
+    : `During our comprehensive inspection at ${propertyAddress}, we identified mould growth in the examined areas requiring professional treatment.`
 
-  // Contributing factors (default list based on inspection data)
-  const contributingFactors = [
-    inspection.outdoor_humidity > 60 ? `- High outdoor humidity levels at ${inspection.outdoor_humidity}%` : null,
-    inspection.areas?.some(a => a.humidity > 60) ? '- Elevated indoor humidity in affected areas' : null,
-    '- Potential moisture sources requiring investigation',
-    '- Building ventilation may need assessment'
-  ].filter(Boolean).join('\n') || '- Environmental conditions require assessment\n- Moisture source investigation needed'
+  // Demolition content
+  const demolitionAreas = inspection.areas?.filter(a => a.demolition_required) || []
+  const demolitionContent = demolitionAreas.length > 0
+    ? demolitionAreas.map(a => `<strong>${a.area_name}:</strong> ${a.demolition_description || 'Demolition work required.'}`).join('<br/><br/>')
+    : 'No demolition work required for this inspection.'
 
-  // Immediate actions
-  const immediateActions = `1. Proceed with MRC's surface treatment option to eliminate visible mould and treat cross-contaminated items\n` +
-    `2. Address any identified moisture sources\n` +
-    `3. Maintain affected areas vacant during treatment and 2 hours post-completion\n` +
-    `4. Remove and store personal items as recommended`
+  // Equipment pricing
+  const dehumidifierPrice = inspection.commercial_dehumidifier_qty > 0 ? `$132/day × ${inspection.commercial_dehumidifier_qty}` : '$132/day'
+  const airMoverPrice = inspection.air_movers_qty > 0 ? `$46/day × ${inspection.air_movers_qty}` : '$46/day'
+  const rcdBoxPrice = inspection.rcd_box_qty > 0 ? `$5/day × ${inspection.rcd_box_qty}` : '$5/day'
 
-  // Long term protection
-  const longTermProtection = `- Complete any recommended repairs before warranty activation\n` +
-    `- Improve ventilation in affected areas\n` +
-    `- Monitor indoor humidity levels, maintaining below 50-55%\n` +
-    `- Conduct 6-month post-treatment visual inspection\n` +
-    `- Address any new moisture issues immediately to prevent recurrence`
-
-  // Replace all placeholders in the template
+  // Start replacing placeholders in template
   let html = templateHtml
-    // Client/Property Info
-    .replace(/\{\{client_name\}\}/g, lead?.full_name || 'Client Name')
-    .replace(/\{\{client_email\}\}/g, lead?.email || '')
-    .replace(/\{\{client_phone\}\}/g, lead?.phone || '')
-    .replace(/\{\{property_address\}\}/g, propertyAddress)
-    .replace(/\{\{property_type\}\}/g, lead?.property_type || inspection.dwelling_type || 'Residential')
-    .replace(/\{\{dwelling_type\}\}/g, inspection.dwelling_type || 'Not specified')
-    .replace(/\{\{property_occupation\}\}/g, inspection.property_occupation || 'Not specified')
 
-    // Inspection Details
-    .replace(/\{\{job_number\}\}/g, inspection.job_number || 'N/A')
-    .replace(/\{\{inspection_date\}\}/g, formatDate(inspection.inspection_date))
-    .replace(/\{\{inspection_time\}\}/g, inspection.inspection_start_time || '')
-    .replace(/\{\{inspector_name\}\}/g, inspectorName)
-    .replace(/\{\{requested_by\}\}/g, getValidValue(inspection.requested_by, lead?.full_name, 'Property Owner'))
-    .replace(/\{\{attention_to\}\}/g, getValidValue(inspection.attention_to, lead?.full_name, 'Property Owner'))
-    .replace(/\{\{triage_description\}\}/g, inspection.triage_description || '')
+  // Replace asset paths with absolute Supabase Storage URLs
+  html = html.replace(/\.\/assets\//g, `${ASSET_BASE}/assets/`)
+  html = html.replace(/\.\/fonts\//g, `${ASSET_BASE}/fonts/`)
 
-    // Outdoor Conditions
-    .replace(/\{\{outdoor_temperature\}\}/g, String(inspection.outdoor_temperature || 0))
-    .replace(/\{\{outdoor_humidity\}\}/g, String(inspection.outdoor_humidity || 0))
-    .replace(/\{\{outdoor_dew_point\}\}/g, String(inspection.outdoor_dew_point || 0))
-    .replace(/\{\{outdoor_comments\}\}/g, inspection.outdoor_comments || '')
+  // ===== PAGE 1: COVER =====
+  html = html.replace(/\{\{ordered_by\}\}/g, getValidValue(inspection.requested_by, lead?.full_name, 'Property Owner'))
+  html = html.replace(/\{\{inspector\}\}/g, inspectorName)
+  html = html.replace(/\{\{inspection_date\}\}/g, formatDate(inspection.inspection_date))
+  html = html.replace(/\{\{directed_to\}\}/g, getValidValue(inspection.attention_to, lead?.full_name, 'Property Owner'))
+  html = html.replace(/\{\{property_type\}\}/g, lead?.property_type || inspection.dwelling_type || 'Residential')
+  html = html.replace(/\{\{examined_areas\}\}/g, examinedAreas)
+  html = html.replace(/\{\{cover_photo_url\}\}/g, coverPhotoUrl)
+  html = html.replace(/\{\{property_address\}\}/g, propertyAddress)
 
-    // Outdoor Photos
-    .replace(/\{\{outdoor_photo_1_html\}\}/g, outdoorPhoto1Html)
-    .replace(/\{\{outdoor_photo_2_html\}\}/g, outdoorPhoto2Html)
-    .replace(/\{\{outdoor_photo_3_html\}\}/g, outdoorPhoto3Html)
+  // ===== PAGE 4: VALUE PROPOSITION =====
+  html = html.replace(/\{\{what_we_found_text\}\}/g,
+    markdownToHtml(inspection.what_we_found_text) ||
+    markdownToHtml(inspection.ai_summary_text) ||
+    'Summary not yet generated. Click "Generate AI Summary" in Section 10.')
+  html = html.replace(/\{\{what_we_will_do_text\}\}/g,
+    markdownToHtml(inspection.what_we_will_do_text) ||
+    `We'll set up professional equipment including ${equipmentList || 'air scrubbers'}. Treatment will include ${treatmentMethods || 'standard mould removal procedures'}.`)
 
-    // Cover Photo
-    .replace(/\{\{cover_photo_html\}\}/g, coverPhotoHtml)
+  // ===== PAGE 5: PROBLEM ANALYSIS =====
+  html = html.replace(/\{\{problem_analysis_content\}\}/g, problemAnalysis)
 
-    // Dynamic Areas Pages
-    .replace(/\{\{areas_pages_html\}\}/g, areasPagesHtml)
+  // ===== PAGE 6: DEMOLITION =====
+  html = html.replace(/\{\{demolition_content\}\}/g, demolitionContent)
 
-    // Findings Summary - Convert markdown to HTML for proper display
-    .replace(/\{\{ai_summary\}\}/g, markdownToHtml(inspection.ai_summary_text) || 'Our inspection identified areas requiring professional mould treatment. A detailed assessment of affected zones has been conducted to develop an effective remediation plan.')
-    .replace(/\{\{what_we_found\}\}/g, markdownToHtml(inspection.ai_summary_text) || 'Summary not available')
-    .replace(/\{\{cause_of_mould\}\}/g, stripMarkdown(inspection.cause_of_mould) || 'Moisture infiltration is the primary cause of mould growth in this property. Further investigation may be required to identify the exact source.')
-    .replace(/\{\{examined_areas\}\}/g, examinedAreas)
-    .replace(/\{\{examined_areas_list\}\}/g, examinedAreasList)
-    .replace(/\{\{areas_summary\}\}/g, areasSummary)
+  // ===== PAGE 7: OUTDOOR ENVIRONMENT =====
+  html = html.replace(/\{\{outdoor_temperature\}\}/g, String(inspection.outdoor_temperature || 0))
+  html = html.replace(/\{\{outdoor_humidity\}\}/g, String(inspection.outdoor_humidity || 0))
+  html = html.replace(/\{\{outdoor_dew_point\}\}/g, String(inspection.outdoor_dew_point || 0))
+  html = html.replace(/\{\{outdoor_photo_1\}\}/g, outdoorPhotos[0]?.storage_path ? getPhotoUrl(outdoorPhotos[0].storage_path) : '')
+  html = html.replace(/\{\{outdoor_photo_2\}\}/g, outdoorPhotos[1]?.storage_path ? getPhotoUrl(outdoorPhotos[1].storage_path) : '')
+  html = html.replace(/\{\{outdoor_photo_3\}\}/g, outdoorPhotos[2]?.storage_path ? getPhotoUrl(outdoorPhotos[2].storage_path) : '')
 
-    // Problem Analysis - Convert markdown to HTML
-    .replace(/\{\{problem_discovered\}\}/g, markdownToHtml(problemDiscovered))
-    .replace(/\{\{contributing_factors\}\}/g, contributingFactors)
-    .replace(/\{\{immediate_actions\}\}/g, immediateActions)
-    .replace(/\{\{long_term_protection\}\}/g, longTermProtection)
+  // ===== PAGE 8: AREAS INSPECTED (duplicate per area) =====
+  html = duplicateAreaPages(html, inspection.areas, inspection.photos)
 
-    // Page 2 AI-generated fields (from generate-inspection-summary edge function)
-    .replace(/\{\{what_we_found_text\}\}/g, markdownToHtml(inspection.what_we_found_text) || markdownToHtml(inspection.ai_summary_text) || 'Summary not yet generated. Click "Generate AI Summary" in Section 10.')
-    .replace(/\{\{what_we_will_do_text\}\}/g, markdownToHtml(inspection.what_we_will_do_text) || treatmentPlan)
-    .replace(/\{\{what_you_get_text\}\}/g, formatWhatYouGet(inspection.what_you_get_text))
+  // ===== PAGE 9: SUBFLOOR (conditional) =====
+  html = handleSubfloorPage(html, inspection, subfloorData, subfloorReadings, subfloorPhotos)
 
-    // Page 5 Job Summary AI-generated fields
-    .replace(/\{\{what_we_discovered\}\}/g, stripMarkdown(inspection.what_we_discovered) || stripMarkdown(problemDiscovered))
-    .replace(/\{\{identified_causes\}\}/g, stripMarkdown(inspection.identified_causes) || stripMarkdown(inspection.cause_of_mould) || 'Moisture infiltration is the primary cause of mould growth. Further investigation may be required.')
-    .replace(/\{\{contributing_factors\}\}/g, stripMarkdown(inspection.contributing_factors) || contributingFactors)
-    .replace(/\{\{why_this_happened\}\}/g, stripMarkdown(inspection.why_this_happened) || 'Mould growth typically occurs when moisture is trapped without proper ventilation. This creates ideal conditions for mould colonization.')
-    .replace(/\{\{immediate_actions\}\}/g, stripMarkdown(inspection.immediate_actions) || immediateActions)
-    .replace(/\{\{long_term_protection\}\}/g, stripMarkdown(inspection.long_term_protection) || longTermProtection)
-    .replace(/\{\{what_success_looks_like\}\}/g, stripMarkdown(inspection.what_success_looks_like) || 'All visible mould eliminated. Airborne spore counts reduced to safe levels. Property protected by 12-month warranty. Indoor air quality restored.')
-    .replace(/\{\{timeline_text\}\}/g, stripMarkdown(inspection.timeline_text) || 'MRC treatment: 1 day onsite + 3 days air scrubber operation. Property re-occupancy: 2 hours after final sanitization.')
+  // ===== PAGE 10: VISUAL MOULD CLEANING ESTIMATE =====
+  html = html.replace(/\{\{option_1_price\}\}/g, formatCurrency(inspection.subtotal_ex_gst))
+  html = html.replace(/\{\{option_2_price\}\}/g, formatCurrency(inspection.total_inc_gst))
+  html = html.replace(/\{\{equipment_dehumidifier\}\}/g, dehumidifierPrice)
+  html = html.replace(/\{\{equipment_air_mover\}\}/g, airMoverPrice)
+  html = html.replace(/\{\{equipment_rcd_box\}\}/g, rcdBoxPrice)
+  html = html.replace(/\{\{equipment_max_days\}\}/g, '5 days')
 
-    // Treatment Plan
-    .replace(/\{\{treatment_plan\}\}/g, treatmentPlan)
-    .replace(/\{\{treatment_methods\}\}/g, treatmentMethods)
-    .replace(/\{\{equipment_list\}\}/g, equipmentList)
-    .replace(/\{\{waste_disposal\}\}/g, inspection.waste_disposal_amount || 'None')
-
-    // Cost Estimate
-    .replace(/\{\{labor_cost\}\}/g, formatCurrency(inspection.labor_cost_ex_gst))
-    .replace(/\{\{equipment_cost\}\}/g, formatCurrency(inspection.equipment_cost_ex_gst))
-    .replace(/\{\{subtotal_ex_gst\}\}/g, formatCurrency(inspection.subtotal_ex_gst))
-    .replace(/\{\{discount_percent\}\}/g, String(inspection.discount_percent || 0))
-    .replace(/\{\{gst_amount\}\}/g, formatCurrency(inspection.gst_amount))
-    .replace(/\{\{total_inc_gst\}\}/g, formatCurrency(inspection.total_inc_gst))
-
-    // Meta
-    .replace(/\{\{generated_date\}\}/g, formatDate(new Date().toISOString()))
-    .replace(/\{\{pdf_version\}\}/g, String(inspection.pdf_version || 1))
+  // Clean up any remaining unreplaced placeholders
+  html = html.replace(/\{\{[^}]+\}\}/g, '')
 
   return html
 }
+
+// ===================================================================
+// MAIN REQUEST HANDLER
+// ===================================================================
 
 Deno.serve(async (req) => {
   console.log('Request received:', req.method, req.url)
 
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS preflight')
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Only accept POST requests
     if (req.method !== 'POST') {
-      console.log('Method not allowed:', req.method)
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }),
         { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-
-    console.log('Processing POST request')
 
     // Get Supabase credentials
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
@@ -688,15 +582,13 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Create Supabase client with service role
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Parse request body
     let body: RequestBody
     try {
       body = await req.json()
-    } catch (parseError) {
-      console.error('Failed to parse request body:', parseError)
+    } catch {
       return new Response(
         JSON.stringify({ error: 'Invalid JSON in request body' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -714,7 +606,7 @@ Deno.serve(async (req) => {
 
     console.log(`Generating PDF for inspection: ${inspectionId}, regenerate: ${regenerate}`)
 
-    // Fetch inspection with lead, areas (including moisture readings), and photos
+    // ===== STEP 1: Fetch inspection data with all related tables =====
     const { data: inspection, error: fetchError } = await supabase
       .from('inspections')
       .select(`
@@ -741,513 +633,106 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get inspector name from denormalized field on inspection
+    // ===== STEP 2: Fetch subfloor data if required =====
+    let subfloorData: SubfloorData | null = null
+    let subfloorReadings: SubfloorReading[] = []
+    let subfloorPhotos: Photo[] = []
+
+    if (inspection.subfloor_required) {
+      console.log('Subfloor required — fetching subfloor data...')
+
+      const { data: sfData } = await supabase
+        .from('subfloor_data')
+        .select('*')
+        .eq('inspection_id', inspectionId)
+        .single()
+
+      if (sfData) {
+        subfloorData = sfData as SubfloorData
+
+        // Fetch subfloor moisture readings
+        const { data: sfReadings } = await supabase
+          .from('subfloor_readings')
+          .select('*')
+          .eq('subfloor_id', sfData.id)
+          .order('reading_order', { ascending: true })
+
+        subfloorReadings = (sfReadings || []) as SubfloorReading[]
+
+        // Fetch subfloor photos
+        const { data: sfPhotos } = await supabase
+          .from('photos')
+          .select('*')
+          .eq('subfloor_id', sfData.id)
+
+        subfloorPhotos = (sfPhotos || []) as Photo[]
+        console.log(`Subfloor: ${subfloorReadings.length} readings, ${subfloorPhotos.length} photos`)
+      } else {
+        console.log('No subfloor data found despite subfloor_required=true')
+      }
+    }
+
+    // ===== STEP 3: Generate signed URLs for all photos =====
     const inspectorName = inspection.inspector_name || 'Inspector'
+    const allPhotos = [
+      ...(inspection.photos || []),
+      ...subfloorPhotos
+    ]
 
-    // Generate signed URLs for all photos (valid for 1 hour)
-    // This is needed because the inspection-photos bucket is private
     photoSignedUrls = new Map()
-    if (inspection.photos && inspection.photos.length > 0) {
-      console.log(`Generating signed URLs for ${inspection.photos.length} photos...`)
+    if (allPhotos.length > 0) {
+      console.log(`Generating signed URLs for ${allPhotos.length} photos...`)
 
-      for (const photo of inspection.photos) {
-        if (photo.storage_path) {
+      for (const photo of allPhotos) {
+        if (photo.storage_path && !photoSignedUrls.has(photo.storage_path)) {
           try {
             const { data: signedUrlData, error: signedUrlError } = await supabase.storage
               .from('inspection-photos')
-              .createSignedUrl(photo.storage_path, 3600) // 1 hour expiry
+              .createSignedUrl(photo.storage_path, 3600)
 
             if (signedUrlData?.signedUrl && !signedUrlError) {
               photoSignedUrls.set(photo.storage_path, signedUrlData.signedUrl)
-              console.log(`✓ Signed URL generated for: ${photo.storage_path}`)
             } else {
-              console.error(`✗ Failed to generate signed URL for ${photo.storage_path}:`, signedUrlError)
+              console.error(`Failed signed URL for ${photo.storage_path}:`, signedUrlError)
             }
           } catch (err) {
-            console.error(`✗ Error generating signed URL for ${photo.storage_path}:`, err)
+            console.error(`Error signed URL for ${photo.storage_path}:`, err)
           }
         }
       }
 
-      console.log(`Generated ${photoSignedUrls.size} signed URLs for photos`)
-    } else {
-      console.log('No photos found for this inspection')
+      console.log(`Generated ${photoSignedUrls.size} signed URLs`)
     }
 
-    // Professional 9-page HTML template with FLEXIBLE layouts that expand with content
-    const templateHtml = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mould & Restoration Co. - Inspection Report</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            background: #f5f5f5;
-        }
-
-        /* Fixed size pages for cover and special layouts */
-        .report-page {
-            width: 794px;
-            height: 1123px;
-            margin: 0 auto;
-            background: white;
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* Flexible pages that can grow with content */
-        .report-page-flex {
-            width: 794px;
-            min-height: 1123px;
-            margin: 0 auto;
-            background: white;
-            position: relative;
-            padding: 40px;
-        }
-
-        .page-break {
-            page-break-after: always;
-            break-after: page;
-        }
-
-        /* Flexible content sections */
-        .content-section {
-            margin-bottom: 24px;
-            page-break-inside: avoid;
-        }
-
-        .section-title {
-            font-size: 28px;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 12px;
-            color: black;
-        }
-
-        .section-title-blue {
-            color: #150DB8;
-        }
-
-        .section-content {
-            font-size: 16px;
-            line-height: 1.6;
-            color: #333;
-        }
-
-        /* Page header with logo */
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 30px;
-        }
-
-        .logo-box {
-            width: 57px;
-            height: 56px;
-            background: #121D73;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 12px;
-            font-weight: bold;
-        }
-
-        /* Background gradient overlay */
-        .bg-gradient {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(180deg, rgba(21, 13, 184, 0.02) 0%, rgba(21, 13, 184, 0.06) 100%);
-            z-index: 0;
-        }
-
-        .content-wrapper {
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Navy background sections */
-        .navy-section {
-            background: #121D73;
-            color: white;
-            padding: 30px 40px;
-            margin: 0 -40px;
-            margin-bottom: 24px;
-        }
-
-        .navy-section .section-title {
-            color: white;
-        }
-
-        .navy-section .section-content {
-            color: white;
-        }
-
-        /* Investment pill */
-        .investment-pill {
-            display: inline-block;
-            background: #121D73;
-            color: white;
-            padding: 10px 24px;
-            border-radius: 25px;
-            font-size: 20px;
-            margin-top: 8px;
-        }
-
-        @media print {
-            @page {
-                margin: 0;
-                size: A4;
-            }
-            html, body { margin: 0 !important; padding: 0 !important; }
-            *, *::before, *::after {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-            .report-page, .report-page-flex {
-                margin: 0;
-                page-break-after: always;
-                background: white !important;
-            }
-            .navy-section { background: #121D73 !important; }
-            .bg-gradient { background: linear-gradient(180deg, rgba(21, 13, 184, 0.02) 0%, rgba(21, 13, 184, 0.06) 100%) !important; }
-        }
-    </style>
-</head>
-<body>
-
-    <!-- Page 1: Cover -->
-    <div class="report-page page-break">
-        <div style="width: 100%; height: 100%; position: relative; background: white; overflow: hidden">
-            <!-- Diagonal background - using CSS gradient instead of SVG for reliability -->
-            <div style="width: 1800px; height: 1800px; left: -300px; top: 250px; position: absolute; background: linear-gradient(135deg, #121D73 0%, #150DB8 100%); transform: rotate(-15deg); z-index: 1;"></div>
-
-            <div style="width: 628px; left: 48px; top: 66px; position: absolute; color: black; font-size: 160px; font-family: Inter; font-weight: 400; text-transform: uppercase; letter-spacing: 0.75px; word-wrap: break-word; z-index: 10;">MOULD</div>
-            <div style="width: 508.20px; left: 226.40px; top: 167px; position: absolute; color: #150DB8; font-size: 112px; font-family: Inter; font-weight: 400; text-transform: uppercase; letter-spacing: 0.51px; word-wrap: break-word; text-shadow: -5px 0px 8px rgba(0, 0, 0, 0.29); z-index: 10;">REPORT</div>
-            <div style="width: 259px; left: 28px; top: 312.50px; position: absolute; color: black; font-size: 19px; font-family: Inter; font-weight: 400; letter-spacing: 0.05px; word-wrap: break-word; z-index: 10;">ordered by: {{requested_by}}<br/>inspector: {{inspector_name}}<br/>date: {{inspection_date}}</div>
-            <div style="width: 172px; left: 27px; top: 415.50px; position: absolute; z-index: 10;"><span style="color: black; font-size: 17px; font-family: Inter; font-weight: 400; text-transform: uppercase; line-height: 20px; letter-spacing: 0.04px; word-wrap: break-word">directed to:<br/>{{attention_to}}<br/><br/><br/>property type:<br/>{{dwelling_type}}<br/><br/><br/></span><span style="color: black; font-size: 17px; font-family: Inter; font-weight: 400; text-transform: uppercase; line-height: 24px; letter-spacing: 0.04px; word-wrap: break-word">examined areas<br/>{{examined_areas_list}}<br/></span></div>
-
-            <!-- Cover photo placeholder -->
-            <div style="width: 486.20px; height: 363.79px; left: 273.98px; top: 418.92px; position: absolute; background: white; box-shadow: -16px 0px 57px rgba(0, 0, 0, 0.26); z-index: 2;"></div>
-            <div style="width: 468px; height: 350px; left: 283px; top: 426px; position: absolute; background: #e5e5e5; display: flex; align-items: center; justify-content: center; z-index: 3;">
-                {{cover_photo_html}}
-            </div>
-
-            <div style="width: 377.30px; left: 318.85px; top: 796.50px; position: absolute; color: white; font-size: 23px; font-family: Inter; font-weight: 400; text-transform: uppercase; letter-spacing: 0.07px; word-wrap: break-word; z-index: 10;">{{property_address}}</div>
-            <div style="width: 179px; left: 581px; top: 1014.50px; position: absolute; color: white; font-size: 16px; font-family: Inter; font-weight: 400; line-height: 23.90px; word-wrap: break-word; z-index: 10;">Restoring your spaces,<br/>protecting your health.</div>
-            <div style="width: 748.40px; left: 23.30px; top: 1089px; position: absolute; text-align: center; color: white; font-size: 14px; font-family: Inter; font-weight: 400; text-transform: uppercase; letter-spacing: 0.02px; word-wrap: break-word; z-index: 10;">1800 954 117 | mouldandrestoration.com.au | admin@mouldandrestoration.com.au</div>
-            <div style="width: 748.38px; height: 1px; left: 23.82px; top: 1076.29px; position: absolute; background: white; z-index: 10;"></div>
-        </div>
-    </div>
-
-    <!-- Page 2: Value Proposition - FLEXIBLE LAYOUT -->
-    <div class="report-page-flex page-break">
-        <div class="bg-gradient"></div>
-        <div class="content-wrapper">
-            <!-- Header with Logo -->
-            <div class="page-header">
-                <div>
-                    <div style="color: black; font-size: 70px; font-family: Inter; font-weight: 400; text-transform: uppercase; letter-spacing: 0.3px; line-height: 1;">VALUE</div>
-                    <div style="color: #150DB8; font-size: 67px; font-family: Inter; font-weight: 400; text-transform: uppercase; letter-spacing: 0.29px; line-height: 1;">PROPOSITION</div>
-                </div>
-                <div class="logo-box">MRC</div>
-            </div>
-
-            <!-- What We Found Section -->
-            <div class="content-section">
-                <div class="section-title">WHAT WE FOUND</div>
-                <div class="section-content">{{what_we_found_text}}</div>
-            </div>
-
-            <!-- What We're Going To Do Section -->
-            <div class="content-section">
-                <div class="section-title">WHAT WE'RE GOING TO DO</div>
-                <div class="section-content">{{what_we_will_do_text}}</div>
-            </div>
-
-            <!-- What You Get Section -->
-            <div class="content-section">
-                <div class="section-title">WHAT YOU GET</div>
-                <div class="section-content">{{what_you_get_text}}</div>
-            </div>
-
-            <!-- Investment Section -->
-            <div class="content-section" style="margin-top: 40px;">
-                <div class="section-title">INVESTMENT</div>
-                <div class="investment-pill">{{subtotal_ex_gst}} + GST</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Page 3: Outdoor Environment Analysis -->
-    <div class="report-page page-break">
-        <div style="width: 100%; height: 100%; position: relative; background: white; overflow: hidden">
-            <!-- Background shapes -->
-            <div style="width: 860px; height: 1080px; left: -39px; top: -7px; position: absolute; background: linear-gradient(180deg, rgba(21, 13, 184, 0.03) 0%, rgba(21, 13, 184, 0.05) 100%); z-index: 0;"></div>
-            <div style="width: 1520px; height: 800px; left: -155px; top: 480px; position: absolute; background: #121D73; transform: skewY(-8deg); z-index: 1;"></div>
-
-            <div style="width: 642.6px; left: 21.7px; top: 34px; position: absolute; color: black; font-size: 46px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.182px; word-wrap: break-word; z-index: 10;">OUTDOOR ENVIRONMENT</div>
-            <div style="width: 187.4px; left: 24.3px; top: 73px; position: absolute; color: #150DB8; font-size: 34px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.124px; word-wrap: break-word; z-index: 10;">ANALYSIS</div>
-
-            <div style="width: 190px; left: 62px; top: 262.5px; position: absolute; color: black; font-size: 23px; font-family: Inter; font-weight: 400; line-height: 20.8px; letter-spacing: 0.0682px; word-wrap: break-word; z-index: 10;">OUTDOOR<br/>TEMPERATURE</div>
-            <div style="width: 74.2px; left: 62.9px; top: 315.5px; position: absolute; color: black; font-size: 22px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; word-wrap: break-word; z-index: 10;">{{outdoor_temperature}}°C</div>
-
-            <!-- Photo 1 placeholder -->
-            <div style="width: 372px; height: 259px; left: 342px; top: 181px; position: absolute; background: #e5e5e5; border-radius: 15px; display: flex; align-items: center; justify-content: center; z-index: 5;">
-                {{outdoor_photo_1_html}}
-            </div>
-
-            <div style="width: 128px; left: 59px; top: 562px; position: absolute; color: black; font-size: 23px; font-family: Inter; font-weight: 400; line-height: 20.8px; letter-spacing: 0.0682px; word-wrap: break-word; z-index: 10;">OUTDOOR<br/>HUMIDITY</div>
-            <div style="width: 73.3px; left: 57.85px; top: 615px; position: absolute; color: black; font-size: 23px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; word-wrap: break-word; z-index: 10;">{{outdoor_humidity}}%</div>
-
-            <!-- Photo 2 placeholder -->
-            <div style="width: 372px; height: 259px; left: 342px; top: 466px; position: absolute; background: #e5e5e5; border-radius: 15px; display: flex; align-items: center; justify-content: center; z-index: 5;">
-                {{outdoor_photo_2_html}}
-            </div>
-
-            <div style="width: 143px; left: 59px; top: 846.5px; position: absolute; color: white; font-size: 23px; font-family: Inter; font-weight: 400; line-height: 20.8px; letter-spacing: 0.0682px; word-wrap: break-word; z-index: 10;">OUTDOOR<br/>DEW POINT</div>
-            <div style="width: 63.2px; left: 58.9px; top: 904.5px; position: absolute; color: white; font-size: 22px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; word-wrap: break-word; z-index: 10;">{{outdoor_dew_point}}°C</div>
-
-            <!-- Photo 3 placeholder -->
-            <div style="width: 370px; height: 257px; left: 343px; top: 752px; position: absolute; background: #e5e5e5; border-radius: 15px; display: flex; align-items: center; justify-content: center; z-index: 5;">
-                {{outdoor_photo_3_html}}
-            </div>
-
-            <!-- Logo -->
-            <div style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; background: #121D73; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; z-index: 10;">MRC</div>
-        </div>
-    </div>
-
-    <!-- Page 4: Areas Inspected (Dynamic - will be repeated per area) -->
-    {{areas_pages_html}}
-
-    <!-- Page 5: Problem Analysis & Recommendations - FLEXIBLE LAYOUT -->
-    <div class="report-page-flex page-break" style="padding: 0;">
-        <!-- Header section with gradient background -->
-        <div style="padding: 30px 40px 20px; background: linear-gradient(180deg, rgba(21, 13, 184, 0.03) 0%, rgba(21, 13, 184, 0.05) 100%);">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                    <div style="color: black; font-size: 57px; font-family: Inter; font-weight: 400; line-height: 1;">PROBLEM</div>
-                    <div style="color: #150DB8; font-size: 23px; font-family: Inter; font-weight: 400;">ANALYSIS & RECOMMENDATIONS</div>
-                </div>
-                <div style="width: 57px; height: 57px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #121D73; font-size: 12px; font-weight: bold;">MRC</div>
-            </div>
-        </div>
-
-        <!-- Main content with navy background -->
-        <div style="background: #121D73; color: white; padding: 30px 40px; min-height: 900px;">
-            <!-- What We Discovered -->
-            <div class="content-section">
-                <div style="font-size: 17px; font-weight: 400; margin-bottom: 8px;">WHAT WE DISCOVERED</div>
-                <div style="font-size: 14px; line-height: 20px;">{{problem_discovered}}</div>
-            </div>
-
-            <!-- Identified Causes -->
-            <div class="content-section">
-                <div style="font-size: 17px; font-weight: 400; margin-bottom: 8px;">IDENTIFIED CAUSES</div>
-                <div style="font-size: 14px; line-height: 20px;">{{cause_of_mould}}</div>
-            </div>
-
-            <!-- Contributing Factors -->
-            <div class="content-section">
-                <div style="font-size: 17px; font-weight: 400; margin-bottom: 8px;">CONTRIBUTING FACTORS</div>
-                <div style="font-size: 13px; line-height: 19px; white-space: pre-wrap;">{{contributing_factors}}</div>
-            </div>
-
-            <!-- Recommendations Header -->
-            <div style="font-size: 25px; font-weight: 400; margin-top: 30px; margin-bottom: 20px;">RECOMMENDATIONS</div>
-
-            <!-- Immediate Actions -->
-            <div class="content-section">
-                <div style="font-size: 16px; font-weight: 400; margin-bottom: 8px;">IMMEDIATE ACTIONS</div>
-                <div style="font-size: 14px; line-height: 20px; white-space: pre-wrap;">{{immediate_actions}}</div>
-            </div>
-
-            <!-- Long-Term Protection -->
-            <div class="content-section">
-                <div style="font-size: 16px; font-weight: 400; margin-bottom: 8px;">LONG-TERM PROTECTION</div>
-                <div style="font-size: 14px; line-height: 20px; white-space: pre-wrap;">{{long_term_protection}}</div>
-            </div>
-
-            <!-- What Success Looks Like -->
-            <div class="content-section">
-                <div style="font-size: 16px; font-weight: 400; margin-bottom: 8px;">WHAT SUCCESS LOOKS LIKE</div>
-                <div style="font-size: 14px; line-height: 20px;">All visible mould eliminated from treated surfaces. Airborne spore counts reduced to safe background levels. Property protected by 12-month warranty against mould recurrence in treated areas. Indoor air quality restored to healthy standards.</div>
-            </div>
-
-            <!-- Timeline -->
-            <div class="content-section">
-                <div style="font-size: 16px; font-weight: 400; margin-bottom: 8px;">TIMELINE</div>
-                <div style="font-size: 14px; line-height: 20px;">MRC treatment: 1 day onsite + 3 days air scrubber operation. Property re-occupancy: 2 hours after final sanitization phase.</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Page 6: Visual Mould Cleaning Estimate -->
-    <div class="report-page page-break">
-        <div style="width: 794px; height: 1123px; position: relative; background: white; overflow: hidden">
-            <!-- Background shapes -->
-            <div style="width: 850px; height: 1040px; left: -28px; top: -8px; position: absolute; background: linear-gradient(180deg, rgba(21, 13, 184, 0.02) 0%, rgba(21, 13, 184, 0.05) 100%); z-index: 0;"></div>
-            <div style="width: 818px; height: 390px; left: -12px; top: 827px; position: absolute; background: #121D73; z-index: 1;"></div>
-
-            <!-- Logo -->
-            <div style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; background: #121D73; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; z-index: 10;">MRC</div>
-
-            <div style="left: 37px; top: 32.5px; position: absolute; color: black; font-size: 40px; font-family: Inter; font-weight: 400; line-height: 40px; letter-spacing: 0.1519px; word-wrap: break-word; z-index: 5;">VISUAL MOULD</div>
-            <div style="left: 37px; top: 76.5px; position: absolute; color: #150DB8; font-size: 40px; font-family: Inter; font-weight: 400; line-height: 40px; letter-spacing: 0.1519px; word-wrap: break-word; z-index: 5;">CLEANING ESTIMATE</div>
-
-            <div style="left: 37px; top: 145px; position: absolute; color: #252525; font-size: 17px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0393px; word-wrap: break-word; z-index: 5;">OPTION 1: SURFACE TREATMENT ONLY</div>
-            <div style="left: 36.4px; top: 180px; position: absolute; color: #252525; font-size: 12px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.015px; word-wrap: break-word; z-index: 5;">TOTAL ESTIMATED COST OF OPTION 1</div>
-            <div style="width: 170.579px; height: 27.042px; left: 299.79px; top: 171.31px; position: absolute; background: #121D73; border-radius: 20px; z-index: 5;"></div>
-            <div style="left: 320.2px; top: 178.5px; position: absolute; color: white; font-size: 16px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0303px; word-wrap: break-word; z-index: 6;">{{total_inc_gst}}</div>
-
-            <div style="width: 622px; left: 37px; top: 214px; position: absolute; color: #252525; font-size: 14px; font-family: Inter; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">A. Eradication of visible mould from all impacted zones as detailed in the prior report.<br/><br/>B. Diminishment of airborne mould spores within the property through sanitisation.</div>
-
-            <div style="left: 37px; top: 340px; position: absolute; color: #252525; font-size: 17px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0393px; word-wrap: break-word; z-index: 5;">OPTION 2: COMPREHENSIVE TREATMENT</div>
-            <div style="left: 36.4px; top: 374px; position: absolute; color: #252525; font-size: 12px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.015px; word-wrap: break-word; z-index: 5;">TOTAL ESTIMATED COST OF OPTION 2</div>
-            <div style="width: 198.412px; height: 28.264px; left: 299.87px; top: 365px; position: absolute; background: #121D73; border-radius: 20px; z-index: 5;"></div>
-            <div style="left: 308.2px; top: 373.5px; position: absolute; color: white; font-size: 16px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0342px; word-wrap: break-word; z-index: 6;">Contact for quote</div>
-
-            <div style="width: 622px; left: 37px; top: 416px; position: absolute; color: #252525; font-size: 14px; font-family: Inter; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">A. Eradication of visible mould from all impacted zones as detailed in the prior report.<br/><br/>B. Removal of mould-affected materials and infrastructural components.<br/><br/>C. Diminishment of airborne mould spores within the property through sanitisation.<br/><br/>D. Proper Disposal and handling of removed mould-affected materials.</div>
-
-            <div style="left: 38px; top: 610px; position: absolute; color: #252525; font-size: 19px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0475px; word-wrap: break-word; z-index: 5;">EQUIPMENT COSTS</div>
-            <div style="width: 271px; left: 38px; top: 640px; position: absolute; color: #252525; font-size: 14px; font-family: Inter; font-weight: 400; line-height: 22px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">
-                Commercial dehumidifier: $132/day<br/>
-                Air Mover: $46/day<br/>
-                RCD Box: $5/day<br/>
-                Capped at <span style="text-decoration: underline;">3 days</span>
-            </div>
-
-            <div style="width: 309px; left: 450px; top: 610px; position: absolute; color: #CD0000; font-size: 14px; font-family: Inter; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">PLEASE NOTE: Mould & Restoration CO. specialises in the removal of these materials and does not provide replacement services. Clients are advised to arrange for replacement through other specialised services.</div>
-
-            <!-- Before/After section -->
-            <div style="width: 370px; height: 250px; left: 30px; top: 840px; position: absolute; background: rgba(255,255,255,0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center; z-index: 5;">
-                <span style="color: white; font-size: 18px;">BEFORE</span>
-            </div>
-            <div style="width: 370px; height: 250px; left: 410px; top: 840px; position: absolute; background: rgba(255,255,255,0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center; z-index: 5;">
-                <span style="color: white; font-size: 18px;">AFTER</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Page 7: Terms & Conditions -->
-    <div class="report-page page-break">
-        <div style="width: 794px; height: 1123px; position: relative; background: white; overflow: hidden">
-            <div style="width: 800px; height: 1145px; left: 0; top: 0; position: absolute; background: linear-gradient(180deg, rgba(21, 13, 184, 0.02) 0%, rgba(21, 13, 184, 0.05) 100%); z-index: 0;"></div>
-
-            <!-- Logo -->
-            <div style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; background: #121D73; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; z-index: 10;">MRC</div>
-
-            <div style="left: 37px; top: 39px; position: absolute; color: black; font-size: 56px; font-family: Inter; font-weight: 400; line-height: 56px; letter-spacing: 0.2309px; word-wrap: break-word; z-index: 5;">TERMS &</div>
-            <div style="left: 37px; top: 95px; position: absolute; color: #150DB8; font-size: 56px; font-family: Inter; font-weight: 400; line-height: 56px; letter-spacing: 0.2309px; word-wrap: break-word; z-index: 5;">CONDITIONS</div>
-
-            <div style="width: 687px; left: 39px; top: 211.5px; position: absolute; color: black; font-size: 17px; font-family: Inter; font-weight: 400; line-height: 26px; letter-spacing: 0.04px; word-wrap: break-word; z-index: 5;">The subsequent terms and conditions govern the provision of services by Mould & Restoration Co. By agreeing to and scheduling the services outlined in this report, you, herein referred to as the 'Client', are implicitly agreeing to the stipulated terms and conditions.</div>
-
-            <div style="left: 36.65px; top: 340px; position: absolute; color: #150DB8; font-size: 27px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0869px; text-decoration: underline; word-wrap: break-word; z-index: 5;">WARRANTY</div>
-
-            <div style="width: 689px; left: 39px; top: 385px; position: absolute; color: black; font-size: 17px; font-family: Inter; font-weight: 400; line-height: 26px; letter-spacing: 0.035px; word-wrap: break-word; z-index: 5;">Mould & Restoration Co. provides a 12-month warranty on all services rendered to eradicate mould from affected locations. The warranty holds under the subsequent circumstances:</div>
-
-            <div style="width: 707px; left: 40px; top: 490px; position: absolute; color: black; font-size: 16px; font-family: Inter; font-weight: 400; line-height: 26px; letter-spacing: 0.035px; word-wrap: break-word; z-index: 5;">
-                • The root cause of the mould issue has been addressed, and all the recommendations given in the report have been actioned.<br/><br/>
-                • No natural disasters or unforeseen events compromising the structure of the premises have occurred after our services.<br/><br/>
-                • The areas serviced have not undergone subsequent alterations or repairs.<br/><br/>
-                • Should there be any concerns regarding the work performed, the Client should notify us within 5 business days post service completion.<br/><br/>
-                • The provided invoice is settled in full within a maximum of 30 days from the invoice date.
-            </div>
-        </div>
-    </div>
-
-    <!-- Page 8: Terms & Conditions - Payment Terms -->
-    <div class="report-page page-break">
-        <div style="width: 794px; height: 1123px; position: relative; background: white; overflow: hidden">
-            <div style="width: 794px; height: 1124px; left: 0; top: 0; position: absolute; background: linear-gradient(180deg, rgba(21, 13, 184, 0.02) 0%, rgba(21, 13, 184, 0.05) 100%); z-index: 0;"></div>
-
-            <!-- Logo -->
-            <div style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; background: #121D73; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; z-index: 10;">MRC</div>
-
-            <div style="left: 37px; top: 39px; position: absolute; color: black; font-size: 56px; font-family: Inter; font-weight: 400; line-height: 56px; letter-spacing: 0.2309px; word-wrap: break-word; z-index: 5;">TERMS &</div>
-            <div style="left: 37px; top: 95px; position: absolute; color: #150DB8; font-size: 56px; font-family: Inter; font-weight: 400; line-height: 56px; letter-spacing: 0.2309px; word-wrap: break-word; z-index: 5;">CONDITIONS</div>
-
-            <div style="left: 36.6px; top: 204px; position: absolute; color: #150DB8; font-size: 28px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0918px; text-decoration: underline; word-wrap: break-word; z-index: 5;">PAYMENT TERMS</div>
-
-            <div style="width: 707px; left: 40px; top: 261.5px; position: absolute; color: black; font-size: 16px; font-family: Inter; font-weight: 400; line-height: 24px; letter-spacing: 0.035px; word-wrap: break-word; z-index: 5;">
-                Our invoicing procedures and charges are delineated in our Customer Relationship Agreement.<br/><br/>
-                Payments are to be made by the due date specified on the invoice. We accept payments in cash, visa, mastercard, and cheque.<br/><br/>
-                Any account unsettled for over 60 days will be reported to our credit reporting agency, potentially impacting your credit history for the next five years. Mould & Restoration Co. also reserves the prerogative to initiate legal proceedings for the recovery of any unpaid amounts.<br/><br/>
-                In the event of default, the Client will be responsible for covering all collection-related costs, including any legal and court fees should Mould & Restoration Co. pursue the Client for payment.
-            </div>
-
-            <div style="width: 347px; left: 48px; top: 550px; position: absolute; color: #E30000; font-size: 17px; font-family: Inter; font-weight: 400; line-height: 26px; letter-spacing: 0.04px; word-wrap: break-word; z-index: 5;">NOTE: Acceptance of the above terms and conditions is inferred upon the scheduling of services as detailed in the provided report.</div>
-        </div>
-    </div>
-
-    <!-- Page 9: Remember Us - Contact Information -->
-    <div class="report-page">
-        <div style="width: 794px; height: 1123px; position: relative; background: linear-gradient(135deg, #121D73 0%, #150DB8 50%, #0a0a0a 100%);">
-            <div style="width: 100%; left: 0; top: 70px; position: absolute; text-align: center; color: white; font-size: 59px; font-family: Inter; font-weight: 400; line-height: 65px; letter-spacing: 0.25px; word-wrap: break-word; z-index: 5;">REMEMBER US FOR</div>
-            <div style="width: 100%; left: 0; top: 140px; position: absolute; text-align: center; color: #7B73FF; font-size: 53px; font-family: Inter; font-weight: 400; line-height: 60px; letter-spacing: 0.22px; word-wrap: break-word; z-index: 5;">MOULD REMEDIATION</div>
-
-            <!-- Contact Info -->
-            <div style="position: absolute; left: 147px; top: 309px; z-index: 100; width: 600px;">
-                <div style="color: #FFFFFF; font-size: 23px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.069px; margin-bottom: 6px;">BUSINESS HOURS</div>
-                <div style="color: #FFFFFF; font-size: 19px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.054px;">MONDAY TO SUNDAY - 7AM TO 7PM</div>
-            </div>
-
-            <div style="position: absolute; left: 147px; top: 430px; z-index: 100; width: 600px;">
-                <div style="color: #FFFFFF; font-size: 23px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.069px; margin-bottom: 10px;">EMAIL</div>
-                <div style="color: #FFFFFF; font-size: 19px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.045px;">admin@mouldandrestoration.com.au</div>
-            </div>
-
-            <div style="position: absolute; left: 147px; top: 526px; z-index: 100; width: 600px;">
-                <div style="color: #FFFFFF; font-size: 23px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.069px; margin-bottom: 10px;">WEBSITE</div>
-                <div style="color: #FFFFFF; font-size: 19px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.045px;">mouldandrestoration.com.au</div>
-            </div>
-
-            <div style="position: absolute; left: 147px; top: 632px; z-index: 100; width: 600px;">
-                <div style="color: #FFFFFF; font-size: 23px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.069px; margin-bottom: 10px;">PHONE</div>
-                <div style="color: #FFFFFF; font-size: 19px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.045px;">1800 954 117</div>
-            </div>
-
-            <div style="position: absolute; right: 58px; bottom: 100px; color: white; font-size: 24px; font-family: Inter; font-weight: 400; line-height: 36px; text-align: right; z-index: 10;">
-                <div>Restoring your spaces,</div>
-                <div>protecting your health.</div>
-            </div>
-        </div>
-    </div>
-
-</body>
-</html>
-`
-
-    // Generate the populated HTML
-    const populatedHtml = generateReportHtml(inspection as Inspection, templateHtml, inspectorName)
-
-    // Calculate new version number
+    // ===== STEP 4: Fetch the HTML template from Storage =====
+    console.log('Fetching template from Storage...')
+    const templateResponse = await fetch(TEMPLATE_URL)
+
+    if (!templateResponse.ok) {
+      console.error(`Failed to fetch template: ${templateResponse.status}`)
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch PDF template from storage' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const templateHtml = await templateResponse.text()
+    console.log(`Template fetched: ${(templateHtml.length / 1024).toFixed(1)} KB`)
+
+    // ===== STEP 5: Populate the template =====
+    const populatedHtml = generateReportHtml(
+      inspection as Inspection,
+      templateHtml,
+      inspectorName,
+      subfloorData,
+      subfloorReadings,
+      subfloorPhotos
+    )
+
+    // ===== STEP 6: Save and return =====
     const newVersion = regenerate ? (inspection.pdf_version || 0) + 1 : (inspection.pdf_version || 1)
 
-    // If returnHtml is true, just return the HTML for client-side PDF generation
     if (returnHtml) {
-      // Update the inspection record
       await supabase
         .from('inspections')
         .update({
@@ -1268,19 +753,11 @@ Deno.serve(async (req) => {
       )
     }
 
-    // For server-side PDF generation, we'll convert HTML to PDF
-    // Using a simple approach: store the HTML and let client handle PDF conversion
-    // In production, you could integrate with services like:
-    // - Gotenberg (self-hosted)
-    // - DocRaptor (API)
-    // - Browserless (API)
-
-    // Generate a unique filename
+    // Store populated HTML to inspection-reports bucket
     const timestamp = Date.now()
     const filename = `inspection-${inspectionId}-v${newVersion}-${timestamp}.html`
 
-    // Upload HTML to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('inspection-reports')
       .upload(filename, populatedHtml, {
         contentType: 'text/html',
@@ -1295,14 +772,13 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get public URL
     const { data: urlData } = supabase.storage
       .from('inspection-reports')
       .getPublicUrl(filename)
 
     const reportUrl = urlData.publicUrl
 
-    // Update the inspection record
+    // Update inspection record
     const { error: updateError } = await supabase
       .from('inspections')
       .update({

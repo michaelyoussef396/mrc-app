@@ -84,7 +84,7 @@ export default function AdminSearchBar({ compact = false, onClose }: AdminSearch
     setIsOpen(false);
     setQuery('');
     onClose?.();
-    navigate(`/lead/${leadId}`);
+    navigate(`/leads/${leadId}`);
   };
 
   const handleViewAll = () => {
