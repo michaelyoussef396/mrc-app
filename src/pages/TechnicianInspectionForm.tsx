@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import TechnicianBottomNav from '@/components/technician/TechnicianBottomNav';
 import { calculateDewPoint } from '@/lib/inspectionUtils';
 import {
   calculateCostEstimate,
@@ -107,6 +106,7 @@ interface LeadData {
   property_lat: number | null;
   property_lng: number | null;
   issue_description: string | null;
+  internal_notes: string | null;
 }
 
 interface BookingData {
@@ -355,6 +355,18 @@ function CustomerInfoCard({ lead, booking, isExpanded, onToggle }: CustomerInfoC
               </div>
             </div>
           )}
+
+          {lead.internal_notes && (
+            <div className="flex items-start p-4">
+              <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 mr-4 shrink-0">
+                <span className="material-symbols-outlined text-xl">sticky_note_2</span>
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-[#86868b] mb-0.5">Internal Notes</p>
+                <p className="font-medium text-[#1d1d1f] text-sm">{lead.internal_notes}</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>
@@ -572,10 +584,10 @@ interface FooterProps {
 function Footer({ onSave, onPrevious, onNext, isSaving, showPrevious, isLastSection }: FooterProps) {
   return (
     <footer
-      className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-xl border-t border-gray-200 z-40"
+      className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 z-40"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}
     >
-      <div className="flex flex-col gap-3 max-w-md mx-auto w-full pb-16">
+      <div className="flex flex-col gap-3 max-w-md mx-auto w-full">
         <button
           onClick={onSave}
           disabled={isSaving}
@@ -2437,7 +2449,8 @@ export default function TechnicianInspectionForm() {
             property_address_postcode,
             property_lat,
             property_lng,
-            issue_description
+            issue_description,
+            internal_notes
           `
           )
           .eq('id', leadId)
@@ -3322,7 +3335,7 @@ export default function TechnicianInspectionForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f7f8] pb-[180px]">
+    <div className="min-h-screen bg-[#f5f7f8] pb-[160px]">
       <Header
         onBack={handleBack}
         onSave={handleSave}
@@ -3360,8 +3373,6 @@ export default function TechnicianInspectionForm() {
         showPrevious={currentSection > 1}
         isLastSection={currentSection === TOTAL_SECTIONS}
       />
-
-      <TechnicianBottomNav />
     </div>
   );
 }
