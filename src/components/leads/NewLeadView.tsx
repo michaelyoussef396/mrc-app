@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,12 +21,12 @@ import {
   Calendar,
   Clock,
   Globe,
-  Navigation,
-  Loader2,
-  Users,
-  MoreVertical,
   Archive,
   ExternalLink,
+  StickyNote,
+  CheckCircle2,
+  User,
+  ClipboardList,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
@@ -36,48 +35,19 @@ import type { Database } from "@/integrations/supabase/types";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 
-interface TriageResult {
-  technician_id: string;
-  technician_name: string;
-  travel_time_minutes: number | null;
-  distance_km: number | null;
-  source: "google_api" | "haversine";
-}
-
-interface TriageResponse {
-  lead_id: string;
-  lead_address: string;
-  ranked_technicians: TriageResult[];
-  recommended_technician_id: string | null;
-}
-
 interface NewLeadViewProps {
   lead: Lead;
   onStatusChange: (status: LeadStatus) => Promise<void>;
   onRefetch: () => void;
+  technicianName?: string;
 }
 
-export function NewLeadView({ lead, onStatusChange, onRefetch }: NewLeadViewProps) {
+export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }: NewLeadViewProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [archiving, setArchiving] = useState(false);
-
-  // Triage query — stays inside this component
-  const { data: triage, isLoading: triageLoading } = useQuery<TriageResponse>({
-    queryKey: ["triage", lead.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke(
-        "calculate-travel-time",
-        { body: { action: "triage_lead", lead_id: lead.id } }
-      );
-      if (error) throw error;
-      return data as TriageResponse;
-    },
-    enabled: lead.status === "new_lead",
-    staleTime: 5 * 60 * 1000,
-  });
 
   const fullAddress = [
     lead.property_address_street,
@@ -141,6 +111,27 @@ export function NewLeadView({ lead, onStatusChange, onRefetch }: NewLeadViewProp
       ? lead.lead_source_other
       : lead.lead_source || "Website Form";
 
+  const isScheduled = lead.status === "inspection_waiting";
+
+  // Format scheduled date/time for display
+  const scheduledDateDisplay = lead.inspection_scheduled_date
+    ? new Date(lead.inspection_scheduled_date + "T00:00:00").toLocaleDateString("en-AU", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
+
+  const scheduledTimeDisplay = lead.scheduled_time
+    ? (() => {
+        const [h, m] = lead.scheduled_time.split(":").map(Number);
+        const period = h >= 12 ? "PM" : "AM";
+        const hour = h % 12 || 12;
+        return `${hour}:${m.toString().padStart(2, "0")} ${period}`;
+      })()
+    : null;
+
   return (
     <>
       {/* ───── Header ───── */}
@@ -158,21 +149,43 @@ export function NewLeadView({ lead, onStatusChange, onRefetch }: NewLeadViewProp
 
             {/* Desktop action buttons */}
             <div className="hidden md:flex items-center gap-3">
-              <Button
-                variant="outline"
-                className="border-slate-300 text-slate-600 hover:bg-slate-50"
-                onClick={() => setShowArchiveDialog(true)}
-              >
-                <Archive className="h-4 w-4 mr-2" />
-                Archive Lead
-              </Button>
-              <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                onClick={() => setShowScheduleModal(true)}
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Schedule Inspection
-              </Button>
+              {isScheduled ? (
+                <>
+                  <Button
+                    variant="outline"
+                    className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                    onClick={() => setShowScheduleModal(true)}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Reschedule
+                  </Button>
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                    onClick={() => navigate(`/inspection/${lead.id}`)}
+                  >
+                    <ClipboardList className="h-4 w-4 mr-2" />
+                    Start Inspection
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                    onClick={() => setShowArchiveDialog(true)}
+                  >
+                    <Archive className="h-4 w-4 mr-2" />
+                    Archive Lead
+                  </Button>
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                    onClick={() => setShowScheduleModal(true)}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Schedule Inspection
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
@@ -182,9 +195,17 @@ export function NewLeadView({ lead, onStatusChange, onRefetch }: NewLeadViewProp
               {lead.full_name}
             </h1>
             <div className="flex items-center gap-3 mt-1.5">
-              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50">
-                New Lead Received
-              </Badge>
+              {isScheduled ? (
+                <Badge className="bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-50">
+                  {technicianName
+                    ? `Waiting on ${technicianName} — ${scheduledDateDisplay ? new Date(lead.inspection_scheduled_date + "T00:00:00").toLocaleDateString("en-AU", { month: "short", day: "numeric" }) : ""}${scheduledTimeDisplay ? `, ${scheduledTimeDisplay}` : ""}`
+                    : "Inspection Scheduled"}
+                </Badge>
+              ) : (
+                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50">
+                  New Lead Received
+                </Badge>
+              )}
               <span className="text-xs font-mono text-muted-foreground">
                 {leadIdShort}
               </span>
@@ -343,12 +364,6 @@ export function NewLeadView({ lead, onStatusChange, onRefetch }: NewLeadViewProp
                       <p className="text-sm font-medium text-foreground">
                         {fullAddress}
                       </p>
-                      {triage?.ranked_technicians?.[0]?.distance_km != null && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Distance:{" "}
-                          {triage.ranked_technicians[0].distance_km} km from HQ
-                        </p>
-                      )}
                     </div>
                   </div>
 
@@ -386,114 +401,86 @@ export function NewLeadView({ lead, onStatusChange, onRefetch }: NewLeadViewProp
                   <p className="text-xs text-muted-foreground">
                     Assigned to:{" "}
                     <span className="font-medium text-foreground">
-                      {lead.assigned_to ? "Assigned" : "Unassigned"}
+                      {technicianName || (lead.assigned_to ? "Assigned" : "Unassigned")}
                     </span>
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Smart Assignment Card */}
-            <div className="bg-white rounded-xl border shadow-sm overflow-hidden border-l-4 border-l-blue-500">
-              <div className="px-5 py-3 border-b bg-slate-50/50 flex items-center justify-between">
+            {/* Internal Notes Card */}
+            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+              <div className="px-5 py-3 border-b bg-slate-50/50">
                 <div className="flex items-center gap-2">
-                  <Navigation className="h-4 w-4 text-blue-600" />
-                  <h2 className="text-sm font-semibold text-foreground">
-                    Smart Assignment
-                  </h2>
+                  <StickyNote className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Internal Notes
+                  </span>
                 </div>
-                {triage?.recommended_technician_id && (
-                  <Badge className="bg-blue-600 text-white hover:bg-blue-600 text-xs">
-                    AI Recommended
-                  </Badge>
-                )}
               </div>
               <div className="p-5">
-                {triageLoading ? (
-                  <div className="flex items-center gap-3 py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                    <span className="text-sm text-muted-foreground">
-                      Calculating technician distances...
-                    </span>
-                  </div>
-                ) : triage?.ranked_technicians &&
-                  triage.ranked_technicians.length > 0 ? (
-                  <div className="space-y-2">
-                    {triage.ranked_technicians.map((tech, idx) => {
-                      const isRecommended =
-                        tech.technician_id ===
-                        triage.recommended_technician_id;
-                      return (
-                        <div
-                          key={tech.technician_id}
-                          className={`flex items-center justify-between p-3 rounded-lg ${
-                            isRecommended
-                              ? "bg-blue-50 border-2 border-blue-500"
-                              : "bg-slate-50 border border-slate-200"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-semibold ${
-                                isRecommended ? "bg-blue-600" : "bg-slate-400"
-                              }`}
-                            >
-                              {idx + 1}
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-foreground">
-                                {tech.technician_name}
-                                {isRecommended && (
-                                  <span className="ml-2 text-xs font-medium text-blue-600">
-                                    Best Match
-                                  </span>
-                                )}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {tech.source === "google_api"
-                                  ? "Google Maps"
-                                  : "Estimate"}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            {tech.travel_time_minutes != null ? (
-                              <>
-                                <p
-                                  className={`text-base font-bold ${
-                                    isRecommended
-                                      ? "text-blue-600"
-                                      : "text-foreground"
-                                  }`}
-                                >
-                                  {tech.travel_time_minutes} min
-                                </p>
-                                {tech.distance_km != null && (
-                                  <p className="text-xs text-muted-foreground">
-                                    {tech.distance_km} km
-                                  </p>
-                                )}
-                              </>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">
-                                Unknown
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3 py-4">
-                    <Users className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      No technician data available
-                    </span>
-                  </div>
-                )}
+                <div className="bg-slate-50 rounded-lg p-5 border">
+                  <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">
+                    {lead.internal_notes || "No internal notes added"}
+                  </p>
+                </div>
               </div>
             </div>
+
+            {/* Scheduled Inspection Card - only for inspection_waiting */}
+            {isScheduled && (
+              <div className="bg-white rounded-xl border border-green-200 shadow-sm overflow-hidden">
+                <div className="px-5 py-3 border-b bg-green-50/50">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                    <span className="text-xs font-medium uppercase tracking-wider text-green-700">
+                      Scheduled Inspection
+                    </span>
+                  </div>
+                </div>
+                <div className="p-5 space-y-4">
+                  {scheduledDateDisplay && (
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                        <Calendar className="h-4 w-4 text-green-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">
+                          {scheduledDateDisplay}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Inspection Date</p>
+                      </div>
+                    </div>
+                  )}
+                  {scheduledTimeDisplay && (
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                        <Clock className="h-4 w-4 text-green-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">
+                          {scheduledTimeDisplay}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Inspection Time</p>
+                      </div>
+                    </div>
+                  )}
+                  {technicianName && (
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                        <User className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">
+                          {technicianName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Assigned Technician</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -501,21 +488,43 @@ export function NewLeadView({ lead, onStatusChange, onRefetch }: NewLeadViewProp
       {/* ───── Mobile Fixed Bottom Bar ───── */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg md:hidden z-50 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            className="flex-1 h-12 border-slate-300 text-slate-600"
-            onClick={() => setShowArchiveDialog(true)}
-          >
-            <Archive className="h-4 w-4 mr-2" />
-            Archive
-          </Button>
-          <Button
-            className="flex-[2] h-12 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-            onClick={() => setShowScheduleModal(true)}
-          >
-            <Calendar className="h-4 w-4 mr-2" />
-            Schedule Inspection
-          </Button>
+          {isScheduled ? (
+            <>
+              <Button
+                variant="outline"
+                className="flex-1 h-12 border-slate-300 text-slate-600"
+                onClick={() => setShowScheduleModal(true)}
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Reschedule
+              </Button>
+              <Button
+                className="flex-[2] h-12 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                onClick={() => navigate(`/inspection/${lead.id}`)}
+              >
+                <ClipboardList className="h-4 w-4 mr-2" />
+                Start Inspection
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                className="flex-1 h-12 border-slate-300 text-slate-600"
+                onClick={() => setShowArchiveDialog(true)}
+              >
+                <Archive className="h-4 w-4 mr-2" />
+                Archive
+              </Button>
+              <Button
+                className="flex-[2] h-12 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                onClick={() => setShowScheduleModal(true)}
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Schedule Inspection
+              </Button>
+            </>
+          )}
         </div>
       </div>
 

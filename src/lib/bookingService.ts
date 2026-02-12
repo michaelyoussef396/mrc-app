@@ -14,6 +14,7 @@ export interface BookInspectionParams {
   inspectionTime: string;      // HH:MM (24hr)
   technicianId: string;
   internalNotes?: string;
+  technicianName?: string;
 }
 
 export interface BookInspectionResult {
@@ -80,6 +81,7 @@ export async function bookInspection(
     inspectionTime,
     technicianId,
     internalNotes,
+    technicianName,
   } = params;
 
   console.log('[BookingService] bookInspection called with:', {
@@ -147,6 +149,7 @@ export async function bookInspection(
         inspection_scheduled_date: inspectionDate,
         scheduled_time: inspectionTime,
         assigned_to: technicianId,
+        internal_notes: internalNotes || null,
       })
       .eq('id', leadId);
 
@@ -162,7 +165,7 @@ export async function bookInspection(
       lead_id: leadId,
       activity_type: 'inspection_booked',
       title: 'Inspection Booked',
-      description: `Inspection scheduled for ${formatDateForDisplay(inspectionDate)} at ${formatTimeForDisplay(inspectionTime)}`,
+      description: `Scheduled to ${technicianName || 'technician'} for ${formatDateForDisplay(inspectionDate)} at ${formatTimeForDisplay(inspectionTime)}`,
     });
 
     if (activityError) {

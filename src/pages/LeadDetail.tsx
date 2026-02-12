@@ -46,6 +46,7 @@ import {
   DollarSign,
   Sparkles,
   ClipboardList,
+  StickyNote,
 } from "lucide-react";
 import { NewLeadView } from "@/components/leads/NewLeadView";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
@@ -163,6 +164,22 @@ export default function LeadDetail() {
     },
   });
 
+  // Fetch technician profile for assigned_to name
+  const { data: techProfile } = useQuery({
+    queryKey: ["profile", lead?.assigned_to],
+    queryFn: async () => {
+      if (!lead?.assigned_to) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", lead.assigned_to)
+        .single();
+      if (error) return null;
+      return data;
+    },
+    enabled: !!lead?.assigned_to,
+  });
+
   // Loading state
   if (isLoading) {
     return (
@@ -227,14 +244,15 @@ export default function LeadDetail() {
     navigate("/leads");
   };
 
-  // Render dedicated view for new leads
-  if (lead.status === "new_lead") {
+  // Render dedicated view for new leads and inspection_waiting
+  if (lead.status === "new_lead" || lead.status === "inspection_waiting") {
     return (
       <div className="min-h-screen bg-gray-50">
         <NewLeadView
           lead={lead}
           onStatusChange={handleChangeStatus}
           onRefetch={() => refetch()}
+          technicianName={techProfile?.full_name || undefined}
         />
 
         {/* Reuse existing delete + status dialogs */}
@@ -732,6 +750,25 @@ export default function LeadDetail() {
                 <Calendar className="h-4 w-4 mr-2" />
                 Reschedule Inspection
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Internal Notes - shown when present */}
+        {lead.internal_notes && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <StickyNote className="h-4 w-4" />
+                Internal Notes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="p-3 bg-slate-50 rounded-lg border">
+                <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">
+                  {lead.internal_notes}
+                </p>
+              </div>
             </CardContent>
           </Card>
         )}

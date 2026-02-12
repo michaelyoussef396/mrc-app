@@ -219,12 +219,22 @@ export function useScheduleCalendar({
         const techColor = getTechnicianColorByName(techName);
         const techInitial = getTechnicianInitialByName(techName);
 
+        // Extract client name: prefer lead data, fall back to parsing booking title
+        const clientName = lead?.full_name
+          || extractNameFromTitle(booking.title)
+          || 'Unknown';
+
+        // Extract suburb: prefer lead data, fall back to parsing location_address
+        const suburb = lead?.property_address_suburb
+          || extractSuburbFromAddress(booking.location_address)
+          || '';
+
         return {
           id: booking.id,
           leadId: lead?.id || booking.lead_id || '',
-          title: booking.title || `${booking.event_type} - ${lead?.full_name || 'Unknown'}`,
-          clientName: lead?.full_name || 'Unknown',
-          suburb: lead?.property_address_suburb || '',
+          title: booking.title || `${booking.event_type} - ${clientName}`,
+          clientName,
+          suburb,
           postcode: lead?.property_address_postcode || '',
           address: booking.location_address || '',
           startDatetime: new Date(booking.start_datetime),
@@ -269,6 +279,32 @@ function getTechnicianInitialByName(name: string): string {
   if (nameLower.includes('clayton')) return 'C';
   if (nameLower.includes('glen')) return 'G';
   return name?.[0]?.toUpperCase() || '?';
+}
+
+/**
+ * Extract client name from booking title.
+ * Titles follow pattern: "Inspection - Name" or "Mould Inspection - Name"
+ */
+function extractNameFromTitle(title: string | null): string | null {
+  if (!title) return null;
+  const dashIdx = title.indexOf(' - ');
+  if (dashIdx === -1) return null;
+  const name = title.substring(dashIdx + 3).trim();
+  return name || null;
+}
+
+/**
+ * Extract suburb from a full address string.
+ * Addresses follow pattern: "42 Chapel Street, South Yarra VIC 3141"
+ * Returns the suburb portion (e.g. "South Yarra").
+ */
+function extractSuburbFromAddress(address: string | null): string | null {
+  if (!address) return null;
+  const parts = address.split(',');
+  if (parts.length < 2) return null;
+  const afterComma = parts[1].trim();
+  const match = afterComma.match(/^(.+?)\s+(?:VIC|NSW|QLD|SA|WA|TAS|NT|ACT)\s+\d{4}$/i);
+  return match ? match[1].trim() : afterComma;
 }
 
 /**

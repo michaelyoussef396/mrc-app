@@ -7,7 +7,7 @@ import Logo from '@/components/Logo';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentLeads } from '@/components/dashboard/RecentLeads';
-import { useDashboardStats } from '@/hooks/useDashboardStats';
+import { useDashboardStats, useRecentActivity } from '@/hooks/useDashboardStats';
 import { NotificationBell } from '@/components/layout/NotificationBell';
 
 export default function Dashboard() {
@@ -62,6 +62,8 @@ export default function Dashboard() {
     monthlyRevenue,
     isLoading: statsLoading,
   } = useDashboardStats();
+
+  const { data: recentActivities = [], isLoading: activitiesLoading } = useRecentActivity(8);
 
   const handleLeadCreated = () => {
     // Close dialog - React Query will auto-refetch
@@ -459,6 +461,53 @@ export default function Dashboard() {
                   <p className="action-description">View analytics</p>
                 </div>
               </button>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="mb-6">
+            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+              <div className="px-5 py-3 border-b bg-slate-50/50 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-900">Recent Activity</h2>
+              </div>
+              <div className="p-4">
+                {activitiesLoading ? (
+                  <div className="space-y-3">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 p-3 rounded-lg border">
+                        <div className="h-8 w-8 rounded-full bg-gray-100 animate-pulse" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 w-40 bg-gray-100 animate-pulse rounded" />
+                          <div className="h-3 w-28 bg-gray-100 animate-pulse rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : recentActivities.length > 0 ? (
+                  <div className="space-y-1">
+                    {recentActivities.map((activity) => (
+                      <div
+                        key={activity.id}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors"
+                      >
+                        <span className="text-lg flex-shrink-0">{activity.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {activity.title}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {activity.subtitle}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-6">
+                    No recent activity
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 

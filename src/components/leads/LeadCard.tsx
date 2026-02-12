@@ -26,6 +26,7 @@ export interface TransformedLead {
   // For inspection_waiting status
   scheduled_dates?: string[];
   scheduled_time?: string;
+  inspection_scheduled_date?: string | null;
   access_instructions?: string;
   assigned_technician?: string;
   // For not_landed status
@@ -116,7 +117,21 @@ export default function LeadCard({
   onViewHistory,
 }: LeadCardProps) {
   const badgeStyle = statusBadgeStyles[lead.status] || 'bg-slate-100 text-slate-600 border-slate-200';
-  const statusLabel = statusLabels[lead.status] || lead.status;
+
+  // Dynamic status label — show scheduled date/time for inspection_waiting
+  let statusLabel = statusLabels[lead.status] || lead.status;
+  if (lead.status === 'inspection_waiting' && lead.inspection_scheduled_date) {
+    const date = new Date(lead.inspection_scheduled_date + 'T00:00:00');
+    const dateStr = date.toLocaleDateString('en-AU', { month: 'short', day: 'numeric' });
+    if (lead.scheduled_time) {
+      const [h, m] = lead.scheduled_time.split(':').map(Number);
+      const period = h >= 12 ? 'PM' : 'AM';
+      const hour = h % 12 || 12;
+      statusLabel = `Scheduled — ${dateStr}, ${hour}:${m.toString().padStart(2, '0')} ${period}`;
+    } else {
+      statusLabel = `Scheduled — ${dateStr}`;
+    }
+  }
 
   const handleArchive = () => {
     onArchive(lead.id);
@@ -145,23 +160,9 @@ export default function LeadCard({
 
       case 'inspection_waiting':
         return (
-          <div className="bg-orange-50 rounded-lg p-3">
-            <div className="flex items-center gap-2 text-orange-700">
-              <span className="material-symbols-outlined text-lg">event</span>
-              <span className="text-sm font-medium">
-                {lead.scheduled_dates?.[0]
-                  ? formatDate(lead.scheduled_dates[0])
-                  : 'Date pending'}
-                {lead.scheduled_time && ` at ${lead.scheduled_time}`}
-              </span>
-            </div>
-            {lead.assigned_technician && (
-              <div className="flex items-center gap-2 text-orange-600 mt-1">
-                <span className="material-symbols-outlined text-lg">person</span>
-                <span className="text-sm">{lead.assigned_technician}</span>
-              </div>
-            )}
-          </div>
+          <p className="text-sm text-slate-500 line-clamp-2">
+            {lead.issueDescription || 'No issue description provided'}
+          </p>
         );
 
       case 'approve_inspection_report':
@@ -237,17 +238,11 @@ export default function LeadCard({
 
       case 'inspection_waiting':
         return (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onStartInspection(lead.id);
-            }}
-            className="flex-1 h-10 px-4 rounded-lg bg-emerald-600 text-white text-sm font-medium
-              hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
-          >
-            <span className="material-symbols-outlined text-lg">play_arrow</span>
-            Start Inspection
-          </button>
+          <div className="flex-1 h-10 px-4 rounded-lg bg-slate-100 text-slate-500 text-sm font-medium
+            flex items-center justify-center gap-2">
+            <span className="material-symbols-outlined text-lg">hourglass_top</span>
+            Awaiting on {lead.assigned_technician || 'Technician'}
+          </div>
         );
 
       case 'approve_inspection_report':

@@ -1160,6 +1160,7 @@ export type Database = {
           id: string
           inspection_completed_date: string | null
           inspection_scheduled_date: string | null
+          internal_notes: string | null
           invoice_amount: number | null
           invoice_sent_date: string | null
           issue_description: string | null
@@ -1199,6 +1200,7 @@ export type Database = {
           id?: string
           inspection_completed_date?: string | null
           inspection_scheduled_date?: string | null
+          internal_notes?: string | null
           invoice_amount?: number | null
           invoice_sent_date?: string | null
           issue_description?: string | null
@@ -1238,6 +1240,7 @@ export type Database = {
           id?: string
           inspection_completed_date?: string | null
           inspection_scheduled_date?: string | null
+          internal_notes?: string | null
           invoice_amount?: number | null
           invoice_sent_date?: string | null
           issue_description?: string | null

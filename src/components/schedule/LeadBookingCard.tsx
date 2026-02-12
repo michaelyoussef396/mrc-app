@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { LeadToSchedule } from '@/hooks/useLeadsToSchedule';
 import { bookInspection, TIME_SLOTS, formatTimeForDisplay } from '@/lib/bookingService';
+import { useBookingValidation, DateRecommendation } from '@/hooks/useBookingValidation';
 
 // ============================================================================
 // TYPES
@@ -22,6 +23,16 @@ interface LeadBookingCardProps {
   onToggle: () => void;
 }
 
+// Medal icons for recommendation ranking
+const MEDAL_ICONS = ['🥇', '🥈', '🥉'] as const;
+
+const RATING_LABELS: Record<string, string> = {
+  best: 'High Availability',
+  good: 'Good Availability',
+  available: 'Available',
+  unknown: 'Available',
+};
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -34,6 +45,7 @@ export function LeadBookingCard({
 }: LeadBookingCardProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { getRecommendedDates } = useBookingValidation();
 
   // Form state
   const [selectedDate, setSelectedDate] = useState<string>('');
@@ -41,6 +53,11 @@ export function LeadBookingCard({
   const [selectedTechnician, setSelectedTechnician] = useState<string>('');
   const [internalNotes, setInternalNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Recommendation state
+  const [recommendations, setRecommendations] = useState<DateRecommendation[]>([]);
+  const [recsLoading, setRecsLoading] = useState(false);
+  const [selectedRecDate, setSelectedRecDate] = useState<string>('');
 
   // Get minimum date (today)
   const today = new Date().toISOString().split('T')[0];
@@ -50,30 +67,69 @@ export function LeadBookingCard({
     navigate(`/leads/${lead.id}`);
   };
 
+  const handleTechnicianSelect = async (techId: string) => {
+    setSelectedTechnician(techId);
+    setSelectedDate('');
+    setSelectedTime('');
+    setRecommendations([]);
+    setSelectedRecDate('');
+
+    if (!techId || !lead.propertyAddress) return;
+
+    setRecsLoading(true);
+    try {
+      const result = await getRecommendedDates({
+        technicianId: techId,
+        destinationAddress: lead.propertyAddress,
+        destinationSuburb: lead.suburb,
+        daysAhead: 14,
+      });
+
+      if (result?.recommendations) {
+        setRecommendations(result.recommendations.slice(0, 3));
+      }
+    } catch {
+      // Silently fail — user can still pick manually
+    } finally {
+      setRecsLoading(false);
+    }
+  };
+
+  const handleRecommendationClick = (rec: DateRecommendation) => {
+    setSelectedDate(rec.date);
+    setSelectedRecDate(rec.date);
+    // Auto-fill the first available time slot
+    setSelectedTime(rec.available_slots?.[0] || '');
+  };
+
+  const handleDateChange = (date: string) => {
+    setSelectedDate(date);
+    setSelectedRecDate('');
+    setSelectedTime('');
+  };
+
+  // Get available time slots — filter if a recommended date is selected
+  const getTimeSlots = () => {
+    if (selectedRecDate) {
+      const rec = recommendations.find((r) => r.date === selectedRecDate);
+      if (rec?.available_slots?.length) {
+        return TIME_SLOTS.filter((slot) => rec.available_slots.includes(slot.time));
+      }
+    }
+    return TIME_SLOTS;
+  };
+
   const handleBookInspection = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log('[LeadBookingCard] Book Inspection clicked');
 
     if (!selectedDate || !selectedTime || !selectedTechnician) {
-      console.log('[LeadBookingCard] Validation failed:', { selectedDate, selectedTime, selectedTechnician });
       toast.error('Please fill in all required fields');
       return;
     }
 
-    console.log('[LeadBookingCard] Form data:', {
-      leadId: lead.id,
-      customerName: lead.fullName,
-      propertyAddress: lead.propertyAddress,
-      inspectionDate: selectedDate,
-      inspectionTime: selectedTime,
-      technicianId: selectedTechnician,
-      internalNotes: internalNotes || undefined,
-    });
-
     setIsSubmitting(true);
 
     try {
-      console.log('[LeadBookingCard] Calling bookInspection...');
       const result = await bookInspection(
         {
           leadId: lead.id,
@@ -83,27 +139,24 @@ export function LeadBookingCard({
           inspectionTime: selectedTime,
           technicianId: selectedTechnician,
           internalNotes: internalNotes || undefined,
+          technicianName: technicians.find(t => t.id === selectedTechnician)?.name,
         },
         queryClient
       );
 
-      console.log('[LeadBookingCard] bookInspection result:', result);
-
       if (result.success) {
         toast.success('Inspection booked successfully!');
-        // Reset form
         setSelectedDate('');
         setSelectedTime('');
         setSelectedTechnician('');
         setInternalNotes('');
-        // Collapse the card after successful booking
+        setRecommendations([]);
+        setSelectedRecDate('');
         onToggle();
       } else {
-        console.error('[LeadBookingCard] Booking failed:', result.error);
         toast.error(result.error || 'Failed to book inspection');
       }
-    } catch (error) {
-      console.error('[LeadBookingCard] Booking error:', error);
+    } catch {
       toast.error('An unexpected error occurred');
     } finally {
       setIsSubmitting(false);
@@ -111,6 +164,7 @@ export function LeadBookingCard({
   };
 
   const canBook = selectedDate && selectedTime && selectedTechnician && !isSubmitting;
+  const availableSlots = getTimeSlots();
 
   return (
     <div
@@ -129,15 +183,12 @@ export function LeadBookingCard({
         onClick={onToggle}
       >
         <div className="flex-1 min-w-0 pr-2">
-          {/* Client Name - Full name visible */}
           <h4
             className="text-sm font-bold"
             style={{ color: '#1d1d1f' }}
           >
             {lead.fullName}
           </h4>
-
-          {/* Suburb + Property Type + Time Ago */}
           <p
             className="text-xs mt-1"
             style={{ color: '#617589' }}
@@ -149,8 +200,6 @@ export function LeadBookingCard({
             )}
           </p>
         </div>
-
-        {/* Expand/Collapse Icon */}
         <button
           className="w-8 h-8 flex items-center justify-center rounded-full transition-colors flex-shrink-0"
           style={{ backgroundColor: isExpanded ? '#007AFF' : '#f0f2f4' }}
@@ -170,7 +219,7 @@ export function LeadBookingCard({
           className="p-4 space-y-4"
           style={{ backgroundColor: '#fafafa' }}
         >
-          {/* Notes from Enquiry - More prominent */}
+          {/* 1. Notes from Enquiry */}
           <div className="space-y-1.5">
             <label
               className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1"
@@ -207,66 +256,7 @@ export function LeadBookingCard({
             </div>
           </div>
 
-          {/* Date Picker - Full width */}
-          <div className="space-y-1.5">
-            <label
-              className="text-xs font-semibold uppercase tracking-wide"
-              style={{ color: '#617589' }}
-            >
-              Inspection Date
-            </label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              min={today}
-              className="w-full h-12 px-4 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[#007AFF] outline-none transition-all"
-              style={{
-                backgroundColor: 'white',
-                border: selectedDate ? '2px solid #007AFF' : '1px solid #e5e5e5',
-                color: '#1d1d1f',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-
-          {/* Time Slot Dropdown - Full width with custom styling */}
-          <div className="space-y-1.5">
-            <label
-              className="text-xs font-semibold uppercase tracking-wide"
-              style={{ color: '#617589' }}
-            >
-              Time Slot
-            </label>
-            <div className="relative">
-              <select
-                value={selectedTime}
-                onChange={(e) => setSelectedTime(e.target.value)}
-                className="w-full h-12 px-4 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[#007AFF] outline-none transition-all appearance-none cursor-pointer pr-10"
-                style={{
-                  backgroundColor: 'white',
-                  border: selectedTime ? '2px solid #007AFF' : '1px solid #e5e5e5',
-                  color: selectedTime ? '#1d1d1f' : '#86868b',
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <option value="">Select time slot...</option>
-                {TIME_SLOTS.map((slot) => (
-                  <option key={slot.time} value={slot.time}>
-                    {slot.label}
-                  </option>
-                ))}
-              </select>
-              <span
-                className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                style={{ color: '#617589', fontSize: '20px' }}
-              >
-                schedule
-              </span>
-            </div>
-          </div>
-
-          {/* Technician Selector - Dropdown style */}
+          {/* 2. Assign Technician (moved up) */}
           <div className="space-y-1.5">
             <label
               className="text-xs font-semibold uppercase tracking-wide"
@@ -283,7 +273,7 @@ export function LeadBookingCard({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSelectedTechnician(tech.id);
+                      handleTechnicianSelect(tech.id);
                     }}
                     className="h-12 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2"
                     style={{
@@ -308,7 +298,152 @@ export function LeadBookingCard({
             </div>
           </div>
 
-          {/* Internal Notes */}
+          {/* 3. Recommended Days (shown after technician is selected) */}
+          {selectedTechnician && (
+            <div className="space-y-1.5">
+              <label
+                className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1"
+                style={{ color: '#617589' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
+                  auto_awesome
+                </span>
+                Recommended Days
+              </label>
+
+              {recsLoading ? (
+                <div
+                  className="p-4 rounded-lg flex items-center justify-center gap-2"
+                  style={{ backgroundColor: 'white', border: '1px solid #e5e5e5' }}
+                >
+                  <div className="w-4 h-4 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm" style={{ color: '#617589' }}>
+                    Finding best days...
+                  </span>
+                </div>
+              ) : recommendations.length > 0 ? (
+                <div className="space-y-2">
+                  {recommendations.map((rec, idx) => {
+                    const isSelected = selectedRecDate === rec.date;
+                    const medal = MEDAL_ICONS[idx] || '';
+                    const travelText = rec.travel_from_home_minutes != null
+                      ? `${rec.travel_from_home_minutes} min travel`
+                      : '';
+                    const slotsText = `${rec.available_slots.length} slot${rec.available_slots.length !== 1 ? 's' : ''}`;
+                    const bestTime = rec.available_slots?.[0]
+                      ? formatTimeForDisplay(rec.available_slots[0])
+                      : null;
+
+                    return (
+                      <button
+                        key={rec.date}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRecommendationClick(rec);
+                        }}
+                        className="w-full p-3 rounded-lg text-left transition-all"
+                        style={{
+                          backgroundColor: isSelected ? '#007AFF' : 'white',
+                          border: isSelected ? '2px solid #007AFF' : '1px solid #e5e5e5',
+                          color: isSelected ? 'white' : '#1d1d1f',
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold">
+                            {medal} {rec.day_name} {rec.display_date}
+                            {bestTime && (
+                              <span className="font-normal"> at {bestTime}</span>
+                            )}
+                          </span>
+                          <span
+                            className="text-xs font-medium px-2 py-0.5 rounded-full"
+                            style={{
+                              backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : '#f0f2f4',
+                              color: isSelected ? 'white' : '#617589',
+                            }}
+                          >
+                            {RATING_LABELS[rec.rating] || 'Available'}
+                          </span>
+                        </div>
+                        <p
+                          className="text-xs mt-1"
+                          style={{ color: isSelected ? 'rgba(255,255,255,0.8)' : '#86868b' }}
+                        >
+                          {[slotsText, travelText].filter(Boolean).join(' · ')}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs" style={{ color: '#86868b' }}>
+                  No recommendations available — pick any date below.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* 4. Inspection Date */}
+          <div className="space-y-1.5">
+            <label
+              className="text-xs font-semibold uppercase tracking-wide"
+              style={{ color: '#617589' }}
+            >
+              Inspection Date
+            </label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => handleDateChange(e.target.value)}
+              min={today}
+              className="w-full h-12 px-4 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[#007AFF] outline-none transition-all"
+              style={{
+                backgroundColor: 'white',
+                border: selectedDate ? '2px solid #007AFF' : '1px solid #e5e5e5',
+                color: '#1d1d1f',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+
+          {/* 5. Time Slot (filtered when a recommended date is selected) */}
+          <div className="space-y-1.5">
+            <label
+              className="text-xs font-semibold uppercase tracking-wide"
+              style={{ color: '#617589' }}
+            >
+              Time Slot
+            </label>
+            <div className="relative">
+              <select
+                value={selectedTime}
+                onChange={(e) => setSelectedTime(e.target.value)}
+                className="w-full h-12 px-4 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[#007AFF] outline-none transition-all appearance-none cursor-pointer pr-10"
+                style={{
+                  backgroundColor: 'white',
+                  border: selectedTime ? '2px solid #007AFF' : '1px solid #e5e5e5',
+                  color: selectedTime ? '#1d1d1f' : '#86868b',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option value="">Select time slot...</option>
+                {availableSlots.map((slot) => (
+                  <option key={slot.time} value={slot.time}>
+                    {slot.label}
+                  </option>
+                ))}
+              </select>
+              <span
+                className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ color: '#617589', fontSize: '20px' }}
+              >
+                schedule
+              </span>
+            </div>
+          </div>
+
+          {/* 6. Internal Notes */}
           <div className="space-y-1.5">
             <label
               className="text-xs font-semibold uppercase tracking-wide"
@@ -330,7 +465,7 @@ export function LeadBookingCard({
             />
           </div>
 
-          {/* Action Buttons */}
+          {/* 7. Action Buttons */}
           <div className="flex gap-2 pt-1">
             <button
               onClick={handleViewLead}

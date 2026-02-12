@@ -583,7 +583,7 @@ export default function AdminDashboard() {
                               {tech.fullName}
                             </span>
                             <span className="text-xs flex-shrink-0 ml-2" style={{ color: '#86868b' }}>
-                              {tech.inspectionsThisWeek} inspections
+                              {tech.inspectionsThisWeek} lead{tech.inspectionsThisWeek !== 1 ? 's' : ''}
                             </span>
                           </div>
                           <div

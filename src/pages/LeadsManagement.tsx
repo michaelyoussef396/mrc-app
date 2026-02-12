@@ -261,6 +261,8 @@ const LeadsManagement = () => {
           estimatedValue: lead.quoted_amount ? parseFloat(lead.quoted_amount.toString()) : null,
           issueDescription: lead.issue_description || lead.notes || '',
           leadNumber: lead.lead_number,
+          inspection_scheduled_date: lead.inspection_scheduled_date,
+          scheduled_time: lead.scheduled_time,
         }));
         setLeads(transformedLeads);
       }

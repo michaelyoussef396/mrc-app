@@ -250,11 +250,12 @@ export function BookInspectionModal({
       if (leadError) throw leadError;
 
       // Create activity log
+      const techName = selectedTechnician?.full_name || selectedTechnician?.first_name || 'technician';
       await supabase.from("activities").insert({
         lead_id: leadId,
         activity_type: "inspection_booked",
         title: "Inspection Booked",
-        description: `Inspection scheduled for ${formData.inspectionDate} at ${formData.inspectionTime}`,
+        description: `Scheduled to ${techName} for ${formData.inspectionDate} at ${formData.inspectionTime}`,
       });
 
       toast.success("Inspection booked successfully!");
@@ -264,7 +265,6 @@ export function BookInspectionModal({
       queryClient.invalidateQueries({ queryKey: ["unscheduled-leads"] });
 
       // Fire-and-forget notifications
-      const techName = selectedTechnician?.full_name || selectedTechnician?.first_name || '';
       const displayDate = new Date(formData.inspectionDate + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       const displayTime = formatTimeDisplay(formData.inspectionTime);
 

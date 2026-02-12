@@ -203,6 +203,17 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
       console.warn('[useTechnicianStats] Bookings fetch error:', bookingsError);
     }
 
+    // Step 6b: Fetch all active leads assigned to technicians
+    const { data: assignedLeads, error: assignedLeadsError } = await supabase
+      .from('leads')
+      .select('assigned_to')
+      .in('assigned_to', techIds)
+      .not('status', 'in', '("closed","not_landed")');
+
+    if (assignedLeadsError) {
+      console.warn('[useTechnicianStats] Assigned leads fetch error:', assignedLeadsError);
+    }
+
     // Step 7: Calculate stats for each technician
     const statsMap: Record<string, { inspectionsThisWeek: number; revenueThisMonth: number; upcomingCount: number }> = {};
 
@@ -210,17 +221,17 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
       statsMap[id] = { inspectionsThisWeek: 0, revenueThisMonth: 0, upcomingCount: 0 };
     });
 
-    // Count inspections this week and revenue this month
+    // Count active assigned leads per technician (shown as "leads" in Team Workload)
+    (assignedLeads || []).forEach((lead: any) => {
+      if (lead.assigned_to && statsMap[lead.assigned_to]) {
+        statsMap[lead.assigned_to].inspectionsThisWeek++;
+      }
+    });
+
+    // Revenue this month from completed inspections
     (inspectionStats || []).forEach((insp: any) => {
       if (insp.inspector_id && statsMap[insp.inspector_id]) {
         const inspDate = new Date(insp.inspection_date);
-
-        // Inspections this week
-        if (inspDate >= weekStart) {
-          statsMap[insp.inspector_id].inspectionsThisWeek++;
-        }
-
-        // Revenue this month
         if (inspDate >= monthStart && insp.total_inc_gst) {
           statsMap[insp.inspector_id].revenueThisMonth += parseFloat(insp.total_inc_gst) || 0;
         }
