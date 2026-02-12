@@ -12,6 +12,7 @@ import { GlobalLoader, ProgressBar, PageTransition } from "@/components/loading"
 import { SessionMonitor } from "@/components/debug/SessionMonitor";
 import { useSessionRefresh } from "@/lib/hooks/useSessionRefresh";
 import { Loader2 } from "lucide-react";
+import { Analytics } from "@vercel/analytics/react";
 
 // Eagerly loaded pages (login flow - needed immediately)
 import Login from "./pages/Login";
@@ -368,6 +369,7 @@ const App = () => {
           </AuthProvider>
           {/* Session Monitor - only visible in development */}
           <SessionMonitor />
+          <Analytics />
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
