@@ -290,66 +290,41 @@ function formatFormDataForPrompt(formData: InspectionFormData): string {
   return lines.join('\n')
 }
 
-// Models to try in order (fallback if rate-limited)
-const FREE_MODELS = [
-  'meta-llama/llama-3.3-70b-instruct:free',
-  'mistralai/mistral-small-3.1-24b-instruct:free',
-  'google/gemma-3-27b-it:free',
-  'qwen/qwen3-coder:free',
-]
-
-// Helper: call OpenRouter with automatic model fallback
+// Helper: call OpenRouter API
 async function callOpenRouter(apiKey: string, prompt: string, maxTokens: number): Promise<string> {
-  let lastError = ''
-
-  for (const model of FREE_MODELS) {
-    console.log(`Trying model: ${model}...`)
-    const response = await fetch(
-      'https://openrouter.ai/api/v1/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': 'https://mrc-app.vercel.app',
-          'X-Title': 'MRC Inspection App'
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.7,
-          max_tokens: maxTokens,
-          top_p: 0.95
-        })
-      }
-    )
-
-    if (response.status === 429) {
-      console.warn(`Model ${model} rate-limited, trying next...`)
-      lastError = `All models rate-limited`
-      continue
+  const response = await fetch(
+    'https://openrouter.ai/api/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://mrc-app.vercel.app',
+        'X-Title': 'MRC Inspection App'
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.0-flash-001',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: maxTokens,
+        top_p: 0.95
+      })
     }
+  )
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`OpenRouter API error with ${model}:`, response.status, errorText)
-      lastError = `${model}: ${response.status}`
-      continue
-    }
-
-    const result = await response.json()
-    const text = result?.choices?.[0]?.message?.content
-    if (!text) {
-      console.error(`No content from ${model}:`, JSON.stringify(result).slice(0, 500))
-      lastError = `${model}: empty response`
-      continue
-    }
-
-    console.log(`Success with model: ${model}`)
-    return text.trim()
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('OpenRouter API error:', response.status, errorText)
+    throw new Error(`OpenRouter API error: ${response.status} - ${errorText.slice(0, 200)}`)
   }
 
-  throw new Error(`OpenRouter API failed: ${lastError}`)
+  const result = await response.json()
+  const text = result?.choices?.[0]?.message?.content
+  if (!text) {
+    console.error('OpenRouter response had no content:', JSON.stringify(result).slice(0, 500))
+    throw new Error('No text in OpenRouter response')
+  }
+  return text.trim()
 }
 
 // Helper: extract JSON from AI response that may include markdown fencing or preamble
