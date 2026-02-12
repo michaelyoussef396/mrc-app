@@ -286,50 +286,75 @@ function buildUserPrompt(formData: InspectionFormData): string {
 }
 
 // ============================================================================
-// CALL OPENROUTER API
+// CALL OPENROUTER API (with model fallback)
 // ============================================================================
+const MODELS = [
+  'google/gemini-2.0-flash-001',
+  'google/gemini-2.5-flash-preview',
+  'google/gemini-2.0-flash-thinking-exp:free',
+]
+
 async function callOpenRouter(
   apiKey: string,
   systemPrompt: string,
   userPrompt: string,
   maxTokens: number
 ): Promise<string> {
-  const response = await fetch(
-    'https://openrouter.ai/api/v1/chat/completions',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://mrc-app.vercel.app',
-        'X-Title': 'MRC Inspection Report Generator'
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-001',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.7,
-        max_tokens: maxTokens,
-        top_p: 0.95
-      })
+  const errors: string[] = []
+
+  for (const model of MODELS) {
+    try {
+      console.log(`Trying model: ${model}`)
+      const response = await fetch(
+        'https://openrouter.ai/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'HTTP-Referer': 'https://mrc-app.vercel.app',
+            'X-Title': 'MRC Inspection Report Generator'
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: maxTokens,
+            top_p: 0.95
+          })
+        }
+      )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        const isRateLimit = response.status === 429 || errorText.toLowerCase().includes('rate')
+        console.warn(`Model ${model} failed (${response.status}): ${errorText.slice(0, 150)}`)
+        errors.push(`${model}: ${response.status}`)
+        if (isRateLimit) continue // try next model
+        throw new Error(`OpenRouter API failed: ${errorText.slice(0, 200)}`)
+      }
+
+      const result = await response.json()
+      const text = result?.choices?.[0]?.message?.content
+      if (!text) {
+        console.warn(`Model ${model} returned empty content`)
+        errors.push(`${model}: empty response`)
+        continue
+      }
+      console.log(`Success with model: ${model}`)
+      return text.trim()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.startsWith('OpenRouter API failed:')) throw err
+      console.warn(`Model ${model} error: ${msg}`)
+      errors.push(`${model}: ${msg}`)
     }
-  )
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('OpenRouter API error:', response.status, errorText)
-    throw new Error(`OpenRouter API error: ${response.status} - ${errorText.slice(0, 200)}`)
   }
 
-  const result = await response.json()
-  const text = result?.choices?.[0]?.message?.content
-  if (!text) {
-    console.error('OpenRouter response had no content:', JSON.stringify(result).slice(0, 500))
-    throw new Error('No text in OpenRouter response')
-  }
-  return text.trim()
+  throw new Error(`All models rate-limited: ${errors.join(' | ')}`)
 }
 
 // Helper: extract JSON from AI response that may include markdown fencing or preamble
