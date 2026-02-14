@@ -133,13 +133,9 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
     setError(null);
 
     try {
-      const today = getTodayDate();
-      const weekAgo = getDateOffset(-7);
-
       console.log('[TechnicianJobs] Fetching for user:', user.id);
-      console.log('[TechnicianJobs] Today:', today);
 
-      // Fetch all bookings for this technician (upcoming + recently completed)
+      // Fetch bookings for this technician where lead is still awaiting inspection
       const { data, error: fetchError } = await supabase
         .from('calendar_bookings')
         .select(`
@@ -153,7 +149,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
           travel_time_minutes,
           lead_id,
           inspection_id,
-          lead:leads (
+          lead:leads!inner (
             id,
             full_name,
             phone,
@@ -163,11 +159,12 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
             property_address_state,
             property_address_postcode,
             issue_description,
-            access_instructions
+            access_instructions,
+            status
           )
         `)
         .eq('assigned_to', user.id)
-        .or(`start_datetime.gte.${weekAgo}T00:00:00,status.eq.completed`)
+        .eq('lead.status', 'inspection_waiting')
         .order('start_datetime', { ascending: true });
 
       if (fetchError) {
@@ -177,7 +174,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
 
       console.log('[TechnicianJobs] Raw data:', data?.length, 'bookings');
 
-      // Transform the data
+      // Transform the data — only leads in inspection_waiting are returned
       const transformedJobs: TechnicianJob[] = (data || []).map((booking: any) => {
         const lead = booking.lead;
         const address = lead?.property_address_street || booking.location_address || '';

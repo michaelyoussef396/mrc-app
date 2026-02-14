@@ -621,7 +621,7 @@ export async function fetchCompleteInspectionData(
     }
   })
 
-  // 5. Build subfloor
+  // 5. Build subfloor — photos may link via subfloor_id OR photo_type='subfloor'
   const subfloor: SubfloorWithDetails | null = subfloorData
     ? {
         id: subfloorData.id,
@@ -637,7 +637,7 @@ export async function fetchCompleteInspectionData(
           moisture_percentage: r.moisture_percentage || 0,
           location: r.location || '',
         })),
-        photos: photosWithUrls.filter(p => p.subfloor_id === subfloorData.id),
+        photos: photosWithUrls.filter(p => p.subfloor_id === subfloorData.id || (p.photo_type === 'subfloor' && !p.subfloor_id)),
       }
     : null
 

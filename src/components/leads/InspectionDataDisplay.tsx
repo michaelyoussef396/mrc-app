@@ -347,7 +347,7 @@ function SubfloorSection({ subfloor }: { subfloor: SubfloorWithDetails | null })
 
 function OutdoorSection({ inspection: i, photos }: { inspection: Record<string, any>; photos: PhotoWithUrl[] }) {
   const outdoorPhotos = photos.filter(p =>
-    ['frontDoor', 'frontHouse', 'mailbox', 'street', 'direction'].includes(p.photo_type)
+    ['outdoor', 'frontDoor', 'frontHouse', 'mailbox', 'street', 'direction'].includes(p.photo_type)
   );
 
   return (

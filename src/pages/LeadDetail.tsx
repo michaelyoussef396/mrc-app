@@ -182,12 +182,20 @@ export default function LeadDetail() {
     enabled: !!lead?.assigned_to,
   });
 
-  // Fetch complete inspection data for AI review display
+  // Fetch complete inspection data for post-inspection statuses
   const [inspectionDisplayData, setInspectionDisplayData] = useState<CompleteInspectionData | null>(null);
   const [inspectionDisplayLoading, setInspectionDisplayLoading] = useState(false);
 
+  const POST_INSPECTION_STATUSES = [
+    'inspection_ai_summary',
+    'approve_inspection_report',
+    'inspection_email_approval',
+    'closed',
+    'not_landed',
+  ];
+
   React.useEffect(() => {
-    if (lead && lead.status === 'inspection_ai_summary' && id) {
+    if (lead && POST_INSPECTION_STATUSES.includes(lead.status) && id) {
       setInspectionDisplayLoading(true);
       fetchCompleteInspectionData(id)
         .then(data => setInspectionDisplayData(data))
@@ -478,24 +486,36 @@ export default function LeadDetail() {
     }
   };
 
-  // Calculate inspection completion percentage
+  // Calculate inspection completion percentage (9 sections)
   const getInspectionProgress = () => {
-    if (!inspection) return { completed: 0, total: 10, percentage: 0 };
+    if (!inspection) return { completed: 0, total: 9, percentage: 0 };
+
+    // If lead is past inspection_waiting, technician completed the form = 100%
+    const completedStatuses = [
+      'inspection_ai_summary',
+      'approve_inspection_report',
+      'inspection_email_approval',
+      'closed',
+      'not_landed',
+    ];
+    if (lead && completedStatuses.includes(lead.status)) {
+      return { completed: 9, total: 9, percentage: 100 };
+    }
 
     let completed = 0;
-    const total = 10;
+    const total = 9;
 
     // Check each section using actual DB column names
-    if (inspection.inspection_date) completed++;                                     // S1: Basic Info
-    if (inspection.dwelling_type) completed++;                                       // S2: Property Details
-    if (inspection.outdoor_temperature) completed++;                                 // S5: Outdoor
-    if (inspection.waste_disposal_required !== null && inspection.waste_disposal_required !== undefined) completed++; // S6: Waste Disposal
-    if (inspection.hepa_vac !== null && inspection.hepa_vac !== undefined) completed++; // S7: Equipment
-    if (inspection.no_demolition_hours) completed++;                                 // S9: Cost Estimate (hours)
-    if (inspection.cause_of_mould) completed++;                                      // S8: Job Summary
-    if (inspection.total_inc_gst) completed++;                                       // S9: Cost Estimate (total)
-    if (inspection.ai_summary_text) completed++;                                     // S10: AI Summary
-    if (inspection.pdf_generated_at) completed++;                                    // Report generated
+    if (inspection.inspection_date) completed++;                                                                      // S1: Basic Info
+    if (inspection.dwelling_type) completed++;                                                                        // S2: Property Details
+    // S3: Area Inspection — if later sections are filled, areas were done (sequential form)
+    if (inspection.outdoor_temperature || inspection.cause_of_mould) completed++;                                     // S3: Areas (proxy)
+    if (inspection.subfloor_required !== null && inspection.subfloor_required !== undefined) completed++;              // S4: Subfloor
+    if (inspection.outdoor_temperature) completed++;                                                                  // S5: Outdoor
+    if (inspection.waste_disposal_required !== null && inspection.waste_disposal_required !== undefined) completed++;  // S6: Waste Disposal
+    if (inspection.hepa_vac !== null && inspection.hepa_vac !== undefined) completed++;                                // S7: Work Procedure
+    if (inspection.cause_of_mould) completed++;                                                                       // S8: Job Summary
+    if (inspection.no_demolition_hours || inspection.selected_job_type) completed++;                                  // S9: Cost Estimate
 
     return {
       completed,
@@ -849,7 +869,7 @@ export default function LeadDetail() {
         )}
 
         {/* Quote/Cost Estimate - if available */}
-        {inspection?.estimated_total && (
+        {inspection?.total_inc_gst > 0 && (
           <Card className="border-green-200 bg-green-50">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2 text-green-800">
@@ -861,49 +881,65 @@ export default function LeadDetail() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-green-700">Subtotal (ex GST)</span>
                 <span className="text-sm font-medium text-green-900">
-                  {formatCurrency(inspection.estimated_subtotal)}
+                  {formatCurrency(inspection.subtotal_ex_gst)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-green-700">GST (10%)</span>
                 <span className="text-sm font-medium text-green-900">
-                  {formatCurrency(inspection.estimated_gst)}
+                  {formatCurrency(inspection.gst_amount)}
                 </span>
               </div>
               <div className="flex items-center justify-between pt-2 border-t border-green-200">
                 <span className="text-base font-semibold text-green-800">Total (inc GST)</span>
                 <span className="text-lg font-bold text-green-900">
-                  {formatCurrency(inspection.estimated_total)}
+                  {formatCurrency(inspection.total_inc_gst)}
                 </span>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* AI Summary - if generated */}
-        {inspection?.ai_summary_text && (
+        {/* AI Summary - if generated (new 4-column format) */}
+        {(inspection?.what_we_found_text || inspection?.problem_analysis_content || inspection?.what_we_will_do_text || inspection?.demolition_content) && (
           <Card className="border-purple-200 bg-purple-50">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2 text-purple-800">
                 <Sparkles className="h-4 w-4" />
-                AI Job Summary
+                AI Generated Summary
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-purple-900 whitespace-pre-wrap">
-                {inspection.ai_summary_text}
-              </p>
-              {inspection.ai_summary_generated_at && (
-                <p className="text-xs text-purple-600 mt-3">
-                  Generated {formatDate(inspection.ai_summary_generated_at)}
-                </p>
+            <CardContent className="space-y-4">
+              {inspection.what_we_found_text && (
+                <div>
+                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">What We Found</p>
+                  <p className="text-sm text-purple-900 whitespace-pre-wrap">{inspection.what_we_found_text}</p>
+                </div>
+              )}
+              {inspection.problem_analysis_content && (
+                <div>
+                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">Problem Analysis</p>
+                  <p className="text-sm text-purple-900 whitespace-pre-wrap">{inspection.problem_analysis_content}</p>
+                </div>
+              )}
+              {inspection.what_we_will_do_text && (
+                <div>
+                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">What We Will Do</p>
+                  <p className="text-sm text-purple-900 whitespace-pre-wrap">{inspection.what_we_will_do_text}</p>
+                </div>
+              )}
+              {inspection.demolition_content && (
+                <div>
+                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">Demolition Details</p>
+                  <p className="text-sm text-purple-900 whitespace-pre-wrap">{inspection.demolition_content}</p>
+                </div>
               )}
             </CardContent>
           </Card>
         )}
 
-        {/* Complete Inspection Data Display — shown for inspection_ai_summary */}
-        {lead.status === 'inspection_ai_summary' && (
+        {/* Complete Inspection Data Display — shown for all post-inspection statuses */}
+        {POST_INSPECTION_STATUSES.includes(lead.status) && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 pt-2">
               <ClipboardList className="h-5 w-5 text-violet-600" />
