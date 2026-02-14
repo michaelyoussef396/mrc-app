@@ -286,16 +286,20 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
   const weekEnd = getDateOffset(7);
   const monthEnd = getDateOffset(30);
 
+  // Overdue = scheduled in the past but not completed/cancelled
+  const isOverdue = (job: TechnicianJob) =>
+    job.date < today && job.status !== 'completed' && job.status !== 'cancelled';
+
   const filteredJobs = allJobs.filter((job) => {
     switch (activeTab) {
       case 'today':
-        return job.date === today && job.status !== 'completed';
+        return (job.date === today && job.status !== 'completed') || isOverdue(job);
       case 'this_week':
-        return job.date >= today && job.date <= weekEnd && job.status !== 'completed';
+        return (job.date >= today && job.date <= weekEnd && job.status !== 'completed') || isOverdue(job);
       case 'this_month':
-        return job.date >= today && job.date <= monthEnd && job.status !== 'completed';
+        return (job.date >= today && job.date <= monthEnd && job.status !== 'completed') || isOverdue(job);
       case 'upcoming':
-        return job.date >= today && job.status !== 'completed';
+        return (job.date >= today && job.status !== 'completed') || isOverdue(job);
       case 'completed':
         return job.status === 'completed';
       default:
@@ -304,11 +308,12 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
   });
 
   // Calculate counts for each tab
+  const overdueCount = allJobs.filter(isOverdue).length;
   const counts = {
-    today: allJobs.filter((j) => j.date === today && j.status !== 'completed').length,
-    thisWeek: allJobs.filter((j) => j.date >= today && j.date <= weekEnd && j.status !== 'completed').length,
-    thisMonth: allJobs.filter((j) => j.date >= today && j.date <= monthEnd && j.status !== 'completed').length,
-    upcoming: allJobs.filter((j) => j.date >= today && j.status !== 'completed').length,
+    today: allJobs.filter((j) => j.date === today && j.status !== 'completed').length + overdueCount,
+    thisWeek: allJobs.filter((j) => j.date >= today && j.date <= weekEnd && j.status !== 'completed').length + overdueCount,
+    thisMonth: allJobs.filter((j) => j.date >= today && j.date <= monthEnd && j.status !== 'completed').length + overdueCount,
+    upcoming: allJobs.filter((j) => j.date >= today && j.status !== 'completed').length + overdueCount,
     completed: allJobs.filter((j) => j.status === 'completed').length,
   };
 
