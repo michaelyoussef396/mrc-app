@@ -856,14 +856,25 @@ export default function LeadDetail() {
               <p className="text-xs text-gray-500">
                 {progress.completed} of {progress.total} sections completed
               </p>
-              <Button
-                variant="outline"
-                className="w-full h-12"
-                onClick={() => navigate(`/inspection/${lead.id}`)}
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                {progress.percentage === 100 ? "View Inspection" : "Continue Inspection"}
-              </Button>
+              {progress.percentage === 100 && POST_INSPECTION_STATUSES.includes(lead.status) ? (
+                <Button
+                  variant="outline"
+                  className="w-full h-12"
+                  onClick={() => document.getElementById('inspection-data')?.scrollIntoView({ behavior: 'smooth' })}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Inspection
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="w-full h-12"
+                  onClick={() => navigate(`/inspection/${lead.id}`)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Continue Inspection
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
@@ -940,7 +951,7 @@ export default function LeadDetail() {
 
         {/* Complete Inspection Data Display — shown for all post-inspection statuses */}
         {POST_INSPECTION_STATUSES.includes(lead.status) && (
-          <div className="space-y-4">
+          <div id="inspection-data" className="space-y-4">
             <div className="flex items-center gap-2 pt-2">
               <ClipboardList className="h-5 w-5 text-violet-600" />
               <h2 className="text-lg font-bold text-slate-900">Inspection Data</h2>
