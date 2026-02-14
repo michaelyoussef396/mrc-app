@@ -49,7 +49,9 @@ import {
   StickyNote,
 } from "lucide-react";
 import { NewLeadView } from "@/components/leads/NewLeadView";
+import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
+import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/api/inspections";
 import { STATUS_FLOW, LeadStatus } from "@/lib/statusFlow";
 import { toast } from "sonner";
 
@@ -179,6 +181,20 @@ export default function LeadDetail() {
     },
     enabled: !!lead?.assigned_to,
   });
+
+  // Fetch complete inspection data for AI review display
+  const [inspectionDisplayData, setInspectionDisplayData] = useState<CompleteInspectionData | null>(null);
+  const [inspectionDisplayLoading, setInspectionDisplayLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (lead && lead.status === 'inspection_ai_summary' && id) {
+      setInspectionDisplayLoading(true);
+      fetchCompleteInspectionData(id)
+        .then(data => setInspectionDisplayData(data))
+        .catch(err => console.error('[LeadDetail] Failed to load inspection display data:', err))
+        .finally(() => setInspectionDisplayLoading(false));
+    }
+  }, [lead?.status, id]);
 
   // Loading state
   if (isLoading) {
@@ -335,6 +351,30 @@ export default function LeadDetail() {
             <FileText className="h-5 w-5 mr-2" />
             {inspection ? "Continue Inspection" : "Start Inspection"}
           </Button>
+        );
+
+      case "inspection_ai_summary":
+        return (
+          <div className="space-y-3">
+            <Button
+              size="lg"
+              className="w-full h-14 text-base bg-violet-600 hover:bg-violet-700"
+              onClick={() => navigate(`/admin/inspection-ai-review/${lead.id}`)}
+            >
+              <Sparkles className="h-5 w-5 mr-2" />
+              Review AI Summary
+            </Button>
+            {inspection && (
+              <Button
+                variant="outline"
+                className="w-full h-12"
+                onClick={() => navigate(`/inspection/${lead.id}`)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Inspection Data
+              </Button>
+            )}
+          </div>
         );
 
       case "approve_inspection_report":
@@ -860,6 +900,33 @@ export default function LeadDetail() {
               )}
             </CardContent>
           </Card>
+        )}
+
+        {/* Complete Inspection Data Display — shown for inspection_ai_summary */}
+        {lead.status === 'inspection_ai_summary' && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 pt-2">
+              <ClipboardList className="h-5 w-5 text-violet-600" />
+              <h2 className="text-lg font-bold text-slate-900">Inspection Data</h2>
+            </div>
+
+            {inspectionDisplayLoading ? (
+              <Card>
+                <CardContent className="py-8 flex flex-col items-center gap-3">
+                  <Loader2 className="h-6 w-6 animate-spin text-violet-600" />
+                  <p className="text-sm text-slate-500">Loading inspection data...</p>
+                </CardContent>
+              </Card>
+            ) : inspectionDisplayData ? (
+              <InspectionDataDisplay data={inspectionDisplayData} />
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center">
+                  <p className="text-sm text-slate-400">No inspection data available</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         )}
 
         {/* Activity Log */}

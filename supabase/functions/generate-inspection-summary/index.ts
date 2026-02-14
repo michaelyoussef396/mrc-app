@@ -102,7 +102,7 @@ interface InspectionFormData {
 interface RequestBody {
   formData: InspectionFormData
   feedback?: string
-  section?: 'whatWeFound' | 'whatWeWillDo' | 'whatYouGet' | 'detailedAnalysis' | 'demolitionDetails'
+  section?: 'whatWeFound' | 'whatWeWillDo' | 'detailedAnalysis' | 'demolitionDetails'
   structured?: boolean
   customPrompt?: string
   currentContent?: string
@@ -111,7 +111,6 @@ interface RequestBody {
 interface StructuredSummary {
   what_we_found: string
   what_we_will_do: string
-  what_you_get: string
   detailed_analysis: string
   demolition_details: string
 }
@@ -141,14 +140,27 @@ Style requirements:
 - Each line adds value - no filler
 - Build confidence through detailed analysis and clear action plans
 
-You will generate content for FOUR report sections when provided inspection data:
+You will generate content for THREE report sections when provided inspection data:
 
-1. VALUE PROPOSITION - concise summary (what found + what you get)
+1. VALUE PROPOSITION - concise summary of what was found + detailed treatment plan
 2. PROBLEM ANALYSIS & RECOMMENDATIONS - the MAIN section (comprehensive findings, causes, recommendations)
-3. WHAT WE'RE GOING TO DO - detailed treatment plan
-4. DEMOLITION DETAILS - specifications for material removal (if applicable)
+3. DEMOLITION DETAILS - specifications for material removal (if applicable)
 
 Match the professional tone and structure exactly.`
+
+// Helper: sanitize user-provided text before embedding in prompts
+// Removes literal newlines, tabs, and collapses whitespace to prevent
+// the AI from echoing back control characters inside JSON string values
+function sanitizeField(value: string | null | undefined): string {
+  if (!value) return ''
+  return value
+    .replace(/\r\n/g, ' ')   // CRLF → space
+    .replace(/\n/g, ' ')     // LF → space
+    .replace(/\r/g, ' ')     // CR → space
+    .replace(/\t/g, ' ')     // Tab → space
+    .replace(/\s{2,}/g, ' ') // Collapse multiple spaces
+    .trim()
+}
 
 // ============================================================================
 // FORMAT INSPECTION DATA as structured user prompt
@@ -162,48 +174,48 @@ function buildUserPrompt(formData: InspectionFormData): string {
     formData.propertySuburb,
     formData.propertyState,
     formData.propertyPostcode
-  ].filter(Boolean).join(', ')
+  ].filter(Boolean).map(v => sanitizeField(v)).join(', ')
 
   lines.push(`PROPERTY ADDRESS: ${fullAddress || 'Not specified'}`)
-  if (formData.clientName) lines.push(`CUSTOMER: ${formData.clientName}`)
+  if (formData.clientName) lines.push(`CUSTOMER: ${sanitizeField(formData.clientName)}`)
   if (formData.inspectionDate) lines.push(`INSPECTION DATE: ${formData.inspectionDate}`)
-  if (formData.inspector) lines.push(`INSPECTOR: ${formData.inspector}`)
-  if (formData.dwellingType) lines.push(`DWELLING TYPE: ${formData.dwellingType}`)
-  if (formData.propertyOccupation) lines.push(`OCCUPATION: ${formData.propertyOccupation}`)
+  if (formData.inspector) lines.push(`INSPECTOR: ${sanitizeField(formData.inspector)}`)
+  if (formData.dwellingType) lines.push(`DWELLING TYPE: ${sanitizeField(formData.dwellingType)}`)
+  if (formData.propertyOccupation) lines.push(`OCCUPATION: ${sanitizeField(formData.propertyOccupation)}`)
 
   // Initial issue from lead
   if (formData.issueDescription) {
-    lines.push(`\nINITIAL ISSUE: ${formData.issueDescription}`)
+    lines.push(`\nINITIAL ISSUE: ${sanitizeField(formData.issueDescription)}`)
   }
 
   // Areas Inspected
   if (formData.areas && formData.areas.length > 0) {
     lines.push('\nAREAS INSPECTED:')
     formData.areas.forEach((area) => {
-      lines.push(`\nAREA: ${area.areaName}`)
-      if (area.mouldDescription) lines.push(`- Mould Description: ${area.mouldDescription}`)
+      lines.push(`\nAREA: ${sanitizeField(area.areaName)}`)
+      if (area.mouldDescription) lines.push(`- Mould Description: ${sanitizeField(area.mouldDescription)}`)
       if (area.temperature) lines.push(`- Temperature: ${area.temperature}°C`)
       if (area.humidity) lines.push(`- Humidity: ${area.humidity}%`)
       if (area.dewPoint) lines.push(`- Dew Point: ${area.dewPoint}°C`)
 
       if (area.moistureReadings && area.moistureReadings.length > 0) {
         area.moistureReadings.forEach(r => {
-          lines.push(`- Internal Moisture (${r.title}): ${r.reading}%`)
+          lines.push(`- Internal Moisture (${sanitizeField(r.title)}): ${r.reading}%`)
         })
       }
 
-      if (area.externalMoisture) lines.push(`- External Moisture: ${area.externalMoisture}%`)
-      if (area.commentsForReport) lines.push(`- Comments: ${area.commentsForReport}`)
+      if (area.externalMoisture) lines.push(`- External Moisture: ${sanitizeField(area.externalMoisture)}%`)
+      if (area.commentsForReport) lines.push(`- Comments: ${sanitizeField(area.commentsForReport)}`)
       lines.push(`- Demolition Required: ${area.demolitionRequired ? 'YES' : 'NO'}`)
       lines.push(`- Time Without Demolition: ${area.timeWithoutDemo} hours`)
 
       if (area.demolitionRequired) {
         lines.push(`- Demolition Time: ${area.demolitionTime} hours`)
-        if (area.demolitionDescription) lines.push(`- Demolition Description: ${area.demolitionDescription}`)
+        if (area.demolitionDescription) lines.push(`- Demolition Description: ${sanitizeField(area.demolitionDescription)}`)
       }
 
       if (area.infraredEnabled && area.infraredObservations && area.infraredObservations.length > 0) {
-        lines.push(`- Infrared Observations: ${area.infraredObservations.join(', ')}`)
+        lines.push(`- Infrared Observations: ${area.infraredObservations.map(o => sanitizeField(o)).join(', ')}`)
       }
     })
   }
@@ -213,16 +225,16 @@ function buildUserPrompt(formData: InspectionFormData): string {
     formData.subfloorLandscape || (formData.subfloorReadings && formData.subfloorReadings.length > 0)
   if (hasSubfloorData) {
     lines.push('\nSUBFLOOR ASSESSMENT:')
-    if (formData.subfloorObservations) lines.push(`- Observation: ${formData.subfloorObservations}`)
-    if (formData.subfloorLandscape) lines.push(`- Landscape: ${formData.subfloorLandscape}`)
-    if (formData.subfloorComments) lines.push(`- Comments: ${formData.subfloorComments}`)
+    if (formData.subfloorObservations) lines.push(`- Observation: ${sanitizeField(formData.subfloorObservations)}`)
+    if (formData.subfloorLandscape) lines.push(`- Landscape: ${sanitizeField(formData.subfloorLandscape)}`)
+    if (formData.subfloorComments) lines.push(`- Comments: ${sanitizeField(formData.subfloorComments)}`)
     if (formData.subfloorSanitation) lines.push('- Sanitation Required: Yes')
     if (formData.subfloorRacking) lines.push('- Racking Required: Yes')
     if (formData.subfloorTreatmentTime) lines.push(`- Treatment Time: ${formData.subfloorTreatmentTime} hours`)
     if (formData.subfloorReadings && formData.subfloorReadings.length > 0) {
       lines.push('- Moisture Readings:')
       formData.subfloorReadings.forEach(r => {
-        lines.push(`  • ${r.reading}% at ${r.location}`)
+        lines.push(`  • ${r.reading}% at ${sanitizeField(r.location)}`)
       })
     }
   }
@@ -232,7 +244,7 @@ function buildUserPrompt(formData: InspectionFormData): string {
   if (formData.outdoorTemperature) lines.push(`- Temperature: ${formData.outdoorTemperature}°C`)
   if (formData.outdoorHumidity) lines.push(`- Humidity: ${formData.outdoorHumidity}%`)
   if (formData.outdoorDewPoint) lines.push(`- Dew Point: ${formData.outdoorDewPoint}°C`)
-  if (formData.outdoorComments) lines.push(`- Comments: ${formData.outdoorComments}`)
+  if (formData.outdoorComments) lines.push(`- Comments: ${sanitizeField(formData.outdoorComments)}`)
 
   // Treatment Plan
   const treatments: string[] = []
@@ -266,13 +278,13 @@ function buildUserPrompt(formData: InspectionFormData): string {
 
   // Cause
   if (formData.causeOfMould) {
-    lines.push(`\nIDENTIFIED CAUSE OF MOULD: ${formData.causeOfMould}`)
+    lines.push(`\nIDENTIFIED CAUSE OF MOULD: ${sanitizeField(formData.causeOfMould)}`)
   }
 
   // Additional context
-  if (formData.additionalInfoForTech) lines.push(`ADDITIONAL INFO: ${formData.additionalInfoForTech}`)
-  if (formData.additionalEquipmentComments) lines.push(`EQUIPMENT NOTES: ${formData.additionalEquipmentComments}`)
-  if (formData.internalNotes) lines.push(`\nINTERNAL NOTES: ${formData.internalNotes}`)
+  if (formData.additionalInfoForTech) lines.push(`ADDITIONAL INFO: ${sanitizeField(formData.additionalInfoForTech)}`)
+  if (formData.additionalEquipmentComments) lines.push(`EQUIPMENT NOTES: ${sanitizeField(formData.additionalEquipmentComments)}`)
+  if (formData.internalNotes) lines.push(`\nINTERNAL NOTES: ${sanitizeField(formData.internalNotes)}`)
 
   // Cost
   if (formData.totalIncGst && formData.totalIncGst > 0) {
@@ -372,7 +384,50 @@ function extractJson(raw: string): string {
   if (lastBrace !== -1 && lastBrace < text.length - 1) {
     text = text.slice(0, lastBrace + 1)
   }
-  return text
+
+  // Fix control characters ONLY inside JSON string values (not structural whitespace)
+  // Walk char-by-char tracking whether we're inside a quoted string
+  const result: string[] = []
+  let inString = false
+  let escaped = false
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+
+    if (escaped) {
+      result.push(ch)
+      escaped = false
+      continue
+    }
+
+    if (ch === '\\' && inString) {
+      result.push(ch)
+      escaped = true
+      continue
+    }
+
+    if (ch === '"') {
+      inString = !inString
+      result.push(ch)
+      continue
+    }
+
+    if (inString) {
+      const code = ch.charCodeAt(0)
+      if ((code >= 0x00 && code <= 0x1F) || code === 0x7F) {
+        // Replace control chars inside strings with escape sequences
+        if (ch === '\n') { result.push('\\n'); continue }
+        if (ch === '\r') { result.push('\\r'); continue }
+        if (ch === '\t') { result.push('\\t'); continue }
+        // Strip other control chars
+        continue
+      }
+    }
+
+    result.push(ch)
+  }
+
+  return result.join('')
 }
 
 // ============================================================================
@@ -428,7 +483,6 @@ IMPORTANT: Return ONLY valid JSON with no additional text. Use this exact struct
 
 {
   "what_we_found": "VALUE PROPOSITION - WHAT WE FOUND subsection. Write 1-2 concise sentences describing the main issue and its impact on the property. Keep it brief — this is a summary for the cover page.",
-  "what_you_get": "VALUE PROPOSITION - WHAT YOU GET subsection. Write exactly these 4 bullet points separated by \\n:\\n- 12 Month warranty on all treated areas\\n- Professional material removal where required\\n- Complete airborne spore elimination\\n- Detailed documentation for insurance / resale",
   "detailed_analysis": "This is the MAIN SECTION — Problem Analysis & Recommendations. Generate using this EXACT format with subsections separated by \\n\\n:\\n\\n**WHAT WE DISCOVERED**\\n[Comprehensive paragraph: specific address, what was found, severity, impact. Reference inspection data: temp, humidity, moisture readings, areas affected. Be specific with room names and measurements.]\\n\\n**\\ud83d\\udd0d IDENTIFIED CAUSES**\\n\\n**Primary Cause:**\\n- [Single clear statement of main issue]\\n\\n**Contributing Factors:**\\n1. [Factor 1 with specific data from inspection]\\n2. [Factor 2 with specific data]\\n3. [Factor 3 with specific data]\\n4. [Factor 4 if applicable]\\n5. [Factor 5 if applicable]\\n6. [Factor 6 if applicable]\\n\\n**WHY THIS HAPPENED**\\n[Paragraph explaining mechanism: how this type of failure occurs, why moisture persists, consequences if not addressed]\\n\\n**\\ud83d\\udccb RECOMMENDATIONS**\\n\\n**IMMEDIATE ACTIONS WEEK 1**\\n1. [Urgent action 1 with explanation]\\n2. [Urgent action 2 with explanation]\\n3. [Urgent action 3 with explanation]\\n4. [Urgent action 4 with explanation]\\n\\n**LONG-TERM PROTECTION**\\n- [Protection measure 1 with explanation]\\n- [Protection measure 2 with explanation]\\n- [Protection measure 3 with explanation]\\n\\n**WHAT SUCCESS LOOKS LIKE**\\n[Paragraph describing expected outcomes, air quality restoration, timeline for reoccupancy, warranty coverage]\\n\\n**TIMELINE**\\n- MRC treatment: X days\\n- Drying equipment: X days\\n- Specialist work (if needed): X days\\n- Total project: X days\\n- Property reoccupancy: X hours/days after completion",
   "what_we_will_do": "WHAT WE'RE GOING TO DO section — detailed treatment plan. Write 2-3 paragraphs describing: the complete remediation approach, step-by-step treatment process (HEPA vacuuming, antimicrobial application, stain removal, fogging), equipment to be deployed (specific quantities of dehumidifiers, air movers, RCD boxes), any demolition or material removal required, drying period, and expected outcomes. Be specific with quantities and timelines. This is a standalone section, not a 1-2 sentence summary.",
   ${demolitionInstruction}
@@ -436,7 +490,6 @@ IMPORTANT: Return ONLY valid JSON with no additional text. Use this exact struct
 
 CRITICAL RULES:
 - what_we_found: 1-2 sentences ONLY (cover page summary)
-- what_you_get: Always the same 4 bullet points listed above
 - detailed_analysis: This is the MAIN SECTION — must be comprehensive with all subsections using ** bold headers and emoji icons
 - what_we_will_do: 2-3 detailed paragraphs about the treatment plan (NOT a short summary)
 - Reference specific room names, actual temperature/humidity/moisture readings from the data
@@ -488,12 +541,15 @@ Return ONLY the JSON object:`
     let maxTokens = 800
 
     // Regeneration preamble
-    const regenPreamble = (sectionName: string, formatNote: string) => `You previously generated this "${sectionName}" content for a mould inspection report:
+    const regenPreamble = (sectionName: string, formatNote: string) => {
+      const safeContent = sanitizeField(currentContent)
+      const safePrompt = sanitizeField(customPrompt)
+      return `You previously generated this "${sectionName}" content for a mould inspection report:
 
-"${currentContent}"
+"${safeContent}"
 
 The user wants you to regenerate it with this specific change:
-"${customPrompt}"
+"${safePrompt}"
 
 CRITICAL INSTRUCTIONS:
 1. Follow the user's instruction EXACTLY
@@ -508,6 +564,7 @@ CRITICAL INSTRUCTIONS:
 ${userDataPrompt}
 
 Now regenerate following their instruction. Return ONLY the regenerated text (no JSON wrapping):`
+    }
 
     if (section === 'whatWeFound') {
       if (isRegeneration) {
@@ -542,19 +599,6 @@ Write 2-3 detailed paragraphs describing:
 Be specific with quantities, methods, and timelines. This is a standalone treatment plan section.
 Australian English. Professional but reassuring tone.
 Return ONLY the paragraphs, nothing else.`
-      }
-    } else if (section === 'whatYouGet') {
-      if (isRegeneration) {
-        userPrompt = regenPreamble('What You Get', 'Keep bullet point format with - prefix for each line')
-      } else {
-        userPrompt = `Generate the VALUE PROPOSITION "WHAT YOU GET" subsection. Return exactly these 4 bullet points:
-
-- 12 Month warranty on all treated areas
-- Professional material removal where required
-- Complete airborne spore elimination
-- Detailed documentation for insurance / resale
-
-Return ONLY the 4 bullet points, nothing else.`
       }
     } else if (section === 'detailedAnalysis') {
       maxTokens = 3500

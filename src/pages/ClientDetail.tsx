@@ -3102,7 +3102,7 @@ const ClientDetail = () => {
                     </div>
 
                     {/* PDF Sections (if they exist) */}
-                    {(inspection.what_we_found_text || inspection.what_we_will_do_text || inspection.what_you_get_text) && (
+                    {(inspection.what_we_found_text || inspection.what_we_will_do_text) && (
                       <div style={{
                         display: 'grid',
                         gap: '20px',
@@ -3175,38 +3175,43 @@ const ClientDetail = () => {
                           </div>
                         )}
 
-                        {/* What You Get */}
-                        {inspection.what_you_get_text && (
-                          <div>
-                            <div style={{
-                              fontSize: '16px',
-                              fontWeight: '700',
-                              color: '#7c3aed',
-                              marginBottom: '12px',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.05em',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px'
-                            }}>
-                              <span>✨</span>
-                              <span>What You Get</span>
-                            </div>
-                            <div style={{
-                              background: '#d1fae5',
-                              border: '2px solid #10b981',
-                              borderLeft: '4px solid #059669',
-                              borderRadius: '8px',
-                              padding: '16px',
-                              fontSize: '14px',
-                              lineHeight: '1.7',
-                              color: '#065f46',
-                              whiteSpace: 'pre-wrap'
-                            }}>
-                              {inspection.what_you_get_text}
-                            </div>
+                        {/* What You Get (Static) */}
+                        <div>
+                          <div style={{
+                            fontSize: '16px',
+                            fontWeight: '700',
+                            color: '#7c3aed',
+                            marginBottom: '12px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                          }}>
+                            <span>✨</span>
+                            <span>What You Get</span>
                           </div>
-                        )}
+                          <div style={{
+                            background: '#eff6ff',
+                            border: '1px solid #bfdbfe',
+                            borderRadius: '8px',
+                            padding: '16px',
+                            fontSize: '14px',
+                            lineHeight: '1.7',
+                          }}>
+                            {[
+                              '12 Month warranty on all treated areas',
+                              'Professional material removal where required',
+                              'Complete airborne spore elimination',
+                              'Detailed documentation for insurance / resale',
+                            ].map((item) => (
+                              <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '4px 0', color: '#334155' }}>
+                                <span style={{ color: '#2563eb', fontWeight: 700, marginTop: '1px' }}>&#10003;</span>
+                                <span>{item}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
 
                       </div>
                     )}

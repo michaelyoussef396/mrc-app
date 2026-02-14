@@ -103,7 +103,6 @@ const InspectionForm = () => {
   // Custom prompt inputs for PDF section regeneration
   const [whatWeFoundPrompt, setWhatWeFoundPrompt] = useState('')
   const [whatWeWillDoPrompt, setWhatWeWillDoPrompt] = useState('')
-  const [whatYouGetPrompt, setWhatYouGetPrompt] = useState('')
 
   // Section regeneration loading state
   const [isGeneratingSection, setIsGeneratingSection] = useState<string | null>(null)
@@ -112,11 +111,9 @@ const InspectionForm = () => {
   const [fieldHistory, setFieldHistory] = useState<{
     whatWeFoundText: string[]
     whatWeWillDoText: string[]
-    whatYouGetText: string[]
   }>({
     whatWeFoundText: [],
     whatWeWillDoText: [],
-    whatYouGetText: []
   })
 
   // Flag to prevent auto-recalculation from overwriting saved cost data during initial load
@@ -1261,7 +1258,7 @@ const InspectionForm = () => {
   }
 
   // Save current value to history before updating (for revert functionality)
-  const saveToHistory = (fieldName: 'whatWeFoundText' | 'whatWeWillDoText' | 'whatYouGetText', value: string) => {
+  const saveToHistory = (fieldName: 'whatWeFoundText' | 'whatWeWillDoText', value: string) => {
     if (value && value.trim()) {
       setFieldHistory(prev => ({
         ...prev,
@@ -1271,7 +1268,7 @@ const InspectionForm = () => {
   }
 
   // Revert to previous value
-  const handleRevert = (fieldName: 'whatWeFoundText' | 'whatWeWillDoText' | 'whatYouGetText') => {
+  const handleRevert = (fieldName: 'whatWeFoundText' | 'whatWeWillDoText') => {
     const history = fieldHistory[fieldName]
     if (history.length > 0) {
       const previousValue = history[history.length - 1]
@@ -3052,7 +3049,7 @@ const InspectionForm = () => {
   }
 
   // Generate individual PDF sections with AI
-  const handleGeneratePDFSection = async (section: 'whatWeFound' | 'whatWeWillDo' | 'whatYouGet') => {
+  const handleGeneratePDFSection = async (section: 'whatWeFound' | 'whatWeWillDo') => {
     setIsGeneratingSection(section)
 
     try {
@@ -3086,13 +3083,11 @@ const InspectionForm = () => {
 
       // Get the custom prompt for this section (used during regeneration)
       const customPrompt = section === 'whatWeFound' ? whatWeFoundPrompt :
-                           section === 'whatWeWillDo' ? whatWeWillDoPrompt :
-                           section === 'whatYouGet' ? whatYouGetPrompt : ''
+                           whatWeWillDoPrompt
 
       // Get current content being regenerated (empty for first generation)
       const currentContent = section === 'whatWeFound' ? formData.whatWeFoundText :
-                             section === 'whatWeWillDo' ? formData.whatWeWillDoText :
-                             section === 'whatYouGet' ? formData.whatYouGetText : ''
+                             formData.whatWeWillDoText
 
       // Debug logging for edge function call
       console.log('=== Calling Edge Function ===')
@@ -3122,10 +3117,9 @@ const InspectionForm = () => {
       }
 
       if (data?.success && data?.summary) {
-        const fieldMap: Record<string, 'whatWeFoundText' | 'whatWeWillDoText' | 'whatYouGetText'> = {
+        const fieldMap: Record<string, 'whatWeFoundText' | 'whatWeWillDoText'> = {
           'whatWeFound': 'whatWeFoundText',
           'whatWeWillDo': 'whatWeWillDoText',
-          'whatYouGet': 'whatYouGetText'
         }
         const fieldName = fieldMap[section]
 
@@ -3138,7 +3132,6 @@ const InspectionForm = () => {
         // Clear the custom prompt after successful regeneration
         if (section === 'whatWeFound') setWhatWeFoundPrompt('')
         else if (section === 'whatWeWillDo') setWhatWeWillDoPrompt('')
-        else if (section === 'whatYouGet') setWhatYouGetPrompt('')
 
         toast({
           title: 'Section generated',
@@ -5276,66 +5269,27 @@ const InspectionForm = () => {
                   )}
                 </div>
 
-                {/* WHAT YOU GET */}
-                <div className="form-group" style={{ marginBottom: '24px', padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
-                  <label className="form-label" style={{ fontWeight: 600, marginBottom: '8px' }}>
+                {/* WHAT YOU GET (Static - included in PDF template) */}
+                <div className="form-group" style={{ marginBottom: '24px', padding: '16px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px' }}>
+                  <label className="form-label" style={{ fontWeight: 600, marginBottom: '8px', color: '#1e3a5f' }}>
                     What You Get
                   </label>
-                  <p className="field-hint" style={{ fontSize: '0.85rem', marginBottom: '12px' }}>
-                    Benefits and warranty information for the customer
+                  <p className="field-hint" style={{ fontSize: '0.85rem', marginBottom: '12px', color: '#64748b' }}>
+                    Static content — automatically included in all PDF reports
                   </p>
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() => handleGeneratePDFSection('whatYouGet')}
-                    disabled={isGeneratingSection === 'whatYouGet'}
-                    style={{ marginBottom: '12px' }}
-                  >
-                    {isGeneratingSection === 'whatYouGet' ? 'Generating...' : 'Generate Benefits'}
-                  </button>
-                  <textarea
-                    value={formData.whatYouGetText}
-                    onChange={(e) => handleInputChange('whatYouGetText', e.target.value)}
-                    className="form-textarea"
-                    rows={6}
-                    placeholder="List the benefits: warranty, professional treatment, documentation..."
-                    style={{ marginBottom: '12px' }}
-                  />
-                  {formData.whatYouGetText?.trim() && (
-                    <>
-                      <label className="form-label" style={{ fontSize: '0.85rem', marginBottom: '4px' }}>
-                        Request Changes:
-                      </label>
-                      <input
-                        type="text"
-                        value={whatYouGetPrompt}
-                        onChange={(e) => setWhatYouGetPrompt(e.target.value)}
-                        className="form-input"
-                        placeholder="e.g., 'Emphasize the warranty more'"
-                        style={{ marginBottom: '8px' }}
-                      />
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          type="button"
-                          className="btn-secondary"
-                          onClick={() => handleGeneratePDFSection('whatYouGet')}
-                          disabled={isGeneratingSection === 'whatYouGet'}
-                        >
-                          {isGeneratingSection === 'whatYouGet' ? 'Generating...' : 'Regenerate'}
-                        </button>
-                        {fieldHistory.whatYouGetText.length > 0 && (
-                          <button
-                            type="button"
-                            className="btn-secondary"
-                            onClick={() => handleRevert('whatYouGetText')}
-                            style={{ background: '#fee2e2', borderColor: '#fca5a5', color: '#dc2626' }}
-                          >
-                            ↩ Revert
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {[
+                      '12 Month warranty on all treated areas',
+                      'Professional material removal where required',
+                      'Complete airborne spore elimination',
+                      'Detailed documentation for insurance / resale',
+                    ].map((item) => (
+                      <li key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '6px 0', fontSize: '0.9rem', color: '#334155' }}>
+                        <span style={{ color: '#2563eb', fontWeight: 700, marginTop: '1px' }}>&#10003;</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             )}          </div>

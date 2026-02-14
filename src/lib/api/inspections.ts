@@ -420,3 +420,231 @@ export async function loadCompleteInspection(inspectionId: string) {
     photos: photos || []
   }
 }
+
+// ============================================================================
+// COMPLETE INSPECTION DATA (for admin lead view display)
+// ============================================================================
+
+export interface PhotoWithUrl {
+  id: string
+  area_id: string | null
+  subfloor_id: string | null
+  moisture_reading_id: string | null
+  photo_type: string
+  storage_path: string
+  file_name: string
+  caption: string | null
+  order_index: number
+  signed_url: string
+  created_at: string
+}
+
+export interface MoistureReadingData {
+  id: string
+  area_id: string
+  reading_order: number
+  title: string
+  moisture_percentage: number
+  moisture_status: string | null
+  photos: PhotoWithUrl[]
+}
+
+export interface AreaWithDetails {
+  id: string
+  area_order: number
+  area_name: string
+  mould_description: string | null
+  comments: string | null
+  temperature: number | null
+  humidity: number | null
+  dew_point: number | null
+  external_moisture: number | null
+  infrared_enabled: boolean
+  infrared_observation_no_active: boolean
+  infrared_observation_water_infiltration: boolean
+  infrared_observation_past_ingress: boolean
+  infrared_observation_condensation: boolean
+  infrared_observation_missing_insulation: boolean
+  job_time_minutes: number | null
+  demolition_required: boolean
+  demolition_time_minutes: number | null
+  demolition_description: string | null
+  moisture_readings: MoistureReadingData[]
+  photos: PhotoWithUrl[]
+}
+
+export interface SubfloorWithDetails {
+  id: string
+  observations: string | null
+  comments: string | null
+  landscape: string | null
+  sanitation_required: boolean
+  racking_required: boolean
+  treatment_time_minutes: number | null
+  readings: Array<{
+    id: string
+    reading_order: number
+    moisture_percentage: number
+    location: string
+  }>
+  photos: PhotoWithUrl[]
+}
+
+export interface CompleteInspectionData {
+  inspection: Record<string, any>
+  areas: AreaWithDetails[]
+  subfloor: SubfloorWithDetails | null
+  photos: PhotoWithUrl[]
+}
+
+/**
+ * Fetch complete inspection data for a lead (for admin display).
+ * Includes: inspection metadata, areas with moisture readings,
+ * subfloor with readings, and all photos with signed URLs.
+ */
+export async function fetchCompleteInspectionData(
+  leadId: string
+): Promise<CompleteInspectionData | null> {
+  // 1. Get inspection by lead ID
+  const { data: inspection, error: inspError } = await supabase
+    .from('inspections')
+    .select('*')
+    .eq('lead_id', leadId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (inspError || !inspection) {
+    console.error('[fetchCompleteInspectionData] No inspection found:', inspError)
+    return null
+  }
+
+  const inspectionId = inspection.id
+
+  // 2. First load areas (needed to query moisture readings by area_id)
+  const { data: rawAreas } = await supabase
+    .from('inspection_areas')
+    .select('*')
+    .eq('inspection_id', inspectionId)
+    .order('area_order')
+
+  const areaIds = (rawAreas || []).map(a => a.id)
+
+  // 3. Load moisture readings, subfloor, and photos in parallel
+  const [moistureResult, subfloorResult, photosResult] = await Promise.all([
+    areaIds.length > 0
+      ? supabase
+          .from('moisture_readings')
+          .select('*')
+          .in('area_id', areaIds)
+          .order('reading_order')
+      : Promise.resolve({ data: [] as any[], error: null }),
+    supabase
+      .from('subfloor_data')
+      .select('*')
+      .eq('inspection_id', inspectionId)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('photos')
+      .select('*')
+      .eq('inspection_id', inspectionId)
+      .order('order_index'),
+  ])
+
+  const rawMoisture = moistureResult.data || []
+  const subfloorData = subfloorResult.data
+  const rawPhotos = photosResult.data || []
+
+  // 4. Load subfloor readings if subfloor exists
+  let subfloorReadings: any[] = []
+  if (subfloorData) {
+    const { data } = await supabase
+      .from('subfloor_readings')
+      .select('*')
+      .eq('subfloor_id', subfloorData.id)
+      .order('reading_order')
+    subfloorReadings = data || []
+  }
+
+  // 5. Generate signed URLs for all photos
+  const photosWithUrls: PhotoWithUrl[] = await Promise.all(
+    rawPhotos.map(async (photo) => {
+      try {
+        const { data } = await supabase.storage
+          .from('inspection-photos')
+          .createSignedUrl(photo.storage_path, 3600)
+        return { ...photo, signed_url: data?.signedUrl || '' }
+      } catch {
+        return { ...photo, signed_url: '' }
+      }
+    })
+  )
+
+  // 6. Build area details with their moisture readings and photos
+  const areas: AreaWithDetails[] = (rawAreas || []).map(area => {
+    const areaReadings = rawMoisture.filter(r => r.area_id === area.id)
+    const areaPhotos = photosWithUrls.filter(p => p.area_id === area.id)
+
+    const moistureReadings: MoistureReadingData[] = areaReadings.map(r => ({
+      id: r.id,
+      area_id: r.area_id,
+      reading_order: r.reading_order,
+      title: r.title || '',
+      moisture_percentage: r.moisture_percentage || 0,
+      moisture_status: r.moisture_status || null,
+      photos: photosWithUrls.filter(p => p.moisture_reading_id === r.id),
+    }))
+
+    return {
+      id: area.id,
+      area_order: area.area_order,
+      area_name: area.area_name,
+      mould_description: area.mould_description,
+      comments: area.comments,
+      temperature: area.temperature,
+      humidity: area.humidity,
+      dew_point: area.dew_point,
+      external_moisture: area.external_moisture,
+      infrared_enabled: area.infrared_enabled || false,
+      infrared_observation_no_active: area.infrared_observation_no_active || false,
+      infrared_observation_water_infiltration: area.infrared_observation_water_infiltration || false,
+      infrared_observation_past_ingress: area.infrared_observation_past_ingress || false,
+      infrared_observation_condensation: area.infrared_observation_condensation || false,
+      infrared_observation_missing_insulation: area.infrared_observation_missing_insulation || false,
+      job_time_minutes: area.job_time_minutes,
+      demolition_required: area.demolition_required || false,
+      demolition_time_minutes: area.demolition_time_minutes,
+      demolition_description: area.demolition_description,
+      moisture_readings: moistureReadings,
+      photos: areaPhotos.filter(p => !p.moisture_reading_id), // area-level photos only
+    }
+  })
+
+  // 5. Build subfloor
+  const subfloor: SubfloorWithDetails | null = subfloorData
+    ? {
+        id: subfloorData.id,
+        observations: subfloorData.observations,
+        comments: subfloorData.comments,
+        landscape: subfloorData.landscape,
+        sanitation_required: subfloorData.sanitation_required || false,
+        racking_required: subfloorData.racking_required || false,
+        treatment_time_minutes: subfloorData.treatment_time_minutes,
+        readings: subfloorReadings.map(r => ({
+          id: r.id,
+          reading_order: r.reading_order,
+          moisture_percentage: r.moisture_percentage || 0,
+          location: r.location || '',
+        })),
+        photos: photosWithUrls.filter(p => p.subfloor_id === subfloorData.id),
+      }
+    : null
+
+  return {
+    inspection,
+    areas,
+    subfloor,
+    photos: photosWithUrls,
+  }
+}

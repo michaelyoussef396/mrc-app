@@ -52,6 +52,7 @@ const TechnicianJobs = lazy(() => import("./pages/TechnicianJobs"));
 const TechnicianAlerts = lazy(() => import("./pages/TechnicianAlerts"));
 const TechnicianInspectionForm = lazy(() => import("./pages/TechnicianInspectionForm"));
 const TechnicianJobDetail = lazy(() => import("./pages/TechnicianJobDetail"));
+const InspectionAIReview = lazy(() => import("./pages/InspectionAIReview"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -138,6 +139,20 @@ const AppContent = () => {
                   <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <LeadsManagement />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin AI Review (standalone layout - no AppLayout) */}
+            <Route
+              path="/admin/inspection-ai-review/:leadId"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <InspectionAIReview />
                     </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>

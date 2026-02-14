@@ -54,7 +54,7 @@ async function invokeEdgeFunction(functionName: string, body: object): Promise<{
 // CONSTANTS
 // ============================================================================
 
-const TOTAL_SECTIONS = 10;
+const TOTAL_SECTIONS = 9;
 
 const SECTION_TITLES = [
   'Basic Information',
@@ -66,7 +66,6 @@ const SECTION_TITLES = [
   'Work Procedure',
   'Job Summary',
   'Cost Estimate',
-  'AI Summary',
 ];
 
 const PROPERTY_OCCUPATION_OPTIONS = [
@@ -2031,26 +2030,9 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
   );
 }
 
-// Section 10: AI Job Summary
-function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?: LeadData | null }) {
-  const { toast } = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [hasGenerated, setHasGenerated] = useState(
-    !!(formData.whatWeFoundText || formData.whatWeWillDoText || formData.problemAnalysisContent)
-  );
-  const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
-
-  // Feedback inputs for each section
-  const [whatWeFoundFeedback, setWhatWeFoundFeedback] = useState('');
-  const [whatWeWillDoFeedback, setWhatWeWillDoFeedback] = useState('');
-  const [whatYouGetFeedback, setWhatYouGetFeedback] = useState('');
-  const [detailedAnalysisFeedback, setDetailedAnalysisFeedback] = useState('');
-  const [demolitionFeedback, setDemolitionFeedback] = useState('');
-
-  const hasDemolition = formData.areas.some((a) => a.demolitionRequired);
-
-  // Build the full payload for the edge function
-  const buildPayload = () => ({
+// buildPayload: construct the payload for the AI edge function
+function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
+  return {
     propertyAddress: formData.address,
     clientName: lead?.full_name,
     issueDescription: lead?.issue_description || undefined,
@@ -2113,259 +2095,7 @@ function Section10AISummary({ formData, onChange, lead }: SectionProps & { lead?
     subtotalExGst: formData.subtotalExGst,
     gstAmount: formData.gstAmount,
     totalIncGst: formData.totalIncGst,
-  });
-
-  const handleGenerateAll = async () => {
-    setIsGenerating(true);
-
-    try {
-      const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
-        formData: buildPayload(), structured: true,
-      });
-
-      if (error) throw error;
-      if (!data?.success) throw new Error(data?.error || 'AI generation failed');
-
-      // Map structured response to form fields
-      onChange('whatWeFoundText', data.what_we_found || '');
-      onChange('whatWeWillDoText', data.what_we_will_do || '');
-      onChange('whatYouGetText', data.what_you_get || '');
-      onChange('problemAnalysisContent', data.detailed_analysis || '');
-      onChange('demolitionContent', data.demolition_details || '');
-
-      setHasGenerated(true);
-    } catch (err: any) {
-      console.error('[AI Generate] Error:', err);
-      toast({ title: 'Generation Failed', description: err?.message || 'Failed to generate AI summary', variant: 'destructive' });
-    } finally {
-      setIsGenerating(false);
-    }
   };
-
-  type SectionKey = 'whatWeFound' | 'whatWeWillDo' | 'whatYouGet' | 'detailedAnalysis' | 'demolitionDetails';
-
-  const handleRegenerateSection = async (section: SectionKey) => {
-    const feedbackMap: Record<SectionKey, string> = {
-      whatWeFound: whatWeFoundFeedback,
-      whatWeWillDo: whatWeWillDoFeedback,
-      whatYouGet: whatYouGetFeedback,
-      detailedAnalysis: detailedAnalysisFeedback,
-      demolitionDetails: demolitionFeedback,
-    };
-    const contentMap: Record<SectionKey, string> = {
-      whatWeFound: formData.whatWeFoundText,
-      whatWeWillDo: formData.whatWeWillDoText,
-      whatYouGet: formData.whatYouGetText,
-      detailedAnalysis: formData.problemAnalysisContent,
-      demolitionDetails: formData.demolitionContent,
-    };
-    const fieldMap: Record<SectionKey, keyof InspectionFormData> = {
-      whatWeFound: 'whatWeFoundText',
-      whatWeWillDo: 'whatWeWillDoText',
-      whatYouGet: 'whatYouGetText',
-      detailedAnalysis: 'problemAnalysisContent',
-      demolitionDetails: 'demolitionContent',
-    };
-
-    const feedback = feedbackMap[section];
-    const currentContent = contentMap[section];
-    setRegeneratingSection(section);
-
-    try {
-      const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
-        formData: buildPayload(),
-        section,
-        customPrompt: feedback,
-        currentContent,
-      });
-
-      if (error) throw error;
-
-      onChange(fieldMap[section], data?.summary || currentContent);
-
-      // Clear feedback
-      if (section === 'whatWeFound') setWhatWeFoundFeedback('');
-      else if (section === 'whatWeWillDo') setWhatWeWillDoFeedback('');
-      else if (section === 'whatYouGet') setWhatYouGetFeedback('');
-      else if (section === 'detailedAnalysis') setDetailedAnalysisFeedback('');
-      else if (section === 'demolitionDetails') setDemolitionFeedback('');
-    } catch (err: any) {
-      console.error('[AI Regenerate] Error:', err);
-      toast({
-        title: 'Regeneration Failed',
-        description: err?.message || 'Failed to regenerate section',
-        variant: 'destructive',
-      });
-    } finally {
-      setRegeneratingSection(null);
-    }
-  };
-
-  // Reusable section card with textarea + feedback + regenerate
-  const renderSectionCard = (
-    title: string,
-    icon: string,
-    fieldKey: keyof InspectionFormData,
-    sectionKey: SectionKey,
-    feedbackValue: string,
-    setFeedback: (v: string) => void,
-    placeholder: string,
-    rows = 6,
-  ) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="p-4 bg-gray-50 border-b border-gray-100">
-        <h3 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-          <span className="material-symbols-outlined text-[#007AFF]">{icon}</span>
-          {title}
-        </h3>
-      </div>
-      <div className="p-4 space-y-3">
-        <textarea
-          rows={rows}
-          value={formData[fieldKey] as string}
-          onChange={(e) => onChange(fieldKey, e.target.value)}
-          className="w-full bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4 py-3 resize-none focus:ring-2 focus:ring-[#007AFF] focus:border-transparent"
-        />
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={feedbackValue}
-            onChange={(e) => setFeedback(e.target.value)}
-            placeholder={placeholder}
-            className="flex-1 h-12 bg-gray-50 text-[#1d1d1f] text-sm rounded-lg border border-gray-200 px-4"
-          />
-          <button
-            onClick={() => handleRegenerateSection(sectionKey)}
-            disabled={regeneratingSection === sectionKey || !feedbackValue}
-            className="h-12 px-4 bg-[#007AFF] text-white font-medium rounded-lg flex items-center gap-1 disabled:opacity-50"
-            style={{ minWidth: '48px' }}
-          >
-            {regeneratingSection === sectionKey ? (
-              <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
-            ) : (
-              <>
-                <span className="material-symbols-outlined text-lg">refresh</span>
-                <span className="hidden sm:inline">Regenerate</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Initial state - show generate button
-  if (!hasGenerated) {
-    return (
-      <section className="space-y-5">
-        {/* Explanation Card */}
-        <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 text-center">
-          <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-[#007AFF] rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="material-symbols-outlined text-white text-3xl">auto_awesome</span>
-          </div>
-          <h3 className="text-xl font-bold text-[#1d1d1f] mb-2">AI-Powered Report</h3>
-          <p className="text-[#86868b] text-sm mb-6">
-            Generate all report sections using AI based on your inspection data from Sections 1-9.
-            The AI will create: Value Proposition, Problem Analysis & Recommendations, Treatment Plan, and Demolition Details.
-          </p>
-
-          <button
-            onClick={handleGenerateAll}
-            disabled={isGenerating}
-            className="w-full h-14 bg-gradient-to-r from-purple-500 to-[#007AFF] text-white font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-purple-500/30 active:scale-[0.98] transition-transform"
-          >
-            {isGenerating ? (
-              <>
-                <span className="material-symbols-outlined animate-spin">progress_activity</span>
-                Generating All Sections...
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined">auto_awesome</span>
-                Generate AI Report
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Data preview */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-          <h4 className="text-sm font-semibold text-[#86868b] uppercase tracking-wider mb-3">
-            Data for AI Generation
-          </h4>
-          <div className="space-y-2 text-sm text-[#1d1d1f]">
-            <p>• {formData.areas.length} area(s) inspected</p>
-            <p>• Property: {formData.dwellingType || 'Not specified'}, {formData.propertyOccupation || 'Not specified'}</p>
-            <p>• Subfloor data: {formData.subfloorObservations ? 'Yes' : 'None'}</p>
-            <p>• Demolition: {hasDemolition ? 'Required' : 'Not required'}</p>
-            <p>• Equipment: {(formData.commercialDehumidifierQty || 0) + (formData.airMoversQty || 0) + (formData.rcdBoxQty || 0)} items</p>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  // After generation - show editable sections with regenerate
-  return (
-    <section className="space-y-5">
-      {/* Regenerate All Button */}
-      <button
-        onClick={handleGenerateAll}
-        disabled={isGenerating}
-        className="w-full h-12 bg-white border border-[#007AFF] text-[#007AFF] font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
-      >
-        {isGenerating ? (
-          <>
-            <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
-            Regenerating All...
-          </>
-        ) : (
-          <>
-            <span className="material-symbols-outlined text-lg">refresh</span>
-            Regenerate All Sections
-          </>
-        )}
-      </button>
-
-      {/* 1. What We Found (Value Prop - short) */}
-      {renderSectionCard(
-        'What We Found', 'search', 'whatWeFoundText', 'whatWeFound',
-        whatWeFoundFeedback, setWhatWeFoundFeedback, "e.g., 'Add more detail about bathroom'", 3
-      )}
-
-      {/* 2. What You Get (Value Prop - bullets) */}
-      {renderSectionCard(
-        'What You Get', 'verified', 'whatYouGetText', 'whatYouGet',
-        whatYouGetFeedback, setWhatYouGetFeedback, "e.g., 'Add insurance detail'", 5
-      )}
-
-      {/* 3. Problem Analysis & Recommendations (MAIN SECTION) */}
-      {renderSectionCard(
-        'Problem Analysis & Recommendations', 'analytics', 'problemAnalysisContent', 'detailedAnalysis',
-        detailedAnalysisFeedback, setDetailedAnalysisFeedback, "e.g., 'Expand recommendations'", 16
-      )}
-
-      {/* 4. What We're Going To Do (treatment plan) */}
-      {renderSectionCard(
-        "What We're Going To Do", 'handyman', 'whatWeWillDoText', 'whatWeWillDo',
-        whatWeWillDoFeedback, setWhatWeWillDoFeedback, "e.g., 'Add equipment quantities'", 8
-      )}
-
-      {/* 5. Demolition Details (only if demolition is required) */}
-      {hasDemolition && renderSectionCard(
-        'Demolition Details', 'construction', 'demolitionContent', 'demolitionDetails',
-        demolitionFeedback, setDemolitionFeedback, "e.g., 'Add more about plasterboard removal'"
-      )}
-
-      {/* Note about AI */}
-      <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-        <p className="text-sm text-amber-800 flex items-start gap-2">
-          <span className="material-symbols-outlined text-amber-600 text-lg flex-shrink-0 mt-0.5">info</span>
-          <span>AI-generated content. Please review and edit as needed before finalizing the report.</span>
-        </p>
-      </div>
-    </section>
-  );
 }
 
 // ============================================================================
@@ -3354,13 +3084,66 @@ export default function TechnicianInspectionForm() {
     setCurrentSection((prev) => Math.max(1, prev - 1));
   };
 
-  const handleNext = () => {
+  const [isCompleting, setIsCompleting] = useState(false);
+
+  const handleNext = async () => {
     if (currentSection === TOTAL_SECTIONS) {
-      handleSave();
-      toast({
-        title: 'Form Complete',
-        description: 'Inspection form has been completed!',
-      });
+      // Final section — complete inspection, trigger AI generation, update status
+      setIsCompleting(true);
+      try {
+        // 1. Save all form data
+        await handleSave();
+
+        // 2. Generate AI summary via edge function
+        const payload = buildAIPayload(formData, lead);
+        const { data: aiData, error: aiError } = await invokeEdgeFunction('generate-inspection-summary', {
+          formData: payload,
+          structured: true,
+        });
+
+        // 3. Save AI text to inspections table (if generation succeeded)
+        if (!aiError && aiData?.success && currentInspectionId) {
+          await supabase.from('inspections').update({
+            what_we_found_text: aiData.what_we_found || null,
+            what_we_will_do_text: aiData.what_we_will_do || null,
+            problem_analysis_content: aiData.detailed_analysis || null,
+            demolition_content: aiData.demolition_details || null,
+            updated_at: new Date().toISOString(),
+          }).eq('id', currentInspectionId);
+        } else if (aiError) {
+          console.error('[AI Generate on Complete] Error:', aiError);
+          // AI failed — still proceed, admin can regenerate manually
+        }
+
+        // 4. Update lead status to inspection_ai_summary
+        if (leadId) {
+          await supabase.from('leads').update({ status: 'inspection_ai_summary' }).eq('id', leadId);
+          await supabase.from('activities').insert({
+            lead_id: leadId,
+            activity_type: 'status_change',
+            title: 'Inspection completed',
+            description: 'Technician completed inspection. AI summary generated for admin review.',
+          });
+        }
+
+        // 5. Navigate back to technician home
+        toast({
+          title: 'Inspection Complete',
+          description: aiError
+            ? 'Inspection saved. AI generation failed — admin can regenerate.'
+            : 'Inspection saved and AI summary generated for admin review.',
+        });
+        navigate('/technician');
+      } catch (err: any) {
+        console.error('[Complete Inspection] Error:', err);
+        toast({
+          title: 'Error',
+          description: err?.message || 'Failed to complete inspection. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsCompleting(false);
+      }
       return;
     }
     if (hasUnsavedChanges) handleSave();
@@ -3424,7 +3207,6 @@ export default function TechnicianInspectionForm() {
         {currentSection === 7 && <Section7WorkProcedure {...sectionProps} />}
         {currentSection === 8 && <Section8JobSummary {...sectionProps} />}
         {currentSection === 9 && <Section9CostEstimate {...sectionProps} />}
-        {currentSection === 10 && <Section10AISummary {...sectionProps} lead={lead} />}
       </main>
 
       <Footer
@@ -3435,6 +3217,21 @@ export default function TechnicianInspectionForm() {
         showPrevious={currentSection > 1}
         isLastSection={currentSection === TOTAL_SECTIONS}
       />
+
+      {/* Completing overlay — shown while AI summary generates */}
+      {isCompleting && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 mx-4 max-w-sm w-full text-center shadow-xl">
+            <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-[#007AFF] rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="material-symbols-outlined text-white text-3xl animate-spin">progress_activity</span>
+            </div>
+            <h3 className="text-lg font-bold text-[#1d1d1f] mb-2">Generating AI Summary</h3>
+            <p className="text-sm text-[#86868b]">
+              Please wait while we generate the inspection report content...
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

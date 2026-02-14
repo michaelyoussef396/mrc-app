@@ -43,6 +43,7 @@ const statusOptions: StatusOption[] = [
   { value: 'all', label: 'All', dotColor: null },
   { value: 'new_lead', label: 'New Lead', dotColor: 'bg-green-500' },
   { value: 'inspection_waiting', label: 'Awaiting Inspection', dotColor: 'bg-orange-500' },
+  { value: 'inspection_ai_summary', label: 'AI Review', dotColor: 'bg-violet-500' },
   { value: 'approve_inspection_report', label: 'Approve Report', dotColor: 'bg-slate-700' },
   { value: 'inspection_email_approval', label: 'Email Approval', dotColor: 'bg-purple-500' },
   { value: 'closed', label: 'Closed', dotColor: 'bg-blue-500' },
@@ -151,6 +152,10 @@ const LeadsManagement = () => {
 
     viewPDF: (leadId: number | string) => {
       navigate(`/report/${leadId}`);
+    },
+
+    reviewAISummary: (leadId: number | string) => {
+      navigate(`/admin/inspection-ai-review/${leadId}`);
     },
 
     regeneratePDF: async (lead: TransformedLead) => {
@@ -402,6 +407,10 @@ const LeadsManagement = () => {
     stageActions.reactivate(id);
   };
 
+  const handleReviewAI = (id: string | number) => {
+    stageActions.reviewAISummary(id);
+  };
+
   const handleViewHistory = async (id: string | number) => {
     setHistoryLeadId(id);
     setHistoryLoading(true);
@@ -649,6 +658,7 @@ const LeadsManagement = () => {
                 onArchive={handleArchive}
                 onReactivate={handleReactivate}
                 onViewHistory={handleViewHistory}
+                onReviewAI={handleReviewAI}
               />
             ))}
 

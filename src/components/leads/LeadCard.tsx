@@ -44,6 +44,7 @@ interface LeadCardProps {
   onArchive: (id: string | number) => void;
   onReactivate: (id: string | number) => void;
   onViewHistory: (id: string | number) => void;
+  onReviewAI?: (id: string | number) => void;
 }
 
 // ============================================================================
@@ -53,6 +54,7 @@ interface LeadCardProps {
 const statusBadgeStyles: Record<string, string> = {
   new_lead: 'bg-emerald-50 text-emerald-700 border-emerald-100',
   inspection_waiting: 'bg-orange-50 text-orange-700 border-orange-100',
+  inspection_ai_summary: 'bg-violet-50 text-violet-700 border-violet-100',
   approve_inspection_report: 'bg-slate-800 text-white border-slate-700',
   inspection_email_approval: 'bg-purple-50 text-purple-700 border-purple-100',
   closed: 'bg-blue-50 text-blue-700 border-blue-100',
@@ -62,6 +64,7 @@ const statusBadgeStyles: Record<string, string> = {
 const statusLabels: Record<string, string> = {
   new_lead: 'New Lead',
   inspection_waiting: 'Awaiting Inspection',
+  inspection_ai_summary: 'AI Review',
   approve_inspection_report: 'Approve Report',
   inspection_email_approval: 'Email Approval',
   closed: 'Closed',
@@ -115,6 +118,7 @@ export default function LeadCard({
   onArchive,
   onReactivate,
   onViewHistory,
+  onReviewAI,
 }: LeadCardProps) {
   const badgeStyle = statusBadgeStyles[lead.status] || 'bg-slate-100 text-slate-600 border-slate-200';
 
@@ -163,6 +167,16 @@ export default function LeadCard({
           <p className="text-sm text-slate-500 line-clamp-2">
             {lead.issueDescription || 'No issue description provided'}
           </p>
+        );
+
+      case 'inspection_ai_summary':
+        return (
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 text-xs font-medium">
+              <span className="material-symbols-outlined text-sm">auto_awesome</span>
+              AI Generated — Ready for review
+            </span>
+          </div>
         );
 
       case 'approve_inspection_report':
@@ -243,6 +257,21 @@ export default function LeadCard({
             <span className="material-symbols-outlined text-lg">hourglass_top</span>
             Awaiting on {lead.assigned_technician || 'Technician'}
           </div>
+        );
+
+      case 'inspection_ai_summary':
+        return (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onReviewAI?.(lead.id);
+            }}
+            className="flex-1 h-10 px-4 rounded-lg bg-violet-600 text-white text-sm font-medium
+              hover:bg-violet-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+          >
+            <span className="material-symbols-outlined text-lg">rate_review</span>
+            Review AI Summary
+          </button>
         );
 
       case 'approve_inspection_report':

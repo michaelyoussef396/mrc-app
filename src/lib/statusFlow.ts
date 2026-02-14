@@ -2,6 +2,7 @@
 export type LeadStatus =
   | "new_lead"
   | "inspection_waiting"
+  | "inspection_ai_summary"
   | "approve_inspection_report"
   | "inspection_email_approval"
   | "closed"
@@ -30,7 +31,7 @@ export const STATUS_FLOW: Record<LeadStatus, StatusFlowConfig> = {
     borderColor: 'hsl(217 91% 60%)',
   },
   'inspection_waiting': {
-    next: 'approve_inspection_report',
+    next: 'inspection_ai_summary',
     title: 'Awaiting Inspection',
     shortTitle: 'AWAITING',
     nextAction: 'Complete inspection and submit form',
@@ -38,6 +39,16 @@ export const STATUS_FLOW: Record<LeadStatus, StatusFlowConfig> = {
     color: 'hsl(38 92% 50%)',
     bgColor: 'hsl(38 92% 95%)',
     borderColor: 'hsl(38 92% 50%)',
+  },
+  'inspection_ai_summary': {
+    next: 'approve_inspection_report',
+    title: 'AI Summary Review',
+    shortTitle: 'AI REVIEW',
+    nextAction: 'Review and approve AI-generated content',
+    iconName: 'Sparkles',
+    color: 'hsl(263 70% 58%)',
+    bgColor: 'hsl(263 70% 97%)',
+    borderColor: 'hsl(263 70% 58%)',
   },
   'approve_inspection_report': {
     next: 'inspection_email_approval',
@@ -85,6 +96,7 @@ export const STATUS_FLOW: Record<LeadStatus, StatusFlowConfig> = {
 export const ALL_STATUSES: LeadStatus[] = [
   'new_lead',
   'inspection_waiting',
+  'inspection_ai_summary',
   'approve_inspection_report',
   'inspection_email_approval',
   'closed',
