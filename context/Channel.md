@@ -46,38 +46,43 @@ Use any agents needed when they can help. Always go for the specialised agents t
 ## CURRENT TASK: AI Generation Debugging & Fix
 
 **ROLE:** Senior Backend Engineer (Debugging Specialist)
-**TASK:** Fix the "Bad control character in string literal in JSON" error affecting the AI Inspection Report generation.
+**TASK:** Fix the AI Inspection Report generation logic to handle token limits, JSON parsing, and PDF photo loading.
 
-### 🔍 Root Cause Analysis (Confirmed by Gemini)
-The error occurs because the `generate-inspection-summary` Edge Function returns raw text from the AI, which often contains invalid JSON (specifically, unescaped control characters like real newlines inside string values).
+### 🔍 Analysis Findings (by Antigravity)
+Refer to: `/context/ai-generation-failure-analysis.md` for full breakdown.
 
-The Edge Function **already has** a robust `extractJson(raw: string)` helper function (lines 373-431 in `index.ts`) designed specifically to fix this by walking the string and escaping control characters.
+**1. AI Generation Crash (Critical):**
+- **Cause:** `callOpenRouter` returns raw text. `JSON.parse` crashes on unescaped characters.
+- **Effect:** Client receives error => Status update skipped => Lead stuck in "Waiting" => Data hidden.
+- **Fix:** Connect `extractJson(text)` in `callOpenRouter`.
 
-**THE BUG:** The `callOpenRouter` function (lines 309-370) **never calls** `extractJson`. It returns `text.trim()` directly (line 360). When the frontend receives this and tries to `JSON.parse()` it, it crashes on the unescaped characters.
+**2. Text Truncation:**
+- **Cause:** `maxTokens` (1500) is too low for `whatWeWillDo`.
+- **Fix:** Increase `maxTokens` to 3000+ for large sections.
+
+**3. PDF Photos Missing:**
+- **Check:** Verify `inspection-photos` bucket name vs `photos` bucket name. Code uses `inspection-photos` (singular 'photo' or plural 'photos'?). Check consistency.
 
 ### 📝 Implementation Plan for Claude Code
 
 1.  **Modify `supabase/functions/generate-inspection-summary/index.ts`**:
-    *   Locate `callOpenRouter` function.
-    *   Change line 360 from `return text.trim()` to `return extractJson(text)`.
-    *   This ensures the output is always sanitized and valid JSON before leaving the Edge Function.
+    *   **Import `extractJson`** (if not accessible) or move it up.
+    *   **Update `callOpenRouter`**: Change `return text.trim()` to `return extractJson(text)`.
+    *   **Increase Token Limits**: Update `maxTokens` for `whatWeWillDo` (1500 -> 3000) and `detailedAnalysis` (3500 -> 4000).
 
-2.  **Verify `sanitizeField` (Optional but recommended)**:
-    *   The `sanitizeField` function (line 154) is used for input. It replaces newlines with spaces. This is safe but aggressive. It doesn't escape quotes.
-    *   Current Logic: `return value.replace(...).trim()`.
-    *   Recommendation: Keep as is for now, as the prompt string sent to OpenRouter is handled by `JSON.stringify` logic in the `fetch` body, so quotes in the *prompt* (user message content) are legal. The issue is purely with the *response* parsing.
+2.  **Verify Bucket Name**:
+    *   Check if bucket `inspection-photos` exists. If the app upload logic uses `inspection-photos`, ensure the PDF generator matches.
 
-3.  **Test Strategy**:
-    *   Trigger the "Generate AI Report" button with inspection data containing multi-line text (e.g., "Line 1\nLine 2") and quotes.
-    *   Verify the response is parsed correctly without error.
+3.  **Execute Fix**:
+    *   Apply changes to `index.ts`.
+    *   Deploy function: `supabase functions deploy generate-inspection-summary --no-verify-jwt`.
 
 **CONTEXT:**
 - File: `supabase/functions/generate-inspection-summary/index.ts`
-- Helper: `extractJson` (lines 373+)
-- Caller: `callOpenRouter` (lines 309+)
+- Analysis: `/context/ai-generation-failure-analysis.md`
 
-**REASONING:** The helper function `extractJson` was clearly written to solve exactly this problem (comment on line 388 says "Fix control characters ONLY inside JSON string values"). It was just forgotten in the integration point. Connecting it fixes the bug immediately.
+**REASONING:** fixing the JSON parse error is the blocker. Increasing tokens prevents truncation. Verifying buckets fixes PDFs.
 
-**OUTPUT:** Edited `index.ts` file.
+**OUTPUT:** Edited `index.ts` file and deployed function.
 
 **STOP:** When code is updated and verified.

@@ -486,46 +486,6 @@ export default function LeadDetail() {
     }
   };
 
-  // Calculate inspection completion percentage (9 sections)
-  const getInspectionProgress = () => {
-    if (!inspection) return { completed: 0, total: 9, percentage: 0 };
-
-    // If lead is past inspection_waiting, technician completed the form = 100%
-    const completedStatuses = [
-      'inspection_ai_summary',
-      'approve_inspection_report',
-      'inspection_email_approval',
-      'closed',
-      'not_landed',
-    ];
-    if (lead && completedStatuses.includes(lead.status)) {
-      return { completed: 9, total: 9, percentage: 100 };
-    }
-
-    let completed = 0;
-    const total = 9;
-
-    // Check each section using actual DB column names
-    if (inspection.inspection_date) completed++;                                                                      // S1: Basic Info
-    if (inspection.dwelling_type) completed++;                                                                        // S2: Property Details
-    // S3: Area Inspection — if later sections are filled, areas were done (sequential form)
-    if (inspection.outdoor_temperature || inspection.cause_of_mould) completed++;                                     // S3: Areas (proxy)
-    if (inspection.subfloor_required !== null && inspection.subfloor_required !== undefined) completed++;              // S4: Subfloor
-    if (inspection.outdoor_temperature) completed++;                                                                  // S5: Outdoor
-    if (inspection.waste_disposal_required !== null && inspection.waste_disposal_required !== undefined) completed++;  // S6: Waste Disposal
-    if (inspection.hepa_vac !== null && inspection.hepa_vac !== undefined) completed++;                                // S7: Work Procedure
-    if (inspection.cause_of_mould) completed++;                                                                       // S8: Job Summary
-    if (inspection.no_demolition_hours || inspection.selected_job_type) completed++;                                  // S9: Cost Estimate
-
-    return {
-      completed,
-      total,
-      percentage: Math.round((completed / total) * 100),
-    };
-  };
-
-  const progress = getInspectionProgress();
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -829,52 +789,6 @@ export default function LeadDetail() {
                   {lead.internal_notes}
                 </p>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Inspection Form Progress - if inspection exists */}
-        {inspection && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <ClipboardList className="h-4 w-4" />
-                Inspection Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Completion</span>
-                <span className="text-sm font-bold text-blue-600">{progress.percentage}%</span>
-              </div>
-              <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-600 transition-all duration-500"
-                  style={{ width: `${progress.percentage}%` }}
-                />
-              </div>
-              <p className="text-xs text-gray-500">
-                {progress.completed} of {progress.total} sections completed
-              </p>
-              {progress.percentage === 100 && POST_INSPECTION_STATUSES.includes(lead.status) ? (
-                <Button
-                  variant="outline"
-                  className="w-full h-12"
-                  onClick={() => document.getElementById('inspection-data')?.scrollIntoView({ behavior: 'smooth' })}
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  View Inspection
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  className="w-full h-12"
-                  onClick={() => navigate(`/inspection/${lead.id}`)}
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Continue Inspection
-                </Button>
-              )}
             </CardContent>
           </Card>
         )}

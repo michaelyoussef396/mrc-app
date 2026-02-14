@@ -113,6 +113,8 @@ interface Inspection {
   outdoor_comments: string
   cause_of_mould: string
   ai_summary_text: string
+  problem_analysis_content?: string
+  demolition_content?: string
   labor_cost_ex_gst: number
   equipment_cost_ex_gst: number
   subtotal_ex_gst: number
@@ -310,6 +312,66 @@ function getPhotoUrl(storagePath: string): string {
   return photoSignedUrls.get(storagePath) || ''
 }
 
+// Parse problem_analysis_content markdown into individual sub-sections
+// The AI generates one big markdown blob with **BOLD HEADERS** separating sections
+function parseProblemAnalysis(content: string | null | undefined): Record<string, string> {
+  const sections: Record<string, string> = {
+    what_we_discovered: '',
+    identified_causes: '',
+    contributing_factors: '',
+    why_this_happened: '',
+    immediate_actions: '',
+    long_term_protection: '',
+    what_success_looks_like: '',
+    timeline_text: '',
+  }
+
+  if (!content) return sections
+
+  // Split by bold headers (with or without emoji prefixes)
+  const headerPatterns: [RegExp, string][] = [
+    [/\*\*(?:🔍\s*)?WHAT WE DISCOVERED\*\*/i, 'what_we_discovered'],
+    [/\*\*(?:🔍\s*)?IDENTIFIED CAUSES\*\*/i, 'identified_causes'],
+    [/\*\*(?:📋\s*)?CONTRIBUTING FACTORS\*\*/i, 'contributing_factors'],
+    [/\*\*(?:WHY THIS HAPPENED)\*\*/i, 'why_this_happened'],
+    [/\*\*(?:📋\s*)?RECOMMENDATIONS\*\*/i, '_recommendations'], // parent header, skip
+    [/\*\*(?:IMMEDIATE ACTIONS(?:\s+WEEK\s*\d*)?)\*\*/i, 'immediate_actions'],
+    [/\*\*(?:LONG[\s-]*TERM PROTECTION)\*\*/i, 'long_term_protection'],
+    [/\*\*(?:WHAT SUCCESS LOOKS LIKE)\*\*/i, 'what_success_looks_like'],
+    [/\*\*(?:TIMELINE)\*\*/i, 'timeline_text'],
+  ]
+
+  // Find positions of all headers
+  const positions: { index: number; end: number; key: string }[] = []
+  for (const [pattern, key] of headerPatterns) {
+    const match = content.match(pattern)
+    if (match && match.index !== undefined) {
+      positions.push({ index: match.index, end: match.index + match[0].length, key })
+    }
+  }
+
+  // Sort by position
+  positions.sort((a, b) => a.index - b.index)
+
+  // Extract content between headers
+  for (let i = 0; i < positions.length; i++) {
+    const current = positions[i]
+    const nextStart = i + 1 < positions.length ? positions[i + 1].index : content.length
+    const sectionContent = content.slice(current.end, nextStart).trim()
+
+    if (current.key !== '_recommendations' && sectionContent) {
+      sections[current.key] = sectionContent
+    }
+  }
+
+  // If no headers found, put everything in what_we_discovered
+  if (positions.length === 0 && content.trim()) {
+    sections.what_we_discovered = content.trim()
+  }
+
+  return sections
+}
+
 // ===================================================================
 // TEMPLATE POPULATION FUNCTIONS
 // ===================================================================
@@ -474,16 +536,19 @@ function generateReportHtml(
   const treatmentMethods = getTreatmentMethods(inspection)
   const equipmentList = getEquipmentList(inspection)
 
-  // Problem analysis content
-  const problemAnalysis = inspection.ai_summary_text
-    ? markdownToHtml(inspection.ai_summary_text)
-    : `During our comprehensive inspection at ${propertyAddress}, we identified mould growth in the examined areas requiring professional treatment.`
+  // Problem analysis content — parse into sub-sections for template placeholders
+  const problemSections = parseProblemAnalysis(
+    inspection.problem_analysis_content || inspection.ai_summary_text
+  )
+  const defaultAnalysis = `During our comprehensive inspection at ${propertyAddress}, we identified mould growth in the examined areas requiring professional treatment.`
 
-  // Demolition content
+  // Demolition content — use AI-generated field, fall back to area descriptions
   const demolitionAreas = inspection.areas?.filter(a => a.demolition_required) || []
-  const demolitionContent = demolitionAreas.length > 0
-    ? demolitionAreas.map(a => `<strong>${a.area_name}:</strong> ${a.demolition_description || 'Demolition work required.'}`).join('<br/><br/>')
-    : 'No demolition work required for this inspection.'
+  const demolitionContent = inspection.demolition_content
+    ? markdownToHtml(inspection.demolition_content)
+    : demolitionAreas.length > 0
+      ? demolitionAreas.map(a => `<strong>${a.area_name}:</strong> ${a.demolition_description || 'Demolition work required.'}`).join('<br/><br/>')
+      : 'No demolition work required for this inspection.'
 
   // Equipment pricing
   const dehumidifierPrice = inspection.commercial_dehumidifier_qty > 0 ? `$132/day × ${inspection.commercial_dehumidifier_qty}` : '$132/day'
@@ -496,6 +561,10 @@ function generateReportHtml(
   // Replace asset paths with absolute Supabase Storage URLs
   html = html.replace(/\.\/assets\//g, `${ASSET_BASE}/assets/`)
   html = html.replace(/\.\/fonts\//g, `${ASSET_BASE}/fonts/`)
+  // Template uses /pages/ and /assets/ for static backgrounds, logos, SVGs
+  html = html.replace(/src="\/pages\//g, `src="${ASSET_BASE}/pages/`)
+  html = html.replace(/src="\/assets\//g, `src="${ASSET_BASE}/assets/`)
+  html = html.replace(/url\('\/pages\//g, `url('${ASSET_BASE}/pages/`)
 
   // ===== PAGE 1: COVER =====
   html = html.replace(/\{\{ordered_by\}\}/g, getValidValue(inspection.requested_by, lead?.full_name, 'Property Owner'))
@@ -507,19 +576,29 @@ function generateReportHtml(
   html = html.replace(/\{\{cover_photo_url\}\}/g, coverPhotoUrl)
   html = html.replace(/\{\{property_address\}\}/g, propertyAddress)
 
-  // ===== PAGE 4: VALUE PROPOSITION =====
+  // ===== PAGE 2: VALUE PROPOSITION =====
   html = html.replace(/\{\{what_we_found_text\}\}/g,
     markdownToHtml(inspection.what_we_found_text) ||
     markdownToHtml(inspection.ai_summary_text) ||
-    'Summary not yet generated. Click "Generate AI Summary" in Section 10.')
+    'Summary not yet generated.')
   html = html.replace(/\{\{what_we_will_do_text\}\}/g,
     markdownToHtml(inspection.what_we_will_do_text) ||
     `We'll set up professional equipment including ${equipmentList || 'air scrubbers'}. Treatment will include ${treatmentMethods || 'standard mould removal procedures'}.`)
+  html = html.replace(/\{\{what_you_get_text\}\}/g,
+    markdownToHtml(inspection.what_you_get_text) ||
+    `Professional mould remediation with ${treatmentMethods}. Equipment deployment: ${equipmentList}. 12-month warranty on all treated areas.`)
 
-  // ===== PAGE 5: PROBLEM ANALYSIS =====
-  html = html.replace(/\{\{problem_analysis_content\}\}/g, problemAnalysis)
+  // ===== PROBLEM ANALYSIS (sub-sections) =====
+  html = html.replace(/\{\{what_we_discovered\}\}/g, stripMarkdown(problemSections.what_we_discovered) || defaultAnalysis)
+  html = html.replace(/\{\{identified_causes\}\}/g, stripMarkdown(problemSections.identified_causes) || 'Causes to be determined after full analysis.')
+  html = html.replace(/\{\{contributing_factors\}\}/g, stripMarkdown(problemSections.contributing_factors) || '')
+  html = html.replace(/\{\{why_this_happened\}\}/g, stripMarkdown(problemSections.why_this_happened) || '')
+  html = html.replace(/\{\{immediate_actions\}\}/g, stripMarkdown(problemSections.immediate_actions) || 'Professional mould treatment recommended.')
+  html = html.replace(/\{\{long_term_protection\}\}/g, stripMarkdown(problemSections.long_term_protection) || '')
+  html = html.replace(/\{\{what_success_looks_like\}\}/g, stripMarkdown(problemSections.what_success_looks_like) || '')
+  html = html.replace(/\{\{timeline_text\}\}/g, stripMarkdown(problemSections.timeline_text) || '')
 
-  // ===== PAGE 6: DEMOLITION =====
+  // ===== DEMOLITION =====
   html = html.replace(/\{\{demolition_content\}\}/g, demolitionContent)
 
   // ===== PAGE 7: OUTDOOR ENVIRONMENT =====
@@ -659,13 +738,21 @@ Deno.serve(async (req) => {
 
         subfloorReadings = (sfReadings || []) as SubfloorReading[]
 
-        // Fetch subfloor photos
+        // Fetch subfloor photos — try by subfloor_id first, fall back to photo_type
+        // Photos are already fetched in the main query, so also check those
         const { data: sfPhotos } = await supabase
           .from('photos')
           .select('*')
           .eq('subfloor_id', sfData.id)
 
-        subfloorPhotos = (sfPhotos || []) as Photo[]
+        if (sfPhotos && sfPhotos.length > 0) {
+          subfloorPhotos = sfPhotos as Photo[]
+        } else {
+          // Fallback: photos may have null subfloor_id but photo_type='subfloor'
+          subfloorPhotos = (inspection.photos || []).filter(
+            (p: any) => p.photo_type === 'subfloor'
+          ) as Photo[]
+        }
         console.log(`Subfloor: ${subfloorReadings.length} readings, ${subfloorPhotos.length} photos`)
       } else {
         console.log('No subfloor data found despite subfloor_required=true')

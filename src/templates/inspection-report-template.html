@@ -142,11 +142,11 @@
 
             <div style="width: 628px; left: 48px; top: 66px; position: absolute; color: black; font-size: 160px; font-family: Inter; font-weight: 400; text-transform: uppercase; letter-spacing: 0.75px; word-wrap: break-word; z-index: 10;">mould</div>
             <div style="width: 508.20px; left: 226.40px; top: 167px; position: absolute; color: #150DB8; font-size: 112px; font-family: Inter; font-weight: 400; text-transform: uppercase; letter-spacing: 0.51px; word-wrap: break-word; text-shadow: -5px 0px 8px rgba(0, 0, 0, 0.29); z-index: 10;">report</div>
-            <div style="width: 259px; left: 28px; top: 312.50px; position: absolute; color: black; font-size: 19px; font-family: Inter; font-weight: 400; letter-spacing: 0.05px; word-wrap: break-word; z-index: 10;">ordered by: Amy Michael<br/>inspector: Clayton<br/>date: 02/11/2025</div>
-            <div style="width: 172px; left: 27px; top: 415.50px; position: absolute; z-index: 10;"><span style="color: black; font-size: 17px; font-family: Inter; font-weight: 400; text-transform: uppercase; line-height: 20px; letter-spacing: 0.04px; word-wrap: break-word">directed to:<br/>Amy Michael<br/><br/><br/>property type:<br/>townhouse<br/><br/><br/></span><span style="color: black; font-size: 17px; font-family: Inter; font-weight: 400; text-transform: uppercase; line-height: 24px; letter-spacing: 0.04px; word-wrap: break-word">examined areas<br/>Ensuite<br/>Bedroom 1<br/></span></div>
+            <div style="width: 259px; left: 28px; top: 312.50px; position: absolute; color: black; font-size: 19px; font-family: Inter; font-weight: 400; letter-spacing: 0.05px; word-wrap: break-word; z-index: 10;">ordered by: {{ordered_by}}<br/>inspector: {{inspector}}<br/>date: {{inspection_date}}</div>
+            <div style="width: 172px; left: 27px; top: 415.50px; position: absolute; z-index: 10;"><span style="color: black; font-size: 17px; font-family: Inter; font-weight: 400; text-transform: uppercase; line-height: 20px; letter-spacing: 0.04px; word-wrap: break-word">directed to:<br/>{{directed_to}}<br/><br/><br/>property type:<br/>{{property_type}}<br/><br/><br/></span><span style="color: black; font-size: 17px; font-family: Inter; font-weight: 400; text-transform: uppercase; line-height: 24px; letter-spacing: 0.04px; word-wrap: break-word">examined areas<br/>{{examined_areas}}<br/></span></div>
             <div style="width: 486.20px; height: 363.79px; left: 273.98px; top: 418.92px; position: absolute; background: white; box-shadow: -16px 0px 57px rgba(0, 0, 0, 0.26); z-index: 2;"></div>
-            <img style="width: 468px; height: 350px; left: 283px; top: 426px; position: absolute; z-index: 3;" src="/assets/shared/page1.png" alt="Property" />
-            <div style="width: 377.30px; left: 318.85px; top: 796.50px; position: absolute; color: white; font-size: 23px; font-family: Inter; font-weight: 400; text-transform: uppercase; letter-spacing: 0.07px; word-wrap: break-word; z-index: 10;">2/79 McIntosh Street Airport West VIC 3042</div>
+            <img style="width: 468px; height: 350px; left: 283px; top: 426px; position: absolute; z-index: 3; object-fit: cover;" src="{{cover_photo_url}}" alt="Property" />
+            <div style="width: 377.30px; left: 318.85px; top: 796.50px; position: absolute; color: white; font-size: 23px; font-family: Inter; font-weight: 400; text-transform: uppercase; letter-spacing: 0.07px; word-wrap: break-word; z-index: 10;">{{property_address}}</div>
             <div style="width: 179px; left: 581px; top: 1014.50px; position: absolute; color: white; font-size: 16px; font-family: Inter; font-weight: 400; line-height: 23.90px; word-wrap: break-word; z-index: 10;">Restoring your spaces,<br/>protecting your health.</div>
             <img style="width: 119px; height: 39px; left: 611px; top: 962px; position: absolute; z-index: 10;" src="/pages/page-1-cover/logo-bottom-right.png" alt="MRC Logo" />
             <div style="width: 748.40px; left: 23.30px; top: 1089px; position: absolute; text-align: center; color: white; font-size: 14px; font-family: Inter; font-weight: 400; text-transform: uppercase; letter-spacing: 0.02px; word-wrap: break-word; z-index: 10;">1800 954 117 | mouldandrestoration.com.au | admin@mouldandrestoration.com.au</div>
@@ -188,7 +188,7 @@
             <!-- Price box -->
             <div style="width: 284.137px; height: 38.166px; left: 26.13px; top: 1010.24px; position: absolute; background: #121D73; border-radius: 19px; z-index: 10;"></div>
 
-            <div style="width: 245.2px; left: 45.9px; top: 1021.5px; position: absolute; color: white; font-size: 22px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0633px; word-wrap: break-word; z-index: 11;">$1,232.41 + GST</div>
+            <div style="width: 245.2px; left: 45.9px; top: 1021.5px; position: absolute; color: white; font-size: 22px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0633px; word-wrap: break-word; z-index: 11;">{{option_1_price}} + GST</div>
 
             <!-- Logo -->
             <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: cover; object-position: 50% 50%; z-index: 10;" src="/pages/page-2-value-proposition/logo-page2.png" alt="MRC Logo" />
@@ -215,26 +215,26 @@
             <!-- OUTDOOR TEMPERATURE section -->
             <div style="width: 190px; left: 62px; top: 262.5px; position: absolute; color: black; font-size: 23px; font-family: Inter; font-weight: 400; line-height: 20.8px; letter-spacing: 0.0682px; word-wrap: break-word">OUTDOOR<br/>TEMPERATURE</div>
 
-            <div style="width: 74.2px; left: 62.9px; top: 315.5px; position: absolute; color: black; font-size: 22px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; word-wrap: break-word">25.0°C</div>
+            <div style="width: 74.2px; left: 62.9px; top: 315.5px; position: absolute; color: black; font-size: 22px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; word-wrap: break-word">{{outdoor_temperature}}°C</div>
 
             <!-- Photo 1 (top right) -->
-            <img style="width: 372px; height: 259px; left: 342px; top: 181px; position: absolute; object-fit: cover; object-position: 50% 50%; border-radius: 15px;" src="/assets/shared/page2-1.png" alt="Outdoor photo 1" />
+            <img style="width: 372px; height: 259px; left: 342px; top: 181px; position: absolute; object-fit: cover; object-position: 50% 50%; border-radius: 15px;" src="{{outdoor_photo_1}}" alt="Outdoor photo 1" />
 
             <!-- OUTDOOR HUMIDITY section -->
             <div style="width: 128px; left: 59px; top: 562px; position: absolute; color: black; font-size: 23px; font-family: Inter; font-weight: 400; line-height: 20.8px; letter-spacing: 0.0682px; word-wrap: break-word">OUTDOOR<br/>HUMIDITY</div>
 
-            <div style="width: 73.3px; left: 57.85px; top: 615px; position: absolute; color: black; font-size: 23px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; word-wrap: break-word">44.0%</div>
+            <div style="width: 73.3px; left: 57.85px; top: 615px; position: absolute; color: black; font-size: 23px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; word-wrap: break-word">{{outdoor_humidity}}%</div>
 
             <!-- Photo 2 (middle right) -->
-            <img style="width: 372px; height: 259px; left: 342px; top: 466px; position: absolute; object-fit: cover; object-position: 50% 50%; border-radius: 15px;" src="/assets/shared/page2-2.png" alt="Outdoor photo 2" />
+            <img style="width: 372px; height: 259px; left: 342px; top: 466px; position: absolute; object-fit: cover; object-position: 50% 50%; border-radius: 15px;" src="{{outdoor_photo_2}}" alt="Outdoor photo 2" />
 
             <!-- OUTDOOR DEW POINT section (on navy background) -->
             <div style="width: 143px; left: 59px; top: 846.5px; position: absolute; color: white; font-size: 23px; font-family: Inter; font-weight: 400; line-height: 20.8px; letter-spacing: 0.0682px; word-wrap: break-word">OUTDOOR<br/>DEW POINT</div>
 
-            <div style="width: 63.2px; left: 58.9px; top: 904.5px; position: absolute; color: white; font-size: 22px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; word-wrap: break-word">11.0°C</div>
+            <div style="width: 63.2px; left: 58.9px; top: 904.5px; position: absolute; color: white; font-size: 22px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; word-wrap: break-word">{{outdoor_dew_point}}°C</div>
 
             <!-- Photo 3 (bottom right) -->
-            <img style="width: 370px; height: 257px; left: 343px; top: 752px; position: absolute; object-fit: cover; object-position: 50% 50%; border-radius: 15px;" src="/pages/page-3-outdoor-environment/outdoor-photo-3.png" alt="Outdoor photo 3" />
+            <img style="width: 370px; height: 257px; left: 343px; top: 752px; position: absolute; object-fit: cover; object-position: 50% 50%; border-radius: 15px;" src="{{outdoor_photo_3}}" alt="Outdoor photo 3" />
 
             <!-- Logo -->
             <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: cover; object-position: 50% 50%;" src="/pages/page-3-outdoor-environment/logo-page3.png" alt="MRC Logo" />
@@ -242,8 +242,7 @@
         </div>
     </div>
 
-    <!-- Page 4: Areas Inspected (REPEATABLE) -->
-    <!-- NOTE: This page template should be repeated for each inspected area. The system should generate one instance of this page per area in the inspection data. -->
+    <!-- Page 8: Areas Inspected (REPEATABLE - duplicated per area by edge function) -->
     <div class="report-page page-break">
         <div style="width: 100%; height: 100%; position: relative; background: white; overflow: hidden">
 
@@ -251,8 +250,8 @@
             <img src="/pages/page-4-areas-inspected/background-shape-page4.svg" style="width: 884.026px; height: 1152px; left: -19.01px; top: -7.01px; position: absolute; display: block;" alt="" />
 
             <!-- AREAS INSPECTED heading -->
-            <div style="width: 550px; left: 31.6px; top: 40.5px; position: absolute; font-size: 48px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.195px; word-wrap: break-word">
-                <span style="color: black;">AREA </span><span style="color: #150DB8;">INSPECTED:</span><span style="color: black;"> ENSUITE</span>
+            <div style="width: 650px; left: 31.6px; top: 40.5px; position: absolute; font-size: 48px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.195px; word-wrap: break-word">
+                <span style="color: black;">AREA </span><span style="color: #150DB8;">INSPECTED:</span><span style="color: black;"> {{area_name}}</span>
             </div>
 
             <!-- Description text -->
@@ -262,105 +261,45 @@
             <div style="width: 542.447px; height: 136.814px; left: 126.02px; top: 241.11px; position: absolute; background: #121D73; border-radius: 20px;"></div>
 
             <!-- Row 1: Temperature and Humidity -->
-            <div style="width: 194.5px; left: 158.25px; top: 249.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">TEMPERATURE: 25.0°C</div>
+            <div style="width: 250px; left: 158.25px; top: 249.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">TEMPERATURE: {{area_temperature}}</div>
 
-            <div style="width: 140.5px; left: 461.25px; top: 249.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">HUMIDITY: 43.0%</div>
+            <div style="width: 180px; left: 461.25px; top: 249.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">HUMIDITY: {{area_humidity}}</div>
 
             <!-- Row 2: Dew Point and Visible Mould -->
-            <div style="width: 147.5px; left: 182.25px; top: 304.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">DEW POINT: 11.0°C</div>
+            <div style="width: 200px; left: 158.25px; top: 304.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">DEW POINT: {{area_dew_point}}</div>
 
-            <div style="width: 180.5px; left: 441.25px; top: 304px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">VISIBLE MOULD: Flooring</div>
+            <div style="width: 250px; left: 414.25px; top: 304px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word; overflow: hidden; text-overflow: ellipsis;">VISIBLE MOULD: {{visible_mould}}</div>
 
             <!-- Row 3: Internal and External Moisture -->
-            <div style="width: 231.5px; left: 140.25px; top: 349.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">INTERNAL MOISTURE: 10.0%</div>
+            <div style="width: 250px; left: 140.25px; top: 349.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">INTERNAL MOISTURE: {{internal_moisture}}</div>
 
-            <div style="width: 234.5px; left: 414.25px; top: 348.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">EXTERNAL MOISTURE: 11.0%</div>
+            <div style="width: 250px; left: 414.25px; top: 348.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">EXTERNAL MOISTURE: {{external_moisture}}</div>
 
             <!-- Photo grid (left side) - 2x2 grid -->
             <div style="width: 418px; height: 333px; left: 34px; top: 402px; position: absolute; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px;">
-                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/shared/page3-1.png" alt="Area photo 1" />
-                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/shared/page3-2.png" alt="Area photo 2" />
-                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/shared/page3-3.png" alt="Area photo 3" />
-                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/shared/page3-4.png" alt="Area photo 4" />
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="{{area_photo_1}}" alt="Area photo 1" />
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="{{area_photo_2}}" alt="Area photo 2" />
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="{{area_photo_3}}" alt="Area photo 3" />
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="{{area_photo_4}}" alt="Area photo 4" />
             </div>
 
             <!-- AREA NOTES heading -->
             <div style="width: 122.7px; left: 470.15px; top: 409px; position: absolute; color: black; font-size: 17px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0372px; word-wrap: break-word">AREA NOTES</div>
 
             <!-- AREA NOTES content -->
-            <div style="width: 296px; left: 467px; top: 437px; position: absolute; color: black; font-size: 13px; font-family: Inter; font-weight: 400; line-height: 20.9px; letter-spacing: 0.0197px; word-wrap: break-word; white-space: pre-wrap;">Visible mould growth is present to the substrate beneath the tiled flooring.
-
-Tenants items in the area are now cross contaminated and require treatment with a water based antimicrobial solution to ensure cross contamination doesn't affected other areas of the property.
-
-Tenants items affected in the area are roughly as follows: 20/30 tiles/bath items</div>
+            <div style="width: 296px; left: 467px; top: 437px; position: absolute; color: black; font-size: 13px; font-family: Inter; font-weight: 400; line-height: 20.9px; letter-spacing: 0.0197px; word-wrap: break-word; white-space: pre-wrap; max-height: 380px; overflow: hidden;">{{area_notes}}</div>
 
             <!-- Extra photos grid (bottom left) - 2 photos side by side (infrared photos) -->
             <div style="width: 416px; height: 167px; left: 35px; top: 856px; position: absolute; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/shared/inflared.png" alt="Infrared photo 1" />
-                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/shared/page4.png" alt="Infrared photo 2" />
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="{{area_infrared_photo}}" alt="Infrared photo" />
+                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="{{area_natural_infrared_photo}}" alt="Natural infrared photo" />
             </div>
 
             <!-- EXTRA NOTES heading -->
             <div style="width: 133.7px; left: 482.15px; top: 864px; position: absolute; color: black; font-size: 17px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0372px; word-wrap: break-word">EXTRA NOTES</div>
 
             <!-- EXTRA NOTES content -->
-            <div style="width: 260.3px; left: 483.35px; top: 893.5px; position: absolute; color: black; font-size: 13px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0197px; word-wrap: break-word">Indications of past water ingress detected beneath the flooring substrate.</div>
-
-            <!-- Logo -->
-            <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: cover; object-position: 50% 50%;" src="/pages/page-4-areas-inspected/logo-page4.png" alt="MRC Logo" />
-
-        </div>
-    </div>
-
-        <!-- Page 4.5: Areas Inspected (REPEATABLE) -->
-    <!-- NOTE: This page template should be repeated for each inspected area. The system should generate one instance of this page per area in the inspection data. -->
-    <div class="report-page-2 page-break">
-        <div style="width: 100%; height: 100%; position: relative; background: white; overflow: hidden">
-
-            <!-- Background shape -->
-            <img src="/pages/page-4-areas-inspected/background-shape-page4.svg" style="width: 884.026px; height: 1152px; left: -19.01px; top: -7.01px; position: absolute; display: block;" alt="" />
-
-            <!-- AREAS INSPECTED heading -->
-            <div style="width: 550px; left: 31.6px; top: 40.5px; position: absolute; font-size: 48px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.195px; word-wrap: break-word">
-                <span style="color: black;">AREA </span><span style="color: #150DB8;">INSPECTED:</span><span style="color: black;"> Bedroom</span>
-            </div>
-
-            <!-- Description text -->
-            <div style="width: 616px; left: 35px; top: 165px; position: absolute; color: black; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">Our thorough inspection assessed various zones of the property, identifying areas with mould presence and others remaining unaffected, ensuring a complete understanding of the situation.</div>
-
-            <!-- Environmental readings box (navy blue) -->
-            <div style="width: 542.447px; height: 136.814px; left: 126.02px; top: 241.11px; position: absolute; background: #121D73; border-radius: 20px;"></div>
-
-            <!-- Row 1: Temperature and Humidity -->
-            <div style="width: 194.5px; left: 158.25px; top: 249.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">TEMPERATURE: 25.0°C</div>
-
-            <div style="width: 140.5px; left: 461.25px; top: 249.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">HUMIDITY: 43.0%</div>
-
-            <!-- Row 2: Dew Point and Visible Mould -->
-            <div style="width: 147.5px; left: 182.25px; top: 304.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">DEW POINT: 11.0°C</div>
-
-            <div style="width: 180.5px; left: 441.25px; top: 304px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">VISIBLE MOULD: No Mould Visible</div>
-
-            <!-- Row 3: Internal and External Moisture -->
-            <div style="width: 231.5px; left: 140.25px; top: 349.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">INTERNAL MOISTURE: 10.0%</div>
-
-            <div style="width: 234.5px; left: 414.25px; top: 348.5px; position: absolute; color: white; font-size: 15px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">EXTERNAL MOISTURE: 9.0%</div>
-
-            <!-- Photo grid (left side) - 2x2 grid -->
-            <div style="width: 418px; height: 333px; left: 34px; top: 402px; position: absolute; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px;">
-                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/shared/area-1.png" alt="Area photo 1" />
-                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/shared/area-2.png" alt="Area photo 2" />
-                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/shared/area-3.png" alt="Area photo 3" />
-                <img style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" src="/assets/shared/area-4.png" alt="Area photo 4" />
-            </div>
-
-            <!-- AREA NOTES heading -->
-            <div style="width: 122.7px; left: 470.15px; top: 409px; position: absolute; color: black; font-size: 17px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0372px; word-wrap: break-word">AREA NOTES</div>
-
-            <!-- AREA NOTES content -->
-            <div style="width: 296px; left: 467px; top: 437px; position: absolute; color: black; font-size: 13px; font-family: Inter; font-weight: 400; line-height: 20.9px; letter-spacing: 0.0197px; word-wrap: break-word; white-space: pre-wrap;">No visible mould growth is present in the area although previous hygienist testing has confirmed that cross contamination from the adjacent ensuite has exposed the clothing and other contents in the area to mould spores.
-
-Tenants items in the area are now cross contaminated and require treatment with a water based antimicrobial solution to ensure cross contamination doesn’t affected other areas of the property. </div>
+            <div style="width: 260.3px; left: 483.35px; top: 893.5px; position: absolute; color: black; font-size: 13px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0197px; word-wrap: break-word">{{extra_notes}}</div>
 
             <!-- Logo -->
             <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: cover; object-position: 50% 50%;" src="/pages/page-4-areas-inspected/logo-page4.png" alt="MRC Logo" />
@@ -468,7 +407,63 @@ Tenants items in the area are now cross contaminated and require treatment with 
     </div>
 </div>
 
-    <!-- Page 5: Problem Analysis & Recommendations -->
+    <!-- Page 9: Subfloor Assessment (conditional - removed if not required) -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: white; overflow: hidden">
+
+            <!-- Background shape -->
+            <img src="/pages/page-4-areas-inspected/background-shape-page4.svg" style="width: 884.026px; height: 1152px; left: -19.01px; top: -7.01px; position: absolute; display: block;" alt="" />
+
+            <!-- Logo -->
+            <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: cover; object-position: 50% 50%;" src="/pages/page-4-areas-inspected/logo-page4.png" alt="MRC Logo" />
+
+            <!-- SUBFLOOR ASSESSMENT heading -->
+            <div style="width: 600px; left: 32px; top: 41px; position: absolute; font-size: 42px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.195px; word-wrap: break-word; z-index: 10;">
+                <span style="color: black;">SUBFLOOR </span><span style="color: #150DB8;">ASSESSMENT</span>
+            </div>
+
+            <!-- Observations -->
+            <div style="left: 35px; top: 120px; position: absolute; width: 700px; z-index: 10;">
+                <div style="color: #150DB8; font-size: 20px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; margin-bottom: 8px;">OBSERVATIONS</div>
+                <div style="color: black; font-size: 14px; font-family: Inter; font-weight: 400; line-height: 21px; letter-spacing: 0.0252px; word-wrap: break-word;">{{subfloor_observation}}</div>
+            </div>
+
+            <!-- Landscape -->
+            <div style="left: 35px; top: 220px; position: absolute; width: 320px; z-index: 10;">
+                <div style="color: #150DB8; font-size: 20px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; margin-bottom: 8px;">LANDSCAPE</div>
+                <div style="color: black; font-size: 14px; font-family: Inter; font-weight: 400; line-height: 21px; letter-spacing: 0.0252px; word-wrap: break-word;">{{subfloor_landscape}}</div>
+            </div>
+
+            <!-- Moisture Levels -->
+            <div style="left: 400px; top: 220px; position: absolute; width: 360px; z-index: 10;">
+                <div style="color: #150DB8; font-size: 20px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; margin-bottom: 8px;">MOISTURE LEVELS</div>
+                <div style="color: black; font-size: 14px; font-family: Inter; font-weight: 400; line-height: 21px; letter-spacing: 0.0252px; word-wrap: break-word; white-space: pre-wrap;">{{subfloor_moisture_levels}}</div>
+            </div>
+
+            <!-- Comments -->
+            <div style="left: 35px; top: 340px; position: absolute; width: 700px; z-index: 10;">
+                <div style="color: #150DB8; font-size: 20px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0682px; margin-bottom: 8px;">COMMENTS</div>
+                <div style="color: black; font-size: 14px; font-family: Inter; font-weight: 400; line-height: 21px; letter-spacing: 0.0252px; word-wrap: break-word;">{{subfloor_comments}}</div>
+            </div>
+
+            <!-- Subfloor Photos Grid (up to 10 photos) -->
+            <div style="width: 700px; left: 35px; top: 440px; position: absolute; display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(2, 1fr); gap: 10px; z-index: 10;">
+                <img style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;" src="{{subfloor_photo_1}}" alt="Subfloor photo 1" />
+                <img style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;" src="{{subfloor_photo_2}}" alt="Subfloor photo 2" />
+                <img style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;" src="{{subfloor_photo_3}}" alt="Subfloor photo 3" />
+                <img style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;" src="{{subfloor_photo_4}}" alt="Subfloor photo 4" />
+                <img style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;" src="{{subfloor_photo_5}}" alt="Subfloor photo 5" />
+                <img style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;" src="{{subfloor_photo_6}}" alt="Subfloor photo 6" />
+                <img style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;" src="{{subfloor_photo_7}}" alt="Subfloor photo 7" />
+                <img style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;" src="{{subfloor_photo_8}}" alt="Subfloor photo 8" />
+                <img style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;" src="{{subfloor_photo_9}}" alt="Subfloor photo 9" />
+                <img style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;" src="{{subfloor_photo_10}}" alt="Subfloor photo 10" />
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Page 10: Problem Analysis & Recommendations -->
     <div class="report-page page-break">
         <div style="width: 100%; height: 100%; position: relative; background: white; overflow: hidden">
 
@@ -562,7 +557,7 @@ Tenants items in the area are now cross contaminated and require treatment with 
             <div style="width: 170.579px; height: 27.042px; left: 299.79px; top: 171.31px; position: absolute; background: #121D73; border-radius: 20px; z-index: 5;"></div>
 
             <!-- Option 1 Price Text -->
-            <div style="left: 320.2px; top: 178.5px; position: absolute; color: white; font-size: 16px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0303px; word-wrap: break-word; z-index: 6;">$1,232.41</div>
+            <div style="left: 320.2px; top: 178.5px; position: absolute; color: white; font-size: 16px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0303px; word-wrap: break-word; z-index: 6;">{{option_1_price}}</div>
 
             <!-- Option 1 Description -->
             <div style="width: 622px; left: 37px; top: 214px; position: absolute; color: #252525; font-size: 14px; font-family: Inter; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">A. Eradication of visible mould from all impacted zones as detailed in the prior report.<br/><br/>B. Diminishment of airborne mould spores within the property through sanitisation.</div>
@@ -577,7 +572,7 @@ Tenants items in the area are now cross contaminated and require treatment with 
             <div style="width: 198.412px; height: 28.264px; left: 299.87px; top: 424.95px; position: absolute; background: #121D73; border-radius: 20px; z-index: 5;"></div>
 
             <!-- Option 2 Price Text -->
-            <div style="left: 308.2px; top: 433.5px; position: absolute; color: white; font-size: 16px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0342px; word-wrap: break-word; z-index: 6;">$0</div>
+            <div style="left: 308.2px; top: 433.5px; position: absolute; color: white; font-size: 16px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0342px; word-wrap: break-word; z-index: 6;">{{option_2_price}}</div>
 
             <!-- Option 2 Description -->
             <div style="width: 622px; left: 37px; top: 476px; position: absolute; color: #252525; font-size: 14px; font-family: Inter; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">A. Eradication of visible mould from all impacted zones as detailed in the prior report.<br/><br/>B. Removal of mould-affected materials and infrastructural components.<br/><br/>C. Diminishment of airborne mould spores within the property through sanitisation.<br/><br/>D. Proper Disposal and handling of removed mould-affected materials.</div>
@@ -586,7 +581,7 @@ Tenants items in the area are now cross contaminated and require treatment with 
             <div style="left: 38px; top: 670.5px; position: absolute; color: #252525; font-size: 19px; font-family: Inter; font-weight: 400; line-height: normal; letter-spacing: 0.0475px; word-wrap: break-word; z-index: 5;">EQUIPMENT COSTS</div>
 
             <!-- Equipment costs list -->
-            <div style="width: 271px; left: 38px; top: 695px; position: absolute; color: #252525; font-size: 14px; font-family: Inter; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">Commercial dehumidifier: {{equipment.dehumidifier}}<br/>Air Mover: {{equipment.airMover}}<br/>RCD Box: {{equipment.rcdBox}}<br/>Capped at <span style="text-decoration: underline;">{{equipment.maxDays}}</span></div>
+            <div style="width: 271px; left: 38px; top: 695px; position: absolute; color: #252525; font-size: 14px; font-family: Inter; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">Commercial dehumidifier: {{equipment_dehumidifier}}<br/>Air Mover: {{equipment_air_mover}}<br/>RCD Box: {{equipment_rcd_box}}<br/>Capped at <span style="text-decoration: underline;">{{equipment_max_days}}</span></div>
 
             <!-- Red note (right side) -->
             <div style="width: 309px; left: 450px; top: 666.5px; position: absolute; color: #CD0000; font-size: 14px; font-family: Inter; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">PLEASE NOTE: Mould & Restoration CO. Specialises in the removal of these materials and does not provide replacement services. Clients are advised to arrange for replacement through other specialised services.</div>
