@@ -205,13 +205,28 @@ function AreaSection({ area }: { area: AreaWithDetails }) {
         <MetricCard label="Ext. Moisture" value={fmtNum(area.external_moisture, '%')} />
       </div>
 
-      {/* Mould Description */}
-      {area.mould_description && (
+      {/* Visible Mould */}
+      {(area.mould_visible_locations?.length || area.mould_visible_custom || area.mould_description) && (
         <div>
-          <p className="text-xs text-slate-500 mb-1">Mould Description</p>
-          <p className="text-sm text-slate-700 whitespace-pre-line bg-slate-50 rounded-lg p-3">
-            {area.mould_description}
-          </p>
+          <p className="text-xs text-slate-500 mb-1">Visible Mould</p>
+          {area.mould_visible_locations?.length ? (
+            <div className="bg-slate-50 rounded-lg p-3">
+              <div className="flex flex-wrap gap-1.5 mb-1">
+                {area.mould_visible_locations.map((loc) => (
+                  <span key={loc} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                    {loc}
+                  </span>
+                ))}
+              </div>
+              {area.mould_visible_custom && (
+                <p className="text-sm text-slate-600 italic mt-2">{area.mould_visible_custom}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-700 whitespace-pre-line bg-slate-50 rounded-lg p-3">
+              {area.mould_description}
+            </p>
+          )}
         </div>
       )}
 

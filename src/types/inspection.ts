@@ -31,6 +31,8 @@ export interface InspectionArea {
   infraredPhoto: Photo | null;
   naturalInfraredPhoto: Photo | null;
   infraredObservations: string[];
+  mouldVisibleLocations: string[];
+  mouldVisibleCustom: string;
   timeWithoutDemo: number;
   demolitionRequired: boolean;
   demolitionTime: number;

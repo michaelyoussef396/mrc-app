@@ -53,6 +53,8 @@ interface InspectionArea {
   mould_grout_silicone: boolean
   mould_none_visible: boolean
   mould_description: string
+  mould_visible_locations: string[]
+  mould_visible_custom: string
   comments: string
   temperature: number
   humidity: number
@@ -177,12 +179,27 @@ function formatDate(dateString: string | null | undefined): string {
   })
 }
 
-// Get mould description - uses text field first, falls back to legacy checkboxes for old records
+// Get mould description - returns HTML for PDF template injection
+// Template already has "VISIBLE MOULD: " prefix, so we only return the value part
 function getMouldDescription(area: InspectionArea): string {
-  if (area.mould_description && area.mould_description.trim()) {
+  // Priority 1: JSONB array (new checkbox system) → numbered list
+  if (area.mould_visible_locations?.length > 0) {
+    const listItems = area.mould_visible_locations
+      .map((loc, i) => `${i + 1}. ${loc}`)
+      .join('<br/>')
+    let result = '<br/>' + listItems
+    if (area.mould_visible_custom?.trim()) {
+      result += '<br/><br/>Additional Details: ' + area.mould_visible_custom.trim()
+    }
+    return result
+  }
+
+  // Priority 2: Text field
+  if (area.mould_description?.trim()) {
     return area.mould_description.trim()
   }
 
+  // Priority 3: Legacy boolean fields
   const locations: string[] = []
   if (area.mould_ceiling) locations.push('Ceiling')
   if (area.mould_cornice) locations.push('Cornice')
@@ -301,6 +318,532 @@ function stripMarkdown(text: string | null | undefined): string {
   plain = plain.replace(/\n{3,}/g, '\n\n')
 
   return plain.trim()
+}
+
+// ===================================================================
+// VALUE PROPOSITION MULTI-PAGE OVERFLOW
+// ===================================================================
+
+interface ContentBlock {
+  type: 'heading' | 'paragraph' | 'spacing' | 'whatyouget'
+  html?: string
+  text?: string
+  height: number
+}
+
+// Strip HTML tags for text length estimation
+function stripHtmlTags(html: string): string {
+  return html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ')
+}
+
+// Estimate the rendered height of an HTML block
+// Based on: font-size 20px, line-height 29.7px, width 720px
+// Calibrated against actual browser measurements (Feb 2026)
+function estimateBlockHeight(html: string): number {
+  const LINE_HEIGHT = 29.7
+  const CHARS_PER_LINE = 63 // Measured: actual rendering fits ~60-68 chars/line at 720px width
+  const PARAGRAPH_MARGIN = 16 // 8px top + 8px bottom from markdownToHtml styles
+  const LI_HEIGHT = 34 // line-height + margin-bottom
+
+  // Count <li> elements for list items
+  const liMatches = html.match(/<li[^>]*>/g)
+  if (liMatches) {
+    const listMargin = 16 // ul margin 8px top + 8px bottom
+    return liMatches.length * LI_HEIGHT + listMargin
+  }
+
+  // For paragraphs and other blocks
+  const text = stripHtmlTags(html).trim()
+  if (!text) return 0
+  const lines = Math.ceil(text.length / CHARS_PER_LINE)
+  return Math.max(lines, 1) * LINE_HEIGHT + PARAGRAPH_MARGIN
+}
+
+// Split HTML content into block-level elements (<p>, <ul>, <div>)
+function splitIntoBlocks(html: string): string[] {
+  const blocks: string[] = []
+  // Match <p>...</p>, <ul>...</ul>, <div>...</div> blocks
+  const blockRegex = /<(?:p|ul|div|ol)[^>]*>[\s\S]*?<\/(?:p|ul|div|ol)>/gi
+  let match
+  while ((match = blockRegex.exec(html)) !== null) {
+    blocks.push(match[0])
+  }
+  // If no blocks found, wrap entire content as single block
+  if (blocks.length === 0 && html.trim()) {
+    blocks.push(`<p style="margin: 8px 0;">${html}</p>`)
+  }
+  return blocks
+}
+
+// Generate the VP page header (background + titles + logo)
+function vpPageHeader(bgUrl: string, logoUrl: string, isContinuation: boolean): string {
+  const titleHtml = isContinuation
+    ? `<!-- VALUE PROPOSITION title -->
+            <div style="width: 550px; left: 26.5px; top: 28px; position: absolute; color: #000000; font-size: 48px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1.6px; z-index: 10;">VALUE</div>
+            <div style="width: 550px; left: 30.65px; top: 80px; position: absolute; color: #121D73; font-size: 48px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1.6px; z-index: 10;">PROPOSITION</div>`
+    : `<!-- VALUE / PROPOSITION title -->
+            <div style="width: 300px; left: 26.5px; top: 28px; position: absolute; color: #000000; font-size: 70px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1.6px; z-index: 10;">VALUE</div>
+            <div style="width: 550px; left: 30.65px; top: 87.5px; position: absolute; color: #121D73; font-size: 67px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1.6px; z-index: 10;">PROPOSITION</div>`
+
+  return `<!-- Background shape -->
+            <img src="${bgUrl}" style="width: 906.498px; height: 1162.014px; left: -23.91px; top: -17.35px; position: absolute; display: block;" alt="" />
+            ${titleHtml}
+            <!-- Logo (top right) -->
+            <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: contain; z-index: 10;" src="${logoUrl}" alt="MRC Logo" />`
+}
+
+// Split a paragraph into two parts at the given available height
+// Returns fitting (what fits on current page) and remaining (overflow for next page)
+function splitParagraphAtHeight(html: string, availableHeight: number): { fitting: string; remaining: string } {
+  const LINE_HEIGHT = 29.7
+  const CHARS_PER_LINE = 63
+  const PARAGRAPH_MARGIN = 16
+
+  const availableForText = availableHeight - PARAGRAPH_MARGIN
+  if (availableForText < LINE_HEIGHT * 2) return { fitting: '', remaining: html } // Need at least 2 lines
+
+  const maxLines = Math.floor(availableForText / LINE_HEIGHT)
+  const text = stripHtmlTags(html).trim()
+  const maxChars = maxLines * CHARS_PER_LINE
+
+  if (maxChars >= text.length) {
+    return { fitting: html, remaining: '' } // Entire paragraph fits
+  }
+
+  // Find best split point — prefer sentence boundaries
+  const searchText = text.substring(0, maxChars)
+  let splitAt = -1
+
+  // Try sentence boundary (". " followed by uppercase or text)
+  const lastSentence = searchText.lastIndexOf('. ')
+  if (lastSentence > maxChars * 0.4) {
+    splitAt = lastSentence + 2
+  }
+
+  // If no good sentence boundary, try comma or semicolon
+  if (splitAt === -1) {
+    const lastComma = Math.max(searchText.lastIndexOf(', '), searchText.lastIndexOf('; '))
+    if (lastComma > maxChars * 0.4) {
+      splitAt = lastComma + 2
+    }
+  }
+
+  // Last resort: split at word boundary
+  if (splitAt === -1) {
+    const lastSpace = searchText.lastIndexOf(' ')
+    if (lastSpace > maxChars * 0.3) {
+      splitAt = lastSpace + 1
+    } else {
+      splitAt = maxChars
+    }
+  }
+
+  const fittingText = text.substring(0, splitAt).trim()
+  const remainingText = text.substring(splitAt).trim()
+
+  // Extract style from original HTML <p> tag
+  const styleMatch = html.match(/<p\s+style="([^"]*)"/)
+  const style = styleMatch ? styleMatch[1] : 'margin: 8px 0;'
+
+  return {
+    fitting: fittingText ? `<p style="${style}">${fittingText}</p>` : '',
+    remaining: remainingText ? `<p style="${style}">${remainingText}</p>` : ''
+  }
+}
+
+// Fill a single page with as many blocks as possible, splitting paragraphs when needed
+function fillPage(blocks: ContentBlock[], maxHeight: number): { pageBlocks: ContentBlock[]; leftover: ContentBlock[] } {
+  const pageBlocks: ContentBlock[] = []
+  let currentHeight = 0
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i]
+
+    if (currentHeight + block.height <= maxHeight) {
+      // Block fits entirely
+      pageBlocks.push(block)
+      currentHeight += block.height
+    } else if (block.type === 'paragraph' && block.html) {
+      // Paragraph doesn't fit — try to split it
+      const remainingSpace = maxHeight - currentHeight
+      if (remainingSpace >= 80) { // At least ~2-3 lines of space
+        const { fitting, remaining } = splitParagraphAtHeight(block.html, remainingSpace)
+        if (fitting) {
+          pageBlocks.push({ type: 'paragraph', html: fitting, height: estimateBlockHeight(fitting) })
+        }
+        // Build leftover: remaining text (if any) + rest of blocks
+        const leftover: ContentBlock[] = []
+        if (remaining) {
+          leftover.push({ type: 'paragraph', html: remaining, height: estimateBlockHeight(remaining) })
+        }
+        leftover.push(...blocks.slice(i + 1))
+        return { pageBlocks, leftover }
+      } else {
+        // Not enough space for meaningful text — push entire block to next page
+        return { pageBlocks, leftover: blocks.slice(i) }
+      }
+    } else {
+      // Non-paragraph block doesn't fit — push to next page
+      return { pageBlocks, leftover: blocks.slice(i) }
+    }
+  }
+
+  return { pageBlocks, leftover: [] }
+}
+
+// "WHAT YOU GET" fixed content block
+function whatYouGetHtml(): string {
+  return `<div style="margin-top: 20px;">
+                <div style="color: #000000; font-size: 33px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px;">WHAT YOU GET</div>
+                <div style="color: #252525; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: 28px; letter-spacing: 0.5px;">12 MONTH WARRANTY on all treated areas<br />Professional material removal where required<br />Complete airborne spore elimination<br />Detailed documentation for insurance / resale</div>
+            </div>`
+}
+
+// Generate multi-page Value Proposition HTML
+function generateValuePropositionPages(
+  whatWeFoundHtml: string,
+  whatWeWillDoHtml: string,
+  bgUrl: string,
+  logoUrl: string
+): string {
+  // Layout constants
+  const CONTENT_TOP_FIRST = 195    // Below VALUE/PROPOSITION title on first page
+  const CONTENT_TOP_CONT = 140     // Below smaller title on continuation pages (no "continued" label)
+  const CONTENT_BOTTOM_MARGIN = 50 // Bottom margin
+  const PAGE_HEIGHT = 1123
+  const AVAILABLE_FIRST = PAGE_HEIGHT - CONTENT_TOP_FIRST - CONTENT_BOTTOM_MARGIN   // ~878px
+  const AVAILABLE_CONT = PAGE_HEIGHT - CONTENT_TOP_CONT - CONTENT_BOTTOM_MARGIN     // ~933px
+
+  const HEADING_HEIGHT = 55    // Section heading (33px font + margins)
+  const SECTION_SPACING = 25   // Space between sections
+  const WHAT_YOU_GET_HEIGHT = 170 // Fixed "WHAT YOU GET" section height
+
+  // Build all content blocks in order
+  const allBlocks: ContentBlock[] = []
+
+  // "WHAT WE FOUND" section
+  allBlocks.push({ type: 'heading', text: 'WHAT WE FOUND', height: HEADING_HEIGHT })
+  for (const block of splitIntoBlocks(whatWeFoundHtml)) {
+    allBlocks.push({ type: 'paragraph', html: block, height: estimateBlockHeight(block) })
+  }
+
+  // Spacing
+  allBlocks.push({ type: 'spacing', height: SECTION_SPACING })
+
+  // "WHAT WE'RE GOING TO DO" section
+  allBlocks.push({ type: 'heading', text: "WHAT WE'RE GOING TO DO", height: HEADING_HEIGHT })
+  for (const block of splitIntoBlocks(whatWeWillDoHtml)) {
+    allBlocks.push({ type: 'paragraph', html: block, height: estimateBlockHeight(block) })
+  }
+
+  // Spacing before WHAT YOU GET
+  allBlocks.push({ type: 'spacing', height: SECTION_SPACING })
+
+  // "WHAT YOU GET" section
+  allBlocks.push({ type: 'whatyouget', height: WHAT_YOU_GET_HEIGHT })
+
+  // Paginate using fillPage (splits paragraphs to fill pages completely)
+  const pages: ContentBlock[][] = []
+  let remaining = allBlocks
+  let isFirstPage = true
+
+  while (remaining.length > 0) {
+    const maxHeight = isFirstPage ? AVAILABLE_FIRST : AVAILABLE_CONT
+    const { pageBlocks, leftover } = fillPage(remaining, maxHeight)
+    if (pageBlocks.length > 0) {
+      pages.push(pageBlocks)
+    }
+    remaining = leftover
+    isFirstPage = false
+  }
+
+  // Generate HTML for each page
+  const pagesHtml: string[] = []
+  for (let i = 0; i < pages.length; i++) {
+    const isFirst = i === 0
+    const isContinuation = !isFirst
+    const pageBlocks = pages[i]
+    const contentTop = isFirst ? CONTENT_TOP_FIRST : CONTENT_TOP_CONT
+
+    // Build content HTML from blocks
+    let contentHtml = ''
+    for (const block of pageBlocks) {
+      switch (block.type) {
+        case 'heading':
+          contentHtml += `\n                <div style="color: #000000; font-size: 33px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;">${block.text}</div>`
+          break
+        case 'paragraph':
+          contentHtml += `\n                ${block.html}`
+          break
+        case 'spacing':
+          contentHtml += `\n                <div style="height: ${block.height}px;"></div>`
+          break
+        case 'whatyouget':
+          contentHtml += `\n                ${whatYouGetHtml()}`
+          break
+      }
+    }
+
+    const pageComment = isContinuation
+      ? `<!-- Page 4${String.fromCharCode(97 + i)}: Value Proposition -->`
+      : `<!-- Page 4: Value Proposition -->`
+
+    pagesHtml.push(`${pageComment}
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: #FFFFFF; overflow: hidden">
+            ${vpPageHeader(bgUrl, logoUrl, isContinuation)}
+            <!-- Content container -->
+            <div style="position: absolute; left: 30px; top: ${contentTop}px; width: 720px; z-index: 10; color: #252525; font-size: 20px; font-family: 'Galvji'; font-weight: 400; line-height: 29.7px; letter-spacing: 0.5px;">${contentHtml}
+            </div>
+        </div>
+    </div>`)
+  }
+
+  return pagesHtml.join('\n\n    ')
+}
+
+// Replace the static VP page in the template with dynamically generated multi-page VP
+function handleValuePropositionOverflow(html: string, whatWeFoundHtml: string, whatWeWillDoHtml: string): string {
+  // Find the VP page block: between "Page 4: Value Proposition" and "Page 5:"
+  const vpPageRegex = /<!-- Page 4: Value Proposition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 5)/
+  const match = html.match(vpPageRegex)
+
+  if (!match) {
+    // Fallback: if regex doesn't match, just do placeholder replacement (original behavior)
+    return html
+  }
+
+  // Extract asset URLs from the matched page (they've already been replaced with absolute URLs)
+  const bgMatch = match[0].match(/src="([^"]*background-shape-page2\.svg[^"]*)"/)
+  const logoMatch = match[0].match(/src="([^"]*logo-mrc\.png[^"]*)"/)
+  const bgUrl = bgMatch ? bgMatch[1] : `${ASSET_BASE}/assets/backgrounds/background-shape-page2.svg`
+  const logoUrl = logoMatch ? logoMatch[1] : `${ASSET_BASE}/assets/logos/logo-mrc.png`
+
+  // Generate the multi-page VP HTML
+  const vpPagesHtml = generateValuePropositionPages(whatWeFoundHtml, whatWeWillDoHtml, bgUrl, logoUrl)
+
+  // Replace the original VP page with the generated pages
+  return html.replace(vpPageRegex, vpPagesHtml + '\n\n    ')
+}
+
+// ===================================================================
+// NAVY-BOX SECTION MULTI-PAGE OVERFLOW (Problem Analysis, Demolition)
+// These sections have: navy blue background box, white text, 17px font
+// ===================================================================
+
+interface SectionConfig {
+  pageComment: string
+  titleHtml: string
+  contentTop: number
+  navyBoxTop: number
+  logoUrl: string
+}
+
+// Height estimation for navy-box sections (font-size 17px, line-height 26px, width 674px)
+function estimateNavyBoxBlockHeight(html: string): number {
+  const LINE_HEIGHT = 26
+  const CHARS_PER_LINE = 70
+  const PARAGRAPH_MARGIN = 16
+  const LI_HEIGHT = 30
+
+  const liMatches = html.match(/<li[^>]*>/g)
+  if (liMatches) {
+    return liMatches.length * LI_HEIGHT + 16
+  }
+
+  const text = stripHtmlTags(html).trim()
+  if (!text) return 0
+  const lines = Math.ceil(text.length / CHARS_PER_LINE)
+  return Math.max(lines, 1) * LINE_HEIGHT + PARAGRAPH_MARGIN
+}
+
+// Split paragraph for navy-box sections (17px font, 26px line-height, 674px width)
+function splitNavyBoxParagraphAtHeight(html: string, availableHeight: number): { fitting: string; remaining: string } {
+  const LINE_HEIGHT = 26
+  const CHARS_PER_LINE = 70
+  const PARAGRAPH_MARGIN = 16
+
+  const availableForText = availableHeight - PARAGRAPH_MARGIN
+  if (availableForText < LINE_HEIGHT * 2) return { fitting: '', remaining: html }
+
+  const maxLines = Math.floor(availableForText / LINE_HEIGHT)
+  const text = stripHtmlTags(html).trim()
+  const maxChars = maxLines * CHARS_PER_LINE
+
+  if (maxChars >= text.length) return { fitting: html, remaining: '' }
+
+  const searchText = text.substring(0, maxChars)
+  let splitAt = -1
+
+  const lastSentence = searchText.lastIndexOf('. ')
+  if (lastSentence > maxChars * 0.4) splitAt = lastSentence + 2
+
+  if (splitAt === -1) {
+    const lastComma = Math.max(searchText.lastIndexOf(', '), searchText.lastIndexOf('; '))
+    if (lastComma > maxChars * 0.4) splitAt = lastComma + 2
+  }
+
+  if (splitAt === -1) {
+    const lastSpace = searchText.lastIndexOf(' ')
+    if (lastSpace > maxChars * 0.3) splitAt = lastSpace + 1
+    else splitAt = maxChars
+  }
+
+  const fittingText = text.substring(0, splitAt).trim()
+  const remainingText = text.substring(splitAt).trim()
+
+  const styleMatch = html.match(/<p\s+style="([^"]*)"/)
+  const style = styleMatch ? styleMatch[1] : 'margin: 8px 0;'
+
+  return {
+    fitting: fittingText ? `<p style="${style}">${fittingText}</p>` : '',
+    remaining: remainingText ? `<p style="${style}">${remainingText}</p>` : ''
+  }
+}
+
+// Fill a page for navy-box sections (same logic as VP fillPage but using navy-box estimation)
+function fillNavyBoxPage(blocks: ContentBlock[], maxHeight: number): { pageBlocks: ContentBlock[]; leftover: ContentBlock[] } {
+  const pageBlocks: ContentBlock[] = []
+  let currentHeight = 0
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i]
+
+    if (currentHeight + block.height <= maxHeight) {
+      pageBlocks.push(block)
+      currentHeight += block.height
+    } else if (block.type === 'paragraph' && block.html) {
+      const remainingSpace = maxHeight - currentHeight
+      if (remainingSpace >= 60) {
+        const { fitting, remaining } = splitNavyBoxParagraphAtHeight(block.html, remainingSpace)
+        if (fitting) {
+          pageBlocks.push({ type: 'paragraph', html: fitting, height: estimateNavyBoxBlockHeight(fitting) })
+        }
+        const leftover: ContentBlock[] = []
+        if (remaining) {
+          leftover.push({ type: 'paragraph', html: remaining, height: estimateNavyBoxBlockHeight(remaining) })
+        }
+        leftover.push(...blocks.slice(i + 1))
+        return { pageBlocks, leftover }
+      } else {
+        return { pageBlocks, leftover: blocks.slice(i) }
+      }
+    } else {
+      return { pageBlocks, leftover: blocks.slice(i) }
+    }
+  }
+
+  return { pageBlocks, leftover: [] }
+}
+
+// Generate multi-page HTML for a navy-box section
+function generateNavyBoxSectionPages(contentHtml: string, config: SectionConfig): string {
+  const CONTENT_BOTTOM = 65 // 30px page bottom for box + 35px internal padding
+  const PAGE_HEIGHT = 1123
+  const AVAILABLE = PAGE_HEIGHT - config.contentTop - CONTENT_BOTTOM
+
+  // Build content blocks
+  const allBlocks: ContentBlock[] = []
+  for (const block of splitIntoBlocks(contentHtml)) {
+    allBlocks.push({ type: 'paragraph', html: block, height: estimateNavyBoxBlockHeight(block) })
+  }
+
+  // If no content, create single page with default message
+  if (allBlocks.length === 0) {
+    allBlocks.push({
+      type: 'paragraph',
+      html: '<p style="margin: 8px 0;">Content not yet generated.</p>',
+      height: estimateNavyBoxBlockHeight('<p>Content not yet generated.</p>')
+    })
+  }
+
+  // Paginate using fillPage with paragraph splitting
+  const pages: ContentBlock[][] = []
+  let remaining = allBlocks
+
+  while (remaining.length > 0) {
+    const { pageBlocks, leftover } = fillNavyBoxPage(remaining, AVAILABLE)
+    if (pageBlocks.length > 0) {
+      pages.push(pageBlocks)
+    }
+    remaining = leftover
+  }
+
+  // Generate HTML for each page
+  const pagesHtml: string[] = []
+  for (let i = 0; i < pages.length; i++) {
+    const pageBlocks = pages[i]
+
+    let bodyHtml = ''
+    for (const block of pageBlocks) {
+      if (block.html) bodyHtml += `\n                ${block.html}`
+    }
+
+    const comment = i > 0
+      ? `${config.pageComment.replace('-->', ` (Page ${i + 1}) -->`)}`
+      : config.pageComment
+
+    pagesHtml.push(`${comment}
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: #FFFFFF; overflow: hidden">
+            ${config.titleHtml}
+            <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: contain; z-index: 10;"
+                src="${config.logoUrl}" alt="MRC Logo" />
+            <div style="width: 734px; left: 30px; top: ${config.navyBoxTop}px; position: absolute; background: #121D73; border-radius: 20px; bottom: 30px; z-index: 5;"></div>
+            <div style="width: 674px; left: 60px; top: ${config.contentTop}px; position: absolute; color: #FFFFFF; font-size: 17px; font-family: 'Galvji'; font-weight: 400; line-height: 26px; letter-spacing: 0.5px; z-index: 10;">${bodyHtml}
+            </div>
+        </div>
+    </div>`)
+  }
+
+  return pagesHtml.join('\n\n    ')
+}
+
+// Handle PROBLEM ANALYSIS & RECOMMENDATIONS overflow
+function handleProblemAnalysisOverflow(html: string, problemContentHtml: string): string {
+  const regex = /<!-- Page 5: Problem Analysis[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 6)/
+  const match = html.match(regex)
+
+  if (!match) return html
+
+  const logoMatch = match[0].match(/src="([^"]*logo-mrc\.png[^"]*)"/)
+  const logoUrl = logoMatch ? logoMatch[1] : `${ASSET_BASE}/assets/logos/logo-mrc.png`
+
+  const config: SectionConfig = {
+    pageComment: '<!-- Page 5: Problem Analysis & Recommendations -->',
+    titleHtml: `<!-- PROBLEM title -->
+            <div style="width: 400px; left: 41px; top: 25px; position: absolute; color: #000000; font-size: 56px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">PROBLEM</div>
+            <div style="width: 650px; left: 40px; top: 85px; position: absolute; color: #121D73; font-size: 23px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">ANALYSIS &amp; RECOMMENDATIONS</div>`,
+    contentTop: 175,
+    navyBoxTop: 140,
+    logoUrl
+  }
+
+  const pagesHtml = generateNavyBoxSectionPages(problemContentHtml, config)
+  return html.replace(regex, pagesHtml + '\n\n    ')
+}
+
+// Handle DEMOLITION section overflow
+function handleDemolitionOverflow(html: string, demolitionContentHtml: string): string {
+  const regex = /<!-- Page 6: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 7)/
+  const match = html.match(regex)
+
+  if (!match) return html
+
+  const logoMatch = match[0].match(/src="([^"]*logo-mrc\.png[^"]*)"/)
+  const logoUrl = logoMatch ? logoMatch[1] : `${ASSET_BASE}/assets/logos/logo-mrc.png`
+
+  const config: SectionConfig = {
+    pageComment: '<!-- Page 6: Demolition Page -->',
+    titleHtml: `<!-- DEMOLITION title -->
+            <div style="width: 600px; left: 41px; top: 25px; position: absolute; color: #000000; font-size: 56px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">DEMOLITION</div>`,
+    contentTop: 145,
+    navyBoxTop: 110,
+    logoUrl
+  }
+
+  const pagesHtml = generateNavyBoxSectionPages(demolitionContentHtml, config)
+  return html.replace(regex, pagesHtml + '\n\n    ')
 }
 
 // Photo signed URLs map (populated during request processing)
@@ -576,19 +1119,25 @@ function generateReportHtml(
   html = html.replace(/\{\{cover_photo_url\}\}/g, coverPhotoUrl)
   html = html.replace(/\{\{property_address\}\}/g, propertyAddress)
 
-  // ===== PAGE 2: VALUE PROPOSITION =====
-  html = html.replace(/\{\{what_we_found_text\}\}/g,
-    markdownToHtml(inspection.what_we_found_text) ||
+  // ===== PAGE 4: VALUE PROPOSITION (multi-page overflow) =====
+  const whatWeFoundHtml = markdownToHtml(inspection.what_we_found_text) ||
     markdownToHtml(inspection.ai_summary_text) ||
-    'Summary not yet generated.')
-  html = html.replace(/\{\{what_we_will_do_text\}\}/g,
-    markdownToHtml(inspection.what_we_will_do_text) ||
-    `We'll set up professional equipment including ${equipmentList || 'air scrubbers'}. Treatment will include ${treatmentMethods || 'standard mould removal procedures'}.`)
-  html = html.replace(/\{\{what_you_get_text\}\}/g,
-    markdownToHtml(inspection.what_you_get_text) ||
-    `Professional mould remediation with ${treatmentMethods}. Equipment deployment: ${equipmentList}. 12-month warranty on all treated areas.`)
+    '<p style="margin: 8px 0;">Summary not yet generated.</p>'
+  const whatWeWillDoHtml = markdownToHtml(inspection.what_we_will_do_text) ||
+    `<p style="margin: 8px 0;">We'll set up professional equipment including ${equipmentList || 'air scrubbers'}. Treatment will include ${treatmentMethods || 'standard mould removal procedures'}.</p>`
 
-  // ===== PROBLEM ANALYSIS (sub-sections) =====
+  html = handleValuePropositionOverflow(html, whatWeFoundHtml, whatWeWillDoHtml)
+
+  // Clean up any remaining VP placeholders (in case fallback was used)
+  html = html.replace(/\{\{what_we_found_text\}\}/g, whatWeFoundHtml)
+  html = html.replace(/\{\{what_we_will_do_text\}\}/g, whatWeWillDoHtml)
+  html = html.replace(/\{\{what_you_get_text\}\}/g, '')
+
+  // ===== PAGE 5: PROBLEM ANALYSIS (multi-page overflow) =====
+  const problemContentHtml = markdownToHtml(inspection.problem_analysis_content || inspection.ai_summary_text) || defaultAnalysis
+  html = handleProblemAnalysisOverflow(html, problemContentHtml)
+
+  // Clean up any remaining problem analysis placeholders (old template compat)
   html = html.replace(/\{\{what_we_discovered\}\}/g, stripMarkdown(problemSections.what_we_discovered) || defaultAnalysis)
   html = html.replace(/\{\{identified_causes\}\}/g, stripMarkdown(problemSections.identified_causes) || 'Causes to be determined after full analysis.')
   html = html.replace(/\{\{contributing_factors\}\}/g, stripMarkdown(problemSections.contributing_factors) || '')
@@ -597,9 +1146,10 @@ function generateReportHtml(
   html = html.replace(/\{\{long_term_protection\}\}/g, stripMarkdown(problemSections.long_term_protection) || '')
   html = html.replace(/\{\{what_success_looks_like\}\}/g, stripMarkdown(problemSections.what_success_looks_like) || '')
   html = html.replace(/\{\{timeline_text\}\}/g, stripMarkdown(problemSections.timeline_text) || '')
+  html = html.replace(/\{\{problem_analysis_content\}\}/g, '') // Already handled by overflow
 
-  // ===== DEMOLITION =====
-  html = html.replace(/\{\{demolition_content\}\}/g, demolitionContent)
+  // ===== PAGE 6: DEMOLITION (multi-page overflow) =====
+  html = handleDemolitionOverflow(html, demolitionContent)
 
   // ===== PAGE 7: OUTDOOR ENVIRONMENT =====
   html = html.replace(/\{\{outdoor_temperature\}\}/g, String(inspection.outdoor_temperature || 0))

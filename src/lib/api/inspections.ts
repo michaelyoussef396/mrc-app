@@ -72,6 +72,8 @@ export interface InspectionAreaData {
 
   // Mould Description (text field - replaces checkbox booleans)
   mould_description?: string
+  mould_visible_locations?: string[]
+  mould_visible_custom?: string
 
   // Legacy Mould Location Checklist (12 boolean fields - for backwards compatibility)
   mould_ceiling?: boolean
@@ -454,6 +456,8 @@ export interface AreaWithDetails {
   area_order: number
   area_name: string
   mould_description: string | null
+  mould_visible_locations: string[] | null
+  mould_visible_custom: string | null
   comments: string | null
   temperature: number | null
   humidity: number | null
@@ -601,6 +605,8 @@ export async function fetchCompleteInspectionData(
       area_order: area.area_order,
       area_name: area.area_name,
       mould_description: area.mould_description,
+      mould_visible_locations: (area as any).mould_visible_locations || null,
+      mould_visible_custom: (area as any).mould_visible_custom || null,
       comments: area.comments,
       temperature: area.temperature,
       humidity: area.humidity,

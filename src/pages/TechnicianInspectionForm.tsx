@@ -115,6 +115,22 @@ const INFRARED_OBSERVATIONS = [
   'Missing/Inadequate Insulation',
 ];
 
+const MOULD_VISIBILITY_OPTIONS = [
+  'Ceiling',
+  'Cornice',
+  'Windows',
+  'Window frames',
+  'Furnishings',
+  'Walls',
+  'Skirting',
+  'Flooring',
+  'Wardrobe',
+  'Cupboard',
+  'Contents',
+  'Grout/silicone',
+  'No mould visible',
+];
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -217,6 +233,8 @@ function createEmptyArea(): InspectionArea {
     infraredPhoto: null,
     naturalInfraredPhoto: null,
     infraredObservations: [],
+    mouldVisibleLocations: [],
+    mouldVisibleCustom: '',
     timeWithoutDemo: 0,
     demolitionRequired: false,
     demolitionTime: 0,
@@ -803,6 +821,26 @@ function Section3AreaInspection({
     onAreaChange(areaId, 'infraredObservations', updated);
   };
 
+  const handleMouldVisibilityToggle = (areaId: string, option: string) => {
+    const area = formData.areas.find((a) => a.id === areaId);
+    if (!area || !onAreaChange) return;
+
+    const current = area.mouldVisibleLocations || [];
+    const isSelected = current.includes(option);
+
+    if (option === 'No mould visible') {
+      // Toggling "No mould visible" clears everything else
+      onAreaChange(areaId, 'mouldVisibleLocations', isSelected ? [] : ['No mould visible']);
+    } else {
+      // Toggling any other option removes "No mould visible"
+      const withoutNone = current.filter((o) => o !== 'No mould visible');
+      const updated = isSelected
+        ? withoutNone.filter((o) => o !== option)
+        : [...withoutNone, option];
+      onAreaChange(areaId, 'mouldVisibleLocations', updated);
+    }
+  };
+
   return (
     <section className="space-y-4">
       {formData.areas.map((area, index) => (
@@ -856,16 +894,45 @@ function Section3AreaInspection({
                 />
               </FormField>
 
-              {/* Mould Description */}
-              <FormField label="Mould Description">
-                <textarea
-                  rows={2}
-                  value={area.mouldDescription}
-                  onChange={(e) => onAreaChange?.(area.id, 'mouldDescription', e.target.value)}
-                  placeholder="Describe visible mould..."
-                  className="w-full bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#007AFF] focus:border-transparent resize-none"
-                />
-              </FormField>
+              {/* Visible Mould Checkboxes */}
+              <div className="bg-amber-50 rounded-xl border border-amber-100 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-lg text-amber-600">visibility</span>
+                  <span className="text-sm font-semibold text-amber-900">Visible Mould</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {MOULD_VISIBILITY_OPTIONS.map((option) => (
+                    <label
+                      key={option}
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer ${
+                        area.mouldVisibleLocations?.includes(option)
+                          ? 'bg-amber-100 border-amber-300'
+                          : 'bg-white border-gray-200 hover:bg-gray-50'
+                      }`}
+                      style={{ minHeight: '48px' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={area.mouldVisibleLocations?.includes(option) || false}
+                        onChange={() => handleMouldVisibilityToggle(area.id, option)}
+                        className="w-5 h-5 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                      />
+                      <span className="text-[#1d1d1f] text-sm">{option}</span>
+                    </label>
+                  ))}
+                </div>
+                {/* Custom mould location */}
+                <div className="pt-2">
+                  <label className="text-xs text-amber-700 font-medium mb-1 block">Custom location (if not listed)</label>
+                  <textarea
+                    rows={2}
+                    value={area.mouldVisibleCustom || ''}
+                    onChange={(e) => onAreaChange?.(area.id, 'mouldVisibleCustom', e.target.value)}
+                    placeholder="e.g., Behind fridge, Grout between shower tiles..."
+                    className="w-full bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                  />
+                </div>
+              </div>
 
               {/* Comments for Report */}
               <FormField label="Comments for Report">
@@ -2046,8 +2113,10 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
     dwellingType: formData.dwellingType,
     areas: formData.areas.map((a) => ({
       areaName: a.areaName,
-      mouldDescription: a.mouldDescription,
-      mouldVisibility: [] as string[],
+      mouldDescription: a.mouldVisibleLocations?.length
+        ? a.mouldVisibleLocations.join(', ') + (a.mouldVisibleCustom ? '. ' + a.mouldVisibleCustom : '')
+        : a.mouldDescription,
+      mouldVisibility: a.mouldVisibleLocations || [],
       commentsForReport: a.commentsForReport,
       temperature: a.temperature,
       humidity: a.humidity,
@@ -2329,6 +2398,8 @@ export default function TechnicianInspectionForm() {
               id: area.id,
               areaName: area.area_name || '',
               mouldDescription: area.mould_description || '',
+              mouldVisibleLocations: area.mould_visible_locations || [],
+              mouldVisibleCustom: area.mould_visible_custom || '',
               commentsForReport: area.comments || '',
               temperature: area.temperature != null ? String(area.temperature) : '',
               humidity: area.humidity != null ? String(area.humidity) : '',
@@ -2919,7 +2990,11 @@ export default function TechnicianInspectionForm() {
           inspection_id: inspectionId,
           area_order: i,
           area_name: area.areaName || `Area ${i + 1}`,
-          mould_description: area.mouldDescription || null,
+          mould_visible_locations: area.mouldVisibleLocations || [],
+          mould_visible_custom: area.mouldVisibleCustom || null,
+          mould_description: area.mouldVisibleLocations?.length
+            ? area.mouldVisibleLocations.join(', ') + (area.mouldVisibleCustom ? '. ' + area.mouldVisibleCustom : '')
+            : area.mouldDescription || null,
           comments: area.commentsForReport || null,
           temperature: area.temperature ? parseFloat(area.temperature) : null,
           humidity: area.humidity ? parseFloat(area.humidity) : null,

@@ -124,6 +124,7 @@ const InspectionForm = () => {
   // Map frontend area IDs to database area IDs
   // Key: frontend UUID (area.id), Value: database UUID (inspection_areas.id)
   const [areaIdMapping, setAreaIdMapping] = useState<Record<string, string>>({})
+  const [customMouldInputs, setCustomMouldInputs] = useState<Record<string, string>>({})
   
   const [formData, setFormData] = useState<InspectionFormData>({
     jobNumber: generateJobNumber(),
@@ -155,6 +156,8 @@ const InspectionForm = () => {
       infraredPhoto: null,
       naturalInfraredPhoto: null,
       infraredObservations: [],
+      mouldVisibleLocations: [],
+      mouldVisibleCustom: '',
       timeWithoutDemo: 0,
       demolitionRequired: false,
       demolitionTime: 0,
@@ -466,9 +469,10 @@ const InspectionForm = () => {
 
           // Transform database areas to frontend format
           const transformedAreas: InspectionArea[] = await Promise.all(existingAreas.map(async (dbArea) => {
-            // Load mould description (text field) or build from legacy booleans for backwards compatibility
+            // Load mould visible locations (JSONB array) or build from legacy fields
+            let mouldVisibleLocations: string[] = (dbArea as any).mould_visible_locations || []
             let mouldDescription = (dbArea as any).mould_description || ''
-            if (!mouldDescription) {
+            if (mouldVisibleLocations.length === 0 && !mouldDescription) {
               // Backwards compatibility: build from legacy boolean fields
               const legacyMould: string[] = []
               if (dbArea.mould_ceiling) legacyMould.push('Ceiling')
@@ -482,8 +486,9 @@ const InspectionForm = () => {
               if (dbArea.mould_cupboard) legacyMould.push('Cupboard')
               if (dbArea.mould_contents) legacyMould.push('Contents')
               if (dbArea.mould_grout_silicone) legacyMould.push('Grout/Silicone')
-              if (dbArea.mould_none_visible) legacyMould.push('None visible')
+              if (dbArea.mould_none_visible) legacyMould.push('No mould visible')
               if (legacyMould.length > 0) {
+                mouldVisibleLocations = legacyMould
                 mouldDescription = legacyMould.join(', ')
               }
             }
@@ -588,6 +593,8 @@ const InspectionForm = () => {
               infraredPhoto,
               naturalInfraredPhoto,
               infraredObservations,
+              mouldVisibleLocations,
+              mouldVisibleCustom: (dbArea as any).mould_visible_custom || '',
               timeWithoutDemo: dbArea.job_time_minutes || 0,
               demolitionRequired: dbArea.demolition_required || false,
               demolitionTime: dbArea.demolition_time_minutes || 0,
@@ -1086,6 +1093,7 @@ const InspectionForm = () => {
               infraredPhoto: null,
               naturalInfraredPhoto: null,
               infraredObservations: [],
+              mouldVisibleLocations: [],
               timeWithoutDemo: 0,
               demolitionRequired: false,
               demolitionTime: 0,
@@ -1492,15 +1500,33 @@ const InspectionForm = () => {
     }))
   }
 
-  const handleAreaArrayToggle = (areaId: string, field: 'infraredObservations', value: string) => {
+  const handleAreaArrayToggle = (areaId: string, field: 'infraredObservations' | 'mouldVisibleLocations', value: string) => {
     setFormData(prev => ({
       ...prev,
       areas: prev.areas.map(area => {
         if (area.id !== areaId) return area
         const array = area[field] as string[]
+        const isCurrentlySelected = array.includes(value)
+
+        // "No mould visible" exclusivity logic
+        if (field === 'mouldVisibleLocations') {
+          if (value === 'No mould visible') {
+            // Toggling "No mould visible" → clear everything else
+            return { ...area, [field]: isCurrentlySelected ? [] : ['No mould visible'] }
+          }
+          // Toggling any other option → remove "No mould visible"
+          const withoutNone = array.filter(item => item !== 'No mould visible')
+          return {
+            ...area,
+            [field]: isCurrentlySelected
+              ? withoutNone.filter(item => item !== value)
+              : [...withoutNone, value]
+          }
+        }
+
         return {
           ...area,
-          [field]: array.includes(value)
+          [field]: isCurrentlySelected
             ? array.filter(item => item !== value)
             : [...array, value]
         }
@@ -1529,6 +1555,8 @@ const InspectionForm = () => {
       infraredPhoto: null,
       naturalInfraredPhoto: null,
       infraredObservations: [],
+      mouldVisibleLocations: [],
+      mouldVisibleCustom: '',
       timeWithoutDemo: 0,
       demolitionRequired: false,
       demolitionTime: 0,
@@ -2330,8 +2358,12 @@ const InspectionForm = () => {
           inspection_id: inspectionId,
           area_order: i,
           area_name: area.areaName,
-          // Save mould description as text field
-          mould_description: area.mouldDescription,
+          // Save mould locations as JSONB array + text field for backwards compatibility
+          mould_visible_locations: area.mouldVisibleLocations,
+          mould_visible_custom: area.mouldVisibleCustom || null,
+          mould_description: area.mouldVisibleLocations.length > 0
+            ? area.mouldVisibleLocations.join(', ') + (area.mouldVisibleCustom ? '. ' + area.mouldVisibleCustom : '')
+            : area.mouldDescription,
           comments: area.commentsForReport,
           temperature: parseFloat(area.temperature) || undefined,
           humidity: parseFloat(area.humidity) || undefined,
@@ -3478,13 +3510,77 @@ const InspectionForm = () => {
 
                     {/* Mould Visibility */}
                     <div className="form-group">
-                      <label className="form-label">Mould Visibility</label>
+                      <label className="form-label">Visible Mould</label>
+                      <div className="checkbox-grid">
+                        {[
+                          'Ceiling', 'Cornice', 'Windows', 'Window frames',
+                          'Furnishings', 'Walls', 'Skirting', 'Flooring',
+                          'Wardrobe', 'Cupboard', 'Contents', 'Grout/silicone',
+                          'No mould visible'
+                        ].map(option => (
+                          <label key={option} className="checkbox-option">
+                            <input
+                              type="checkbox"
+                              checked={area.mouldVisibleLocations.includes(option)}
+                              onChange={() => handleAreaArrayToggle(area.id, 'mouldVisibleLocations', option)}
+                            />
+                            <span className="checkbox-custom"></span>
+                            <span className="checkbox-label">{option}</span>
+                          </label>
+                        ))}
+                        {/* Render custom entries as checkboxes too */}
+                        {area.mouldVisibleLocations
+                          .filter(loc => ![
+                            'Ceiling', 'Cornice', 'Windows', 'Window frames',
+                            'Furnishings', 'Walls', 'Skirting', 'Flooring',
+                            'Wardrobe', 'Cupboard', 'Contents', 'Grout/silicone',
+                            'No mould visible'
+                          ].includes(loc))
+                          .map(custom => (
+                            <label key={custom} className="checkbox-option">
+                              <input
+                                type="checkbox"
+                                checked={true}
+                                onChange={() => handleAreaArrayToggle(area.id, 'mouldVisibleLocations', custom)}
+                              />
+                              <span className="checkbox-custom"></span>
+                              <span className="checkbox-label">{custom}</span>
+                            </label>
+                          ))}
+                      </div>
+                      {/* Custom location add */}
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                        <input
+                          type="text"
+                          value={customMouldInputs[area.id] || ''}
+                          onChange={(e) => setCustomMouldInputs(prev => ({ ...prev, [area.id]: e.target.value }))}
+                          placeholder="Add custom location..."
+                          className="form-input"
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          style={{ minWidth: '48px', minHeight: '48px', whiteSpace: 'nowrap' }}
+                          onClick={() => {
+                            const val = (customMouldInputs[area.id] || '').trim()
+                            if (val && !area.mouldVisibleLocations.includes(val)) {
+                              handleAreaArrayToggle(area.id, 'mouldVisibleLocations', val)
+                              setCustomMouldInputs(prev => ({ ...prev, [area.id]: '' }))
+                            }
+                          }}
+                        >
+                          Add
+                        </button>
+                      </div>
+                      {/* Custom notes textarea */}
                       <textarea
-                        value={area.mouldDescription}
-                        onChange={(e) => handleAreaChange(area.id, 'mouldDescription', e.target.value)}
-                        placeholder="Describe where mould is visible in this area (e.g., Ceiling, Walls, Windows, Skirting, Flooring...)"
+                        value={area.mouldVisibleCustom}
+                        onChange={(e) => handleAreaChange(area.id, 'mouldVisibleCustom', e.target.value)}
+                        placeholder="Additional mould details (e.g., Grout between shower tiles, discoloration extends 30cm up wall...)"
                         className="form-textarea"
-                        rows={3}
+                        rows={2}
+                        style={{ marginTop: '8px' }}
                       />
                     </div>
 
