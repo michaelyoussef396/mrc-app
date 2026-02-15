@@ -716,7 +716,6 @@ export default function ViewReportPDF() {
         ref={photoInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={handlePhotoUpload}
         className="hidden"
       />

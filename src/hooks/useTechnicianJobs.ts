@@ -135,7 +135,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
     try {
       console.log('[TechnicianJobs] Fetching for user:', user.id);
 
-      // Fetch bookings for this technician where lead is still awaiting inspection
+      // Fetch all bookings for this technician (with optional lead data)
       const { data, error: fetchError } = await supabase
         .from('calendar_bookings')
         .select(`
@@ -149,7 +149,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
           travel_time_minutes,
           lead_id,
           inspection_id,
-          lead:leads!inner (
+          lead:leads (
             id,
             full_name,
             phone,
@@ -164,7 +164,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
           )
         `)
         .eq('assigned_to', user.id)
-        .eq('lead.status', 'inspection_waiting')
+        .neq('status', 'cancelled')
         .order('start_datetime', { ascending: true });
 
       if (fetchError) {
@@ -174,9 +174,9 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
 
       console.log('[TechnicianJobs] Raw data:', data?.length, 'bookings');
 
-      // Transform the data — only leads in inspection_waiting are returned
+      // Transform the data — lead may be null for bookings without a linked lead
       const transformedJobs: TechnicianJob[] = (data || []).map((booking: any) => {
-        const lead = booking.lead;
+        const lead = Array.isArray(booking.lead) ? booking.lead[0] : booking.lead;
         const address = lead?.property_address_street || booking.location_address || '';
         const suburb = lead?.property_address_suburb || '';
         const state = lead?.property_address_state || 'VIC';
