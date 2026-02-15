@@ -179,22 +179,15 @@ function formatDate(dateString: string | null | undefined): string {
   })
 }
 
-// Get mould description - returns HTML for PDF template injection
+// Get mould description - returns comma-separated locations for PDF template
 // Template already has "VISIBLE MOULD: " prefix, so we only return the value part
 function getMouldDescription(area: InspectionArea): string {
-  // Priority 1: JSONB array (new checkbox system) → numbered list
+  // Priority 1: JSONB array (new checkbox system)
   if (area.mould_visible_locations?.length > 0) {
-    const listItems = area.mould_visible_locations
-      .map((loc, i) => `${i + 1}. ${loc}`)
-      .join('<br/>')
-    let result = '<br/>' + listItems
-    if (area.mould_visible_custom?.trim()) {
-      result += '<br/><br/>Additional Details: ' + area.mould_visible_custom.trim()
-    }
-    return result
+    return area.mould_visible_locations.join(', ')
   }
 
-  // Priority 2: Text field
+  // Priority 2: Text field (legacy)
   if (area.mould_description?.trim()) {
     return area.mould_description.trim()
   }
@@ -213,7 +206,7 @@ function getMouldDescription(area: InspectionArea): string {
   if (area.mould_contents) locations.push('Contents')
   if (area.mould_grout_silicone) locations.push('Grout/Silicone')
   if (area.mould_none_visible) locations.push('No visible mould')
-  return locations.join(', ') || 'Not specified'
+  return locations.join(', ') || 'No mould visible'
 }
 
 // Get valid value - filters out placeholder text and empty values
