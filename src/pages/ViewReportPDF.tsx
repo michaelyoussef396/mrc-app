@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
 import { EditFieldModal } from '@/components/pdf/EditFieldModal'
 import { ImageUploadModal } from '@/components/pdf/ImageUploadModal'
+import { Page1EditSheet } from '@/components/pdf/Page1EditSheet'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import {
@@ -102,6 +103,9 @@ export default function ViewReportPDF() {
     type: 'text' | 'textarea' | 'number' | 'currency' | 'date'
     currentValue: string | number
   } | null>(null)
+
+  // Page 1 edit sheet state
+  const [page1SheetOpen, setPage1SheetOpen] = useState(false)
 
   // Image upload modal state
   const [imageModalOpen, setImageModalOpen] = useState(false)
@@ -495,10 +499,11 @@ export default function ViewReportPDF() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => setEditMode(!editMode)}
-                className={`h-12 w-12 min-h-[48px] min-w-[48px] ${editMode ? 'bg-orange-100 border-orange-500' : ''}`}
+                onClick={() => setPage1SheetOpen(true)}
+                className="h-12 w-12 min-h-[48px] min-w-[48px]"
+                aria-label="Edit Page 1"
               >
-                {editMode ? <Eye className="h-5 w-5" /> : <Edit className="h-5 w-5" />}
+                <Edit className="h-5 w-5" />
               </Button>
               <Button
                 variant="outline"
@@ -528,6 +533,14 @@ export default function ViewReportPDF() {
 
             {/* Desktop: Full buttons */}
             <div className="hidden sm:flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setPage1SheetOpen(true)}
+                className="h-10"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Page 1
+              </Button>
               <Button
                 variant="outline"
                 onClick={handleShowVersions}
@@ -686,6 +699,21 @@ export default function ViewReportPDF() {
           fieldLabel={editingImage.label}
           currentPhotoUrl={editingImage.currentUrl}
           onSuccess={handleImageUploadSuccess}
+        />
+      )}
+
+      {/* Page 1 Edit Sheet */}
+      {inspection?.id && inspection?.lead_id && (
+        <Page1EditSheet
+          inspectionId={inspection.id}
+          leadId={inspection.lead_id}
+          open={page1SheetOpen}
+          onOpenChange={setPage1SheetOpen}
+          onSaved={async () => {
+            setPage1SheetOpen(false)
+            await handleGeneratePDF()
+            await loadInspection()
+          }}
         />
       )}
     </div>

@@ -1094,7 +1094,7 @@ function handleSubfloorPage(
   const pagesHtml: string[] = []
   for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
     const isFirstPage = pageIdx === 0
-    const titleText = isFirstPage ? 'SUBFLOOR' : 'SUBFLOOR (CONTINUED)'
+    const titleText = 'SUBFLOOR'
     const titleFontSize = isFirstPage ? '56px' : '40px'
 
     // Photo grid for this page
@@ -1166,8 +1166,14 @@ function generateReportHtml(
   const coverPhoto = frontHousePhoto || generalPhoto || firstOutdoorPhoto
   const coverPhotoUrl = coverPhoto?.storage_path ? getPhotoUrl(coverPhoto.storage_path) : ''
 
-  // Outdoor photos
-  const outdoorPhotos = inspection.photos?.filter(p => p.photo_type === 'outdoor') || []
+  // Outdoor photos — sort by preferred caption order: street, front_house, front_door first
+  const outdoorCaptionOrder = ['street', 'front_house', 'front_door', 'direction', 'mailbox']
+  const outdoorPhotos = (inspection.photos?.filter(p => p.photo_type === 'outdoor') || [])
+    .sort((a, b) => {
+      const ai = outdoorCaptionOrder.indexOf(a.caption)
+      const bi = outdoorCaptionOrder.indexOf(b.caption)
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
+    })
 
   // Treatment plan
   const treatmentMethods = getTreatmentMethods(inspection)
@@ -1260,8 +1266,13 @@ function generateReportHtml(
   html = handleSubfloorPage(html, inspection, subfloorData, subfloorReadings, subfloorPhotos)
 
   // ===== PAGE 10: VISUAL MOULD CLEANING ESTIMATE =====
-  html = html.replace(/\{\{option_1_price\}\}/g, formatCurrency(inspection.subtotal_ex_gst))
-  html = html.replace(/\{\{option_2_price\}\}/g, formatCurrency(inspection.total_inc_gst))
+  // Pricing logic: if demolition or subfloor → Option 2 only; otherwise → Option 1 only
+  const hasDemolition = inspection.areas?.some(a => a.demolition_required) || false
+  const hasSubfloor = inspection.subfloor_required && subfloorData != null
+  const needsComprehensive = hasDemolition || hasSubfloor
+
+  html = html.replace(/\{\{option_1_price\}\}/g, needsComprehensive ? 'N/A' : formatCurrency(inspection.total_inc_gst))
+  html = html.replace(/\{\{option_2_price\}\}/g, needsComprehensive ? formatCurrency(inspection.total_inc_gst) : 'N/A')
   html = html.replace(/\{\{equipment_dehumidifier\}\}/g, dehumidifierPrice)
   html = html.replace(/\{\{equipment_air_mover\}\}/g, airMoverPrice)
   html = html.replace(/\{\{equipment_rcd_box\}\}/g, rcdBoxPrice)

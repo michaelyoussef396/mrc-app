@@ -195,6 +195,7 @@ const InspectionForm = () => {
     airMoversQty: 0,
     rcdBoxEnabled: false,
     rcdBoxQty: 0,
+    estimatedDays: 1,
     recommendDehumidifier: false,
     dehumidifierSize: '',
     causeOfMould: '',
@@ -762,6 +763,7 @@ const InspectionForm = () => {
             airMoversQty: existingInspection.air_movers_qty ?? prev.airMoversQty ?? 0,
             rcdBoxEnabled: existingInspection.rcd_box_enabled || prev.rcdBoxEnabled,
             rcdBoxQty: existingInspection.rcd_box_qty ?? prev.rcdBoxQty ?? 0,
+            estimatedDays: existingInspection.equipment_days ?? prev.estimatedDays ?? 1,
             // Section 8: Job Summary
             recommendDehumidifier: !!existingInspection.recommended_dehumidifier || prev.recommendDehumidifier,
             dehumidifierSize: existingInspection.recommended_dehumidifier || prev.dehumidifierSize,
@@ -974,6 +976,7 @@ const InspectionForm = () => {
             airMoversQty: existingInspection.air_movers_qty ?? prev.airMoversQty ?? 0,
             rcdBoxEnabled: existingInspection.rcd_box_enabled || prev.rcdBoxEnabled,
             rcdBoxQty: existingInspection.rcd_box_qty ?? prev.rcdBoxQty ?? 0,
+            estimatedDays: existingInspection.equipment_days ?? prev.estimatedDays ?? 1,
             // Section 8: Job Summary
             recommendDehumidifier: !!existingInspection.recommended_dehumidifier || prev.recommendDehumidifier,
             dehumidifierSize: existingInspection.recommended_dehumidifier || prev.dehumidifierSize,
@@ -2191,6 +2194,7 @@ const InspectionForm = () => {
         air_movers_qty: formData.airMoversQty || 0,
         rcd_box_enabled: formData.rcdBoxEnabled || false,
         rcd_box_qty: formData.rcdBoxQty || 0,
+        equipment_days: formData.estimatedDays || 1,
         total_time_minutes: formData.areas.reduce(
           (sum, a) => sum + a.timeWithoutDemo + (a.demolitionRequired ? a.demolitionTime : 0),
           0
@@ -2207,8 +2211,7 @@ const InspectionForm = () => {
         subfloor_hours: formData.subfloorHours || 0,
         // Equipment cost (calculated from qty × rate × days)
         equipment_cost_ex_gst: (() => {
-          const totalHours = (formData.noDemolitionHours || 0) + (formData.demolitionHours || 0) + (formData.subfloorHours || 0);
-          const days = Math.max(1, Math.ceil(totalHours / 8));
+          const days = formData.estimatedDays || 1;
           return ((formData.commercialDehumidifierQty || 0) * EQUIPMENT_RATES.dehumidifier * days) +
                  ((formData.airMoversQty || 0) * EQUIPMENT_RATES.airMover * days) +
                  ((formData.rcdBoxQty || 0) * EQUIPMENT_RATES.rcd * days);
@@ -2237,8 +2240,7 @@ const InspectionForm = () => {
         })(),
         // Calculate final subtotal (respecting manual override)
         subtotal_ex_gst: (() => {
-          const totalHours = (formData.noDemolitionHours || 0) + (formData.demolitionHours || 0) + (formData.subfloorHours || 0);
-          const days = Math.max(1, Math.ceil(totalHours / 8));
+          const days = formData.estimatedDays || 1;
           const equipmentTotal = ((formData.commercialDehumidifierQty || 0) * EQUIPMENT_RATES.dehumidifier * days) +
                                  ((formData.airMoversQty || 0) * EQUIPMENT_RATES.airMover * days) +
                                  ((formData.rcdBoxQty || 0) * EQUIPMENT_RATES.rcd * days);
@@ -2255,8 +2257,7 @@ const InspectionForm = () => {
           return result.subtotalExGst;
         })(),
         gst_amount: (() => {
-          const totalHours = (formData.noDemolitionHours || 0) + (formData.demolitionHours || 0) + (formData.subfloorHours || 0);
-          const days = Math.max(1, Math.ceil(totalHours / 8));
+          const days = formData.estimatedDays || 1;
           const equipmentTotal = ((formData.commercialDehumidifierQty || 0) * EQUIPMENT_RATES.dehumidifier * days) +
                                  ((formData.airMoversQty || 0) * EQUIPMENT_RATES.airMover * days) +
                                  ((formData.rcdBoxQty || 0) * EQUIPMENT_RATES.rcd * days);
@@ -2273,8 +2274,7 @@ const InspectionForm = () => {
           return finalSubtotal * 0.10;
         })(),
         total_inc_gst: (() => {
-          const totalHours = (formData.noDemolitionHours || 0) + (formData.demolitionHours || 0) + (formData.subfloorHours || 0);
-          const days = Math.max(1, Math.ceil(totalHours / 8));
+          const days = formData.estimatedDays || 1;
           const equipmentTotal = ((formData.commercialDehumidifierQty || 0) * EQUIPMENT_RATES.dehumidifier * days) +
                                  ((formData.airMoversQty || 0) * EQUIPMENT_RATES.airMover * days) +
                                  ((formData.rcdBoxQty || 0) * EQUIPMENT_RATES.rcd * days);
