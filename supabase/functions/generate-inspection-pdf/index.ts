@@ -993,7 +993,20 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
   return html.replace(areaPageRegex, areaPages + '\n\n')
 }
 
-// Handle the Subfloor page — remove if not required, populate if present
+// Estimate text height for subfloor panel (13px font, 20px line-height, 290px width)
+function estimateSubfloorTextHeight(text: string): number {
+  if (!text) return 20
+  const CHARS_PER_LINE = 35
+  const LINE_HEIGHT = 20
+  const segments = text.split('\n')
+  let totalLines = 0
+  for (const segment of segments) {
+    totalLines += Math.max(Math.ceil(segment.length / CHARS_PER_LINE), 1)
+  }
+  return totalLines * LINE_HEIGHT
+}
+
+// Handle the Subfloor page — remove if not required, generate dynamic multi-page if present
 function handleSubfloorPage(
   html: string,
   inspection: Inspection,
@@ -1001,39 +1014,127 @@ function handleSubfloorPage(
   subfloorReadings: SubfloorReading[],
   subfloorPhotos: Photo[]
 ): string {
-  // Find the Subfloor page block: between "Page 9: Subfloor" and "Page 10:"
   const subfloorPageRegex = /\s*<!-- Page 9: Subfloor[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 10)/
 
   if (!inspection.subfloor_required || !subfloorData) {
-    // Remove the entire subfloor page
     return html.replace(subfloorPageRegex, '\n\n')
   }
 
-  // Populate subfloor placeholders
-  // Photos (up to 10)
-  for (let i = 1; i <= 10; i++) {
-    const photo = subfloorPhotos[i - 1]
-    const url = photo?.storage_path ? getPhotoUrl(photo.storage_path) : ''
-    html = html.replace(new RegExp(`\\{\\{subfloor_photo_${i}\\}\\}`, 'g'), url)
-  }
+  // Extract asset URLs from template before replacing
+  const match = html.match(subfloorPageRegex)
+  if (!match) return html
 
-  // Text fields
-  html = html.replace(/\{\{subfloor_observation\}\}/g, subfloorData.observations || 'No observations recorded.')
-  html = html.replace(/\{\{subfloor_landscape\}\}/g, subfloorData.landscape
-    ? subfloorData.landscape.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-    : 'Not specified')
-  html = html.replace(/\{\{subfloor_comments\}\}/g, subfloorData.comments || 'No comments recorded.')
+  const bgMatch = match[0].match(/src="([^"]*Subfloor[^"]*\.png[^"]*)"/)
+  const bgUrl = bgMatch ? bgMatch[1] : `${ASSET_BASE}/assets/backgrounds/Subfloor%20Background%20P9%20(1).png`
+  const logoMatch = match[0].match(/src="([^"]*logo-mrc\.png[^"]*)"/)
+  const logoUrl = logoMatch ? logoMatch[1] : `${ASSET_BASE}/assets/logos/logo-mrc.png`
 
-  // Moisture levels - format from readings
+  // Build text sections
+  const landscapeText = subfloorData.landscape
+    ? subfloorData.landscape.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+    : 'Not specified'
+
   const moistureLevels = subfloorReadings.length > 0
     ? subfloorReadings
         .sort((a, b) => (a.reading_order || 0) - (b.reading_order || 0))
         .map(r => `${r.location || 'Location ' + (r.reading_order + 1)}: ${r.moisture_percentage ?? '-'}%`)
         .join('\n')
     : 'No moisture readings recorded.'
-  html = html.replace(/\{\{subfloor_moisture_levels\}\}/g, moistureLevels)
 
-  return html
+  const textSections = [
+    { heading: 'SUBFLOOR OBSERVATION', body: subfloorData.observations || 'No observations recorded.' },
+    { heading: 'SUBFLOOR LANDSCAPE', body: landscapeText },
+    { heading: 'SUBFLOOR COMMENTS', body: subfloorData.comments || 'No comments recorded.' },
+    { heading: 'MOISTURE LEVELS', body: moistureLevels },
+  ]
+
+  // Pagination constants for navy panel text layout
+  const PANEL_TEXT_START = 150
+  const PANEL_TEXT_END = 1100
+  const HEADING_HEIGHT = 28
+  const SECTION_GAP = 30
+
+  // Distribute text sections across pages based on estimated heights
+  interface TextPlacement { heading: string; body: string; headingTop: number; bodyTop: number }
+  const textPages: TextPlacement[][] = [[]]
+  let currentTop = PANEL_TEXT_START
+  let currentPageIndex = 0
+
+  for (const section of textSections) {
+    const bodyHeight = estimateSubfloorTextHeight(section.body)
+    const totalHeight = HEADING_HEIGHT + bodyHeight
+
+    if (currentTop + totalHeight > PANEL_TEXT_END && textPages[currentPageIndex].length > 0) {
+      currentPageIndex++
+      textPages.push([])
+      currentTop = PANEL_TEXT_START
+    }
+
+    textPages[currentPageIndex].push({
+      heading: section.heading,
+      body: section.body,
+      headingTop: currentTop,
+      bodyTop: currentTop + HEADING_HEIGHT,
+    })
+
+    currentTop += totalHeight + SECTION_GAP
+  }
+
+  // Chunk photos into groups of 10
+  const photoChunks: Photo[][] = []
+  for (let i = 0; i < subfloorPhotos.length; i += 10) {
+    photoChunks.push(subfloorPhotos.slice(i, i + 10))
+  }
+  if (photoChunks.length === 0) photoChunks.push([])
+
+  // Total pages = max of text pages and photo chunks
+  const totalPages = Math.max(textPages.length, photoChunks.length)
+
+  // Generate HTML for each page
+  const pagesHtml: string[] = []
+  for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
+    const isFirstPage = pageIdx === 0
+    const titleText = isFirstPage ? 'SUBFLOOR' : 'SUBFLOOR (CONTINUED)'
+    const titleFontSize = isFirstPage ? '56px' : '40px'
+
+    // Photo grid for this page
+    const chunk = photoChunks[pageIdx] || []
+    let photoGridHtml = ''
+    if (chunk.length > 0) {
+      const rows = Math.ceil(chunk.length / 2)
+      const photoImgs = chunk.map((photo, i) => {
+        const url = photo.storage_path ? getPhotoUrl(photo.storage_path) : ''
+        return url
+          ? `<img src="${url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" alt="Subfloor photo ${pageIdx * 10 + i + 1}" />`
+          : ''
+      }).filter(Boolean).join('\n                ')
+
+      photoGridHtml = `
+            <div style="width: 440px; left: 12px; top: 140px; position: absolute; display: grid; grid-template-columns: 214px 214px; grid-template-rows: repeat(${rows}, 153px); gap: 10px; z-index: 10;">
+                ${photoImgs}
+            </div>`
+    }
+
+    // Text sections for this page
+    const placements = textPages[pageIdx] || []
+    const textHtml = placements.map(tp =>
+      `
+            <div style="width: 290px; left: 484px; top: ${tp.headingTop}px; position: absolute; color: #FFFFFF; font-size: 16px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">${tp.heading}</div>
+            <div style="width: 290px; left: 484px; top: ${tp.bodyTop}px; position: absolute; color: #FFFFFF; font-size: 13px; font-family: 'Galvji'; font-weight: 400; line-height: 20px; letter-spacing: 0.5px; z-index: 10; white-space: pre-wrap;">${tp.body}</div>`
+    ).join('')
+
+    pagesHtml.push(`<!-- Page 9: Subfloor${isFirstPage ? '' : ' (continued)'} -->
+    <div class="report-page page-break">
+        <div style="width: 794px; height: 1123px; position: relative; background: #FFFFFF; overflow: hidden">
+            <img src="${bgUrl}" style="width: 794px; height: 1123px; left: 0; top: 0; position: absolute; display: block; object-fit: cover; z-index: 0;" alt="" />
+            <div style="left: 463px; top: 111px; width: 331px; height: 1012px; position: absolute; background: #121D73; border-radius: 10px 0 0 0; z-index: 1;"></div>
+            <div style="width: 400px; left: 46px; top: 37px; position: absolute; color: #000000; font-size: ${titleFontSize}; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">${titleText}</div>
+            <img style="width: 57px; height: 56px; left: 709px; top: 29px; position: absolute; object-fit: contain; z-index: 10;" src="${logoUrl}" alt="MRC Logo" />${photoGridHtml}${textHtml}
+        </div>
+    </div>`)
+  }
+
+  return html.replace(subfloorPageRegex, '\n\n    ' + pagesHtml.join('\n\n    ') + '\n\n    ')
 }
 
 // Generate the full populated HTML report
