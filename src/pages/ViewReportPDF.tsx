@@ -24,6 +24,8 @@ import {
   AlertCircle,
   Send,
   Eye,
+  Upload,
+  Check,
 } from 'lucide-react'
 import {
   generateInspectionPDF,
@@ -32,8 +34,15 @@ import {
   updateFieldAndRegenerate
 } from '@/lib/api/pdfGeneration'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml } from '@/lib/api/notifications'
-import { uploadInspectionPhoto, deleteInspectionPhoto } from '@/lib/utils/photoUpload'
+import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos } from '@/lib/utils/photoUpload'
 import { resizePhoto } from '@/lib/offline/photoResizer'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 
 interface Inspection {
   id: string
@@ -158,8 +167,11 @@ export default function ViewReportPDF() {
     currentUrl?: string
   } | null>(null)
 
-  // Page 1 photo upload
+  // Page 1 photo picker
   const [photoUploading, setPhotoUploading] = useState(false)
+  const [photoPickerOpen, setPhotoPickerOpen] = useState(false)
+  const [photoPickerLoading, setPhotoPickerLoading] = useState(false)
+  const [availablePhotos, setAvailablePhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption: string | null; photo_type: string }>>([])
   const photoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -425,8 +437,54 @@ export default function ViewReportPDF() {
     }
   }
 
-  function handlePage1PhotoChange() {
-    photoInputRef.current?.click()
+  async function handlePage1PhotoChange() {
+    if (!inspection?.id) return
+    setPhotoPickerOpen(true)
+    setPhotoPickerLoading(true)
+    try {
+      const photos = await loadInspectionPhotos(inspection.id)
+      setAvailablePhotos(photos.filter(p => p.signed_url))
+    } catch {
+      setAvailablePhotos([])
+    } finally {
+      setPhotoPickerLoading(false)
+    }
+  }
+
+  async function handleSelectExistingPhoto(photoId: string) {
+    if (!inspection?.id) return
+    setPhotoUploading(true)
+    setPhotoPickerOpen(false)
+    try {
+      // Remove old front_house caption from any existing photo
+      const { data: existing } = await supabase
+        .from('photos')
+        .select('id')
+        .eq('inspection_id', inspection.id)
+        .eq('caption', 'front_house')
+
+      if (existing) {
+        for (const p of existing) {
+          if (p.id !== photoId) {
+            await supabase.from('photos').update({ caption: null }).eq('id', p.id)
+          }
+        }
+      }
+
+      // Set selected photo as front_house
+      await supabase
+        .from('photos')
+        .update({ caption: 'front_house', photo_type: 'outdoor' })
+        .eq('id', photoId)
+
+      toast.success('Cover photo updated')
+      await handleGeneratePDF()
+    } catch (error) {
+      console.error('Failed to set cover photo:', error)
+      toast.error('Failed to set cover photo')
+    } finally {
+      setPhotoUploading(false)
+    }
   }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -708,6 +766,65 @@ export default function ViewReportPDF() {
           onSuccess={handleImageUploadSuccess}
         />
       )}
+
+      {/* Photo Picker Dialog (Page 1 cover photo) */}
+      <Dialog open={photoPickerOpen} onOpenChange={setPhotoPickerOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select Cover Photo</DialogTitle>
+            <DialogDescription>
+              Choose an existing photo or upload a new one
+            </DialogDescription>
+          </DialogHeader>
+
+          {photoPickerLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+            </div>
+          ) : (
+            <>
+              {availablePhotos.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {availablePhotos.map((photo) => (
+                    <button
+                      key={photo.id}
+                      onClick={() => handleSelectExistingPhoto(photo.id)}
+                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:border-orange-500 hover:shadow-md ${
+                        photo.caption === 'front_house' ? 'border-orange-500 ring-2 ring-orange-300' : 'border-gray-200'
+                      }`}
+                    >
+                      <img
+                        src={photo.signed_url}
+                        alt={photo.caption || photo.photo_type}
+                        className="w-full h-full object-cover"
+                      />
+                      {photo.caption === 'front_house' && (
+                        <div className="absolute top-1 right-1 bg-orange-600 text-white rounded-full p-0.5">
+                          <Check className="w-3 h-3" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-4">No photos found for this inspection</p>
+              )}
+
+              <Button
+                onClick={() => {
+                  setPhotoPickerOpen(false)
+                  photoInputRef.current?.click()
+                }}
+                variant="outline"
+                className="w-full h-12 min-h-[48px] mt-2"
+              >
+                <Upload className="h-5 w-5 mr-2" />
+                Upload New Photo
+              </Button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
