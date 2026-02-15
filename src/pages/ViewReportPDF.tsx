@@ -1,15 +1,16 @@
 // ViewReportPDF Page
 // View, edit, and approve inspection PDF reports
 // Mobile-first design with 48px touch targets
-// NEW: Visual preview with edit buttons ON the PDF
+// Page 1: inline edit buttons next to each field on the PDF
+// Pages 2+: toggle edit mode for overlay buttons
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
+import type { Page1Data } from '@/components/pdf/ReportPreviewHTML'
 import { EditFieldModal } from '@/components/pdf/EditFieldModal'
 import { ImageUploadModal } from '@/components/pdf/ImageUploadModal'
-import { Page1EditSheet } from '@/components/pdf/Page1EditSheet'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import {
@@ -23,7 +24,6 @@ import {
   AlertCircle,
   Send,
   Eye,
-  Mail
 } from 'lucide-react'
 import {
   generateInspectionPDF,
@@ -32,6 +32,8 @@ import {
   updateFieldAndRegenerate
 } from '@/lib/api/pdfGeneration'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml } from '@/lib/api/notifications'
+import { uploadInspectionPhoto, deleteInspectionPhoto } from '@/lib/utils/photoUpload'
+import { resizePhoto } from '@/lib/offline/photoResizer'
 
 interface Inspection {
   id: string
@@ -42,7 +44,13 @@ interface Inspection {
   pdf_approved_at: string | null
   pdf_generated_at: string | null
   lead_id?: string
-  // Editable fields
+  // Page 1 fields
+  requested_by?: string
+  attention_to?: string
+  inspection_date?: string
+  inspector_name?: string
+  dwelling_type?: string
+  // Editable fields (Pages 2+)
   ai_summary_text?: string
   cause_of_mould?: string
   outdoor_temperature?: number
@@ -58,6 +66,7 @@ interface Inspection {
     id: string
     full_name: string
     email?: string
+    property_type?: string
     property_address_street: string
     property_address_suburb: string
     property_address_state?: string
@@ -81,8 +90,45 @@ interface EditableField {
   position: { x: number; y: number }
 }
 
+// Select query for inspections (used in both load paths)
+const INSPECTION_SELECT = `
+  id,
+  job_number,
+  pdf_url,
+  pdf_version,
+  pdf_approved,
+  pdf_approved_at,
+  pdf_generated_at,
+  lead_id,
+  requested_by,
+  attention_to,
+  inspection_date,
+  inspector_name,
+  dwelling_type,
+  ai_summary_text,
+  cause_of_mould,
+  outdoor_temperature,
+  outdoor_humidity,
+  outdoor_dew_point,
+  outdoor_comments,
+  labor_cost_ex_gst,
+  equipment_cost_ex_gst,
+  subtotal_ex_gst,
+  gst_amount,
+  total_inc_gst,
+  lead:leads(
+    id,
+    full_name,
+    email,
+    property_type,
+    property_address_street,
+    property_address_suburb,
+    property_address_state,
+    property_address_postcode
+  )
+`
+
 export default function ViewReportPDF() {
-  // Support both old route (:id for lead) and new route (:inspectionId)
   const { inspectionId, id } = useParams<{ inspectionId?: string; id?: string }>()
   const effectiveId = inspectionId || id
   const navigate = useNavigate()
@@ -95,7 +141,7 @@ export default function ViewReportPDF() {
   const [showVersions, setShowVersions] = useState(false)
   const [versions, setVersions] = useState<PDFVersion[]>([])
 
-  // Edit modal state
+  // Edit modal state (Pages 2+)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingField, setEditingField] = useState<{
     key: string
@@ -104,9 +150,6 @@ export default function ViewReportPDF() {
     currentValue: string | number
   } | null>(null)
 
-  // Page 1 edit sheet state
-  const [page1SheetOpen, setPage1SheetOpen] = useState(false)
-
   // Image upload modal state
   const [imageModalOpen, setImageModalOpen] = useState(false)
   const [editingImage, setEditingImage] = useState<{
@@ -114,6 +157,10 @@ export default function ViewReportPDF() {
     label: string
     currentUrl?: string
   } | null>(null)
+
+  // Page 1 photo upload
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (effectiveId) {
@@ -129,76 +176,16 @@ export default function ViewReportPDF() {
     }
 
     try {
-      // First try to load as inspection ID
       let { data, error } = await supabase
         .from('inspections')
-        .select(`
-          id,
-          job_number,
-          pdf_url,
-          pdf_version,
-          pdf_approved,
-          pdf_approved_at,
-          pdf_generated_at,
-          lead_id,
-          ai_summary_text,
-          cause_of_mould,
-          outdoor_temperature,
-          outdoor_humidity,
-          outdoor_dew_point,
-          outdoor_comments,
-          labor_cost_ex_gst,
-          equipment_cost_ex_gst,
-          subtotal_ex_gst,
-          gst_amount,
-          total_inc_gst,
-          lead:leads(
-            id,
-            full_name,
-            email,
-            property_address_street,
-            property_address_suburb,
-            property_address_state,
-            property_address_postcode
-          )
-        `)
+        .select(INSPECTION_SELECT)
         .eq('id', effectiveId)
         .single()
 
-      // If not found as inspection, try to find by lead_id
       if (error || !data) {
         const { data: inspByLead, error: leadError } = await supabase
           .from('inspections')
-          .select(`
-            id,
-            job_number,
-            pdf_url,
-            pdf_version,
-            pdf_approved,
-            pdf_approved_at,
-            pdf_generated_at,
-            lead_id,
-            ai_summary_text,
-            cause_of_mould,
-            outdoor_temperature,
-            outdoor_humidity,
-            outdoor_dew_point,
-            outdoor_comments,
-            labor_cost_ex_gst,
-            equipment_cost_ex_gst,
-            subtotal_ex_gst,
-            gst_amount,
-            total_inc_gst,
-            lead:leads(
-              id,
-              full_name,
-              email,
-              property_address_street,
-              property_address_suburb,
-              property_address_state,
-              property_address_postcode
-            )
-          `)
+          .select(INSPECTION_SELECT)
           .eq('lead_id', effectiveId)
           .order('created_at', { ascending: false })
           .limit(1)
@@ -256,7 +243,6 @@ export default function ViewReportPDF() {
         toast.success('Report approved and ready to send!', { id: 'approve' })
         await loadInspection()
 
-        // Fire-and-forget notifications
         const lead = inspection.lead
         const address = lead
           ? [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ')
@@ -296,8 +282,6 @@ export default function ViewReportPDF() {
 
   function handleDownload() {
     if (!inspection?.pdf_url) return
-
-    // Open in new tab for print-to-PDF
     window.open(inspection.pdf_url, '_blank')
     toast.info('Report opened - use Print > Save as PDF')
   }
@@ -315,30 +299,28 @@ export default function ViewReportPDF() {
     setShowVersions(true)
   }
 
-  // Handle field click from the edit overlay
+  // --- Pages 2+ edit handlers (existing) ---
+
   function handleFieldClick(field: EditableField) {
     if (field.type === 'image') {
-      // Open image upload modal
       setEditingImage({
         key: field.key,
         label: field.label,
-        currentUrl: undefined // Would need to fetch from photos table
+        currentUrl: undefined,
       })
       setImageModalOpen(true)
     } else {
-      // Open text/number edit modal
       const currentValue = getFieldValue(field.key)
       setEditingField({
         key: field.key,
         label: field.label,
         type: field.type === 'currency' ? 'currency' : field.type === 'number' ? 'number' : field.type === 'textarea' ? 'textarea' : 'text',
-        currentValue: currentValue
+        currentValue,
       })
       setEditModalOpen(true)
     }
   }
 
-  // Get current value of a field
   function getFieldValue(fieldKey: string): string | number {
     if (!inspection) return ''
 
@@ -347,12 +329,7 @@ export default function ViewReportPDF() {
       'property_address': () => {
         const lead = inspection.lead
         if (!lead) return ''
-        return [
-          lead.property_address_street,
-          lead.property_address_suburb,
-          lead.property_address_state,
-          lead.property_address_postcode
-        ].filter(Boolean).join(', ')
+        return [lead.property_address_street, lead.property_address_suburb, lead.property_address_state, lead.property_address_postcode].filter(Boolean).join(', ')
       },
       'ai_summary': () => inspection.ai_summary_text || '',
       'cause_of_mould': () => inspection.cause_of_mould || '',
@@ -371,40 +348,129 @@ export default function ViewReportPDF() {
     return getter ? getter() : ''
   }
 
-  // Handle saving edited field
-  async function handleSaveField(newValue: string | number | boolean) {
-    if (!editingField || !inspection?.id) return
-
-    try {
-      const result = await updateFieldAndRegenerate(
-        inspection.id,
-        editingField.key,
-        newValue
-      )
-
-      if (result.success) {
-        toast.success('Field updated and PDF regenerated!', { id: 'pdf-regen' })
-        await loadInspection()
-        setEditModalOpen(false)
-        setEditingField(null)
-      } else {
-        toast.error(result.error || 'Failed to update field')
-      }
-    } catch (error) {
-      console.error('Save field error:', error)
-      toast.error('Failed to save changes')
-    }
-  }
-
-  // Handle image upload success
   async function handleImageUploadSuccess() {
     toast.success('Image uploaded!', { id: 'image-upload' })
-    await handleGeneratePDF() // Regenerate PDF with new image
+    await handleGeneratePDF()
     setImageModalOpen(false)
     setEditingImage(null)
   }
 
-  // Loading state
+  // --- Page 1 inline edit handlers ---
+
+  // Build page1Data from current inspection state
+  const page1Data: Page1Data | null = inspection ? {
+    ordered_by: inspection.requested_by || inspection.lead?.full_name || '',
+    inspector: inspection.inspector_name || '',
+    date: inspection.inspection_date || '',
+    directed_to: inspection.attention_to || inspection.lead?.full_name || '',
+    property_type: inspection.lead?.property_type || inspection.dwelling_type || '',
+    address_street: inspection.lead?.property_address_street || '',
+    address_suburb: inspection.lead?.property_address_suburb || '',
+    address_state: inspection.lead?.property_address_state || '',
+    address_postcode: inspection.lead?.property_address_postcode || '',
+  } : null
+
+  async function handlePage1FieldSave(key: string, value: string | Record<string, string>) {
+    if (!inspection?.id || !inspection?.lead_id) return
+
+    try {
+      if (key === 'cover_photo') {
+        // Photo was uploaded separately, just regenerate
+      } else if (key === 'address') {
+        const addr = value as Record<string, string>
+        const { error } = await supabase
+          .from('leads')
+          .update({
+            property_address_street: addr.street,
+            property_address_suburb: addr.suburb,
+            property_address_state: addr.state,
+            property_address_postcode: addr.postcode,
+          })
+          .eq('id', inspection.lead_id)
+        if (error) throw error
+      } else {
+        // Map inline field keys to database columns
+        const fieldMap: Record<string, { table: 'inspections' | 'leads'; column: string; also?: { table: 'leads'; column: string } }> = {
+          ordered_by: { table: 'inspections', column: 'requested_by' },
+          inspector: { table: 'inspections', column: 'inspector_name' },
+          date: { table: 'inspections', column: 'inspection_date' },
+          directed_to: { table: 'inspections', column: 'attention_to' },
+          property_type: { table: 'inspections', column: 'dwelling_type', also: { table: 'leads', column: 'property_type' } },
+        }
+
+        const mapping = fieldMap[key]
+        if (mapping) {
+          if (mapping.table === 'inspections') {
+            const { error } = await supabase
+              .from('inspections')
+              .update({ [mapping.column]: (value as string) || null, updated_at: new Date().toISOString() })
+              .eq('id', inspection.id)
+            if (error) throw error
+          }
+          if (mapping.also) {
+            await supabase
+              .from('leads')
+              .update({ [mapping.also.column]: (value as string) || null })
+              .eq('id', inspection.lead_id)
+          }
+        }
+      }
+
+      // Regenerate PDF with new data
+      await handleGeneratePDF()
+    } catch (error) {
+      console.error('Page 1 save failed:', error)
+      toast.error('Failed to save')
+      throw error
+    }
+  }
+
+  function handlePage1PhotoChange() {
+    photoInputRef.current?.click()
+  }
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !inspection?.id) return
+
+    setPhotoUploading(true)
+    try {
+      const resizedBlob = await resizePhoto(file)
+      const resizedFile = new File([resizedBlob], file.name, { type: 'image/jpeg' })
+
+      // Delete existing front_house photo
+      const { data: existing } = await supabase
+        .from('photos')
+        .select('id')
+        .eq('inspection_id', inspection.id)
+        .eq('caption', 'front_house')
+
+      if (existing) {
+        for (const p of existing) {
+          try { await deleteInspectionPhoto(p.id) } catch { /* ignore */ }
+        }
+      }
+
+      await uploadInspectionPhoto(resizedFile, {
+        inspection_id: inspection.id,
+        photo_type: 'outdoor',
+        caption: 'front_house',
+        order_index: 0,
+      })
+
+      toast.success('Photo updated')
+      await handleGeneratePDF()
+    } catch (error) {
+      console.error('Photo upload failed:', error)
+      toast.error('Failed to upload photo')
+    } finally {
+      setPhotoUploading(false)
+      if (photoInputRef.current) photoInputRef.current.value = ''
+    }
+  }
+
+  // --- Render ---
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -416,7 +482,6 @@ export default function ViewReportPDF() {
     )
   }
 
-  // No PDF generated yet
   if (!inspection?.pdf_url) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
@@ -433,22 +498,12 @@ export default function ViewReportPDF() {
               className="h-14 min-h-[56px] bg-orange-600 hover:bg-orange-700 text-lg"
             >
               {generating ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Generating...
-                </>
+                <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Generating...</>
               ) : (
-                <>
-                  <RefreshCw className="h-5 w-5 mr-2" />
-                  Generate Report
-                </>
+                <><RefreshCw className="h-5 w-5 mr-2" />Generate Report</>
               )}
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate(-1)}
-              className="h-12 min-h-[48px]"
-            >
+            <Button variant="outline" onClick={() => navigate(-1)} className="h-12 min-h-[48px]">
               <ArrowLeft className="h-5 w-5 mr-2" />
               Go Back
             </Button>
@@ -458,20 +513,15 @@ export default function ViewReportPDF() {
     )
   }
 
-  // Main view with Report Preview
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header - Sticky */}
+      {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-40 shadow-sm">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
-          {/* Left: Back + Title */}
           <div className="flex items-center gap-3">
             <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(-1)}
-              className="h-12 w-12 min-h-[48px] min-w-[48px]"
-              aria-label="Go back"
+              variant="ghost" size="icon" onClick={() => navigate(-1)}
+              className="h-12 w-12 min-h-[48px] min-w-[48px]" aria-label="Go back"
             >
               <ArrowLeft className="h-6 w-6" />
             </Button>
@@ -487,65 +537,31 @@ export default function ViewReportPDF() {
             </div>
           </div>
 
-          {/* Right: Action Buttons */}
           <div className="flex items-center gap-2">
-            {/* Version indicator */}
             <span className="hidden sm:inline-flex items-center px-2 py-1 text-xs bg-gray-100 rounded">
               v{inspection.pdf_version || 1}
             </span>
 
-            {/* Mobile: Icon only buttons */}
+            {/* Mobile buttons */}
             <div className="flex sm:hidden gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setPage1SheetOpen(true)}
-                className="h-12 w-12 min-h-[48px] min-w-[48px]"
-                aria-label="Edit Page 1"
-              >
-                <Edit className="h-5 w-5" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleDownload}
-                className="h-12 w-12 min-h-[48px] min-w-[48px]"
-              >
+              <Button variant="outline" size="icon" onClick={handleDownload}
+                className="h-12 w-12 min-h-[48px] min-w-[48px]">
                 <Download className="h-5 w-5" />
               </Button>
               <Button
-                size="icon"
-                onClick={handleApprove}
+                size="icon" onClick={handleApprove}
                 disabled={inspection.pdf_approved || approving}
                 className={`h-12 w-12 min-h-[48px] min-w-[48px] ${
-                  inspection.pdf_approved
-                    ? 'bg-green-600 hover:bg-green-600'
-                    : 'bg-orange-600 hover:bg-orange-700'
+                  inspection.pdf_approved ? 'bg-green-600 hover:bg-green-600' : 'bg-orange-600 hover:bg-orange-700'
                 }`}
               >
-                {approving ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <CheckCircle className="h-5 w-5" />
-                )}
+                {approving ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle className="h-5 w-5" />}
               </Button>
             </div>
 
-            {/* Desktop: Full buttons */}
+            {/* Desktop buttons */}
             <div className="hidden sm:flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setPage1SheetOpen(true)}
-                className="h-10"
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Page 1
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleShowVersions}
-                className="h-10"
-              >
+              <Button variant="outline" onClick={handleShowVersions} className="h-10">
                 <History className="h-4 w-4 mr-2" />
                 History
               </Button>
@@ -555,44 +571,23 @@ export default function ViewReportPDF() {
                 className={editMode ? 'bg-orange-600 hover:bg-orange-700' : ''}
               >
                 {editMode ? (
-                  <>
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Mode
-                  </>
+                  <><Eye className="h-4 w-4 mr-2" />View Mode</>
                 ) : (
-                  <>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit Mode
-                  </>
+                  <><Edit className="h-4 w-4 mr-2" />Edit Mode</>
                 )}
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleGeneratePDF}
-                disabled={generating}
-              >
-                {generating ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
+              <Button variant="outline" onClick={handleGeneratePDF} disabled={generating}>
+                {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 Regenerate
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleDownload}
-              >
+              <Button variant="outline" onClick={handleDownload}>
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
               <Button
                 onClick={handleApprove}
                 disabled={inspection.pdf_approved || approving}
-                className={
-                  inspection.pdf_approved
-                    ? 'bg-green-600 hover:bg-green-600'
-                    : 'bg-orange-600 hover:bg-orange-700'
-                }
+                className={inspection.pdf_approved ? 'bg-green-600 hover:bg-green-600' : 'bg-orange-600 hover:bg-orange-700'}
               >
                 {approving ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -617,9 +612,7 @@ export default function ViewReportPDF() {
               {versions.map((v) => (
                 <button
                   key={v.id}
-                  onClick={() => {
-                    setInspection(prev => prev ? { ...prev, pdf_url: v.pdf_url } : null)
-                  }}
+                  onClick={() => setInspection(prev => prev ? { ...prev, pdf_url: v.pdf_url } : null)}
                   className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm border min-h-[48px] ${
                     inspection.pdf_url === v.pdf_url
                       ? 'bg-orange-100 border-orange-500'
@@ -637,7 +630,7 @@ export default function ViewReportPDF() {
         </div>
       )}
 
-      {/* Edit Mode Indicator */}
+      {/* Edit Mode Indicator (Pages 2+) */}
       {editMode && (
         <div className="bg-orange-500 text-white text-center py-2 text-sm font-medium z-30 flex items-center justify-center gap-2">
           <Edit className="h-4 w-4" />
@@ -653,8 +646,22 @@ export default function ViewReportPDF() {
           onFieldClick={handleFieldClick}
           onLoadSuccess={() => console.log('Report loaded')}
           onLoadError={(error) => toast.error(error)}
+          page1Data={page1Data}
+          onPage1FieldSave={handlePage1FieldSave}
+          onPage1PhotoChange={handlePage1PhotoChange}
+          photoUploading={photoUploading}
         />
       </div>
+
+      {/* Hidden file input for Page 1 photo upload */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handlePhotoUpload}
+        className="hidden"
+      />
 
       {/* Approved Badge */}
       {inspection.pdf_approved && (
@@ -664,7 +671,7 @@ export default function ViewReportPDF() {
         </div>
       )}
 
-      {/* Edit Field Modal */}
+      {/* Edit Field Modal (Pages 2+) */}
       {editingField && (
         <EditFieldModal
           inspectionId={inspection.id}
@@ -686,7 +693,7 @@ export default function ViewReportPDF() {
         />
       )}
 
-      {/* Image Upload Modal */}
+      {/* Image Upload Modal (Pages 2+) */}
       {editingImage && inspection?.id && (
         <ImageUploadModal
           isOpen={imageModalOpen}
@@ -699,21 +706,6 @@ export default function ViewReportPDF() {
           fieldLabel={editingImage.label}
           currentPhotoUrl={editingImage.currentUrl}
           onSuccess={handleImageUploadSuccess}
-        />
-      )}
-
-      {/* Page 1 Edit Sheet */}
-      {inspection?.id && inspection?.lead_id && (
-        <Page1EditSheet
-          inspectionId={inspection.id}
-          leadId={inspection.lead_id}
-          open={page1SheetOpen}
-          onOpenChange={setPage1SheetOpen}
-          onSaved={async () => {
-            setPage1SheetOpen(false)
-            await handleGeneratePDF()
-            await loadInspection()
-          }}
         />
       )}
     </div>
