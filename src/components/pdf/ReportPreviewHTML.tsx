@@ -385,14 +385,14 @@ export function ReportPreviewHTML({
                           key={field.key}
                           onClick={() => startP1Edit(field)}
                           disabled={photoUploading}
-                          className="absolute pointer-events-auto w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white transition-colors"
+                          className="absolute pointer-events-auto w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-orange-600 text-white shadow-lg flex items-center justify-center hover:bg-orange-700 hover:scale-110 transition-all"
                           style={{ left: field.btnPos.x, top: field.btnPos.y }}
                           title="Change photo"
                         >
                           {photoUploading ? (
-                            <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
+                            <Loader2 className="w-5 h-5 animate-spin" />
                           ) : (
-                            <Camera className="w-5 h-5 text-gray-700" />
+                            <Camera className="w-5 h-5" />
                           )}
                         </button>
                       )
@@ -493,11 +493,11 @@ export function ReportPreviewHTML({
                       <button
                         key={field.key}
                         onClick={() => startP1Edit(field)}
-                        className="absolute pointer-events-auto w-8 h-8 rounded-full bg-white/90 shadow-md border border-gray-200 flex items-center justify-center hover:bg-white hover:shadow-lg hover:scale-110 transition-all"
+                        className="absolute pointer-events-auto w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-orange-600 text-white shadow-lg flex items-center justify-center hover:bg-orange-700 hover:scale-110 transition-all animate-pulse"
                         style={{ left: field.btnPos.x, top: field.btnPos.y }}
                         title={`Edit ${field.label}`}
                       >
-                        <Pencil className="w-3.5 h-3.5 text-gray-600" />
+                        <Pencil className="w-5 h-5" />
                       </button>
                     )
                   })}
