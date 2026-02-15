@@ -32,9 +32,6 @@ interface EditableField {
 }
 
 const EDITABLE_FIELDS: EditableField[] = [
-  // Page 2 - Value Proposition / What We Found
-  { key: 'ai_summary', label: 'What We Found', type: 'textarea', page: 2, position: { x: 50, y: 280 } },
-
   // Page 3 - Outdoor Environment
   { key: 'outdoor_temperature', label: 'Temperature', type: 'number', page: 3, position: { x: 280, y: 340 } },
   { key: 'outdoor_humidity', label: 'Humidity', type: 'number', page: 3, position: { x: 480, y: 340 } },
@@ -96,6 +93,32 @@ const PROPERTY_TYPES = [
   { value: 'industrial', label: 'Industrial' },
 ]
 
+// --- Page 4 (Value Proposition) inline edit field definitions ---
+// Page 4 y-offset = 3 * 1123 = 3369px
+
+interface VPField {
+  key: string
+  label: string
+  /** Where the pencil icon sits (absolute document coords) */
+  btnPos: { x: number; y: number }
+  /** Where the editor card appears */
+  editorPos: { x: number; y: number }
+  width: number
+}
+
+const VP_FIELDS: VPField[] = [
+  { key: 'what_we_found',
+    label: 'What We Found',
+    btnPos: { x: 740, y: 3565 },    // next to heading at top:195.5 + page offset 3369
+    editorPos: { x: 30, y: 3560 },  // covers heading + body area
+    width: 725 },
+  { key: 'what_we_will_do',
+    label: "What We're Going To Do",
+    btnPos: { x: 740, y: 3869 },    // next to heading at top:500 + page offset 3369
+    editorPos: { x: 30, y: 3864 },
+    width: 725 },
+]
+
 // --- Interfaces ---
 
 export interface Page1Data {
@@ -110,6 +133,11 @@ export interface Page1Data {
   address_postcode: string
 }
 
+export interface VPData {
+  what_we_found: string
+  what_we_will_do: string
+}
+
 interface ReportPreviewHTMLProps {
   htmlUrl: string
   editMode?: boolean
@@ -121,6 +149,9 @@ interface ReportPreviewHTMLProps {
   onPage1FieldSave?: (key: string, value: string | Record<string, string>) => Promise<void>
   onPage1PhotoChange?: () => void
   photoUploading?: boolean
+  // Value Proposition (Page 4) inline editing
+  vpData?: VPData | null
+  onVPFieldSave?: (key: string, value: string) => Promise<void>
 }
 
 export function ReportPreviewHTML({
@@ -133,6 +164,8 @@ export function ReportPreviewHTML({
   onPage1FieldSave,
   onPage1PhotoChange,
   photoUploading = false,
+  vpData,
+  onVPFieldSave,
 }: ReportPreviewHTMLProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -149,6 +182,11 @@ export function ReportPreviewHTML({
   const [editP1Value, setEditP1Value] = useState('')
   const [editP1Address, setEditP1Address] = useState({ street: '', suburb: '', state: '', postcode: '' })
   const [savingP1, setSavingP1] = useState(false)
+
+  // Value Proposition (Page 4) inline edit state
+  const [editingVP, setEditingVP] = useState<string | null>(null)
+  const [editVPValue, setEditVPValue] = useState('')
+  const [savingVP, setSavingVP] = useState(false)
 
   // Fetch HTML content on mount
   useEffect(() => {
@@ -287,6 +325,37 @@ export function ReportPreviewHTML({
   function cancelP1Edit() {
     setEditingP1(null)
     setEditP1Value('')
+  }
+
+  // --- Value Proposition (Page 4) inline edit handlers ---
+
+  function startVPEdit(field: VPField) {
+    if (!vpData) return
+    setEditingVP(field.key)
+    if (field.key === 'what_we_found') {
+      setEditVPValue(vpData.what_we_found)
+    } else if (field.key === 'what_we_will_do') {
+      setEditVPValue(vpData.what_we_will_do)
+    }
+  }
+
+  async function saveVPEdit() {
+    if (!editingVP || !onVPFieldSave) return
+    setSavingVP(true)
+    try {
+      await onVPFieldSave(editingVP, editVPValue)
+      setEditingVP(null)
+      setEditVPValue('')
+    } catch {
+      // Keep editing state on error so user can retry
+    } finally {
+      setSavingVP(false)
+    }
+  }
+
+  function cancelVPEdit() {
+    setEditingVP(null)
+    setEditVPValue('')
   }
 
   // --- Render ---
@@ -493,6 +562,72 @@ export function ReportPreviewHTML({
                       <button
                         key={field.key}
                         onClick={() => startP1Edit(field)}
+                        className="absolute pointer-events-auto w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-orange-600 text-white shadow-lg flex items-center justify-center hover:bg-orange-700 hover:scale-110 transition-all animate-pulse"
+                        style={{ left: field.btnPos.x, top: field.btnPos.y }}
+                        title={`Edit ${field.label}`}
+                      >
+                        <Pencil className="w-5 h-5" />
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Value Proposition (Page 4) Inline Edit Overlay */}
+              {vpData && (
+                <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 41 }}>
+                  {VP_FIELDS.map((field) => {
+                    const isEditing = editingVP === field.key
+
+                    // Editing: inline textarea card
+                    if (isEditing) {
+                      return (
+                        <div
+                          key={field.key}
+                          className="absolute pointer-events-auto bg-white rounded-lg shadow-xl border-2 border-orange-400 p-4"
+                          style={{ left: field.editorPos.x, top: field.editorPos.y, width: field.width }}
+                        >
+                          <div className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wide">
+                            {field.label}
+                          </div>
+                          <textarea
+                            value={editVPValue}
+                            onChange={(e) => setEditVPValue(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-vertical"
+                            style={{ minHeight: '180px' }}
+                            autoFocus
+                          />
+                          <div className="flex justify-end gap-2 mt-2">
+                            <button
+                              onClick={cancelVPEdit}
+                              disabled={savingVP}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded text-sm text-gray-600 hover:bg-gray-100 transition-colors min-h-[36px]"
+                            >
+                              <X className="w-4 h-4" />
+                              Cancel
+                            </button>
+                            <button
+                              onClick={saveVPEdit}
+                              disabled={savingVP}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded text-sm text-white bg-orange-600 hover:bg-orange-700 transition-colors min-h-[36px]"
+                            >
+                              {savingVP ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Check className="w-4 h-4" />
+                              )}
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    // Default: pencil edit button
+                    return (
+                      <button
+                        key={field.key}
+                        onClick={() => startVPEdit(field)}
                         className="absolute pointer-events-auto w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-orange-600 text-white shadow-lg flex items-center justify-center hover:bg-orange-700 hover:scale-110 transition-all animate-pulse"
                         style={{ left: field.btnPos.x, top: field.btnPos.y }}
                         title={`Edit ${field.label}`}

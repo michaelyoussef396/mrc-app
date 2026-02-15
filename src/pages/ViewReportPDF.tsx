@@ -8,7 +8,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
-import type { Page1Data } from '@/components/pdf/ReportPreviewHTML'
+import type { Page1Data, VPData } from '@/components/pdf/ReportPreviewHTML'
 import { EditFieldModal } from '@/components/pdf/EditFieldModal'
 import { ImageUploadModal } from '@/components/pdf/ImageUploadModal'
 import { Button } from '@/components/ui/button'
@@ -59,6 +59,10 @@ interface Inspection {
   inspection_date?: string
   inspector_name?: string
   dwelling_type?: string
+  // Value Proposition fields
+  what_we_found_text?: string
+  what_we_will_do_text?: string
+  what_you_get_text?: string
   // Editable fields (Pages 2+)
   ai_summary_text?: string
   cause_of_mould?: string
@@ -114,6 +118,9 @@ const INSPECTION_SELECT = `
   inspection_date,
   inspector_name,
   dwelling_type,
+  what_we_found_text,
+  what_we_will_do_text,
+  what_you_get_text,
   ai_summary_text,
   cause_of_mould,
   outdoor_temperature,
@@ -381,6 +388,40 @@ export default function ViewReportPDF() {
     address_state: inspection.lead?.property_address_state || '',
     address_postcode: inspection.lead?.property_address_postcode || '',
   } : null
+
+  // Build VP data from current inspection state
+  const vpData: VPData | null = inspection ? {
+    what_we_found: inspection.what_we_found_text || '',
+    what_we_will_do: inspection.what_we_will_do_text || '',
+  } : null
+
+  async function handleVPFieldSave(key: string, value: string) {
+    if (!inspection?.id) return
+
+    try {
+      const columnMap: Record<string, string> = {
+        what_we_found: 'what_we_found_text',
+        what_we_will_do: 'what_we_will_do_text',
+      }
+
+      const column = columnMap[key]
+      if (!column) return
+
+      const { error } = await supabase
+        .from('inspections')
+        .update({ [column]: value || null, updated_at: new Date().toISOString() })
+        .eq('id', inspection.id)
+
+      if (error) throw error
+
+      toast.success(`${key === 'what_we_found' ? 'What We Found' : "What We're Going To Do"} updated`)
+      await handleGeneratePDF()
+    } catch (error) {
+      console.error('VP save failed:', error)
+      toast.error('Failed to save')
+      throw error
+    }
+  }
 
   async function handlePage1FieldSave(key: string, value: string | Record<string, string>) {
     if (!inspection?.id || !inspection?.lead_id) return
@@ -708,6 +749,8 @@ export default function ViewReportPDF() {
           onPage1FieldSave={handlePage1FieldSave}
           onPage1PhotoChange={handlePage1PhotoChange}
           photoUploading={photoUploading}
+          vpData={vpData}
+          onVPFieldSave={handleVPFieldSave}
         />
       </div>
 
