@@ -648,7 +648,8 @@ export default function ViewReportPDF() {
     try {
       await deleteInspectionPhoto(photoId)
       setAreaPhotos(prev => prev.filter(p => p.id !== photoId))
-      toast.success('Photo deleted')
+      toast.success('Photo deleted — regenerating PDF...')
+      await handleGeneratePDF()
     } catch (err) {
       console.error('Delete area photo failed:', err)
       toast.error('Failed to delete photo')
@@ -709,9 +710,10 @@ export default function ViewReportPDF() {
         .update({ area_id: editingAreaId, photo_type: 'area' })
         .eq('id', photoId)
 
-      toast.success('Photo assigned to area')
+      toast.success('Photo assigned — regenerating PDF...')
       // Refresh from DB to ensure consistency
       await loadAreaPhotos(editingAreaId)
+      await handleGeneratePDF()
     } catch (err) {
       console.error('Failed to assign photo to area:', err)
       toast.error('Failed to assign photo')
@@ -741,7 +743,8 @@ export default function ViewReportPDF() {
         signed_url: result.signed_url,
         caption: null,
       }])
-      toast.success('Photo uploaded and assigned to area')
+      toast.success('Photo uploaded — regenerating PDF...')
+      await handleGeneratePDF()
     } catch (err) {
       console.error('Area photo upload failed:', err)
       toast.error('Failed to upload photo')
