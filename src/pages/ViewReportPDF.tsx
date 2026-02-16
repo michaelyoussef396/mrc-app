@@ -392,10 +392,62 @@ export default function ViewReportPDF() {
     }
   }
 
-  function handleDownload() {
-    if (!inspection?.pdf_url) return
-    window.open(inspection.pdf_url, '_blank')
-    toast.info('Report opened - use Print > Save as PDF')
+  async function handleDownload() {
+    if (!inspection?.pdf_url) {
+      toast.error('PDF not yet generated')
+      return
+    }
+
+    toast.loading('Preparing PDF...', { id: 'download' })
+
+    try {
+      // Fetch the HTML report from Supabase Storage
+      let html: string
+      const pathMatch = inspection.pdf_url.match(/inspection-reports\/(.+)$/)
+
+      if (pathMatch) {
+        const storagePath = pathMatch[1]
+        const { data, error } = await supabase.storage
+          .from('inspection-reports')
+          .download(storagePath)
+
+        if (error || !data) throw new Error('Failed to download report')
+        html = await data.text()
+      } else {
+        const response = await fetch(inspection.pdf_url)
+        if (!response.ok) throw new Error('Failed to fetch report')
+        html = await response.text()
+      }
+
+      // Build filename from job number
+      const jobNumber = inspection.job_number || 'report'
+      const title = `MRC-${jobNumber}`
+
+      // Inject <title> for PDF filename and auto-print script
+      const modifiedHtml = html.replace(
+        /<head>/i,
+        `<head><title>${title}</title>`
+      ) + '\n<script>window.onload=function(){setTimeout(function(){window.print()},600)}</script>'
+
+      // Create blob URL and open in new tab
+      const blob = new Blob([modifiedHtml], { type: 'text/html' })
+      const blobUrl = URL.createObjectURL(blob)
+
+      const printWindow = window.open(blobUrl, '_blank')
+      if (!printWindow) {
+        toast.error('Pop-up blocked — please allow pop-ups for this site', { id: 'download' })
+        URL.revokeObjectURL(blobUrl)
+        return
+      }
+
+      toast.success('Print dialog opening — select "Save as PDF"', { id: 'download' })
+
+      // Clean up blob URL after 60s
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+    } catch (error) {
+      console.error('Download failed:', error)
+      toast.error('Failed to prepare PDF', { id: 'download' })
+    }
   }
 
   async function handleShowVersions() {
