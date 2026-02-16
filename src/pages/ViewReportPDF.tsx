@@ -68,6 +68,8 @@ interface Inspection {
   what_we_discovered?: string
   identified_causes?: string
   why_this_happened?: string
+  // Demolition field
+  demolition_content?: string
   // Editable fields (Pages 2+)
   ai_summary_text?: string
   cause_of_mould?: string
@@ -130,6 +132,7 @@ const INSPECTION_SELECT = `
   what_we_discovered,
   identified_causes,
   why_this_happened,
+  demolition_content,
   ai_summary_text,
   cause_of_mould,
   outdoor_temperature,
@@ -407,6 +410,8 @@ export default function ViewReportPDF() {
   // Problem Analysis content — single blob field
   const paContent = inspection?.problem_analysis_content || null
 
+  // Demolition content — single blob field
+  const demoContent = inspection?.demolition_content || null
 
   async function handleVPFieldSave(key: string, value: string) {
     if (!inspection?.id) return
@@ -451,6 +456,26 @@ export default function ViewReportPDF() {
       await handleGeneratePDF()
     } catch (error) {
       console.error('PA save failed:', error)
+      toast.error('Failed to save')
+      throw error
+    }
+  }
+
+  async function handleDemoSave(value: string) {
+    if (!inspection?.id) return
+
+    try {
+      const { error } = await supabase
+        .from('inspections')
+        .update({ demolition_content: value || null, updated_at: new Date().toISOString() })
+        .eq('id', inspection.id)
+
+      if (error) throw error
+
+      toast.success('Demolition content updated')
+      await handleGeneratePDF()
+    } catch (error) {
+      console.error('Demolition save failed:', error)
       toast.error('Failed to save')
       throw error
     }
@@ -786,6 +811,8 @@ export default function ViewReportPDF() {
           onVPFieldSave={handleVPFieldSave}
           paContent={paContent}
           onPASave={handlePASave}
+          demoContent={demoContent}
+          onDemoSave={handleDemoSave}
         />
       </div>
 

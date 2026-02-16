@@ -135,6 +135,9 @@ interface ReportPreviewHTMLProps {
   // Problem Analysis — single field for entire section
   paContent?: string | null
   onPASave?: (value: string) => Promise<void>
+  // Demolition — single field for entire section
+  demoContent?: string | null
+  onDemoSave?: (value: string) => Promise<void>
 }
 
 export function ReportPreviewHTML({
@@ -151,6 +154,8 @@ export function ReportPreviewHTML({
   onVPFieldSave,
   paContent,
   onPASave,
+  demoContent,
+  onDemoSave,
 }: ReportPreviewHTMLProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -181,6 +186,12 @@ export function ReportPreviewHTML({
   const [editPAValue, setEditPAValue] = useState('')
   const [savingPA, setSavingPA] = useState(false)
   const [paPageTop, setPaPageTop] = useState<number | null>(null)
+
+  // Demolition — single edit for entire section
+  const [editingDemo, setEditingDemo] = useState(false)
+  const [editDemoValue, setEditDemoValue] = useState('')
+  const [savingDemo, setSavingDemo] = useState(false)
+  const [demoPageTop, setDemoPageTop] = useState<number | null>(null)
 
   // Fetch HTML content on mount
   useEffect(() => {
@@ -232,6 +243,7 @@ export function ReportPreviewHTML({
     if (!htmlContent || !contentRef.current) {
       setVpPositions([])
       setPaPageTop(null)
+      setDemoPageTop(null)
       return
     }
 
@@ -282,12 +294,27 @@ export function ReportPreviewHTML({
         break
       }
 
-      console.log(`[ReportPreview] Heading search (attempt ${attempt}): VP=${vpFound.length}, PA=${foundPaTop !== null ? 'found' : 'not found'}`)
       setPaPageTop(foundPaTop)
 
+      // --- Demolition: find the "DEMOLITION" title div (56px font, same pattern as PA) ---
+      let foundDemoTop: number | null = null
+      for (const div of Array.from(allDivs)) {
+        const text = div.textContent?.trim().toUpperCase() || ''
+        if (text !== 'DEMOLITION') continue
+        const style = window.getComputedStyle(div)
+        const fontSize = parseFloat(style.fontSize)
+        if (fontSize < 30) continue
+        const pos = getPositionInContainer(div as HTMLElement, container)
+        foundDemoTop = pos.top
+        break
+      }
+
+      setDemoPageTop(foundDemoTop)
+
+      console.log(`[ReportPreview] Heading search (attempt ${attempt}): VP=${vpFound.length}, PA=${foundPaTop !== null ? 'found' : 'not found'}, Demo=${foundDemoTop !== null ? 'found' : 'not found'}`)
+
       // Retry if headings not found (timing/render issue)
-      if ((vpFound.length === 0 || foundPaTop === null) && attempt < 3 && !cancelled) {
-        console.log(`[ReportPreview] Missing headings (VP=${vpFound.length}, PA=${foundPaTop !== null}), retrying in 800ms...`)
+      if ((vpFound.length === 0 || foundPaTop === null || foundDemoTop === null) && attempt < 3 && !cancelled) {
         setTimeout(() => findHeadings(attempt + 1), 800)
       }
     }
@@ -450,6 +477,32 @@ export function ReportPreviewHTML({
   function cancelPAEdit() {
     setEditingPA(false)
     setEditPAValue('')
+  }
+
+  // --- Demolition inline edit handlers (single field) ---
+
+  function startDemoEdit() {
+    setEditingDemo(true)
+    setEditDemoValue(demoContent || '')
+  }
+
+  async function saveDemoEdit() {
+    if (!editingDemo || !onDemoSave) return
+    setSavingDemo(true)
+    try {
+      await onDemoSave(editDemoValue)
+      setEditingDemo(false)
+      setEditDemoValue('')
+    } catch {
+      // Keep editing state on error so user can retry
+    } finally {
+      setSavingDemo(false)
+    }
+  }
+
+  function cancelDemoEdit() {
+    setEditingDemo(false)
+    setEditDemoValue('')
   }
 
   // --- Render ---
@@ -778,6 +831,60 @@ export function ReportPreviewHTML({
                       className="absolute pointer-events-auto w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-orange-600 text-white shadow-lg flex items-center justify-center hover:bg-orange-700 hover:scale-110 transition-all animate-pulse"
                       style={{ left: 740, top: paPageTop }}
                       title="Edit Problem Analysis"
+                    >
+                      <Pencil className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Demolition Inline Edit Overlay — single button for entire section */}
+              {demoContent !== undefined && demoPageTop !== null && (
+                <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 43 }}>
+                  {editingDemo ? (
+                    <div
+                      className="absolute pointer-events-auto bg-white rounded-lg shadow-xl border-2 border-orange-400 p-4"
+                      style={{ left: 30, top: demoPageTop - 5, width: 734 }}
+                    >
+                      <div className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wide">
+                        Demolition
+                      </div>
+                      <textarea
+                        value={editDemoValue}
+                        onChange={(e) => setEditDemoValue(e.target.value)}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-vertical"
+                        style={{ minHeight: '320px' }}
+                        autoFocus
+                      />
+                      <div className="flex justify-end gap-2 mt-2">
+                        <button
+                          onClick={cancelDemoEdit}
+                          disabled={savingDemo}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded text-sm text-gray-600 hover:bg-gray-100 transition-colors min-h-[36px]"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </button>
+                        <button
+                          onClick={saveDemoEdit}
+                          disabled={savingDemo}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded text-sm text-white bg-orange-600 hover:bg-orange-700 transition-colors min-h-[36px]"
+                        >
+                          {savingDemo ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Check className="w-4 h-4" />
+                          )}
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={startDemoEdit}
+                      className="absolute pointer-events-auto w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-orange-600 text-white shadow-lg flex items-center justify-center hover:bg-orange-700 hover:scale-110 transition-all animate-pulse"
+                      style={{ left: 740, top: demoPageTop }}
+                      title="Edit Demolition"
                     >
                       <Pencil className="w-5 h-5" />
                     </button>
