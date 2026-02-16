@@ -8,7 +8,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
-import type { Page1Data, VPData } from '@/components/pdf/ReportPreviewHTML'
+import type { Page1Data, VPData, OutdoorData } from '@/components/pdf/ReportPreviewHTML'
 import { EditFieldModal } from '@/components/pdf/EditFieldModal'
 import { ImageUploadModal } from '@/components/pdf/ImageUploadModal'
 import { Button } from '@/components/ui/button'
@@ -413,6 +413,13 @@ export default function ViewReportPDF() {
   // Demolition content — single blob field
   const demoContent = inspection?.demolition_content || null
 
+  // Outdoor Environment data
+  const outdoorData: OutdoorData | null = inspection ? {
+    outdoor_temperature: inspection.outdoor_temperature ?? 0,
+    outdoor_humidity: inspection.outdoor_humidity ?? 0,
+    outdoor_dew_point: inspection.outdoor_dew_point ?? 0,
+  } : null
+
   async function handleVPFieldSave(key: string, value: string) {
     if (!inspection?.id) return
 
@@ -476,6 +483,31 @@ export default function ViewReportPDF() {
       await handleGeneratePDF()
     } catch (error) {
       console.error('Demolition save failed:', error)
+      toast.error('Failed to save')
+      throw error
+    }
+  }
+
+  async function handleOutdoorFieldSave(key: string, value: number) {
+    if (!inspection?.id) return
+
+    try {
+      const { error } = await supabase
+        .from('inspections')
+        .update({ [key]: value, updated_at: new Date().toISOString() })
+        .eq('id', inspection.id)
+
+      if (error) throw error
+
+      const labelMap: Record<string, string> = {
+        outdoor_temperature: 'Temperature',
+        outdoor_humidity: 'Humidity',
+        outdoor_dew_point: 'Dew Point',
+      }
+      toast.success(`${labelMap[key] || key} updated`)
+      await handleGeneratePDF()
+    } catch (error) {
+      console.error('Outdoor save failed:', error)
       toast.error('Failed to save')
       throw error
     }
@@ -813,6 +845,8 @@ export default function ViewReportPDF() {
           onPASave={handlePASave}
           demoContent={demoContent}
           onDemoSave={handleDemoSave}
+          outdoorData={outdoorData}
+          onOutdoorFieldSave={handleOutdoorFieldSave}
         />
       </div>
 

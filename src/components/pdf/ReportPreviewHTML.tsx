@@ -118,6 +118,12 @@ export interface VPData {
   what_we_will_do: string
 }
 
+export interface OutdoorData {
+  outdoor_temperature: number
+  outdoor_humidity: number
+  outdoor_dew_point: number
+}
+
 interface ReportPreviewHTMLProps {
   htmlUrl: string
   editMode?: boolean
@@ -138,6 +144,9 @@ interface ReportPreviewHTMLProps {
   // Demolition — single field for entire section
   demoContent?: string | null
   onDemoSave?: (value: string) => Promise<void>
+  // Outdoor Environment — 3 number fields
+  outdoorData?: OutdoorData | null
+  onOutdoorFieldSave?: (key: string, value: number) => Promise<void>
 }
 
 export function ReportPreviewHTML({
@@ -156,6 +165,8 @@ export function ReportPreviewHTML({
   onPASave,
   demoContent,
   onDemoSave,
+  outdoorData,
+  onOutdoorFieldSave,
 }: ReportPreviewHTMLProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -192,6 +203,12 @@ export function ReportPreviewHTML({
   const [editDemoValue, setEditDemoValue] = useState('')
   const [savingDemo, setSavingDemo] = useState(false)
   const [demoPageTop, setDemoPageTop] = useState<number | null>(null)
+
+  // Outdoor Environment — 3 number fields
+  const [editingOutdoor, setEditingOutdoor] = useState<string | null>(null)
+  const [editOutdoorValue, setEditOutdoorValue] = useState('')
+  const [savingOutdoor, setSavingOutdoor] = useState(false)
+  const [outdoorPositions, setOutdoorPositions] = useState<VPDynPos[]>([])
 
   // Fetch HTML content on mount
   useEffect(() => {
@@ -311,10 +328,33 @@ export function ReportPreviewHTML({
 
       setDemoPageTop(foundDemoTop)
 
-      console.log(`[ReportPreview] Heading search (attempt ${attempt}): VP=${vpFound.length}, PA=${foundPaTop !== null ? 'found' : 'not found'}, Demo=${foundDemoTop !== null ? 'found' : 'not found'}`)
+      // --- Outdoor: find 3 label divs (23px Garet Heavy) for temperature, humidity, dew point ---
+      const OUTDOOR_LABELS = [
+        { search: 'OUTDOORTEMPERATURE', key: 'outdoor_temperature', label: 'Temperature' },
+        { search: 'OUTDOORHUMIDITY', key: 'outdoor_humidity', label: 'Humidity' },
+        { search: 'OUTDOORDEWPOINT', key: 'outdoor_dew_point', label: 'Dew Point' },
+      ]
+
+      const outdoorFound: VPDynPos[] = []
+      for (const lbl of OUTDOOR_LABELS) {
+        for (const div of Array.from(allDivs)) {
+          const text = div.textContent?.trim().toUpperCase().replace(/\s+/g, '') || ''
+          if (text !== lbl.search) continue
+          const style = window.getComputedStyle(div)
+          const fontSize = parseFloat(style.fontSize)
+          if (fontSize < 20 || fontSize > 30) continue
+          const pos = getPositionInContainer(div as HTMLElement, container)
+          outdoorFound.push({ key: lbl.key, label: lbl.label, top: pos.top })
+          break
+        }
+      }
+
+      setOutdoorPositions(outdoorFound)
+
+      console.log(`[ReportPreview] Heading search (attempt ${attempt}): VP=${vpFound.length}, PA=${foundPaTop !== null ? 'found' : 'not found'}, Demo=${foundDemoTop !== null ? 'found' : 'not found'}, Outdoor=${outdoorFound.length}`)
 
       // Retry if headings not found (timing/render issue)
-      if ((vpFound.length === 0 || foundPaTop === null || foundDemoTop === null) && attempt < 3 && !cancelled) {
+      if ((vpFound.length === 0 || foundPaTop === null || foundDemoTop === null || outdoorFound.length < 3) && attempt < 3 && !cancelled) {
         setTimeout(() => findHeadings(attempt + 1), 800)
       }
     }
@@ -503,6 +543,34 @@ export function ReportPreviewHTML({
   function cancelDemoEdit() {
     setEditingDemo(false)
     setEditDemoValue('')
+  }
+
+  // --- Outdoor Environment inline edit handlers (3 number fields) ---
+
+  function startOutdoorEdit(key: string) {
+    if (!outdoorData) return
+    setEditingOutdoor(key)
+    const value = outdoorData[key as keyof OutdoorData]
+    setEditOutdoorValue(String(value ?? ''))
+  }
+
+  async function saveOutdoorEdit() {
+    if (!editingOutdoor || !onOutdoorFieldSave) return
+    setSavingOutdoor(true)
+    try {
+      await onOutdoorFieldSave(editingOutdoor, parseFloat(editOutdoorValue) || 0)
+      setEditingOutdoor(null)
+      setEditOutdoorValue('')
+    } catch {
+      // Keep editing state on error so user can retry
+    } finally {
+      setSavingOutdoor(false)
+    }
+  }
+
+  function cancelOutdoorEdit() {
+    setEditingOutdoor(null)
+    setEditOutdoorValue('')
   }
 
   // --- Render ---
@@ -889,6 +957,70 @@ export function ReportPreviewHTML({
                       <Pencil className="w-5 h-5" />
                     </button>
                   )}
+                </div>
+              )}
+
+              {/* Outdoor Environment Inline Edit Overlay — 3 number fields */}
+              {outdoorData && outdoorPositions.length > 0 && (
+                <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 44 }}>
+                  {outdoorPositions.map((od) => {
+                    const isEditing = editingOutdoor === od.key
+
+                    if (isEditing) {
+                      return (
+                        <div
+                          key={od.key}
+                          className="absolute pointer-events-auto bg-white rounded-lg shadow-xl border-2 border-orange-400 p-3"
+                          style={{ left: 30, top: od.top - 5, width: 280 }}
+                        >
+                          <div className="text-xs text-gray-500 mb-1.5 font-semibold uppercase tracking-wide">
+                            {od.label}
+                          </div>
+                          <input
+                            type="number"
+                            value={editOutdoorValue}
+                            onChange={(e) => setEditOutdoorValue(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            autoFocus
+                          />
+                          <div className="flex justify-end gap-2 mt-2">
+                            <button
+                              onClick={cancelOutdoorEdit}
+                              disabled={savingOutdoor}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded text-sm text-gray-600 hover:bg-gray-100 transition-colors min-h-[36px]"
+                            >
+                              <X className="w-4 h-4" />
+                              Cancel
+                            </button>
+                            <button
+                              onClick={saveOutdoorEdit}
+                              disabled={savingOutdoor}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded text-sm text-white bg-orange-600 hover:bg-orange-700 transition-colors min-h-[36px]"
+                            >
+                              {savingOutdoor ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Check className="w-4 h-4" />
+                              )}
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <button
+                        key={od.key}
+                        onClick={() => startOutdoorEdit(od.key)}
+                        className="absolute pointer-events-auto w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-orange-600 text-white shadow-lg flex items-center justify-center hover:bg-orange-700 hover:scale-110 transition-all animate-pulse"
+                        style={{ left: 220, top: od.top }}
+                        title={`Edit ${od.label}`}
+                      >
+                        <Pencil className="w-5 h-5" />
+                      </button>
+                    )
+                  })}
                 </div>
               )}
 
