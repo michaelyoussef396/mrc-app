@@ -629,50 +629,54 @@ export default function ViewReportPDF() {
       const primaryId = area?.primary_photo_id || null
       setPrimaryPhotoId(primaryId)
 
-      // Load ALL photos assigned to this area (same as PDF edge function: photos.area_id === area.id)
+      // Load ALL photos assigned to this area
       const { data: photos, error } = await supabase
         .from('photos')
         .select('id, storage_path, file_name, caption')
         .eq('area_id', areaId)
         .order('created_at', { ascending: true })
 
-      let merged = photos || []
+      let allAreaPhotos = photos || []
 
-      // If primary_photo_id points to a photo NOT in the area_id results, fetch and prepend it
-      // This matches the PDF edge function logic in duplicateAreaPages
-      if (primaryId && !merged.some(p => p.id === primaryId)) {
+      // If primary_photo_id photo isn't in area_id results, fetch and include it
+      if (primaryId && !allAreaPhotos.some(p => p.id === primaryId)) {
         const { data: primaryPhoto } = await supabase
           .from('photos')
           .select('id, storage_path, file_name, caption')
           .eq('id', primaryId)
           .single()
         if (primaryPhoto) {
-          merged = [primaryPhoto, ...merged]
+          allAreaPhotos = [primaryPhoto, ...allAreaPhotos]
         }
       }
 
-      // Sort to match PDF order: primary first, then regular photos, then infrared/natural_infrared
-      const ordered: typeof merged = []
-      const primaryItem = primaryId ? merged.find(p => p.id === primaryId) : null
-      if (primaryItem) ordered.push(primaryItem)
-      // Regular photos (non-infrared, non-primary)
-      for (const p of merged) {
-        if (p.id !== primaryId && p.caption !== 'infrared' && p.caption !== 'natural_infrared') {
-          ordered.push(p)
-        }
-      }
-      // Infrared photos last
-      for (const p of merged) {
-        if (p.id !== primaryId && (p.caption === 'infrared' || p.caption === 'natural_infrared')) {
-          ordered.push(p)
+      // Build the EXACT same 6 photos the PDF template uses:
+      // Step 1: primary first, then others (same as duplicateAreaPages)
+      let ordered = [...allAreaPhotos]
+      if (primaryId) {
+        const pIdx = ordered.findIndex(p => p.id === primaryId)
+        if (pIdx > 0) {
+          const [primary] = ordered.splice(pIdx, 1)
+          ordered.unshift(primary)
         }
       }
 
-      console.log(`[loadAreaPhotos] area=${areaId}, primary=${primaryId}, photos=${ordered.length}`, error || '')
+      // Step 2: Split into regular vs infrared (same as PDF)
+      const regularPhotos = ordered.filter(p => p.caption !== 'infrared' && p.caption !== 'natural_infrared')
+      const infraredPhoto = ordered.find(p => p.caption === 'infrared')
+      const naturalInfraredPhoto = ordered.find(p => p.caption === 'natural_infrared')
 
-      if (ordered.length > 0) {
+      // Step 3: Take first 4 regular + infrared + natural_infrared = max 6
+      // This matches PDF template slots: area_photo_1-4, area_infrared_photo, area_natural_infrared_photo
+      const pdfPhotos: typeof ordered = regularPhotos.slice(0, 4)
+      if (infraredPhoto) pdfPhotos.push(infraredPhoto)
+      if (naturalInfraredPhoto) pdfPhotos.push(naturalInfraredPhoto)
+
+      console.log(`[loadAreaPhotos] area=${areaId}, primary=${primaryId}, total=${allAreaPhotos.length}, showing=${pdfPhotos.length}`, error || '')
+
+      if (pdfPhotos.length > 0) {
         const withUrls = await Promise.all(
-          ordered.map(async (p) => {
+          pdfPhotos.map(async (p) => {
             try {
               const signed_url = await getPhotoSignedUrl(p.storage_path)
               return { id: p.id, storage_path: p.storage_path, signed_url, caption: p.caption }
@@ -1370,7 +1374,7 @@ export default function ViewReportPDF() {
               {/* Area Photos — max 6 in clean grid */}
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-2">
-                  Area Photos{areaPhotos.length > 0 && <span className="text-gray-400 font-normal ml-1">({Math.min(areaPhotos.length, 6)}{areaPhotos.length > 6 ? `/${areaPhotos.length}` : ''})</span>}
+                  Area Photos{areaPhotos.length > 0 && <span className="text-gray-400 font-normal ml-1">({areaPhotos.length} in PDF)</span>}
                 </label>
                 {areaPhotosLoading && (
                   <div className="flex items-center justify-center py-6 mb-3">
@@ -1380,8 +1384,11 @@ export default function ViewReportPDF() {
                 )}
                 {!areaPhotosLoading && areaPhotos.length > 0 && (
                   <div className="grid grid-cols-3 gap-2 mb-3">
-                    {areaPhotos.slice(0, 6).map((photo) => {
+                    {areaPhotos.map((photo, idx) => {
                       const isPrimary = photo.id === primaryPhotoId
+                      const slotLabel = photo.caption === 'infrared' ? 'IR'
+                        : photo.caption === 'natural_infrared' ? 'NIR'
+                        : `${idx + 1}`
                       return (
                         <div key={photo.id} className="relative group aspect-square">
                           <button
@@ -1407,6 +1414,7 @@ export default function ViewReportPDF() {
                               <Check className="w-3 h-3" />
                             </div>
                           )}
+                          <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded z-10">{slotLabel}</div>
                           <button
                             onClick={() => handleDeleteAreaPhoto(photo.id)}
                             className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity min-w-[28px] min-h-[28px] flex items-center justify-center z-10"
