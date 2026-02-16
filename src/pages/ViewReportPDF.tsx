@@ -8,7 +8,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
-import type { Page1Data, VPData, OutdoorData, AreaRecord, SubfloorEditData } from '@/components/pdf/ReportPreviewHTML'
+import type { Page1Data, VPData, OutdoorData, AreaRecord, SubfloorEditData, CostData } from '@/components/pdf/ReportPreviewHTML'
 import { EditFieldModal } from '@/components/pdf/EditFieldModal'
 import { ImageUploadModal } from '@/components/pdf/ImageUploadModal'
 import { Button } from '@/components/ui/button'
@@ -509,6 +509,15 @@ export default function ViewReportPDF() {
     readings: subfloorReadings,
   } : null
 
+  // Cost data for cleaning estimate editing
+  const costData: CostData | null = inspection ? {
+    labor_cost_ex_gst: inspection.labor_cost_ex_gst ?? 0,
+    equipment_cost_ex_gst: inspection.equipment_cost_ex_gst ?? 0,
+    subtotal_ex_gst: inspection.subtotal_ex_gst ?? 0,
+    gst_amount: inspection.gst_amount ?? 0,
+    total_inc_gst: inspection.total_inc_gst ?? 0,
+  } : null
+
   async function handleVPFieldSave(key: string, value: string) {
     if (!inspection?.id) return
 
@@ -655,6 +664,33 @@ export default function ViewReportPDF() {
     } catch (error) {
       console.error('Subfloor reading save failed:', error)
       toast.error('Failed to save reading')
+      throw error
+    }
+  }
+
+  async function handleCostSave(costs: CostData) {
+    if (!inspection?.id) return
+
+    try {
+      const { error } = await supabase
+        .from('inspections')
+        .update({
+          labor_cost_ex_gst: costs.labor_cost_ex_gst,
+          equipment_cost_ex_gst: costs.equipment_cost_ex_gst,
+          subtotal_ex_gst: costs.subtotal_ex_gst,
+          gst_amount: costs.gst_amount,
+          total_inc_gst: costs.total_inc_gst,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', inspection.id)
+
+      if (error) throw error
+
+      toast.success('Costs updated')
+      await handleGeneratePDF()
+    } catch (error) {
+      console.error('Cost save failed:', error)
+      toast.error('Failed to save costs')
       throw error
     }
   }
@@ -1359,6 +1395,8 @@ export default function ViewReportPDF() {
           subfloorData={subfloorEditData}
           onSubfloorFieldSave={handleSubfloorFieldSave}
           onSubfloorReadingSave={handleSubfloorReadingSave}
+          costData={costData}
+          onCostSave={handleCostSave}
         />
       </div>
 

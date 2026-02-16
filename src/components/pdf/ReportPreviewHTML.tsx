@@ -144,6 +144,14 @@ export interface SubfloorEditData {
   readings: Array<{ id: string; location: string; moisture_percentage: number; reading_order: number }>
 }
 
+export interface CostData {
+  labor_cost_ex_gst: number
+  equipment_cost_ex_gst: number
+  subtotal_ex_gst: number
+  gst_amount: number
+  total_inc_gst: number
+}
+
 interface ReportPreviewHTMLProps {
   htmlUrl: string
   editMode?: boolean
@@ -171,6 +179,9 @@ interface ReportPreviewHTMLProps {
   subfloorData?: SubfloorEditData | null
   onSubfloorFieldSave?: (field: string, value: string) => Promise<void>
   onSubfloorReadingSave?: (readingId: string, moisturePercentage: number, location: string) => Promise<void>
+  // Cleaning Estimate — 5 cost fields
+  costData?: CostData | null
+  onCostSave?: (costs: CostData) => Promise<void>
 }
 
 export function ReportPreviewHTML({
@@ -194,6 +205,8 @@ export function ReportPreviewHTML({
   subfloorData,
   onSubfloorFieldSave,
   onSubfloorReadingSave,
+  costData,
+  onCostSave,
 }: ReportPreviewHTMLProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -243,6 +256,12 @@ export function ReportPreviewHTML({
   const [editSubfloorReadings, setEditSubfloorReadings] = useState<Array<{ id: string; location: string; moisture_percentage: number }>>([])
   const [savingSubfloor, setSavingSubfloor] = useState(false)
   const [subfloorPositions, setSubfloorPositions] = useState<VPDynPos[]>([])
+
+  // Cleaning Estimate — cost editing state
+  const [editingCost, setEditingCost] = useState(false)
+  const [costForm, setCostForm] = useState<CostData>({ labor_cost_ex_gst: 0, equipment_cost_ex_gst: 0, subtotal_ex_gst: 0, gst_amount: 0, total_inc_gst: 0 })
+  const [savingCost, setSavingCost] = useState(false)
+  const [costPageTop, setCostPageTop] = useState<number | null>(null)
 
   // Fetch HTML content on mount
   useEffect(() => {
@@ -409,7 +428,22 @@ export function ReportPreviewHTML({
 
       setSubfloorPositions(subfloorFound)
 
-      console.log(`[ReportPreview] Heading search (attempt ${attempt}): VP=${vpFound.length}, PA=${foundPaTop !== null ? 'found' : 'not found'}, Demo=${foundDemoTop !== null ? 'found' : 'not found'}, Outdoor=${outdoorFound.length}, Subfloor=${subfloorFound.length}`)
+      // --- Cleaning Estimate: find "CLEANING ESTIMATE" title (40px Garet Heavy, blue text) ---
+      let foundCostTop: number | null = null
+      for (const div of Array.from(allDivs)) {
+        const text = div.textContent?.trim().toUpperCase() || ''
+        if (text !== 'CLEANING ESTIMATE') continue
+        const style = window.getComputedStyle(div)
+        const fontSize = parseFloat(style.fontSize)
+        if (fontSize < 30) continue
+        const pos = getPositionInContainer(div as HTMLElement, container)
+        foundCostTop = pos.top
+        break
+      }
+
+      setCostPageTop(foundCostTop)
+
+      console.log(`[ReportPreview] Heading search (attempt ${attempt}): VP=${vpFound.length}, PA=${foundPaTop !== null ? 'found' : 'not found'}, Demo=${foundDemoTop !== null ? 'found' : 'not found'}, Outdoor=${outdoorFound.length}, Subfloor=${subfloorFound.length}, Cost=${foundCostTop !== null ? 'found' : 'not found'}`)
 
       // Retry if headings not found (timing/render issue)
       if ((vpFound.length === 0 || foundPaTop === null || foundDemoTop === null || outdoorFound.length < 3) && attempt < 3 && !cancelled) {
@@ -677,6 +711,44 @@ export function ReportPreviewHTML({
     setEditingSubfloor(null)
     setEditSubfloorValue('')
     setEditSubfloorReadings([])
+  }
+
+  // --- Cleaning Estimate cost edit handlers ---
+
+  function startCostEdit() {
+    if (!costData) return
+    setEditingCost(true)
+    setCostForm({ ...costData })
+  }
+
+  function updateCostField(field: keyof CostData, value: number) {
+    setCostForm(prev => {
+      const next = { ...prev, [field]: value }
+      // Auto-recalculate derived fields when labor or equipment changes
+      if (field === 'labor_cost_ex_gst' || field === 'equipment_cost_ex_gst') {
+        next.subtotal_ex_gst = Math.round((next.labor_cost_ex_gst + next.equipment_cost_ex_gst) * 100) / 100
+        next.gst_amount = Math.round(next.subtotal_ex_gst * 0.1 * 100) / 100
+        next.total_inc_gst = Math.round((next.subtotal_ex_gst + next.gst_amount) * 100) / 100
+      }
+      return next
+    })
+  }
+
+  async function saveCostEdit() {
+    if (!editingCost || !onCostSave) return
+    setSavingCost(true)
+    try {
+      await onCostSave(costForm)
+      setEditingCost(false)
+    } catch {
+      // Keep editing state on error
+    } finally {
+      setSavingCost(false)
+    }
+  }
+
+  function cancelCostEdit() {
+    setEditingCost(false)
   }
 
   // --- Render ---
@@ -1252,6 +1324,101 @@ export function ReportPreviewHTML({
                       </button>
                     )
                   })}
+                </div>
+              )}
+
+              {/* Cleaning Estimate Inline Edit Overlay — 5 cost fields */}
+              {costData && costPageTop !== null && (
+                <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 46 }}>
+                  {editingCost ? (
+                    <div
+                      className="absolute pointer-events-auto bg-white rounded-lg shadow-xl border-2 border-orange-400 p-4"
+                      style={{ left: 30, top: costPageTop - 5, width: 440 }}
+                    >
+                      <div className="text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">
+                        Cleaning Estimate Costs
+                      </div>
+
+                      <div className="space-y-2.5">
+                        <div className="flex items-center gap-3">
+                          <label className="text-sm text-gray-600 w-36 shrink-0">Labour (ex GST)</label>
+                          <div className="flex items-center gap-1 flex-1">
+                            <span className="text-sm text-gray-400">$</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={costForm.labor_cost_ex_gst}
+                              onChange={(e) => updateCostField('labor_cost_ex_gst', parseFloat(e.target.value) || 0)}
+                              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <label className="text-sm text-gray-600 w-36 shrink-0">Equipment (ex GST)</label>
+                          <div className="flex items-center gap-1 flex-1">
+                            <span className="text-sm text-gray-400">$</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={costForm.equipment_cost_ex_gst}
+                              onChange={(e) => updateCostField('equipment_cost_ex_gst', parseFloat(e.target.value) || 0)}
+                              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="border-t border-gray-200 pt-2 space-y-1.5">
+                          <div className="flex items-center gap-3">
+                            <label className="text-sm text-gray-500 w-36 shrink-0">Subtotal (ex GST)</label>
+                            <span className="text-sm font-medium">${costForm.subtotal_ex_gst.toFixed(2)}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <label className="text-sm text-gray-500 w-36 shrink-0">GST (10%)</label>
+                            <span className="text-sm font-medium">${costForm.gst_amount.toFixed(2)}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <label className="text-sm text-gray-700 font-semibold w-36 shrink-0">Total (inc GST)</label>
+                            <span className="text-sm font-bold text-orange-700">${costForm.total_inc_gst.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2 mt-3">
+                        <button
+                          onClick={cancelCostEdit}
+                          disabled={savingCost}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded text-sm text-gray-600 hover:bg-gray-100 transition-colors min-h-[36px]"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </button>
+                        <button
+                          onClick={saveCostEdit}
+                          disabled={savingCost}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded text-sm text-white bg-orange-600 hover:bg-orange-700 transition-colors min-h-[36px]"
+                        >
+                          {savingCost ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Check className="w-4 h-4" />
+                          )}
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={startCostEdit}
+                      className="absolute pointer-events-auto w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-orange-600 text-white shadow-lg flex items-center justify-center hover:bg-orange-700 hover:scale-110 transition-all animate-pulse"
+                      style={{ left: 740, top: costPageTop }}
+                      title="Edit Cleaning Estimate Costs"
+                    >
+                      <Pencil className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               )}
 
