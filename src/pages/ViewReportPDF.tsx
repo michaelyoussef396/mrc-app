@@ -12,6 +12,8 @@ import type { Page1Data, VPData, OutdoorData, AreaRecord, SubfloorEditData, Cost
 import { EditFieldModal } from '@/components/pdf/EditFieldModal'
 import { ImageUploadModal } from '@/components/pdf/ImageUploadModal'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import {
   ArrowLeft,
@@ -29,6 +31,9 @@ import {
   Plus,
   Camera,
   Trash2,
+  Mail,
+  X,
+  FileText,
 } from 'lucide-react'
 import {
   generateInspectionPDF,
@@ -173,6 +178,27 @@ export default function ViewReportPDF() {
   const [editMode, setEditMode] = useState(false)
   const [showVersions, setShowVersions] = useState(false)
   const [versions, setVersions] = useState<PDFVersion[]>([])
+
+  // Email approval stage
+  const [stage, setStage] = useState<'report' | 'email-approval'>('report')
+  const [emailSubject, setEmailSubject] = useState('')
+  const [emailBody, setEmailBody] = useState('')
+  const [sendingEmail, setSendingEmail] = useState(false)
+
+  function prefillEmailAndOpenStage() {
+    const lead = inspection?.lead
+    const addr = lead ? [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ') : ''
+    setEmailSubject(`Your Inspection Report — ${inspection?.job_number || 'Mould & Restoration Co'}`)
+    setEmailBody(
+      `Hi ${lead?.full_name || 'there'},\n\n` +
+      `Great news — your mould inspection report for ${addr} has been completed and approved` +
+      `${inspection?.job_number ? ` (Ref: ${inspection.job_number})` : ''}.\n\n` +
+      `Our team has thoroughly reviewed the findings and the report is now ready for you.\n\n` +
+      `If you have any questions about the report or would like to discuss remediation options, please don't hesitate to get in touch.\n\n` +
+      `Kind regards,\nMould & Restoration Co.\n0433 880 403`
+    )
+    setStage('email-approval')
+  }
 
   // Edit modal state (Pages 2+)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -352,35 +378,11 @@ export default function ViewReportPDF() {
       const result = await approvePDF(inspection.id)
 
       if (result.success) {
-        toast.success('Report approved and ready to send!', { id: 'approve' })
+        toast.success('Report approved! Review email before sending.', { id: 'approve' })
         await loadInspection()
 
-        const lead = inspection.lead
-        const address = lead
-          ? [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ')
-          : ''
-
-        sendSlackNotification({
-          event: 'report_approved',
-          leadId: lead?.id,
-          leadName: lead?.full_name,
-          propertyAddress: address,
-        })
-
-        if (lead?.email) {
-          sendEmail({
-            to: lead.email,
-            subject: `Your Inspection Report — ${inspection.job_number || 'Mould & Restoration Co'}`,
-            html: buildReportApprovedHtml({
-              customerName: lead.full_name,
-              address,
-              jobNumber: inspection.job_number || undefined,
-            }),
-            leadId: lead.id,
-            inspectionId: inspection.id,
-            templateName: 'report-approved',
-          })
-        }
+        // Transition to email approval stage
+        prefillEmailAndOpenStage()
       } else {
         toast.error(result.error || 'Failed to approve report', { id: 'approve' })
       }
@@ -389,6 +391,56 @@ export default function ViewReportPDF() {
       toast.error('Failed to approve report', { id: 'approve' })
     } finally {
       setApproving(false)
+    }
+  }
+
+  async function handleSendEmail() {
+    if (!inspection?.id) return
+
+    const lead = inspection.lead
+    if (!lead?.email) {
+      toast.error('No customer email address found')
+      return
+    }
+
+    setSendingEmail(true)
+    toast.loading('Sending email...', { id: 'send-email' })
+
+    try {
+      const address = [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ')
+
+      // Use branded HTML template for the email
+      const emailHtml = buildReportApprovedHtml({
+        customerName: lead.full_name,
+        address,
+        jobNumber: inspection.job_number || undefined,
+      })
+
+      // Send with user-editable subject, branded HTML body
+      await sendEmail({
+        to: lead.email,
+        subject: emailSubject,
+        html: emailHtml,
+        leadId: lead.id,
+        inspectionId: inspection.id,
+        templateName: 'report-approved',
+      })
+
+      // Send Slack notification
+      sendSlackNotification({
+        event: 'report_approved',
+        leadId: lead.id,
+        leadName: lead.full_name,
+        propertyAddress: address,
+      })
+
+      toast.success(`Email sent to ${lead.email}!`, { id: 'send-email' })
+      setStage('report')
+    } catch (error) {
+      console.error('Send email error:', error)
+      toast.error('Failed to send email', { id: 'send-email' })
+    } finally {
+      setSendingEmail(false)
     }
   }
 
@@ -1299,6 +1351,138 @@ export default function ViewReportPDF() {
     )
   }
 
+  // === EMAIL APPROVAL STAGE ===
+  if (stage === 'email-approval') {
+    const lead = inspection.lead
+    const customerEmail = lead?.email || ''
+    const address = lead
+      ? [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ')
+      : ''
+
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        {/* Header */}
+        <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-40 shadow-sm">
+          <div className="flex items-center justify-between max-w-6xl mx-auto">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost" size="icon" onClick={() => setStage('report')}
+                className="h-12 w-12 min-h-[48px] min-w-[48px]" aria-label="Back to report"
+              >
+                <ArrowLeft className="h-6 w-6" />
+              </Button>
+              <div>
+                <h1 className="text-lg font-semibold">Send Report Email</h1>
+                <p className="text-sm text-gray-600">
+                  {inspection.job_number} — {lead?.full_name}
+                </p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Email Content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl mx-auto p-4 space-y-6">
+
+            {/* Approved confirmation */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+              <CheckCircle className="h-6 w-6 text-green-600 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-green-800">Report Approved</p>
+                <p className="text-sm text-green-700">Review and customise the email below, then send to the customer.</p>
+              </div>
+            </div>
+
+            {/* Recipient */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
+                <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-md border border-gray-200 min-h-[48px]">
+                  <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <span className="text-sm">
+                    {customerEmail || <span className="text-red-500">No email address on file</span>}
+                  </span>
+                </div>
+              </div>
+
+              {/* Subject */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                <Input
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="min-h-[48px] text-sm"
+                  placeholder="Email subject..."
+                />
+              </div>
+
+              {/* Body */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                <Textarea
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  className="min-h-[200px] text-sm leading-relaxed resize-y"
+                  placeholder="Email message..."
+                />
+              </div>
+            </div>
+
+            {/* Report attachment preview */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Attached Report</label>
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-md border border-gray-200">
+                <FileText className="h-8 w-8 text-orange-600 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">
+                    MRC-{inspection.job_number || 'Report'}.pdf
+                  </p>
+                  <p className="text-xs text-gray-500">{address}</p>
+                </div>
+                <Button
+                  variant="outline" size="sm"
+                  onClick={handleDownload}
+                  className="min-h-[40px] flex-shrink-0"
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  Preview
+                </Button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                The branded email template with report details will be sent. The message above customises the text content.
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col gap-3 pb-8">
+              <Button
+                onClick={handleSendEmail}
+                disabled={sendingEmail || !customerEmail}
+                className="h-14 min-h-[56px] bg-[#121D73] hover:bg-[#0f1860] text-lg font-semibold"
+              >
+                {sendingEmail ? (
+                  <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Sending...</>
+                ) : (
+                  <><Send className="h-5 w-5 mr-2" />Send Email to Customer</>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setStage('report')}
+                className="h-12 min-h-[48px]"
+              >
+                <X className="h-5 w-5 mr-2" />
+                Back to Report
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // === REPORT STAGE (default) ===
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
@@ -1334,15 +1518,22 @@ export default function ViewReportPDF() {
                 className="h-12 w-12 min-h-[48px] min-w-[48px]">
                 <Download className="h-5 w-5" />
               </Button>
-              <Button
-                size="icon" onClick={handleApprove}
-                disabled={inspection.pdf_approved || approving}
-                className={`h-12 w-12 min-h-[48px] min-w-[48px] ${
-                  inspection.pdf_approved ? 'bg-green-600 hover:bg-green-600' : 'bg-orange-600 hover:bg-orange-700'
-                }`}
-              >
-                {approving ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle className="h-5 w-5" />}
-              </Button>
+              {inspection.pdf_approved ? (
+                <Button
+                  size="icon" onClick={prefillEmailAndOpenStage}
+                  className="h-12 w-12 min-h-[48px] min-w-[48px] bg-[#121D73] hover:bg-[#0f1860]"
+                >
+                  <Mail className="h-5 w-5" />
+                </Button>
+              ) : (
+                <Button
+                  size="icon" onClick={handleApprove}
+                  disabled={approving}
+                  className="h-12 w-12 min-h-[48px] min-w-[48px] bg-orange-600 hover:bg-orange-700"
+                >
+                  {approving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                </Button>
+              )}
             </div>
 
             {/* Desktop buttons */}
@@ -1370,20 +1561,28 @@ export default function ViewReportPDF() {
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
-              <Button
-                onClick={handleApprove}
-                disabled={inspection.pdf_approved || approving}
-                className={inspection.pdf_approved ? 'bg-green-600 hover:bg-green-600' : 'bg-orange-600 hover:bg-orange-700'}
-              >
-                {approving ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : inspection.pdf_approved ? (
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                ) : (
-                  <Send className="h-4 w-4 mr-2" />
-                )}
-                {inspection.pdf_approved ? 'Approved' : 'Approve & Send'}
-              </Button>
+              {inspection.pdf_approved ? (
+                <Button
+                  onClick={prefillEmailAndOpenStage}
+                  className="bg-[#121D73] hover:bg-[#0f1860]"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Send Email
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleApprove}
+                  disabled={approving}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  {approving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  Approve & Send
+                </Button>
+              )}
             </div>
           </div>
         </div>
