@@ -63,6 +63,11 @@ interface Inspection {
   what_we_found_text?: string
   what_we_will_do_text?: string
   what_you_get_text?: string
+  // Problem Analysis fields
+  problem_analysis_content?: string
+  what_we_discovered?: string
+  identified_causes?: string
+  why_this_happened?: string
   // Editable fields (Pages 2+)
   ai_summary_text?: string
   cause_of_mould?: string
@@ -121,6 +126,10 @@ const INSPECTION_SELECT = `
   what_we_found_text,
   what_we_will_do_text,
   what_you_get_text,
+  problem_analysis_content,
+  what_we_discovered,
+  identified_causes,
+  why_this_happened,
   ai_summary_text,
   cause_of_mould,
   outdoor_temperature,
@@ -395,6 +404,10 @@ export default function ViewReportPDF() {
     what_we_will_do: inspection.what_we_will_do_text || '',
   } : null
 
+  // Problem Analysis content — single blob field
+  const paContent = inspection?.problem_analysis_content || null
+
+
   async function handleVPFieldSave(key: string, value: string) {
     if (!inspection?.id) return
 
@@ -418,6 +431,26 @@ export default function ViewReportPDF() {
       await handleGeneratePDF()
     } catch (error) {
       console.error('VP save failed:', error)
+      toast.error('Failed to save')
+      throw error
+    }
+  }
+
+  async function handlePASave(value: string) {
+    if (!inspection?.id) return
+
+    try {
+      const { error } = await supabase
+        .from('inspections')
+        .update({ problem_analysis_content: value || null, updated_at: new Date().toISOString() })
+        .eq('id', inspection.id)
+
+      if (error) throw error
+
+      toast.success('Problem Analysis updated')
+      await handleGeneratePDF()
+    } catch (error) {
+      console.error('PA save failed:', error)
       toast.error('Failed to save')
       throw error
     }
@@ -751,6 +784,8 @@ export default function ViewReportPDF() {
           photoUploading={photoUploading}
           vpData={vpData}
           onVPFieldSave={handleVPFieldSave}
+          paContent={paContent}
+          onPASave={handlePASave}
         />
       </div>
 

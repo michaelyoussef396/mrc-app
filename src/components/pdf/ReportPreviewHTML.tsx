@@ -31,25 +31,9 @@ interface EditableField {
   position: { x: number; y: number }
 }
 
-const EDITABLE_FIELDS: EditableField[] = [
-  // Page 3 - Outdoor Environment
-  { key: 'outdoor_temperature', label: 'Temperature', type: 'number', page: 3, position: { x: 280, y: 340 } },
-  { key: 'outdoor_humidity', label: 'Humidity', type: 'number', page: 3, position: { x: 480, y: 340 } },
-  { key: 'outdoor_dew_point', label: 'Dew Point', type: 'number', page: 3, position: { x: 680, y: 340 } },
-  { key: 'outdoor_comments', label: 'Outdoor Comments', type: 'textarea', page: 3, position: { x: 50, y: 700 } },
-  { key: 'front_door_photo', label: 'Front Door Photo', type: 'image', page: 3, position: { x: 150, y: 450 } },
-  { key: 'front_house_photo', label: 'House Photo', type: 'image', page: 3, position: { x: 450, y: 450 } },
-
-  // Page 5 - Problem Analysis / Cause of Mould
-  { key: 'cause_of_mould', label: 'Cause of Mould', type: 'textarea', page: 5, position: { x: 50, y: 300 } },
-
-  // Page 6 - Cleaning Estimate
-  { key: 'labor_cost', label: 'Labor Cost', type: 'currency', page: 6, position: { x: 650, y: 350 } },
-  { key: 'equipment_cost', label: 'Equipment Cost', type: 'currency', page: 6, position: { x: 650, y: 400 } },
-  { key: 'subtotal_ex_gst', label: 'Subtotal', type: 'currency', page: 6, position: { x: 650, y: 470 } },
-  { key: 'gst_amount', label: 'GST', type: 'currency', page: 6, position: { x: 650, y: 510 } },
-  { key: 'total_inc_gst', label: 'Total (inc GST)', type: 'currency', page: 6, position: { x: 650, y: 560 } },
-]
+// EDITABLE_FIELDS disabled — page numbers were wrong for dynamically-generated reports.
+// Will be re-implemented with DOM-based positioning when outdoor/cleaning estimate editing is needed.
+const EDITABLE_FIELDS: EditableField[] = []
 
 // --- Page 1 inline edit field definitions ---
 // Positions calibrated from the HTML template (794px A4 width)
@@ -93,31 +77,27 @@ const PROPERTY_TYPES = [
   { value: 'industrial', label: 'Industrial' },
 ]
 
-// --- Page 4 (Value Proposition) inline edit field definitions ---
-// Page 4 y-offset = 3 * 1123 = 3369px
+// --- VP edit button positions are computed from the DOM after HTML renders ---
+// The edge function generates VP pages with flow-based layout, so fixed positions don't work.
 
-interface VPField {
+interface VPDynPos {
   key: string
   label: string
-  /** Where the pencil icon sits (absolute document coords) */
-  btnPos: { x: number; y: number }
-  /** Where the editor card appears */
-  editorPos: { x: number; y: number }
-  width: number
+  top: number // absolute y-position in the document (from DOM measurement)
 }
 
-const VP_FIELDS: VPField[] = [
-  { key: 'what_we_found',
-    label: 'What We Found',
-    btnPos: { x: 740, y: 3565 },    // next to heading at top:195.5 + page offset 3369
-    editorPos: { x: 30, y: 3560 },  // covers heading + body area
-    width: 725 },
-  { key: 'what_we_will_do',
-    label: "What We're Going To Do",
-    btnPos: { x: 740, y: 3869 },    // next to heading at top:500 + page offset 3369
-    editorPos: { x: 30, y: 3864 },
-    width: 725 },
-]
+/** Walk the offsetParent chain to get an element's position relative to a container */
+function getPositionInContainer(el: HTMLElement, container: HTMLElement): { top: number; left: number } {
+  let top = 0
+  let left = 0
+  let current: HTMLElement | null = el
+  while (current && current !== container) {
+    top += current.offsetTop
+    left += current.offsetLeft
+    current = current.offsetParent as HTMLElement | null
+  }
+  return { top, left }
+}
 
 // --- Interfaces ---
 
@@ -152,6 +132,9 @@ interface ReportPreviewHTMLProps {
   // Value Proposition (Page 4) inline editing
   vpData?: VPData | null
   onVPFieldSave?: (key: string, value: string) => Promise<void>
+  // Problem Analysis — single field for entire section
+  paContent?: string | null
+  onPASave?: (value: string) => Promise<void>
 }
 
 export function ReportPreviewHTML({
@@ -166,6 +149,8 @@ export function ReportPreviewHTML({
   photoUploading = false,
   vpData,
   onVPFieldSave,
+  paContent,
+  onPASave,
 }: ReportPreviewHTMLProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -187,6 +172,15 @@ export function ReportPreviewHTML({
   const [editingVP, setEditingVP] = useState<string | null>(null)
   const [editVPValue, setEditVPValue] = useState('')
   const [savingVP, setSavingVP] = useState(false)
+
+  // VP heading positions computed from DOM
+  const [vpPositions, setVpPositions] = useState<VPDynPos[]>([])
+
+  // Problem Analysis — single edit for entire section
+  const [editingPA, setEditingPA] = useState(false)
+  const [editPAValue, setEditPAValue] = useState('')
+  const [savingPA, setSavingPA] = useState(false)
+  const [paPageTop, setPaPageTop] = useState<number | null>(null)
 
   // Fetch HTML content on mount
   useEffect(() => {
@@ -232,6 +226,80 @@ export function ReportPreviewHTML({
 
     if (htmlUrl) fetchHTML()
   }, [htmlUrl, onLoadSuccess, onLoadError])
+
+  // Find VP and PA headings in rendered DOM and compute their absolute positions
+  useEffect(() => {
+    if (!htmlContent || !contentRef.current) {
+      setVpPositions([])
+      setPaPageTop(null)
+      return
+    }
+
+    let cancelled = false
+
+    function findHeadings(attempt: number) {
+      const container = contentRef.current
+      if (!container || cancelled) return
+
+      // --- VP headings: <span> elements with large font (Garet Heavy style) ---
+      const VP_HEADINGS = [
+        { text: 'WHAT WE FOUND', key: 'what_we_found', label: 'What We Found' },
+        { text: "WHAT WE'RE GOING TO DO", key: 'what_we_will_do', label: "What We're Going To Do" },
+      ]
+
+      const vpFound: VPDynPos[] = []
+      const spans = container.querySelectorAll('span')
+
+      for (const h of VP_HEADINGS) {
+        for (const span of Array.from(spans)) {
+          const text = span.textContent?.trim()
+          if (!text) continue
+          const normalized = text.toUpperCase().replace(/[\u2018\u2019\u2032]/g, "'")
+          if (normalized !== h.text) continue
+          const style = window.getComputedStyle(span)
+          const fontSize = parseFloat(style.fontSize)
+          if (fontSize < 18) continue
+
+          const pos = getPositionInContainer(span as HTMLElement, container)
+          vpFound.push({ key: h.key, label: h.label, top: pos.top })
+          break
+        }
+      }
+
+      setVpPositions(vpFound)
+
+      // --- PA: find the "PROBLEM" title div to position a single edit button ---
+      let foundPaTop: number | null = null
+      const allDivs = container.querySelectorAll('div')
+      for (const div of Array.from(allDivs)) {
+        const text = div.textContent?.trim().toUpperCase() || ''
+        if (!text.startsWith('PROBLEM')) continue
+        const style = window.getComputedStyle(div)
+        const fontSize = parseFloat(style.fontSize)
+        if (fontSize < 30) continue // "PROBLEM" title uses ~56px font
+        const pos = getPositionInContainer(div as HTMLElement, container)
+        foundPaTop = pos.top
+        break
+      }
+
+      console.log(`[ReportPreview] Heading search (attempt ${attempt}): VP=${vpFound.length}, PA=${foundPaTop !== null ? 'found' : 'not found'}`)
+      setPaPageTop(foundPaTop)
+
+      // Retry once if PA title not found (timing/render issue)
+      if (foundPaTop === null && attempt < 2 && !cancelled) {
+        console.log('[ReportPreview] PA title not found, retrying in 800ms...')
+        setTimeout(() => findHeadings(attempt + 1), 800)
+      }
+    }
+
+    // Initial search after DOM paint
+    const timer = setTimeout(() => findHeadings(1), 400)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [htmlContent])
 
   // Get fields for current page (Pages 2+ edit mode)
   const fieldsOnPage = EDITABLE_FIELDS.filter(f => f.page === currentPage)
@@ -329,12 +397,12 @@ export function ReportPreviewHTML({
 
   // --- Value Proposition (Page 4) inline edit handlers ---
 
-  function startVPEdit(field: VPField) {
+  function startVPEdit(key: string) {
     if (!vpData) return
-    setEditingVP(field.key)
-    if (field.key === 'what_we_found') {
+    setEditingVP(key)
+    if (key === 'what_we_found') {
       setEditVPValue(vpData.what_we_found)
-    } else if (field.key === 'what_we_will_do') {
+    } else if (key === 'what_we_will_do') {
       setEditVPValue(vpData.what_we_will_do)
     }
   }
@@ -356,6 +424,32 @@ export function ReportPreviewHTML({
   function cancelVPEdit() {
     setEditingVP(null)
     setEditVPValue('')
+  }
+
+  // --- Problem Analysis inline edit handlers (single field) ---
+
+  function startPAEdit() {
+    setEditingPA(true)
+    setEditPAValue(paContent || '')
+  }
+
+  async function savePAEdit() {
+    if (!editingPA || !onPASave) return
+    setSavingPA(true)
+    try {
+      await onPASave(editPAValue)
+      setEditingPA(false)
+      setEditPAValue('')
+    } catch {
+      // Keep editing state on error so user can retry
+    } finally {
+      setSavingPA(false)
+    }
+  }
+
+  function cancelPAEdit() {
+    setEditingPA(false)
+    setEditPAValue('')
   }
 
   // --- Render ---
@@ -573,22 +667,21 @@ export function ReportPreviewHTML({
                 </div>
               )}
 
-              {/* Value Proposition (Page 4) Inline Edit Overlay */}
-              {vpData && (
+              {/* Value Proposition Inline Edit Overlay — dynamically positioned from DOM */}
+              {vpData && vpPositions.length > 0 && (
                 <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 41 }}>
-                  {VP_FIELDS.map((field) => {
-                    const isEditing = editingVP === field.key
+                  {vpPositions.map((vp) => {
+                    const isEditing = editingVP === vp.key
 
-                    // Editing: inline textarea card
                     if (isEditing) {
                       return (
                         <div
-                          key={field.key}
+                          key={vp.key}
                           className="absolute pointer-events-auto bg-white rounded-lg shadow-xl border-2 border-orange-400 p-4"
-                          style={{ left: field.editorPos.x, top: field.editorPos.y, width: field.width }}
+                          style={{ left: 30, top: vp.top - 5, width: 725 }}
                         >
                           <div className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wide">
-                            {field.label}
+                            {vp.label}
                           </div>
                           <textarea
                             value={editVPValue}
@@ -623,19 +716,72 @@ export function ReportPreviewHTML({
                       )
                     }
 
-                    // Default: pencil edit button
                     return (
                       <button
-                        key={field.key}
-                        onClick={() => startVPEdit(field)}
+                        key={vp.key}
+                        onClick={() => startVPEdit(vp.key)}
                         className="absolute pointer-events-auto w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-orange-600 text-white shadow-lg flex items-center justify-center hover:bg-orange-700 hover:scale-110 transition-all animate-pulse"
-                        style={{ left: field.btnPos.x, top: field.btnPos.y }}
-                        title={`Edit ${field.label}`}
+                        style={{ left: 740, top: vp.top }}
+                        title={`Edit ${vp.label}`}
                       >
                         <Pencil className="w-5 h-5" />
                       </button>
                     )
                   })}
+                </div>
+              )}
+
+              {/* Problem Analysis Inline Edit Overlay — single button for entire section */}
+              {paContent !== undefined && paPageTop !== null && (
+                <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 42 }}>
+                  {editingPA ? (
+                    <div
+                      className="absolute pointer-events-auto bg-white rounded-lg shadow-xl border-2 border-orange-400 p-4"
+                      style={{ left: 30, top: paPageTop - 5, width: 734 }}
+                    >
+                      <div className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wide">
+                        Problem Analysis &amp; Recommendations
+                      </div>
+                      <textarea
+                        value={editPAValue}
+                        onChange={(e) => setEditPAValue(e.target.value)}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-vertical"
+                        style={{ minHeight: '320px' }}
+                        autoFocus
+                      />
+                      <div className="flex justify-end gap-2 mt-2">
+                        <button
+                          onClick={cancelPAEdit}
+                          disabled={savingPA}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded text-sm text-gray-600 hover:bg-gray-100 transition-colors min-h-[36px]"
+                        >
+                          <X className="w-4 h-4" />
+                          Cancel
+                        </button>
+                        <button
+                          onClick={savePAEdit}
+                          disabled={savingPA}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded text-sm text-white bg-orange-600 hover:bg-orange-700 transition-colors min-h-[36px]"
+                        >
+                          {savingPA ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Check className="w-4 h-4" />
+                          )}
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={startPAEdit}
+                      className="absolute pointer-events-auto w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-orange-600 text-white shadow-lg flex items-center justify-center hover:bg-orange-700 hover:scale-110 transition-all animate-pulse"
+                      style={{ left: 740, top: paPageTop }}
+                      title="Edit Problem Analysis"
+                    >
+                      <Pencil className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               )}
 
