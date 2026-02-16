@@ -688,36 +688,46 @@ export default function ViewReportPDF() {
     if (!editingAreaId) return
     setAreaPhotoPickerOpen(false)
 
-    // Optimistically update UI using data already in allInspectionPhotos
+    // Optimistically replace with only the selected photo
     const selectedPhoto = allInspectionPhotos.find(p => p.id === photoId)
     if (selectedPhoto) {
-      setAreaPhotos(prev => {
-        const exists = prev.some(p => p.id === photoId)
-        if (exists) return prev
-        return [...prev, {
-          id: selectedPhoto.id,
-          storage_path: selectedPhoto.storage_path,
-          signed_url: selectedPhoto.signed_url,
-          caption: selectedPhoto.caption,
-        }]
-      })
+      setAreaPhotos([{
+        id: selectedPhoto.id,
+        storage_path: selectedPhoto.storage_path,
+        signed_url: selectedPhoto.signed_url,
+        caption: selectedPhoto.caption,
+      }])
     }
 
     try {
-      // Update the selected photo's area_id to this area
+      // Clear old photos from this area
+      const { data: oldPhotos } = await supabase
+        .from('photos')
+        .select('id')
+        .eq('area_id', editingAreaId)
+      if (oldPhotos) {
+        for (const old of oldPhotos) {
+          if (old.id !== photoId) {
+            await supabase
+              .from('photos')
+              .update({ area_id: null })
+              .eq('id', old.id)
+          }
+        }
+      }
+
+      // Assign the selected photo to this area
       await supabase
         .from('photos')
         .update({ area_id: editingAreaId, photo_type: 'area' })
         .eq('id', photoId)
 
       toast.success('Photo assigned — regenerating PDF...')
-      // Refresh from DB to ensure consistency
       await loadAreaPhotos(editingAreaId)
       await handleGeneratePDF()
     } catch (err) {
       console.error('Failed to assign photo to area:', err)
       toast.error('Failed to assign photo')
-      // Revert optimistic update on failure
       await loadAreaPhotos(editingAreaId)
     }
   }
@@ -730,14 +740,29 @@ export default function ViewReportPDF() {
     setAreaPhotoPickerOpen(false)
     setAreaPhotoUploading(true)
     try {
+      // Clear old photos from this area
+      const { data: oldPhotos } = await supabase
+        .from('photos')
+        .select('id')
+        .eq('area_id', editingAreaId)
+      if (oldPhotos) {
+        for (const old of oldPhotos) {
+          await supabase
+            .from('photos')
+            .update({ area_id: null })
+            .eq('id', old.id)
+        }
+      }
+
       const resized = await resizePhoto(file)
       const result = await uploadInspectionPhoto(resized, {
         inspection_id: inspection.id,
         area_id: editingAreaId,
         photo_type: 'area',
-        order_index: areaPhotos.length,
+        order_index: 0,
       })
-      setAreaPhotos(prev => [...prev, {
+      // Replace — only show the new photo
+      setAreaPhotos([{
         id: result.photo_id,
         storage_path: result.storage_path,
         signed_url: result.signed_url,
