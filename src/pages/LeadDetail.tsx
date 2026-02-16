@@ -421,22 +421,67 @@ export default function LeadDetail() {
       case "inspection_email_approval":
         return (
           <div className="space-y-3">
+            {/* PDF Info Card */}
+            {inspection && (
+              <Card className="border-green-200 bg-green-50/50">
+                <CardContent className="py-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <span className="font-semibold text-green-800">PDF Report Approved</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="text-gray-500">Status</div>
+                    <div className="font-medium text-green-700">Approved — Pending Email</div>
+                    {inspection.pdf_approved_at && (
+                      <>
+                        <div className="text-gray-500">Approved</div>
+                        <div>{new Date(inspection.pdf_approved_at).toLocaleString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                      </>
+                    )}
+                    {inspection.pdf_url && (
+                      <>
+                        <div className="text-gray-500">Report</div>
+                        <div className="truncate text-blue-600 text-xs">
+                          {inspection.pdf_url.split('/').pop()?.substring(0, 30)}...
+                        </div>
+                      </>
+                    )}
+                    {inspection.pdf_version && (
+                      <>
+                        <div className="text-gray-500">Version</div>
+                        <div>v{inspection.pdf_version}</div>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             <Button
               size="lg"
-              className="w-full h-14 text-base"
-              onClick={() => handleChangeStatus("closed")}
+              className="w-full h-14 text-base bg-[#121D73] hover:bg-[#0f1860]"
+              onClick={() => navigate(`/report/${lead.id}?action=send-email`)}
             >
               <Mail className="h-5 w-5 mr-2" />
-              Send Report & Close Lead
+              Send Email to Customer
             </Button>
-            <Button
-              variant="outline"
-              className="w-full h-12"
-              onClick={() => navigate(`/report/${lead.id}`)}
-            >
-              <Eye className="h-4 w-4 mr-2" />
-              View Report
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 h-12"
+                onClick={() => navigate(`/report/${lead.id}`)}
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                View PDF
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 h-12"
+                onClick={() => navigate(`/report/${lead.id}`)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit PDF
+              </Button>
+            </div>
           </div>
         );
 

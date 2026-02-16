@@ -5,7 +5,7 @@
 // Pages 2+: toggle edit mode for overlay buttons
 
 import { useEffect, useState, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
 import type { Page1Data, VPData, OutdoorData, AreaRecord, SubfloorEditData, CostData } from '@/components/pdf/ReportPreviewHTML'
@@ -170,6 +170,7 @@ export default function ViewReportPDF() {
   const { inspectionId, id } = useParams<{ inspectionId?: string; id?: string }>()
   const effectiveId = inspectionId || id
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [inspection, setInspection] = useState<Inspection | null>(null)
   const [loading, setLoading] = useState(true)
@@ -262,6 +263,16 @@ export default function ViewReportPDF() {
       loadInspection()
     }
   }, [effectiveId])
+
+  // Auto-open email stage if navigated with ?action=send-email
+  useEffect(() => {
+    if (inspection && !loading && searchParams.get('action') === 'send-email') {
+      prefillEmailAndOpenStage()
+      // Clear the query param so it doesn't re-trigger
+      searchParams.delete('action')
+      setSearchParams(searchParams, { replace: true })
+    }
+  }, [inspection, loading])
 
   async function loadInspection() {
     if (!effectiveId) {
@@ -378,11 +389,14 @@ export default function ViewReportPDF() {
       const result = await approvePDF(inspection.id)
 
       if (result.success) {
-        toast.success('Report approved! Review email before sending.', { id: 'approve' })
-        await loadInspection()
+        toast.success('Report approved! Redirecting to lead...', { id: 'approve' })
 
-        // Transition to email approval stage
-        prefillEmailAndOpenStage()
+        // Navigate to Lead View page
+        if (inspection.lead_id) {
+          navigate(`/leads/${inspection.lead_id}`)
+        } else {
+          await loadInspection()
+        }
       } else {
         toast.error(result.error || 'Failed to approve report', { id: 'approve' })
       }
@@ -1562,13 +1576,19 @@ export default function ViewReportPDF() {
                 Download
               </Button>
               {inspection.pdf_approved ? (
-                <Button
-                  onClick={prefillEmailAndOpenStage}
-                  className="bg-[#121D73] hover:bg-[#0f1860]"
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  Send Email
-                </Button>
+                <>
+                  <span className="inline-flex items-center px-3 py-1 text-sm bg-green-100 text-green-700 rounded-full font-medium">
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    Approved
+                  </span>
+                  <Button
+                    onClick={prefillEmailAndOpenStage}
+                    className="bg-[#121D73] hover:bg-[#0f1860]"
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    Send Email
+                  </Button>
+                </>
               ) : (
                 <Button
                   onClick={handleApprove}
