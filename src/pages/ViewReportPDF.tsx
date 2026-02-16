@@ -199,7 +199,12 @@ export default function ViewReportPDF() {
   // Area photos
   const [areaPhotos, setAreaPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption: string | null }>>([])
   const [areaPhotoUploading, setAreaPhotoUploading] = useState(false)
-  const areaPhotoInputRef = useRef<HTMLInputElement>(null)
+
+  // Area photo picker (select from all inspection photos)
+  const [areaPhotoPickerOpen, setAreaPhotoPickerOpen] = useState(false)
+  const [areaPhotoPickerLoading, setAreaPhotoPickerLoading] = useState(false)
+  const [allInspectionPhotos, setAllInspectionPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption: string | null; photo_type: string; area_id: string | null }>>([])
+  const areaPhotoPickerInputRef = useRef<HTMLInputElement>(null)
 
   // Add new area
   const [addingArea, setAddingArea] = useState(false)
@@ -636,11 +641,67 @@ export default function ViewReportPDF() {
     }
   }
 
-  async function handleAreaPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleDeleteAreaPhoto(photoId: string) {
+    try {
+      await deleteInspectionPhoto(photoId)
+      setAreaPhotos(prev => prev.filter(p => p.id !== photoId))
+      toast.success('Photo deleted')
+    } catch (err) {
+      console.error('Delete area photo failed:', err)
+      toast.error('Failed to delete photo')
+    }
+  }
+
+  async function openAreaPhotoPicker() {
+    if (!inspection?.id) return
+    setAreaPhotoPickerOpen(true)
+    setAreaPhotoPickerLoading(true)
+    try {
+      const photos = await loadInspectionPhotos(inspection.id)
+      setAllInspectionPhotos(
+        photos
+          .filter(p => p.signed_url)
+          .map(p => ({
+            id: p.id,
+            storage_path: p.storage_path,
+            signed_url: p.signed_url,
+            caption: p.caption,
+            photo_type: p.photo_type,
+            area_id: p.area_id,
+          }))
+      )
+    } catch {
+      setAllInspectionPhotos([])
+    } finally {
+      setAreaPhotoPickerLoading(false)
+    }
+  }
+
+  async function handleSelectPhotoForArea(photoId: string) {
+    if (!editingAreaId) return
+    setAreaPhotoPickerOpen(false)
+    try {
+      // Update the selected photo's area_id to this area
+      await supabase
+        .from('photos')
+        .update({ area_id: editingAreaId, photo_type: 'area' })
+        .eq('id', photoId)
+
+      toast.success('Photo assigned to area')
+      // Refresh area photos
+      await loadAreaPhotos(editingAreaId)
+    } catch (err) {
+      console.error('Failed to assign photo to area:', err)
+      toast.error('Failed to assign photo')
+    }
+  }
+
+  async function handleUploadNewAreaPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !editingAreaId || !inspection?.id) return
-    e.target.value = '' // reset input
+    e.target.value = ''
 
+    setAreaPhotoPickerOpen(false)
     setAreaPhotoUploading(true)
     try {
       const resized = await resizePhoto(file)
@@ -650,24 +711,18 @@ export default function ViewReportPDF() {
         photo_type: 'area',
         order_index: areaPhotos.length,
       })
-      setAreaPhotos(prev => [...prev, { id: result.photo_id, storage_path: result.storage_path, signed_url: result.signed_url, caption: null }])
-      toast.success('Photo uploaded')
+      setAreaPhotos(prev => [...prev, {
+        id: result.photo_id,
+        storage_path: result.storage_path,
+        signed_url: result.signed_url,
+        caption: null,
+      }])
+      toast.success('Photo uploaded and assigned to area')
     } catch (err) {
       console.error('Area photo upload failed:', err)
       toast.error('Failed to upload photo')
     } finally {
       setAreaPhotoUploading(false)
-    }
-  }
-
-  async function handleDeleteAreaPhoto(photoId: string) {
-    try {
-      await deleteInspectionPhoto(photoId)
-      setAreaPhotos(prev => prev.filter(p => p.id !== photoId))
-      toast.success('Photo deleted')
-    } catch (err) {
-      console.error('Delete area photo failed:', err)
-      toast.error('Failed to delete photo')
     }
   }
 
@@ -1266,17 +1321,22 @@ export default function ViewReportPDF() {
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     {areaPhotos.map((photo) => (
                       <div key={photo.id} className="relative group">
-                        {photo.signed_url ? (
-                          <img
-                            src={photo.signed_url}
-                            alt={photo.caption || 'Area photo'}
-                            className="w-full h-24 object-cover rounded-lg border border-gray-200"
-                          />
-                        ) : (
-                          <div className="w-full h-24 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 text-xs">
-                            No preview
-                          </div>
-                        )}
+                        <button
+                          onClick={() => openAreaPhotoPicker()}
+                          className="w-full cursor-pointer rounded-lg overflow-hidden border-2 border-gray-200 hover:border-orange-500 hover:shadow-md transition-all"
+                        >
+                          {photo.signed_url ? (
+                            <img
+                              src={photo.signed_url}
+                              alt={photo.caption || 'Area photo'}
+                              className="w-full h-24 object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-24 bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                              No preview
+                            </div>
+                          )}
+                        </button>
                         <button
                           onClick={() => handleDeleteAreaPhoto(photo.id)}
                           className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity min-w-[28px] min-h-[28px] flex items-center justify-center"
@@ -1294,23 +1354,16 @@ export default function ViewReportPDF() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => areaPhotoInputRef.current?.click()}
+                  onClick={() => openAreaPhotoPicker()}
                   disabled={areaPhotoUploading}
                   className="w-full min-h-[48px] border-dashed"
                 >
                   {areaPhotoUploading ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</>
                   ) : (
-                    <><Camera className="h-4 w-4 mr-2" />Upload Photo</>
+                    <><Camera className="h-4 w-4 mr-2" />Select or Upload Photo</>
                   )}
                 </Button>
-                <input
-                  ref={areaPhotoInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAreaPhotoUpload}
-                  className="hidden"
-                />
               </div>
 
               {/* Save / Cancel */}
@@ -1394,6 +1447,75 @@ export default function ViewReportPDF() {
           onSuccess={handleImageUploadSuccess}
         />
       )}
+
+      {/* Area Photo Picker Dialog */}
+      <Dialog open={areaPhotoPickerOpen} onOpenChange={setAreaPhotoPickerOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select Area Photo</DialogTitle>
+            <DialogDescription>
+              Choose an existing photo or upload a new one
+            </DialogDescription>
+          </DialogHeader>
+
+          {areaPhotoPickerLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+            </div>
+          ) : (
+            <>
+              {allInspectionPhotos.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {allInspectionPhotos.map((photo) => {
+                    const isAssigned = photo.area_id === editingAreaId
+                    return (
+                      <button
+                        key={photo.id}
+                        onClick={() => handleSelectPhotoForArea(photo.id)}
+                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:border-orange-500 hover:shadow-md ${
+                          isAssigned ? 'border-orange-500 ring-2 ring-orange-300' : 'border-gray-200'
+                        }`}
+                      >
+                        <img
+                          src={photo.signed_url}
+                          alt={photo.caption || photo.photo_type}
+                          className="w-full h-full object-cover"
+                        />
+                        {isAssigned && (
+                          <div className="absolute top-1 right-1 bg-orange-600 text-white rounded-full p-0.5">
+                            <Check className="w-3 h-3" />
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-4">No photos found for this inspection</p>
+              )}
+
+              <Button
+                onClick={() => {
+                  setAreaPhotoPickerOpen(false)
+                  areaPhotoPickerInputRef.current?.click()
+                }}
+                variant="outline"
+                className="w-full h-12 min-h-[48px] mt-2"
+              >
+                <Upload className="h-5 w-5 mr-2" />
+                Upload New Photo
+              </Button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+      <input
+        ref={areaPhotoPickerInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleUploadNewAreaPhoto}
+        className="hidden"
+      />
 
       {/* Photo Picker Dialog (Page 1 cover photo) */}
       <Dialog open={photoPickerOpen} onOpenChange={setPhotoPickerOpen}>
