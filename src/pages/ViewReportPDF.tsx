@@ -626,20 +626,53 @@ export default function ViewReportPDF() {
         .eq('id', areaId)
         .single()
 
-      setPrimaryPhotoId(area?.primary_photo_id || null)
+      const primaryId = area?.primary_photo_id || null
+      setPrimaryPhotoId(primaryId)
 
-      // Load ALL photos assigned to this area
+      // Load ALL photos assigned to this area (same as PDF edge function: photos.area_id === area.id)
       const { data: photos, error } = await supabase
         .from('photos')
         .select('id, storage_path, file_name, caption')
         .eq('area_id', areaId)
         .order('created_at', { ascending: true })
 
-      console.log(`[loadAreaPhotos] area=${areaId}, primary=${area?.primary_photo_id}, photos=${photos?.length ?? 0}`, error || '')
+      let merged = photos || []
 
-      if (photos && photos.length > 0) {
+      // If primary_photo_id points to a photo NOT in the area_id results, fetch and prepend it
+      // This matches the PDF edge function logic in duplicateAreaPages
+      if (primaryId && !merged.some(p => p.id === primaryId)) {
+        const { data: primaryPhoto } = await supabase
+          .from('photos')
+          .select('id, storage_path, file_name, caption')
+          .eq('id', primaryId)
+          .single()
+        if (primaryPhoto) {
+          merged = [primaryPhoto, ...merged]
+        }
+      }
+
+      // Sort to match PDF order: primary first, then regular photos, then infrared/natural_infrared
+      const ordered: typeof merged = []
+      const primaryItem = primaryId ? merged.find(p => p.id === primaryId) : null
+      if (primaryItem) ordered.push(primaryItem)
+      // Regular photos (non-infrared, non-primary)
+      for (const p of merged) {
+        if (p.id !== primaryId && p.caption !== 'infrared' && p.caption !== 'natural_infrared') {
+          ordered.push(p)
+        }
+      }
+      // Infrared photos last
+      for (const p of merged) {
+        if (p.id !== primaryId && (p.caption === 'infrared' || p.caption === 'natural_infrared')) {
+          ordered.push(p)
+        }
+      }
+
+      console.log(`[loadAreaPhotos] area=${areaId}, primary=${primaryId}, photos=${ordered.length}`, error || '')
+
+      if (ordered.length > 0) {
         const withUrls = await Promise.all(
-          photos.map(async (p) => {
+          ordered.map(async (p) => {
             try {
               const signed_url = await getPhotoSignedUrl(p.storage_path)
               return { id: p.id, storage_path: p.storage_path, signed_url, caption: p.caption }
