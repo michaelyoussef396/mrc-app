@@ -143,6 +143,12 @@ export interface JobBookedTechnicianData {
   quoteAmount?: number;
 }
 
+export interface WelcomeEmailData {
+  firstName: string;
+  email: string;
+  role: string;
+}
+
 export function buildBookingConfirmationHtml(data: BookingConfirmationData): string {
   return wrapInBrandedTemplate(`
     <h2>Booking Confirmed</h2>
@@ -222,6 +228,26 @@ export function buildJobBookedTechnicianHtml(data: JobBookedTechnicianData): str
       </table>
     </div>
     <p>Please ensure you arrive on time with all required equipment.</p>
+  `);
+}
+
+export function buildWelcomeEmailHtml(data: WelcomeEmailData): string {
+  const roleLabel = data.role.charAt(0).toUpperCase() + data.role.slice(1);
+  return wrapInBrandedTemplate(`
+    <h2>Welcome to the Team!</h2>
+    <p>Hi ${data.firstName},</p>
+    <p>Your account has been created on the Mould &amp; Restoration Co. system. You can now log in and get started.</p>
+    <div class="details-box">
+      <table>
+        <tr><td>Email</td><td>${data.email}</td></tr>
+        <tr><td>Role</td><td>${roleLabel}</td></tr>
+      </table>
+    </div>
+    <p>Your password has been set by your administrator. If you need to change it, you can do so from your profile settings after logging in.</p>
+    <p style="margin-top:24px;">
+      <a href="https://app.mrcsystem.com" class="cta-button">Log In Now</a>
+    </p>
+    <p style="margin-top:16px;">If you have any questions, contact your admin or call us on <a href="tel:0433880403" style="color:#121D73; font-weight:600;">0433 880 403</a></p>
   `);
 }
 

@@ -24,6 +24,7 @@ interface UserData {
   phone?: string
   password?: string
   home_address?: AddressData | null
+  role?: 'admin' | 'technician' | 'developer'
 }
 
 interface UpdateUserData {
@@ -134,6 +135,20 @@ Deno.serve(async (req) => {
         throw listError
       }
 
+      // Fetch all user_roles with role names in one query
+      const { data: allUserRoles } = await supabaseAdmin
+        .from('user_roles')
+        .select('user_id, roles:role_id(name)')
+
+      // Build a map of user_id -> role name
+      const userRoleMap: Record<string, string> = {}
+      if (allUserRoles) {
+        for (const ur of allUserRoles) {
+          const roleName = (ur.roles as unknown as { name: string })?.name
+          if (roleName) userRoleMap[ur.user_id] = roleName
+        }
+      }
+
       const users = authUsers.users.map(authUser => {
         const meta = authUser.user_metadata || {}
 
@@ -156,6 +171,7 @@ Deno.serve(async (req) => {
           full_name: `${firstName} ${lastName}`.trim() || 'Unknown',
           phone: meta.phone || '',
           is_active: meta.is_active ?? true,
+          role: userRoleMap[authUser.id] || null,
           starting_address: meta.starting_address || null,
           created_at: authUser.created_at,
           last_sign_in_at: authUser.last_sign_in_at
@@ -215,6 +231,45 @@ Deno.serve(async (req) => {
         )
       }
 
+      // Assign role if provided
+      const roleName = userData.role || 'technician'
+      const { data: roleRow, error: roleLookupError } = await supabaseAdmin
+        .from('roles')
+        .select('id')
+        .eq('name', roleName)
+        .single()
+
+      if (roleLookupError || !roleRow) {
+        console.error('Role lookup failed:', roleLookupError)
+        // User was created but role assignment failed — still return success with warning
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'User created but role assignment failed. Please assign role manually.',
+            user: {
+              id: createData.user.id,
+              email: createData.user.email,
+              first_name: userData.first_name,
+              last_name: userData.last_name || '',
+              phone: userData.phone || '',
+              role: null
+            }
+          }),
+          { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const { error: roleInsertError } = await supabaseAdmin
+        .from('user_roles')
+        .insert({
+          user_id: createData.user.id,
+          role_id: roleRow.id
+        })
+
+      if (roleInsertError) {
+        console.error('Role insert failed:', roleInsertError)
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -224,7 +279,8 @@ Deno.serve(async (req) => {
             email: createData.user.email,
             first_name: userData.first_name,
             last_name: userData.last_name || '',
-            phone: userData.phone || ''
+            phone: userData.phone || '',
+            role: roleName
           }
         }),
         { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

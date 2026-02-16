@@ -19,12 +19,15 @@ import {
   Eye,
   EyeOff,
   Lock,
-  MapPin
+  MapPin,
+  Shield,
+  ChevronDown
 } from 'lucide-react';
 import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AddressAutocomplete, type AddressValue } from '@/components/booking';
+import { sendEmail, buildWelcomeEmailHtml } from '@/lib/api/notifications';
 
 interface UserType {
   id: string;
@@ -33,7 +36,7 @@ interface UserType {
   phone: string;
   avatar_url: string | null;
   is_active: boolean;
-  role: 'admin' | 'technician' | 'manager';
+  role: 'admin' | 'technician' | 'developer' | null;
   created_at: string;
   last_sign_in_at: string | null;
 }
@@ -43,6 +46,7 @@ interface FormData {
   lastName: string;
   email: string;
   phone: string;
+  role: 'admin' | 'technician' | 'developer';
   password: string;
   confirmPassword: string;
   homeAddress: AddressValue | null;
@@ -76,6 +80,7 @@ const createUser = async (userData: {
   last_name: string;
   phone: string;
   password: string;
+  role: 'admin' | 'technician' | 'developer';
   home_address?: {
     street: string;
     suburb: string;
@@ -156,6 +161,21 @@ export default function ManageUsers() {
         title: 'User created successfully',
         description: `${data.user?.first_name} ${data.user?.last_name} can now login with their credentials.`,
       });
+
+      // Send welcome email (fire-and-forget)
+      if (data.user?.email) {
+        sendEmail({
+          to: data.user.email,
+          subject: 'Welcome to Mould & Restoration Co.',
+          html: buildWelcomeEmailHtml({
+            firstName: data.user.first_name,
+            email: data.user.email,
+            role: data.user.role || formData.role,
+          }),
+          templateName: 'welcome',
+        }).catch(() => {}); // fire-and-forget
+      }
+
       setShowAddModal(false);
       resetForm();
     },
@@ -192,6 +212,7 @@ export default function ManageUsers() {
     lastName: '',
     email: '',
     phone: '',
+    role: 'technician',
     password: '',
     confirmPassword: '',
     homeAddress: null,
@@ -207,6 +228,7 @@ export default function ManageUsers() {
       lastName: '',
       email: '',
       phone: '',
+      role: 'technician',
       password: '',
       confirmPassword: '',
       homeAddress: null,
@@ -258,6 +280,7 @@ export default function ManageUsers() {
       last_name: formData.lastName.trim(),
       phone: formData.phone.replace(/\s/g, ''),
       password: formData.password,
+      role: formData.role,
       home_address: formData.homeAddress ? {
         street: formData.homeAddress.street,
         suburb: formData.homeAddress.suburb,
@@ -376,6 +399,15 @@ export default function ManageUsers() {
                     <h3 className="text-base font-semibold text-gray-900 break-words">
                       {user.full_name}
                     </h3>
+                    {user.role && (
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ml-2 ${
+                        user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                        user.role === 'developer' ? 'bg-amber-100 text-amber-700' :
+                        'bg-blue-100 text-blue-700'
+                      }`}>
+                        {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                      </span>
+                    )}
                     {!user.is_active && (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 ml-2">
                         Inactive
@@ -489,6 +521,36 @@ export default function ManageUsers() {
                   />
                   <p className="text-xs text-gray-500 mt-1.5">
                     Where they start each day. Used to calculate travel times for first appointments.
+                  </p>
+                </div>
+              </div>
+
+              {/* Role Section */}
+              <div className="mb-7">
+                <h3 className="text-[15px] font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200">Role Assignment</h3>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <span className="flex items-center gap-2">
+                      <Shield size={16} strokeWidth={2} />
+                      Role *
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      className="w-full h-12 px-3.5 pr-10 bg-gray-50 border-2 border-gray-200 rounded-xl text-base appearance-none cursor-pointer focus:outline-none focus:border-blue-500 focus:bg-white md:h-11 md:text-[15px]"
+                      value={formData.role}
+                      onChange={(e) => setFormData({ ...formData, role: e.target.value as FormData['role'] })}
+                    >
+                      <option value="technician">Technician</option>
+                      <option value="admin">Admin</option>
+                      <option value="developer">Developer</option>
+                    </select>
+                    <ChevronDown size={18} strokeWidth={2} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    {formData.role === 'technician' && 'Can view assigned jobs, complete inspections, and submit reports.'}
+                    {formData.role === 'admin' && 'Full access to all leads, reports, users, and system settings.'}
+                    {formData.role === 'developer' && 'Full access plus developer tools and system diagnostics.'}
                   </p>
                 </div>
               </div>
