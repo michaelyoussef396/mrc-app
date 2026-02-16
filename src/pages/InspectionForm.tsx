@@ -2076,7 +2076,7 @@ const InspectionForm = () => {
 
   const generateWithAI = async (type: string, areaId?: string) => {
     toast({ title: 'AI Generation', description: 'Coming soon! This will generate professional text based on your inspection data.' })
-    // TODO: Implement AI generation using Lovable AI
+    // TODO: Implement AI generation
   }
 
   const createOrLoadInspection = async (): Promise<string> => {
