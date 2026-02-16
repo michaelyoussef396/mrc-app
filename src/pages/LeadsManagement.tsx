@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { generateInspectionPDF } from '@/lib/api/pdfGeneration';
-import { ChevronDown, Search, X, LayoutGrid, List, Loader2, Clock, Copy, ExternalLink } from 'lucide-react';
+import { sendEmail, buildReportApprovedHtml } from '@/lib/api/notifications';
+import { ChevronDown, Search, X, LayoutGrid, List, Loader2, Clock, Copy, ExternalLink, Send, FileText } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,6 +86,7 @@ const LeadsManagement = () => {
   const [emailTargetLead, setEmailTargetLead] = useState<TransformedLead | null>(null);
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   // ============================================================================
   // STAGE-SPECIFIC ACTION FUNCTIONS
@@ -454,6 +456,115 @@ const LeadsManagement = () => {
     });
 
     setEmailTargetLead(null);
+  };
+
+  const handleSendWithReport = async () => {
+    if (!emailTargetLead?.email) {
+      toast({ title: 'Error', description: 'No email address on file.', variant: 'destructive' });
+      return;
+    }
+
+    setSendingEmail(true);
+
+    try {
+      // 1. Get inspection PDF URL from database
+      const { data: inspection, error: inspError } = await supabase
+        .from('inspections')
+        .select('id, pdf_url, job_number')
+        .eq('lead_id', emailTargetLead.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (inspError || !inspection?.pdf_url) {
+        toast({ title: 'Error', description: 'No PDF report found for this lead.', variant: 'destructive' });
+        setSendingEmail(false);
+        return;
+      }
+
+      // 2. Download report from Supabase Storage
+      let reportBlob: Blob;
+      const pathMatch = inspection.pdf_url.match(/inspection-reports\/(.+)$/);
+
+      if (pathMatch) {
+        const storagePath = pathMatch[1];
+        const { data, error } = await supabase.storage
+          .from('inspection-reports')
+          .download(storagePath);
+
+        if (error || !data) throw new Error('Failed to download report file');
+        reportBlob = data;
+      } else {
+        const response = await fetch(inspection.pdf_url);
+        if (!response.ok) throw new Error('Failed to fetch report file');
+        reportBlob = await response.blob();
+      }
+
+      // 3. Convert to base64
+      const base64Content = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(reportBlob);
+      });
+
+      // 4. Build branded email HTML
+      const address = [emailTargetLead.property, emailTargetLead.suburb].filter(Boolean).join(', ');
+      const emailHtml = buildReportApprovedHtml({
+        customerName: emailTargetLead.name,
+        address,
+        jobNumber: inspection.job_number || undefined,
+      });
+
+      // 5. Build filename
+      const jobNumber = inspection.job_number || emailTargetLead.leadNumber || 'Report';
+      const filename = `MRC-${jobNumber}-Inspection-Report.html`;
+
+      // 6. Send email with attachment
+      await sendEmail({
+        to: emailTargetLead.email,
+        subject: emailSubject,
+        html: emailHtml,
+        leadId: String(emailTargetLead.id),
+        inspectionId: inspection.id,
+        templateName: 'report-approved',
+        attachments: [{
+          filename,
+          content: base64Content,
+          content_type: 'text/html',
+        }],
+      });
+
+      // 7. Log activity
+      await supabase.from('activities').insert({
+        lead_id: emailTargetLead.id,
+        activity_type: 'email_sent',
+        title: 'Inspection report emailed to client',
+        description: `Subject: ${emailSubject} (with report attached)`,
+      });
+
+      // 8. Update lead status to closed
+      await supabase
+        .from('leads')
+        .update({ status: 'closed' })
+        .eq('id', emailTargetLead.id);
+
+      // Update local state
+      setLeads(prev => prev.map(l =>
+        l.id === emailTargetLead.id ? { ...l, status: 'closed' } : l
+      ));
+
+      toast({ title: 'Email sent', description: `Report emailed to ${emailTargetLead.email} with attachment.` });
+      setEmailTargetLead(null);
+    } catch (error) {
+      console.error('Failed to send email with report:', error);
+      toast({ title: 'Error', description: 'Failed to send email. Please try again.', variant: 'destructive' });
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   // ============================================================================
@@ -908,26 +1019,51 @@ const LeadsManagement = () => {
                     focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
               </div>
+              {/* Report attachment indicator */}
+              <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-blue-800">Inspection report will be attached</p>
+                  <p className="text-xs text-blue-600">Downloaded from storage and sent as attachment</p>
+                </div>
+              </div>
               {/* Actions */}
-              <div className="flex gap-3">
+              <div className="space-y-2">
                 <button
-                  onClick={() => handleEmailAction('mailto')}
-                  disabled={!emailTargetLead.email}
-                  className="flex-1 h-11 px-4 rounded-lg bg-blue-600 text-white text-sm font-medium
-                    hover:bg-blue-700 transition-colors flex items-center justify-center gap-2
+                  onClick={handleSendWithReport}
+                  disabled={!emailTargetLead.email || sendingEmail}
+                  className="w-full h-12 px-4 rounded-lg bg-[#121D73] text-white text-sm font-semibold
+                    hover:bg-[#0f1860] transition-colors flex items-center justify-center gap-2
                     disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <ExternalLink className="w-4 h-4" />
-                  Send via Email App
+                  {sendingEmail ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</>
+                  ) : (
+                    <><Send className="w-4 h-4" /> Send Email with Report</>
+                  )}
                 </button>
-                <button
-                  onClick={() => handleEmailAction('copy')}
-                  className="h-11 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
-                    hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Copy className="w-4 h-4" />
-                  Copy
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEmailAction('mailto')}
+                    disabled={!emailTargetLead.email || sendingEmail}
+                    className="flex-1 h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
+                      hover:bg-slate-50 transition-colors flex items-center justify-center gap-2
+                      disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Email App
+                  </button>
+                  <button
+                    onClick={() => handleEmailAction('copy')}
+                    disabled={sendingEmail}
+                    className="flex-1 h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
+                      hover:bg-slate-50 transition-colors flex items-center justify-center gap-2
+                      disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copy
+                  </button>
+                </div>
               </div>
             </div>
           )}
