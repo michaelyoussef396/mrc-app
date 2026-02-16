@@ -636,6 +636,8 @@ export default function ViewReportPDF() {
           })
         )
         setAreaPhotos(withUrls)
+      } else {
+        setAreaPhotos([])
       }
     } catch (err) {
       console.warn('Failed to load area photos:', err)
@@ -684,6 +686,22 @@ export default function ViewReportPDF() {
   async function handleSelectPhotoForArea(photoId: string) {
     if (!editingAreaId) return
     setAreaPhotoPickerOpen(false)
+
+    // Optimistically update UI using data already in allInspectionPhotos
+    const selectedPhoto = allInspectionPhotos.find(p => p.id === photoId)
+    if (selectedPhoto) {
+      setAreaPhotos(prev => {
+        const exists = prev.some(p => p.id === photoId)
+        if (exists) return prev
+        return [...prev, {
+          id: selectedPhoto.id,
+          storage_path: selectedPhoto.storage_path,
+          signed_url: selectedPhoto.signed_url,
+          caption: selectedPhoto.caption,
+        }]
+      })
+    }
+
     try {
       // Update the selected photo's area_id to this area
       await supabase
@@ -692,11 +710,13 @@ export default function ViewReportPDF() {
         .eq('id', photoId)
 
       toast.success('Photo assigned to area')
-      // Refresh area photos
+      // Refresh from DB to ensure consistency
       await loadAreaPhotos(editingAreaId)
     } catch (err) {
       console.error('Failed to assign photo to area:', err)
       toast.error('Failed to assign photo')
+      // Revert optimistic update on failure
+      await loadAreaPhotos(editingAreaId)
     }
   }
 
