@@ -13,6 +13,11 @@ interface SendEmailParams {
   leadId?: string;
   inspectionId?: string;
   templateName?: string;
+  attachments?: Array<{
+    filename: string;
+    content: string;
+    content_type: string;
+  }>;
 }
 
 interface SendSlackNewLeadParams {

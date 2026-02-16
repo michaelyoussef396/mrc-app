@@ -417,20 +417,60 @@ export default function ViewReportPDF() {
       return
     }
 
+    if (!inspection.pdf_url) {
+      toast.error('No PDF report available')
+      return
+    }
+
     setSendingEmail(true)
-    toast.loading('Sending email...', { id: 'send-email' })
+    toast.loading('Preparing and sending email...', { id: 'send-email' })
 
     try {
       const address = [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ')
 
-      // Use branded HTML template for the email
+      // 1. Download report from Supabase Storage
+      let reportBlob: Blob
+      const pathMatch = inspection.pdf_url.match(/inspection-reports\/(.+)$/)
+
+      if (pathMatch) {
+        const storagePath = pathMatch[1]
+        const { data, error } = await supabase.storage
+          .from('inspection-reports')
+          .download(storagePath)
+
+        if (error || !data) throw new Error('Failed to download report file')
+        reportBlob = data
+      } else {
+        const response = await fetch(inspection.pdf_url)
+        if (!response.ok) throw new Error('Failed to fetch report file')
+        reportBlob = await response.blob()
+      }
+
+      // 2. Convert to base64
+      const base64Content = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const result = reader.result as string
+          // Strip the data URL prefix (e.g. "data:text/html;base64,")
+          const base64 = result.split(',')[1]
+          resolve(base64)
+        }
+        reader.onerror = reject
+        reader.readAsDataURL(reportBlob)
+      })
+
+      // 3. Build branded HTML email body
       const emailHtml = buildReportApprovedHtml({
         customerName: lead.full_name,
         address,
         jobNumber: inspection.job_number || undefined,
       })
 
-      // Send with user-editable subject, branded HTML body
+      // 4. Build filename
+      const jobNumber = inspection.job_number || 'Report'
+      const filename = `MRC-${jobNumber}-Inspection-Report.html`
+
+      // 5. Send email with attachment via existing send-email edge function
       await sendEmail({
         to: lead.email,
         subject: emailSubject,
@@ -438,9 +478,14 @@ export default function ViewReportPDF() {
         leadId: lead.id,
         inspectionId: inspection.id,
         templateName: 'report-approved',
+        attachments: [{
+          filename,
+          content: base64Content,
+          content_type: 'text/html',
+        }],
       })
 
-      // Send Slack notification
+      // 6. Send Slack notification
       sendSlackNotification({
         event: 'report_approved',
         leadId: lead.id,
@@ -448,8 +493,16 @@ export default function ViewReportPDF() {
         propertyAddress: address,
       })
 
-      toast.success(`Email sent to ${lead.email}!`, { id: 'send-email' })
-      setStage('report')
+      // 7. Update lead status to closed
+      await supabase
+        .from('leads')
+        .update({ status: 'closed' })
+        .eq('id', lead.id)
+
+      toast.success(`Email sent to ${lead.email} with report attached!`, { id: 'send-email' })
+
+      // 8. Redirect to Lead View
+      navigate(`/leads/${lead.id}`)
     } catch (error) {
       console.error('Send email error:', error)
       toast.error('Failed to send email', { id: 'send-email' })
@@ -1445,14 +1498,14 @@ export default function ViewReportPDF() {
 
             {/* Report attachment preview */}
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Attached Report</label>
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-md border border-gray-200">
-                <FileText className="h-8 w-8 text-orange-600 flex-shrink-0" />
+              <label className="block text-sm font-medium text-gray-700 mb-2">Report Attachment</label>
+              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-md border border-blue-200">
+                <FileText className="h-8 w-8 text-blue-600 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">
-                    MRC-{inspection.job_number || 'Report'}.pdf
+                    MRC-{inspection.job_number || 'Report'}-Inspection-Report.html
                   </p>
-                  <p className="text-xs text-gray-500">{address}</p>
+                  <p className="text-xs text-gray-500">Will be attached to the email</p>
                 </div>
                 <Button
                   variant="outline" size="sm"
@@ -1464,7 +1517,7 @@ export default function ViewReportPDF() {
                 </Button>
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                The branded email template with report details will be sent. The message above customises the text content.
+                The inspection report file will be attached to the email along with the branded template above.
               </p>
             </div>
 
