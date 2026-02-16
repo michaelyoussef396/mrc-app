@@ -199,12 +199,12 @@ export default function ViewReportPDF() {
   // Area photos
   const [areaPhotos, setAreaPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption: string | null }>>([])
   const [areaPhotoUploading, setAreaPhotoUploading] = useState(false)
+  const [primaryPhotoId, setPrimaryPhotoId] = useState<string | null>(null)
 
   // Area photo picker (select from all inspection photos)
   const [areaPhotoPickerOpen, setAreaPhotoPickerOpen] = useState(false)
   const [areaPhotoPickerLoading, setAreaPhotoPickerLoading] = useState(false)
   const [allInspectionPhotos, setAllInspectionPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption: string | null; photo_type: string; area_id: string | null }>>([])
-  const areaPhotoPickerInputRef = useRef<HTMLInputElement>(null)
 
   // Add new area
   const [addingArea, setAddingArea] = useState(false)
@@ -617,37 +617,21 @@ export default function ViewReportPDF() {
 
   async function loadAreaPhotos(areaId: string) {
     try {
-      // Check if area has a primary_photo_id override
+      // Get primary_photo_id for this area
       const { data: area } = await supabase
         .from('inspection_areas')
         .select('primary_photo_id')
         .eq('id', areaId)
         .single()
 
-      if (area?.primary_photo_id) {
-        const { data: photo } = await supabase
-          .from('photos')
-          .select('id, storage_path, file_name, caption')
-          .eq('id', area.primary_photo_id)
-          .single()
+      setPrimaryPhotoId(area?.primary_photo_id || null)
 
-        if (photo) {
-          try {
-            const signed_url = await getPhotoSignedUrl(photo.storage_path)
-            setAreaPhotos([{ id: photo.id, storage_path: photo.storage_path, signed_url, caption: photo.caption }])
-          } catch {
-            setAreaPhotos([{ id: photo.id, storage_path: photo.storage_path, signed_url: '', caption: photo.caption }])
-          }
-          return
-        }
-      }
-
-      // Fall back to photos assigned by area_id (technician uploads)
+      // Load ALL photos assigned to this area
       const { data: photos } = await supabase
         .from('photos')
         .select('id, storage_path, file_name, caption')
         .eq('area_id', areaId)
-        .order('order_index', { ascending: true })
+        .order('created_at', { ascending: true })
 
       if (photos && photos.length > 0) {
         const withUrls = await Promise.all(
@@ -717,16 +701,8 @@ export default function ViewReportPDF() {
         .update({ primary_photo_id: photoId })
         .eq('id', editingAreaId)
 
-      // Update UI immediately
-      const selectedPhoto = allInspectionPhotos.find(p => p.id === photoId)
-      if (selectedPhoto) {
-        setAreaPhotos([{
-          id: selectedPhoto.id,
-          storage_path: selectedPhoto.storage_path,
-          signed_url: selectedPhoto.signed_url,
-          caption: selectedPhoto.caption,
-        }])
-      }
+      // Update primary state — keeps all area photos visible
+      setPrimaryPhotoId(photoId)
 
       toast.success('Area photo updated')
       await handleGeneratePDF()
@@ -743,31 +719,19 @@ export default function ViewReportPDF() {
     if (!file || !editingAreaId || !inspection?.id) return
     e.target.value = ''
 
-    setAreaPhotoPickerOpen(false)
     setAreaPhotoUploading(true)
     try {
       const resized = await resizePhoto(file)
-      const result = await uploadInspectionPhoto(resized, {
+      // Upload to inspection pool only — NO area assignment, NO primary_photo_id
+      await uploadInspectionPhoto(resized, {
         inspection_id: inspection.id,
-        area_id: editingAreaId,
         photo_type: 'area',
         order_index: 0,
       })
 
-      // Set as primary photo for this area — no clearing other photos
-      await supabase
-        .from('inspection_areas')
-        .update({ primary_photo_id: result.photo_id })
-        .eq('id', editingAreaId)
-
-      setAreaPhotos([{
-        id: result.photo_id,
-        storage_path: result.storage_path,
-        signed_url: result.signed_url,
-        caption: null,
-      }])
-      toast.success('Photo uploaded — regenerating PDF...')
-      await handleGeneratePDF()
+      toast.success('Photo uploaded — select it from the grid')
+      // Reopen picker with refreshed photos so user can select the new one
+      await openAreaPhotoPicker()
     } catch (err) {
       console.error('Area photo upload failed:', err)
       toast.error('Failed to upload photo')
@@ -1369,36 +1333,46 @@ export default function ViewReportPDF() {
                 <label className="block text-sm font-medium text-gray-600 mb-2">Area Photos</label>
                 {areaPhotos.length > 0 && (
                   <div className="grid grid-cols-3 gap-2 mb-3">
-                    {areaPhotos.map((photo) => (
-                      <div key={photo.id} className="relative group">
-                        <button
-                          onClick={() => openAreaPhotoPicker()}
-                          className="w-full cursor-pointer rounded-lg overflow-hidden border-2 border-gray-200 hover:border-orange-500 hover:shadow-md transition-all"
-                        >
-                          {photo.signed_url ? (
-                            <img
-                              src={photo.signed_url}
-                              alt={photo.caption || 'Area photo'}
-                              className="w-full h-24 object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-24 bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
-                              No preview
+                    {areaPhotos.map((photo) => {
+                      const isPrimary = photo.id === primaryPhotoId
+                      return (
+                        <div key={photo.id} className="relative group">
+                          <button
+                            onClick={() => openAreaPhotoPicker()}
+                            className={`w-full cursor-pointer rounded-lg overflow-hidden border-2 transition-all hover:border-orange-500 hover:shadow-md ${
+                              isPrimary ? 'border-orange-500 ring-2 ring-orange-300' : 'border-gray-200'
+                            }`}
+                          >
+                            {photo.signed_url ? (
+                              <img
+                                src={photo.signed_url}
+                                alt={photo.caption || 'Area photo'}
+                                className="w-full h-24 object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-24 bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                                No preview
+                              </div>
+                            )}
+                          </button>
+                          {isPrimary && (
+                            <div className="absolute top-1 left-1 bg-orange-600 text-white rounded-full p-0.5">
+                              <Check className="w-3 h-3" />
                             </div>
                           )}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteAreaPhoto(photo.id)}
-                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity min-w-[28px] min-h-[28px] flex items-center justify-center"
-                          title="Delete photo"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                        {photo.caption && (
-                          <div className="text-xs text-gray-500 mt-1 truncate">{photo.caption}</div>
-                        )}
-                      </div>
-                    ))}
+                          <button
+                            onClick={() => handleDeleteAreaPhoto(photo.id)}
+                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity min-w-[28px] min-h-[28px] flex items-center justify-center"
+                            title="Delete photo"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                          {photo.caption && (
+                            <div className="text-xs text-gray-500 mt-1 truncate">{photo.caption}</div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
                 <Button
@@ -1517,7 +1491,7 @@ export default function ViewReportPDF() {
               {allInspectionPhotos.length > 0 ? (
                 <div className="grid grid-cols-3 gap-2">
                   {allInspectionPhotos.map((photo) => {
-                    const isCurrent = photo.id === areaPhotos[0]?.id
+                    const isCurrent = photo.id === primaryPhotoId
                     return (
                       <button
                         key={photo.id}
@@ -1544,29 +1518,20 @@ export default function ViewReportPDF() {
                 <p className="text-center text-gray-500 py-4">No photos found for this inspection</p>
               )}
 
-              <Button
-                onClick={() => {
-                  setAreaPhotoPickerOpen(false)
-                  areaPhotoPickerInputRef.current?.click()
-                }}
-                variant="outline"
-                className="w-full h-12 min-h-[48px] mt-2"
-              >
+              <label className="flex items-center justify-center w-full h-12 min-h-[48px] mt-2 border border-input bg-background rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">
                 <Upload className="h-5 w-5 mr-2" />
                 Upload New Photo
-              </Button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleUploadNewAreaPhoto}
+                  className="hidden"
+                />
+              </label>
             </>
           )}
         </DialogContent>
       </Dialog>
-      <input
-        ref={areaPhotoPickerInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleUploadNewAreaPhoto}
-        className="hidden"
-      />
-
       {/* Photo Picker Dialog (Page 1 cover photo) */}
       <Dialog open={photoPickerOpen} onOpenChange={setPhotoPickerOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
