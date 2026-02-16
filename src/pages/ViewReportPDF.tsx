@@ -8,7 +8,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
-import type { Page1Data, VPData, OutdoorData } from '@/components/pdf/ReportPreviewHTML'
+import type { Page1Data, VPData, OutdoorData, AreaRecord } from '@/components/pdf/ReportPreviewHTML'
 import { EditFieldModal } from '@/components/pdf/EditFieldModal'
 import { ImageUploadModal } from '@/components/pdf/ImageUploadModal'
 import { Button } from '@/components/ui/button'
@@ -186,6 +186,13 @@ export default function ViewReportPDF() {
     currentUrl?: string
   } | null>(null)
 
+  // Areas Inspected data + edit sheet
+  const [areasData, setAreasData] = useState<AreaRecord[]>([])
+  const [areaEditOpen, setAreaEditOpen] = useState(false)
+  const [editingAreaId, setEditingAreaId] = useState<string | null>(null)
+  const [areaForm, setAreaForm] = useState<Record<string, unknown>>({})
+  const [savingArea, setSavingArea] = useState(false)
+
   // Page 1 photo picker
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false)
@@ -230,6 +237,21 @@ export default function ViewReportPDF() {
       }
 
       setInspection(data as unknown as Inspection)
+
+      // Fetch inspection_areas for inline editing
+      const inspId = (data as unknown as Inspection).id
+      const { data: areas, error: areasError } = await supabase
+        .from('inspection_areas')
+        .select('id, area_name, temperature, humidity, dew_point, external_moisture, mould_visible_locations, comments')
+        .eq('inspection_id', inspId)
+        .order('area_order', { ascending: true })
+
+      if (areasError) {
+        console.warn('[ViewReportPDF] Failed to load inspection areas:', areasError)
+      } else {
+        console.log(`[ViewReportPDF] Loaded ${areas?.length || 0} inspection areas`)
+      }
+      setAreasData((areas || []) as AreaRecord[])
     } catch (error) {
       console.error('Load error:', error)
       toast.error('Failed to load inspection')
@@ -510,6 +532,61 @@ export default function ViewReportPDF() {
       console.error('Outdoor save failed:', error)
       toast.error('Failed to save')
       throw error
+    }
+  }
+
+  function openAreaEdit(area: AreaRecord) {
+    setEditingAreaId(area.id)
+    setAreaForm({
+      temperature: area.temperature ?? 0,
+      humidity: area.humidity ?? 0,
+      dew_point: area.dew_point ?? 0,
+      external_moisture: area.external_moisture ?? 0,
+      mould_visible_locations: area.mould_visible_locations || [],
+      comments: area.comments || '',
+    })
+    setAreaEditOpen(true)
+  }
+
+  async function saveAreaForm() {
+    if (!editingAreaId || !inspection?.id) return
+    setSavingArea(true)
+
+    try {
+      const updates = {
+        temperature: parseFloat(String(areaForm.temperature)) || 0,
+        humidity: parseFloat(String(areaForm.humidity)) || 0,
+        dew_point: parseFloat(String(areaForm.dew_point)) || 0,
+        external_moisture: parseFloat(String(areaForm.external_moisture)) || 0,
+        mould_visible_locations: areaForm.mould_visible_locations,
+        comments: (areaForm.comments as string) || null,
+        updated_at: new Date().toISOString(),
+      }
+
+      const { error } = await supabase
+        .from('inspection_areas')
+        .update(updates)
+        .eq('id', editingAreaId)
+
+      if (error) throw error
+
+      toast.success('Area updated')
+      setAreaEditOpen(false)
+      setEditingAreaId(null)
+      await handleGeneratePDF()
+
+      // Refresh areas data
+      const { data: areas } = await supabase
+        .from('inspection_areas')
+        .select('id, area_name, temperature, humidity, dew_point, external_moisture, mould_visible_locations, comments')
+        .eq('inspection_id', inspection.id)
+        .order('area_order', { ascending: true })
+      setAreasData((areas || []) as AreaRecord[])
+    } catch (error) {
+      console.error('Area save failed:', error)
+      toast.error('Failed to save area')
+    } finally {
+      setSavingArea(false)
     }
   }
 
@@ -849,6 +926,168 @@ export default function ViewReportPDF() {
           onOutdoorFieldSave={handleOutdoorFieldSave}
         />
       </div>
+
+      {/* Floating Edit Areas Button */}
+      {areasData.length > 0 && (
+        <button
+          onClick={() => setAreaEditOpen(true)}
+          className="fixed bottom-24 md:bottom-20 left-4 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 z-50 min-h-[48px] transition-colors animate-pulse"
+        >
+          <Edit className="h-5 w-5" />
+          <span className="font-medium text-sm">Edit Areas ({areasData.length})</span>
+        </button>
+      )}
+
+      {/* Area Edit Dialog */}
+      <Dialog open={areaEditOpen} onOpenChange={setAreaEditOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Area Readings</DialogTitle>
+            <DialogDescription>
+              Select an area to edit its readings and notes
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Area selector — show all areas as cards */}
+          {!editingAreaId ? (
+            <div className="space-y-3">
+              {areasData.map((area) => (
+                <button
+                  key={area.id}
+                  onClick={() => openAreaEdit(area)}
+                  className="w-full text-left p-4 rounded-lg border border-gray-200 hover:border-orange-400 hover:bg-orange-50 transition-colors min-h-[48px]"
+                >
+                  <div className="font-semibold text-base">{area.area_name}</div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    {area.temperature}°C · {area.humidity}% RH · DP {area.dew_point}°C
+                    {area.mould_visible_locations && area.mould_visible_locations.length > 0 && (
+                      <span className="ml-2 text-red-600">· Mould: {area.mould_visible_locations.join(', ')}</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            /* Area edit form */
+            <div className="space-y-4">
+              <button
+                onClick={() => setEditingAreaId(null)}
+                className="text-sm text-orange-600 hover:text-orange-700 font-medium min-h-[36px]"
+              >
+                ← Back to area list
+              </button>
+
+              <div className="font-semibold text-lg">
+                {areasData.find(a => a.id === editingAreaId)?.area_name}
+              </div>
+
+              {/* Readings grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Temperature (°C)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={areaForm.temperature as number ?? ''}
+                    onChange={(e) => setAreaForm(f => ({ ...f, temperature: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[44px]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Humidity (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={areaForm.humidity as number ?? ''}
+                    onChange={(e) => setAreaForm(f => ({ ...f, humidity: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[44px]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Dew Point (°C)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={areaForm.dew_point as number ?? ''}
+                    onChange={(e) => setAreaForm(f => ({ ...f, dew_point: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[44px]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">External Moisture (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={areaForm.external_moisture as number ?? ''}
+                    onChange={(e) => setAreaForm(f => ({ ...f, external_moisture: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[44px]"
+                  />
+                </div>
+              </div>
+
+              {/* Visible Mould checkboxes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">Visible Mould Locations</label>
+                <div className="flex flex-wrap gap-2">
+                  {['Ceiling', 'Cornice', 'Windows', 'Window Furnishings', 'Walls', 'Skirting', 'Flooring', 'Wardrobe', 'Cupboard', 'Contents', 'Grout/Silicone'].map(loc => {
+                    const locs = (areaForm.mould_visible_locations as string[]) || []
+                    const checked = locs.includes(loc)
+                    return (
+                      <label key={loc} className="flex items-center gap-1.5 text-sm bg-gray-50 px-3 py-1.5 rounded-lg border cursor-pointer hover:bg-gray-100 min-h-[36px]">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const next = checked ? locs.filter(l => l !== loc) : [...locs, loc]
+                            setAreaForm(f => ({ ...f, mould_visible_locations: next }))
+                          }}
+                          className="w-4 h-4"
+                        />
+                        {loc}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Notes / Comments</label>
+                <textarea
+                  value={(areaForm.comments as string) || ''}
+                  onChange={(e) => setAreaForm(f => ({ ...f, comments: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-vertical"
+                  style={{ minHeight: '120px' }}
+                  placeholder="Area notes..."
+                />
+              </div>
+
+              {/* Save / Cancel */}
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => { setEditingAreaId(null); setAreaEditOpen(false) }}
+                  disabled={savingArea}
+                  className="flex-1 h-12 min-h-[48px]"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={saveAreaForm}
+                  disabled={savingArea}
+                  className="flex-1 h-12 min-h-[48px] bg-orange-600 hover:bg-orange-700"
+                >
+                  {savingArea ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>
+                  ) : (
+                    <><Check className="h-4 w-4 mr-2" />Save & Regenerate</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Hidden file input for Page 1 photo upload */}
       <input

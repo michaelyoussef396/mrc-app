@@ -124,6 +124,17 @@ export interface OutdoorData {
   outdoor_dew_point: number
 }
 
+export interface AreaRecord {
+  id: string
+  area_name: string
+  temperature: number
+  humidity: number
+  dew_point: number
+  external_moisture: number
+  mould_visible_locations: string[] | null
+  comments: string | null
+}
+
 interface ReportPreviewHTMLProps {
   htmlUrl: string
   editMode?: boolean
@@ -175,7 +186,7 @@ export function ReportPreviewHTML({
   const [htmlContent, setHtmlContent] = useState<string | null>(null)
   const [zoom, setZoom] = useState(100)
   const [currentPage, setCurrentPage] = useState(1)
-  const totalPages = 9
+  const [totalPages, setTotalPages] = useState(9)
   const pageHeight = 1123
 
   // Page 1 inline edit state
@@ -209,6 +220,7 @@ export function ReportPreviewHTML({
   const [editOutdoorValue, setEditOutdoorValue] = useState('')
   const [savingOutdoor, setSavingOutdoor] = useState(false)
   const [outdoorPositions, setOutdoorPositions] = useState<VPDynPos[]>([])
+
 
   // Fetch HTML content on mount
   useEffect(() => {
@@ -269,6 +281,12 @@ export function ReportPreviewHTML({
     function findHeadings(attempt: number) {
       const container = contentRef.current
       if (!container || cancelled) return
+
+      // --- Count actual pages from DOM ---
+      const reportPages = container.querySelectorAll('.report-page')
+      if (reportPages.length > 0) {
+        setTotalPages(reportPages.length)
+      }
 
       // --- VP headings: <div> elements with Garet Heavy ~33px font ---
       const VP_HEADINGS = [
