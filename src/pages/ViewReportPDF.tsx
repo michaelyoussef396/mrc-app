@@ -204,6 +204,7 @@ export default function ViewReportPDF() {
   const [areaPhotoPickerOpen, setAreaPhotoPickerOpen] = useState(false)
   const [areaPhotoPickerLoading, setAreaPhotoPickerLoading] = useState(false)
   const [allInspectionPhotos, setAllInspectionPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption: string | null; photo_type: string; area_id: string | null }>>([])
+  const [selectedAreaPhotoId, setSelectedAreaPhotoId] = useState<string | null>(null)
   const areaPhotoPickerInputRef = useRef<HTMLInputElement>(null)
 
   // Add new area
@@ -656,20 +657,23 @@ export default function ViewReportPDF() {
     if (!inspection?.id) return
     setAreaPhotoPickerOpen(true)
     setAreaPhotoPickerLoading(true)
+    setSelectedAreaPhotoId(null)
     try {
       const photos = await loadInspectionPhotos(inspection.id)
-      setAllInspectionPhotos(
-        photos
-          .filter(p => p.signed_url)
-          .map(p => ({
-            id: p.id,
-            storage_path: p.storage_path,
-            signed_url: p.signed_url,
-            caption: p.caption,
-            photo_type: p.photo_type,
-            area_id: p.area_id,
-          }))
-      )
+      const mapped = photos
+        .filter(p => p.signed_url)
+        .map(p => ({
+          id: p.id,
+          storage_path: p.storage_path,
+          signed_url: p.signed_url,
+          caption: p.caption,
+          photo_type: p.photo_type,
+          area_id: p.area_id,
+        }))
+      setAllInspectionPhotos(mapped)
+      // Pre-select the first photo already assigned to this area
+      const current = mapped.find(p => p.area_id === editingAreaId)
+      setSelectedAreaPhotoId(current?.id || null)
     } catch {
       setAllInspectionPhotos([])
     } finally {
@@ -1467,13 +1471,13 @@ export default function ViewReportPDF() {
               {allInspectionPhotos.length > 0 ? (
                 <div className="grid grid-cols-3 gap-2">
                   {allInspectionPhotos.map((photo) => {
-                    const isAssigned = photo.area_id === editingAreaId
+                    const isSelected = selectedAreaPhotoId === photo.id
                     return (
                       <button
                         key={photo.id}
-                        onClick={() => handleSelectPhotoForArea(photo.id)}
+                        onClick={() => setSelectedAreaPhotoId(photo.id)}
                         className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:border-orange-500 hover:shadow-md ${
-                          isAssigned ? 'border-orange-500 ring-2 ring-orange-300' : 'border-gray-200'
+                          isSelected ? 'border-orange-500 ring-2 ring-orange-300' : 'border-gray-200'
                         }`}
                       >
                         <img
@@ -1481,7 +1485,7 @@ export default function ViewReportPDF() {
                           alt={photo.caption || photo.photo_type}
                           className="w-full h-full object-cover"
                         />
-                        {isAssigned && (
+                        {isSelected && (
                           <div className="absolute top-1 right-1 bg-orange-600 text-white rounded-full p-0.5">
                             <Check className="w-3 h-3" />
                           </div>
@@ -1494,17 +1498,29 @@ export default function ViewReportPDF() {
                 <p className="text-center text-gray-500 py-4">No photos found for this inspection</p>
               )}
 
-              <Button
-                onClick={() => {
-                  setAreaPhotoPickerOpen(false)
-                  areaPhotoPickerInputRef.current?.click()
-                }}
-                variant="outline"
-                className="w-full h-12 min-h-[48px] mt-2"
-              >
-                <Upload className="h-5 w-5 mr-2" />
-                Upload New Photo
-              </Button>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  onClick={() => {
+                    setAreaPhotoPickerOpen(false)
+                    areaPhotoPickerInputRef.current?.click()
+                  }}
+                  variant="outline"
+                  className="flex-1 h-12 min-h-[48px]"
+                >
+                  <Upload className="h-5 w-5 mr-2" />
+                  Upload New
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (selectedAreaPhotoId) handleSelectPhotoForArea(selectedAreaPhotoId)
+                  }}
+                  disabled={!selectedAreaPhotoId}
+                  className="flex-1 h-12 min-h-[48px] bg-orange-600 hover:bg-orange-700"
+                >
+                  <Check className="h-5 w-5 mr-2" />
+                  Confirm
+                </Button>
+              </div>
             </>
           )}
         </DialogContent>
