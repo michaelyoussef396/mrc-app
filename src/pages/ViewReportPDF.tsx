@@ -26,6 +26,9 @@ import {
   Eye,
   Upload,
   Check,
+  Plus,
+  Camera,
+  Trash2,
 } from 'lucide-react'
 import {
   generateInspectionPDF,
@@ -34,7 +37,7 @@ import {
   updateFieldAndRegenerate
 } from '@/lib/api/pdfGeneration'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml } from '@/lib/api/notifications'
-import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos } from '@/lib/utils/photoUpload'
+import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
 import { resizePhoto } from '@/lib/offline/photoResizer'
 import {
   Dialog,
@@ -193,6 +196,16 @@ export default function ViewReportPDF() {
   const [areaForm, setAreaForm] = useState<Record<string, unknown>>({})
   const [savingArea, setSavingArea] = useState(false)
 
+  // Area photos
+  const [areaPhotos, setAreaPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption: string | null }>>([])
+  const [areaPhotoUploading, setAreaPhotoUploading] = useState(false)
+  const areaPhotoInputRef = useRef<HTMLInputElement>(null)
+
+  // Add new area
+  const [addingArea, setAddingArea] = useState(false)
+  const [newAreaName, setNewAreaName] = useState('')
+  const [savingNewArea, setSavingNewArea] = useState(false)
+
   // Page 1 photo picker
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false)
@@ -242,7 +255,7 @@ export default function ViewReportPDF() {
       const inspId = (data as unknown as Inspection).id
       const { data: areas, error: areasError } = await supabase
         .from('inspection_areas')
-        .select('id, area_name, temperature, humidity, dew_point, external_moisture, mould_visible_locations, comments')
+        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes')
         .eq('inspection_id', inspId)
         .order('area_order', { ascending: true })
 
@@ -542,10 +555,15 @@ export default function ViewReportPDF() {
       humidity: area.humidity ?? 0,
       dew_point: area.dew_point ?? 0,
       external_moisture: area.external_moisture ?? 0,
+      internal_moisture: area.internal_moisture ?? 0,
       mould_visible_locations: area.mould_visible_locations || [],
       comments: area.comments || '',
+      extra_notes: area.extra_notes || '',
     })
+    setAreaPhotos([])
     setAreaEditOpen(true)
+    // Load photos for this area
+    loadAreaPhotos(area.id)
   }
 
   async function saveAreaForm() {
@@ -558,8 +576,10 @@ export default function ViewReportPDF() {
         humidity: parseFloat(String(areaForm.humidity)) || 0,
         dew_point: parseFloat(String(areaForm.dew_point)) || 0,
         external_moisture: parseFloat(String(areaForm.external_moisture)) || 0,
+        internal_moisture: parseFloat(String(areaForm.internal_moisture)) || 0,
         mould_visible_locations: areaForm.mould_visible_locations,
         comments: (areaForm.comments as string) || null,
+        extra_notes: (areaForm.extra_notes as string) || null,
         updated_at: new Date().toISOString(),
       }
 
@@ -578,7 +598,7 @@ export default function ViewReportPDF() {
       // Refresh areas data
       const { data: areas } = await supabase
         .from('inspection_areas')
-        .select('id, area_name, temperature, humidity, dew_point, external_moisture, mould_visible_locations, comments')
+        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes')
         .eq('inspection_id', inspection.id)
         .order('area_order', { ascending: true })
       setAreasData((areas || []) as AreaRecord[])
@@ -587,6 +607,117 @@ export default function ViewReportPDF() {
       toast.error('Failed to save area')
     } finally {
       setSavingArea(false)
+    }
+  }
+
+  async function loadAreaPhotos(areaId: string) {
+    try {
+      const { data: photos } = await supabase
+        .from('photos')
+        .select('id, storage_path, file_name, caption')
+        .eq('area_id', areaId)
+        .order('order_index', { ascending: true })
+
+      if (photos && photos.length > 0) {
+        const withUrls = await Promise.all(
+          photos.map(async (p) => {
+            try {
+              const signed_url = await getPhotoSignedUrl(p.storage_path)
+              return { id: p.id, storage_path: p.storage_path, signed_url, caption: p.caption }
+            } catch {
+              return { id: p.id, storage_path: p.storage_path, signed_url: '', caption: p.caption }
+            }
+          })
+        )
+        setAreaPhotos(withUrls)
+      }
+    } catch (err) {
+      console.warn('Failed to load area photos:', err)
+    }
+  }
+
+  async function handleAreaPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !editingAreaId || !inspection?.id) return
+    e.target.value = '' // reset input
+
+    setAreaPhotoUploading(true)
+    try {
+      const resized = await resizePhoto(file)
+      const result = await uploadInspectionPhoto(resized, {
+        inspection_id: inspection.id,
+        area_id: editingAreaId,
+        photo_type: 'area',
+        order_index: areaPhotos.length,
+      })
+      setAreaPhotos(prev => [...prev, { id: result.photo_id, storage_path: result.storage_path, signed_url: result.signed_url, caption: null }])
+      toast.success('Photo uploaded')
+    } catch (err) {
+      console.error('Area photo upload failed:', err)
+      toast.error('Failed to upload photo')
+    } finally {
+      setAreaPhotoUploading(false)
+    }
+  }
+
+  async function handleDeleteAreaPhoto(photoId: string) {
+    try {
+      await deleteInspectionPhoto(photoId)
+      setAreaPhotos(prev => prev.filter(p => p.id !== photoId))
+      toast.success('Photo deleted')
+    } catch (err) {
+      console.error('Delete area photo failed:', err)
+      toast.error('Failed to delete photo')
+    }
+  }
+
+  async function handleAddArea() {
+    if (!newAreaName.trim() || !inspection?.id) return
+    setSavingNewArea(true)
+
+    try {
+      // Get max area_order
+      const maxOrder = areasData.length > 0
+        ? Math.max(...areasData.map((a, i) => i + 1))
+        : 0
+
+      const { data: newArea, error } = await supabase
+        .from('inspection_areas')
+        .insert({
+          inspection_id: inspection.id,
+          area_name: newAreaName.trim(),
+          area_order: maxOrder + 1,
+          temperature: 0,
+          humidity: 0,
+          dew_point: 0,
+          external_moisture: 0,
+          internal_moisture: 0,
+        })
+        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes')
+        .single()
+
+      if (error) throw error
+
+      // Refresh areas list
+      const { data: areas } = await supabase
+        .from('inspection_areas')
+        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes')
+        .eq('inspection_id', inspection.id)
+        .order('area_order', { ascending: true })
+      setAreasData((areas || []) as AreaRecord[])
+
+      // Auto-open the new area for editing
+      setNewAreaName('')
+      setAddingArea(false)
+      if (newArea) {
+        openAreaEdit(newArea as AreaRecord)
+      }
+      toast.success('Area created')
+    } catch (err) {
+      console.error('Add area failed:', err)
+      toast.error('Failed to create area')
+    } finally {
+      setSavingNewArea(false)
     }
   }
 
@@ -928,15 +1059,15 @@ export default function ViewReportPDF() {
       </div>
 
       {/* Floating Edit Areas Button */}
-      {areasData.length > 0 && (
-        <button
-          onClick={() => setAreaEditOpen(true)}
-          className="fixed bottom-24 md:bottom-20 left-4 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 z-50 min-h-[48px] transition-colors animate-pulse"
-        >
-          <Edit className="h-5 w-5" />
-          <span className="font-medium text-sm">Edit Areas ({areasData.length})</span>
-        </button>
-      )}
+      <button
+        onClick={() => setAreaEditOpen(true)}
+        className="fixed bottom-24 md:bottom-20 left-4 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 z-50 min-h-[48px] transition-colors animate-pulse"
+      >
+        <Edit className="h-5 w-5" />
+        <span className="font-medium text-sm">
+          {areasData.length > 0 ? `Edit Areas (${areasData.length})` : 'Add Areas'}
+        </span>
+      </button>
 
       {/* Area Edit Dialog */}
       <Dialog open={areaEditOpen} onOpenChange={setAreaEditOpen}>
@@ -966,6 +1097,50 @@ export default function ViewReportPDF() {
                   </div>
                 </button>
               ))}
+
+              {/* Add Area */}
+              {addingArea ? (
+                <div className="p-4 rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 space-y-3">
+                  <input
+                    type="text"
+                    value={newAreaName}
+                    onChange={(e) => setNewAreaName(e.target.value)}
+                    placeholder="Area name (e.g. Bedroom 2)"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[44px]"
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddArea() }}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => { setAddingArea(false); setNewAreaName('') }}
+                      disabled={savingNewArea}
+                      className="flex-1 min-h-[44px]"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleAddArea}
+                      disabled={savingNewArea || !newAreaName.trim()}
+                      className="flex-1 min-h-[44px] bg-orange-600 hover:bg-orange-700"
+                    >
+                      {savingNewArea ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creating...</>
+                      ) : (
+                        <><Check className="h-4 w-4 mr-2" />Create Area</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setAddingArea(true)}
+                  className="w-full p-4 rounded-lg border-2 border-dashed border-gray-300 hover:border-orange-400 hover:bg-orange-50 transition-colors min-h-[48px] flex items-center justify-center gap-2 text-gray-500 hover:text-orange-600"
+                >
+                  <Plus className="h-5 w-5" />
+                  <span className="font-medium text-sm">Add Area</span>
+                </button>
+              )}
             </div>
           ) : (
             /* Area edit form */
@@ -1023,6 +1198,16 @@ export default function ViewReportPDF() {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[44px]"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Internal Moisture (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={areaForm.internal_moisture as number ?? ''}
+                    onChange={(e) => setAreaForm(f => ({ ...f, internal_moisture: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[44px]"
+                  />
+                </div>
               </div>
 
               {/* Visible Mould checkboxes */}
@@ -1059,6 +1244,72 @@ export default function ViewReportPDF() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-vertical"
                   style={{ minHeight: '120px' }}
                   placeholder="Area notes..."
+                />
+              </div>
+
+              {/* Extra Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Extra Notes</label>
+                <textarea
+                  value={(areaForm.extra_notes as string) || ''}
+                  onChange={(e) => setAreaForm(f => ({ ...f, extra_notes: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 resize-vertical"
+                  style={{ minHeight: '100px' }}
+                  placeholder="Additional notes..."
+                />
+              </div>
+
+              {/* Area Photos */}
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-2">Area Photos</label>
+                {areaPhotos.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {areaPhotos.map((photo) => (
+                      <div key={photo.id} className="relative group">
+                        {photo.signed_url ? (
+                          <img
+                            src={photo.signed_url}
+                            alt={photo.caption || 'Area photo'}
+                            className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                          />
+                        ) : (
+                          <div className="w-full h-24 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 text-xs">
+                            No preview
+                          </div>
+                        )}
+                        <button
+                          onClick={() => handleDeleteAreaPhoto(photo.id)}
+                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity min-w-[28px] min-h-[28px] flex items-center justify-center"
+                          title="Delete photo"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                        {photo.caption && (
+                          <div className="text-xs text-gray-500 mt-1 truncate">{photo.caption}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => areaPhotoInputRef.current?.click()}
+                  disabled={areaPhotoUploading}
+                  className="w-full min-h-[48px] border-dashed"
+                >
+                  {areaPhotoUploading ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</>
+                  ) : (
+                    <><Camera className="h-4 w-4 mr-2" />Upload Photo</>
+                  )}
+                </Button>
+                <input
+                  ref={areaPhotoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAreaPhotoUpload}
+                  className="hidden"
                 />
               </div>
 

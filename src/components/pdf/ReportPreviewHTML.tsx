@@ -131,8 +131,10 @@ export interface AreaRecord {
   humidity: number
   dew_point: number
   external_moisture: number
+  internal_moisture: number
   mould_visible_locations: string[] | null
   comments: string | null
+  extra_notes: string | null
 }
 
 interface ReportPreviewHTMLProps {
