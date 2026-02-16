@@ -241,26 +241,26 @@ export function ReportPreviewHTML({
       const container = contentRef.current
       if (!container || cancelled) return
 
-      // --- VP headings: <span> elements with large font (Garet Heavy style) ---
+      // --- VP headings: <div> elements with Garet Heavy ~33px font ---
       const VP_HEADINGS = [
         { text: 'WHAT WE FOUND', key: 'what_we_found', label: 'What We Found' },
         { text: "WHAT WE'RE GOING TO DO", key: 'what_we_will_do', label: "What We're Going To Do" },
       ]
 
       const vpFound: VPDynPos[] = []
-      const spans = container.querySelectorAll('span')
+      const divs = container.querySelectorAll('div')
 
       for (const h of VP_HEADINGS) {
-        for (const span of Array.from(spans)) {
-          const text = span.textContent?.trim()
+        for (const div of Array.from(divs)) {
+          const text = div.textContent?.trim()
           if (!text) continue
           const normalized = text.toUpperCase().replace(/[\u2018\u2019\u2032]/g, "'")
           if (normalized !== h.text) continue
-          const style = window.getComputedStyle(span)
+          const style = window.getComputedStyle(div)
           const fontSize = parseFloat(style.fontSize)
           if (fontSize < 18) continue
 
-          const pos = getPositionInContainer(span as HTMLElement, container)
+          const pos = getPositionInContainer(div as HTMLElement, container)
           vpFound.push({ key: h.key, label: h.label, top: pos.top })
           break
         }
@@ -285,9 +285,9 @@ export function ReportPreviewHTML({
       console.log(`[ReportPreview] Heading search (attempt ${attempt}): VP=${vpFound.length}, PA=${foundPaTop !== null ? 'found' : 'not found'}`)
       setPaPageTop(foundPaTop)
 
-      // Retry once if PA title not found (timing/render issue)
-      if (foundPaTop === null && attempt < 2 && !cancelled) {
-        console.log('[ReportPreview] PA title not found, retrying in 800ms...')
+      // Retry if headings not found (timing/render issue)
+      if ((vpFound.length === 0 || foundPaTop === null) && attempt < 3 && !cancelled) {
+        console.log(`[ReportPreview] Missing headings (VP=${vpFound.length}, PA=${foundPaTop !== null}), retrying in 800ms...`)
         setTimeout(() => findHeadings(attempt + 1), 800)
       }
     }
