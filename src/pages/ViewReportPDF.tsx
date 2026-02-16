@@ -1512,26 +1512,29 @@ export default function ViewReportPDF() {
             <>
               {allInspectionPhotos.length > 0 ? (
                 <div className="grid grid-cols-3 gap-2">
-                  {allInspectionPhotos.map((photo) => (
-                    <button
-                      key={photo.id}
-                      onClick={() => handleSelectPhotoForArea(photo.id)}
-                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:border-orange-500 hover:shadow-md ${
-                        photo.area_id === editingAreaId ? 'border-orange-500 ring-2 ring-orange-300' : 'border-gray-200'
-                      }`}
-                    >
-                      <img
-                        src={photo.signed_url}
-                        alt={photo.caption || photo.photo_type}
-                        className="w-full h-full object-cover"
-                      />
-                      {photo.area_id === editingAreaId && (
-                        <div className="absolute top-1 right-1 bg-orange-600 text-white rounded-full p-0.5">
-                          <Check className="w-3 h-3" />
-                        </div>
-                      )}
-                    </button>
-                  ))}
+                  {allInspectionPhotos.map((photo) => {
+                    const isCurrent = photo.id === areaPhotos[0]?.id
+                    return (
+                      <button
+                        key={photo.id}
+                        onClick={() => handleSelectPhotoForArea(photo.id)}
+                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:border-orange-500 hover:shadow-md ${
+                          isCurrent ? 'border-orange-500 ring-2 ring-orange-300' : 'border-gray-200'
+                        }`}
+                      >
+                        <img
+                          src={photo.signed_url}
+                          alt={photo.caption || photo.photo_type}
+                          className="w-full h-full object-cover"
+                        />
+                        {isCurrent && (
+                          <div className="absolute top-1 right-1 bg-orange-600 text-white rounded-full p-0.5">
+                            <Check className="w-3 h-3" />
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               ) : (
                 <p className="text-center text-gray-500 py-4">No photos found for this inspection</p>
