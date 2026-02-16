@@ -681,50 +681,48 @@ export default function ViewReportPDF() {
   }
 
   async function handleSelectPhotoForArea(photoId: string) {
-    if (!editingAreaId) return
+    if (!editingAreaId || !inspection?.id) return
+    setAreaPhotoUploading(true)
     setAreaPhotoPickerOpen(false)
-
-    // Optimistically replace with only the selected photo
-    const selectedPhoto = allInspectionPhotos.find(p => p.id === photoId)
-    if (selectedPhoto) {
-      setAreaPhotos([{
-        id: selectedPhoto.id,
-        storage_path: selectedPhoto.storage_path,
-        signed_url: selectedPhoto.signed_url,
-        caption: selectedPhoto.caption,
-      }])
-    }
-
     try {
-      // Clear old photos from this area
-      const { data: oldPhotos } = await supabase
+      // Remove old area_id from any photo currently assigned to this area
+      const { data: existing } = await supabase
         .from('photos')
         .select('id')
         .eq('area_id', editingAreaId)
-      if (oldPhotos) {
-        for (const old of oldPhotos) {
-          if (old.id !== photoId) {
-            await supabase
-              .from('photos')
-              .update({ area_id: null })
-              .eq('id', old.id)
+
+      if (existing) {
+        for (const p of existing) {
+          if (p.id !== photoId) {
+            await supabase.from('photos').update({ area_id: null }).eq('id', p.id)
           }
         }
       }
 
-      // Assign the selected photo to this area
+      // Set selected photo to this area
       await supabase
         .from('photos')
         .update({ area_id: editingAreaId, photo_type: 'area' })
         .eq('id', photoId)
 
-      toast.success('Photo assigned — regenerating PDF...')
-      await loadAreaPhotos(editingAreaId)
+      // Update UI immediately
+      const selectedPhoto = allInspectionPhotos.find(p => p.id === photoId)
+      if (selectedPhoto) {
+        setAreaPhotos([{
+          id: selectedPhoto.id,
+          storage_path: selectedPhoto.storage_path,
+          signed_url: selectedPhoto.signed_url,
+          caption: selectedPhoto.caption,
+        }])
+      }
+
+      toast.success('Area photo updated')
       await handleGeneratePDF()
-    } catch (err) {
-      console.error('Failed to assign photo to area:', err)
-      toast.error('Failed to assign photo')
-      await loadAreaPhotos(editingAreaId)
+    } catch (error) {
+      console.error('Failed to set area photo:', error)
+      toast.error('Failed to set area photo')
+    } finally {
+      setAreaPhotoUploading(false)
     }
   }
 
