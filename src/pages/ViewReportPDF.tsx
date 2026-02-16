@@ -200,6 +200,7 @@ export default function ViewReportPDF() {
   const [areaPhotos, setAreaPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption: string | null }>>([])
   const [areaPhotoUploading, setAreaPhotoUploading] = useState(false)
   const [primaryPhotoId, setPrimaryPhotoId] = useState<string | null>(null)
+  const [areaPhotosLoading, setAreaPhotosLoading] = useState(false)
 
   // Area photo picker (select from all inspection photos)
   const [areaPhotoPickerOpen, setAreaPhotoPickerOpen] = useState(false)
@@ -616,6 +617,7 @@ export default function ViewReportPDF() {
   }
 
   async function loadAreaPhotos(areaId: string) {
+    setAreaPhotosLoading(true)
     try {
       // Get primary_photo_id for this area
       const { data: area } = await supabase
@@ -627,11 +629,13 @@ export default function ViewReportPDF() {
       setPrimaryPhotoId(area?.primary_photo_id || null)
 
       // Load ALL photos assigned to this area
-      const { data: photos } = await supabase
+      const { data: photos, error } = await supabase
         .from('photos')
         .select('id, storage_path, file_name, caption')
         .eq('area_id', areaId)
         .order('created_at', { ascending: true })
+
+      console.log(`[loadAreaPhotos] area=${areaId}, primary=${area?.primary_photo_id}, photos=${photos?.length ?? 0}`, error || '')
 
       if (photos && photos.length > 0) {
         const withUrls = await Promise.all(
@@ -650,6 +654,8 @@ export default function ViewReportPDF() {
       }
     } catch (err) {
       console.warn('Failed to load area photos:', err)
+    } finally {
+      setAreaPhotosLoading(false)
     }
   }
 
@@ -1333,7 +1339,13 @@ export default function ViewReportPDF() {
                 <label className="block text-sm font-medium text-gray-600 mb-2">
                   Area Photos{areaPhotos.length > 0 && <span className="text-gray-400 font-normal ml-1">({Math.min(areaPhotos.length, 6)}{areaPhotos.length > 6 ? `/${areaPhotos.length}` : ''})</span>}
                 </label>
-                {areaPhotos.length > 0 && (
+                {areaPhotosLoading && (
+                  <div className="flex items-center justify-center py-6 mb-3">
+                    <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
+                    <span className="ml-2 text-sm text-gray-500">Loading area photos...</span>
+                  </div>
+                )}
+                {!areaPhotosLoading && areaPhotos.length > 0 && (
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     {areaPhotos.slice(0, 6).map((photo) => {
                       const isPrimary = photo.id === primaryPhotoId
