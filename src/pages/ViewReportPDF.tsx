@@ -1328,18 +1328,20 @@ export default function ViewReportPDF() {
                 />
               </div>
 
-              {/* Area Photos */}
+              {/* Area Photos — max 6 in clean grid */}
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">Area Photos</label>
+                <label className="block text-sm font-medium text-gray-600 mb-2">
+                  Area Photos{areaPhotos.length > 0 && <span className="text-gray-400 font-normal ml-1">({Math.min(areaPhotos.length, 6)}{areaPhotos.length > 6 ? `/${areaPhotos.length}` : ''})</span>}
+                </label>
                 {areaPhotos.length > 0 && (
                   <div className="grid grid-cols-3 gap-2 mb-3">
-                    {areaPhotos.map((photo) => {
+                    {areaPhotos.slice(0, 6).map((photo) => {
                       const isPrimary = photo.id === primaryPhotoId
                       return (
-                        <div key={photo.id} className="relative group">
+                        <div key={photo.id} className="relative group aspect-square">
                           <button
                             onClick={() => openAreaPhotoPicker()}
-                            className={`w-full cursor-pointer rounded-lg overflow-hidden border-2 transition-all hover:border-orange-500 hover:shadow-md ${
+                            className={`w-full h-full cursor-pointer rounded-lg overflow-hidden border-2 transition-all hover:border-orange-500 hover:shadow-md ${
                               isPrimary ? 'border-orange-500 ring-2 ring-orange-300' : 'border-gray-200'
                             }`}
                           >
@@ -1347,29 +1349,26 @@ export default function ViewReportPDF() {
                               <img
                                 src={photo.signed_url}
                                 alt={photo.caption || 'Area photo'}
-                                className="w-full h-24 object-cover"
+                                className="w-full h-full object-cover"
                               />
                             ) : (
-                              <div className="w-full h-24 bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                              <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
                                 No preview
                               </div>
                             )}
                           </button>
                           {isPrimary && (
-                            <div className="absolute top-1 left-1 bg-orange-600 text-white rounded-full p-0.5">
+                            <div className="absolute top-1 left-1 bg-orange-600 text-white rounded-full p-0.5 z-10">
                               <Check className="w-3 h-3" />
                             </div>
                           )}
                           <button
                             onClick={() => handleDeleteAreaPhoto(photo.id)}
-                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity min-w-[28px] min-h-[28px] flex items-center justify-center"
+                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity min-w-[28px] min-h-[28px] flex items-center justify-center z-10"
                             title="Delete photo"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
-                          {photo.caption && (
-                            <div className="text-xs text-gray-500 mt-1 truncate">{photo.caption}</div>
-                          )}
                         </div>
                       )
                     })}
