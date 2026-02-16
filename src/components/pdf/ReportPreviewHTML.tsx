@@ -137,6 +137,13 @@ export interface AreaRecord {
   extra_notes: string | null
 }
 
+export interface SubfloorEditData {
+  observations: string
+  landscape: string
+  comments: string
+  readings: Array<{ id: string; location: string; moisture_percentage: number; reading_order: number }>
+}
+
 interface ReportPreviewHTMLProps {
   htmlUrl: string
   editMode?: boolean
@@ -160,6 +167,10 @@ interface ReportPreviewHTMLProps {
   // Outdoor Environment — 3 number fields
   outdoorData?: OutdoorData | null
   onOutdoorFieldSave?: (key: string, value: number) => Promise<void>
+  // Subfloor — text/dropdown/number fields
+  subfloorData?: SubfloorEditData | null
+  onSubfloorFieldSave?: (field: string, value: string) => Promise<void>
+  onSubfloorReadingSave?: (readingId: string, moisturePercentage: number, location: string) => Promise<void>
 }
 
 export function ReportPreviewHTML({
@@ -180,6 +191,9 @@ export function ReportPreviewHTML({
   onDemoSave,
   outdoorData,
   onOutdoorFieldSave,
+  subfloorData,
+  onSubfloorFieldSave,
+  onSubfloorReadingSave,
 }: ReportPreviewHTMLProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -222,6 +236,13 @@ export function ReportPreviewHTML({
   const [editOutdoorValue, setEditOutdoorValue] = useState('')
   const [savingOutdoor, setSavingOutdoor] = useState(false)
   const [outdoorPositions, setOutdoorPositions] = useState<VPDynPos[]>([])
+
+  // Subfloor — inline edit state for observation, landscape, comments, moisture
+  const [editingSubfloor, setEditingSubfloor] = useState<string | null>(null)
+  const [editSubfloorValue, setEditSubfloorValue] = useState('')
+  const [editSubfloorReadings, setEditSubfloorReadings] = useState<Array<{ id: string; location: string; moisture_percentage: number }>>([])
+  const [savingSubfloor, setSavingSubfloor] = useState(false)
+  const [subfloorPositions, setSubfloorPositions] = useState<VPDynPos[]>([])
 
   // Fetch HTML content on mount
   useEffect(() => {
@@ -364,7 +385,31 @@ export function ReportPreviewHTML({
 
       setOutdoorPositions(outdoorFound)
 
-      console.log(`[ReportPreview] Heading search (attempt ${attempt}): VP=${vpFound.length}, PA=${foundPaTop !== null ? 'found' : 'not found'}, Demo=${foundDemoTop !== null ? 'found' : 'not found'}, Outdoor=${outdoorFound.length}`)
+      // --- Subfloor: find section headings on the navy panel (16px Garet Heavy, white text) ---
+      const SUBFLOOR_LABELS = [
+        { search: 'SUBFLOOROBSERVATION', key: 'observations', label: 'Observation' },
+        { search: 'SUBFLOORLANDSCAPE', key: 'landscape', label: 'Landscape' },
+        { search: 'SUBFLOORCOMMENTS', key: 'comments', label: 'Comments' },
+        { search: 'MOISTURELEVELS', key: 'moisture', label: 'Moisture Levels' },
+      ]
+
+      const subfloorFound: VPDynPos[] = []
+      for (const lbl of SUBFLOOR_LABELS) {
+        for (const div of Array.from(allDivs)) {
+          const text = div.textContent?.trim().toUpperCase().replace(/\s+/g, '') || ''
+          if (text !== lbl.search) continue
+          const style = window.getComputedStyle(div)
+          const fontSize = parseFloat(style.fontSize)
+          if (fontSize < 12 || fontSize > 22) continue
+          const pos = getPositionInContainer(div as HTMLElement, container)
+          subfloorFound.push({ key: lbl.key, label: lbl.label, top: pos.top })
+          break
+        }
+      }
+
+      setSubfloorPositions(subfloorFound)
+
+      console.log(`[ReportPreview] Heading search (attempt ${attempt}): VP=${vpFound.length}, PA=${foundPaTop !== null ? 'found' : 'not found'}, Demo=${foundDemoTop !== null ? 'found' : 'not found'}, Outdoor=${outdoorFound.length}, Subfloor=${subfloorFound.length}`)
 
       // Retry if headings not found (timing/render issue)
       if ((vpFound.length === 0 || foundPaTop === null || foundDemoTop === null || outdoorFound.length < 3) && attempt < 3 && !cancelled) {
@@ -584,6 +629,54 @@ export function ReportPreviewHTML({
   function cancelOutdoorEdit() {
     setEditingOutdoor(null)
     setEditOutdoorValue('')
+  }
+
+  // --- Subfloor inline edit handlers ---
+
+  function startSubfloorEdit(key: string) {
+    if (!subfloorData) return
+    setEditingSubfloor(key)
+    if (key === 'observations') {
+      setEditSubfloorValue(subfloorData.observations || '')
+    } else if (key === 'landscape') {
+      setEditSubfloorValue(subfloorData.landscape || '')
+    } else if (key === 'comments') {
+      setEditSubfloorValue(subfloorData.comments || '')
+    } else if (key === 'moisture') {
+      setEditSubfloorReadings(
+        subfloorData.readings.map(r => ({ id: r.id, location: r.location, moisture_percentage: r.moisture_percentage }))
+      )
+    }
+  }
+
+  async function saveSubfloorEdit() {
+    if (!editingSubfloor) return
+    setSavingSubfloor(true)
+    try {
+      if (editingSubfloor === 'moisture') {
+        // Save each reading
+        if (onSubfloorReadingSave) {
+          for (const r of editSubfloorReadings) {
+            await onSubfloorReadingSave(r.id, r.moisture_percentage, r.location)
+          }
+        }
+      } else if (onSubfloorFieldSave) {
+        await onSubfloorFieldSave(editingSubfloor, editSubfloorValue)
+      }
+      setEditingSubfloor(null)
+      setEditSubfloorValue('')
+      setEditSubfloorReadings([])
+    } catch {
+      // Keep editing state on error so user can retry
+    } finally {
+      setSavingSubfloor(false)
+    }
+  }
+
+  function cancelSubfloorEdit() {
+    setEditingSubfloor(null)
+    setEditSubfloorValue('')
+    setEditSubfloorReadings([])
   }
 
   // --- Render ---
@@ -1029,6 +1122,131 @@ export function ReportPreviewHTML({
                         className="absolute pointer-events-auto w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-orange-600 text-white shadow-lg flex items-center justify-center hover:bg-orange-700 hover:scale-110 transition-all animate-pulse"
                         style={{ left: 220, top: od.top }}
                         title={`Edit ${od.label}`}
+                      >
+                        <Pencil className="w-5 h-5" />
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Subfloor Inline Edit Overlay — 4 section fields */}
+              {subfloorData && subfloorPositions.length > 0 && (
+                <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 45 }}>
+                  {subfloorPositions.map((sf) => {
+                    const isEditing = editingSubfloor === sf.key
+
+                    if (isEditing) {
+                      // Editing: show inline editor card
+                      const isTextarea = sf.key === 'observations' || sf.key === 'comments'
+                      const isDropdown = sf.key === 'landscape'
+                      const isMoisture = sf.key === 'moisture'
+
+                      return (
+                        <div
+                          key={sf.key}
+                          className="absolute pointer-events-auto bg-white rounded-lg shadow-xl border-2 border-orange-400 p-3"
+                          style={{ left: 30, top: sf.top - 5, width: isMoisture ? 400 : 500 }}
+                        >
+                          <div className="text-xs text-gray-500 mb-1.5 font-semibold uppercase tracking-wide">
+                            {sf.label}
+                          </div>
+
+                          {isTextarea && (
+                            <textarea
+                              value={editSubfloorValue}
+                              onChange={(e) => setEditSubfloorValue(e.target.value)}
+                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-vertical"
+                              style={{ minHeight: '200px' }}
+                              autoFocus
+                            />
+                          )}
+
+                          {isDropdown && (
+                            <select
+                              value={editSubfloorValue}
+                              onChange={(e) => setEditSubfloorValue(e.target.value)}
+                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent min-h-[44px]"
+                              autoFocus
+                            >
+                              <option value="">Select...</option>
+                              <option value="sloping_block">Sloping Block</option>
+                              <option value="flat_block">Flat</option>
+                            </select>
+                          )}
+
+                          {isMoisture && (
+                            <div className="space-y-2">
+                              {editSubfloorReadings.map((reading, idx) => (
+                                <div key={reading.id} className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={reading.location}
+                                    onChange={(e) => {
+                                      const next = [...editSubfloorReadings]
+                                      next[idx] = { ...next[idx], location: e.target.value }
+                                      setEditSubfloorReadings(next)
+                                    }}
+                                    className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    placeholder="Location"
+                                  />
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.1"
+                                    value={reading.moisture_percentage}
+                                    onChange={(e) => {
+                                      const next = [...editSubfloorReadings]
+                                      next[idx] = { ...next[idx], moisture_percentage: parseFloat(e.target.value) || 0 }
+                                      setEditSubfloorReadings(next)
+                                    }}
+                                    className="w-20 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    autoFocus={idx === 0}
+                                  />
+                                  <span className="text-sm text-gray-500">%</span>
+                                </div>
+                              ))}
+                              {editSubfloorReadings.length === 0 && (
+                                <p className="text-sm text-gray-400 italic">No moisture readings recorded.</p>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="flex justify-end gap-2 mt-2">
+                            <button
+                              onClick={cancelSubfloorEdit}
+                              disabled={savingSubfloor}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded text-sm text-gray-600 hover:bg-gray-100 transition-colors min-h-[36px]"
+                            >
+                              <X className="w-4 h-4" />
+                              Cancel
+                            </button>
+                            <button
+                              onClick={saveSubfloorEdit}
+                              disabled={savingSubfloor}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded text-sm text-white bg-orange-600 hover:bg-orange-700 transition-colors min-h-[36px]"
+                            >
+                              {savingSubfloor ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Check className="w-4 h-4" />
+                              )}
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    // Not editing: show pencil button next to heading
+                    return (
+                      <button
+                        key={sf.key}
+                        onClick={() => startSubfloorEdit(sf.key)}
+                        className="absolute pointer-events-auto w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-orange-600 text-white shadow-lg flex items-center justify-center hover:bg-orange-700 hover:scale-110 transition-all animate-pulse"
+                        style={{ left: 760, top: sf.top }}
+                        title={`Edit ${sf.label}`}
                       >
                         <Pencil className="w-5 h-5" />
                       </button>

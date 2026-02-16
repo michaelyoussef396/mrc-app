@@ -8,7 +8,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
-import type { Page1Data, VPData, OutdoorData, AreaRecord } from '@/components/pdf/ReportPreviewHTML'
+import type { Page1Data, VPData, OutdoorData, AreaRecord, SubfloorEditData } from '@/components/pdf/ReportPreviewHTML'
 import { EditFieldModal } from '@/components/pdf/EditFieldModal'
 import { ImageUploadModal } from '@/components/pdf/ImageUploadModal'
 import { Button } from '@/components/ui/button'
@@ -85,6 +85,7 @@ interface Inspection {
   subtotal_ex_gst?: number
   gst_amount?: number
   total_inc_gst?: number
+  subfloor_required?: boolean
   lead?: {
     id: string
     full_name: string
@@ -147,6 +148,7 @@ const INSPECTION_SELECT = `
   subtotal_ex_gst,
   gst_amount,
   total_inc_gst,
+  subfloor_required,
   lead:leads(
     id,
     full_name,
@@ -212,6 +214,16 @@ export default function ViewReportPDF() {
   const [newAreaName, setNewAreaName] = useState('')
   const [savingNewArea, setSavingNewArea] = useState(false)
 
+  // Subfloor data + photos
+  const [subfloorData, setSubfloorData] = useState<{ id: string; observations: string; comments: string; landscape: string } | null>(null)
+  const [subfloorReadings, setSubfloorReadings] = useState<Array<{ id: string; location: string; moisture_percentage: number; reading_order: number }>>([])
+  const [subfloorPhotos, setSubfloorPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string }>>([])
+  const [subfloorPhotosLoading, setSubfloorPhotosLoading] = useState(false)
+  const [subfloorEditOpen, setSubfloorEditOpen] = useState(false)
+  const [subfloorPhotoPickerOpen, setSubfloorPhotoPickerOpen] = useState(false)
+  const [subfloorPhotoPickerLoading, setSubfloorPhotoPickerLoading] = useState(false)
+  const [replacingSubfloorPhotoId, setReplacingSubfloorPhotoId] = useState<string | null>(null)
+
   // Page 1 photo picker
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false)
@@ -271,6 +283,34 @@ export default function ViewReportPDF() {
         console.log(`[ViewReportPDF] Loaded ${areas?.length || 0} inspection areas`)
       }
       setAreasData((areas || []) as AreaRecord[])
+
+      // Load subfloor data if required
+      const inspData = data as unknown as Inspection
+      if (inspData.subfloor_required) {
+        const { data: sfData } = await supabase
+          .from('subfloor_data')
+          .select('id, observations, comments, landscape')
+          .eq('inspection_id', inspId)
+          .single()
+
+        if (sfData) {
+          setSubfloorData(sfData)
+
+          // Load subfloor readings
+          const { data: sfReadings } = await supabase
+            .from('subfloor_readings')
+            .select('id, location, moisture_percentage, reading_order')
+            .eq('subfloor_id', sfData.id)
+            .order('reading_order', { ascending: true })
+
+          setSubfloorReadings((sfReadings || []).map(r => ({
+            ...r,
+            moisture_percentage: parseFloat(String(r.moisture_percentage)) || 0,
+          })))
+
+          console.log(`[ViewReportPDF] Loaded subfloor: ${sfReadings?.length || 0} readings`)
+        }
+      }
     } catch (error) {
       console.error('Load error:', error)
       toast.error('Failed to load inspection')
@@ -461,6 +501,14 @@ export default function ViewReportPDF() {
     outdoor_dew_point: inspection.outdoor_dew_point ?? 0,
   } : null
 
+  // Subfloor data for inline editing
+  const subfloorEditData: SubfloorEditData | null = subfloorData ? {
+    observations: subfloorData.observations || '',
+    landscape: subfloorData.landscape || '',
+    comments: subfloorData.comments || '',
+    readings: subfloorReadings,
+  } : null
+
   async function handleVPFieldSave(key: string, value: string) {
     if (!inspection?.id) return
 
@@ -551,6 +599,147 @@ export default function ViewReportPDF() {
       console.error('Outdoor save failed:', error)
       toast.error('Failed to save')
       throw error
+    }
+  }
+
+  // --- Subfloor save handlers ---
+
+  async function handleSubfloorFieldSave(field: string, value: string) {
+    if (!subfloorData?.id) return
+
+    try {
+      const columnMap: Record<string, string> = {
+        observations: 'observations',
+        landscape: 'landscape',
+        comments: 'comments',
+      }
+
+      const column = columnMap[field]
+      if (!column) return
+
+      const { error } = await supabase
+        .from('subfloor_data')
+        .update({ [column]: value || null, updated_at: new Date().toISOString() })
+        .eq('id', subfloorData.id)
+
+      if (error) throw error
+
+      // Update local state
+      setSubfloorData(prev => prev ? { ...prev, [column]: value } : prev)
+
+      toast.success(`Subfloor ${field} updated`)
+      await handleGeneratePDF()
+    } catch (error) {
+      console.error('Subfloor save failed:', error)
+      toast.error('Failed to save')
+      throw error
+    }
+  }
+
+  async function handleSubfloorReadingSave(readingId: string, moisturePercentage: number, location: string) {
+    try {
+      const { error } = await supabase
+        .from('subfloor_readings')
+        .update({ moisture_percentage: moisturePercentage, location: location.trim() })
+        .eq('id', readingId)
+
+      if (error) throw error
+
+      // Update local state
+      setSubfloorReadings(prev =>
+        prev.map(r => r.id === readingId ? { ...r, moisture_percentage: moisturePercentage, location: location.trim() } : r)
+      )
+
+      toast.success('Moisture reading updated')
+      await handleGeneratePDF()
+    } catch (error) {
+      console.error('Subfloor reading save failed:', error)
+      toast.error('Failed to save reading')
+      throw error
+    }
+  }
+
+  async function loadSubfloorPhotos() {
+    if (!subfloorData?.id) return
+    setSubfloorPhotosLoading(true)
+    try {
+      const { data: photos } = await supabase
+        .from('photos')
+        .select('id, storage_path')
+        .eq('subfloor_id', subfloorData.id)
+        .order('created_at', { ascending: true })
+
+      if (photos && photos.length > 0) {
+        const withUrls = await Promise.all(
+          photos.map(async (p) => {
+            try {
+              const signed_url = await getPhotoSignedUrl(p.storage_path)
+              return { id: p.id, storage_path: p.storage_path, signed_url }
+            } catch {
+              return { id: p.id, storage_path: p.storage_path, signed_url: '' }
+            }
+          })
+        )
+        setSubfloorPhotos(withUrls)
+      } else {
+        setSubfloorPhotos([])
+      }
+    } catch (err) {
+      console.warn('Failed to load subfloor photos:', err)
+    } finally {
+      setSubfloorPhotosLoading(false)
+    }
+  }
+
+  async function openSubfloorPhotoPicker(replacingPhotoId: string) {
+    if (!inspection?.id) return
+    setReplacingSubfloorPhotoId(replacingPhotoId)
+    setSubfloorPhotoPickerOpen(true)
+    setSubfloorPhotoPickerLoading(true)
+    try {
+      const photos = await loadInspectionPhotos(inspection.id)
+      setAllInspectionPhotos(
+        photos
+          .filter(p => p.signed_url)
+          .map(p => ({
+            id: p.id,
+            storage_path: p.storage_path,
+            signed_url: p.signed_url,
+            caption: p.caption,
+            photo_type: p.photo_type,
+            area_id: p.area_id,
+          }))
+      )
+    } catch {
+      setAllInspectionPhotos([])
+    } finally {
+      setSubfloorPhotoPickerLoading(false)
+    }
+  }
+
+  async function handleSwapSubfloorPhoto(newPhotoId: string) {
+    if (!replacingSubfloorPhotoId || !subfloorData?.id) return
+    setSubfloorPhotoPickerOpen(false)
+    try {
+      // Remove subfloor_id from old photo
+      await supabase
+        .from('photos')
+        .update({ subfloor_id: null })
+        .eq('id', replacingSubfloorPhotoId)
+
+      // Set subfloor_id on new photo
+      await supabase
+        .from('photos')
+        .update({ subfloor_id: subfloorData.id })
+        .eq('id', newPhotoId)
+
+      toast.success('Subfloor photo swapped')
+      setReplacingSubfloorPhotoId(null)
+      await loadSubfloorPhotos()
+      await handleGeneratePDF()
+    } catch (err) {
+      console.error('Swap subfloor photo failed:', err)
+      toast.error('Failed to swap photo')
     }
   }
 
@@ -1167,6 +1356,9 @@ export default function ViewReportPDF() {
           onDemoSave={handleDemoSave}
           outdoorData={outdoorData}
           onOutdoorFieldSave={handleOutdoorFieldSave}
+          subfloorData={subfloorEditData}
+          onSubfloorFieldSave={handleSubfloorFieldSave}
+          onSubfloorReadingSave={handleSubfloorReadingSave}
         />
       </div>
 
@@ -1180,6 +1372,17 @@ export default function ViewReportPDF() {
           {areasData.length > 0 ? `Edit Areas (${areasData.length})` : 'Add Areas'}
         </span>
       </button>
+
+      {/* Floating Edit Subfloor Photos Button — only show if subfloor is required */}
+      {inspection.subfloor_required && subfloorData && (
+        <button
+          onClick={() => { setSubfloorEditOpen(true); loadSubfloorPhotos() }}
+          className="fixed bottom-40 md:bottom-20 right-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 z-50 min-h-[48px] transition-colors animate-pulse"
+        >
+          <Camera className="h-5 w-5" />
+          <span className="font-medium text-sm">Subfloor Photos</span>
+        </button>
+      )}
 
       {/* Area Edit Dialog */}
       <Dialog open={areaEditOpen} onOpenChange={setAreaEditOpen}>
@@ -1584,6 +1787,105 @@ export default function ViewReportPDF() {
           )}
         </DialogContent>
       </Dialog>
+      {/* Subfloor Photos Dialog */}
+      <Dialog open={subfloorEditOpen} onOpenChange={setSubfloorEditOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Subfloor Photos</DialogTitle>
+            <DialogDescription>
+              Click any photo to replace it with a different one
+            </DialogDescription>
+          </DialogHeader>
+
+          {subfloorPhotosLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              <span className="ml-2 text-sm text-gray-500">Loading subfloor photos...</span>
+            </div>
+          ) : subfloorPhotos.length > 0 ? (
+            <div className="grid grid-cols-4 gap-2">
+              {subfloorPhotos.map((photo, idx) => (
+                <button
+                  key={photo.id}
+                  onClick={() => openSubfloorPhotoPicker(photo.id)}
+                  className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer group"
+                >
+                  {photo.signed_url ? (
+                    <img
+                      src={photo.signed_url}
+                      alt={`Subfloor photo ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                      No preview
+                    </div>
+                  )}
+                  <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded z-10">
+                    {idx + 1}
+                  </div>
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                    <Edit className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-gray-500 py-4">No subfloor photos found</p>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Subfloor Photo Picker (swap photo) */}
+      <Dialog open={subfloorPhotoPickerOpen} onOpenChange={setSubfloorPhotoPickerOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Replace Subfloor Photo</DialogTitle>
+            <DialogDescription>
+              Select a photo to replace the current one
+            </DialogDescription>
+          </DialogHeader>
+
+          {subfloorPhotoPickerLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+          ) : (
+            <>
+              {allInspectionPhotos.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {allInspectionPhotos.map((photo) => {
+                    const isCurrent = photo.id === replacingSubfloorPhotoId
+                    return (
+                      <button
+                        key={photo.id}
+                        onClick={() => handleSwapSubfloorPhoto(photo.id)}
+                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:border-blue-500 hover:shadow-md ${
+                          isCurrent ? 'border-blue-500 ring-2 ring-blue-300' : 'border-gray-200'
+                        }`}
+                      >
+                        <img
+                          src={photo.signed_url}
+                          alt={photo.caption || photo.photo_type}
+                          className="w-full h-full object-cover"
+                        />
+                        {isCurrent && (
+                          <div className="absolute top-1 right-1 bg-blue-600 text-white rounded-full p-0.5">
+                            <Check className="w-3 h-3" />
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-4">No photos found</p>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Photo Picker Dialog (Page 1 cover photo) */}
       <Dialog open={photoPickerOpen} onOpenChange={setPhotoPickerOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
