@@ -66,6 +66,7 @@ interface InspectionArea {
   moisture_readings_enabled: boolean
   moisture_readings?: MoistureReading[]
   external_moisture: number | null
+  primary_photo_id?: string | null
 }
 
 interface Photo {
@@ -908,6 +909,29 @@ function parseProblemAnalysis(content: string | null | undefined): Record<string
   return sections
 }
 
+// Rebuild problem_analysis_content markdown from individual section values
+// Used when individual columns (what_we_discovered, etc.) override the blob
+function rebuildProblemAnalysisMarkdown(sections: Record<string, string>): string {
+  const sectionOrder: [string, string][] = [
+    ['what_we_discovered', 'WHAT WE DISCOVERED'],
+    ['identified_causes', 'IDENTIFIED CAUSES'],
+    ['contributing_factors', 'CONTRIBUTING FACTORS'],
+    ['why_this_happened', 'WHY THIS HAPPENED'],
+    ['immediate_actions', 'IMMEDIATE ACTIONS'],
+    ['long_term_protection', 'LONG-TERM PROTECTION'],
+    ['what_success_looks_like', 'WHAT SUCCESS LOOKS LIKE'],
+    ['timeline_text', 'TIMELINE'],
+  ]
+
+  let md = ''
+  for (const [key, header] of sectionOrder) {
+    if (sections[key]) {
+      md += `**${header}**\n${sections[key]}\n\n`
+    }
+  }
+  return md.trim()
+}
+
 // ===================================================================
 // TEMPLATE POPULATION FUNCTIONS
 // ===================================================================
@@ -949,7 +973,16 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
   // Generate one page per area
   const areaPages = areas.map(area => {
     let page = areaTemplate
-    const areaPhotos = photos?.filter(p => p.area_id === area.id) || []
+    // If area has a primary_photo_id override, put that photo first
+    let areaPhotos = photos?.filter(p => p.area_id === area.id) || []
+    if (area.primary_photo_id) {
+      const primaryPhoto = photos?.find(p => p.id === area.primary_photo_id)
+      if (primaryPhoto) {
+        // Put primary photo first, then any other area photos (excluding the primary to avoid dupes)
+        const others = areaPhotos.filter(p => p.id !== primaryPhoto.id)
+        areaPhotos = [primaryPhoto, ...others]
+      }
+    }
 
     // Environmental readings
     page = page.replace(/\{\{area_name\}\}/g, area.area_name || 'Unnamed Area')
@@ -1234,14 +1267,28 @@ function generateReportHtml(
   html = html.replace(/\{\{what_you_get_text\}\}/g, '')
 
   // ===== PAGE 5: PROBLEM ANALYSIS (multi-page overflow) =====
-  const problemContentHtml = markdownToHtml(inspection.problem_analysis_content || inspection.ai_summary_text) || defaultAnalysis
+  // Override sections with individual column values when user has edited them
+  let problemMarkdown = inspection.problem_analysis_content || inspection.ai_summary_text || ''
+  if (inspection.what_we_discovered || inspection.identified_causes || inspection.why_this_happened) {
+    const overrideSections = parseProblemAnalysis(problemMarkdown)
+    if (inspection.what_we_discovered) overrideSections.what_we_discovered = inspection.what_we_discovered
+    if (inspection.identified_causes) overrideSections.identified_causes = inspection.identified_causes
+    if (inspection.why_this_happened) overrideSections.why_this_happened = inspection.why_this_happened
+    problemMarkdown = rebuildProblemAnalysisMarkdown(overrideSections)
+  }
+  const problemContentHtml = markdownToHtml(problemMarkdown) || defaultAnalysis
   html = handleProblemAnalysisOverflow(html, problemContentHtml)
 
+  // Reparse sections after overrides for template placeholder compat
+  const finalProblemSections = (inspection.what_we_discovered || inspection.identified_causes || inspection.why_this_happened)
+    ? parseProblemAnalysis(problemMarkdown)
+    : problemSections
+
   // Clean up any remaining problem analysis placeholders (old template compat)
-  html = html.replace(/\{\{what_we_discovered\}\}/g, stripMarkdown(problemSections.what_we_discovered) || defaultAnalysis)
-  html = html.replace(/\{\{identified_causes\}\}/g, stripMarkdown(problemSections.identified_causes) || 'Causes to be determined after full analysis.')
-  html = html.replace(/\{\{contributing_factors\}\}/g, stripMarkdown(problemSections.contributing_factors) || '')
-  html = html.replace(/\{\{why_this_happened\}\}/g, stripMarkdown(problemSections.why_this_happened) || '')
+  html = html.replace(/\{\{what_we_discovered\}\}/g, stripMarkdown(finalProblemSections.what_we_discovered) || defaultAnalysis)
+  html = html.replace(/\{\{identified_causes\}\}/g, stripMarkdown(finalProblemSections.identified_causes) || 'Causes to be determined after full analysis.')
+  html = html.replace(/\{\{contributing_factors\}\}/g, stripMarkdown(finalProblemSections.contributing_factors) || '')
+  html = html.replace(/\{\{why_this_happened\}\}/g, stripMarkdown(finalProblemSections.why_this_happened) || '')
   html = html.replace(/\{\{immediate_actions\}\}/g, stripMarkdown(problemSections.immediate_actions) || 'Professional mould treatment recommended.')
   html = html.replace(/\{\{long_term_protection\}\}/g, stripMarkdown(problemSections.long_term_protection) || '')
   html = html.replace(/\{\{what_success_looks_like\}\}/g, stripMarkdown(problemSections.what_success_looks_like) || '')

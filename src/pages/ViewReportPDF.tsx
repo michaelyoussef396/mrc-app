@@ -617,6 +617,32 @@ export default function ViewReportPDF() {
 
   async function loadAreaPhotos(areaId: string) {
     try {
+      // Check if area has a primary_photo_id override
+      const { data: area } = await supabase
+        .from('inspection_areas')
+        .select('primary_photo_id')
+        .eq('id', areaId)
+        .single()
+
+      if (area?.primary_photo_id) {
+        const { data: photo } = await supabase
+          .from('photos')
+          .select('id, storage_path, file_name, caption')
+          .eq('id', area.primary_photo_id)
+          .single()
+
+        if (photo) {
+          try {
+            const signed_url = await getPhotoSignedUrl(photo.storage_path)
+            setAreaPhotos([{ id: photo.id, storage_path: photo.storage_path, signed_url, caption: photo.caption }])
+          } catch {
+            setAreaPhotos([{ id: photo.id, storage_path: photo.storage_path, signed_url: '', caption: photo.caption }])
+          }
+          return
+        }
+      }
+
+      // Fall back to photos assigned by area_id (technician uploads)
       const { data: photos } = await supabase
         .from('photos')
         .select('id, storage_path, file_name, caption')
@@ -685,25 +711,11 @@ export default function ViewReportPDF() {
     setAreaPhotoUploading(true)
     setAreaPhotoPickerOpen(false)
     try {
-      // Remove old area_id from any photo currently assigned to this area
-      const { data: existing } = await supabase
-        .from('photos')
-        .select('id')
-        .eq('area_id', editingAreaId)
-
-      if (existing) {
-        for (const p of existing) {
-          if (p.id !== photoId) {
-            await supabase.from('photos').update({ area_id: null }).eq('id', p.id)
-          }
-        }
-      }
-
-      // Set selected photo to this area
+      // Only update primary_photo_id on the area — never touch other photos' area_id
       await supabase
-        .from('photos')
-        .update({ area_id: editingAreaId, photo_type: 'area' })
-        .eq('id', photoId)
+        .from('inspection_areas')
+        .update({ primary_photo_id: photoId })
+        .eq('id', editingAreaId)
 
       // Update UI immediately
       const selectedPhoto = allInspectionPhotos.find(p => p.id === photoId)
@@ -734,20 +746,6 @@ export default function ViewReportPDF() {
     setAreaPhotoPickerOpen(false)
     setAreaPhotoUploading(true)
     try {
-      // Clear old photos from this area
-      const { data: oldPhotos } = await supabase
-        .from('photos')
-        .select('id')
-        .eq('area_id', editingAreaId)
-      if (oldPhotos) {
-        for (const old of oldPhotos) {
-          await supabase
-            .from('photos')
-            .update({ area_id: null })
-            .eq('id', old.id)
-        }
-      }
-
       const resized = await resizePhoto(file)
       const result = await uploadInspectionPhoto(resized, {
         inspection_id: inspection.id,
@@ -755,7 +753,13 @@ export default function ViewReportPDF() {
         photo_type: 'area',
         order_index: 0,
       })
-      // Replace — only show the new photo
+
+      // Set as primary photo for this area — no clearing other photos
+      await supabase
+        .from('inspection_areas')
+        .update({ primary_photo_id: result.photo_id })
+        .eq('id', editingAreaId)
+
       setAreaPhotos([{
         id: result.photo_id,
         storage_path: result.storage_path,
