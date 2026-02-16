@@ -36,6 +36,12 @@
             box-sizing: border-box;
         }
 
+        /* Override Tailwind's img { max-width: 100%; height: auto } when rendered inside the app */
+        .report-page img,
+        .report-page-2 img {
+            max-width: none !important;
+        }
+
         body {
             font-family: 'Galvji', sans-serif;
             -webkit-font-smoothing: antialiased;
