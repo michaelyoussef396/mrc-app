@@ -43,6 +43,7 @@ import {
 } from '@/lib/api/pdfGeneration'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml } from '@/lib/api/notifications'
 import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
+// Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { resizePhoto } from '@/lib/offline/photoResizer'
 import {
   Dialog,
@@ -423,13 +424,13 @@ export default function ViewReportPDF() {
     }
 
     setSendingEmail(true)
-    toast.loading('Preparing and sending email...', { id: 'send-email' })
+    toast.loading('Converting report to PDF...', { id: 'send-email' })
 
     try {
       const address = [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ')
 
-      // 1. Download report from Supabase Storage
-      let reportBlob: Blob
+      // 1. Download HTML report from Supabase Storage
+      let htmlContent: string
       const pathMatch = inspection.pdf_url.match(/inspection-reports\/(.+)$/)
 
       if (pathMatch) {
@@ -439,38 +440,42 @@ export default function ViewReportPDF() {
           .download(storagePath)
 
         if (error || !data) throw new Error('Failed to download report file')
-        reportBlob = data
+        htmlContent = await data.text()
       } else {
         const response = await fetch(inspection.pdf_url)
         if (!response.ok) throw new Error('Failed to fetch report file')
-        reportBlob = await response.blob()
+        htmlContent = await response.text()
       }
 
-      // 2. Convert to base64
+      // 2. Convert HTML to actual PDF (lazy-load heavy libraries)
+      toast.loading('Generating PDF pages...', { id: 'send-email' })
+      const { convertHtmlToPdf } = await import('@/lib/utils/htmlToPdf')
+      const pdfBlob = await convertHtmlToPdf(htmlContent)
+
+      // 3. Convert PDF blob to base64
       const base64Content = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader()
         reader.onload = () => {
           const result = reader.result as string
-          // Strip the data URL prefix (e.g. "data:text/html;base64,")
-          const base64 = result.split(',')[1]
-          resolve(base64)
+          resolve(result.split(',')[1])
         }
         reader.onerror = reject
-        reader.readAsDataURL(reportBlob)
+        reader.readAsDataURL(pdfBlob)
       })
 
-      // 3. Build branded HTML email body
+      // 4. Build branded HTML email body
+      toast.loading('Sending email...', { id: 'send-email' })
       const emailHtml = buildReportApprovedHtml({
         customerName: lead.full_name,
         address,
         jobNumber: inspection.job_number || undefined,
       })
 
-      // 4. Build filename
+      // 5. Build filename
       const jobNumber = inspection.job_number || 'Report'
-      const filename = `MRC-${jobNumber}-Inspection-Report.html`
+      const filename = `MRC-${jobNumber}-Inspection-Report.pdf`
 
-      // 5. Send email with attachment via existing send-email edge function
+      // 6. Send email with PDF attachment
       await sendEmail({
         to: lead.email,
         subject: emailSubject,
@@ -481,11 +486,11 @@ export default function ViewReportPDF() {
         attachments: [{
           filename,
           content: base64Content,
-          content_type: 'text/html',
+          content_type: 'application/pdf',
         }],
       })
 
-      // 6. Send Slack notification
+      // 7. Send Slack notification
       sendSlackNotification({
         event: 'report_approved',
         leadId: lead.id,
@@ -493,15 +498,15 @@ export default function ViewReportPDF() {
         propertyAddress: address,
       })
 
-      // 7. Update lead status to closed
+      // 8. Update lead status to closed
       await supabase
         .from('leads')
         .update({ status: 'closed' })
         .eq('id', lead.id)
 
-      toast.success(`Email sent to ${lead.email} with report attached!`, { id: 'send-email' })
+      toast.success(`Email sent to ${lead.email} with PDF attached!`, { id: 'send-email' })
 
-      // 8. Redirect to Lead View
+      // 9. Redirect to Lead View
       navigate(`/leads/${lead.id}`)
     } catch (error) {
       console.error('Send email error:', error)
@@ -1498,14 +1503,14 @@ export default function ViewReportPDF() {
 
             {/* Report attachment preview */}
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Report Attachment</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">PDF Attachment</label>
               <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-md border border-blue-200">
-                <FileText className="h-8 w-8 text-blue-600 flex-shrink-0" />
+                <FileText className="h-8 w-8 text-red-600 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">
-                    MRC-{inspection.job_number || 'Report'}-Inspection-Report.html
+                    MRC-{inspection.job_number || 'Report'}-Inspection-Report.pdf
                   </p>
-                  <p className="text-xs text-gray-500">Will be attached to the email</p>
+                  <p className="text-xs text-gray-500">Converted to PDF and attached automatically</p>
                 </div>
                 <Button
                   variant="outline" size="sm"
@@ -1516,9 +1521,6 @@ export default function ViewReportPDF() {
                   Preview
                 </Button>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                The inspection report file will be attached to the email along with the branded template above.
-              </p>
             </div>
 
             {/* Actions */}

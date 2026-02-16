@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { generateInspectionPDF } from '@/lib/api/pdfGeneration';
 import { sendEmail, buildReportApprovedHtml } from '@/lib/api/notifications';
+// Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { ChevronDown, Search, X, LayoutGrid, List, Loader2, Clock, Copy, ExternalLink, Send, FileText } from 'lucide-react';
 import {
   AlertDialog,
@@ -482,8 +483,8 @@ const LeadsManagement = () => {
         return;
       }
 
-      // 2. Download report from Supabase Storage
-      let reportBlob: Blob;
+      // 2. Download HTML report from Supabase Storage
+      let htmlContent: string;
       const pathMatch = inspection.pdf_url.match(/inspection-reports\/(.+)$/);
 
       if (pathMatch) {
@@ -493,14 +494,18 @@ const LeadsManagement = () => {
           .download(storagePath);
 
         if (error || !data) throw new Error('Failed to download report file');
-        reportBlob = data;
+        htmlContent = await data.text();
       } else {
         const response = await fetch(inspection.pdf_url);
         if (!response.ok) throw new Error('Failed to fetch report file');
-        reportBlob = await response.blob();
+        htmlContent = await response.text();
       }
 
-      // 3. Convert to base64
+      // 3. Convert HTML to actual PDF (lazy-load heavy libraries)
+      const { convertHtmlToPdf } = await import('@/lib/utils/htmlToPdf');
+      const pdfBlob = await convertHtmlToPdf(htmlContent);
+
+      // 4. Convert PDF to base64
       const base64Content = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -508,10 +513,10 @@ const LeadsManagement = () => {
           resolve(result.split(',')[1]);
         };
         reader.onerror = reject;
-        reader.readAsDataURL(reportBlob);
+        reader.readAsDataURL(pdfBlob);
       });
 
-      // 4. Build branded email HTML
+      // 5. Build branded email HTML
       const address = [emailTargetLead.property, emailTargetLead.suburb].filter(Boolean).join(', ');
       const emailHtml = buildReportApprovedHtml({
         customerName: emailTargetLead.name,
@@ -519,11 +524,11 @@ const LeadsManagement = () => {
         jobNumber: inspection.job_number || undefined,
       });
 
-      // 5. Build filename
+      // 6. Build filename
       const jobNumber = inspection.job_number || emailTargetLead.leadNumber || 'Report';
-      const filename = `MRC-${jobNumber}-Inspection-Report.html`;
+      const filename = `MRC-${jobNumber}-Inspection-Report.pdf`;
 
-      // 6. Send email with attachment
+      // 7. Send email with PDF attachment
       await sendEmail({
         to: emailTargetLead.email,
         subject: emailSubject,
@@ -534,7 +539,7 @@ const LeadsManagement = () => {
         attachments: [{
           filename,
           content: base64Content,
-          content_type: 'text/html',
+          content_type: 'application/pdf',
         }],
       });
 
