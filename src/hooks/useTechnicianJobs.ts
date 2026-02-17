@@ -61,9 +61,9 @@ interface UseTechnicianJobsResult {
  * Get today's date in YYYY-MM-DD format (Melbourne timezone)
  */
 function getTodayDate(): string {
-  return new Date().toLocaleDateString('en-CA', {
-    timeZone: 'Australia/Melbourne',
-  });
+  const melb = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' });
+  const d = new Date(melb);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /**
@@ -72,9 +72,9 @@ function getTodayDate(): string {
 function getDateOffset(days: number): string {
   const date = new Date();
   date.setDate(date.getDate() + days);
-  return date.toLocaleDateString('en-CA', {
-    timeZone: 'Australia/Melbourne',
-  });
+  const melb = date.toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' });
+  const d = new Date(melb);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /**
@@ -100,9 +100,9 @@ function formatTime(datetime: string): string {
 function extractDate(datetime: string): string {
   try {
     const date = new Date(datetime);
-    return date.toLocaleDateString('en-CA', {
-      timeZone: 'Australia/Melbourne',
-    });
+    const melb = date.toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' });
+    const d = new Date(melb);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   } catch {
     return '';
   }

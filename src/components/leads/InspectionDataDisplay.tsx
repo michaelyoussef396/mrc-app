@@ -640,7 +640,7 @@ function MoistureReadingsTable({ readings }: { readings: MoistureReadingData[] }
                       onClick={() => setLightbox({ photos: r.photos, index: 0 })}
                     />
                   ) : (
-                    <span className="text-xs text-slate-300">—</span>
+                    <span className="text-xs text-slate-400">—</span>
                   )}
                 </td>
               </tr>
@@ -687,7 +687,7 @@ function PhotoGrid({ photos, label }: { photos: PhotoWithUrl[]; label: string })
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <span className="material-symbols-outlined text-slate-300">broken_image</span>
+                <span className="material-symbols-outlined text-slate-400">broken_image</span>
               </div>
             )}
             <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1">

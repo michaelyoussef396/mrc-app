@@ -56,6 +56,11 @@ const statusOptions: StatusOption[] = [
 // COMPONENT
 // ============================================================================
 
+const PAGE_SIZE = 50;
+
+// Only fetch columns needed for the lead cards
+const LEAD_COLUMNS = 'id,full_name,email,phone,property_address_street,property_address_suburb,property_address_state,property_address_postcode,status,lead_source,created_at,updated_at,quoted_amount,issue_description,notes,lead_number,inspection_scheduled_date,scheduled_time' as const;
+
 const LeadsManagement = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -64,6 +69,8 @@ const LeadsManagement = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [leads, setLeads] = useState<TransformedLead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
@@ -162,6 +169,16 @@ const LeadsManagement = () => {
     },
 
     regeneratePDF: async (lead: TransformedLead) => {
+      const preInspectionStatuses = ['new_lead', 'contacted', 'inspection_waiting'];
+      if (preInspectionStatuses.includes(lead.status)) {
+        toast({
+          title: 'Cannot generate PDF',
+          description: 'Complete the inspection before generating a PDF.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       try {
         setRegeneratingPdfForLead(String(lead.id));
         const { data: inspection, error: inspectionError } = await supabase
@@ -234,15 +251,36 @@ const LeadsManagement = () => {
     loadLeads();
   }, [statusFilter, sortBy]);
 
+  const transformLead = (lead: any): TransformedLead => ({
+    id: lead.id,
+    name: lead.full_name || 'Unknown',
+    email: lead.email || '',
+    phone: lead.phone || '',
+    property: lead.property_address_street || '',
+    suburb: lead.property_address_suburb || '',
+    state: lead.property_address_state || 'VIC',
+    postcode: lead.property_address_postcode || '',
+    status: lead.status || 'new_lead',
+    source: lead.lead_source || 'Unknown',
+    dateCreated: lead.created_at,
+    lastContact: lead.updated_at,
+    estimatedValue: lead.quoted_amount ? parseFloat(lead.quoted_amount.toString()) : null,
+    issueDescription: lead.issue_description || lead.notes || '',
+    leadNumber: lead.lead_number,
+    inspection_scheduled_date: lead.inspection_scheduled_date,
+    scheduled_time: lead.scheduled_time,
+  });
+
   const loadLeads = async () => {
     setLoading(true);
 
     try {
       const { data, error } = await supabase
         .from('leads')
-        .select('*')
+        .select(LEAD_COLUMNS)
         .is('archived_at', null)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(PAGE_SIZE);
 
       if (error) {
         console.error('Error loading leads:', error);
@@ -252,27 +290,11 @@ const LeadsManagement = () => {
           variant: 'destructive',
         });
         setLeads([]);
+        setHasMore(false);
       } else {
-        const transformedLeads: TransformedLead[] = (data || []).map(lead => ({
-          id: lead.id,
-          name: lead.full_name || 'Unknown',
-          email: lead.email || '',
-          phone: lead.phone || '',
-          property: lead.property_address_street || '',
-          suburb: lead.property_address_suburb || '',
-          state: lead.property_address_state || 'VIC',
-          postcode: lead.property_address_postcode || '',
-          status: lead.status || 'new_lead',
-          source: lead.lead_source || 'Unknown',
-          dateCreated: lead.created_at,
-          lastContact: lead.updated_at,
-          estimatedValue: lead.quoted_amount ? parseFloat(lead.quoted_amount.toString()) : null,
-          issueDescription: lead.issue_description || lead.notes || '',
-          leadNumber: lead.lead_number,
-          inspection_scheduled_date: lead.inspection_scheduled_date,
-          scheduled_time: lead.scheduled_time,
-        }));
-        setLeads(transformedLeads);
+        const rows = data || [];
+        setLeads(rows.map(transformLead));
+        setHasMore(rows.length === PAGE_SIZE);
       }
     } catch (err) {
       console.error('Unexpected error loading leads:', err);
@@ -282,8 +304,35 @@ const LeadsManagement = () => {
         variant: 'destructive',
       });
       setLeads([]);
+      setHasMore(false);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMoreLeads = async () => {
+    setLoadingMore(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select(LEAD_COLUMNS)
+        .is('archived_at', null)
+        .order('created_at', { ascending: false })
+        .range(leads.length, leads.length + PAGE_SIZE - 1);
+
+      if (error) {
+        console.error('Error loading more leads:', error);
+        toast({ title: 'Error', description: 'Failed to load more leads.', variant: 'destructive' });
+      } else {
+        const rows = data || [];
+        setLeads(prev => [...prev, ...rows.map(transformLead)]);
+        setHasMore(rows.length === PAGE_SIZE);
+      }
+    } catch (err) {
+      console.error('Unexpected error loading more leads:', err);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -783,6 +832,25 @@ const LeadsManagement = () => {
           </div>
         )}
 
+        {/* Load More */}
+        {!loading && hasMore && (
+          <div className="text-center py-4">
+            <button
+              onClick={loadMoreLeads}
+              disabled={loadingMore}
+              className="h-11 px-8 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-medium
+                hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                flex items-center gap-2 mx-auto"
+            >
+              {loadingMore ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</>
+              ) : (
+                'Load More Leads'
+              )}
+            </button>
+          </div>
+        )}
+
         {/* Results Summary */}
         {!loading && filteredLeads.length > 0 && (
           <div className="text-center py-4 border-t border-slate-200">
@@ -794,6 +862,7 @@ const LeadsManagement = () => {
                   {' '}in <span className="font-medium text-slate-700">{statusOptions.find(s => s.value === statusFilter)?.label}</span>
                 </>
               )}
+              {hasMore && <span className="text-slate-400"> (more available)</span>}
             </p>
           </div>
         )}
@@ -954,7 +1023,7 @@ const LeadsManagement = () => {
             </div>
           ) : historyActivities.length === 0 ? (
             <div className="text-center py-12">
-              <span className="material-symbols-outlined text-4xl text-slate-300 mb-2 block">history</span>
+              <span className="material-symbols-outlined text-4xl text-slate-400 mb-2 block">history</span>
               <p className="text-sm text-slate-500">No activity recorded for this lead</p>
             </div>
           ) : (

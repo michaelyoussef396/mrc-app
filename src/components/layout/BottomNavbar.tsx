@@ -92,17 +92,19 @@ export function BottomNavbar() {
               key={item.path}
               onClick={() => navigate(item.path)}
               className={`nav-item ${active ? 'active' : ''}`}
+              aria-label={item.label}
             >
               <Icon className="nav-icon" />
               <span className="nav-label">{item.label}</span>
             </button>
           );
         })}
-        
+
         {/* Center FAB (Floating Action Button) */}
-        <button 
+        <button
           className={`fab-button ${showQuickActions ? 'active' : ''}`}
           onClick={toggleQuickActions}
+          aria-label="Quick actions"
         >
           <div className="fab-icon">
             <svg className="plus-icon" viewBox="0 0 24 24" fill="none">
@@ -127,6 +129,7 @@ export function BottomNavbar() {
               key={item.path}
               onClick={() => navigate(item.path)}
               className={`nav-item ${active ? 'active' : ''}`}
+              aria-label={item.label}
             >
               <Icon className="nav-icon" />
               <span className="nav-label">{item.label}</span>

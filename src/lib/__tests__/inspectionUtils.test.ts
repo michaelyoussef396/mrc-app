@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { calculateJobCost, calculateDewPoint, formatCurrency } from '../inspectionUtils'
 
 describe('calculateJobCost', () => {
-  // Base test parameters
+  // Base test parameters — timeWithoutDemo is in HOURS
   const baseParams = {
-    areas: [{ timeWithoutDemo: 120, demolitionTime: 0, demolitionRequired: false }],
+    areas: [{ timeWithoutDemo: 2, demolitionTime: 0, demolitionRequired: false }],
     subfloorTime: 0,
     hasSubfloor: false,
     dehumidifierQty: 0,
@@ -15,10 +15,9 @@ describe('calculateJobCost', () => {
 
   describe('Discount Cap Enforcement (CRITICAL - 13% MAX)', () => {
     it('should never exceed 13% discount for 33+ hours', () => {
-      // 33 hours = 13% cap
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 1980, demolitionTime: 0, demolitionRequired: false }], // 33h in minutes
+        areas: [{ timeWithoutDemo: 33, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(13)
     })
@@ -26,7 +25,7 @@ describe('calculateJobCost', () => {
     it('should never exceed 13% discount for 100 hours', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 6000, demolitionTime: 0, demolitionRequired: false }], // 100h
+        areas: [{ timeWithoutDemo: 100, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(13)
       expect(result.discountPercent).toBeLessThanOrEqual(13)
@@ -35,7 +34,7 @@ describe('calculateJobCost', () => {
     it('should never exceed 13% discount for extreme hours (1000h)', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 60000, demolitionTime: 0, demolitionRequired: false }], // 1000h
+        areas: [{ timeWithoutDemo: 1000, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(13)
       expect(result.discountPercent).toBeLessThanOrEqual(13)
@@ -46,7 +45,7 @@ describe('calculateJobCost', () => {
     it('should apply 0% discount for 1-8 hours', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 480, demolitionTime: 0, demolitionRequired: false }], // 8h
+        areas: [{ timeWithoutDemo: 8, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(0)
     })
@@ -54,7 +53,7 @@ describe('calculateJobCost', () => {
     it('should apply 7.5% discount for 9-16 hours', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 540, demolitionTime: 0, demolitionRequired: false }], // 9h
+        areas: [{ timeWithoutDemo: 9, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(7.5)
     })
@@ -62,7 +61,7 @@ describe('calculateJobCost', () => {
     it('should apply 7.5% discount for exactly 16 hours', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 960, demolitionTime: 0, demolitionRequired: false }], // 16h
+        areas: [{ timeWithoutDemo: 16, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(7.5)
     })
@@ -70,7 +69,7 @@ describe('calculateJobCost', () => {
     it('should apply 10% discount for 17-24 hours', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 1020, demolitionTime: 0, demolitionRequired: false }], // 17h
+        areas: [{ timeWithoutDemo: 17, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(10)
     })
@@ -78,7 +77,7 @@ describe('calculateJobCost', () => {
     it('should apply 10% discount for exactly 24 hours', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 1440, demolitionTime: 0, demolitionRequired: false }], // 24h
+        areas: [{ timeWithoutDemo: 24, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(10)
     })
@@ -86,7 +85,7 @@ describe('calculateJobCost', () => {
     it('should apply 12% discount for 25-32 hours', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 1500, demolitionTime: 0, demolitionRequired: false }], // 25h
+        areas: [{ timeWithoutDemo: 25, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(12)
     })
@@ -94,7 +93,7 @@ describe('calculateJobCost', () => {
     it('should apply 12% discount for exactly 32 hours', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 1920, demolitionTime: 0, demolitionRequired: false }], // 32h
+        areas: [{ timeWithoutDemo: 32, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(12)
     })
@@ -102,7 +101,7 @@ describe('calculateJobCost', () => {
     it('should apply 13% discount cap for 33+ hours', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 1980, demolitionTime: 0, demolitionRequired: false }], // 33h
+        areas: [{ timeWithoutDemo: 33, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(13)
     })
@@ -155,7 +154,7 @@ describe('calculateJobCost', () => {
       // 17 hours = 10% discount on labor only
       const resultWithDiscount = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 1020, demolitionTime: 0, demolitionRequired: false }], // 17h
+        areas: [{ timeWithoutDemo: 17, demolitionTime: 0, demolitionRequired: false }],
         dehumidifierQty: 1,
         estimatedDays: 3,
       })
@@ -168,7 +167,7 @@ describe('calculateJobCost', () => {
     it('should always apply 10% GST on subtotal', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 120, demolitionTime: 0, demolitionRequired: false }], // 2h
+        areas: [{ timeWithoutDemo: 2, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.gst).toBeCloseTo(result.subtotal * 0.1, 2)
     })
@@ -176,7 +175,7 @@ describe('calculateJobCost', () => {
     it('should calculate total as subtotal + GST', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 240, demolitionTime: 0, demolitionRequired: false }], // 4h
+        areas: [{ timeWithoutDemo: 4, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.total).toBeCloseTo(result.subtotal + result.gst, 2)
     })
@@ -186,7 +185,7 @@ describe('calculateJobCost', () => {
     it('should identify no demolition job type', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 120, demolitionTime: 0, demolitionRequired: false }],
+        areas: [{ timeWithoutDemo: 2, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.breakdown).toContain('No Demolition')
     })
@@ -194,7 +193,7 @@ describe('calculateJobCost', () => {
     it('should identify demolition job type', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 120, demolitionTime: 60, demolitionRequired: true }],
+        areas: [{ timeWithoutDemo: 2, demolitionTime: 1, demolitionRequired: true }],
       })
       expect(result.breakdown).toContain('Demolition')
     })
@@ -202,9 +201,9 @@ describe('calculateJobCost', () => {
     it('should identify subfloor job type (takes priority)', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 120, demolitionTime: 60, demolitionRequired: true }],
+        areas: [{ timeWithoutDemo: 2, demolitionTime: 1, demolitionRequired: true }],
         hasSubfloor: true,
-        subfloorTime: 60,
+        subfloorTime: 1,
       })
       expect(result.breakdown).toContain('Subfloor')
     })
@@ -214,13 +213,13 @@ describe('calculateJobCost', () => {
     it('should apply 2h minimum rate for jobs under 2 hours', () => {
       const result1h = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 60, demolitionTime: 0, demolitionRequired: false }], // 1h
+        areas: [{ timeWithoutDemo: 1, demolitionTime: 0, demolitionRequired: false }],
       })
       const result2h = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 120, demolitionTime: 0, demolitionRequired: false }], // 2h
+        areas: [{ timeWithoutDemo: 2, demolitionTime: 0, demolitionRequired: false }],
       })
-      // Both should have the same base rate (2h minimum)
+      // Both should have the same base rate (2h minimum), no discount applied (≤8h)
       expect(result1h.laborCost).toBe(result2h.laborCost)
       expect(result1h.laborCost).toBe(612) // BASE_RATES.no_demolition.base2h
     })
@@ -228,7 +227,7 @@ describe('calculateJobCost', () => {
     it('should calculate hourly rate between 2-8 hours', () => {
       const result4h = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 240, demolitionTime: 0, demolitionRequired: false }], // 4h
+        areas: [{ timeWithoutDemo: 4, demolitionTime: 0, demolitionRequired: false }],
       })
       // 2h base + 2h at hourly rate
       // hourlyRate = (1216.99 - 612) / 6 = 100.8316...
@@ -240,9 +239,9 @@ describe('calculateJobCost', () => {
     it('should apply 8h rate for exactly 8 hours', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 480, demolitionTime: 0, demolitionRequired: false }], // 8h
+        areas: [{ timeWithoutDemo: 8, demolitionTime: 0, demolitionRequired: false }],
       })
-      // 2h base + 6h at hourly rate = 8h full rate
+      // 2h base + 6h at hourly rate = 8h full rate, no discount (≤8h)
       expect(result.laborCost).toBeCloseTo(1216.99, 2)
     })
   })
@@ -259,24 +258,24 @@ describe('calculateJobCost', () => {
     it('should handle exactly 8h (boundary)', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 480, demolitionTime: 0, demolitionRequired: false }],
+        areas: [{ timeWithoutDemo: 8, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(0)
     })
 
-    it('should handle exactly 8h + 1 minute (boundary)', () => {
+    it('should handle just over 8h (boundary)', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 481, demolitionTime: 0, demolitionRequired: false }],
+        areas: [{ timeWithoutDemo: 8.5, demolitionTime: 0, demolitionRequired: false }],
       })
-      // 481 min = 8.016h which is > 8h, so 7.5% discount applies
+      // 8.5h > 8h, so 7.5% discount applies
       expect(result.discountPercent).toBe(7.5)
     })
 
     it('should handle exactly 9h (boundary)', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 540, demolitionTime: 0, demolitionRequired: false }],
+        areas: [{ timeWithoutDemo: 9, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(7.5) // Now 7.5%
     })
@@ -284,7 +283,7 @@ describe('calculateJobCost', () => {
     it('should handle exactly 16h (boundary)', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 960, demolitionTime: 0, demolitionRequired: false }],
+        areas: [{ timeWithoutDemo: 16, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(7.5)
     })
@@ -292,7 +291,7 @@ describe('calculateJobCost', () => {
     it('should handle exactly 17h (boundary)', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 1020, demolitionTime: 0, demolitionRequired: false }],
+        areas: [{ timeWithoutDemo: 17, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(10) // Now 10%
     })
@@ -300,7 +299,7 @@ describe('calculateJobCost', () => {
     it('should handle exactly 24h (boundary)', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 1440, demolitionTime: 0, demolitionRequired: false }],
+        areas: [{ timeWithoutDemo: 24, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(10)
     })
@@ -308,7 +307,7 @@ describe('calculateJobCost', () => {
     it('should handle exactly 25h (boundary)', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 1500, demolitionTime: 0, demolitionRequired: false }],
+        areas: [{ timeWithoutDemo: 25, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(12) // Now 12%
     })
@@ -316,7 +315,7 @@ describe('calculateJobCost', () => {
     it('should handle exactly 32h (boundary)', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 1920, demolitionTime: 0, demolitionRequired: false }],
+        areas: [{ timeWithoutDemo: 32, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(12)
     })
@@ -324,7 +323,7 @@ describe('calculateJobCost', () => {
     it('should handle exactly 33h (boundary - CAP)', () => {
       const result = calculateJobCost({
         ...baseParams,
-        areas: [{ timeWithoutDemo: 1980, demolitionTime: 0, demolitionRequired: false }],
+        areas: [{ timeWithoutDemo: 33, demolitionTime: 0, demolitionRequired: false }],
       })
       expect(result.discountPercent).toBe(13) // CAP
     })
@@ -334,7 +333,7 @@ describe('calculateJobCost', () => {
     it('should calculate typical 2-day job correctly', () => {
       // 16 hours (2 days), 2 dehu, 4 air movers, 1 RCD
       const result = calculateJobCost({
-        areas: [{ timeWithoutDemo: 960, demolitionTime: 0, demolitionRequired: false }],
+        areas: [{ timeWithoutDemo: 16, demolitionTime: 0, demolitionRequired: false }],
         subfloorTime: 0,
         hasSubfloor: false,
         dehumidifierQty: 2,
@@ -360,7 +359,7 @@ describe('calculateJobCost', () => {
       // 40 hours (5 days), demolition required
       // 4 dehu, 8 air movers, 2 RCDs
       const result = calculateJobCost({
-        areas: [{ timeWithoutDemo: 1800, demolitionTime: 600, demolitionRequired: true }],
+        areas: [{ timeWithoutDemo: 30, demolitionTime: 10, demolitionRequired: true }],
         subfloorTime: 0,
         hasSubfloor: false,
         dehumidifierQty: 4,

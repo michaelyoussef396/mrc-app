@@ -150,6 +150,7 @@ export default function TechnicianBottomNav() {
             <button
               key={item.path}
               onClick={() => handleNavClick(item)}
+              aria-label={item.label}
               className={`flex flex-col items-center gap-1 w-full transition-colors group`}
               style={{
                 color: active ? '#007AFF' : '#86868b',

@@ -411,6 +411,7 @@ export default function LeadCard({
           opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500
           transition-all flex items-center justify-center"
         title="Archive lead"
+        aria-label="Archive lead"
       >
         <span className="material-symbols-outlined text-lg">archive</span>
       </button>
