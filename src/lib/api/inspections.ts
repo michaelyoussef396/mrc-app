@@ -41,9 +41,9 @@ export interface InspectionData {
   subfloor_hours?: number
 
   // Equipment Quantities (editable)
-  dehumidifier_count?: number
-  air_mover_count?: number
-  rcd_count?: number
+  commercial_dehumidifier_qty?: number
+  air_movers_qty?: number
+  rcd_box_qty?: number
   equipment_days?: number
 
   // Manual Override
@@ -51,7 +51,7 @@ export interface InspectionData {
   manual_total_inc_gst?: number
 
   // Calculated Pricing Values
-  labor_cost_ex_gst?: number
+  labour_cost_ex_gst?: number
   discount_percent?: number
   subtotal_ex_gst?: number
   gst_amount?: number

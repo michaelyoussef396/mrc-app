@@ -86,7 +86,7 @@ interface Inspection {
   outdoor_humidity?: number
   outdoor_dew_point?: number
   outdoor_comments?: string
-  labor_cost_ex_gst?: number
+  labour_cost_ex_gst?: number
   equipment_cost_ex_gst?: number
   subtotal_ex_gst?: number
   gst_amount?: number
@@ -149,7 +149,7 @@ const INSPECTION_SELECT = `
   outdoor_humidity,
   outdoor_dew_point,
   outdoor_comments,
-  labor_cost_ex_gst,
+  labour_cost_ex_gst,
   equipment_cost_ex_gst,
   subtotal_ex_gst,
   gst_amount,
@@ -625,7 +625,7 @@ export default function ViewReportPDF() {
       'outdoor_humidity': () => inspection.outdoor_humidity || 0,
       'outdoor_dew_point': () => inspection.outdoor_dew_point || 0,
       'outdoor_comments': () => inspection.outdoor_comments || '',
-      'labor_cost': () => inspection.labor_cost_ex_gst || 0,
+      'labor_cost': () => inspection.labour_cost_ex_gst || 0,
       'equipment_cost': () => inspection.equipment_cost_ex_gst || 0,
       'subtotal_ex_gst': () => inspection.subtotal_ex_gst || 0,
       'gst_amount': () => inspection.gst_amount || 0,
@@ -687,7 +687,7 @@ export default function ViewReportPDF() {
 
   // Cost data for cleaning estimate editing
   const costData: CostData | null = inspection ? {
-    labor_cost_ex_gst: inspection.labor_cost_ex_gst ?? 0,
+    labour_cost_ex_gst: inspection.labour_cost_ex_gst ?? 0,
     equipment_cost_ex_gst: inspection.equipment_cost_ex_gst ?? 0,
     subtotal_ex_gst: inspection.subtotal_ex_gst ?? 0,
     gst_amount: inspection.gst_amount ?? 0,
@@ -851,7 +851,7 @@ export default function ViewReportPDF() {
       const { error } = await supabase
         .from('inspections')
         .update({
-          labor_cost_ex_gst: costs.labor_cost_ex_gst,
+          labour_cost_ex_gst: costs.labour_cost_ex_gst,
           equipment_cost_ex_gst: costs.equipment_cost_ex_gst,
           subtotal_ex_gst: costs.subtotal_ex_gst,
           gst_amount: costs.gst_amount,

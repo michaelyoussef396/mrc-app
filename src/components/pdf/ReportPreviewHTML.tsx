@@ -145,7 +145,7 @@ export interface SubfloorEditData {
 }
 
 export interface CostData {
-  labor_cost_ex_gst: number
+  labour_cost_ex_gst: number
   equipment_cost_ex_gst: number
   subtotal_ex_gst: number
   gst_amount: number
@@ -259,7 +259,7 @@ export function ReportPreviewHTML({
 
   // Cleaning Estimate — cost editing state
   const [editingCost, setEditingCost] = useState(false)
-  const [costForm, setCostForm] = useState<CostData>({ labor_cost_ex_gst: 0, equipment_cost_ex_gst: 0, subtotal_ex_gst: 0, gst_amount: 0, total_inc_gst: 0 })
+  const [costForm, setCostForm] = useState<CostData>({ labour_cost_ex_gst: 0, equipment_cost_ex_gst: 0, subtotal_ex_gst: 0, gst_amount: 0, total_inc_gst: 0 })
   const [savingCost, setSavingCost] = useState(false)
   const [costPageTop, setCostPageTop] = useState<number | null>(null)
 
@@ -725,8 +725,8 @@ export function ReportPreviewHTML({
     setCostForm(prev => {
       const next = { ...prev, [field]: value }
       // Auto-recalculate derived fields when labor or equipment changes
-      if (field === 'labor_cost_ex_gst' || field === 'equipment_cost_ex_gst') {
-        next.subtotal_ex_gst = Math.round((next.labor_cost_ex_gst + next.equipment_cost_ex_gst) * 100) / 100
+      if (field === 'labour_cost_ex_gst' || field === 'equipment_cost_ex_gst') {
+        next.subtotal_ex_gst = Math.round((next.labour_cost_ex_gst + next.equipment_cost_ex_gst) * 100) / 100
         next.gst_amount = Math.round(next.subtotal_ex_gst * 0.1 * 100) / 100
         next.total_inc_gst = Math.round((next.subtotal_ex_gst + next.gst_amount) * 100) / 100
       }
@@ -1348,8 +1348,8 @@ export function ReportPreviewHTML({
                               type="number"
                               step="0.01"
                               min="0"
-                              value={costForm.labor_cost_ex_gst}
-                              onChange={(e) => updateCostField('labor_cost_ex_gst', parseFloat(e.target.value) || 0)}
+                              value={costForm.labour_cost_ex_gst}
+                              onChange={(e) => updateCostField('labour_cost_ex_gst', parseFloat(e.target.value) || 0)}
                               className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                               autoFocus
                             />

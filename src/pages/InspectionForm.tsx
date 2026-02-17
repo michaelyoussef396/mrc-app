@@ -422,7 +422,7 @@ const InspectionForm = () => {
           noDemolitionHours: existingInspection.no_demolition_hours,
           demolitionHours: existingInspection.demolition_hours,
           subfloorHours: existingInspection.subfloor_hours,
-          laborCost: existingInspection.labor_cost_ex_gst,
+          laborCost: existingInspection.labour_cost_ex_gst,
           equipmentCost: existingInspection.equipment_cost_ex_gst
         })
 
@@ -782,7 +782,7 @@ const InspectionForm = () => {
             manualPriceOverride: existingInspection.manual_price_override ?? prev.manualPriceOverride ?? false,
             manualTotal: existingInspection.manual_total_inc_gst ?? prev.manualTotal ?? 0,
             // Calculated totals
-            laborCost: existingInspection.labor_cost_ex_gst ?? 0,
+            laborCost: existingInspection.labour_cost_ex_gst ?? 0,
             discountPercent: existingInspection.discount_percent ?? 0,
             subtotalExGst: existingInspection.subtotal_ex_gst ?? 0,
             gstAmount: existingInspection.gst_amount ?? 0,
@@ -809,7 +809,7 @@ const InspectionForm = () => {
 
           // Log loaded cost values for debugging
           console.log('💰 LOADED COST VALUES FROM DATABASE:', {
-            laborCost: existingInspection.labor_cost_ex_gst,
+            laborCost: existingInspection.labour_cost_ex_gst,
             equipmentCost: existingInspection.equipment_cost_ex_gst,
             subtotalExGst: existingInspection.subtotal_ex_gst,
             gstAmount: existingInspection.gst_amount,
@@ -995,7 +995,7 @@ const InspectionForm = () => {
             manualPriceOverride: existingInspection.manual_price_override ?? prev.manualPriceOverride ?? false,
             manualTotal: existingInspection.manual_total_inc_gst ?? prev.manualTotal ?? 0,
             // Calculated totals
-            laborCost: existingInspection.labor_cost_ex_gst ?? 0,
+            laborCost: existingInspection.labour_cost_ex_gst ?? 0,
             discountPercent: existingInspection.discount_percent ?? 0,
             subtotalExGst: existingInspection.subtotal_ex_gst ?? 0,
             gstAmount: existingInspection.gst_amount ?? 0,
@@ -1022,7 +1022,7 @@ const InspectionForm = () => {
 
           // Log loaded cost values for debugging (no areas path)
           console.log('💰 LOADED COST VALUES FROM DATABASE (no areas):', {
-            laborCost: existingInspection.labor_cost_ex_gst,
+            laborCost: existingInspection.labour_cost_ex_gst,
             equipmentCost: existingInspection.equipment_cost_ex_gst,
             subtotalExGst: existingInspection.subtotal_ex_gst,
             gstAmount: existingInspection.gst_amount,
@@ -2220,7 +2220,7 @@ const InspectionForm = () => {
         manual_price_override: formData.manualPriceOverride || false,
         manual_total_inc_gst: formData.manualTotal || null,
         // Calculated totals (computed from tier pricing)
-        labor_cost_ex_gst: (() => {
+        labour_cost_ex_gst: (() => {
           const result = calculateCostEstimate({
             nonDemoHours: formData.noDemolitionHours || 0,
             demolitionHours: formData.demolitionHours || 0,

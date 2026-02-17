@@ -506,7 +506,7 @@ function CostEstimateSection({ inspection: i }: { inspection: Record<string, any
 
       {/* Cost breakdown */}
       <div className="space-y-1 divide-y divide-slate-100">
-        <KV label="Labour (ex GST)" value={fmtCurrency(i.labor_cost_ex_gst)} />
+        <KV label="Labour (ex GST)" value={fmtCurrency(i.labour_cost_ex_gst)} />
         <KV label="Equipment (ex GST)" value={fmtCurrency(i.equipment_cost_ex_gst)} />
         {Number(i.discount_percent) > 0 && (
           <KV label="Discount" value={`${i.discount_percent}%`} />

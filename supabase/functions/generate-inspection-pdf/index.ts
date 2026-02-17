@@ -118,7 +118,7 @@ interface Inspection {
   ai_summary_text: string
   problem_analysis_content?: string
   demolition_content?: string
-  labor_cost_ex_gst: number
+  labour_cost_ex_gst: number
   equipment_cost_ex_gst: number
   subtotal_ex_gst: number
   gst_amount: number

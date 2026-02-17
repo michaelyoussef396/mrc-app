@@ -2512,7 +2512,7 @@ export default function TechnicianInspectionForm() {
             equipmentCost: ins.equipment_cost_ex_gst ? Number(ins.equipment_cost_ex_gst) : 0,
             manualPriceOverride: ins.manual_price_override || false,
             manualTotal: ins.manual_total_inc_gst ? Number(ins.manual_total_inc_gst) : 0,
-            laborCost: ins.labor_cost_ex_gst ? Number(ins.labor_cost_ex_gst) : 0,
+            laborCost: ins.labour_cost_ex_gst ? Number(ins.labour_cost_ex_gst) : 0,
             discountPercent: ins.discount_percent ? Number(ins.discount_percent) : 0,
             subtotalExGst: ins.subtotal_ex_gst ? Number(ins.subtotal_ex_gst) : 0,
             gstAmount: ins.gst_amount ? Number(ins.gst_amount) : 0,
@@ -2877,7 +2877,7 @@ export default function TechnicianInspectionForm() {
   };
 
   // Save handler - multi-table upsert to Supabase
-  const handleSave = async () => {
+  const handleSave = async (options?: { silent?: boolean }) => {
     if (!leadId || !user) return;
     setIsSaving(true);
 
@@ -2924,7 +2924,7 @@ export default function TechnicianInspectionForm() {
         equipment_cost_ex_gst: formData.equipmentCost || 0,
         manual_price_override: formData.manualPriceOverride,
         manual_total_inc_gst: formData.manualTotal || 0,
-        labor_cost_ex_gst: formData.laborCost || 0,
+        labour_cost_ex_gst: formData.laborCost || 0,
         discount_percent: formData.discountPercent || 0,
         subtotal_ex_gst: formData.subtotalExGst || 0,
         gst_amount: formData.gstAmount || 0,
@@ -3137,10 +3137,18 @@ export default function TechnicianInspectionForm() {
       }
 
       setHasUnsavedChanges(false);
-      toast({
-        title: 'Saved',
-        description: `Section ${currentSection} saved successfully`,
-      });
+      if (options?.silent) {
+        toast({
+          title: 'Auto-saved',
+          description: 'Your progress has been saved',
+          duration: 2000,
+        });
+      } else {
+        toast({
+          title: 'Saved',
+          description: `Section ${currentSection} saved successfully`,
+        });
+      }
     } catch (err: any) {
       console.error('[InspectionForm] Save error:', err);
       toast({
@@ -3153,6 +3161,57 @@ export default function TechnicianInspectionForm() {
     }
   };
 
+  // Auto-save every 30 seconds
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+  const hasUnsavedChangesRef = useRef(hasUnsavedChanges);
+  hasUnsavedChangesRef.current = hasUnsavedChanges;
+  const isSavingRef = useRef(isSaving);
+  isSavingRef.current = isSaving;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (hasUnsavedChangesRef.current && !isSavingRef.current) {
+        handleSaveRef.current({ silent: true });
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Form validation before submit
+  const [validationErrors, setValidationErrors] = useState<{ section: number; label: string; message: string }[]>([]);
+  const [showValidationDialog, setShowValidationDialog] = useState(false);
+
+  const validateForm = (): { section: number; label: string; message: string }[] => {
+    const errors: { section: number; label: string; message: string }[] = [];
+
+    // Section 1: Inspection date
+    if (!formData.inspectionDate) {
+      errors.push({ section: 1, label: 'Basic Information', message: 'Inspection date is required' });
+    }
+
+    // Section 3: At least one area with a name
+    const namedAreas = formData.areas.filter((a) => a.areaName?.trim());
+    if (namedAreas.length === 0) {
+      errors.push({ section: 3, label: 'Area Inspection', message: 'At least one area with a name is required' });
+    }
+
+    // Section 7: At least one work procedure or drying equipment
+    const hasWorkProcedure = formData.hepaVac || formData.antimicrobial ||
+      formData.stainRemovingAntimicrobial || formData.homeSanitationFogging || formData.dryingEquipmentEnabled;
+    if (!hasWorkProcedure) {
+      errors.push({ section: 7, label: 'Work Procedure', message: 'At least one work procedure or drying equipment must be selected' });
+    }
+
+    // Section 9: Hours > 0
+    const totalHours = (formData.noDemolitionHours || 0) + (formData.demolitionHours || 0) + (formData.subfloorHours || 0);
+    if (totalHours <= 0 && !formData.manualPriceOverride) {
+      errors.push({ section: 9, label: 'Cost Estimate', message: 'At least one hour type must be greater than 0' });
+    }
+
+    return errors;
+  };
+
   // Navigation handlers (auto-save on section change)
   const handlePrevious = () => {
     if (hasUnsavedChanges) handleSave();
@@ -3163,6 +3222,14 @@ export default function TechnicianInspectionForm() {
 
   const handleNext = async () => {
     if (currentSection === TOTAL_SECTIONS) {
+      // Validate before completing
+      const errors = validateForm();
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+        setShowValidationDialog(true);
+        return;
+      }
+
       // Final section — complete inspection, trigger AI generation, update status
       setIsCompleting(true);
       try {
@@ -3292,6 +3359,55 @@ export default function TechnicianInspectionForm() {
         showPrevious={currentSection > 1}
         isLastSection={currentSection === TOTAL_SECTIONS}
       />
+
+      {/* Validation errors dialog */}
+      {showValidationDialog && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-xl overflow-hidden">
+            <div className="p-5 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="material-symbols-outlined text-red-600" style={{ fontSize: '20px' }}>error</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-[#1d1d1f]">Missing Required Fields</h3>
+                  <p className="text-sm text-[#86868b]">Please complete the following before submitting</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 max-h-60 overflow-y-auto space-y-2">
+              {validationErrors.map((err, i) => (
+                <button
+                  key={i}
+                  className="w-full text-left p-3 rounded-xl bg-red-50 hover:bg-red-100 transition-colors flex items-center gap-3"
+                  style={{ minHeight: '48px' }}
+                  onClick={() => {
+                    setCurrentSection(err.section);
+                    setShowValidationDialog(false);
+                  }}
+                >
+                  <span className="w-7 h-7 bg-red-200 text-red-700 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0">
+                    {err.section}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-red-800">{err.label}</div>
+                    <div className="text-xs text-red-600 truncate">{err.message}</div>
+                  </div>
+                  <span className="material-symbols-outlined text-red-400" style={{ fontSize: '18px' }}>chevron_right</span>
+                </button>
+              ))}
+            </div>
+            <div className="p-4 border-t border-gray-100">
+              <button
+                className="w-full h-12 bg-[#007AFF] text-white font-semibold rounded-xl"
+                onClick={() => setShowValidationDialog(false)}
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Completing overlay — shown while AI summary generates */}
       {isCompleting && (

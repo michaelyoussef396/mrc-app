@@ -708,7 +708,7 @@ function buildEdgeFunctionPayload(inspection: any, areas: any[], lead: LeadData 
     additionalInfoForTech: inspection?.additional_info_technician,
     additionalEquipmentComments: inspection?.additional_equipment_comments,
     parkingOptions: inspection?.parking_option,
-    laborCost: inspection?.labor_cost_ex_gst,
+    laborCost: inspection?.labour_cost_ex_gst,
     equipmentCost: inspection?.equipment_cost_ex_gst,
     subtotalExGst: inspection?.subtotal_ex_gst,
     gstAmount: inspection?.gst_amount,
