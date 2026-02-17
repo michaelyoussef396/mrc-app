@@ -281,12 +281,10 @@ const InspectionForm = () => {
     // GUARD: Skip recalculation during initial load to preserve saved cost values
     // This prevents the race condition where loaded costs get immediately overwritten
     if (isInitialLoad.current) {
-      console.log('⏸️ Skipping recalculateCost - initial load in progress')
       return
     }
 
     // Recalculate cost whenever relevant fields change (user-driven changes only)
-    console.log('🔄 Running recalculateCost - user changed equipment/areas')
     recalculateCost()
   }, [
     formData.areas,
@@ -318,22 +316,10 @@ const InspectionForm = () => {
                        (!formData.subtotalExGst || formData.subtotalExGst === 0)
 
     if (needsRecalculation) {
-      console.log('🔄 Recalculating costs - equipment present but cost is $0', {
-        dehuQty: formData.commercialDehumidifierQty,
-        airQty: formData.airMoversQty,
-        rcdQty: formData.rcdBoxQty,
-        currentEquipmentCost: formData.equipmentCost
-      })
       recalculateCost()
     } else if (hasNoCosts) {
-      console.log('💰 No saved costs found - triggering initial calculation')
       recalculateCost()
     } else {
-      console.log('💰 Costs already calculated - using loaded values', {
-        labor: formData.laborCost,
-        equipment: formData.equipmentCost,
-        subtotal: formData.subtotalExGst
-      })
     }
   }, [loading]) // Only depends on loading state changing
 
@@ -343,7 +329,6 @@ const InspectionForm = () => {
     // MODE 1: Load existing inspection by ID (from URL path /inspection/:id)
     if (inspectionId) {
       try {
-        console.log('📋 Loading existing inspection by ID:', inspectionId)
         const { data: inspection, error } = await supabase
           .from('inspections')
           .select('*')
@@ -360,7 +345,6 @@ const InspectionForm = () => {
         }
 
         if (inspection && inspection.lead_id) {
-          console.log('✅ Found inspection, loading via lead ID:', inspection.lead_id)
           // Recursively use the existing leadId loading logic
           const { data: leadData, error: leadError } = await supabase
             .from('leads')
@@ -417,15 +401,6 @@ const InspectionForm = () => {
     try {
       const existingInspection = await getInspectionByLeadId(lid)
       if (existingInspection) {
-        console.log('✅ Found existing inspection, loading saved data:', existingInspection.id)
-        console.log('💰 Labour hours from database:', {
-          noDemolitionHours: existingInspection.no_demolition_hours,
-          demolitionHours: existingInspection.demolition_hours,
-          subfloorHours: existingInspection.subfloor_hours,
-          laborCost: existingInspection.labour_cost_ex_gst,
-          equipmentCost: existingInspection.equipment_cost_ex_gst
-        })
-
         // Set the inspection ID
         setCurrentInspectionId(existingInspection.id)
 
@@ -445,13 +420,10 @@ const InspectionForm = () => {
           })
           setAreaIdMapping(newMapping)
 
-          console.log('✅ Loaded area ID mapping:', newMapping)
-
           // Load all photos for this inspection
           let photosWithUrls: any[] = []
           try {
             photosWithUrls = await loadInspectionPhotos(existingInspection.id)
-            console.log('✅ Loaded photos from database:', photosWithUrls.length)
           } catch (error) {
             console.error('Failed to load photos:', error)
             // Continue without photos rather than failing completely
@@ -531,8 +503,6 @@ const InspectionForm = () => {
               }
             })
 
-            console.log(`✅ Loaded ${roomViewPhotos.length} photos for area "${dbArea.area_name}"`)
-
             // Load moisture readings for this area
             const { data: dbMoistureReadings, error: moistureError } = await supabase
               .from('moisture_readings')
@@ -549,12 +519,6 @@ const InspectionForm = () => {
               // Get single photo for THIS SPECIFIC moisture reading using moisture_reading_id
               const moisturePhoto = areaPhotos.find(p => p.moisture_reading_id === dbReading.id)
 
-              console.log(`📸 LOADING PHOTO FOR READING "${dbReading.title || 'untitled'}":`, {
-                readingId: dbReading.id,
-                photoFound: !!moisturePhoto,
-                photoId: moisturePhoto?.id || null
-              })
-
               return {
                 id: dbReading.id,
                 title: dbReading.title || '',
@@ -567,8 +531,6 @@ const InspectionForm = () => {
                 } : null
               }
             })
-
-            console.log(`✅ Loaded ${moistureReadings.length} moisture readings for area "${dbArea.area_name}"`)
 
             return {
               id: dbArea.id,
@@ -602,8 +564,6 @@ const InspectionForm = () => {
               demolitionDescription: dbArea.demolition_description || ''
             }
           }))
-
-          console.log('✅ Transformed areas for UI:', transformedAreas)
 
           // Load subfloor data if it exists
           const { data: subfloorData, error: subfloorError } = await supabase
@@ -652,17 +612,7 @@ const InspectionForm = () => {
             })
           })
 
-          console.log('✅ Loaded subfloor data:', {
-            hasData: !!subfloorData,
-            observations: subfloorData?.observations,
-            comments: subfloorData?.comments,
-            landscape: subfloorData?.landscape,
-            readingsCount: subfloorReadings.length,
-            photosCount: subfloorPhotos.length
-          })
-
           if (subfloorPhotos.length > 0) {
-            console.log(`✅ Loaded ${subfloorPhotos.length} subfloor photos`)
           }
 
           // Load outdoor photos
@@ -703,15 +653,6 @@ const InspectionForm = () => {
               timestamp: directionPhotoRecord.created_at
             }
           }
-
-          console.log('✅ Loaded outdoor photos:', {
-            count: outdoorPhotoRecords.length,
-            frontDoor: !!frontDoorPhoto,
-            frontHouse: !!frontHousePhoto,
-            mailbox: !!mailboxPhoto,
-            street: !!streetPhoto,
-            direction: !!directionPhoto
-          })
 
           // Populate ALL form fields with saved data including areas and subfloor
           setFormData(prev => ({
@@ -808,13 +749,6 @@ const InspectionForm = () => {
           }))
 
           // Log loaded cost values for debugging
-          console.log('💰 LOADED COST VALUES FROM DATABASE:', {
-            laborCost: existingInspection.labour_cost_ex_gst,
-            equipmentCost: existingInspection.equipment_cost_ex_gst,
-            subtotalExGst: existingInspection.subtotal_ex_gst,
-            gstAmount: existingInspection.gst_amount,
-            totalIncGst: existingInspection.total_inc_gst
-          })
         } else {
           // No areas in database, but still load subfloor data if it exists
           const { data: subfloorData, error: subfloorError } = await supabase
@@ -869,14 +803,7 @@ const InspectionForm = () => {
             console.error('Failed to load photos:', error)
           }
 
-          console.log('✅ Loaded subfloor data (no areas):', {
-            hasData: !!subfloorData,
-            readingsCount: subfloorReadings.length,
-            photosCount: subfloorPhotos.length
-          })
-
           if (subfloorPhotos.length > 0) {
-            console.log(`✅ Loaded ${subfloorPhotos.length} subfloor photos (no areas path)`)
           }
 
           // Load outdoor photos (no areas path)
@@ -917,15 +844,6 @@ const InspectionForm = () => {
               timestamp: directionPhotoRecord.created_at
             }
           }
-
-          console.log('✅ Loaded outdoor photos (no areas):', {
-            count: outdoorPhotoRecords.length,
-            frontDoor: !!frontDoorPhoto,
-            frontHouse: !!frontHousePhoto,
-            mailbox: !!mailboxPhoto,
-            street: !!streetPhoto,
-            direction: !!directionPhoto
-          })
 
           // Populate other fields including subfloor
           setFormData(prev => ({
@@ -1021,20 +939,8 @@ const InspectionForm = () => {
           }))
 
           // Log loaded cost values for debugging (no areas path)
-          console.log('💰 LOADED COST VALUES FROM DATABASE (no areas):', {
-            laborCost: existingInspection.labour_cost_ex_gst,
-            equipmentCost: existingInspection.equipment_cost_ex_gst,
-            subtotalExGst: existingInspection.subtotal_ex_gst,
-            gstAmount: existingInspection.gst_amount,
-            totalIncGst: existingInspection.total_inc_gst
-          })
         }
 
-        console.log('✅ Loaded saved inspection data:', {
-          attention_to: existingInspection.attention_to,
-          dwelling_type: existingInspection.dwelling_type,
-          property_occupation: existingInspection.property_occupation
-        })
       }
     } catch (error) {
       console.error('Error loading existing inspection:', error)
@@ -1137,14 +1043,6 @@ const InspectionForm = () => {
         return
       }
 
-      console.log('✅ Lead data loaded for inspection:', {
-        id: leadData.id,
-        lead_number: leadData.lead_number,
-        full_name: leadData.full_name,
-        suburb: leadData.property_address_suburb,
-        status: leadData.status,
-      })
-
       // Format lead data for inspection form
       const formattedLead = {
         id: leadData.id,
@@ -1182,7 +1080,6 @@ const InspectionForm = () => {
         dwellingType: prev.dwellingType || formattedLead.propertyType || ''
       }))
 
-      console.log('🎉 Inspection form populated with real lead data:', formattedLead.name)
     } catch (error) {
       console.error('❌ Exception loading lead:', error)
       toast({
@@ -1252,7 +1149,6 @@ const InspectionForm = () => {
       const inspection = await getInspectionByLeadId(leadId)
       if (inspection) {
         setCurrentInspectionId(inspection.id)
-        console.log('📋 Found existing inspection:', inspection.job_number)
         // TODO: Optionally load inspection data into form
       }
     } catch (error) {
@@ -1263,7 +1159,6 @@ const InspectionForm = () => {
   const handleInputChange = (field: string, value: any) => {
     // DEBUG: Log all subfloor field changes
     if (field.startsWith('subfloor')) {
-      console.log(`🔍 DEBUG - handleInputChange: ${field} =`, value)
     }
     setFormData(prev => ({ ...prev, [field]: value }))
   }
@@ -1333,7 +1228,6 @@ const InspectionForm = () => {
   useEffect(() => {
     // Skip during initial load to preserve saved values
     if (isInitialLoad.current) {
-      console.log('⏸️ Skipping auto-hour calculation - initial load in progress')
       return
     }
 
@@ -1357,28 +1251,9 @@ const InspectionForm = () => {
     const subfloorHours = formData.subfloorTreatmentTime || 0  // Also hours
 
     // Detailed breakdown for verification
-    console.log('═══════════════════════════════════════════════════════════')
-    console.log('🔢 SECTION 9 LABOUR HOURS - AUTO-CALCULATED FROM AREA DATA')
-    console.log('═══════════════════════════════════════════════════════════')
-    console.log(`📊 Total Areas: ${formData.areas.length}`)
-    console.log('')
-
     // Per-area breakdown
     formData.areas.forEach((area, idx) => {
-      console.log(`  Area ${idx + 1}: "${area.areaName || 'Unnamed'}"`)
-      console.log(`    ├─ Time Without Demo: ${area.timeWithoutDemo || 0} hours`)
-      console.log(`    ├─ Demolition Required: ${area.demolitionRequired ? 'YES' : 'NO'}`)
-      console.log(`    └─ Demolition Time: ${area.demolitionTime || 0} hours ${!area.demolitionRequired ? '(not counted)' : ''}`)
     })
-
-    console.log('')
-    console.log('📈 TOTALS:')
-    console.log(`  ├─ Non-Demo Hours: ${nonDemoHours}h (from ${formData.areas.filter(a => (a.timeWithoutDemo || 0) > 0).length} areas)`)
-    console.log(`  ├─ Demolition Hours: ${demoHours}h (from ${formData.areas.filter(a => a.demolitionRequired && (a.demolitionTime || 0) > 0).length} areas)`)
-    console.log(`  └─ Subfloor Hours: ${subfloorHours}h`)
-    console.log(`  ═══════════════════`)
-    console.log(`  GRAND TOTAL: ${nonDemoHours + demoHours + subfloorHours}h`)
-    console.log('═══════════════════════════════════════════════════════════')
 
     // Only update if different (prevent infinite loop)
     if (
@@ -1399,13 +1274,11 @@ const InspectionForm = () => {
   useEffect(() => {
     // GUARD: Skip recalculation during initial load to preserve saved cost values
     if (isInitialLoad.current) {
-      console.log('⏸️ Skipping cost recalculation useEffect - initial load in progress')
       return
     }
 
     // Skip if manual override is enabled
     if (formData.manualPriceOverride) {
-      console.log('⏸️ Skipping cost recalculation - manual override enabled')
       return
     }
 
@@ -1416,34 +1289,6 @@ const InspectionForm = () => {
       subfloorHours: formData.subfloorHours || 0,
       equipmentCost: formData.equipmentCost || 0,
       manualOverride: false,
-    })
-
-    console.log('💰 TIER PRICING CALCULATION:', {
-      input: {
-        nonDemoHours: formData.noDemolitionHours,
-        demolitionHours: formData.demolitionHours,
-        subfloorHours: formData.subfloorHours,
-        equipmentCost: formData.equipmentCost
-      },
-      labourBreakdown: {
-        nonDemoCost: result.nonDemoCost,
-        demolitionCost: result.demolitionCost,
-        subfloorCost: result.subfloorCost,
-        labourSubtotal: result.labourSubtotal
-      },
-      discount: {
-        totalHours: result.totalLabourHours,
-        percent: result.discountPercent,
-        amount: result.discountAmount,
-        tier: result.discountTierDescription
-      },
-      totals: {
-        labourAfterDiscount: result.labourAfterDiscount,
-        equipmentCost: result.equipmentCost,
-        subtotalExGst: result.subtotalExGst,
-        gst: result.gstAmount,
-        totalIncGst: result.totalIncGst
-      }
     })
 
     // Only update if values actually changed (prevent infinite loop)
@@ -1460,7 +1305,6 @@ const InspectionForm = () => {
       formData.gstAmount !== gst ||
       formData.totalIncGst !== total
     ) {
-      console.log('💰 UPDATING formData with tier pricing values')
       setFormData(prev => ({
         ...prev,
         laborCost: laborCost,
@@ -1586,7 +1430,6 @@ const InspectionForm = () => {
 
       // If area exists in database, delete it
       if (dbAreaId) {
-        console.log(`Deleting area from database: ${dbAreaId}`)
         await deleteInspectionArea(dbAreaId)
 
         // Remove from mapping
@@ -1596,9 +1439,7 @@ const InspectionForm = () => {
           return newMapping
         })
 
-        console.log(`Successfully deleted area ${dbAreaId} from database`)
       } else {
-        console.log(`Area ${areaId} not yet saved to database, only removing from local state`)
       }
 
       // Update local state (remove area from UI)
@@ -1657,11 +1498,6 @@ const InspectionForm = () => {
 
   const updateMoistureReading = (areaId: string, readingId: string, field: keyof MoistureReading, value: any) => {
     if (field === 'photo') {
-      console.log('🔍 DEBUG - updateMoistureReading called for photo:', {
-        areaId,
-        readingId,
-        photoId: value?.id || null
-      })
     }
 
     setFormData(prev => ({
@@ -1674,12 +1510,6 @@ const InspectionForm = () => {
             if (r.id === readingId) {
               const updated = { ...r, [field]: value }
               if (field === 'photo') {
-                console.log('🔍 DEBUG - Updated reading state:', {
-                  readingId: r.id,
-                  readingTitle: r.title,
-                  oldPhotoId: r.photo?.id || null,
-                  newPhotoId: updated.photo?.id || null
-                })
               }
               return updated
             }
@@ -1742,19 +1572,8 @@ const InspectionForm = () => {
     // Get database area_id for uploading
     let dbAreaId: string | undefined = areaId ? areaIdMapping[areaId] : undefined
 
-    console.log('🔍 DEBUG handlePhotoCapture:', {
-      areaId,
-      readingId,
-      type,
-      dbAreaId,
-      currentMapping: areaIdMapping,
-      hasDbAreaId: !!dbAreaId
-    })
-
     // If uploading to a specific area, ensure area is saved to database first
     if (areaId && !dbAreaId) {
-      console.log('⚠️ Area not saved yet - triggering save first')
-
       toast({
         title: 'Saving area first...',
         description: 'Please wait while we save the area before uploading photos',
@@ -1764,19 +1583,14 @@ const InspectionForm = () => {
       try {
         // Trigger a save to ensure area is in database
         const newMappings = await handleSave()
-        console.log('✅ Save complete, new mappings:', newMappings)
-
         // Get the database area_id from the returned mappings
         dbAreaId = newMappings[areaId]
-        console.log('📌 dbAreaId from mappings:', dbAreaId)
-
         // Double-check that the area was saved and mapped
         if (!dbAreaId) {
           console.error('❌ Area was not saved to database - no mapping found')
           throw new Error('Area was not saved to database')
         }
 
-        console.log('✅ Area saved successfully, dbAreaId:', dbAreaId)
       } catch (error) {
         console.error('❌ Failed to save area before photo upload:', error)
         toast({
@@ -1787,9 +1601,7 @@ const InspectionForm = () => {
         return
       }
     } else if (areaId && dbAreaId) {
-      console.log('✅ Using existing dbAreaId from mapping:', dbAreaId)
     } else {
-      console.log('ℹ️ No areaId provided - uploading general photo')
     }
 
     const input = document.createElement('input')
@@ -1856,11 +1668,8 @@ const InspectionForm = () => {
           if (existingSubfloor) {
             // Subfloor data already exists
             subfloorId = existingSubfloor.id
-            console.log('✅ Found existing subfloor_id for photo upload:', subfloorId)
           } else if (!fetchError || fetchError.code === 'PGRST116') {
             // Subfloor data doesn't exist yet - create it now
-            console.log('⚠️ Subfloor data not found, creating placeholder record for photo upload')
-
             const { data: newSubfloor, error: insertError } = await supabase
               .from('subfloor_data')
               .insert({
@@ -1879,7 +1688,6 @@ const InspectionForm = () => {
               console.error('❌ Error creating subfloor data for photo upload:', insertError)
             } else if (newSubfloor) {
               subfloorId = newSubfloor.id
-              console.log('✅ Created subfloor_data record with id:', subfloorId)
             }
           } else {
             console.error('❌ Error fetching subfloor_id for photo upload:', fetchError)
@@ -1894,15 +1702,7 @@ const InspectionForm = () => {
           caption: caption  // Add caption for photo categorization
         }
 
-        console.log('📸 Uploading photos with metadata:', uploadMetadata)
-        console.log('📸 Number of files:', files.length)
-
         const uploadResults = await uploadMultiplePhotos(files, uploadMetadata)
-
-        console.log('🔍 DEBUG - Upload results from uploadMultiplePhotos:', {
-          resultsCount: uploadResults.length,
-          photoIds: uploadResults.map(r => r.photo_id)
-        })
 
         // Create Photo objects with signed URLs
         const newPhotos: Photo[] = uploadResults.map((result, index) => ({
@@ -1912,23 +1712,9 @@ const InspectionForm = () => {
           timestamp: new Date().toISOString()
         }))
 
-        console.log('🔍 DEBUG - newPhotos array created:', {
-          photosCount: newPhotos.length,
-          photoIds: newPhotos.map(p => p.id),
-          areaId,
-          readingId,
-          isForMoistureReading: !!(areaId && readingId)
-        })
-
         // Update form state based on photo type
         if (areaId && readingId) {
           // Moisture reading photo (single photo only)
-          console.log('🔍 DEBUG - Setting moisture reading photo:', {
-            areaId,
-            readingId,
-            photoId: newPhotos[0]?.id
-          })
-
           updateMoistureReading(areaId, readingId, 'photo', newPhotos[0])
         } else if (areaId && type === 'roomView') {
           // Room view photos (limit 4)
@@ -2106,7 +1892,6 @@ const InspectionForm = () => {
 
       const inspection = await createInspection(inspectionData)
       setCurrentInspectionId(inspection.id)
-      console.log('✅ Created inspection:', inspection.job_number)
       return inspection.id
     } catch (error) {
       console.error('Failed to create inspection:', error)
@@ -2331,25 +2116,6 @@ const InspectionForm = () => {
       const actualGst = actualSubtotal * 0.10;
       const actualTotal = actualSubtotal + actualGst;
 
-      console.log('💾 SAVING SECTION 9 DATA:', {
-        manualOverrideEnabled: formData.manualPriceOverride,
-        laborHours: { nonDemo: formData.noDemolitionHours, demolition: formData.demolitionHours, subfloor: formData.subfloorHours },
-        laborAfterDiscount: logResult.labourAfterDiscount,
-        discountPercent: logResult.discountPercent,
-        equipmentCost: logEquipmentCost,
-        calculated: {
-          subtotalExGst: logResult.subtotalExGst,
-          gstAmount: logResult.gstAmount,
-          totalIncGst: logResult.totalIncGst
-        },
-        actualSaved: {
-          subtotalExGst: actualSubtotal,
-          gstAmount: actualGst,
-          totalIncGst: actualTotal
-        },
-        formDataSubtotal: formData.subtotalExGst
-      })
-
       // Save all inspection areas
       for (let i = 0; i < formData.areas.length; i++) {
         const area = formData.areas[i]
@@ -2397,14 +2163,7 @@ const InspectionForm = () => {
         }))
 
         // Save moisture readings for this area
-        console.log(`🔍 DEBUG: Checking moisture readings for area "${area.areaName}":`, {
-          moistureReadingsEnabled: area.moistureReadingsEnabled,
-          moistureReadingsLength: area.moistureReadings.length,
-          moistureReadings: area.moistureReadings
-        })
-
         if (area.moistureReadings.length > 0) {
-          console.log(`✅ SAVING ${area.moistureReadings.length} moisture readings for area "${area.areaName}"`)
           // UPSERT moisture readings to preserve IDs (critical for photo linking)
           for (let j = 0; j < area.moistureReadings.length; j++) {
             const reading = area.moistureReadings[j]
@@ -2461,7 +2220,6 @@ const InspectionForm = () => {
                 continue
               }
               insertedReading = data
-              console.log(`✅ Updated moisture reading ${j + 1} "${reading.title}" (ID: ${data.id})`)
             } else {
               // INSERT new moisture reading
               const { data, error: insertError } = await supabase
@@ -2486,25 +2244,11 @@ const InspectionForm = () => {
                 continue
               }
               insertedReading = data
-              console.log(`✅ Inserted moisture reading ${j + 1} "${reading.title}" (ID: ${data.id})`)
             }
 
             // Update photo to link it to this moisture reading
-            console.log(`DEBUG: Moisture reading ${j + 1} "${reading.title}":`, {
-              hasReading: !!insertedReading,
-              readingId: insertedReading?.id,
-              hasPhoto: !!reading.photo,
-              photoId: reading.photo?.id || null
-            })
-
             if (insertedReading && reading.photo) {
               const photoId = reading.photo.id
-              console.log(`🔗 ATTEMPTING TO LINK PHOTO:`, {
-                readingId: insertedReading.id,
-                readingTitle: reading.title,
-                photoId: photoId
-              })
-
               const { data: updateData, error: updateError } = await supabase
                 .from('photos')
                 .update({ moisture_reading_id: insertedReading.id })
@@ -2518,11 +2262,6 @@ const InspectionForm = () => {
                   readingId: insertedReading.id
                 })
               } else {
-                console.log(`✅ UPDATE QUERY SUCCESSFUL:`, {
-                  rowsReturned: updateData?.length || 0,
-                  updatedPhoto: updateData
-                })
-
                 // VERIFICATION: Query the database to confirm the update
                 const { data: verifyData, error: verifyError } = await supabase
                   .from('photos')
@@ -2533,9 +2272,7 @@ const InspectionForm = () => {
                 if (verifyError) {
                   console.error(`❌ VERIFICATION QUERY FAILED:`, verifyError)
                 } else {
-                  console.log(`🔍 VERIFICATION QUERY RESULT:`, verifyData)
                   if (verifyData.moisture_reading_id === insertedReading.id) {
-                    console.log(`✅ CONFIRMED: Photo linked to moisture reading "${reading.title}"`)
                   } else {
                     console.error(`❌ VERIFICATION FAILED: Photo not properly linked!`, {
                       expected: insertedReading.id,
@@ -2549,25 +2286,13 @@ const InspectionForm = () => {
             }
           }
 
-          console.log(`✅ Saved ${area.moistureReadings.length} moisture readings for area "${area.areaName}"`)
         } else {
-          console.log(`⚠️ SKIPPING moisture readings for area "${area.areaName}": moistureReadingsEnabled=${area.moistureReadingsEnabled}, length=${area.moistureReadings.length}`)
         }
       }
 
       // Save subfloor data if enabled
       if (formData.subfloorEnabled) {
         // DEBUG: Log all subfloor form values before save
-        console.log('🔍 DEBUG - Subfloor formData values:', {
-          subfloorEnabled: formData.subfloorEnabled,
-          subfloorObservations: formData.subfloorObservations,
-          subfloorComments: formData.subfloorComments,
-          subfloorLandscape: formData.subfloorLandscape,
-          subfloorSanitation: formData.subfloorSanitation,
-          subfloorRacking: formData.subfloorRacking,
-          subfloorTreatmentTime: formData.subfloorTreatmentTime
-        })
-
         // Use UPSERT to insert or update subfloor data (preserves existing ID if record exists)
         const { data: subfloorData, error: upsertError } = await supabase
           .from('subfloor_data')
@@ -2589,8 +2314,6 @@ const InspectionForm = () => {
         if (upsertError) {
           console.error('Error saving subfloor data:', upsertError)
         } else {
-          console.log('✅ Saved subfloor data (upsert)')
-
           // Save subfloor moisture readings if there are any
           if (subfloorData && formData.subfloorReadings && formData.subfloorReadings.length > 0) {
             // First, delete existing readings for this subfloor
@@ -2624,12 +2347,9 @@ const InspectionForm = () => {
               }
             }
 
-            console.log(`✅ Saved ${formData.subfloorReadings.length} subfloor moisture readings`)
           }
         }
       }
-
-      console.log('✅ Auto-saved inspection:', inspectionId)
 
       // Return the new mappings so photo upload can use them immediately
       return newMappings
@@ -2730,7 +2450,6 @@ const InspectionForm = () => {
       if (currentInspectionId) {
         generateInspectionPDF(currentInspectionId, { regenerate: false })
           .then(result => {
-            console.log('PDF generation completed:', result.success ? 'success' : 'failed', result)
           })
           .catch(error => {
             console.error('PDF generation failed:', error)
@@ -2856,14 +2575,6 @@ const InspectionForm = () => {
       })
 
       // === DEBUG LOGGING FOR BUG DIAGNOSIS ===
-      console.log('=== AI Generation Response ===')
-      console.log('Raw response:', data)
-      console.log('Response type:', typeof data)
-      console.log('Has success?', data?.success)
-      console.log('Has structured?', data?.structured)
-      console.log('Has error?', data?.error)
-      console.log('Raw response (if failed):', data?.raw_response)
-      console.log('Error object:', error)
       // === END DEBUG LOGGING ===
 
       if (error) {
@@ -3122,15 +2833,6 @@ const InspectionForm = () => {
                              formData.whatWeWillDoText
 
       // Debug logging for edge function call
-      console.log('=== Calling Edge Function ===')
-      console.log('Section:', section)
-      console.log('Custom Prompt:', customPrompt)
-      console.log('Current Content length:', currentContent?.length)
-      console.log('FormData sample:', {
-        clientName: sectionFormData.clientName,
-        areas: sectionFormData.areas?.length
-      })
-
       const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
         formData: sectionFormData,
         section: section,

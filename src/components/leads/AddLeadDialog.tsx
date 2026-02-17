@@ -91,7 +91,6 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
     const loadTechnicians = async () => {
       if (!open) return;
 
-      console.log('🔍 Loading technicians from Edge Function...');
 
       try {
         // Get session for authorization
@@ -131,9 +130,7 @@ export function AddLeadDialog({ open, onOpenChange }: AddLeadDialogProps) {
           a.full_name.localeCompare(b.full_name)
         );
 
-        console.log('✅ Technicians data:', technicianList);
         setTechnicians(technicianList);
-        console.log(`✅ Loaded ${technicianList.length} technicians`);
       } catch (error) {
         console.error("Error loading technicians:", error);
         toast({

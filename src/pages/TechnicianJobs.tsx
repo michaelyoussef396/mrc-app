@@ -449,7 +449,6 @@ export default function TechnicianJobs() {
 
   // Handlers
   const handleSearch = () => {
-    console.log('Search clicked');
   };
 
   const handleCall = (phone: string) => {

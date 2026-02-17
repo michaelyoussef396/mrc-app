@@ -36,7 +36,6 @@ export function useTodaysSchedule(): TodaysScheduleResult {
         timeZone: 'Australia/Melbourne'
       });
 
-      console.log('[Schedule] Fetching for date:', today);
 
       // Fetch inspections for today with lead details
       const { data, error: fetchError } = await supabase
@@ -64,7 +63,6 @@ export function useTodaysSchedule(): TodaysScheduleResult {
         throw fetchError;
       }
 
-      console.log('[Schedule] Raw data:', data);
 
       // Transform the data
       const transformedSchedule: ScheduleItem[] = (data || []).map((inspection: any) => {
@@ -85,7 +83,6 @@ export function useTodaysSchedule(): TodaysScheduleResult {
         };
       });
 
-      console.log('[Schedule] Transformed:', transformedSchedule);
       setSchedule(transformedSchedule);
 
     } catch (err) {

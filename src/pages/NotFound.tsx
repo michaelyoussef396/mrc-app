@@ -15,6 +15,7 @@ const NotFound = () => {
       case "technician":
         return "/technician";
       case "developer":
+        return "/developer";
       default:
         return "/dashboard";
     }

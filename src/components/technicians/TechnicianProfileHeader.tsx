@@ -65,7 +65,7 @@ export function TechnicianProfileHeader({ technician }: TechnicianProfileHeaderP
           </div>
 
           {/* Location */}
-          {technician.homeSuburb && (
+          {(technician.homeAddress || technician.homeSuburb) && (
             <div className="flex items-center justify-center sm:justify-start gap-1.5 mt-2">
               <span
                 className="material-symbols-outlined"
@@ -74,7 +74,7 @@ export function TechnicianProfileHeader({ technician }: TechnicianProfileHeaderP
                 location_on
               </span>
               <span className="text-sm" style={{ color: '#617589' }}>
-                Based in {technician.homeSuburb}
+                {technician.homeAddress || `Based in ${technician.homeSuburb}`}
               </span>
             </div>
           )}

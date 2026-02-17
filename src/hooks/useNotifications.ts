@@ -71,7 +71,6 @@ export function useNotifications(filters: NotificationFilters = {}) {
   useEffect(() => {
     if (!user) return;
 
-    console.log('📡 Setting up real-time notifications subscription');
 
     const channel = supabase
       .channel('notifications-changes')
@@ -84,7 +83,6 @@ export function useNotifications(filters: NotificationFilters = {}) {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('🔔 Notification change detected:', payload);
 
           // Invalidate and refetch notifications
           queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -94,7 +92,6 @@ export function useNotifications(filters: NotificationFilters = {}) {
       .subscribe();
 
     return () => {
-      console.log('🔌 Unsubscribing from notifications');
       supabase.removeChannel(channel);
     };
   }, [user, queryClient]);

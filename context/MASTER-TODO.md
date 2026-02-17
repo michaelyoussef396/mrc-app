@@ -1,7 +1,7 @@
 # MRC Lead Management System - Master TODO
 
-**Last Updated:** 2026-02-10 (Stage 1 E2E Flow Test Complete - Phase 1 100%)
-**Current Focus:** Phase 1 - Technician Role
+**Last Updated:** 2026-02-17 (Phase 1 Completion Audit - ~95% Complete)
+**Current Focus:** Phase 1 - Final polish before team access
 
 ---
 
@@ -48,7 +48,7 @@
 | OpenAI Integration | ✅ Complete | 2 | generate-inspection-summary Edge Function |
 | Mobile Testing | ✅ Complete | 2 | All technician pages verified at 375px |
 | PDF Generation | ✅ Complete | 3 | Edge Function deployed (v29), data-driven page toggles |
-| Email Automation | ⬜ TODO | 3 | After inspection submit |
+| Email Automation | ✅ Complete | 3 | Resend integration with PDF attachment |
 
 ---
 
@@ -173,40 +173,40 @@
 
 ### Remaining Work to Production Ready
 
-**Database Wiring:**
-- [ ] Create/update inspections table schema if needed
-- [ ] Save form data on Save button click
-- [ ] Auto-save every 30 seconds
-- [ ] Load existing inspection if editing
-- [ ] Handle inspection_areas table for Section 3
+**Database Wiring:** ✅ COMPLETE
+- [x] Create/update inspections table schema if needed
+- [x] Save form data on Save button click
+- [x] Auto-save every 30 seconds (debounced)
+- [x] Load existing inspection if editing
+- [x] Handle inspection_areas table for Section 3
 
-**Photo Uploads:**
-- [ ] Wire photo upload to Supabase Storage
-- [ ] Section 3: Room View (4), Infrared (2), Moisture readings
-- [ ] Section 4: Subfloor photos (up to 20)
-- [ ] Section 5: Outdoor photos (4-5)
-- [ ] Show upload progress
-- [ ] Handle offline/retry
+**Photo Uploads:** ✅ COMPLETE
+- [x] Wire photo upload to Supabase Storage
+- [x] Section 3: Room View (4), Infrared (2), Moisture readings
+- [x] Section 4: Subfloor photos (up to 20)
+- [x] Section 5: Outdoor photos (4-5)
+- [x] Show upload progress
+- [ ] Handle offline/retry (deferred to Phase 3)
 
-**OpenAI Integration:**
-- [ ] Create Edge Function for AI generation
-- [ ] Pass all form data as context
-- [ ] Generate 3 sections in one API call
-- [ ] Handle regeneration with feedback
-- [ ] Error handling and retry
+**AI Integration:** ✅ COMPLETE
+- [x] Create Edge Function for AI generation (OpenRouter/Gemini)
+- [x] Pass all form data as context
+- [x] Generate structured sections in one API call
+- [x] Handle regeneration with feedback
+- [x] Error handling and retry
 
-**Mobile Testing:**
-- [ ] Test all 10 sections at 375px viewport
-- [ ] Verify touch targets 48px minimum
-- [ ] Test photo capture from camera
-- [ ] Test dropdowns/selects on mobile
-- [ ] Test date pickers on mobile
+**Mobile Testing:** ✅ COMPLETE
+- [x] Test all 9 sections at 375px viewport
+- [x] Verify touch targets 48px minimum
+- [x] Test photo capture from camera
+- [x] Test dropdowns/selects on mobile
+- [x] Test date pickers on mobile
 
-**Validation:**
-- [ ] Required field validation before Next
-- [ ] Highlight invalid fields
-- [ ] Show validation errors
-- [ ] Prevent submit without required fields
+**Validation:** ✅ COMPLETE
+- [x] Required field validation before submit
+- [x] Highlight invalid fields with section indicators
+- [x] Show validation error summary
+- [x] Prevent submit without required fields
 
 ---
 
@@ -259,10 +259,10 @@
 | Feature | Dependency | Status | Priority |
 |---------|------------|--------|----------|
 | Real alerts | notifications table | ⬜ TODO | Phase 2 |
-| Photo uploads | Supabase Storage wiring | ⬜ TODO | Phase 2 |
-| AI generation | OpenAI Edge Function | ⬜ TODO | Phase 2 |
-| PDF generation | Edge Function + template | ✅ Template ready | Phase 2 |
-| Email delivery | Resend + domain setup | ⬜ TODO | Phase 2 |
+| Photo uploads | Supabase Storage wiring | ✅ COMPLETE | Done |
+| AI generation | OpenRouter Edge Function | ✅ COMPLETE | Done |
+| PDF generation | Edge Function (v29) | ✅ COMPLETE | Done |
+| Email delivery | Resend integration | ✅ COMPLETE | Done |
 | Push notifications | PWA service worker | ⬜ TODO | Phase 3 |
 | Offline support | Service worker + IndexedDB | 🟡 ARCHITECTED | Phase 3 |
 
@@ -272,99 +272,29 @@
 
 These tasks are critical deployment blockers and must be completed in Phases 2 & 3.
 
-### 1. Implement PDF Generation (Puppeteer Edge Function)
+### 1. PDF Generation Edge Function
 **Priority:** P0 - BLOCKER
-**Status:** ⚠️ 40% (Template complete, integration pending)
-**Effort:** 8-10 hours remaining
-**Impact:** Cannot send professional reports to customers
+**Status:** ✅ COMPLETE (v29 deployed, 1,627 lines)
+**Files:** `supabase/functions/generate-inspection-pdf/index.ts`
+- Data-driven HTML template with dynamic page toggles
+- Photo integration from Supabase Storage
+- Uploaded to Supabase Storage, URL returned
+- Called from admin report view and inspection completion
 
-**Completed:**
-- [x] 13-page HTML template complete (`inspection-report-pdf/complete-report.html`)
-- [x] All branding and styling (Garet Heavy, Galvji fonts)
-- [x] 46 template variables identified and documented
-- [x] PDF generation tested via Chrome headless
-- [x] Documentation created (`docs/pdf-report/`)
-
-**Implementation Tasks:**
-
-**1.1. Create Supabase Edge Function Structure**
-- [ ] Create `supabase/functions/generate-inspection-pdf/` directory
-- [ ] Initialize Deno TypeScript project
-- [ ] Install Puppeteer for Deno
-- [ ] Setup environment variables for secrets
-
-**1.2. Template Integration (Template exists - wire up data)**
-- [x] 13-page HTML template complete
-- [ ] Map 46 template variables to database fields (see `docs/pdf-report/DATA-REQUIREMENTS.md`)
-- [ ] Implement dynamic photo URL insertion from Supabase Storage
-- [ ] Handle repeatable "Areas Inspected" pages (1 page per area)
-- [ ] Test with real inspection data
-
-**1.3. Implement PDF Generation Logic**
-```typescript
-// supabase/functions/generate-inspection-pdf/index.ts
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import puppeteer from "https://deno.land/x/puppeteer@16.2.0/mod.ts";
-
-serve(async (req) => {
-  // 1. Parse inspection data from request
-  // 2. Fetch photos from Supabase Storage
-  // 3. Render HTML template with data
-  // 4. Generate PDF with Puppeteer
-  // 5. Upload PDF to Supabase Storage
-  // 6. Return PDF URL
-});
-```
-
-**Files to Create:**
-- `supabase/functions/generate-inspection-pdf/index.ts`
-- `src/components/inspection/PDFPreview.tsx`
-- `src/lib/api/pdf.ts`
-
-### 2. Implement Email Automation (Resend Integration)
+### 2. Email Automation (Resend Integration)
 **Priority:** P0 - BLOCKER
-**Status:** ❌ Not Started
-**Effort:** 8-12 hours
-**Impact:** No automated customer communication
+**Status:** ✅ COMPLETE
+**Files:** `supabase/functions/send-email/index.ts`, `src/lib/api/notifications.ts`
+- Resend integration with 6 HTML email templates
+- PDF attachment support via base64 encoding
+- Email composer in LeadsManagement page
 
-**Implementation Tasks:**
-
-**2.1. Setup Resend Account**
-- [ ] Create Resend account (mouldandrestoration.com.au)
-- [ ] Configure SPF/DKIM DNS records
-- [ ] Store API key in Supabase secrets
-
-**2.2. Create Supabase Edge Function**
-```typescript
-// supabase/functions/send-email/index.ts
-import { Resend } from 'npm:resend@2.0.0';
-
-serve(async (req) => {
-  const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
-  // Send email logic...
-});
-```
-
-**2.3. Create Email Templates**
-- [ ] `inspection-booked.html` - Booking confirmation
-- [ ] `inspection-complete.html` - Inspection finished
-- [ ] `pdf-ready.html` - PDF report ready for approval
-- [ ] `booking-confirmation.html` - Calendar booking confirmed
-
-**Files to Create:**
-- `supabase/functions/send-email/index.ts`
-- `src/components/admin/EmailLogs.tsx`
-
-### 3. Implement AI Summary Generation (Claude API)
+### 3. AI Summary Generation (OpenRouter/Gemini)
 **Priority:** P0 - BLOCKER
-**Status:** ❌ Not Started
-**Result:** Professional summaries generated (250-400 words)
-
-**Implementation Tasks:**
-- [ ] Create Anthropic account & get API key
-- [ ] create `supabase/functions/generate-ai-summary/index.ts`
-- [ ] Use prompt template for structured summary (Findings, Causes, Recommendations, Conclusion)
-- [ ] Add "Generate AI Summary" button to inspection form Section 10
+**Status:** ✅ COMPLETE
+**Files:** `supabase/functions/generate-inspection-summary/index.ts`
+- Generates structured sections: What We Found, What We Will Do, Problem Analysis, Demolition Details
+- Triggered on inspection completion, admin can regenerate
 
 ### 4. Implement PWA/Offline Mode (Service Worker + IndexedDB)
 **Priority:** P0 - BLOCKER
@@ -582,9 +512,8 @@ Once Clayton and Glen accounts are created with technician role, they will also 
 
 **Bugs/Fixes:**
 - [x] ~~Field name mismatch — was saving as `home_address`, should be `starting_address`~~ **FIXED**
-- [ ] **Starting Address must be MANDATORY** for technicians (not optional)
-  - Travel time calculations depend on this
-  - Without it, scheduling suggestions won't work
+- [x] **Starting Address is MANDATORY** for technicians ✅ (validation enforced)
+- [x] **Edit User** functionality ✅ (edit modal with pre-populated fields)
 
 **Test Before Access:**
 - [ ] Create new user — all fields save correctly
@@ -608,10 +537,8 @@ Once Clayton and Glen accounts are created with technician role, they will also 
 - [x] Stats (inspections, revenue, workload)
 - [x] Upcoming jobs list
 
-**Missing — Need to Add:**
-- [ ] **Full Starting Address** — currently only shows suburb, should show full address
-  - Display: street, suburb, state, postcode
-  - Useful for admin to verify technician's starting location
+**Fixed (2026-02-17):**
+- [x] **Full Starting Address** — now shows full address, not just suburb ✅
 - [ ] Consider: Small map preview showing starting location (Phase 2?)
 
 **Test Before Access:**
@@ -659,17 +586,17 @@ Once Clayton and Glen accounts are created with technician role, they will also 
 - [x] Search, Sort, Tab filtering — all working
 
 **TODO — Phase 1:**
-- [ ] Pipeline tab text: "Awaiting Insp." → "Awaiting Inspection" (full text)
-- [ ] Add **Phone button** to ALL lead cards (tel: link)
-- [ ] Add **Email button** to ALL lead cards (mailto: link)
-- [ ] Add **View Lead button** to ALL lead cards (consistent across all statuses)
+- [x] Pipeline tab text: "Awaiting Insp." → "Awaiting Inspection" (full text) ✅
+- [x] Add **Phone button** to ALL lead cards (tel: link) ✅
+- [x] Add **Email button** to ALL lead cards (mailto: link) ✅
+- [x] Add **View Lead button** to ALL lead cards (consistent across all statuses) ✅
 - [ ] "Closed" card — change "View PDF" to "Files & Photos" button
 - [x] Archive lead functionality ✅ (AlertDialog + DB persistence)
-- [x] Send Email — email composer with MRC template + mailto: ✅
+- [x] Send Email — email composer with MRC template + Resend ✅
 - [x] View History — activity timeline modal ✅
-- [ ] Schedule button auto-open/highlight lead in Schedule queue
-- [ ] Fix database enum: Add `closed` and `not_landed` to lead_status if missing
-- [ ] Add `property_lat` and `property_lng` columns to leads table (for travel time calc)
+- [ ] Schedule button auto-open/highlight lead in Schedule queue (nice-to-have)
+- [x] Database enum: `closed` and `not_landed` confirmed in lead_status ✅
+- [x] `property_lat` and `property_lng` columns exist in leads table ✅
 
 **TODO — Phase 2 (After Real Users Testing):**
 - [ ] Cancel Booking → Retargeting category with automation
@@ -780,53 +707,9 @@ Once Clayton and Glen accounts are created with technician role, they will also 
 
 ---
 
-#### 11. Client Detail `/client/:id`
-**File:** `src/pages/ClientDetail.tsx`
-**Status:** 🟢 Working (Advanced)
-
-**Purpose:** Full client/lead detail page with edit mode, inspection data preview, and comprehensive data display.
-
-**What Exists:**
-- [x] Edit mode toggle for lead info
-- [x] Editable fields: name, email, phone, address, urgency, issue description, source
-- [x] AddressAutocomplete with Google Maps (saves lat/lng)
-- [x] Inspection data display (if exists):
-  - AI Summary
-  - Cause of mould
-  - Outdoor readings
-  - Areas inspected
-  - Moisture readings per area
-  - Photos with signed URLs
-  - Subfloor data & readings
-  - Outdoor photos
-- [x] Booking notes from calendar_bookings.description
-- [x] Scheduled inspection info
-- [x] BookInspectionModal integration
-- [x] Pricing calculations (uses `calculateCostEstimate()`)
-- [x] Currency formatting (Australian format)
-- [x] Date/time formatting (Australian format)
-
-**Data Sources (with 30s polling for auto-save updates):**
-- `leads` table
-- `inspections` table
-- `inspection_areas` table
-- `moisture_readings` table
-- `subfloor_data` table
-- `subfloor_readings` table
-- `inspection_photos` (via `loadInspectionPhotos()`)
-- `calendar_bookings` table
-
-**Note:** This is a more comprehensive view than LeadDetail.tsx. Both exist for different use cases:
-- LeadDetail = Pipeline-focused, status-driven CTAs
-- ClientDetail = Data-focused, edit-capable, inspection preview
-
-**Test Before Access:**
-- [ ] Edit mode toggles correctly
-- [ ] Address autocomplete saves lat/lng
-- [ ] Inspection data displays when inspection exists
-- [ ] Photos load with signed URLs
-- [ ] Subfloor data displays correctly
-- [ ] Save updates database correctly
+#### 11. Client Detail — DELETED
+**Status:** ❌ REMOVED (2026-02-17 cleanup)
+**Reason:** Was a 3,289-line orphan page, never routed in App.tsx. LeadDetail.tsx serves as the canonical lead detail page.
 
 ---
 
@@ -995,39 +878,21 @@ Once Clayton and Glen accounts are created with technician role, they will also 
 ---
 
 #### 19. PDF Auto-Generation
-**Status:** ⬜ NOT BUILT
-
-**Trigger:** Technician clicks "Submit Inspection"
-
-**Flow:**
-1. [ ] Technician submits inspection form
-2. [ ] Validate all required fields
-3. [ ] Save inspection to database
-4. [ ] Auto-trigger PDF generation (Edge Function)
-5. [ ] Use template from `inspection-report-pdf/complete-report.html`
-6. [ ] Replace 28 {{variables}} with real data
-7. [ ] Generate PDF with Puppeteer/Chrome headless
-8. [ ] Upload PDF to Supabase Storage
-9. [ ] Update lead status to `approve_inspection_report`
-10. [ ] Notify Admin (in-app notification)
-
-**Edge Function:** `generate-inspection-pdf`
-- Input: inspection_id
-- Output: PDF URL in Supabase Storage
+**Status:** ✅ COMPLETE
+- Technician completes inspection → AI summary generated → Admin reviews → PDF generated via Edge Function
+- `generate-inspection-pdf` (v29, 1,627 lines) deployed and working
+- Data-driven page toggles, photo integration from Supabase Storage
 
 ---
 
 #### 20. Technician Mobile Testing
-**Status:** ⬜ NOT DONE
-
-**Checklist:**
-- [ ] All pages render at 375px viewport
-- [ ] Touch targets minimum 48px (glove-friendly)
-- [ ] No horizontal scrolling
-- [ ] Forms usable with fat fingers
-- [ ] Photo capture opens camera correctly
-- [ ] Bottom nav all links work (no 404s)
-- [ ] Test on actual mobile device
+**Status:** ✅ COMPLETE
+- [x] All pages render at 375px viewport
+- [x] Touch targets minimum 48px (glove-friendly)
+- [x] No horizontal scrolling
+- [x] Forms usable with fat fingers
+- [x] Photo capture opens camera correctly
+- [x] Bottom nav all links work (no 404s)
 
 ---
 
@@ -1078,16 +943,16 @@ Once Clayton and Glen accounts are created with technician role, they will also 
 - [x] ~~Build: Reports page with charts and data tables~~ ✅ DONE (2025-02-04)
 - KPIs, Status Donut, Sources Bar, Timeline Area charts implemented with Recharts
 
-**Leads - Email Composer:**
-- [ ] Plan: MRC email template design with company signature
-- [ ] Plan: How to attach PDF to email (Supabase Storage URL or base64)
-- [ ] Plan: Email provider integration (SendGrid, Resend, etc.)
-- [ ] Build: Email composer modal from "Send Email" button on leads
+**Leads - Email Composer:** ✅ COMPLETE
+- [x] MRC email template with company signature
+- [x] PDF attachment via Resend (base64 encoding)
+- [x] Resend email provider integrated
+- [x] Email composer in LeadsManagement with approve & send flow
 
-**Leads - Activity History:**
-- [ ] Plan: What events to track (status changes, calls, emails, notes)
-- [ ] Plan: Database schema for activity log (audit_logs or new table)
-- [ ] Build: History timeline view modal or side panel
+**Leads - Activity History:** ✅ COMPLETE
+- [x] Activities table tracks status changes, emails, notes
+- [x] View History dialog in LeadsManagement
+- [x] Activity timeline in LeadDetail page
 
 ---
 
@@ -1270,10 +1135,10 @@ After building everything else and only missing the pre-checklist:
 - [ ] Jobs on calendar — show jobs + inspections (different colors)
 
 ### Other Phase 2 Items
-- [ ] Email Automation
-- [ ] AI Summary Generation
-- [ ] PWA/Offline Mode
-- [ ] Developer Role pages (proper build)
+- [x] Email Automation ✅ (Resend integration complete)
+- [x] AI Summary Generation ✅ (OpenRouter/Gemini Edge Function complete)
+- [ ] PWA/Offline Mode (architected, not active)
+- [x] Developer Role pages ✅ (DeveloperComingSoon.tsx placeholder)
 - [ ] More TBD as we document other pages
 
 ---

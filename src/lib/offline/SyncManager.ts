@@ -28,7 +28,6 @@ export class SyncManager {
     };
 
     await offlineDb.inspectionDrafts.put(record);
-    console.log('[SyncManager] Draft saved:', draft.id);
     return record;
   }
 
@@ -43,7 +42,6 @@ export class SyncManager {
     };
 
     await offlineDb.photoQueue.put(record);
-    console.log('[SyncManager] Photo queued:', photo.id, 'for draft:', photo.inspectionDraftId);
     return record;
   }
 
@@ -106,12 +104,10 @@ export class SyncManager {
    */
   async syncAll(): Promise<{ syncedDrafts: number; syncedPhotos: number; errors: string[] }> {
     if (this.syncing) {
-      console.log('[SyncManager] Sync already in progress, skipping');
       return { syncedDrafts: 0, syncedPhotos: 0, errors: [] };
     }
 
     if (!navigator.onLine) {
-      console.log('[SyncManager] Offline, skipping sync');
       return { syncedDrafts: 0, syncedPhotos: 0, errors: ['Device is offline'] };
     }
 
@@ -122,7 +118,6 @@ export class SyncManager {
 
     try {
       const pendingDrafts = await this.getPendingDrafts();
-      console.log('[SyncManager] Syncing', pendingDrafts.length, 'pending drafts');
 
       for (const draft of pendingDrafts) {
         try {
@@ -160,7 +155,6 @@ export class SyncManager {
       this.syncing = false;
     }
 
-    console.log('[SyncManager] Sync complete:', { syncedDrafts, syncedPhotos, errors: errors.length });
     return { syncedDrafts, syncedPhotos, errors };
   }
 
@@ -316,7 +310,6 @@ export class SyncManager {
       .equals(draftId)
       .delete();
     await offlineDb.inspectionDrafts.delete(draftId);
-    console.log('[SyncManager] Draft deleted:', draftId);
   }
 }
 

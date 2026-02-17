@@ -66,7 +66,6 @@ export const sendTechnicianNotifications = async (bookingData: NotificationData)
 
     if (notifError) throw notifError;
 
-    console.log(`Sent notifications to ${technicians.length} technicians`);
 
     // Send email notifications to technicians (fire-and-forget)
     for (const tech of technicians) {
@@ -144,34 +143,6 @@ export const markAllNotificationsAsRead = async (userId: string) => {
     if (error) throw error;
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
-    throw error;
-  }
-};
-
-export const generateBookingToken = async (leadId: string): Promise<string> => {
-  try {
-    // Generate a secure random token
-    const token = crypto.randomUUID() + '-' + Date.now();
-    
-    // Set expiration to 30 days from now
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
-
-    const { data, error } = await supabase
-      .from('booking_tokens')
-      .insert({
-        lead_id: leadId,
-        token,
-        expires_at: expiresAt.toISOString()
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return token;
-  } catch (error) {
-    console.error('Error generating booking token:', error);
     throw error;
   }
 };

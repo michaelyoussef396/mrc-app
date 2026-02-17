@@ -137,7 +137,6 @@ export function useScheduleCalendar({
   const { data: events = [], isLoading, error, refetch } = useQuery({
     queryKey: ['schedule-calendar', formatDateKey(weekStart), technicianFilter],
     queryFn: async () => {
-      console.log('[ScheduleCalendar] Fetching events for week:', formatDateKey(weekStart));
 
       // Build query for calendar_bookings with lead joins
       let query = supabase
@@ -175,7 +174,6 @@ export function useScheduleCalendar({
         throw fetchError;
       }
 
-      console.log('[ScheduleCalendar] Raw data:', data);
 
       // Fetch technician names from edge function
       const technicianIds = [...new Set((data || []).map(e => e.assigned_to).filter(Boolean))];
@@ -248,7 +246,6 @@ export function useScheduleCalendar({
         };
       });
 
-      console.log('[ScheduleCalendar] Transformed events:', transformedEvents.length);
       return transformedEvents;
     },
     refetchInterval: 60000, // Refetch every minute
@@ -350,15 +347,6 @@ export function calculateEventPosition(event: CalendarEvent): {
   if (durationHours <= 0) durationHours = 1;
   let height = Math.max((durationHours / totalSlots) * 100, 7.69); // Minimum 1 slot height
   if (top + height > 100) height = 100 - top;
-
-  // Debug logging
-  console.log('[Calendar] Event position:', {
-    title: event.title || event.clientName,
-    startTime: `${startHour}:${startMinutes.toString().padStart(2, '0')}`,
-    startOffset: startOffset.toFixed(2),
-    top: top.toFixed(2) + '%',
-    height: height.toFixed(2) + '%',
-  });
 
   return { top, height };
 }

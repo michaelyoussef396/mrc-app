@@ -9,7 +9,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import RoleProtectedRoute from "@/components/RoleProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { GlobalLoader, ProgressBar, PageTransition } from "@/components/loading";
-import { SessionMonitor } from "@/components/debug/SessionMonitor";
+
 import { useSessionRefresh } from "@/lib/hooks/useSessionRefresh";
 import { Loader2 } from "lucide-react";
 
@@ -21,7 +21,7 @@ import NotFound from "./pages/NotFound";
 // AdminComingSoon and TechnicianComingSoon removed - using real dashboards
 import AdminDashboard from "./pages/AdminDashboard";
 import TechnicianDashboard from "./pages/TechnicianDashboard";
-import TechnicianDashboardTest from "./pages/TechnicianDashboardTest";
+
 
 // Lazy loaded pages (code-split for smaller initial bundle)
 const AdminSchedule = lazy(() => import("./pages/AdminSchedule"));
@@ -44,7 +44,6 @@ const SelectLead = lazy(() => import("./pages/SelectLead").then(m => ({ default:
 const RequestInspection = lazy(() => import("./pages/RequestInspection"));
 const InspectionSuccess = lazy(() => import("./pages/InspectionSuccess"));
 const Notifications = lazy(() => import("./pages/Notifications"));
-const TestPDFTemplate = lazy(() => import("./pages/TestPDFTemplate"));
 const ViewReportPDF = lazy(() => import("./pages/ViewReportPDF"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const HelpSupport = lazy(() => import("./pages/HelpSupport"));
@@ -79,16 +78,13 @@ const AppContent = () => {
             <Route path="/request-inspection" element={<RequestInspection />} />
             <Route path="/request-inspection/success" element={<InspectionSuccess />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            {/* Test routes - developer only */}
-            <Route path="/test-pdf" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={["developer"]}><Suspense fallback={<PageLoader />}><TestPDFTemplate /></Suspense></RoleProtectedRoute></ProtectedRoute>} />
-            <Route path="/test/technician" element={<ProtectedRoute><RoleProtectedRoute allowedRoles={["developer"]}><TechnicianDashboardTest /></RoleProtectedRoute></ProtectedRoute>} />
 
             {/* Admin Dashboard (standalone layout - no AppLayout) */}
             <Route
               path="/admin"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
                     <AdminDashboard />
                   </RoleProtectedRoute>
                 </ProtectedRoute>
@@ -100,7 +96,7 @@ const AppContent = () => {
               path="/admin/schedule"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
                     <AdminSchedule />
                   </RoleProtectedRoute>
                 </ProtectedRoute>
@@ -112,7 +108,7 @@ const AppContent = () => {
               path="/admin/technicians"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
                     <AdminTechnicians />
                   </RoleProtectedRoute>
                 </ProtectedRoute>
@@ -124,7 +120,7 @@ const AppContent = () => {
               path="/admin/technicians/:id"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
                     <AdminTechnicianDetail />
                   </RoleProtectedRoute>
                 </ProtectedRoute>
@@ -136,7 +132,7 @@ const AppContent = () => {
               path="/admin/leads"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <LeadsManagement />
                     </Suspense>
@@ -150,7 +146,7 @@ const AppContent = () => {
               path="/admin/inspection-ai-review/:leadId"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <InspectionAIReview />
                     </Suspense>
@@ -164,7 +160,7 @@ const AppContent = () => {
               path="/admin/reports"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <Reports />
                     </Suspense>
@@ -178,7 +174,7 @@ const AppContent = () => {
               path="/admin/settings"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <Settings />
                     </Suspense>
@@ -192,7 +188,7 @@ const AppContent = () => {
               path="/admin/help"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["admin", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <HelpSupport />
                     </Suspense>
@@ -206,7 +202,7 @@ const AppContent = () => {
               path="/technician"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["technician"]}>
                     <TechnicianDashboard />
                   </RoleProtectedRoute>
                 </ProtectedRoute>
@@ -218,7 +214,7 @@ const AppContent = () => {
               path="/technician/profile"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["technician"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <Profile />
                     </Suspense>
@@ -232,7 +228,7 @@ const AppContent = () => {
               path="/technician/jobs"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["technician"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <TechnicianJobs />
                     </Suspense>
@@ -246,7 +242,7 @@ const AppContent = () => {
               path="/technician/alerts"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["technician"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <TechnicianAlerts />
                     </Suspense>
@@ -260,7 +256,7 @@ const AppContent = () => {
               path="/technician/inspection"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["technician"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <TechnicianInspectionForm />
                     </Suspense>
@@ -274,7 +270,7 @@ const AppContent = () => {
               path="/technician/job/:id"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["technician"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <TechnicianJobDetail />
                     </Suspense>
@@ -288,7 +284,7 @@ const AppContent = () => {
               path="/technician/settings"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["technician"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <Settings />
                     </Suspense>
@@ -302,7 +298,7 @@ const AppContent = () => {
               path="/technician/help"
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["technician", "developer"]}>
+                  <RoleProtectedRoute allowedRoles={["technician"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <HelpSupport />
                     </Suspense>
@@ -315,7 +311,7 @@ const AppContent = () => {
             <Route
               element={
                 <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["developer", "admin"]}>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
                     <AppLayout />
                   </RoleProtectedRoute>
                 </ProtectedRoute>
@@ -381,8 +377,6 @@ const App = () => {
           <AuthProvider>
             <AppContent />
           </AuthProvider>
-          {/* Session Monitor - only visible in development */}
-          <SessionMonitor />
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>

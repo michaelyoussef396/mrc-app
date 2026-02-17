@@ -95,7 +95,6 @@ export function formatLastSeen(date: string | null): string {
 // ============================================================================
 
 async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
-  console.log('[useTechnicianStats] Starting fetch...');
 
   try {
     // Step 1: Get session for authentication
@@ -106,7 +105,6 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
     }
 
     // Step 2: Fetch all users from edge function
-    console.log('[useTechnicianStats] Fetching users from manage-users edge function...');
     let allUsers: UserFromAPI[] = [];
     try {
       const response = await fetch(
@@ -132,7 +130,6 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
       console.error('[useTechnicianStats] Failed to fetch users, returning empty list:', fetchError);
       return [];
     }
-    console.log('[useTechnicianStats] Active users:', allUsers.length);
 
     // Step 3: Get technician role ID
     const { data: roleData, error: roleError } = await supabase
@@ -169,7 +166,6 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
 
     const technicianUserIds = new Set(userRolesData.map(r => r.user_id));
     const technicians = allUsers.filter(user => technicianUserIds.has(user.id));
-    console.log('[useTechnicianStats] Technicians found:', technicians.length);
 
     // Step 5: Fetch inspection stats for each technician
     const techIds = technicians.map(t => t.id);
@@ -262,7 +258,6 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
       color: getTechnicianColor(index),
     }));
 
-    console.log('[useTechnicianStats] Final result:', techniciansWithStats);
     return techniciansWithStats;
 
   } catch (error) {

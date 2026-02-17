@@ -443,7 +443,6 @@ export function ReportPreviewHTML({
 
       setCostPageTop(foundCostTop)
 
-      console.log(`[ReportPreview] Heading search (attempt ${attempt}): VP=${vpFound.length}, PA=${foundPaTop !== null ? 'found' : 'not found'}, Demo=${foundDemoTop !== null ? 'found' : 'not found'}, Outdoor=${outdoorFound.length}, Subfloor=${subfloorFound.length}, Cost=${foundCostTop !== null ? 'found' : 'not found'}`)
 
       // Retry if headings not found (timing/render issue)
       if ((vpFound.length === 0 || foundPaTop === null || foundDemoTop === null || outdoorFound.length < 3) && attempt < 3 && !cancelled) {

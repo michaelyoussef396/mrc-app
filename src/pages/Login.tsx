@@ -5,16 +5,6 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import logoLarge from "@/assets/logo-large.png";
 
-// DISABLED FOR SOFT LAUNCH — re-enable when scaling to white-label
-// 30-minute lockout after 5 failed attempts is too strict for 4 gloved technicians
-// import {
-//   isLockedOut,
-//   recordFailedAttempt,
-//   clearLoginAttempts,
-//   getRemainingAttempts,
-//   formatLockoutTime,
-// } from "@/utils/rateLimiter";
-
 type Role = "Admin" | "Technician" | "Developer";
 
 type ErrorType = "validation" | "auth" | "network" | "lockout" | "role";
@@ -238,7 +228,7 @@ const Login = () => {
     const lowerRole = roleName.toLowerCase();
     switch (lowerRole) {
       case "developer":
-        navigate("/dashboard");
+        navigate("/developer");
         break;
       case "admin":
         navigate("/admin");

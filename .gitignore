@@ -38,4 +38,6 @@ credentials.json
 service-account.json
 .env.local
 .env
-echo -e ".env\n.mcp.json" >> .gitignore
+
+# Playwright MCP logs
+.playwright-mcp/

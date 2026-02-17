@@ -27,7 +27,6 @@ export async function generateInspectionPDF(
   } = {}
 ): Promise<PDFGenerationResult> {
   try {
-    console.log('[PDF Generation] Starting for inspection:', inspectionId)
 
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
@@ -47,13 +46,11 @@ export async function generateInspectionPDF(
       }
     }
 
-    console.log('[PDF Generation] User authenticated:', session.user.email)
 
     // Use direct fetch instead of supabase.functions.invoke to debug the issue
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
     const functionUrl = `${supabaseUrl}/functions/v1/generate-inspection-pdf`
 
-    console.log('[PDF Generation] Calling function URL:', functionUrl)
 
     const response = await fetch(functionUrl, {
       method: 'POST',
@@ -69,7 +66,6 @@ export async function generateInspectionPDF(
       })
     })
 
-    console.log('[PDF Generation] Response status:', response.status)
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -81,7 +77,6 @@ export async function generateInspectionPDF(
     }
 
     const data = await response.json()
-    console.log('[PDF Generation] Success! PDF URL:', data?.pdfUrl)
 
     return {
       success: true,

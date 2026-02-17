@@ -84,14 +84,6 @@ export async function bookInspection(
     technicianName,
   } = params;
 
-  console.log('[BookingService] bookInspection called with:', {
-    leadId,
-    customerName,
-    inspectionDate,
-    inspectionTime,
-    technicianId,
-    hasInternalNotes: !!internalNotes,
-  });
 
   try {
     // Combine date and time - Fixed 1 hour duration
@@ -111,10 +103,6 @@ export async function bookInspection(
       };
     }
 
-    console.log('[BookingService] Creating calendar booking...', {
-      start: startDateTime.toISOString(),
-      end: endDateTime.toISOString(),
-    });
 
     // 1. Create calendar booking
     const { data: bookingData, error: calendarError } = await supabase
@@ -138,10 +126,8 @@ export async function bookInspection(
       throw new Error(`Failed to create calendar booking: ${calendarError.message}`);
     }
 
-    console.log('[BookingService] Calendar booking created:', bookingData.id);
 
     // 2. Update lead with booking info
-    console.log('[BookingService] Updating lead status...');
     const { error: leadError } = await supabase
       .from('leads')
       .update({

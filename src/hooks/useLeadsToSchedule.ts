@@ -38,7 +38,6 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['leads-to-schedule'],
     queryFn: async () => {
-      console.log('[LeadsToSchedule] Fetching unscheduled leads...');
 
       // Fetch leads that:
       // 1. Have status 'new_lead' or 'hipages_lead'
@@ -68,7 +67,6 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
         throw fetchError;
       }
 
-      console.log('[LeadsToSchedule] Raw data:', leadsData?.length, 'leads');
 
       // Transform to LeadToSchedule format
       const transformedLeads: LeadToSchedule[] = (leadsData || []).map((lead: any) => {
@@ -97,7 +95,6 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
         };
       });
 
-      console.log('[LeadsToSchedule] Transformed:', transformedLeads.length, 'leads');
 
       return {
         leads: transformedLeads,

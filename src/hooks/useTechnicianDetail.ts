@@ -121,7 +121,6 @@ export function getJobAccentColor(eventType: string): string {
 // ============================================================================
 
 async function fetchTechnicianDetail(technicianId: string): Promise<TechnicianDetail | null> {
-  console.log('[useTechnicianDetail] Fetching technician:', technicianId);
 
   try {
     // Step 1: Get session for authentication
@@ -261,7 +260,6 @@ async function fetchTechnicianDetail(technicianId: string): Promise<TechnicianDe
       workloadCancelled,
     };
 
-    console.log('[useTechnicianDetail] Result:', technicianDetail);
     return technicianDetail;
 
   } catch (error) {
@@ -271,7 +269,6 @@ async function fetchTechnicianDetail(technicianId: string): Promise<TechnicianDe
 }
 
 async function fetchUpcomingJobs(technicianId: string): Promise<UpcomingJob[]> {
-  console.log('[useTechnicianDetail] Fetching upcoming jobs for:', technicianId);
 
   try {
     const { data: bookings, error } = await supabase
@@ -314,7 +311,6 @@ async function fetchUpcomingJobs(technicianId: string): Promise<UpcomingJob[]> {
       leadId: booking.lead_id,
     }));
 
-    console.log('[useTechnicianDetail] Upcoming jobs:', upcomingJobs.length);
     return upcomingJobs;
 
   } catch (error) {

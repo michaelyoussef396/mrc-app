@@ -133,7 +133,6 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
     setError(null);
 
     try {
-      console.log('[TechnicianJobs] Fetching for user:', user.id);
 
       // Fetch all bookings for this technician (with optional lead data)
       const { data, error: fetchError } = await supabase
@@ -172,7 +171,6 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
         throw fetchError;
       }
 
-      console.log('[TechnicianJobs] Raw data:', data?.length, 'bookings');
 
       // Transform the data — lead may be null for bookings without a linked lead
       const transformedJobs: TechnicianJob[] = (data || []).map((booking: any) => {
@@ -208,7 +206,6 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
         };
       });
 
-      console.log('[TechnicianJobs] Transformed:', transformedJobs.length, 'jobs');
       setAllJobs(transformedJobs);
       isInitialLoad.current = false;
     } catch (err) {
@@ -228,7 +225,6 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
   useEffect(() => {
     if (!user?.id) return;
 
-    console.log('[TechnicianJobs] Setting up realtime subscription');
 
     const channel = supabase
       .channel(`technician-jobs-${user.id}`)
@@ -241,7 +237,6 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
           filter: `assigned_to=eq.${user.id}`,
         },
         (payload) => {
-          console.log('[TechnicianJobs] Realtime event:', payload.eventType, payload);
 
           // Show toast notifications for relevant events
           const newRecord = payload.new as Record<string, any> | undefined;
@@ -269,11 +264,9 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
         }
       )
       .subscribe((status) => {
-        console.log('[TechnicianJobs] Realtime subscription status:', status);
       });
 
     return () => {
-      console.log('[TechnicianJobs] Unsubscribing from realtime');
       supabase.removeChannel(channel);
     };
   }, [user?.id, fetchJobs]);

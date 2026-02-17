@@ -2,6 +2,58 @@ import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 
 /**
+ * Fetch a URL and return it as a base64 data URL.
+ * Returns null if the fetch fails for any reason.
+ */
+async function fetchAsBase64DataUrl(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) return null
+    const blob = await response.blob()
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Find all external URLs in the HTML (img src, CSS url()) and replace
+ * them with inline base64 data URLs. This makes the HTML fully
+ * self-contained — no CORS issues, no expired signed URLs.
+ */
+async function embedExternalResources(html: string): Promise<string> {
+  const urlRegex = /(?:src="|url\(['"]?)(https?:\/\/[^"'\s)]+)(?:"|['"]?\))/g
+  const urls = new Set<string>()
+  let match: RegExpExecArray | null
+  while ((match = urlRegex.exec(html)) !== null) {
+    urls.add(match[1])
+  }
+  if (urls.size === 0) return html
+
+  // Fetch all URLs in parallel
+  const entries = await Promise.all(
+    [...urls].map(async (url) => ({
+      url,
+      dataUrl: await fetchAsBase64DataUrl(url),
+    }))
+  )
+
+  // Replace each URL with its base64 data URL
+  let result = html
+  for (const { url, dataUrl } of entries) {
+    if (dataUrl) {
+      result = result.replaceAll(url, dataUrl)
+    }
+  }
+  return result
+}
+
+/**
  * Convert an HTML report string into a real PDF blob.
  *
  * Works by loading the HTML in a hidden iframe, capturing each page
@@ -11,6 +63,10 @@ import { jsPDF } from 'jspdf'
  * divs, each representing one A4 page (794×1123px).
  */
 export async function convertHtmlToPdf(htmlContent: string): Promise<Blob> {
+  // Embed all external resources (images, fonts) as base64 data URLs
+  // so html2canvas has no CORS/expiry issues
+  const selfContainedHtml = await embedExternalResources(htmlContent)
+
   // Create hidden iframe to render the HTML
   const iframe = document.createElement('iframe')
   iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:794px;height:1123px;border:none;'
@@ -22,18 +78,18 @@ export async function convertHtmlToPdf(htmlContent: string): Promise<Blob> {
     if (!iframeDoc) throw new Error('Failed to access iframe document')
 
     iframeDoc.open()
-    iframeDoc.write(htmlContent)
+    iframeDoc.write(selfContainedHtml)
     iframeDoc.close()
 
-    // Wait for images and fonts to load
+    // Wait for content to render (base64 resources load instantly, short wait)
     await new Promise<void>((resolve) => {
       const iframeWin = iframe.contentWindow
       if (!iframeWin) { resolve(); return }
 
-      // Wait for iframe load event + extra buffer for images
-      iframeWin.addEventListener('load', () => setTimeout(resolve, 1500))
-      // Fallback timeout in case load never fires
-      setTimeout(resolve, 5000)
+      // Base64 resources don't need network, short buffer for rendering
+      iframeWin.addEventListener('load', () => setTimeout(resolve, 500))
+      // Fallback timeout
+      setTimeout(resolve, 3000)
     })
 
     // Find all page elements
@@ -65,7 +121,6 @@ export async function convertHtmlToPdf(htmlContent: string): Promise<Blob> {
       const canvas = await html2canvas(pageEl, {
         scale: 2, // 2x for crisp output
         useCORS: true,
-        allowTaint: true,
         backgroundColor: '#FFFFFF',
         width: 794,
         height: pageEl.scrollHeight || 1123,

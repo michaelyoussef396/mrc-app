@@ -318,7 +318,6 @@ export default function ViewReportPDF() {
       if (areasError) {
         console.warn('[ViewReportPDF] Failed to load inspection areas:', areasError)
       } else {
-        console.log(`[ViewReportPDF] Loaded ${areas?.length || 0} inspection areas`)
       }
       setAreasData((areas || []) as AreaRecord[])
 
@@ -346,7 +345,6 @@ export default function ViewReportPDF() {
             moisture_percentage: parseFloat(String(r.moisture_percentage)) || 0,
           })))
 
-          console.log(`[ViewReportPDF] Loaded subfloor: ${sfReadings?.length || 0} readings`)
         }
       }
     } catch (error) {
@@ -1073,7 +1071,6 @@ export default function ViewReportPDF() {
       if (infraredPhoto) pdfPhotos.push(infraredPhoto)
       if (naturalInfraredPhoto) pdfPhotos.push(naturalInfraredPhoto)
 
-      console.log(`[loadAreaPhotos] area=${areaId}, primary=${primaryId}, total=${allAreaPhotos.length}, showing=${pdfPhotos.length}`, error || '')
 
       if (pdfPhotos.length > 0) {
         const withUrls = await Promise.all(
@@ -1704,7 +1701,7 @@ export default function ViewReportPDF() {
           htmlUrl={inspection.pdf_url}
           editMode={editMode}
           onFieldClick={handleFieldClick}
-          onLoadSuccess={() => console.log('Report loaded')}
+          onLoadSuccess={() => {}}
           onLoadError={(error) => toast.error(error)}
           page1Data={page1Data}
           onPage1FieldSave={handlePage1FieldSave}

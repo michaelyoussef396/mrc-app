@@ -48,7 +48,6 @@ export function useAdminDashboardStats(): DashboardStats {
       startOfWeek.setHours(0, 0, 0, 0);
       const startOfWeekISO = startOfWeek.toISOString();
 
-      console.log('[Dashboard Stats] Fetching stats for:', { today, startOfWeekISO });
 
       // Run all queries in parallel for better performance
       const [
@@ -118,7 +117,6 @@ export function useAdminDashboardStats(): DashboardStats {
         error: null,
       };
 
-      console.log('[Dashboard Stats] Results:', newStats);
       setStats(newStats);
 
     } catch (err) {

@@ -32,7 +32,6 @@ export function useUnassignedLeads(): UnassignedLeadsResult {
     try {
       setIsLoading(true);
 
-      console.log('[UnassignedLeads] Fetching...');
 
       // Fetch leads that are new/hipages OR have no technician assigned
       const { data, error: fetchError, count } = await supabase
@@ -47,7 +46,6 @@ export function useUnassignedLeads(): UnassignedLeadsResult {
         throw fetchError;
       }
 
-      console.log('[UnassignedLeads] Raw data:', data);
 
       // Transform the data
       const transformedLeads: UnassignedLead[] = (data || []).map((lead: any) => {
@@ -66,7 +64,6 @@ export function useUnassignedLeads(): UnassignedLeadsResult {
         };
       });
 
-      console.log('[UnassignedLeads] Transformed:', transformedLeads);
 
       setLeads(transformedLeads);
       setTotalCount(count || 0);

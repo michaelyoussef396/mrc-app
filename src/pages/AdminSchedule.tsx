@@ -30,7 +30,6 @@ export default function AdminSchedule() {
     console.error('[AdminSchedule] Technicians error:', techniciansError);
   }
   if (technicians.length > 0) {
-    console.log('[AdminSchedule] Technicians loaded:', technicians.map(t => ({ id: t.id, name: t.name })));
   }
 
   // Fetch calendar events

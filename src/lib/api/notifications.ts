@@ -280,7 +280,6 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
       return;
     }
 
-    console.log('[Notifications] Email sent to', params.to);
   } catch (err) {
     console.error('[Notifications] Email send error:', err);
   }
@@ -306,7 +305,6 @@ export async function sendSlackNotification(params: SendSlackNotificationParams)
       return;
     }
 
-    console.log('[Notifications] Slack notification sent:', params.event);
   } catch (err) {
     console.error('[Notifications] Slack notification error:', err);
   }

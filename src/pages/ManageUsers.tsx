@@ -29,14 +29,27 @@ import { useToast } from '@/hooks/use-toast';
 import { AddressAutocomplete, type AddressValue } from '@/components/booking';
 import { sendEmail, buildWelcomeEmailHtml } from '@/lib/api/notifications';
 
+interface AddressData {
+  street: string;
+  suburb: string;
+  state: string;
+  postcode: string;
+  fullAddress: string;
+  lat?: number;
+  lng?: number;
+}
+
 interface UserType {
   id: string;
   email: string;
+  first_name: string;
+  last_name: string;
   full_name: string;
   phone: string;
   avatar_url: string | null;
   is_active: boolean;
   role: 'admin' | 'technician' | 'developer' | null;
+  starting_address: AddressData | null;
   created_at: string;
   last_sign_in_at: string | null;
 }
@@ -133,6 +146,42 @@ const deleteUser = async (userId: string) => {
   return result;
 };
 
+const updateUser = async (userId: string, userData: {
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  starting_address?: {
+    street: string;
+    suburb: string;
+    state: string;
+    postcode: string;
+    fullAddress: string;
+    lat?: number;
+    lng?: number;
+  } | null;
+  password?: string;
+}) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  const response = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users?userId=${userId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData),
+    }
+  );
+
+  const result = await response.json();
+  if (!result.success) throw new Error(result.error);
+  return result;
+};
+
 export default function ManageUsers() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -207,6 +256,120 @@ export default function ManageUsers() {
     },
   });
 
+  // Edit user state
+  const [editingUser, setEditingUser] = useState<UserType | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  const [editFormData, setEditFormData] = useState<{
+    firstName: string;
+    lastName: string;
+    phone: string;
+    homeAddress: AddressValue | null;
+    password: string;
+    confirmPassword: string;
+  }>({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    homeAddress: null,
+    password: '',
+    confirmPassword: '',
+  });
+
+  const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
+
+  const updateMutation = useMutation({
+    mutationFn: ({ userId, data }: { userId: string; data: Parameters<typeof updateUser>[1] }) =>
+      updateUser(userId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['manage-users'] });
+      toast({
+        title: 'User updated',
+        description: 'User details have been updated successfully.',
+      });
+      setShowEditModal(false);
+      setEditingUser(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error updating user',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleEditUser = (user: UserType) => {
+    setEditingUser(user);
+    setEditFormData({
+      firstName: user.first_name || '',
+      lastName: user.last_name || '',
+      phone: user.phone || '',
+      homeAddress: user.starting_address ? {
+        street: user.starting_address.street,
+        suburb: user.starting_address.suburb,
+        state: user.starting_address.state,
+        postcode: user.starting_address.postcode,
+        fullAddress: user.starting_address.fullAddress,
+        lat: user.starting_address.lat,
+        lng: user.starting_address.lng,
+      } : null,
+      password: '',
+      confirmPassword: '',
+    });
+    setEditFormErrors({});
+    setShowEditModal(true);
+  };
+
+  const validateEditForm = () => {
+    const errors: Record<string, string> = {};
+    if (!editFormData.firstName.trim()) errors.firstName = 'First name is required';
+    if (!editFormData.lastName.trim()) errors.lastName = 'Last name is required';
+    if (!editFormData.phone.trim()) errors.phone = 'Phone number is required';
+    else if (!/^04\d{8}$/.test(editFormData.phone.replace(/\s/g, ''))) errors.phone = 'Invalid Australian mobile number';
+
+    // Starting address mandatory for technicians
+    if (editingUser?.role === 'technician' && !editFormData.homeAddress) {
+      errors.homeAddress = 'Starting address is required for technicians';
+    }
+
+    // Password validation (only if user entered a password)
+    if (editFormData.password) {
+      const passwordError = validatePassword(editFormData.password);
+      if (passwordError) errors.password = passwordError;
+      if (editFormData.password !== editFormData.confirmPassword) errors.confirmPassword = 'Passwords do not match';
+    }
+
+    setEditFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser || !validateEditForm()) return;
+
+    const data: Parameters<typeof updateUser>[1] = {
+      first_name: editFormData.firstName.trim(),
+      last_name: editFormData.lastName.trim(),
+      phone: editFormData.phone.replace(/\s/g, ''),
+      starting_address: editFormData.homeAddress ? {
+        street: editFormData.homeAddress.street,
+        suburb: editFormData.homeAddress.suburb,
+        state: editFormData.homeAddress.state,
+        postcode: editFormData.homeAddress.postcode,
+        fullAddress: editFormData.homeAddress.fullAddress,
+        lat: editFormData.homeAddress.lat,
+        lng: editFormData.homeAddress.lng,
+      } : null,
+    };
+
+    if (editFormData.password) {
+      data.password = editFormData.password;
+    }
+
+    updateMutation.mutate({ userId: editingUser.id, data });
+  };
+
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -257,6 +420,11 @@ export default function ManageUsers() {
     else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.email = 'Email is invalid';
     if (!formData.phone.trim()) errors.phone = 'Phone number is required';
     else if (!/^04\d{8}$/.test(formData.phone.replace(/\s/g, ''))) errors.phone = 'Invalid Australian mobile number (e.g., 0400 000 000)';
+
+    // Starting address mandatory for technicians
+    if (formData.role === 'technician' && !formData.homeAddress) {
+      errors.homeAddress = 'Starting address is required for technicians';
+    }
 
     // Password validation
     const passwordError = validatePassword(formData.password);
@@ -434,7 +602,7 @@ export default function ManageUsers() {
                 <div className="flex gap-2">
                   <button
                     className="flex-1 h-11 rounded-xl bg-gray-100 text-blue-600 flex items-center justify-center gap-2 font-semibold text-sm hover:bg-blue-50 transition-colors md:w-11 md:flex-none"
-                    onClick={() => toast({ title: 'Coming soon', description: 'Edit functionality will be available soon.' })}
+                    onClick={() => handleEditUser(user)}
                   >
                     <Edit2 size={18} strokeWidth={2} />
                     <span className="md:hidden">Edit</span>
@@ -510,7 +678,7 @@ export default function ManageUsers() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     <span className="flex items-center gap-2">
                       <MapPin size={16} strokeWidth={2} />
-                      Starting Address (Optional)
+                      Starting Address {formData.role === 'technician' ? '*' : '(Optional)'}
                     </span>
                   </label>
                   <AddressAutocomplete
@@ -519,8 +687,10 @@ export default function ManageUsers() {
                     value={formData.homeAddress || undefined}
                     onChange={(address) => setFormData({ ...formData, homeAddress: address })}
                   />
+                  {formErrors.homeAddress && <span className="block text-xs text-red-500 mt-1">{formErrors.homeAddress}</span>}
                   <p className="text-xs text-gray-500 mt-1.5">
                     Where they start each day. Used to calculate travel times for first appointments.
+                    {formData.role === 'technician' && ' Required for technicians.'}
                   </p>
                 </div>
               </div>
@@ -633,6 +803,154 @@ export default function ManageUsers() {
           </div>
         </>
       )}
+      {/* Edit User Modal */}
+      {showEditModal && editingUser && (
+        <>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[998]" onClick={() => { setShowEditModal(false); setEditingUser(null); }} />
+          <div className="fixed inset-0 bg-white z-[999] overflow-y-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:inset-auto md:w-[600px] md:max-w-[calc(100vw-40px)] md:max-h-[calc(100vh-80px)] md:rounded-3xl md:shadow-2xl">
+            <div className="flex justify-between items-center px-4 py-5 border-b border-gray-200 bg-gray-50 sticky top-0 z-10 md:px-6 md:py-6 md:static">
+              <h2 className="text-lg font-bold text-gray-900 m-0 md:text-xl">Edit User</h2>
+              <button className="w-9 h-9 rounded-lg bg-transparent border-0 text-gray-600 flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => { setShowEditModal(false); setEditingUser(null); }}>
+                <X size={24} strokeWidth={2} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEdit} className="px-4 py-5 md:px-6 md:py-6 md:max-h-[calc(100vh-200px)] md:overflow-y-auto">
+              {/* Email (read-only) */}
+              <div className="mb-7">
+                <h3 className="text-[15px] font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200">Account</h3>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+                  <div className="relative">
+                    <Mail size={18} strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="email"
+                      className="w-full h-12 pl-11 pr-3.5 bg-gray-100 border-2 border-gray-200 rounded-xl text-base text-gray-500 cursor-not-allowed md:h-11 md:text-[15px]"
+                      value={editingUser.email}
+                      disabled
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1.5">Email cannot be changed.</p>
+                </div>
+                {editingUser.role && (
+                  <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl">
+                    <Shield size={16} strokeWidth={2} className="text-gray-500" />
+                    <span className="text-sm text-gray-700">Role: <span className="font-semibold capitalize">{editingUser.role}</span></span>
+                  </div>
+                )}
+              </div>
+
+              {/* Personal Information */}
+              <div className="mb-7">
+                <h3 className="text-[15px] font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200">Personal Information</h3>
+                <div className="flex flex-col gap-4 mb-4 md:flex-row">
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">First Name *</label>
+                    <input type="text" className={`w-full h-12 px-3.5 bg-gray-50 border-2 rounded-xl text-base md:h-11 md:text-[15px] ${editFormErrors.firstName ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={editFormData.firstName} onChange={(e) => setEditFormData({ ...editFormData, firstName: e.target.value })} />
+                    {editFormErrors.firstName && <span className="block text-xs text-red-500 mt-1">{editFormErrors.firstName}</span>}
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Last Name *</label>
+                    <input type="text" className={`w-full h-12 px-3.5 bg-gray-50 border-2 rounded-xl text-base md:h-11 md:text-[15px] ${editFormErrors.lastName ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={editFormData.lastName} onChange={(e) => setEditFormData({ ...editFormData, lastName: e.target.value })} />
+                    {editFormErrors.lastName && <span className="block text-xs text-red-500 mt-1">{editFormErrors.lastName}</span>}
+                  </div>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number *</label>
+                  <div className="relative">
+                    <Phone size={18} strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input type="tel" className={`w-full h-12 pl-11 pr-3.5 bg-gray-50 border-2 rounded-xl text-base md:h-11 md:text-[15px] ${editFormErrors.phone ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`} value={editFormData.phone} onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })} placeholder="0400 000 000" />
+                  </div>
+                  {editFormErrors.phone && <span className="block text-xs text-red-500 mt-1">{editFormErrors.phone}</span>}
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <span className="flex items-center gap-2">
+                      <MapPin size={16} strokeWidth={2} />
+                      Starting Address {editingUser.role === 'technician' ? '*' : '(Optional)'}
+                    </span>
+                  </label>
+                  <AddressAutocomplete
+                    label=""
+                    placeholder="Home address for travel time calculations"
+                    value={editFormData.homeAddress || undefined}
+                    onChange={(address) => setEditFormData({ ...editFormData, homeAddress: address })}
+                  />
+                  {editFormErrors.homeAddress && <span className="block text-xs text-red-500 mt-1">{editFormErrors.homeAddress}</span>}
+                </div>
+              </div>
+
+              {/* Change Password (Optional) */}
+              <div className="mb-7">
+                <h3 className="text-[15px] font-bold text-gray-900 mb-4 pb-2 border-b-2 border-gray-200">Change Password (Optional)</h3>
+                <p className="text-xs text-gray-500 mb-4">Leave blank to keep the current password.</p>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
+                  <div className="relative">
+                    <Lock size={18} strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      className={`w-full h-12 pl-11 pr-11 bg-gray-50 border-2 rounded-xl text-base md:h-11 md:text-[15px] ${editFormErrors.password ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`}
+                      value={editFormData.password}
+                      onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
+                      placeholder="Enter new password"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff size={18} strokeWidth={2} /> : <Eye size={18} strokeWidth={2} />}
+                    </button>
+                  </div>
+                  {editFormErrors.password && <span className="block text-xs text-red-500 mt-1">{editFormErrors.password}</span>}
+                </div>
+                {editFormData.password && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm New Password</label>
+                    <div className="relative">
+                      <Lock size={18} strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        className={`w-full h-12 pl-11 pr-11 bg-gray-50 border-2 rounded-xl text-base md:h-11 md:text-[15px] ${editFormErrors.confirmPassword ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:border-blue-500 focus:bg-white`}
+                        value={editFormData.confirmPassword}
+                        onChange={(e) => setEditFormData({ ...editFormData, confirmPassword: e.target.value })}
+                        placeholder="Confirm new password"
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? <EyeOff size={18} strokeWidth={2} /> : <Eye size={18} strokeWidth={2} />}
+                      </button>
+                    </div>
+                    {editFormErrors.confirmPassword && <span className="block text-xs text-red-500 mt-1">{editFormErrors.confirmPassword}</span>}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2.5 pt-6 border-t border-gray-200 md:flex-row md:gap-3 pb-6">
+                <button type="button" className="flex-1 h-13 bg-gray-100 text-gray-700 border-0 rounded-xl font-semibold cursor-pointer hover:bg-gray-200 transition-all md:h-12" onClick={() => { setShowEditModal(false); setEditingUser(null); }}>Cancel</button>
+                <button
+                  type="submit"
+                  className="flex-1 h-13 bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 rounded-xl font-semibold flex items-center justify-center gap-2 cursor-pointer hover:-translate-y-0.5 transition-all shadow-md md:h-12 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? (
+                    <Loader2 size={20} strokeWidth={2} className="animate-spin" />
+                  ) : (
+                    <Check size={20} strokeWidth={2} />
+                  )}
+                  {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
+
       <MobileBottomNav />
     </div>
   );

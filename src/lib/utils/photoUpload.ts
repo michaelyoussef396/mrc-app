@@ -40,7 +40,6 @@ export async function queuePhotoOffline(
     orderIndex: metadata.order_index || 0,
   })
 
-  console.log(`[PhotoUpload] Queued offline: ${file.name} → ${resized.size} bytes (resized)`)
   return id
 }
 
@@ -157,7 +156,6 @@ export async function uploadMultiplePhotos(
   // Upload sequentially to prevent overwhelming HTTP/2 connection
   for (let i = 0; i < files.length; i++) {
     try {
-      console.log(`Uploading photo ${i + 1}/${files.length}: ${files[i].name}`)
 
       const result = await uploadInspectionPhoto(files[i], {
         ...metadata,
@@ -165,7 +163,6 @@ export async function uploadMultiplePhotos(
       })
 
       results.push(result)
-      console.log(`✓ Photo ${i + 1}/${files.length} uploaded successfully`)
     } catch (error) {
       console.error(`✗ Failed to upload photo ${i + 1}/${files.length} (${files[i].name}):`, error)
       errors.push({

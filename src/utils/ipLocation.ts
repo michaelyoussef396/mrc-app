@@ -114,7 +114,6 @@ export const getLocationInfo = async (): Promise<LocationInfo | null> => {
         if (location) {
           cachedLocation = location;
           cacheTimestamp = Date.now();
-          console.log('✅ [IP Location] Success from:', api.url.split('/')[2]);
           return location;
         }
       } catch (error: any) {

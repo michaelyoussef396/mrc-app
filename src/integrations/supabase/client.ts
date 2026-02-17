@@ -76,7 +76,6 @@ export function setRememberMePreference(value: boolean): void {
   localStorage.setItem(REMEMBER_ME_KEY, String(value));
 
   if (import.meta.env.DEV) {
-    console.log(`🔐 [Remember Me] Set to: ${value ? 'persistent (localStorage)' : 'session-only (sessionStorage)'}`);
   }
 }
 
@@ -132,6 +131,5 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 // SOFT LAUNCH: Minimal auth state logging (reduced from verbose multi-line output)
 if (import.meta.env.DEV) {
   supabase.auth.onAuthStateChange((event, session) => {
-    console.log(`🔐 Auth: ${event}${session ? ` (${session.user.email})` : ''}`);
   });
 }

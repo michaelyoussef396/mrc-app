@@ -79,8 +79,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (event, session) => {
         if (!mounted) return;
 
-        console.log(`[Auth] Event: ${event}, user: ${session?.user?.email || 'none'}`);
-
         // Synchronously update session/user state
         setSession(session);
         setUser(session?.user ?? null);
@@ -88,17 +86,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           // Fetch roles without blocking the auth state change callback
           const userId = session.user.id;
-          console.log('[Auth] Starting role fetch for:', userId);
 
           // Use async IIFE inside setTimeout to not block Supabase
           setTimeout(async () => {
             if (!mounted) {
-              console.log('[Auth] Unmounted, skipping');
               return;
             }
 
             try {
-              console.log('[Auth] Query 0: profile');
               const { data: profileData, error: profileError } = await supabase
                 .from('profiles')
                 .select('*')
@@ -107,35 +102,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
               if (!profileError) setProfile(profileData);
 
-              console.log('[Auth] Query 1: user_roles');
               const { data: userRoleData, error: userRoleError } = await supabase
                 .from('user_roles')
                 .select('role_id')
                 .eq('user_id', userId);
 
-              console.log('[Auth] user_roles result:', { data: userRoleData, error: userRoleError });
-
               if (!mounted) return;
               if (userRoleError || !userRoleData?.length) {
-                console.log('[Auth] No roles or error, setting loading=false');
                 setLoading(false);
                 return;
               }
 
               const roleIds = userRoleData.map(r => r.role_id).filter(Boolean);
-              console.log('[Auth] Query 2: roles with ids:', roleIds);
 
               const { data: rolesData, error: rolesError } = await supabase
                 .from('roles')
                 .select('name')
                 .in('id', roleIds);
 
-              console.log('[Auth] roles result:', { data: rolesData, error: rolesError });
-
               if (!mounted) return;
 
               const roleNames = (rolesData || []).map(r => r.name).filter(Boolean) as string[];
-              console.log('[Auth] Setting roles:', roleNames);
               setUserRoles(roleNames);
 
               const savedRole = localStorage.getItem('mrc_current_role');
@@ -144,7 +131,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
 
               setLoading(false);
-              console.log('[Auth] Done, loading=false');
             } catch (err) {
               console.error('[Auth] Exception:', err);
               if (mounted) setLoading(false);

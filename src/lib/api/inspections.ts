@@ -179,12 +179,6 @@ export async function updateInspection(
     .eq('id', inspectionId)
     .select()
 
-  console.log('📊 Update inspection result:', {
-    inspectionId,
-    rowsAffected: result?.length || 0,
-    error: error?.message || null,
-    fields: Object.keys(data)
-  })
 
   if (error) {
     console.error('Failed to update inspection:', error)

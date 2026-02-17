@@ -26,18 +26,14 @@ export default function ResetPassword() {
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session) {
-          console.log('✅ Valid session found for password reset');
           setIsValidSession(true);
         } else {
           // Wait a bit for Supabase to process the URL
-          console.log('⏳ Waiting for Supabase to process reset token...');
 
           // Listen for auth state changes
           const { data: { subscription } } = supabase.auth.onAuthStateChange(
             (event, session) => {
-              console.log('🔔 Auth event:', event);
               if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
-                console.log('✅ Recovery session established');
                 setIsValidSession(true);
                 setIsValidating(false);
               }
@@ -47,7 +43,6 @@ export default function ResetPassword() {
           // Timeout after 5 seconds
           setTimeout(() => {
             if (!isValidSession) {
-              console.log('❌ No valid session after timeout');
               setError('Invalid or expired reset link. Please request a new one.');
               setIsValidating(false);
             }
@@ -111,7 +106,6 @@ export default function ResetPassword() {
         return;
       }
 
-      console.log('✅ Password updated successfully');
       setIsSuccess(true);
 
       // Sign out and redirect to login after 3 seconds

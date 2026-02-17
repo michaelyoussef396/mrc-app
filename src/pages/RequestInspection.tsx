@@ -82,8 +82,6 @@ const RequestInspection = () => {
         urgency: validatedData.urgency,
       });
 
-      console.log('✅ Lead created:', lead);
-
       // TODO: Send confirmation email here
       // await sendNewLeadEmail({ ... });
 

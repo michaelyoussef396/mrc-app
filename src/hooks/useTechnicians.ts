@@ -59,8 +59,6 @@ function getTechnicianInitials(name: string): string {
  * 3. Filtering to only users with technician role
  */
 async function fetchTechnicians(): Promise<Technician[]> {
-  console.log('[useTechnicians] Starting fetch...');
-
   try {
     // Step 1: Get session for authentication
     const { data: { session } } = await supabase.auth.getSession();
@@ -70,7 +68,6 @@ async function fetchTechnicians(): Promise<Technician[]> {
     }
 
     // Step 2: Fetch all users from edge function (same as BookInspectionModal)
-    console.log('[useTechnicians] Fetching users from manage-users edge function...');
     const response = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`,
       {
@@ -84,17 +81,14 @@ async function fetchTechnicians(): Promise<Technician[]> {
     );
 
     const result = await response.json();
-    console.log('[useTechnicians] Edge function result:', result);
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to fetch users');
     }
 
     const allUsers: UserFromAPI[] = result.users.filter((u: UserFromAPI) => u.is_active);
-    console.log('[useTechnicians] Active users:', allUsers.length);
 
     // Step 3: Get technician role ID
-    console.log('[useTechnicians] Fetching technician role ID...');
     const { data: roleData, error: roleError } = await supabase
       .from('roles')
       .select('id')
@@ -112,7 +106,6 @@ async function fetchTechnicians(): Promise<Technician[]> {
     }
 
     const technicianRoleId = roleData.id;
-    console.log('[useTechnicians] Technician role ID:', technicianRoleId);
 
     // Step 4: Get user IDs with technician role
     const { data: userRolesData, error: userRolesError } = await supabase
@@ -124,8 +117,6 @@ async function fetchTechnicians(): Promise<Technician[]> {
       console.error('[useTechnicians] user_roles fetch error:', userRolesError);
       throw new Error(`Failed to fetch user roles: ${userRolesError.message}`);
     }
-
-    console.log('[useTechnicians] Users with technician role:', userRolesData);
 
     if (!userRolesData || userRolesData.length === 0) {
       console.warn('[useTechnicians] No users with technician role - returning empty list');
@@ -142,8 +133,6 @@ async function fetchTechnicians(): Promise<Technician[]> {
         color: getTechnicianColor(user.full_name || user.first_name),
         initials: getTechnicianInitials(user.full_name || user.first_name),
       }));
-
-    console.log('[useTechnicians] Final technicians:', technicians);
     return technicians;
 
   } catch (error) {

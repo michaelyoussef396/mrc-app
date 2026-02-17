@@ -132,8 +132,6 @@ const NewLead = () => {
     
     try {
       // TODO: Save to Supabase
-      console.log('Form submitted:', formData);
-      console.log('Photos:', uploadedPhotos);
       
       await new Promise(resolve => setTimeout(resolve, 1500));
       

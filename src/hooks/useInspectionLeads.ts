@@ -109,7 +109,6 @@ export function useInspectionLeads() {
   useEffect(() => {
     if (!user) return;
 
-    console.log('📡 Setting up real-time inspection leads subscription');
 
     const channel = supabase
       .channel('inspection-leads-changes')
@@ -122,7 +121,6 @@ export function useInspectionLeads() {
           filter: 'status=eq.inspection_waiting', // Only inspection-ready leads
         },
         (payload) => {
-          console.log('🔔 Inspection lead change detected:', payload);
 
           // Invalidate and refetch inspection leads
           queryClient.invalidateQueries({ queryKey: ['inspection-leads'] });
@@ -131,7 +129,6 @@ export function useInspectionLeads() {
       .subscribe();
 
     return () => {
-      console.log('🔌 Unsubscribing from inspection leads');
       supabase.removeChannel(channel);
     };
   }, [user, queryClient]);
