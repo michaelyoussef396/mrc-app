@@ -236,6 +236,35 @@ export function buildJobBookedTechnicianHtml(data: JobBookedTechnicianData): str
   `);
 }
 
+export interface InspectionReminderData {
+  customerName: string;
+  date: string;
+  time: string;
+  address: string;
+}
+
+export function buildInspectionReminderHtml(data: InspectionReminderData): string {
+  return wrapInBrandedTemplate(`
+    <h2>Inspection Reminder</h2>
+    <p>Hi ${data.customerName},</p>
+    <p>This is a friendly reminder that your mould inspection is coming up in <strong>2 days</strong>.</p>
+    <div class="details-box">
+      <table>
+        <tr><td>Date</td><td>${data.date}</td></tr>
+        <tr><td>Time</td><td>${data.time}</td></tr>
+        <tr><td>Address</td><td>${data.address}</td></tr>
+      </table>
+    </div>
+    <p><strong>Please ensure:</strong></p>
+    <ul style="margin:16px 0;padding:0;list-style:none;">
+      <li style="padding:6px 0;font-size:14px;">&#10003; Access is available to all areas of the property</li>
+      <li style="padding:6px 0;font-size:14px;">&#10003; Pets are secured or kept away from work areas</li>
+      <li style="padding:6px 0;font-size:14px;">&#10003; Someone is home or access arrangements are made</li>
+    </ul>
+    <p style="margin-top:24px;">Need to reschedule? Call us on <a href="tel:0433880403" style="color:#121D73; font-weight:600;">0433 880 403</a></p>
+  `);
+}
+
 export function buildWelcomeEmailHtml(data: WelcomeEmailData): string {
   const roleLabel = data.role.charAt(0).toUpperCase() + data.role.slice(1);
   return wrapInBrandedTemplate(`

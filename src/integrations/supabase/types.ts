@@ -118,6 +118,7 @@ export type Database = {
           inspection_id: string | null
           lead_id: string | null
           location_address: string | null
+          reminder_scheduled_for: string | null
           reminder_sent: boolean | null
           reminder_sent_at: string | null
           start_datetime: string
@@ -139,6 +140,7 @@ export type Database = {
           inspection_id?: string | null
           lead_id?: string | null
           location_address?: string | null
+          reminder_scheduled_for?: string | null
           reminder_sent?: boolean | null
           reminder_sent_at?: string | null
           start_datetime: string
@@ -160,6 +162,7 @@ export type Database = {
           inspection_id?: string | null
           lead_id?: string | null
           location_address?: string | null
+          reminder_scheduled_for?: string | null
           reminder_sent?: boolean | null
           reminder_sent_at?: string | null
           start_datetime?: string
