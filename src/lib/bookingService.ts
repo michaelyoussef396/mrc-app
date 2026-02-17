@@ -15,6 +15,7 @@ export interface BookInspectionParams {
   technicianId: string;
   internalNotes?: string;
   technicianName?: string;
+  durationMinutes?: number;    // Default 60
 }
 
 export interface BookInspectionResult {
@@ -82,13 +83,14 @@ export async function bookInspection(
     technicianId,
     internalNotes,
     technicianName,
+    durationMinutes = 60,
   } = params;
 
 
   try {
-    // Combine date and time - Fixed 1 hour duration
+    // Combine date and time
     const startDateTime = new Date(`${inspectionDate}T${inspectionTime}:00`);
-    const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000); // Always 1 hour
+    const endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60 * 1000);
 
     // 0. Check for booking conflicts
     const { hasConflict, conflictDetails } = await checkBookingConflict(

@@ -31,6 +31,7 @@ interface AvailabilityRequest {
   requested_time: string  // HH:MM
   destination_address: string
   override_start_address?: string  // Manual override for starting location
+  duration_minutes?: number  // Default 60
 }
 
 interface RecommendedDatesRequest {
@@ -39,6 +40,7 @@ interface RecommendedDatesRequest {
   destination_address: string
   destination_suburb: string
   days_ahead?: number  // Default 7
+  duration_minutes?: number  // Default 60
 }
 
 interface DateRecommendation {
@@ -773,7 +775,8 @@ Deno.serve(async (req) => {
         technician_id,
         destination_address,
         destination_suburb,
-        days_ahead = 7
+        days_ahead = 7,
+        duration_minutes = 60
       } = body as RecommendedDatesRequest
 
       if (!technician_id || !destination_address) {
@@ -876,13 +879,28 @@ Deno.serve(async (req) => {
         const dayAppts = appointmentsByDate[dateStr] || []
         const appointmentCount = dayAppts.length
 
-        // Calculate available slots (8 AM to 5 PM, excluding booked times)
-        const bookedTimes = new Set(dayAppts.map(a => a.scheduled_time))
+        // Calculate available slots (8 AM to 5 PM)
+        // Build booked ranges as [startMinutes, endMinutes] — assume each existing
+        // booking is 1 hour unless we have end_datetime info
+        const bookedRanges = dayAppts.map(a => {
+          const startMin = timeToMinutes(a.scheduled_time || '09:00')
+          return [startMin, startMin + 60] as [number, number]
+        })
+
+        // A candidate slot [candidateStart, candidateStart + duration] is available
+        // only if it doesn't overlap with any booked range
+        const durationMins = duration_minutes
         const availableSlots: string[] = []
-        for (let hour = 8; hour <= 16; hour++) {
-          const timeStr = `${hour.toString().padStart(2, '0')}:00`
-          if (!bookedTimes.has(timeStr)) {
-            availableSlots.push(timeStr)
+        for (let hour = 8; hour <= 17; hour++) {
+          const candidateStart = hour * 60
+          const candidateEnd = candidateStart + durationMins
+          // Don't let the inspection run past 6 PM (1080 minutes)
+          if (candidateEnd > 18 * 60) break
+          const hasOverlap = bookedRanges.some(
+            ([bStart, bEnd]) => candidateStart < bEnd && candidateEnd > bStart
+          )
+          if (!hasOverlap) {
+            availableSlots.push(`${hour.toString().padStart(2, '0')}:00`)
           }
         }
 

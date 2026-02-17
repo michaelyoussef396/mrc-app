@@ -18,6 +18,7 @@ import {
   type InspectionAreaData
 } from '@/lib/api/inspections'
 import { generateInspectionPDF } from '@/lib/api/pdfGeneration'
+import { validateInspectionCompletion } from '@/lib/schemas/inspectionSchema'
 import {
   Sparkles,
   FileText,
@@ -2116,6 +2117,26 @@ const InspectionForm = () => {
       const actualGst = actualSubtotal * 0.10;
       const actualTotal = actualSubtotal + actualGst;
 
+      // Audit log for manual price override
+      if (formData.manualPriceOverride) {
+        try {
+          await supabase.from('audit_logs').insert({
+            action: 'price_override',
+            entity_type: 'inspection',
+            entity_id: inspectionId,
+            user_id: currentUserId,
+            metadata: {
+              manual_total_inc_gst: formData.manualTotal,
+              calculated_subtotal_ex_gst: logResult.subtotalExGst,
+              calculated_total_inc_gst: logResult.subtotalExGst * 1.10,
+              override_reason: 'manual_checkbox',
+            },
+          })
+        } catch (auditErr) {
+          console.error('Failed to log price override audit:', auditErr)
+        }
+      }
+
       // Save all inspection areas
       for (let i = 0; i < formData.areas.length; i++) {
         const area = formData.areas[i]
@@ -2415,16 +2436,32 @@ const InspectionForm = () => {
   }
 
   const handleSubmit = async () => {
-    // Validation
-    if (!formData.inspector) {
-      toast({ title: 'Required field', description: 'Inspector name is required', variant: 'destructive' })
-      setCurrentSection(0)
+    // Zod-based validation
+    const { valid, errors } = validateInspectionCompletion({
+      inspectionDate: formData.inspectionDate,
+      areas: formData.areas,
+      hepaVac: formData.hepaVac,
+      antimicrobial: formData.antimicrobial,
+      stainRemovingAntimicrobial: formData.stainRemovingAntimicrobial,
+      homeSanitationFogging: formData.homeSanitationFogging,
+      dryingEquipmentEnabled: formData.dryingEquipmentEnabled,
+      noDemolitionHours: formData.noDemolitionHours || 0,
+      demolitionHours: formData.demolitionHours || 0,
+      subfloorHours: formData.subfloorHours || 0,
+      manualPriceOverride: formData.manualPriceOverride,
+    })
+
+    if (!valid) {
+      const first = errors[0]
+      toast({ title: first.label, description: first.message, variant: 'destructive' })
+      // Navigate to the section with the error (sections are 0-indexed in admin form)
+      if (first.section > 0) setCurrentSection(first.section - 1)
       return
     }
 
-    if (formData.areas.length === 0 || !formData.areas[0].areaName) {
-      toast({ title: 'Required field', description: 'At least one inspection area is required', variant: 'destructive' })
-      setCurrentSection(2) // Go to Area Inspection section
+    if (!formData.inspector) {
+      toast({ title: 'Required field', description: 'Inspector name is required', variant: 'destructive' })
+      setCurrentSection(0)
       return
     }
 

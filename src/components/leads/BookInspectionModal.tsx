@@ -13,6 +13,7 @@ import { useBookingValidation, formatTimeDisplay, type DateRecommendation } from
 import { cn } from "@/lib/utils";
 import { AddressAutocomplete, type AddressValue } from "@/components/booking";
 import { sendEmail, sendSlackNotification, buildBookingConfirmationHtml } from "@/lib/api/notifications";
+import { checkBookingConflict } from "@/lib/bookingService";
 
 interface BookInspectionModalProps {
   open: boolean;
@@ -78,6 +79,7 @@ export function BookInspectionModal({
   propertySuburb,
 }: BookInspectionModalProps) {
   const [loading, setLoading] = useState(false);
+  const [durationMinutes, setDurationMinutes] = useState(60);
   const [formData, setFormData] = useState({
     inspectionDate: "",
     inspectionTime: "",
@@ -104,6 +106,7 @@ export function BookInspectionModal({
   // Reset form when modal closes
   useEffect(() => {
     if (!open) {
+      setDurationMinutes(60);
       setFormData({
         inspectionDate: "",
         inspectionTime: "",
@@ -146,6 +149,7 @@ export function BookInspectionModal({
         destinationAddress: propertyAddress,
         destinationSuburb: getSuburb(),
         daysAhead: 7,
+        durationMinutes,
       });
 
       if (result?.recommendations) {
@@ -215,9 +219,23 @@ export function BookInspectionModal({
     setLoading(true);
 
     try {
-      // Combine date and time - Fixed 1 hour duration
+      // Combine date and time
       const startDateTime = new Date(`${formData.inspectionDate}T${formData.inspectionTime}:00`);
-      const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000); // Always 1 hour
+      const endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60 * 1000);
+
+      // Check for booking conflicts before inserting
+      if (formData.assignedTo) {
+        const { hasConflict, conflictDetails } = await checkBookingConflict(
+          formData.assignedTo,
+          startDateTime,
+          endDateTime
+        );
+        if (hasConflict) {
+          toast.error(`Technician already booked at this time. ${conflictDetails}`);
+          setLoading(false);
+          return;
+        }
+      }
 
       // Create calendar event
       const { error: calendarError } = await supabase
@@ -647,13 +665,56 @@ export function BookInspectionModal({
             </div>
           )}
 
-          {/* Duration Info */}
-          {formData.inspectionTime && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-gray-50 px-3 py-2 rounded-lg">
-              <Info size={14} />
-              <span>Duration: 1 hour</span>
-            </div>
-          )}
+          {/* Duration Selection */}
+          <div className="space-y-2">
+            <Label>
+              <span className="flex items-center gap-1.5">
+                <Clock size={14} />
+                Est. Duration
+              </span>
+            </Label>
+            <Select
+              value={String(durationMinutes)}
+              onValueChange={(value) => {
+                const newDuration = Number(value);
+                setDurationMinutes(newDuration);
+                // Re-fetch recommendations with new duration
+                if (formData.assignedTo) {
+                  setFormData(prev => ({ ...prev, inspectionDate: "", inspectionTime: "" }));
+                  setRecommendations([]);
+                  setAvailableSlots([]);
+                  setIsLoadingRecommendations(true);
+                  getRecommendedDates({
+                    technicianId: formData.assignedTo,
+                    destinationAddress: propertyAddress,
+                    destinationSuburb: getSuburb(),
+                    daysAhead: 7,
+                    durationMinutes: newDuration,
+                  })
+                    .then((result) => {
+                      if (result?.recommendations) {
+                        setRecommendations(result.recommendations);
+                        setHasMissingAddressWarning(result.has_missing_address_warning || false);
+                      }
+                    })
+                    .catch(() => {})
+                    .finally(() => setIsLoadingRecommendations(false));
+                }
+              }}
+            >
+              <SelectTrigger className="max-w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="60">1 hour</SelectItem>
+                <SelectItem value="90">1.5 hours</SelectItem>
+                <SelectItem value="120">2 hours</SelectItem>
+                <SelectItem value="150">2.5 hours</SelectItem>
+                <SelectItem value="180">3 hours</SelectItem>
+                <SelectItem value="240">4 hours</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Notes */}
           <div className="space-y-2">

@@ -1407,6 +1407,26 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Validate lead status — PDF only allowed for completed inspections
+    const validPdfStatuses = [
+      'inspection_completed', 'inspection_ai_summary', 'approve_inspection_report',
+      'inspection_report_pdf_completed', 'inspection_email_approval',
+      'job_waiting', 'job_completed', 'job_report_pdf_sent',
+      'invoicing_sent', 'paid', 'google_review', 'finished',
+      'closed', 'not_landed',
+    ]
+    const leadStatus = inspection.lead?.status
+    if (leadStatus && !validPdfStatuses.includes(leadStatus)) {
+      console.error(`PDF generation blocked: lead status is '${leadStatus}'`)
+      return new Response(
+        JSON.stringify({
+          error: 'Inspection not complete. Complete all sections before generating PDF.',
+          currentStatus: leadStatus,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Sort areas by area_order
     if (inspection.areas) {
       inspection.areas.sort((a: InspectionArea, b: InspectionArea) =>
@@ -1472,21 +1492,34 @@ Deno.serve(async (req) => {
     if (allPhotos.length > 0) {
       console.log(`Generating signed URLs for ${allPhotos.length} photos...`)
 
-      for (const photo of allPhotos) {
-        if (photo.storage_path && !photoSignedUrls.has(photo.storage_path)) {
-          try {
-            const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-              .from('inspection-photos')
-              .createSignedUrl(photo.storage_path, 3600)
+      // Deduplicate storage paths
+      const uniquePaths = [...new Set(
+        allPhotos.map(p => p.storage_path).filter(Boolean) as string[]
+      )]
 
-            if (signedUrlData?.signedUrl && !signedUrlError) {
-              photoSignedUrls.set(photo.storage_path, signedUrlData.signedUrl)
-            } else {
-              console.error(`Failed signed URL for ${photo.storage_path}:`, signedUrlError)
+      // Process in batches of 10 with Promise.all for parallelism
+      const BATCH_SIZE = 10
+      for (let i = 0; i < uniquePaths.length; i += BATCH_SIZE) {
+        const batch = uniquePaths.slice(i, i + BATCH_SIZE)
+        const results = await Promise.all(
+          batch.map(async (storagePath) => {
+            try {
+              const { data, error } = await supabase.storage
+                .from('inspection-photos')
+                .createSignedUrl(storagePath, 3600)
+              if (data?.signedUrl && !error) {
+                return { path: storagePath, url: data.signedUrl }
+              }
+              console.error(`Failed signed URL for ${storagePath}:`, error)
+              return null
+            } catch (err) {
+              console.error(`Error signed URL for ${storagePath}:`, err)
+              return null
             }
-          } catch (err) {
-            console.error(`Error signed URL for ${photo.storage_path}:`, err)
-          }
+          })
+        )
+        for (const result of results) {
+          if (result) photoSignedUrls.set(result.path, result.url)
         }
       }
 
@@ -1507,6 +1540,31 @@ Deno.serve(async (req) => {
 
     const templateHtml = await templateResponse.text()
     console.log(`Template fetched: ${(templateHtml.length / 1024).toFixed(1)} KB`)
+
+    // Validate template has all required comment markers for regex-based section replacement
+    const requiredMarkers = [
+      '<!-- Page 4: Value Proposition',
+      '<!-- Page 5: Problem Analysis',
+      '<!-- Page 5',
+      '<!-- Page 6: Demolition',
+      '<!-- Page 6',
+      '<!-- Page 7',
+      '<!-- Page 8: Areas Inspected',
+      '<!-- Page 9: Subfloor',
+      '<!-- Page 9',
+      '<!-- Page 10',
+    ]
+    const missingMarkers = requiredMarkers.filter(marker => !templateHtml.includes(marker))
+    if (missingMarkers.length > 0) {
+      console.error('Template validation failed. Missing markers:', missingMarkers)
+      return new Response(
+        JSON.stringify({
+          error: 'PDF template is missing required comment markers',
+          missingMarkers,
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     // ===== STEP 5: Populate the template =====
     const populatedHtml = generateReportHtml(

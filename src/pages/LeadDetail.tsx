@@ -324,9 +324,18 @@ export default function LeadDetail() {
     window.open(mapsUrl, "_blank");
   };
 
+  const PRE_INSPECTION_STATUSES = [
+    'new_lead', 'contacted', 'inspection_waiting',
+  ];
+
   const handleRegeneratePDF = async () => {
     if (!inspection) {
       toast.error("No inspection found for this lead");
+      return;
+    }
+
+    if (PRE_INSPECTION_STATUSES.includes(lead.status)) {
+      toast.error("Complete the inspection before generating a PDF");
       return;
     }
 

@@ -23,6 +23,64 @@ interface EmailRequest {
   }>
 }
 
+interface SendResult {
+  success: boolean
+  data?: { id: string }
+  error?: string
+  status?: number
+}
+
+async function sendWithRetry(
+  payload: Record<string, unknown>,
+  apiKey: string,
+  maxRetries = 3
+): Promise<SendResult> {
+  let lastError = ''
+  let lastStatus = 500
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        return { success: true, data }
+      }
+
+      lastError = data?.message || JSON.stringify(data)
+      lastStatus = response.status
+
+      // 4xx = client error, not retryable (except 429 rate limit)
+      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+        console.error(`Resend API client error (attempt ${attempt}/${maxRetries}): ${response.status}`, data)
+        break
+      }
+
+      // 5xx or 429 = retryable
+      console.warn(`Resend API error (attempt ${attempt}/${maxRetries}): ${response.status}`, data)
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err)
+      lastStatus = 500
+      console.warn(`Resend API network error (attempt ${attempt}/${maxRetries}):`, lastError)
+    }
+
+    // Wait before retry (exponential: 1s, 2s, 3s)
+    if (attempt < maxRetries) {
+      await new Promise(resolve => setTimeout(resolve, attempt * 1000))
+    }
+  }
+
+  return { success: false, error: lastError, status: lastStatus }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -56,34 +114,17 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Send email via Resend
-    const resendResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: from || 'Mould & Restoration Co <noreply@mrcsystem.com>',
-        to: [to],
-        subject,
-        html,
-        reply_to: replyTo || 'admin@mouldandrestoration.com.au',
-        attachments: attachments || [],
-      }),
-    })
+    // Send email via Resend with retry
+    const result = await sendWithRetry({
+      from: from || 'Mould & Restoration Co <noreply@mrcsystem.com>',
+      to: [to],
+      subject,
+      html,
+      reply_to: replyTo || 'admin@mouldandrestoration.com.au',
+      attachments: attachments || [],
+    }, RESEND_API_KEY)
 
-    const resendData = await resendResponse.json()
-
-    if (!resendResponse.ok) {
-      console.error('Resend API error:', resendData)
-      return new Response(
-        JSON.stringify({ error: 'Failed to send email', details: resendData }),
-        { status: resendResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Log to email_logs table
+    // Log to email_logs table (both success and failure)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
@@ -92,16 +133,25 @@ Deno.serve(async (req) => {
       recipient_email: to,
       subject,
       template_name: templateName || 'custom',
-      status: 'sent',
+      status: result.success ? 'sent' : 'failed',
       provider: 'resend',
-      provider_message_id: resendData.id,
+      provider_message_id: result.data?.id || null,
+      error_message: result.error || null,
       lead_id: leadId || null,
       inspection_id: inspectionId || null,
       sent_at: new Date().toISOString(),
     })
 
+    if (!result.success) {
+      console.error('Email send failed after retries:', result.error)
+      return new Response(
+        JSON.stringify({ error: 'Failed to send email', details: result.error }),
+        { status: result.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     return new Response(
-      JSON.stringify({ success: true, emailId: resendData.id }),
+      JSON.stringify({ success: true, emailId: result.data?.id }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

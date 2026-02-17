@@ -11,6 +11,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { GlobalLoader, ProgressBar, PageTransition } from "@/components/loading";
 
 import { useSessionRefresh } from "@/lib/hooks/useSessionRefresh";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { Loader2 } from "lucide-react";
 
 // Eagerly loaded pages (login flow - needed immediately)
@@ -60,7 +61,14 @@ const PageLoader = () => (
   </div>
 );
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 2 * 60 * 1000, // 2 minutes — prevents refetch on every navigation
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const AppContent = () => {
   const location = useLocation();
@@ -372,12 +380,14 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <GlobalLoader loading={initialLoading} />
-          <AuthProvider>
-            <AppContent />
-          </AuthProvider>
-        </BrowserRouter>
+        <ErrorBoundary>
+          <BrowserRouter>
+            <GlobalLoader loading={initialLoading} />
+            <AuthProvider>
+              <AppContent />
+            </AuthProvider>
+          </BrowserRouter>
+        </ErrorBoundary>
       </TooltipProvider>
     </QueryClientProvider>
   );

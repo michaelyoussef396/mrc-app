@@ -48,6 +48,7 @@ interface GetRecommendedDatesParams {
   destinationAddress: string
   destinationSuburb: string
   daysAhead?: number
+  durationMinutes?: number
 }
 
 export interface DateRecommendation {
@@ -149,7 +150,7 @@ export function useBookingValidation() {
   }, [])
 
   const getRecommendedDates = useCallback(async (params: GetRecommendedDatesParams): Promise<RecommendedDatesResult | null> => {
-    const { technicianId, destinationAddress, destinationSuburb, daysAhead = 7 } = params
+    const { technicianId, destinationAddress, destinationSuburb, daysAhead = 7, durationMinutes = 60 } = params
 
     if (!technicianId || !destinationAddress) {
       setError('Missing required parameters')
@@ -180,6 +181,7 @@ export function useBookingValidation() {
             destination_address: destinationAddress,
             destination_suburb: destinationSuburb,
             days_ahead: daysAhead,
+            duration_minutes: durationMinutes,
           }),
         }
       )

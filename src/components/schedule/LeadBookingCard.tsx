@@ -48,6 +48,7 @@ export function LeadBookingCard({
   const { getRecommendedDates } = useBookingValidation();
 
   // Form state
+  const [durationMinutes, setDurationMinutes] = useState<number>(60);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [selectedTechnician, setSelectedTechnician] = useState<string>('');
@@ -83,6 +84,7 @@ export function LeadBookingCard({
         destinationAddress: lead.propertyAddress,
         destinationSuburb: lead.suburb,
         daysAhead: 14,
+        durationMinutes,
       });
 
       if (result?.recommendations) {
@@ -140,12 +142,14 @@ export function LeadBookingCard({
           technicianId: selectedTechnician,
           internalNotes: internalNotes || undefined,
           technicianName: technicians.find(t => t.id === selectedTechnician)?.name,
+          durationMinutes,
         },
         queryClient
       );
 
       if (result.success) {
         toast.success('Inspection booked successfully!');
+        setDurationMinutes(60);
         setSelectedDate('');
         setSelectedTime('');
         setSelectedTechnician('');
@@ -256,7 +260,71 @@ export function LeadBookingCard({
             </div>
           </div>
 
-          {/* 2. Assign Technician (moved up) */}
+          {/* 2. Est. Duration */}
+          <div className="space-y-1.5">
+            <label
+              className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1"
+              style={{ color: '#617589' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
+                timer
+              </span>
+              Est. Duration
+            </label>
+            <div className="relative">
+              <select
+                value={durationMinutes}
+                onChange={(e) => {
+                  const newDuration = Number(e.target.value);
+                  setDurationMinutes(newDuration);
+                  // Re-fetch recommendations with new duration if technician already selected
+                  if (selectedTechnician && lead.propertyAddress) {
+                    setRecommendations([]);
+                    setSelectedRecDate('');
+                    setSelectedDate('');
+                    setSelectedTime('');
+                    setRecsLoading(true);
+                    getRecommendedDates({
+                      technicianId: selectedTechnician,
+                      destinationAddress: lead.propertyAddress,
+                      destinationSuburb: lead.suburb,
+                      daysAhead: 14,
+                      durationMinutes: newDuration,
+                    })
+                      .then((result) => {
+                        if (result?.recommendations) {
+                          setRecommendations(result.recommendations.slice(0, 3));
+                        }
+                      })
+                      .catch(() => {})
+                      .finally(() => setRecsLoading(false));
+                  }
+                }}
+                className="w-full h-12 px-4 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[#007AFF] outline-none transition-all appearance-none cursor-pointer pr-10"
+                style={{
+                  backgroundColor: 'white',
+                  border: '1px solid #e5e5e5',
+                  color: '#1d1d1f',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option value={60}>1 hour</option>
+                <option value={90}>1.5 hours</option>
+                <option value={120}>2 hours</option>
+                <option value={150}>2.5 hours</option>
+                <option value={180}>3 hours</option>
+                <option value={240}>4 hours</option>
+              </select>
+              <span
+                className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ color: '#617589', fontSize: '20px' }}
+              >
+                expand_more
+              </span>
+            </div>
+          </div>
+
+          {/* 3. Assign Technician */}
           <div className="space-y-1.5">
             <label
               className="text-xs font-semibold uppercase tracking-wide"

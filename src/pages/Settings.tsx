@@ -109,7 +109,7 @@ export default function Settings() {
       // Call Edge Function to delete user using DELETE method
       const { data: session } = await supabase.auth.getSession();
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL || 'https://fbnmxcknqnrpwxxbvgbz.supabase.co'}/functions/v1/manage-users?userId=${user.id}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users?userId=${user.id}`,
         {
           method: 'DELETE',
           headers: {

@@ -23,6 +23,7 @@ import type {
   SubfloorReading,
   Photo,
 } from '@/types/inspection';
+import { validateInspectionCompletion } from '@/lib/schemas/inspectionSchema';
 
 // Helper: invoke edge functions via direct fetch (bypasses supabase.functions.invoke timeout issues)
 async function invokeEdgeFunction(functionName: string, body: object): Promise<{ data: any; error: any }> {
@@ -3183,32 +3184,19 @@ export default function TechnicianInspectionForm() {
   const [showValidationDialog, setShowValidationDialog] = useState(false);
 
   const validateForm = (): { section: number; label: string; message: string }[] => {
-    const errors: { section: number; label: string; message: string }[] = [];
-
-    // Section 1: Inspection date
-    if (!formData.inspectionDate) {
-      errors.push({ section: 1, label: 'Basic Information', message: 'Inspection date is required' });
-    }
-
-    // Section 3: At least one area with a name
-    const namedAreas = formData.areas.filter((a) => a.areaName?.trim());
-    if (namedAreas.length === 0) {
-      errors.push({ section: 3, label: 'Area Inspection', message: 'At least one area with a name is required' });
-    }
-
-    // Section 7: At least one work procedure or drying equipment
-    const hasWorkProcedure = formData.hepaVac || formData.antimicrobial ||
-      formData.stainRemovingAntimicrobial || formData.homeSanitationFogging || formData.dryingEquipmentEnabled;
-    if (!hasWorkProcedure) {
-      errors.push({ section: 7, label: 'Work Procedure', message: 'At least one work procedure or drying equipment must be selected' });
-    }
-
-    // Section 9: Hours > 0
-    const totalHours = (formData.noDemolitionHours || 0) + (formData.demolitionHours || 0) + (formData.subfloorHours || 0);
-    if (totalHours <= 0 && !formData.manualPriceOverride) {
-      errors.push({ section: 9, label: 'Cost Estimate', message: 'At least one hour type must be greater than 0' });
-    }
-
+    const { errors } = validateInspectionCompletion({
+      inspectionDate: formData.inspectionDate,
+      areas: formData.areas,
+      hepaVac: formData.hepaVac,
+      antimicrobial: formData.antimicrobial,
+      stainRemovingAntimicrobial: formData.stainRemovingAntimicrobial,
+      homeSanitationFogging: formData.homeSanitationFogging,
+      dryingEquipmentEnabled: formData.dryingEquipmentEnabled,
+      noDemolitionHours: formData.noDemolitionHours || 0,
+      demolitionHours: formData.demolitionHours || 0,
+      subfloorHours: formData.subfloorHours || 0,
+      manualPriceOverride: formData.manualPriceOverride,
+    });
     return errors;
   };
 
