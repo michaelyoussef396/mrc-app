@@ -49,6 +49,7 @@ import {
   StickyNote,
 } from "lucide-react";
 import { NewLeadView } from "@/components/leads/NewLeadView";
+import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
 import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
 import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/api/inspections";
@@ -104,6 +105,7 @@ export default function LeadDetail() {
   const [regeneratingPdf, setRegeneratingPdf] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [showEditSheet, setShowEditSheet] = useState(false);
   const [newStatus, setNewStatus] = useState<LeadStatus | null>(null);
 
   // Fetch lead data
@@ -585,6 +587,11 @@ export default function LeadDetail() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => setShowEditSheet(true)}>
+                    <Edit className="h-4 w-4 mr-3" />
+                    Edit Lead
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleCall}>
                     <Phone className="h-4 w-4 mr-3" />
                     Call
@@ -748,7 +755,7 @@ export default function LeadDetail() {
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-500">Source</span>
-              <span className="text-sm font-medium">{lead.lead_source || "Website"}</span>
+              <span className="text-sm font-medium">{lead.lead_source || "Not specified"}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-500">Date Created</span>
@@ -1021,6 +1028,9 @@ export default function LeadDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Lead Sheet */}
+      <EditLeadSheet lead={lead} open={showEditSheet} onOpenChange={setShowEditSheet} />
     </div>
   );
 }

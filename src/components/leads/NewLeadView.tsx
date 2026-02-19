@@ -27,9 +27,11 @@ import {
   CheckCircle2,
   User,
   ClipboardList,
+  Edit,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
+import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
 import type { LeadStatus } from "@/lib/statusFlow";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -47,6 +49,7 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
   const queryClient = useQueryClient();
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [showEditSheet, setShowEditSheet] = useState(false);
   const [archiving, setArchiving] = useState(false);
 
   const fullAddress = [
@@ -149,6 +152,14 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
 
             {/* Desktop action buttons */}
             <div className="hidden md:flex items-center gap-3">
+              <Button
+                variant="outline"
+                className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                onClick={() => setShowEditSheet(true)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Lead
+              </Button>
               {isScheduled ? (
                 <>
                   <Button
@@ -488,6 +499,14 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
       {/* ───── Mobile Fixed Bottom Bar ───── */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg md:hidden z-50 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-12 w-12 flex-shrink-0 border-slate-300 text-slate-600"
+            onClick={() => setShowEditSheet(true)}
+          >
+            <Edit className="h-5 w-5" />
+          </Button>
           {isScheduled ? (
             <>
               <Button
@@ -564,6 +583,9 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
         propertyAddress={fullAddress}
         propertySuburb={lead.property_address_suburb || ""}
       />
+
+      {/* ───── Edit Lead Sheet ───── */}
+      <EditLeadSheet lead={lead} open={showEditSheet} onOpenChange={setShowEditSheet} />
     </>
   );
 }
