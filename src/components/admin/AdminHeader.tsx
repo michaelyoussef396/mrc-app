@@ -1,7 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminSearchBar from './AdminSearchBar';
+import {
+  useNotifications,
+  useUnreadCount,
+  useMarkAsRead,
+  useMarkAllAsRead,
+  type Notification,
+} from '@/hooks/useNotifications';
+import { formatDistanceToNow } from 'date-fns';
 
 interface AdminHeaderProps {
   userName?: string;
@@ -100,77 +108,12 @@ export default function AdminHeader({ userName = 'Admin', onMenuClick }: AdminHe
         </button>
 
         {/* Notifications */}
-        <div className="relative" ref={notificationRef}>
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="relative w-11 h-11 rounded-xl bg-white flex items-center justify-center hover:bg-gray-50 transition-all"
-            style={{ border: '1px solid #e5e5e5' }}
-          >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: '22px', color: '#86868b' }}
-            >
-              notifications
-            </span>
-            {/* Notification dot */}
-            <span
-              className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: '#FF3B30' }}
-            />
-          </button>
-
-          {/* Notifications Dropdown - Coming Soon */}
-          {showNotifications && (
-            <div
-              className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-lg overflow-hidden z-50"
-              style={{ border: '1px solid #e5e5e5' }}
-            >
-              {/* Header */}
-              <div
-                className="px-4 py-3 flex items-center justify-between"
-                style={{ borderBottom: '1px solid #f0f0f0' }}
-              >
-                <h3 className="font-semibold" style={{ color: '#1d1d1f' }}>
-                  Notifications
-                </h3>
-                <span className="text-xs" style={{ color: '#86868b' }}>
-                  Coming Soon
-                </span>
-              </div>
-
-              {/* Content */}
-              <div className="p-6 text-center">
-                <div
-                  className="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: 'rgba(0, 122, 255, 0.1)' }}
-                >
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ fontSize: '24px', color: '#007AFF' }}
-                  >
-                    notifications_active
-                  </span>
-                </div>
-                <h4 className="font-semibold mb-1" style={{ color: '#1d1d1f' }}>
-                  Feature Coming Soon
-                </h4>
-                <p className="text-sm leading-relaxed" style={{ color: '#86868b' }}>
-                  Real-time notifications for new leads, inspection updates, and team activity will be available here.
-                </p>
-              </div>
-
-              {/* Footer */}
-              <div
-                className="px-4 py-3 text-center"
-                style={{ backgroundColor: '#f5f7f8', borderTop: '1px solid #f0f0f0' }}
-              >
-                <p className="text-xs" style={{ color: '#86868b' }}>
-                  Stay tuned for updates!
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
+        <NotificationDropdown
+          ref={notificationRef}
+          showNotifications={showNotifications}
+          setShowNotifications={setShowNotifications}
+          navigate={navigate}
+        />
 
         {/* Profile - Desktop shows full, mobile shows avatar only */}
         <div className="relative">
@@ -275,3 +218,192 @@ function getTimeOfDay(): string {
   if (hour < 17) return 'afternoon';
   return 'evening';
 }
+
+function getNotificationIcon(type: string) {
+  switch (type) {
+    case 'lead_created':
+      return '👤';
+    case 'status_changed':
+      return '🔄';
+    case 'job_completed':
+      return '✅';
+    case 'payment_received':
+      return '💰';
+    case 'inspection_scheduled':
+      return '📅';
+    default:
+      return '🔔';
+  }
+}
+
+interface NotificationDropdownProps {
+  showNotifications: boolean;
+  setShowNotifications: (show: boolean) => void;
+  navigate: (path: string) => void;
+}
+
+const NotificationDropdown = forwardRef<HTMLDivElement, NotificationDropdownProps>(
+  function NotificationDropdown({ showNotifications, setShowNotifications, navigate }, ref) {
+    const { data: unreadCount } = useUnreadCount();
+    const { data: notifications, isLoading } = useNotifications({ limit: 5 });
+    const markAsRead = useMarkAsRead();
+    const markAllAsRead = useMarkAllAsRead();
+
+    const handleNotificationClick = async (notification: Notification) => {
+      if (!notification.is_read) {
+        await markAsRead.mutateAsync(notification.id);
+      }
+      setShowNotifications(false);
+      if (notification.lead_id) {
+        navigate(`/leads/${notification.lead_id}`);
+      }
+    };
+
+    const handleMarkAllAsRead = async () => {
+      await markAllAsRead.mutateAsync();
+    };
+
+    return (
+      <div className="relative" ref={ref}>
+        <button
+          onClick={() => setShowNotifications(!showNotifications)}
+          className="relative w-11 h-11 rounded-xl bg-white flex items-center justify-center hover:bg-gray-50 transition-all"
+          style={{ border: '1px solid #e5e5e5' }}
+        >
+          <span
+            className="material-symbols-outlined"
+            style={{ fontSize: '22px', color: '#86868b' }}
+          >
+            notifications
+          </span>
+          {/* Unread badge */}
+          {(unreadCount ?? 0) > 0 && (
+            <span
+              className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full text-white text-xs font-bold flex items-center justify-center"
+              style={{ backgroundColor: '#FF3B30', fontSize: '11px' }}
+            >
+              {unreadCount! > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
+
+        {showNotifications && (
+          <div
+            className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-lg overflow-hidden z-50"
+            style={{ border: '1px solid #e5e5e5', maxHeight: '480px' }}
+          >
+            {/* Header */}
+            <div
+              className="px-4 py-3 flex items-center justify-between"
+              style={{ borderBottom: '1px solid #f0f0f0' }}
+            >
+              <h3 className="font-semibold" style={{ color: '#1d1d1f' }}>
+                Notifications
+              </h3>
+              {(unreadCount ?? 0) > 0 && (
+                <button
+                  onClick={handleMarkAllAsRead}
+                  disabled={markAllAsRead.isPending}
+                  className="text-xs font-medium hover:underline disabled:opacity-50"
+                  style={{ color: '#007AFF' }}
+                >
+                  {markAllAsRead.isPending ? 'Marking...' : 'Mark all as read'}
+                </button>
+              )}
+            </div>
+
+            {/* Content */}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <span
+                  className="material-symbols-outlined animate-spin"
+                  style={{ fontSize: '24px', color: '#86868b' }}
+                >
+                  progress_activity
+                </span>
+              </div>
+            ) : notifications && notifications.length > 0 ? (
+              <div className="overflow-y-auto" style={{ maxHeight: '340px' }}>
+                {notifications.map((notification) => (
+                  <button
+                    key={notification.id}
+                    onClick={() => handleNotificationClick(notification)}
+                    className="w-full px-4 py-3 flex items-start gap-3 hover:bg-gray-50 transition-colors text-left min-h-[48px]"
+                    style={{
+                      borderBottom: '1px solid #f0f0f0',
+                      backgroundColor: notification.is_read ? 'transparent' : 'rgba(0, 122, 255, 0.04)',
+                    }}
+                  >
+                    <span className="text-lg flex-shrink-0 mt-0.5">
+                      {getNotificationIcon(notification.type)}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className="text-sm leading-snug"
+                        style={{
+                          color: '#1d1d1f',
+                          fontWeight: notification.is_read ? 400 : 600,
+                        }}
+                      >
+                        {notification.title}
+                      </p>
+                      <p
+                        className="text-xs mt-0.5 line-clamp-2"
+                        style={{ color: '#86868b' }}
+                      >
+                        {notification.message}
+                      </p>
+                      <p
+                        className="text-xs mt-1"
+                        style={{ color: '#aeaeb2' }}
+                      >
+                        {formatDistanceToNow(new Date(notification.created_at), {
+                          addSuffix: true,
+                        })}
+                      </p>
+                    </div>
+                    {!notification.is_read && (
+                      <span
+                        className="w-2 h-2 rounded-full flex-shrink-0 mt-2"
+                        style={{ backgroundColor: '#007AFF' }}
+                      />
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center">
+                <span
+                  className="material-symbols-outlined mb-2 block"
+                  style={{ fontSize: '32px', color: '#c7c7cc' }}
+                >
+                  notifications_off
+                </span>
+                <p className="text-sm" style={{ color: '#86868b' }}>
+                  No notifications yet
+                </p>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div
+              className="px-4 py-3 text-center"
+              style={{ backgroundColor: '#f5f7f8', borderTop: '1px solid #f0f0f0' }}
+            >
+              <button
+                onClick={() => {
+                  setShowNotifications(false);
+                  navigate('/notifications');
+                }}
+                className="text-sm font-medium hover:underline"
+                style={{ color: '#007AFF' }}
+              >
+                View All Notifications
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+);
