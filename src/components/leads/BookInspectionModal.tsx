@@ -670,15 +670,20 @@ export function BookInspectionModal({
             <Label>
               <span className="flex items-center gap-1.5">
                 <Clock size={14} />
-                Est. Duration
+                Est. Duration (minutes)
               </span>
             </Label>
-            <Select
-              value={String(durationMinutes)}
-              onValueChange={(value) => {
-                const newDuration = Number(value);
-                setDurationMinutes(newDuration);
-                // Re-fetch recommendations with new duration
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={30}
+              max={480}
+              step={15}
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(Number(e.target.value) || 60)}
+              onBlur={() => {
+                const clamped = Math.max(30, Math.min(480, durationMinutes));
+                if (clamped !== durationMinutes) setDurationMinutes(clamped);
                 if (formData.assignedTo) {
                   setFormData(prev => ({ ...prev, inspectionDate: "", inspectionTime: "" }));
                   setRecommendations([]);
@@ -689,7 +694,7 @@ export function BookInspectionModal({
                     destinationAddress: propertyAddress,
                     destinationSuburb: getSuburb(),
                     daysAhead: 7,
-                    durationMinutes: newDuration,
+                    durationMinutes: clamped,
                   })
                     .then((result) => {
                       if (result?.recommendations) {
@@ -701,19 +706,8 @@ export function BookInspectionModal({
                     .finally(() => setIsLoadingRecommendations(false));
                 }
               }}
-            >
-              <SelectTrigger className="max-w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="60">1 hour</SelectItem>
-                <SelectItem value="90">1.5 hours</SelectItem>
-                <SelectItem value="120">2 hours</SelectItem>
-                <SelectItem value="150">2.5 hours</SelectItem>
-                <SelectItem value="180">3 hours</SelectItem>
-                <SelectItem value="240">4 hours</SelectItem>
-              </SelectContent>
-            </Select>
+              className="max-w-[200px]"
+            />
           </div>
 
           {/* Notes */}
