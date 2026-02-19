@@ -9,6 +9,8 @@ import { useAdminDashboardStats } from '@/hooks/useAdminDashboardStats';
 import { useTodaysSchedule } from '@/hooks/useTodaysSchedule';
 import { useUnassignedLeads } from '@/hooks/useUnassignedLeads';
 import { useTechnicianStats } from '@/hooks/useTechnicianStats';
+import { useActivityTimeline } from '@/hooks/useActivityTimeline';
+import { ActivityTimeline } from '@/components/dashboard/ActivityTimeline';
 
 // Status badge styling based on lead status
 const getStatusStyle = (status: string) => {
@@ -83,6 +85,9 @@ export default function AdminDashboard() {
 
   // Fetch technician stats for Team Workload
   const { data: technicianStats, isLoading: techLoading } = useTechnicianStats();
+
+  // Fetch unified activity timeline
+  const { data: timelineEvents = [], isLoading: timelineLoading } = useActivityTimeline(15);
 
   // Format currency for Australian dollars
   const formatCurrency = (amount: number) => {
@@ -360,7 +365,6 @@ export default function AdminDashboard() {
               className="bg-white rounded-2xl shadow-sm overflow-hidden"
               style={{ border: '1px solid #e5e5e5' }}
             >
-              {/* Header with Coming Soon badge */}
               <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-gray-100">
                 <h2
                   className="text-base md:text-lg font-semibold"
@@ -368,94 +372,15 @@ export default function AdminDashboard() {
                 >
                   Recent Activity
                 </h2>
-                <span className="text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1" style={{ backgroundColor: '#f0f0f0', color: '#86868b' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>notifications</span>
-                  Coming Soon
-                </span>
               </div>
 
-              {/* Preview Content */}
               <div className="p-4 md:p-6">
-                {/* Coming Soon Notice */}
-                <div className="rounded-xl p-3 mb-4" style={{ backgroundColor: 'rgba(0, 122, 255, 0.05)', border: '1px solid rgba(0, 122, 255, 0.2)' }}>
-                  <div className="flex items-start gap-2">
-                    <span className="material-symbols-outlined mt-0.5" style={{ color: '#007AFF', fontSize: '18px' }}>info</span>
-                    <div>
-                      <p className="text-sm font-medium" style={{ color: '#1d1d1f' }}>Live Activity Feed Coming Soon</p>
-                      <p className="text-xs mt-0.5" style={{ color: '#86868b' }}>
-                        Real-time notifications for new leads, completed inspections, and team updates will appear here.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Example Activities (Preview/Demo) */}
-                <p className="text-xs uppercase tracking-wide font-semibold mb-3" style={{ color: '#86868b' }}>Preview</p>
-
-                <div className="space-y-3 opacity-75">
-                  {/* Example 1: New Lead */}
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(0, 122, 255, 0.1)' }}>
-                      <span className="material-symbols-outlined" style={{ color: '#007AFF', fontSize: '16px' }}>person_add</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm" style={{ color: '#1d1d1f' }}>
-                        <span className="font-medium">New lead from website</span>
-                      </p>
-                      <p className="text-xs" style={{ color: '#86868b' }}>Sarah M. • Richmond</p>
-                    </div>
-                    <span className="text-xs flex-shrink-0" style={{ color: '#86868b' }}>5m ago</span>
-                  </div>
-
-                  {/* Example 2: Inspection Completed */}
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(52, 199, 89, 0.1)' }}>
-                      <span className="material-symbols-outlined" style={{ color: '#34C759', fontSize: '16px' }}>check_circle</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm" style={{ color: '#1d1d1f' }}>
-                        <span className="font-medium">Inspection completed</span>
-                      </p>
-                      <p className="text-xs" style={{ color: '#86868b' }}>Clayton • 45 Chapel St</p>
-                    </div>
-                    <span className="text-xs flex-shrink-0" style={{ color: '#86868b' }}>1h ago</span>
-                  </div>
-
-                  {/* Example 3: Report Sent */}
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255, 149, 0, 0.1)' }}>
-                      <span className="material-symbols-outlined" style={{ color: '#FF9500', fontSize: '16px' }}>send</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm" style={{ color: '#1d1d1f' }}>
-                        <span className="font-medium">Report sent to customer</span>
-                      </p>
-                      <p className="text-xs" style={{ color: '#86868b' }}>Peter W. • Hawthorn</p>
-                    </div>
-                    <span className="text-xs flex-shrink-0" style={{ color: '#86868b' }}>2h ago</span>
-                  </div>
-
-                  {/* Example 4: Booking Confirmed */}
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(88, 86, 214, 0.1)' }}>
-                      <span className="material-symbols-outlined" style={{ color: '#5856D6', fontSize: '16px' }}>event_available</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm" style={{ color: '#1d1d1f' }}>
-                        <span className="font-medium">Booking confirmed</span>
-                      </p>
-                      <p className="text-xs" style={{ color: '#86868b' }}>Emma D. • South Yarra</p>
-                    </div>
-                    <span className="text-xs flex-shrink-0" style={{ color: '#86868b' }}>3h ago</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="border-t border-gray-100 px-4 md:px-6 py-3" style={{ backgroundColor: '#f5f7f8' }}>
-                <p className="text-xs text-center" style={{ color: '#86868b' }}>
-                  Activity notifications will be available in a future update
-                </p>
+                <ActivityTimeline
+                  events={timelineEvents}
+                  isLoading={timelineLoading}
+                  showLeadName={true}
+                  compact={true}
+                />
               </div>
             </div>
           </div>
