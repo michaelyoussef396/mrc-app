@@ -53,6 +53,8 @@ import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
 import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/api/inspections";
 import { STATUS_FLOW, LeadStatus } from "@/lib/statusFlow";
+import { useActivityTimeline } from "@/hooks/useActivityTimeline";
+import { ActivityTimeline } from "@/components/dashboard/ActivityTimeline";
 import { toast } from "sonner";
 
 // Australian currency formatter
@@ -119,20 +121,8 @@ export default function LeadDetail() {
     },
   });
 
-  // Fetch activities
-  const { data: activities } = useQuery({
-    queryKey: ["activities", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("activities")
-        .select("*")
-        .eq("lead_id", id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return data;
-    },
-  });
+  // Fetch unified activity timeline for this lead
+  const { data: timelineEvents = [], isLoading: timelineLoading } = useActivityTimeline(50, id);
 
   // Fetch inspection data
   const { data: inspection } = useQuery({
@@ -953,35 +943,12 @@ export default function LeadDetail() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {activities && activities.length > 0 ? (
-              <div className="space-y-4">
-                {activities.slice(0, 5).map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="relative pl-6 pb-4 border-l-2 border-gray-200 last:border-l-0 last:pb-0"
-                  >
-                    <div className="absolute left-[-9px] top-0 h-4 w-4 rounded-full bg-blue-600 border-2 border-white" />
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">{activity.title}</p>
-                      {activity.description && (
-                        <p className="text-xs text-gray-500">{activity.description}</p>
-                      )}
-                      <p className="text-xs text-gray-400 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {new Date(activity.created_at).toLocaleString("en-AU", {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 text-center py-4">
-                No activity yet. Activities will appear here as the lead progresses.
-              </p>
-            )}
+            <ActivityTimeline
+              events={timelineEvents}
+              isLoading={timelineLoading}
+              showLeadName={false}
+              compact={false}
+            />
           </CardContent>
         </Card>
       </main>
