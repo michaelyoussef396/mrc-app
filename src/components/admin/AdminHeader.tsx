@@ -274,7 +274,7 @@ const NotificationDropdown = forwardRef<HTMLDivElement, NotificationDropdownProp
             className="material-symbols-outlined"
             style={{ fontSize: '22px', color: '#86868b' }}
           >
-            notifications
+            history
           </span>
           {/* Unread badge */}
           {(unreadCount ?? 0) > 0 && (
@@ -298,7 +298,7 @@ const NotificationDropdown = forwardRef<HTMLDivElement, NotificationDropdownProp
               style={{ borderBottom: '1px solid #f0f0f0' }}
             >
               <h3 className="font-semibold" style={{ color: '#1d1d1f' }}>
-                Notifications
+                Recent Activity
               </h3>
               {(unreadCount ?? 0) > 0 && (
                 <button
@@ -377,10 +377,10 @@ const NotificationDropdown = forwardRef<HTMLDivElement, NotificationDropdownProp
                   className="material-symbols-outlined mb-2 block"
                   style={{ fontSize: '32px', color: '#c7c7cc' }}
                 >
-                  notifications_off
+                  history
                 </span>
                 <p className="text-sm" style={{ color: '#86868b' }}>
-                  No notifications yet
+                  No activity yet
                 </p>
               </div>
             )}
@@ -393,12 +393,12 @@ const NotificationDropdown = forwardRef<HTMLDivElement, NotificationDropdownProp
               <button
                 onClick={() => {
                   setShowNotifications(false);
-                  navigate('/notifications');
+                  navigate('/admin/activity');
                 }}
                 className="text-sm font-medium hover:underline"
                 style={{ color: '#007AFF' }}
               >
-                View All Notifications
+                View All Activity
               </button>
             </div>
           </div>
