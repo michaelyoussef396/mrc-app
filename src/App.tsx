@@ -177,6 +177,20 @@ const AppContent = () => {
               }
             />
 
+            {/* Admin Recent Activity (standalone layout - no AppLayout) */}
+            <Route
+              path="/admin/activity"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <Notifications />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
             {/* Admin Settings (standalone layout - no AppLayout) */}
             <Route
               path="/admin/settings"
@@ -326,7 +340,6 @@ const AppContent = () => {
               }
             >
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/notifications" element={<Notifications />} />
               <Route path="/lead/new" element={<NewLead />} />
               <Route path="/inspection/select-lead" element={<SelectLead />} />
 

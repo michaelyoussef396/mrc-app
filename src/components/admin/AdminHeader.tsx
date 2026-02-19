@@ -3,13 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminSearchBar from './AdminSearchBar';
 import {
-  useNotifications,
   useUnreadCount,
-  useMarkAsRead,
   useMarkAllAsRead,
-  type Notification,
 } from '@/hooks/useNotifications';
-import { formatDistanceToNow } from 'date-fns';
+import { useActivityTimeline } from '@/hooks/useActivityTimeline';
+import { ActivityTimeline } from '@/components/dashboard/ActivityTimeline';
 
 interface AdminHeaderProps {
   userName?: string;
@@ -219,23 +217,6 @@ function getTimeOfDay(): string {
   return 'evening';
 }
 
-function getNotificationIcon(type: string) {
-  switch (type) {
-    case 'lead_created':
-      return '👤';
-    case 'status_changed':
-      return '🔄';
-    case 'job_completed':
-      return '✅';
-    case 'payment_received':
-      return '💰';
-    case 'inspection_scheduled':
-      return '📅';
-    default:
-      return '🔔';
-  }
-}
-
 interface NotificationDropdownProps {
   showNotifications: boolean;
   setShowNotifications: (show: boolean) => void;
@@ -245,19 +226,8 @@ interface NotificationDropdownProps {
 const NotificationDropdown = forwardRef<HTMLDivElement, NotificationDropdownProps>(
   function NotificationDropdown({ showNotifications, setShowNotifications, navigate }, ref) {
     const { data: unreadCount } = useUnreadCount();
-    const { data: notifications, isLoading } = useNotifications({ limit: 5 });
-    const markAsRead = useMarkAsRead();
+    const { data: events = [], isLoading } = useActivityTimeline(5);
     const markAllAsRead = useMarkAllAsRead();
-
-    const handleNotificationClick = async (notification: Notification) => {
-      if (!notification.is_read) {
-        await markAsRead.mutateAsync(notification.id);
-      }
-      setShowNotifications(false);
-      if (notification.lead_id) {
-        navigate(`/leads/${notification.lead_id}`);
-      }
-    };
 
     const handleMarkAllAsRead = async () => {
       await markAllAsRead.mutateAsync();
@@ -313,77 +283,14 @@ const NotificationDropdown = forwardRef<HTMLDivElement, NotificationDropdownProp
             </div>
 
             {/* Content */}
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <span
-                  className="material-symbols-outlined animate-spin"
-                  style={{ fontSize: '24px', color: '#86868b' }}
-                >
-                  progress_activity
-                </span>
-              </div>
-            ) : notifications && notifications.length > 0 ? (
-              <div className="overflow-y-auto" style={{ maxHeight: '340px' }}>
-                {notifications.map((notification) => (
-                  <button
-                    key={notification.id}
-                    onClick={() => handleNotificationClick(notification)}
-                    className="w-full px-4 py-3 flex items-start gap-3 hover:bg-gray-50 transition-colors text-left min-h-[48px]"
-                    style={{
-                      borderBottom: '1px solid #f0f0f0',
-                      backgroundColor: notification.is_read ? 'transparent' : 'rgba(0, 122, 255, 0.04)',
-                    }}
-                  >
-                    <span className="text-lg flex-shrink-0 mt-0.5">
-                      {getNotificationIcon(notification.type)}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className="text-sm leading-snug"
-                        style={{
-                          color: '#1d1d1f',
-                          fontWeight: notification.is_read ? 400 : 600,
-                        }}
-                      >
-                        {notification.title}
-                      </p>
-                      <p
-                        className="text-xs mt-0.5 line-clamp-2"
-                        style={{ color: '#86868b' }}
-                      >
-                        {notification.message}
-                      </p>
-                      <p
-                        className="text-xs mt-1"
-                        style={{ color: '#aeaeb2' }}
-                      >
-                        {formatDistanceToNow(new Date(notification.created_at), {
-                          addSuffix: true,
-                        })}
-                      </p>
-                    </div>
-                    {!notification.is_read && (
-                      <span
-                        className="w-2 h-2 rounded-full flex-shrink-0 mt-2"
-                        style={{ backgroundColor: '#007AFF' }}
-                      />
-                    )}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="py-8 text-center">
-                <span
-                  className="material-symbols-outlined mb-2 block"
-                  style={{ fontSize: '32px', color: '#c7c7cc' }}
-                >
-                  history
-                </span>
-                <p className="text-sm" style={{ color: '#86868b' }}>
-                  No activity yet
-                </p>
-              </div>
-            )}
+            <div className="overflow-y-auto px-1" style={{ maxHeight: '340px' }}>
+              <ActivityTimeline
+                events={events}
+                isLoading={isLoading}
+                showLeadName={true}
+                compact={true}
+              />
+            </div>
 
             {/* Footer */}
             <div

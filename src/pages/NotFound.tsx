@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import logoMRC from "@/assets/logoMRC.png";
 
 const NotFound = () => {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ const NotFound = () => {
         {/* Logo */}
         <div className="flex justify-center mb-4">
           <img
-            src="/src/assets/logoMRC.png"
+            src={logoMRC}
             alt="MRC Logo"
             className="h-10"
           />

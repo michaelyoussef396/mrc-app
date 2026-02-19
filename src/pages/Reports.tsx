@@ -13,6 +13,7 @@ import {
   TimelineChart,
 } from '@/components/reports';
 import { Users, TrendingUp, Clock, DollarSign, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import AdminPageLayout from '@/components/admin/AdminPageLayout';
 
 // ============================================================================
 // HELPERS
@@ -45,7 +46,12 @@ const Reports = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex-1 overflow-y-auto p-6 md:p-8">
+      <AdminPageLayout
+        title="Reports"
+        subtitle="Analytics and insights for your lead pipeline"
+        icon="assessment"
+        actions={<PeriodFilter value={period} onChange={setPeriod} />}
+      >
         <div className="max-w-[1440px] mx-auto">
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="flex flex-col items-center gap-4">
@@ -54,14 +60,19 @@ const Reports = () => {
             </div>
           </div>
         </div>
-      </div>
+      </AdminPageLayout>
     );
   }
 
   // Error state
   if (error) {
     return (
-      <div className="flex-1 overflow-y-auto p-6 md:p-8">
+      <AdminPageLayout
+        title="Reports"
+        subtitle="Analytics and insights for your lead pipeline"
+        icon="assessment"
+        actions={<PeriodFilter value={period} onChange={setPeriod} />}
+      >
         <div className="max-w-[1440px] mx-auto">
           <div className="flex items-center justify-center min-h-[60vh]">
             <div className="flex flex-col items-center gap-4 text-center">
@@ -82,24 +93,18 @@ const Reports = () => {
             </div>
           </div>
         </div>
-      </div>
+      </AdminPageLayout>
     );
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/50">
+    <AdminPageLayout
+      title="Reports"
+      subtitle="Analytics and insights for your lead pipeline"
+      icon="assessment"
+      actions={<PeriodFilter value={period} onChange={setPeriod} />}
+    >
       <div className="max-w-[1440px] mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Analytics and insights for your lead pipeline
-            </p>
-          </div>
-          <PeriodFilter value={period} onChange={setPeriod} />
-        </div>
-
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard
@@ -205,7 +210,7 @@ const Reports = () => {
           Data refreshes automatically every minute. Last updated: {new Date().toLocaleTimeString('en-AU')}
         </p>
       </div>
-    </div>
+    </AdminPageLayout>
   );
 };
 

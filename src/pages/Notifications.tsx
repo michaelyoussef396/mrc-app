@@ -1,20 +1,17 @@
 import { Activity } from 'lucide-react';
 import { useActivityTimeline } from '@/hooks/useActivityTimeline';
 import { ActivityTimeline } from '@/components/dashboard/ActivityTimeline';
+import AdminPageLayout from '@/components/admin/AdminPageLayout';
 
 export default function Notifications() {
   const { data: events = [], isLoading } = useActivityTimeline(50);
 
   return (
-    <div className="container mx-auto p-4 md:p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold mb-1">Recent Activity</h1>
-        <p className="text-sm text-muted-foreground">
-          All activity across leads, emails, and notifications
-        </p>
-      </div>
-
+    <AdminPageLayout
+      title="Recent Activity"
+      subtitle="All activity across leads, emails, and notifications"
+      icon="history"
+    >
       {/* Activity Feed */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6">
         {!isLoading && events.length > 0 && (
@@ -32,6 +29,6 @@ export default function Notifications() {
           compact={true}
         />
       </div>
-    </div>
+    </AdminPageLayout>
   );
 }
