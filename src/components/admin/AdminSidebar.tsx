@@ -1,19 +1,21 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import logoLarge from '@/assets/logo-large.png';
 
 interface NavItem {
   icon: string;
   label: string;
   path: string;
-  badge?: number;
 }
 
 const navItems: NavItem[] = [
   { icon: 'dashboard', label: 'Dashboard', path: '/admin' },
-  { icon: 'inbox', label: 'Leads', path: '/admin/leads', badge: 12 },
+  { icon: 'inbox', label: 'Leads', path: '/admin/leads' },
   { icon: 'calendar_month', label: 'Schedule', path: '/admin/schedule' },
   { icon: 'groups', label: 'Technicians', path: '/admin/technicians' },
   { icon: 'assessment', label: 'Reports', path: '/admin/reports' },
+  { icon: 'history', label: 'Recent Activity', path: '/admin/activity' },
   { icon: 'settings', label: 'Settings', path: '/admin/settings' },
 ];
 
@@ -25,6 +27,20 @@ interface AdminSidebarProps {
 export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Fetch live count of new/unassigned leads for the sidebar badge
+  const { data: newLeadsCount = 0 } = useQuery({
+    queryKey: ['sidebar-new-leads-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .is('assigned_to', null)
+        .in('status', ['new_lead', 'hipages_lead']);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
 
   const isActive = (path: string) => {
     if (path === '/admin') {
@@ -86,7 +102,7 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
                   {item.icon}
                 </span>
                 <span className="font-medium text-[15px]">{item.label}</span>
-                {item.badge && (
+                {item.label === 'Leads' && newLeadsCount > 0 && (
                   <span
                     className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold"
                     style={{
@@ -94,7 +110,7 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
                       color: 'white',
                     }}
                   >
-                    {item.badge}
+                    {newLeadsCount}
                   </span>
                 )}
               </button>
