@@ -54,6 +54,7 @@ import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
 import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/api/inspections";
 import { STATUS_FLOW, LeadStatus } from "@/lib/statusFlow";
+import { sendSlackNotification } from "@/lib/api/notifications";
 import { useActivityTimeline } from "@/hooks/useActivityTimeline";
 import { ActivityTimeline } from "@/components/dashboard/ActivityTimeline";
 import { toast } from "sonner";
@@ -242,6 +243,18 @@ export default function LeadDetail() {
       activity_type: "status_change",
       title: `Status changed to ${STATUS_FLOW[status].shortTitle}`,
       description: `Lead moved from ${currentConfig.shortTitle} to ${STATUS_FLOW[status].shortTitle}`,
+    });
+
+    const fullAddr = [lead.property_address_street, lead.property_address_suburb, lead.property_address_state, lead.property_address_postcode].filter(Boolean).join(', ');
+    sendSlackNotification({
+      event: 'status_changed',
+      leadId: lead.id,
+      leadName: lead.full_name || 'Unknown',
+      propertyAddress: fullAddr || undefined,
+      oldStatus: lead.status,
+      newStatus: status,
+      oldStatusLabel: currentConfig.shortTitle,
+      newStatusLabel: STATUS_FLOW[status].shortTitle,
     });
 
     toast.success(`Status updated to ${STATUS_FLOW[status].shortTitle}`);

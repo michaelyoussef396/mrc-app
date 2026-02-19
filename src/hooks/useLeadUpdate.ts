@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { calculatePropertyZone, cleanPhoneNumber } from "@/lib/leadUtils";
+import { sendSlackNotification } from "@/lib/api/notifications";
 
 interface LeadUpdatePayload {
   full_name?: string;
@@ -73,6 +74,13 @@ export function useLeadUpdate(leadId: string) {
         title: "Lead Details Updated",
         description: `Updated: ${fieldLabels}`,
         user_id: user?.id ?? null,
+      });
+
+      sendSlackNotification({
+        event: 'lead_updated',
+        leadId,
+        leadName: (payload.full_name || String(originalLead.full_name)) || 'Unknown',
+        changedFields: fieldLabels,
       });
 
       queryClient.invalidateQueries({ queryKey: ["lead", leadId] });

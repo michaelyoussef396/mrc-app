@@ -44,7 +44,25 @@ interface SendSlackGenericParams {
   bookingDate?: string;
 }
 
-type SendSlackNotificationParams = SendSlackNewLeadParams | SendSlackGenericParams;
+interface SendSlackStatusChangedParams {
+  event: 'status_changed';
+  leadId: string;
+  leadName: string;
+  propertyAddress?: string;
+  oldStatus: string;
+  newStatus: string;
+  oldStatusLabel: string;
+  newStatusLabel: string;
+}
+
+interface SendSlackLeadUpdatedParams {
+  event: 'lead_updated';
+  leadId: string;
+  leadName: string;
+  changedFields: string;
+}
+
+type SendSlackNotificationParams = SendSlackNewLeadParams | SendSlackGenericParams | SendSlackStatusChangedParams | SendSlackLeadUpdatedParams;
 
 // ============================================================================
 // EMAIL TEMPLATE

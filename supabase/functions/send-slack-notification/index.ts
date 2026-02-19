@@ -30,7 +30,25 @@ interface GenericNotification {
   bookingDate?: string
 }
 
-type SlackNotification = NewLeadPayload | GenericNotification
+interface StatusChangedPayload {
+  event: 'status_changed'
+  leadId: string
+  leadName: string
+  propertyAddress?: string
+  oldStatus: string
+  newStatus: string
+  oldStatusLabel: string
+  newStatusLabel: string
+}
+
+interface LeadUpdatedPayload {
+  event: 'lead_updated'
+  leadId: string
+  leadName: string
+  changedFields: string
+}
+
+type SlackNotification = NewLeadPayload | GenericNotification | StatusChangedPayload | LeadUpdatedPayload
 
 function formatNewLeadBlocks(n: NewLeadPayload) {
   const address = [n.street_address, n.suburb, n.state, n.postcode]
@@ -130,6 +148,89 @@ function formatGenericMessage(n: GenericNotification) {
   }
 }
 
+const STATUS_EMOJI: Record<string, string> = {
+  new_lead: ':sparkles:',
+  inspection_waiting: ':clock3:',
+  inspection_ai_summary: ':robot_face:',
+  approve_inspection_report: ':page_facing_up:',
+  inspection_email_approval: ':email:',
+  closed: ':white_check_mark:',
+  not_landed: ':x:',
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  new_lead: '#3b82f6',
+  inspection_waiting: '#f59e0b',
+  inspection_ai_summary: '#8b5cf6',
+  approve_inspection_report: '#a855f7',
+  inspection_email_approval: '#38bdf8',
+  closed: '#22c55e',
+  not_landed: '#ef4444',
+}
+
+function formatStatusChanged(n: StatusChangedPayload) {
+  const fromEmoji = STATUS_EMOJI[n.oldStatus] || ':arrow_right:'
+  const toEmoji = STATUS_EMOJI[n.newStatus] || ':arrow_right:'
+  const color = STATUS_COLOR[n.newStatus] || '#6b7280'
+
+  const timestamp = new Date().toLocaleString('en-AU', {
+    timeZone: 'Australia/Melbourne',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })
+
+  return {
+    blocks: [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: '🔄 Lead Status Changed', emoji: true },
+      },
+      {
+        type: 'section',
+        fields: [
+          { type: 'mrkdwn', text: `*Lead*\n${n.leadName}` },
+          { type: 'mrkdwn', text: `*Status Change*\n${fromEmoji} ${n.oldStatusLabel}  →  ${toEmoji} ${n.newStatusLabel}` },
+        ],
+      },
+      ...(n.propertyAddress
+        ? [
+            {
+              type: 'section',
+              fields: [
+                { type: 'mrkdwn', text: `*Property Address*\n${n.propertyAddress}` },
+              ],
+            },
+          ]
+        : []),
+      {
+        type: 'context',
+        elements: [
+          { type: 'mrkdwn', text: `📅 ${timestamp}  •  MRC System` },
+        ],
+      },
+      { type: 'divider' },
+    ],
+    attachments: [{ color, blocks: [] }],
+  }
+}
+
+function formatLeadUpdated(n: LeadUpdatedPayload) {
+  return {
+    attachments: [
+      {
+        color: '#3498db',
+        text: `*Lead Details Updated — ${n.leadName}*\n*Fields changed:* ${n.changedFields}`,
+        footer: 'MRC System',
+        ts: Math.floor(Date.now() / 1000),
+      },
+    ],
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -146,10 +247,21 @@ Deno.serve(async (req) => {
 
     const notification: SlackNotification = await req.json()
 
-    const payload =
-      notification.event === 'new_lead'
-        ? formatNewLeadBlocks(notification as NewLeadPayload)
-        : formatGenericMessage(notification as GenericNotification)
+    let payload
+    switch (notification.event) {
+      case 'new_lead':
+        payload = formatNewLeadBlocks(notification as NewLeadPayload)
+        break
+      case 'status_changed':
+        payload = formatStatusChanged(notification as StatusChangedPayload)
+        break
+      case 'lead_updated':
+        payload = formatLeadUpdated(notification as LeadUpdatedPayload)
+        break
+      default:
+        payload = formatGenericMessage(notification as GenericNotification)
+        break
+    }
 
     const slackResponse = await fetch(SLACK_WEBHOOK_URL, {
       method: 'POST',
