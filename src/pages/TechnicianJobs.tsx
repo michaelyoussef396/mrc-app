@@ -428,11 +428,7 @@ export default function TechnicianJobs() {
   const { jobs, isLoading, error, refetch } = useTechnicianJobs(activeTab);
 
   // Get today's date for comparison (YYYY-MM-DD in Melbourne timezone)
-  const today = (() => {
-    const melb = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' });
-    const d = new Date(melb);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  })();
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' }).format(new Date());
 
   // Group jobs by date
   const jobsByDate = jobs.reduce<Record<string, TechnicianJob[]>>((acc, job) => {

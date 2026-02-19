@@ -32,8 +32,8 @@ export function useTodaysSchedule(): TodaysScheduleResult {
   const fetchTodaysSchedule = async () => {
     try {
       // Get today's date in YYYY-MM-DD format (Melbourne timezone)
-      const melbNow = new Date(new Date().toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' }));
-      const today = `${melbNow.getFullYear()}-${String(melbNow.getMonth() + 1).padStart(2, '0')}-${String(melbNow.getDate()).padStart(2, '0')}`;
+      // Use en-CA locale with Intl.DateTimeFormat — it outputs YYYY-MM-DD directly
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' }).format(new Date());
 
 
       // Fetch inspections for today with lead details

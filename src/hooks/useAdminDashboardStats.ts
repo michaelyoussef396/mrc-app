@@ -36,8 +36,8 @@ export function useAdminDashboardStats(): DashboardStats {
   const fetchStats = async () => {
     try {
       // Get today's date in YYYY-MM-DD format (Melbourne timezone)
-      const melbToday = new Date(new Date().toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' }));
-      const today = `${melbToday.getFullYear()}-${String(melbToday.getMonth() + 1).padStart(2, '0')}-${String(melbToday.getDate()).padStart(2, '0')}`;
+      // Use en-CA locale with Intl.DateTimeFormat — it outputs YYYY-MM-DD directly
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' }).format(new Date());
 
       // Get start of week (Monday) in Melbourne timezone
       const now = new Date();
