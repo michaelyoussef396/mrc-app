@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import AdminSidebar from '@/components/admin/AdminSidebar';
-import { ScheduleHeader, ScheduleCalendar, LeadsQueue, EventDetailsPanel } from '@/components/schedule';
+import { ScheduleHeader, ScheduleCalendar, LeadsQueue, EventDetailsPanel, CancelledBookingsList } from '@/components/schedule';
 import { useScheduleCalendar, getWeekStart, CalendarEvent } from '@/hooks/useScheduleCalendar';
+import { useCancelledBookings } from '@/hooks/useCancelledBookings';
 import { useTechnicians } from '@/hooks/useTechnicians';
 import {
   Sheet,
@@ -21,6 +22,7 @@ export default function AdminSchedule() {
   const [selectedTechnician, setSelectedTechnician] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [mobileQueueOpen, setMobileQueueOpen] = useState(false);
+  const [showCancelled, setShowCancelled] = useState(false);
 
   // Fetch technicians using the shared hook
   const { data: technicians = [], isLoading: techniciansLoading, error: techniciansError } = useTechnicians();
@@ -37,6 +39,9 @@ export default function AdminSchedule() {
     weekStart,
     technicianFilter: selectedTechnician,
   });
+
+  // Fetch cancelled bookings
+  const { events: cancelledEvents, isLoading: cancelledLoading } = useCancelledBookings();
 
   // Handle week change
   const handleWeekChange = (newWeekStart: Date) => {
@@ -128,17 +133,27 @@ export default function AdminSchedule() {
                 technicians={technicians}
                 selectedTechnician={selectedTechnician}
                 onTechnicianChange={handleTechnicianChange}
+                showCancelled={showCancelled}
+                onShowCancelledChange={setShowCancelled}
               />
             </div>
 
-            {/* Calendar Grid - Scrollable */}
+            {/* Calendar Grid or Cancelled List - Scrollable */}
             <div className="flex-1 min-h-0 overflow-y-auto">
-              <ScheduleCalendar
-                weekStart={weekStart}
-                events={events}
-                isLoading={isLoading}
-                onEventClick={(event) => setSelectedEvent(event)}
-              />
+              {showCancelled ? (
+                <CancelledBookingsList
+                  events={cancelledEvents}
+                  isLoading={cancelledLoading}
+                  onEventClick={(event) => setSelectedEvent(event)}
+                />
+              ) : (
+                <ScheduleCalendar
+                  weekStart={weekStart}
+                  events={events}
+                  isLoading={isLoading}
+                  onEventClick={(event) => setSelectedEvent(event)}
+                />
+              )}
             </div>
           </section>
 
