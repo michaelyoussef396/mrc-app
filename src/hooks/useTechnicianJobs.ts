@@ -171,7 +171,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
         const lead = Array.isArray(booking.lead) ? booking.lead[0] : booking.lead;
         const address = lead?.property_address_street || booking.location_address || '';
         const suburb = lead?.property_address_suburb || '';
-        const state = lead?.property_address_state || 'VIC';
+        const state = lead?.property_address_state || '';
         const postcode = lead?.property_address_postcode || '';
 
         return {

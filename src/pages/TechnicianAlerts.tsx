@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import TechnicianBottomNav from '@/components/technician/TechnicianBottomNav';
 import {
   useTechnicianAlerts,
@@ -40,10 +41,10 @@ function AlertsHeader({ unreadCount, onMarkAllRead }: AlertsHeaderProps) {
 
 interface AlertCardProps {
   alert: TechnicianAlert;
-  onMarkRead: (id: string) => void;
+  onNavigate: (leadId: string) => void;
 }
 
-function AlertCard({ alert, onMarkRead }: AlertCardProps) {
+function AlertCard({ alert, onNavigate }: AlertCardProps) {
   const config = ALERT_TYPE_CONFIG[alert.type];
   const timeAgo = formatTimeAgo(alert.timestamp);
 
@@ -58,11 +59,9 @@ function AlertCard({ alert, onMarkRead }: AlertCardProps) {
     : 'text-base font-semibold text-[#1d1d1f]';
 
   const handleClick = () => {
-    if (!alert.isRead) {
-      onMarkRead(alert.id);
+    if (alert.leadId) {
+      onNavigate(alert.leadId);
     }
-    // TODO: Navigate to relevant page based on alert type
-    // if (alert.leadId) navigate(`/technician/jobs/${alert.bookingId}`);
   };
 
   return (
@@ -194,16 +193,20 @@ function LoadingState() {
 // ============================================================================
 
 export default function TechnicianAlerts() {
+  const navigate = useNavigate();
   const {
     recentAlerts,
     olderAlerts,
     unreadCount,
     isLoading,
-    markAsRead,
     markAllAsRead,
     refetch,
     hasAlerts,
   } = useTechnicianAlerts();
+
+  const handleNavigate = (leadId: string) => {
+    navigate(`/technician/job/${leadId}`);
+  };
 
   return (
     <div className="relative flex min-h-screen w-full flex-col bg-[#f5f7f8]">
@@ -217,7 +220,7 @@ export default function TechnicianAlerts() {
         <main className="flex-1 overflow-y-auto px-4 pt-4 pb-24 space-y-3">
           {/* Recent Alerts */}
           {recentAlerts.map((alert) => (
-            <AlertCard key={alert.id} alert={alert} onMarkRead={markAsRead} />
+            <AlertCard key={alert.id} alert={alert} onNavigate={handleNavigate} />
           ))}
 
           {/* Older Divider (only if there are older alerts) */}
@@ -228,7 +231,7 @@ export default function TechnicianAlerts() {
           {/* Older Alerts (with extra opacity) */}
           {olderAlerts.map((alert) => (
             <div key={alert.id} className="opacity-60">
-              <AlertCard alert={alert} onMarkRead={markAsRead} />
+              <AlertCard alert={alert} onNavigate={handleNavigate} />
             </div>
           ))}
         </main>

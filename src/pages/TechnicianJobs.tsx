@@ -102,11 +102,9 @@ function getButtonLabel(eventType: string, status: string): string {
 function JobsHeader({
   activeTab,
   onTabChange,
-  onSearch,
 }: {
   activeTab: TabFilter;
   onTabChange: (tab: TabFilter) => void;
-  onSearch: () => void;
 }) {
   return (
     <header className="sticky top-0 z-20 w-full bg-white/90 backdrop-blur-md border-b border-gray-200 overflow-x-hidden">
@@ -114,13 +112,6 @@ function JobsHeader({
         {/* Title Row */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-gray-900">My Jobs</h1>
-          <button
-            onClick={onSearch}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 text-gray-900 hover:bg-gray-200 transition-colors"
-            style={{ minWidth: '48px', minHeight: '48px' }}
-          >
-            <span className="material-symbols-outlined">search</span>
-          </button>
         </div>
 
         {/* Tab Pills - Horizontally Scrollable */}
@@ -448,9 +439,6 @@ export default function TechnicianJobs() {
   });
 
   // Handlers
-  const handleSearch = () => {
-  };
-
   const handleCall = (phone: string) => {
     if (phone) {
       window.location.href = `tel:${phone}`;
@@ -476,7 +464,6 @@ export default function TechnicianJobs() {
       <JobsHeader
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onSearch={handleSearch}
       />
 
       {/* Scrollable Content */}

@@ -25,13 +25,13 @@ interface UserFromAPI {
 // COLOR UTILITIES
 // ============================================================================
 
-function getTechnicianColor(name: string): string {
+/**
+ * Deterministic color picker based on name hash.
+ * Produces consistent, distinct colors for any technician name.
+ */
+export function getTechnicianColor(name: string): string {
+  const colors = ['#007AFF', '#34C759', '#FF9500', '#FF3B30', '#5856D6', '#AF52DE', '#00C7BE'];
   const nameLower = name?.toLowerCase() || '';
-  if (nameLower.includes('clayton')) return '#007AFF';
-  if (nameLower.includes('glen')) return '#34C759';
-  if (nameLower.includes('michael')) return '#FF9500';
-  // Generate a consistent color for other technicians
-  const colors = ['#FF9500', '#FF3B30', '#5856D6', '#AF52DE', '#00C7BE'];
   let hash = 0;
   for (let i = 0; i < nameLower.length; i++) {
     hash = nameLower.charCodeAt(i) + ((hash << 5) - hash);

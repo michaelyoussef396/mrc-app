@@ -2,6 +2,7 @@ interface TechnicianHeaderProps {
   userName: string;
   subtitle?: string;
   showNotification?: boolean;
+  hasUnread?: boolean;
   onNotificationClick?: () => void;
 }
 
@@ -9,6 +10,7 @@ export default function TechnicianHeader({
   userName,
   subtitle,
   showNotification = true,
+  hasUnread = false,
   onNotificationClick,
 }: TechnicianHeaderProps) {
   // Get greeting based on time of day
@@ -82,10 +84,12 @@ export default function TechnicianHeader({
             notifications
           </span>
           {/* Notification dot */}
-          <span
-            className="absolute top-2 right-2.5 w-2 h-2 rounded-full"
-            style={{ backgroundColor: '#007AFF', border: '2px solid white' }}
-          />
+          {hasUnread && (
+            <span
+              className="absolute top-2 right-2.5 w-2 h-2 rounded-full"
+              style={{ backgroundColor: '#007AFF', border: '2px solid white' }}
+            />
+          )}
         </button>
       )}
     </header>

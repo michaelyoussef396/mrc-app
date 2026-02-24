@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTechnicianJobs, TechnicianJob } from '@/hooks/useTechnicianJobs';
+import { useTechnicianAlerts } from '@/hooks/useTechnicianAlerts';
 import {
   TechnicianHeader,
   NextJobCard,
@@ -16,11 +17,12 @@ function mapToJob(tj: TechnicianJob): Job {
   return {
     id: tj.id,
     leadId: tj.leadId,
+    inspectionId: tj.inspectionId,
     customerName: tj.clientName,
     time: tj.time,
     jobType: tj.title || tj.eventType,
     area: tj.suburb,
-    status: tj.status === 'cancelled' ? 'scheduled' : tj.status,
+    status: tj.status,
     address: tj.fullAddress,
   };
 }
@@ -29,6 +31,7 @@ export default function TechnicianDashboard() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { jobs: techJobs, isLoading, error, refetch } = useTechnicianJobs('today');
+  const { unreadCount } = useTechnicianAlerts();
 
   const userName = profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Technician';
 
@@ -125,6 +128,7 @@ export default function TechnicianDashboard() {
       {/* Header */}
       <TechnicianHeader
         userName={userName}
+        hasUnread={unreadCount > 0}
         onNotificationClick={() => navigate('/technician/alerts')}
       />
 

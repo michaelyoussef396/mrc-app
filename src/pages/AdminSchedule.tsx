@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import { ScheduleHeader, ScheduleCalendar, LeadsQueue, EventDetailsPanel, CancelledBookingsList } from '@/components/schedule';
 import { useScheduleCalendar, getWeekStart, CalendarEvent } from '@/hooks/useScheduleCalendar';
@@ -17,6 +18,7 @@ import {
 // ============================================================================
 
 export default function AdminSchedule() {
+  const { user, profile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [selectedTechnician, setSelectedTechnician] = useState<string | null>(null);
@@ -111,7 +113,12 @@ export default function AdminSchedule() {
                 style={{ backgroundColor: 'rgba(0, 122, 255, 0.2)' }}
               >
                 <span className="text-xs font-bold" style={{ color: '#007AFF' }}>
-                  AD
+                  {(() => {
+                    const name = profile?.full_name || user?.email || '';
+                    const parts = name.split(' ').filter(Boolean);
+                    if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+                    return name[0]?.toUpperCase() || '?';
+                  })()}
                 </span>
               </div>
             </div>

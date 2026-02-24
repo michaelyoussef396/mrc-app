@@ -1,7 +1,8 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Home, Users, Calendar, Microscope, FileText } from "lucide-react";
 
 export function MobileBottomNav() {
+  const location = useLocation();
   const tabs = [
     { label: "Home", icon: Home, path: "/dashboard" },
     { label: "Leads", icon: Users, path: "/leads" },
@@ -15,7 +16,7 @@ export function MobileBottomNav() {
       <div className="flex items-center justify-around h-16">
         {tabs.map((tab) => {
           const Icon = tab.icon;
-          const isActive = tab.path === "/dashboard";
+          const isActive = location.pathname === tab.path || location.pathname.startsWith(tab.path + '/');
           
           return (
             <Link

@@ -231,7 +231,7 @@ export default function Dashboard() {
               <h3 className="text-xl font-bold text-gray-900 mb-1">
                 {displayName || 'User'}
               </h3>
-              <p className="text-xs text-gray-500">{user?.email || 'user@mrc.com.au'}</p>
+              <p className="text-xs text-gray-500">{user?.email || ''}</p>
             </div>
             
             {/* Navigation Menu */}

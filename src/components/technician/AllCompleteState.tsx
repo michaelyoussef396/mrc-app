@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 import { Job } from './JobsList';
 
 interface AllCompleteStateProps {
@@ -8,6 +9,7 @@ interface AllCompleteStateProps {
 
 export default function AllCompleteState({ completedJobs, totalJobs }: AllCompleteStateProps) {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   return (
     <main className="flex flex-col gap-5 p-4">
@@ -137,7 +139,7 @@ export default function AllCompleteState({ completedJobs, totalJobs }: AllComple
                   if (job.inspectionId) {
                     navigate(`/inspection/${job.inspectionId}/report`);
                   } else {
-                    alert('Report not generated yet.');
+                    toast({ title: 'Report not generated yet', description: 'The inspection report has not been created.' });
                   }
                 }}
                 className="flex items-center gap-1 text-xs font-bold px-3 py-2 -mr-2 rounded-lg hover:bg-blue-50 transition-colors"

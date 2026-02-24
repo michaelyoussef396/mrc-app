@@ -11,6 +11,7 @@ import { useUnassignedLeads } from '@/hooks/useUnassignedLeads';
 import { useTechnicianStats } from '@/hooks/useTechnicianStats';
 import { useActivityTimeline } from '@/hooks/useActivityTimeline';
 import { ActivityTimeline } from '@/components/dashboard/ActivityTimeline';
+import { getTechnicianColor } from '@/hooks/useTechnicians';
 
 // Status badge styling based on lead status
 const getStatusStyle = (status: string) => {
@@ -39,13 +40,6 @@ const getStatusStyle = (status: string) => {
     default:
       return { bg: 'rgba(134, 134, 139, 0.1)', color: '#86868b', label: status || 'Unknown' };
   }
-};
-
-// Technician badge color
-const getTechnicianColor = (name: string) => {
-  if (name?.toLowerCase().includes('clayton')) return '#007AFF';
-  if (name?.toLowerCase().includes('glen')) return '#34C759';
-  return '#86868b';
 };
 
 export default function AdminDashboard() {

@@ -2,19 +2,20 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { SyncIndicator } from '@/lib/offline/SyncIndicator';
+import { useTechnicianAlerts } from '@/hooks/useTechnicianAlerts';
 
 interface NavItem {
   icon: string;
   label: string;
   path: string;
-  badge?: boolean;
+  badgeKey?: string;
   isProfile?: boolean;
 }
 
 const navItems: NavItem[] = [
   { icon: 'home', label: 'Home', path: '/technician' },
   { icon: 'assignment', label: 'My Jobs', path: '/technician/jobs' },
-  { icon: 'notifications', label: 'Alerts', path: '/technician/alerts', badge: true },
+  { icon: 'notifications', label: 'Alerts', path: '/technician/alerts', badgeKey: 'alerts' },
   { icon: 'person', label: 'Profile', path: '/technician/profile', isProfile: true },
 ];
 
@@ -22,6 +23,7 @@ export default function TechnicianBottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut } = useAuth();
+  const { unreadCount } = useTechnicianAlerts();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -169,7 +171,7 @@ export default function TechnicianBottomNav() {
                 </span>
 
                 {/* Badge/Notification Dot */}
-                {item.badge && (
+                {item.badgeKey === 'alerts' && unreadCount > 0 && (
                   <span
                     className="absolute top-0 right-0 w-2 h-2 rounded-full"
                     style={{ backgroundColor: '#FF3B30', border: '1px solid white' }}

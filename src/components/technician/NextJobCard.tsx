@@ -16,7 +16,7 @@ export default function NextJobCard({
   address,
   jobType,
   area,
-  travelTime = 12,
+  travelTime,
   onStartInspection,
   onGetDirections,
   onViewLead,
@@ -40,8 +40,12 @@ export default function NextJobCard({
               {customerName}
             </h2>
           </div>
-          {/* Placeholder for customer photo */}
-          <div className="w-16 h-16 rounded-lg bg-gray-200" />
+          <div
+            className="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold text-white"
+            style={{ backgroundColor: '#007AFF' }}
+          >
+            {customerName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+          </div>
         </div>
 
         {/* Details */}
@@ -107,7 +111,7 @@ export default function NextJobCard({
             >
               directions
             </span>
-            <span>Get Directions ({travelTime} min)</span>
+            <span>Get Directions{travelTime ? ` (${travelTime} min)` : ''}</span>
           </button>
 
           {/* Tertiary Action - View Lead */}

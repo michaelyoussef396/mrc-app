@@ -158,6 +158,7 @@ export function useScheduleCalendar({
             property_address_postcode
           )
         `)
+        .neq('status', 'cancelled')
         .gte('start_datetime', weekStart.toISOString())
         .lte('start_datetime', weekEnd.toISOString())
         .order('start_datetime', { ascending: true });
@@ -265,17 +266,20 @@ export function useScheduleCalendar({
 // ============================================================================
 
 function getTechnicianColorByName(name: string): string {
+  const colors = ['#007AFF', '#34C759', '#FF9500', '#FF3B30', '#5856D6', '#AF52DE', '#00C7BE'];
   const nameLower = name?.toLowerCase() || '';
-  if (nameLower.includes('clayton')) return '#007AFF';
-  if (nameLower.includes('glen')) return '#34C759';
-  return '#86868b';
+  let hash = 0;
+  for (let i = 0; i < nameLower.length; i++) {
+    hash = nameLower.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
 }
 
 function getTechnicianInitialByName(name: string): string {
-  const nameLower = name?.toLowerCase() || '';
-  if (nameLower.includes('clayton')) return 'C';
-  if (nameLower.includes('glen')) return 'G';
-  return name?.[0]?.toUpperCase() || '?';
+  if (!name) return '?';
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  return name[0]?.toUpperCase() || '?';
 }
 
 /**

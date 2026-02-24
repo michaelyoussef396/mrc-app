@@ -173,8 +173,25 @@ export function useReportsData(period: TimePeriod = 'month'): ReportsData {
   ).length;
   const conversionRate = totalLeads > 0 ? Math.round((closedLeads / totalLeads) * 100) : 0;
 
-  // Average response time - placeholder for now (would need lead creation vs first contact)
-  const avgResponseTime = 24; // Default 24 hours
+  // Average response time: hours between lead creation and first booking creation
+  const bookings = bookingsQuery.data || [];
+  const earliestBookingByLead: Record<string, string> = {};
+  bookings.forEach(b => {
+    if (b.lead_id && (!earliestBookingByLead[b.lead_id] || b.created_at < earliestBookingByLead[b.lead_id])) {
+      earliestBookingByLead[b.lead_id] = b.created_at;
+    }
+  });
+  const responseTimes: number[] = [];
+  leads.forEach(lead => {
+    const bookingCreated = earliestBookingByLead[lead.id];
+    if (bookingCreated) {
+      const hours = (new Date(bookingCreated).getTime() - new Date(lead.created_at).getTime()) / (1000 * 60 * 60);
+      if (hours >= 0) responseTimes.push(hours);
+    }
+  });
+  const avgResponseTime = responseTimes.length > 0
+    ? Math.round(responseTimes.reduce((sum, h) => sum + h, 0) / responseTimes.length)
+    : 0;
 
   // Total revenue from inspections
   const totalRevenue = inspections.reduce((sum, ins) => {
@@ -248,6 +265,9 @@ function generateTimeline(
     if (period === 'year') {
       // Group by month for year view
       key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    } else if (period === 'today') {
+      // Group by hour for today view
+      key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}`;
     } else {
       // Group by day for other views
       key = date.toISOString().split('T')[0];
@@ -269,10 +289,10 @@ function generateTimeline(
       // Move to next month
       current.setMonth(current.getMonth() + 1);
     } else if (period === 'today') {
-      // For today, show hours
-      key = current.toISOString().split('T')[0];
-      label = current.toLocaleTimeString('en-AU', { hour: '2-digit' });
-      current.setDate(current.getDate() + 1);
+      // For today, bucket by hour
+      key = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}T${String(current.getHours()).padStart(2, '0')}`;
+      label = current.toLocaleTimeString('en-AU', { hour: 'numeric', hour12: true });
+      current.setHours(current.getHours() + 1);
     } else {
       key = current.toISOString().split('T')[0];
       label = current.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });

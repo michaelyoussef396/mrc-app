@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 export interface Job {
   id: string;
   leadId?: string;
+  inspectionId?: string;
   customerName: string;
   time: string;
   jobType: string;
   area: string;
-  status: 'scheduled' | 'in_progress' | 'pending' | 'completed';
+  status: 'scheduled' | 'in_progress' | 'pending' | 'completed' | 'cancelled';
   address?: string;
 }
 
@@ -27,6 +28,8 @@ export default function JobsList({ jobs, title }: JobsListProps) {
         return { bg: 'rgba(255, 149, 0, 0.1)', color: '#FF9500' };
       case 'completed':
         return { bg: 'rgba(52, 199, 89, 0.1)', color: '#34C759' };
+      case 'cancelled':
+        return { bg: 'rgba(134, 134, 139, 0.1)', color: '#86868b' };
       case 'pending':
       default:
         return { bg: '#f0f2f4', color: '#86868b' };
@@ -41,6 +44,8 @@ export default function JobsList({ jobs, title }: JobsListProps) {
         return 'In Progress';
       case 'completed':
         return 'Completed';
+      case 'cancelled':
+        return 'Cancelled';
       case 'pending':
       default:
         return 'Pending';

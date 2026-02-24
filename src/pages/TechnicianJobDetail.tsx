@@ -263,7 +263,7 @@ export default function TechnicianJobDetail() {
                     <InfoRow label="Full Name" value={lead.full_name} />
                     <InfoRow label="Phone" value={lead.phone} isLink href={`tel:${lead.phone}`} />
                     <InfoRow label="Email" value={lead.email} isLink href={`mailto:${lead.email}`} />
-                    <InfoRow label="Source" value={lead.lead_source || 'Website'} />
+                    <InfoRow label="Source" value={lead.lead_source || null} />
                 </DetailSection>
 
                 {/* Property & Access */}
@@ -274,8 +274,8 @@ export default function TechnicianJobDetail() {
                         isLink
                         href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lead.property_address_street}, ${lead.property_address_suburb}`)}`}
                     />
-                    <InfoRow label="Urgency" value={lead.urgency ? lead.urgency.toUpperCase() : 'MEDIUM'} />
-                    <InfoRow label="Property Type" value={lead.property_type ? lead.property_type.toUpperCase() : 'HOUSE'} />
+                    <InfoRow label="Urgency" value={lead.urgency?.toUpperCase() || null} />
+                    <InfoRow label="Property Type" value={lead.property_type?.toUpperCase() || null} />
 
                     <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
                         <p className="text-[10px] font-bold text-[#007AFF] uppercase tracking-wide mb-1 flex items-center gap-1">
@@ -306,7 +306,10 @@ export default function TechnicianJobDetail() {
                 {booking && (
                     <DetailSection title="Scheduling Info" icon="schedule">
                         <InfoRow label="Appointment Time" value={formatDateTime(booking.start_datetime)} />
-                        <InfoRow label="Estimated Duration" value="1.5 Hours" />
+                        <InfoRow label="Estimated Duration" value={(() => {
+                            const durationHours = (new Date(booking.end_datetime).getTime() - new Date(booking.start_datetime).getTime()) / (1000 * 60 * 60);
+                            return durationHours % 1 === 0 ? `${durationHours} Hours` : `${durationHours.toFixed(1)} Hours`;
+                        })()} />
                         <div className="mt-2 text-xs text-[#86868b]">
                             <p>Booked on: {new Date(booking.start_datetime).toLocaleDateString()}</p>
                         </div>

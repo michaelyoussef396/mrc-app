@@ -28,7 +28,7 @@ import AdminSidebar from '@/components/admin/AdminSidebar';
 import PipelineTabs from '@/components/leads/PipelineTabs';
 import LeadCard, { type TransformedLead } from '@/components/leads/LeadCard';
 import CreateLeadCard from '@/components/leads/CreateLeadCard';
-import CreateLeadModal from '@/components/admin/CreateLeadModal';
+import CreateNewLeadModal from '@/components/leads/CreateNewLeadModal';
 
 // ============================================================================
 // STATUS OPTIONS (Pipeline Tabs)
@@ -871,7 +871,7 @@ const LeadsManagement = () => {
       </main>
 
       {/* Create Lead Modal */}
-      <CreateLeadModal
+      <CreateNewLeadModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSuccess={() => {

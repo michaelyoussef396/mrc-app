@@ -52,7 +52,7 @@ const formatAustralianDate = (date: Date): string => {
 
 // Format time from "HH:MM:SS" or "HH:MM" to readable format
 const formatTime = (timeStr: string | null): string => {
-  if (!timeStr) return '9:00 AM'
+  if (!timeStr) return 'TBD'
   const [hours] = timeStr.split(':').map(Number)
   if (hours === 12) return '12:00 PM'
   if (hours > 12) return `${hours - 12}:00 PM`

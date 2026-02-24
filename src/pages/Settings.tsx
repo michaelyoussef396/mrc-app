@@ -358,7 +358,7 @@ export default function Settings() {
             Made with care in Melbourne, Australia
           </p>
           <p className="text-xs text-gray-500 m-0">
-            2025 Mould & Restoration Co. All rights reserved.
+            {new Date().getFullYear()} Mould & Restoration Co. All rights reserved.
           </p>
         </div>
 
