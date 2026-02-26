@@ -88,6 +88,11 @@ export default defineConfig(({ mode }) => ({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          // Supabase Storage - network only (uploads must not be cached)
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/.*/i,
+            handler: "NetworkOnly",
+          },
         ],
       },
     }),
