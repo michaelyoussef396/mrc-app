@@ -151,7 +151,7 @@ export function AddressAutocomplete({
     inputRef.current?.focus()
   }, [onChange, clearPredictions])
 
-  // If Google Maps not loaded, show basic input
+  // If Google Maps not loaded, show manual entry input
   if (!isLoaded) {
     return (
       <div className={className}>
@@ -163,17 +163,31 @@ export function AddressAutocomplete({
         )}
         <div className="relative mt-1.5">
           <Input
-            value=""
-            placeholder={mapsError || 'Loading Google Maps...'}
-            disabled
+            value={inputValue}
+            onChange={(e) => {
+              const text = e.target.value
+              setInputValue(text)
+              onChange({
+                street: text,
+                suburb: '',
+                state: '',
+                postcode: '',
+                fullAddress: text,
+              })
+            }}
+            placeholder={placeholder}
+            disabled={disabled}
             className="pl-10"
           />
           <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         </div>
         {mapsError && (
           <p className="text-xs text-amber-600 mt-1">
-            Autocomplete unavailable. Enter address manually.
+            Address autocomplete unavailable. You can type your address manually.
           </p>
+        )}
+        {error && (
+          <p className="text-xs text-red-500 mt-1">{error}</p>
         )}
       </div>
     )
