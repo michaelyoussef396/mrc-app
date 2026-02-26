@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
 import { sendSlackNotification } from '@/lib/api/notifications';
-import { calculatePropertyZone } from '@/lib/leadUtils';
+import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
 
 // ============================================================================
 // TYPES
@@ -28,6 +28,7 @@ interface LeadFormData {
   preferredDate: string;
   preferredTime: string;
   issueDescription: string;
+  source: string;
 }
 
 interface FormErrors {
@@ -36,7 +37,10 @@ interface FormErrors {
   email?: string;
   propertyAddress?: string;
   suburb?: string;
+  preferredDate?: string;
+  preferredTime?: string;
   issueDescription?: string;
+  source?: string;
   general?: string;
 }
 
@@ -59,6 +63,7 @@ const initialFormData: LeadFormData = {
   preferredDate: '',
   preferredTime: '',
   issueDescription: '',
+  source: '',
 };
 
 // 30-min slots from 7am to 6pm
@@ -132,35 +137,6 @@ function recordAttempt(): void {
   attempts = attempts.filter(e => now - e.timestamp < RATE_LIMIT_WINDOW);
   attempts.push({ timestamp: now });
   localStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(attempts));
-}
-
-function isBusinessDay(dateStr: string): boolean {
-  const d = new Date(dateStr + 'T00:00:00');
-  const day = d.getDay();
-  return day !== 0 && day !== 6;
-}
-
-function formatPreferredBooking(date: string, time: string): string | null {
-  if (!date && !time) return null;
-
-  const parts: string[] = [];
-  if (date) {
-    const d = new Date(date + 'T00:00:00');
-    parts.push(
-      d.toLocaleDateString('en-AU', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      })
-    );
-  }
-  if (time) {
-    const slot = TIME_SLOTS.find(s => s.time === time);
-    parts.push(slot ? slot.label : time);
-  }
-
-  return `Preferred booking: ${parts.join(' at ')}`;
 }
 
 // ============================================================================
@@ -302,7 +278,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         user_id: user?.id,
         metadata: {
           full_name: formData.fullName,
-          source: 'Admin Portal',
+          source: formData.source,
           suburb: formData.suburb,
         },
       });
@@ -345,12 +321,26 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
       newErrors.suburb = 'Suburb is required';
     }
 
+    if (!formData.preferredDate) {
+      newErrors.preferredDate = 'Preferred date is required';
+    } else if (formData.preferredDate < minDate) {
+      newErrors.preferredDate = 'Date must be in the future';
+    }
+
+    if (!formData.preferredTime) {
+      newErrors.preferredTime = 'Preferred time is required';
+    }
+
     if (!formData.issueDescription.trim()) {
       newErrors.issueDescription = 'Brief description is required';
     } else if (formData.issueDescription.trim().length < 20) {
       newErrors.issueDescription = 'Please provide more detail (at least 20 characters)';
     } else if (formData.issueDescription.trim().length > 1000) {
       newErrors.issueDescription = 'Description must be less than 1000 characters';
+    }
+
+    if (!formData.source) {
+      newErrors.source = 'Lead source is required';
     }
 
     setErrors(newErrors);
@@ -388,8 +378,6 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
     recordAttempt();
 
     try {
-      // Build notes field with preferred booking info
-      const preferredBooking = formatPreferredBooking(formData.preferredDate, formData.preferredTime);
       const zone = calculatePropertyZone(formData.suburb);
 
       const insertData: Record<string, unknown> = {
@@ -401,15 +389,13 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         property_address_postcode: formData.postcode || undefined,
         property_address_state: formData.state,
         issue_description: sanitizeInput(formData.issueDescription),
-        lead_source: 'Admin Portal',
+        lead_source: formData.source,
         status: 'new_lead',
         created_by: user.id,
         property_zone: zone,
+        inspection_scheduled_date: formData.preferredDate,
+        scheduled_time: formData.preferredTime,
       };
-
-      if (preferredBooking) {
-        insertData.notes = preferredBooking;
-      }
 
       if (formData.lat != null && formData.lng != null) {
         insertData.property_lat = formData.lat;
@@ -438,7 +424,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         postcode: formData.postcode,
         state: formData.state,
         issue_description: formData.issueDescription,
-        lead_source: 'Admin Portal',
+        lead_source: formData.source,
         created_at: new Date().toISOString(),
       });
 
@@ -569,52 +555,84 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                 )}
               </div>
 
-              {/* 2. Phone + 3. Email row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
-                    Phone Number *
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={e => handleInputChange('phone', e.target.value)}
-                    placeholder="04XX XXX XXX"
-                    className={`w-full rounded-xl h-12 p-4 text-base transition-all ${
-                      errors.phone
-                        ? 'border-2 border-[#FF3B30] focus:border-[#FF3B30] focus:ring-2 focus:ring-[#FF3B30]/20'
-                        : 'border border-gray-200 focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20'
-                    }`}
-                    style={{ outline: 'none' }}
-                  />
-                  {errors.phone && (
-                    <p className="text-xs mt-1 ml-1" style={{ color: '#FF3B30' }}>{errors.phone}</p>
-                  )}
-                </div>
-
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
-                    Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={e => handleInputChange('email', e.target.value)}
-                    placeholder="email@example.com"
-                    className={`w-full rounded-xl h-12 p-4 text-base transition-all ${
-                      errors.email
-                        ? 'border-2 border-[#FF3B30] focus:border-[#FF3B30] focus:ring-2 focus:ring-[#FF3B30]/20'
-                        : 'border border-gray-200 focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20'
-                    }`}
-                    style={{ outline: 'none' }}
-                  />
-                  {errors.email && (
-                    <p className="text-xs mt-1 ml-1" style={{ color: '#FF3B30' }}>{errors.email}</p>
-                  )}
-                </div>
+              {/* 2. Preferred Date */}
+              <div className="flex flex-col">
+                <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
+                  Preferred Date *
+                </label>
+                <input
+                  type="date"
+                  value={formData.preferredDate}
+                  onChange={e => handleInputChange('preferredDate', e.target.value)}
+                  min={minDate}
+                  className={`w-full rounded-xl h-12 px-4 text-base transition-all ${
+                    errors.preferredDate
+                      ? 'border-2 border-[#FF3B30] focus:border-[#FF3B30] focus:ring-2 focus:ring-[#FF3B30]/20'
+                      : 'border border-gray-200 focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20'
+                  }`}
+                  style={{ outline: 'none' }}
+                />
+                {errors.preferredDate && (
+                  <p className="text-xs mt-1 ml-1" style={{ color: '#FF3B30' }}>{errors.preferredDate}</p>
+                )}
               </div>
 
-              {/* 4. Street Address with Autocomplete */}
+              {/* 3. Phone Number */}
+              <div className="flex flex-col">
+                <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
+                  Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={e => handleInputChange('phone', e.target.value)}
+                  placeholder="04XX XXX XXX"
+                  className={`w-full rounded-xl h-12 p-4 text-base transition-all ${
+                    errors.phone
+                      ? 'border-2 border-[#FF3B30] focus:border-[#FF3B30] focus:ring-2 focus:ring-[#FF3B30]/20'
+                      : 'border border-gray-200 focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20'
+                  }`}
+                  style={{ outline: 'none' }}
+                />
+                {errors.phone && (
+                  <p className="text-xs mt-1 ml-1" style={{ color: '#FF3B30' }}>{errors.phone}</p>
+                )}
+              </div>
+
+              {/* 4. Preferred Time */}
+              <div className="flex flex-col">
+                <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
+                  Preferred Time *
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.preferredTime}
+                    onChange={e => handleInputChange('preferredTime', e.target.value)}
+                    className={`w-full rounded-xl h-12 px-4 pr-10 text-base transition-all bg-white appearance-none cursor-pointer ${
+                      errors.preferredTime
+                        ? 'border-2 border-[#FF3B30] focus:border-[#FF3B30] focus:ring-2 focus:ring-[#FF3B30]/20'
+                        : 'border border-gray-200 focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20'
+                    }`}
+                    style={{ outline: 'none', color: formData.preferredTime ? '#1d1d1f' : '#86868b' }}
+                  >
+                    <option value="">Select time...</option>
+                    {TIME_SLOTS.map(slot => (
+                      <option key={slot.time} value={slot.time}>{slot.label}</option>
+                    ))}
+                  </select>
+                  <span
+                    className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                    style={{ color: '#617589', fontSize: '20px' }}
+                  >
+                    schedule
+                  </span>
+                </div>
+                {errors.preferredTime && (
+                  <p className="text-xs mt-1 ml-1" style={{ color: '#FF3B30' }}>{errors.preferredTime}</p>
+                )}
+              </div>
+
+              {/* 5. Street Address with Autocomplete */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
                   Street Name & Number *
@@ -674,7 +692,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                 )}
               </div>
 
-              {/* 5. Suburb (auto-filled from Places, editable) */}
+              {/* 6. Suburb (auto-filled from Places, editable) */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
                   Suburb *
@@ -696,59 +714,26 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                 )}
               </div>
 
-              {/* 6. Preferred Date + 7. Preferred Time */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
-                    Preferred Date
-                    <span className="text-xs font-normal ml-1" style={{ color: '#86868b' }}>(optional)</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.preferredDate}
-                    onChange={e => {
-                      const val = e.target.value;
-                      if (val && !isBusinessDay(val)) {
-                        // Still allow setting it, but show a note
-                      }
-                      handleInputChange('preferredDate', val);
-                    }}
-                    min={minDate}
-                    className="w-full rounded-xl h-12 px-4 text-base border border-gray-200 focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20 transition-all"
-                    style={{ outline: 'none' }}
-                  />
-                  {formData.preferredDate && !isBusinessDay(formData.preferredDate) && (
-                    <p className="text-xs mt-1 ml-1" style={{ color: '#FF9500' }}>
-                      This is a weekend — business days recommended
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex flex-col">
-                  <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
-                    Preferred Time
-                    <span className="text-xs font-normal ml-1" style={{ color: '#86868b' }}>(optional)</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={formData.preferredTime}
-                      onChange={e => handleInputChange('preferredTime', e.target.value)}
-                      className="w-full rounded-xl h-12 px-4 pr-10 text-base border border-gray-200 focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20 transition-all bg-white appearance-none cursor-pointer"
-                      style={{ outline: 'none', color: formData.preferredTime ? '#1d1d1f' : '#86868b' }}
-                    >
-                      <option value="">Select time...</option>
-                      {TIME_SLOTS.map(slot => (
-                        <option key={slot.time} value={slot.time}>{slot.label}</option>
-                      ))}
-                    </select>
-                    <span
-                      className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                      style={{ color: '#617589', fontSize: '20px' }}
-                    >
-                      schedule
-                    </span>
-                  </div>
-                </div>
+              {/* 7. Email Address */}
+              <div className="flex flex-col">
+                <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={e => handleInputChange('email', e.target.value)}
+                  placeholder="email@example.com"
+                  className={`w-full rounded-xl h-12 p-4 text-base transition-all ${
+                    errors.email
+                      ? 'border-2 border-[#FF3B30] focus:border-[#FF3B30] focus:ring-2 focus:ring-[#FF3B30]/20'
+                      : 'border border-gray-200 focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20'
+                  }`}
+                  style={{ outline: 'none' }}
+                />
+                {errors.email && (
+                  <p className="text-xs mt-1 ml-1" style={{ color: '#FF3B30' }}>{errors.email}</p>
+                )}
               </div>
 
               {/* 8. Brief Description */}
@@ -778,6 +763,46 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                     {formData.issueDescription.length}/1000
                   </p>
                 </div>
+              </div>
+
+              {/* 9. Lead Source */}
+              <div className="flex flex-col">
+                <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
+                  Lead Source *
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.source}
+                    onChange={e => handleInputChange('source', e.target.value)}
+                    className={`w-full rounded-xl h-12 px-4 pr-10 text-base transition-all bg-white appearance-none cursor-pointer ${
+                      errors.source
+                        ? 'border-2 border-[#FF3B30] focus:border-[#FF3B30] focus:ring-2 focus:ring-[#FF3B30]/20'
+                        : 'border border-gray-200 focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20'
+                    }`}
+                    style={{ outline: 'none', color: formData.source ? '#1d1d1f' : '#86868b' }}
+                  >
+                    <option value="">Select lead source...</option>
+                    {leadSourceOptions.map(opt => (
+                      <option
+                        key={opt.value}
+                        value={opt.value}
+                        disabled={opt.disabled}
+                        style={opt.disabled ? { fontWeight: 700, color: '#86868b' } : undefined}
+                      >
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span
+                    className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                    style={{ color: '#617589', fontSize: '20px' }}
+                  >
+                    expand_more
+                  </span>
+                </div>
+                {errors.source && (
+                  <p className="text-xs mt-1 ml-1" style={{ color: '#FF3B30' }}>{errors.source}</p>
+                )}
               </div>
             </div>
 
