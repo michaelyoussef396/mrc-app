@@ -2724,110 +2724,124 @@ export default function TechnicianInspectionForm() {
   };
 
   // Photo handlers - upload to Supabase Storage
-  const handlePhotoCapture = async (type: string, areaId?: string, readingId?: string) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
+  // Persistent refs for file input (mobile browsers block .click() on detached inputs)
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const photoContextRef = useRef<{ type: string; areaId?: string; readingId?: string }>({ type: '' });
+
+  const handlePhotoCapture = (type: string, areaId?: string, readingId?: string) => {
+    const input = photoInputRef.current;
+    if (!input) return;
+
+    // Store context for the onChange handler
+    photoContextRef.current = { type, areaId, readingId };
+
+    // Configure input attributes
     input.multiple = type !== 'single' && !readingId;
 
-    input.onchange = async (e: any) => {
-      const files = Array.from(e.target.files) as File[];
-      if (files.length === 0) return;
+    // Reset value so same file can be re-selected
+    input.value = '';
 
-      // Require saved inspection before uploading photos
-      if (!currentInspectionId) {
-        toast({
-          title: 'Save First',
-          description: 'Save the inspection before uploading photos',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      toast({
-        title: 'Uploading...',
-        description: `Uploading ${files.length} photo(s)`,
-      });
-
-      try {
-        // Determine photo_type and caption for metadata
-        let photoType: 'area' | 'subfloor' | 'general' | 'outdoor' = 'general';
-        let caption: string | undefined;
-        if (areaId) {
-          photoType = 'area';
-          if (type === 'infrared') caption = 'infrared';
-          else if (type === 'naturalInfrared') caption = 'natural_infrared';
-        } else if (type === 'subfloor') {
-          photoType = 'subfloor';
-        } else if (['frontDoor', 'frontHouse', 'mailbox', 'street', 'direction'].includes(type)) {
-          photoType = 'outdoor';
-          const captionMap: Record<string, string> = {
-            frontDoor: 'front_door', frontHouse: 'front_house',
-            mailbox: 'mailbox', street: 'street', direction: 'direction',
-          };
-          caption = captionMap[type];
-        }
-
-        // Upload each file
-        // NOTE: Do NOT pass moisture_reading_id here — the reading may not be saved to DB yet.
-        // Photos are linked to moisture readings during handleSave() after readings are persisted.
-        const newPhotos: Photo[] = [];
-        for (const file of files) {
-          const result = await uploadInspectionPhoto(file, {
-            inspection_id: currentInspectionId,
-            area_id: areaId,
-            photo_type: photoType,
-            caption: readingId ? 'moisture' : caption,
-          });
-          newPhotos.push({
-            id: result.photo_id,
-            name: file.name,
-            url: result.signed_url,
-            timestamp: new Date().toISOString(),
-          });
-        }
-
-        // Update state based on photo type
-        if (areaId && readingId) {
-          handleMoistureReadingChange(areaId, readingId, 'photo', newPhotos[0]);
-        } else if (areaId && type === 'roomView') {
-          const area = formData.areas.find((a) => a.id === areaId);
-          const currentPhotos = area?.roomViewPhotos || [];
-          if (currentPhotos.length + newPhotos.length > 4) {
-            toast({ title: 'Limit reached', description: 'Maximum 4 photos', variant: 'destructive' });
-            return;
-          }
-          handleAreaChange(areaId, 'roomViewPhotos', [...currentPhotos, ...newPhotos]);
-        } else if (areaId && type === 'infrared') {
-          handleAreaChange(areaId, 'infraredPhoto', newPhotos[0]);
-        } else if (areaId && type === 'naturalInfrared') {
-          handleAreaChange(areaId, 'naturalInfraredPhoto', newPhotos[0]);
-        } else if (type === 'subfloor') {
-          handleChange('subfloorPhotos', [...formData.subfloorPhotos, ...newPhotos]);
-        } else if (type === 'frontDoor') {
-          handleChange('frontDoorPhoto', newPhotos[0]);
-        } else if (type === 'frontHouse') {
-          handleChange('frontHousePhoto', newPhotos[0]);
-        } else if (type === 'mailbox') {
-          handleChange('mailboxPhoto', newPhotos[0]);
-        } else if (type === 'street') {
-          handleChange('streetPhoto', newPhotos[0]);
-        } else if (type === 'direction') {
-          handleChange('directionPhoto', newPhotos[0]);
-        }
-
-        toast({ title: 'Photos added', description: `${newPhotos.length} photo(s) uploaded` });
-      } catch (err: any) {
-        console.error('[PhotoCapture] Upload error:', err);
-        toast({
-          title: 'Upload Failed',
-          description: err?.message || 'Failed to upload photo(s)',
-          variant: 'destructive',
-        });
-      }
-    };
-
+    // Trigger file picker
     input.click();
+  };
+
+  const handlePhotoInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const { type, areaId, readingId } = photoContextRef.current;
+
+    // Require saved inspection before uploading photos
+    if (!currentInspectionId) {
+      toast({
+        title: 'Save First',
+        description: 'Save the inspection before uploading photos',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    toast({
+      title: 'Uploading...',
+      description: `Uploading ${files.length} photo(s)`,
+    });
+
+    try {
+      // Determine photo_type and caption for metadata
+      let photoType: 'area' | 'subfloor' | 'general' | 'outdoor' = 'general';
+      let caption: string | undefined;
+      if (areaId) {
+        photoType = 'area';
+        if (type === 'infrared') caption = 'infrared';
+        else if (type === 'naturalInfrared') caption = 'natural_infrared';
+      } else if (type === 'subfloor') {
+        photoType = 'subfloor';
+      } else if (['frontDoor', 'frontHouse', 'mailbox', 'street', 'direction'].includes(type)) {
+        photoType = 'outdoor';
+        const captionMap: Record<string, string> = {
+          frontDoor: 'front_door', frontHouse: 'front_house',
+          mailbox: 'mailbox', street: 'street', direction: 'direction',
+        };
+        caption = captionMap[type];
+      }
+
+      // Upload each file
+      // NOTE: Do NOT pass moisture_reading_id here — the reading may not be saved to DB yet.
+      // Photos are linked to moisture readings during handleSave() after readings are persisted.
+      const newPhotos: Photo[] = [];
+      for (const file of files) {
+        const result = await uploadInspectionPhoto(file, {
+          inspection_id: currentInspectionId,
+          area_id: areaId,
+          photo_type: photoType,
+          caption: readingId ? 'moisture' : caption,
+        });
+        newPhotos.push({
+          id: result.photo_id,
+          name: file.name,
+          url: result.signed_url,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Update state based on photo type
+      if (areaId && readingId) {
+        handleMoistureReadingChange(areaId, readingId, 'photo', newPhotos[0]);
+      } else if (areaId && type === 'roomView') {
+        const area = formData.areas.find((a) => a.id === areaId);
+        const currentPhotos = area?.roomViewPhotos || [];
+        if (currentPhotos.length + newPhotos.length > 4) {
+          toast({ title: 'Limit reached', description: 'Maximum 4 photos', variant: 'destructive' });
+          return;
+        }
+        handleAreaChange(areaId, 'roomViewPhotos', [...currentPhotos, ...newPhotos]);
+      } else if (areaId && type === 'infrared') {
+        handleAreaChange(areaId, 'infraredPhoto', newPhotos[0]);
+      } else if (areaId && type === 'naturalInfrared') {
+        handleAreaChange(areaId, 'naturalInfraredPhoto', newPhotos[0]);
+      } else if (type === 'subfloor') {
+        handleChange('subfloorPhotos', [...formData.subfloorPhotos, ...newPhotos]);
+      } else if (type === 'frontDoor') {
+        handleChange('frontDoorPhoto', newPhotos[0]);
+      } else if (type === 'frontHouse') {
+        handleChange('frontHousePhoto', newPhotos[0]);
+      } else if (type === 'mailbox') {
+        handleChange('mailboxPhoto', newPhotos[0]);
+      } else if (type === 'street') {
+        handleChange('streetPhoto', newPhotos[0]);
+      } else if (type === 'direction') {
+        handleChange('directionPhoto', newPhotos[0]);
+      }
+
+      toast({ title: 'Photos added', description: `${newPhotos.length} photo(s) uploaded` });
+    } catch (err: any) {
+      console.error('[PhotoCapture] Upload error:', err);
+      toast({
+        title: 'Upload Failed',
+        description: err?.message || 'Failed to upload photo(s)',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handlePhotoRemove = async (type: string, photoId: string, areaId?: string, readingId?: string) => {
@@ -3396,6 +3410,15 @@ export default function TechnicianInspectionForm() {
           </div>
         </div>
       )}
+
+      {/* Persistent hidden file input for photo uploads (mobile browsers block .click() on detached inputs) */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handlePhotoInputChange}
+      />
 
       {/* Completing overlay — shown while AI summary generates */}
       {isCompleting && (
