@@ -22,6 +22,8 @@ interface LeadUpdatePayload {
   notes?: string | null;
   access_instructions?: string | null;
   special_requests?: string | null;
+  inspection_scheduled_date?: string | null;
+  scheduled_time?: string | null;
 }
 
 export function useLeadUpdate(leadId: string) {
@@ -74,6 +76,13 @@ export function useLeadUpdate(leadId: string) {
         title: "Lead Details Updated",
         description: `Updated: ${fieldLabels}`,
         user_id: user?.id ?? null,
+        metadata: {
+          changes: changedFields.map((field) => ({
+            field,
+            from: originalLead[field] ?? null,
+            to: payload[field as keyof LeadUpdatePayload] ?? null,
+          })),
+        },
       });
 
       sendSlackNotification({

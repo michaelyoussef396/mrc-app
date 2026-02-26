@@ -17,6 +17,7 @@ export interface LeadToSchedule {
   phone: string;
   email: string;
   issueDescription: string | null;  // Notes from enquiry
+  leadSource: string | null;        // Lead source channel
   propertyAddress: string;          // Full address for booking
   preferredDate: string | null;     // Customer's preferred inspection date
   preferredTime: string | null;     // Customer's preferred inspection time
@@ -58,6 +59,7 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
           property_address_postcode,
           property_type,
           issue_description,
+          lead_source,
           inspection_scheduled_date,
           scheduled_time,
           created_at
@@ -93,6 +95,7 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
           phone: lead.phone || '',
           email: lead.email || '',
           issueDescription: lead.issue_description,
+          leadSource: lead.lead_source || null,
           propertyAddress: fullAddress,
           preferredDate: lead.inspection_scheduled_date || null,
           preferredTime: lead.scheduled_time || null,

@@ -6,7 +6,8 @@ import { LeadToSchedule } from '@/hooks/useLeadsToSchedule';
 import { bookInspection, TIME_SLOTS, formatTimeForDisplay } from '@/lib/bookingService';
 import { useBookingValidation, DateRecommendation } from '@/hooks/useBookingValidation';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
-import { calculatePropertyZone } from '@/lib/leadUtils';
+import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
+import { useLeadUpdate } from '@/hooks/useLeadUpdate';
 import { supabase } from '@/integrations/supabase/client';
 
 // ============================================================================
@@ -73,13 +74,51 @@ export function LeadBookingCard({
   const { isLoaded: mapsLoaded } = useLoadGoogleMaps();
   const { predictions, getPlacePredictions, getPlaceDetails, clearPredictions } = useAddressAutocomplete(addressInputRef);
 
-  // Form state
+  // Form state — pre-populate from customer's preferred date/time
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
-  const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedTime, setSelectedTime] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>(lead.preferredDate || '');
+  const [selectedTime, setSelectedTime] = useState<string>(lead.preferredTime || '');
   const [selectedTechnician, setSelectedTechnician] = useState<string>('');
   const [internalNotes, setInternalNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Lead info edit state
+  const { updateLead, isUpdating: isLeadSaving } = useLeadUpdate(lead.id);
+  const [editName, setEditName] = useState(lead.fullName);
+  const [editPhone, setEditPhone] = useState(lead.phone);
+  const [editEmail, setEditEmail] = useState(lead.email);
+  const [editDescription, setEditDescription] = useState(lead.issueDescription || '');
+  const [editLeadSource, setEditLeadSource] = useState(lead.leadSource || '');
+
+  const hasLeadChanges =
+    editName !== lead.fullName ||
+    editPhone !== lead.phone ||
+    editEmail !== lead.email ||
+    editDescription !== (lead.issueDescription || '') ||
+    editLeadSource !== (lead.leadSource || '');
+
+  const handleSaveLeadInfo = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const payload: Record<string, string | null> = {};
+    const original: Record<string, unknown> = {
+      full_name: lead.fullName,
+      phone: lead.phone,
+      email: lead.email,
+      issue_description: lead.issueDescription,
+      lead_source: lead.leadSource,
+    };
+
+    if (editName !== lead.fullName) payload.full_name = editName;
+    if (editPhone !== lead.phone) payload.phone = editPhone;
+    if (editEmail !== lead.email) payload.email = editEmail;
+    if (editDescription !== (lead.issueDescription || '')) payload.issue_description = editDescription || null;
+    if (editLeadSource !== (lead.leadSource || '')) payload.lead_source = editLeadSource || null;
+
+    const success = await updateLead(payload, original);
+    if (success) {
+      queryClient.invalidateQueries({ queryKey: ['leads-to-schedule'] });
+    }
+  };
 
   // Recommendation state
   const [recommendations, setRecommendations] = useState<DateRecommendation[]>([]);
@@ -208,6 +247,7 @@ export function LeadBookingCard({
         destinationSuburb: lead.suburb,
         daysAhead: 14,
         durationMinutes,
+        preferredDate: lead.preferredDate || undefined,
       });
 
       if (result?.recommendations) {
@@ -328,6 +368,15 @@ export function LeadBookingCard({
               <span className="ml-1 opacity-75">• {lead.timeAgo}</span>
             )}
           </p>
+          {lead.preferredDate && (
+            <p
+              className="text-xs mt-1 font-medium"
+              style={{ color: '#007AFF' }}
+            >
+              Prefers {new Date(lead.preferredDate + 'T00:00').toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit' })}
+              {lead.preferredTime && ` at ${formatTimeForDisplay(lead.preferredTime)}`}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {/* Address status indicator */}
@@ -572,6 +621,147 @@ export function LeadBookingCard({
             </div>
           </div>
 
+          {/* Lead Info Quick Edit */}
+          <div
+            className="p-3 rounded-lg space-y-3"
+            style={{ backgroundColor: 'white', border: '1px solid #e5e5e5' }}
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: '16px', color: '#007AFF' }}
+              >
+                edit_note
+              </span>
+              <label
+                className="text-xs font-semibold uppercase tracking-wide"
+                style={{ color: '#007AFF' }}
+              >
+                Lead Info
+              </label>
+              {hasLeadChanges && (
+                <span
+                  className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: '#FF9500', color: 'white' }}
+                >
+                  Unsaved
+                </span>
+              )}
+            </div>
+
+            {/* Full Name */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: '#617589' }}>
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full h-12 px-4 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[#007AFF] outline-none transition-all"
+                style={{ backgroundColor: '#fafafa', border: '1px solid #e5e5e5', color: '#1d1d1f' }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+
+            {/* Phone */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: '#617589' }}>
+                Phone
+              </label>
+              <input
+                type="tel"
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                className="w-full h-12 px-4 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[#007AFF] outline-none transition-all"
+                style={{ backgroundColor: '#fafafa', border: '1px solid #e5e5e5', color: '#1d1d1f' }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+
+            {/* Email */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: '#617589' }}>
+                Email
+              </label>
+              <input
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                className="w-full h-12 px-4 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[#007AFF] outline-none transition-all"
+                style={{ backgroundColor: '#fafafa', border: '1px solid #e5e5e5', color: '#1d1d1f' }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+
+            {/* Brief Description */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: '#617589' }}>
+                Brief Description
+              </label>
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={2}
+                className="w-full p-3 rounded-lg text-sm resize-none focus:ring-2 focus:ring-[#007AFF] outline-none transition-all placeholder:text-gray-400"
+                style={{ backgroundColor: '#fafafa', border: '1px solid #e5e5e5', color: '#1d1d1f' }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+
+            {/* Lead Source */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium" style={{ color: '#617589' }}>
+                Lead Source
+              </label>
+              <div className="relative">
+                <select
+                  value={editLeadSource}
+                  onChange={(e) => setEditLeadSource(e.target.value)}
+                  className="w-full h-12 px-4 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[#007AFF] outline-none transition-all appearance-none cursor-pointer pr-10"
+                  style={{ backgroundColor: '#fafafa', border: '1px solid #e5e5e5', color: editLeadSource ? '#1d1d1f' : '#86868b' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <option value="">Select lead source...</option>
+                  {leadSourceOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value} disabled={opt.disabled}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <span
+                  className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{ color: '#617589', fontSize: '20px' }}
+                >
+                  expand_more
+                </span>
+              </div>
+            </div>
+
+            {/* Save button */}
+            {hasLeadChanges && (
+              <button
+                type="button"
+                onClick={handleSaveLeadInfo}
+                disabled={isLeadSaving}
+                className="w-full h-11 rounded-lg text-sm font-semibold text-white transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                style={{ backgroundColor: '#34C759' }}
+              >
+                {isLeadSaving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>save</span>
+                    Save Changes
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
           {/* STEP 2: Scheduling (gated by address confirmation) */}
           <div className={`space-y-4 transition-all ${!addressConfirmed ? 'opacity-50 pointer-events-none' : ''}`}>
             {/* Lock message when not confirmed */}
@@ -624,6 +814,7 @@ export function LeadBookingCard({
                       destinationSuburb: lead.suburb,
                       daysAhead: 14,
                       durationMinutes: Math.max(30, Math.min(480, durationMinutes)),
+                      preferredDate: lead.preferredDate || undefined,
                     })
                       .then((result) => {
                         if (result?.recommendations) {
@@ -769,6 +960,19 @@ export function LeadBookingCard({
                     No recommendations available — pick any date below.
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* Customer preferred time hint */}
+            {lead.preferredDate && (selectedDate === lead.preferredDate) && (
+              <div
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg"
+                style={{ backgroundColor: 'rgba(0, 122, 255, 0.06)', border: '1px solid rgba(0, 122, 255, 0.15)' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#007AFF' }}>person</span>
+                <p className="text-xs font-medium" style={{ color: '#007AFF' }}>
+                  Customer's preferred time
+                </p>
               </div>
             )}
 

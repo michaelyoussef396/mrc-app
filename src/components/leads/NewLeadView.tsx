@@ -28,10 +28,14 @@ import {
   User,
   ClipboardList,
   Edit,
+  X,
+  Save,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
 import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
+import { useLeadUpdate } from "@/hooks/useLeadUpdate";
+import { leadSourceOptions } from "@/lib/leadUtils";
 import type { LeadStatus } from "@/lib/statusFlow";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -51,6 +55,63 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [showEditSheet, setShowEditSheet] = useState(false);
   const [archiving, setArchiving] = useState(false);
+
+  // Inline edit mode
+  const [isEditing, setIsEditing] = useState(false);
+  const { updateLead, isUpdating } = useLeadUpdate(lead.id);
+  const [editName, setEditName] = useState(lead.full_name || "");
+  const [editPhone, setEditPhone] = useState(lead.phone || "");
+  const [editEmail, setEditEmail] = useState(lead.email || "");
+  const [editDescription, setEditDescription] = useState(lead.issue_description || "");
+  const [editLeadSource, setEditLeadSource] = useState(lead.lead_source || "");
+  const [editPreferredDate, setEditPreferredDate] = useState(lead.inspection_scheduled_date || "");
+  const [editPreferredTime, setEditPreferredTime] = useState(lead.scheduled_time || "");
+
+  const resetEditState = () => {
+    setEditName(lead.full_name || "");
+    setEditPhone(lead.phone || "");
+    setEditEmail(lead.email || "");
+    setEditDescription(lead.issue_description || "");
+    setEditLeadSource(lead.lead_source || "");
+    setEditPreferredDate(lead.inspection_scheduled_date || "");
+    setEditPreferredTime(lead.scheduled_time || "");
+    setIsEditing(false);
+  };
+
+  const handleSaveInline = async () => {
+    const payload: Record<string, string | null> = {};
+    const original: Record<string, unknown> = {
+      full_name: lead.full_name,
+      phone: lead.phone,
+      email: lead.email,
+      issue_description: lead.issue_description,
+      lead_source: lead.lead_source,
+      inspection_scheduled_date: lead.inspection_scheduled_date,
+      scheduled_time: lead.scheduled_time,
+    };
+
+    if (editName !== (lead.full_name || "")) payload.full_name = editName;
+    if (editPhone !== (lead.phone || "")) payload.phone = editPhone;
+    if (editEmail !== (lead.email || "")) payload.email = editEmail;
+    if (editDescription !== (lead.issue_description || "")) payload.issue_description = editDescription || null;
+    if (editLeadSource !== (lead.lead_source || "")) payload.lead_source = editLeadSource || null;
+    if (editPreferredDate !== (lead.inspection_scheduled_date || "")) payload.inspection_scheduled_date = editPreferredDate || null;
+    if (editPreferredTime !== (lead.scheduled_time || "")) payload.scheduled_time = editPreferredTime || null;
+
+    const success = await updateLead(payload, original);
+    if (success) {
+      onRefetch();
+      setIsEditing(false);
+    }
+  };
+
+  const handleToggleEdit = () => {
+    if (isEditing) {
+      resetEditState();
+    } else {
+      setIsEditing(true);
+    }
+  };
 
   const fullAddress = [
     lead.property_address_street,
@@ -152,14 +213,35 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
 
             {/* Desktop action buttons */}
             <div className="hidden md:flex items-center gap-3">
-              <Button
-                variant="outline"
-                className="border-slate-300 text-slate-600 hover:bg-slate-50"
-                onClick={() => setShowEditSheet(true)}
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Lead
-              </Button>
+              {isEditing ? (
+                <>
+                  <Button
+                    variant="outline"
+                    className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                    onClick={resetEditState}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                    onClick={handleSaveInline}
+                    disabled={isUpdating}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isUpdating ? "Saving..." : "Save Changes"}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                  onClick={handleToggleEdit}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Lead
+                </Button>
+              )}
               {isScheduled ? (
                 <>
                   <Button
@@ -241,37 +323,74 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
                 </div>
               </div>
               <div className="p-5 space-y-4">
-                {/* Phone */}
-                <a
-                  href={`tel:${lead.phone}`}
-                  className="flex items-center gap-4 group"
-                >
-                  <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 transition-colors">
-                    <Phone className="h-4 w-4 text-blue-600 group-hover:text-white transition-colors" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {lead.phone}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Mobile</p>
-                  </div>
-                </a>
+                {isEditing ? (
+                  <>
+                    {/* Editable Full Name */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">Full Name</label>
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full h-12 px-4 rounded-lg text-sm font-medium border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                      />
+                    </div>
+                    {/* Editable Phone */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">Phone</label>
+                      <input
+                        type="tel"
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        className="w-full h-12 px-4 rounded-lg text-sm font-medium border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                      />
+                    </div>
+                    {/* Editable Email */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">Email</label>
+                      <input
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        className="w-full h-12 px-4 rounded-lg text-sm font-medium border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Phone */}
+                    <a
+                      href={`tel:${lead.phone}`}
+                      className="flex items-center gap-4 group"
+                    >
+                      <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 transition-colors">
+                        <Phone className="h-4 w-4 text-blue-600 group-hover:text-white transition-colors" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {lead.phone}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Mobile</p>
+                      </div>
+                    </a>
 
-                {/* Email */}
-                <a
-                  href={`mailto:${lead.email}`}
-                  className="flex items-center gap-4 group"
-                >
-                  <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 transition-colors">
-                    <Mail className="h-4 w-4 text-blue-600 group-hover:text-white transition-colors" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {lead.email}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Personal</p>
-                  </div>
-                </a>
+                    {/* Email */}
+                    <a
+                      href={`mailto:${lead.email}`}
+                      className="flex items-center gap-4 group"
+                    >
+                      <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-600 transition-colors">
+                        <Mail className="h-4 w-4 text-blue-600 group-hover:text-white transition-colors" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {lead.email}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Personal</p>
+                      </div>
+                    </a>
+                  </>
+                )}
               </div>
             </div>
 
@@ -286,30 +405,50 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
                 </div>
               </div>
               <div className="p-5">
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                    <Globe className="h-4 w-4 text-indigo-600" />
+                {isEditing ? (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Lead Source</label>
+                    <select
+                      value={editLeadSource}
+                      onChange={(e) => setEditLeadSource(e.target.value)}
+                      className="w-full h-12 px-4 rounded-lg text-sm font-medium border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer bg-white"
+                    >
+                      <option value="">Select lead source...</option>
+                      {leadSourceOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value} disabled={opt.disabled}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">
-                      {sourceLabel}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Lead source channel
-                    </p>
-                  </div>
-                </div>
-                {lead.urgency && (
-                  <div className="mt-4 pt-4 border-t">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        Urgency
-                      </span>
-                      <Badge variant="secondary" className="capitalize text-xs">
-                        {lead.urgency}
-                      </Badge>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                        <Globe className="h-4 w-4 text-indigo-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">
+                          {sourceLabel}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Lead source channel
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                    {lead.urgency && (
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            Urgency
+                          </span>
+                          <Badge variant="secondary" className="capitalize text-xs">
+                            {lead.urgency}
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -394,7 +533,19 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
                 </div>
 
                 {/* Issue Description */}
-                {lead.issue_description && (
+                {isEditing ? (
+                  <div>
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Issue Description
+                    </span>
+                    <textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      rows={4}
+                      className="mt-3 w-full p-4 rounded-lg text-sm border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none leading-relaxed"
+                    />
+                  </div>
+                ) : lead.issue_description ? (
                   <div>
                     <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Issue Description
@@ -405,17 +556,61 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
                       </p>
                     </div>
                   </div>
+                ) : null}
+
+                {/* Preferred Date/Time (edit mode only) */}
+                {isEditing && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">Preferred Date</label>
+                      <input
+                        type="date"
+                        value={editPreferredDate}
+                        onChange={(e) => setEditPreferredDate(e.target.value)}
+                        className="w-full h-12 px-4 rounded-lg text-sm font-medium border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">Preferred Time</label>
+                      <input
+                        type="time"
+                        value={editPreferredTime}
+                        onChange={(e) => setEditPreferredTime(e.target.value)}
+                        className="w-full h-12 px-4 rounded-lg text-sm font-medium border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
                 )}
 
-                {/* Footer */}
-                <div className="pt-4 border-t">
-                  <p className="text-xs text-muted-foreground">
-                    Assigned to:{" "}
-                    <span className="font-medium text-foreground">
-                      {technicianName || (lead.assigned_to ? "Assigned" : "Unassigned")}
-                    </span>
-                  </p>
-                </div>
+                {/* Footer / Save-Cancel */}
+                {isEditing ? (
+                  <div className="pt-4 border-t flex gap-3">
+                    <Button
+                      variant="outline"
+                      className="flex-1 h-12 border-slate-300"
+                      onClick={resetEditState}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={handleSaveInline}
+                      disabled={isUpdating}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {isUpdating ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="pt-4 border-t">
+                    <p className="text-xs text-muted-foreground">
+                      Assigned to:{" "}
+                      <span className="font-medium text-foreground">
+                        {technicianName || (lead.assigned_to ? "Assigned" : "Unassigned")}
+                      </span>
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -499,49 +694,72 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
       {/* ───── Mobile Fixed Bottom Bar ───── */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg md:hidden z-50 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-12 w-12 flex-shrink-0 border-slate-300 text-slate-600"
-            onClick={() => setShowEditSheet(true)}
-          >
-            <Edit className="h-5 w-5" />
-          </Button>
-          {isScheduled ? (
+          {isEditing ? (
             <>
               <Button
                 variant="outline"
-                className="flex-1 h-12 border-slate-300 text-slate-600"
-                onClick={() => setShowScheduleModal(true)}
+                size="icon"
+                className="h-12 w-12 flex-shrink-0 border-slate-300 text-slate-600"
+                onClick={resetEditState}
               >
-                <Calendar className="h-4 w-4 mr-2" />
-                Reschedule
+                <X className="h-5 w-5" />
               </Button>
               <Button
-                className="flex-[2] h-12 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                onClick={() => navigate(`/inspection/${lead.id}`)}
+                className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={handleSaveInline}
+                disabled={isUpdating}
               >
-                <ClipboardList className="h-4 w-4 mr-2" />
-                Start Inspection
+                <Save className="h-4 w-4 mr-2" />
+                {isUpdating ? "Saving..." : "Save Changes"}
               </Button>
             </>
           ) : (
             <>
               <Button
                 variant="outline"
-                className="flex-1 h-12 border-slate-300 text-slate-600"
-                onClick={() => setShowArchiveDialog(true)}
+                size="icon"
+                className="h-12 w-12 flex-shrink-0 border-slate-300 text-slate-600"
+                onClick={handleToggleEdit}
               >
-                <Archive className="h-4 w-4 mr-2" />
-                Archive
+                <Edit className="h-5 w-5" />
               </Button>
-              <Button
-                className="flex-[2] h-12 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                onClick={() => setShowScheduleModal(true)}
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Schedule Inspection
-              </Button>
+              {isScheduled ? (
+                <>
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-12 border-slate-300 text-slate-600"
+                    onClick={() => setShowScheduleModal(true)}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Reschedule
+                  </Button>
+                  <Button
+                    className="flex-[2] h-12 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                    onClick={() => navigate(`/inspection/${lead.id}`)}
+                  >
+                    <ClipboardList className="h-4 w-4 mr-2" />
+                    Start Inspection
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-12 border-slate-300 text-slate-600"
+                    onClick={() => setShowArchiveDialog(true)}
+                  >
+                    <Archive className="h-4 w-4 mr-2" />
+                    Archive
+                  </Button>
+                  <Button
+                    className="flex-[2] h-12 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                    onClick={() => setShowScheduleModal(true)}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Schedule Inspection
+                  </Button>
+                </>
+              )}
             </>
           )}
         </div>
