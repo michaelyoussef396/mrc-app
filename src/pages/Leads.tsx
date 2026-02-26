@@ -26,7 +26,7 @@ import {
   Loader2
 } from "lucide-react";
 import { STATUS_FLOW, ALL_STATUSES, LeadStatus } from "@/lib/statusFlow";
-import { AddLeadDialog } from "@/components/leads/AddLeadDialog";
+import CreateNewLeadModal from "@/components/leads/CreateNewLeadModal";
 import {
   Accordion,
   AccordionContent,
@@ -444,7 +444,10 @@ export default function Leads() {
       </div>
 
       {/* Add Lead Dialog */}
-      <AddLeadDialog open={showAddLead} onOpenChange={setShowAddLead} />
+      <CreateNewLeadModal
+        isOpen={showAddLead}
+        onClose={() => setShowAddLead(false)}
+      />
     </div>
   );
 }

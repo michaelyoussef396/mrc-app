@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import AdminHeader from '@/components/admin/AdminHeader';
 import StatsCard from '@/components/admin/StatsCard';
-import CreateLeadModal from '@/components/admin/CreateLeadModal';
+import CreateNewLeadModal from '@/components/leads/CreateNewLeadModal';
 import { useAdminDashboardStats } from '@/hooks/useAdminDashboardStats';
 import { useTodaysSchedule } from '@/hooks/useTodaysSchedule';
 import { useUnassignedLeads } from '@/hooks/useUnassignedLeads';
@@ -632,13 +632,9 @@ export default function AdminDashboard() {
       </main>
 
       {/* Create Lead Modal */}
-      <CreateLeadModal
+      <CreateNewLeadModal
         isOpen={showCreateLeadModal}
         onClose={() => setShowCreateLeadModal(false)}
-        onSuccess={() => {
-          // Refetch unassigned leads to show the new lead
-          // The hook will auto-update on next render
-        }}
       />
     </div>
   );

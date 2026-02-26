@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Bell, Menu, X, ChevronDown, Home, ClipboardList, Calendar as CalendarIcon, FileText, BarChart, User, Settings as SettingsIcon, LogOut, ChevronRight, Users, Briefcase, CheckCircle, DollarSign } from 'lucide-react';
 import Logo from '@/components/Logo';
-import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
+import CreateNewLeadModal from '@/components/leads/CreateNewLeadModal';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentLeads } from '@/components/dashboard/RecentLeads';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
@@ -66,11 +66,6 @@ export default function Dashboard() {
   } = useDashboardStats();
 
   const { data: timelineEvents = [], isLoading: activitiesLoading } = useActivityTimeline(15);
-
-  const handleLeadCreated = () => {
-    // Close dialog - React Query will auto-refetch
-    setNewLeadDialogOpen(false);
-  };
 
   // Format currency (Australian dollars)
   const formatCurrency = (amount: number): string => {
@@ -491,10 +486,10 @@ export default function Dashboard() {
       </main>
 
       {/* New Lead Dialog */}
-      <NewLeadDialog
-        open={newLeadDialogOpen}
+      <CreateNewLeadModal
+        isOpen={newLeadDialogOpen}
         onClose={() => setNewLeadDialogOpen(false)}
-        onSuccess={handleLeadCreated}
+        onSuccess={() => setNewLeadDialogOpen(false)}
       />
     </div>
   );
