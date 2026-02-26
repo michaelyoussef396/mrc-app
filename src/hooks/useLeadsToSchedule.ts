@@ -18,6 +18,8 @@ export interface LeadToSchedule {
   email: string;
   issueDescription: string | null;  // Notes from enquiry
   propertyAddress: string;          // Full address for booking
+  preferredDate: string | null;     // Customer's preferred inspection date
+  preferredTime: string | null;     // Customer's preferred inspection time
   createdAt: string;
   timeAgo: string;
 }
@@ -41,7 +43,7 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
 
       // Fetch leads that:
       // 1. Have status 'new_lead' or 'hipages_lead'
-      // 2. AND have no inspection_scheduled_date
+      // 2. AND have no assigned technician yet
       const { data: leadsData, error: fetchError, count } = await supabase
         .from('leads')
         .select(`
@@ -56,10 +58,12 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
           property_address_postcode,
           property_type,
           issue_description,
+          inspection_scheduled_date,
+          scheduled_time,
           created_at
         `, { count: 'exact' })
         .in('status', ['new_lead', 'hipages_lead'])
-        .is('inspection_scheduled_date', null)
+        .is('assigned_to', null)
         .order('created_at', { ascending: false });
 
       if (fetchError) {
@@ -90,6 +94,8 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
           email: lead.email || '',
           issueDescription: lead.issue_description,
           propertyAddress: fullAddress,
+          preferredDate: lead.inspection_scheduled_date || null,
+          preferredTime: lead.scheduled_time || null,
           createdAt: lead.created_at,
           timeAgo: getTimeAgo(lead.created_at),
         };

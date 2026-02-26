@@ -18,6 +18,8 @@ interface NewLeadPayload {
   state?: string
   issue_description?: string
   lead_source?: string
+  preferred_date?: string
+  preferred_time?: string
   created_at?: string
 }
 
@@ -51,10 +53,6 @@ interface LeadUpdatedPayload {
 type SlackNotification = NewLeadPayload | GenericNotification | StatusChangedPayload | LeadUpdatedPayload
 
 function formatNewLeadBlocks(n: NewLeadPayload) {
-  const address = [n.street_address, n.suburb, n.state, n.postcode]
-    .filter(Boolean)
-    .join(', ')
-
   const timestamp = n.created_at
     ? new Date(n.created_at).toLocaleString('en-AU', {
         timeZone: 'Australia/Melbourne',
@@ -71,6 +69,23 @@ function formatNewLeadBlocks(n: NewLeadPayload) {
     ? n.lead_source.charAt(0).toUpperCase() + n.lead_source.slice(1)
     : 'Unknown'
 
+  // Format preferred date as DD/MM/YYYY
+  let formattedDate = 'N/A'
+  if (n.preferred_date) {
+    const [y, m, d] = n.preferred_date.split('-')
+    formattedDate = `${d}/${m}/${y}`
+  }
+
+  // Format preferred time as 12hr label
+  let formattedTime = 'N/A'
+  if (n.preferred_time) {
+    const [hStr, mStr] = n.preferred_time.split(':')
+    const h = parseInt(hStr, 10)
+    const h12 = h > 12 ? h - 12 : h === 0 ? 12 : h
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    formattedTime = `${h12}:${mStr} ${ampm}`
+  }
+
   return {
     blocks: [
       {
@@ -80,16 +95,24 @@ function formatNewLeadBlocks(n: NewLeadPayload) {
       {
         type: 'section',
         fields: [
-          { type: 'mrkdwn', text: `*Name*\n${n.full_name || 'N/A'}` },
+          { type: 'mrkdwn', text: `*Full Name*\n${n.full_name || 'N/A'}` },
           { type: 'mrkdwn', text: `*Phone*\n${n.phone || 'N/A'}` },
           { type: 'mrkdwn', text: `*Email*\n${n.email || 'N/A'}` },
-          { type: 'mrkdwn', text: `*Source*\n${source}` },
+          { type: 'mrkdwn', text: `*Lead Source*\n${source}` },
         ],
       },
       {
         type: 'section',
         fields: [
-          { type: 'mrkdwn', text: `*Property Address*\n${address || 'N/A'}` },
+          { type: 'mrkdwn', text: `*Street Address*\n${n.street_address || 'N/A'}` },
+          { type: 'mrkdwn', text: `*Suburb*\n${n.suburb || 'N/A'}` },
+        ],
+      },
+      {
+        type: 'section',
+        fields: [
+          { type: 'mrkdwn', text: `*Preferred Date*\n${formattedDate}` },
+          { type: 'mrkdwn', text: `*Preferred Time*\n${formattedTime}` },
         ],
       },
       ...(n.issue_description
@@ -103,6 +126,21 @@ function formatNewLeadBlocks(n: NewLeadPayload) {
             },
           ]
         : []),
+      { type: 'divider' },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '⚠️ *ACTION REQUIRED*\n📞 CALL LEAD AND BOOK THEM IN',
+        },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '🔗 *Schedule Now:* <https://www.mrcsystem.com/admin/leads|Open Leads Dashboard>',
+        },
+      },
       {
         type: 'context',
         elements: [

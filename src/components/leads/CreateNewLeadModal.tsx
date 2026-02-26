@@ -425,6 +425,8 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         state: formData.state,
         issue_description: formData.issueDescription,
         lead_source: formData.source,
+        preferred_date: formData.preferredDate,
+        preferred_time: formData.preferredTime,
         created_at: new Date().toISOString(),
       });
 

@@ -32,6 +32,8 @@ interface SendSlackNewLeadParams {
   state?: string;
   issue_description?: string;
   lead_source?: string;
+  preferred_date?: string;
+  preferred_time?: string;
   created_at?: string;
 }
 
