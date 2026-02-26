@@ -49,6 +49,8 @@ interface GetRecommendedDatesParams {
   destinationSuburb: string
   daysAhead?: number
   durationMinutes?: number
+  preferredDate?: string  // YYYY-MM-DD — customer's preferred date to boost in recommendations
+  preferredTime?: string  // HH:MM — customer's preferred time to prioritize in slots
 }
 
 export interface DateRecommendation {
@@ -150,7 +152,7 @@ export function useBookingValidation() {
   }, [])
 
   const getRecommendedDates = useCallback(async (params: GetRecommendedDatesParams): Promise<RecommendedDatesResult | null> => {
-    const { technicianId, destinationAddress, destinationSuburb, daysAhead = 7, durationMinutes = 60 } = params
+    const { technicianId, destinationAddress, destinationSuburb, daysAhead = 7, durationMinutes = 60, preferredDate, preferredTime } = params
 
     if (!technicianId || !destinationAddress) {
       setError('Missing required parameters')
@@ -182,6 +184,8 @@ export function useBookingValidation() {
             destination_suburb: destinationSuburb,
             days_ahead: daysAhead,
             duration_minutes: durationMinutes,
+            ...(preferredDate && { preferred_date: preferredDate }),
+            ...(preferredTime && { preferred_time: preferredTime }),
           }),
         }
       )

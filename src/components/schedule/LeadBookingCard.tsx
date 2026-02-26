@@ -124,6 +124,7 @@ export function LeadBookingCard({
   const [recommendations, setRecommendations] = useState<DateRecommendation[]>([]);
   const [recsLoading, setRecsLoading] = useState(false);
   const [selectedRecDate, setSelectedRecDate] = useState<string>('');
+  const [techInfo, setTechInfo] = useState<{ name: string; home: string | null; missingAddress: boolean } | null>(null);
 
   // Get minimum date (today)
   const today = new Date().toISOString().split('T')[0];
@@ -236,6 +237,7 @@ export function LeadBookingCard({
     setSelectedTime('');
     setRecommendations([]);
     setSelectedRecDate('');
+    setTechInfo(null);
 
     if (!techId || !lead.propertyAddress) return;
 
@@ -248,10 +250,16 @@ export function LeadBookingCard({
         daysAhead: 14,
         durationMinutes,
         preferredDate: lead.preferredDate || undefined,
+        preferredTime: lead.preferredTime || undefined,
       });
 
-      if (result?.recommendations) {
+      if (result) {
         setRecommendations(result.recommendations.slice(0, 3));
+        setTechInfo({
+          name: result.technician_name,
+          home: result.technician_home,
+          missingAddress: result.has_missing_address_warning || false,
+        });
       }
     } catch {
       // Silently fail — user can still pick manually
@@ -815,10 +823,16 @@ export function LeadBookingCard({
                       daysAhead: 14,
                       durationMinutes: Math.max(30, Math.min(480, durationMinutes)),
                       preferredDate: lead.preferredDate || undefined,
+                      preferredTime: lead.preferredTime || undefined,
                     })
                       .then((result) => {
-                        if (result?.recommendations) {
+                        if (result) {
                           setRecommendations(result.recommendations.slice(0, 3));
+                          setTechInfo({
+                            name: result.technician_name,
+                            home: result.technician_home,
+                            missingAddress: result.has_missing_address_warning || false,
+                          });
                         }
                       })
                       .catch(() => {})
@@ -889,6 +903,34 @@ export function LeadBookingCard({
                   </span>
                   Recommended Days
                 </label>
+
+                {/* Technician location info */}
+                {techInfo && !recsLoading && (
+                  <div
+                    className="p-2.5 rounded-lg flex items-start gap-2"
+                    style={{
+                      backgroundColor: techInfo.missingAddress ? 'rgba(255, 149, 0, 0.08)' : 'rgba(0, 122, 255, 0.06)',
+                      border: techInfo.missingAddress ? '1px solid rgba(255, 149, 0, 0.2)' : '1px solid rgba(0, 122, 255, 0.15)',
+                    }}
+                  >
+                    <span
+                      className="material-symbols-outlined mt-0.5"
+                      style={{ fontSize: '16px', color: techInfo.missingAddress ? '#FF9500' : '#007AFF' }}
+                    >
+                      {techInfo.missingAddress ? 'warning' : 'home'}
+                    </span>
+                    <div>
+                      <p className="text-xs font-medium" style={{ color: techInfo.missingAddress ? '#FF9500' : '#007AFF' }}>
+                        Travelling from: {techInfo.home || 'Address not set'}
+                      </p>
+                      {recommendations[0]?.travel_from_home_minutes != null && (
+                        <p className="text-xs mt-0.5" style={{ color: techInfo.missingAddress ? '#FF9500' : '#617589' }}>
+                          ~{recommendations[0].travel_from_home_minutes} min est. travel to property
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {recsLoading ? (
                   <div

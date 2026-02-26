@@ -41,6 +41,8 @@ interface RecommendedDatesRequest {
   destination_suburb: string
   days_ahead?: number  // Default 7
   duration_minutes?: number  // Default 60
+  preferred_date?: string  // YYYY-MM-DD — customer's preferred date to boost in scoring
+  preferred_time?: string  // HH:MM — customer's preferred time to prioritize in slots
 }
 
 interface DateRecommendation {
@@ -681,14 +683,22 @@ Deno.serve(async (req) => {
         const aptEndMinutes = timeToMinutes(apt.ends_at)
         if (aptEndMinutes <= requestedMinutes) {
           // This appointment ends before our requested time
+          // Find the matching raw appointment to get full address
+          const rawApt = (appointments || []).find(a =>
+            (a.scheduled_time || '09:00') === apt.time && a.full_name === apt.client_name
+          )
+          const fullAddress = rawApt
+            ? [rawApt.property_address_street, rawApt.property_address_suburb, rawApt.property_address_state || 'VIC', rawApt.property_address_postcode].filter(Boolean).join(', ')
+            : `${apt.suburb}, VIC, Australia`
+
           previousAppointment = {
             ends_at: apt.ends_at,
-            location: `${apt.suburb}`,
+            location: fullAddress,
             suburb: apt.suburb,
             client_name: apt.client_name,
             travel_time_minutes: 0 // Will be calculated below
           }
-          travelOrigin = `${apt.suburb}, VIC, Australia`
+          travelOrigin = fullAddress
         }
       }
 
@@ -776,7 +786,9 @@ Deno.serve(async (req) => {
         destination_address,
         destination_suburb,
         days_ahead = 7,
-        duration_minutes = 60
+        duration_minutes = 60,
+        preferred_date,
+        preferred_time
       } = body as RecommendedDatesRequest
 
       if (!technician_id || !destination_address) {
@@ -882,9 +894,11 @@ Deno.serve(async (req) => {
         // Calculate available slots (8 AM to 5 PM)
         // Build booked ranges as [startMinutes, endMinutes] — assume each existing
         // booking is 1 hour unless we have end_datetime info
+        // +15 min travel buffer after each booking to prevent back-to-back scheduling
+        const TRAVEL_BUFFER_MINUTES = 15
         const bookedRanges = dayAppts.map(a => {
           const startMin = timeToMinutes(a.scheduled_time || '09:00')
-          return [startMin, startMin + 60] as [number, number]
+          return [startMin, startMin + 60 + TRAVEL_BUFFER_MINUTES] as [number, number]
         })
 
         // A candidate slot [candidateStart, candidateStart + duration] is available
@@ -901,6 +915,16 @@ Deno.serve(async (req) => {
           )
           if (!hasOverlap) {
             availableSlots.push(`${hour.toString().padStart(2, '0')}:00`)
+          }
+        }
+
+        // On the preferred date, put preferred_time (or nearest hour slot) first
+        if (preferred_date && dateStr === preferred_date && preferred_time && availableSlots.length > 0) {
+          const hourOnly = preferred_time.split(':')[0].padStart(2, '0') + ':00'
+          const idx = availableSlots.indexOf(hourOnly)
+          if (idx > 0) {
+            availableSlots.splice(idx, 1)
+            availableSlots.unshift(hourOnly)
           }
         }
 
@@ -955,6 +979,12 @@ Deno.serve(async (req) => {
             reason = `${appointmentCount} booking${appointmentCount > 1 ? 's' : ''}, ${availableSlots.length} slots available`
             rating = 'available'
           }
+        }
+
+        // Boost score if this is the customer's preferred date
+        if (preferred_date && dateStr === preferred_date) {
+          score += 30
+          reason = `Customer's preferred date · ${reason}`
         }
 
         // Skip if no slots available
