@@ -56,6 +56,7 @@ interface DateRecommendation {
   travel_from_home_minutes: number | null
   available_slots: string[]  // ["08:00", "09:00", etc.]
   needs_manual_address?: boolean  // True when no starting address for empty days
+  preferred_time_feasible?: boolean  // True if customer's preferred time slot is available
 }
 
 interface RecommendedDatesResponse {
@@ -88,6 +89,10 @@ interface AvailabilityResponse {
     suburb: string
     ends_at: string
   }>
+  travel_time_minutes: number
+  travel_distance_km: number | null
+  travel_origin_address: string
+  is_feasible: boolean
   error?: 'no_starting_address'  // Error flag when starting address is missing
   message?: string  // Error message for user display
   used_override_address?: boolean  // Flag indicating manual address was used
@@ -723,6 +728,10 @@ Deno.serve(async (req) => {
           buffer_minutes: 0,
           suggestions: generateSuggestions(8 * 60, 3),
           day_schedule: daySchedule,
+          travel_time_minutes: 0,
+          travel_distance_km: null,
+          travel_origin_address: '',
+          is_feasible: false,
           error: 'no_starting_address',
           message: `Cannot calculate travel time - ${technicianName}'s starting address is not set. Please set their address in Profile, or provide a manual starting location.`
         }
@@ -734,10 +743,12 @@ Deno.serve(async (req) => {
 
       // 4. Calculate travel time from origin to destination
       let travelTimeMinutes = 30 // Default 30 min if API fails
+      let travelDistanceKm: number | null = null
 
       const travelResult = await calculateTravelTime(travelOrigin, destination_address, apiKey)
       if (travelResult) {
         travelTimeMinutes = travelResult.duration_minutes
+        travelDistanceKm = travelResult.distance_km
       }
 
       if (previousAppointment && !usedOverrideAddress) {
@@ -751,7 +762,7 @@ Deno.serve(async (req) => {
 
       // 5. Check if requested time works
       const requestedTimeWorks = requestedMinutes >= earliestStartMinutes
-      const bufferMinutes = requestedTimeWorks ? requestedMinutes - earliestStartMinutes : 0
+      const bufferMinutes = requestedMinutes - earliestStartMinutes  // Can be negative
 
       // 6. Generate suggestions if time doesn't work
       const suggestions = requestedTimeWorks
@@ -768,6 +779,10 @@ Deno.serve(async (req) => {
         buffer_minutes: bufferMinutes,
         suggestions,
         day_schedule: daySchedule,
+        travel_time_minutes: travelTimeMinutes,
+        travel_distance_km: travelDistanceKm,
+        travel_origin_address: travelOrigin,
+        is_feasible: bufferMinutes >= 0,
         used_override_address: usedOverrideAddress
       }
 
@@ -982,9 +997,23 @@ Deno.serve(async (req) => {
         }
 
         // Boost score if this is the customer's preferred date
+        let preferredTimeFeasible: boolean | undefined = undefined
         if (preferred_date && dateStr === preferred_date) {
           score += 30
-          reason = `Customer's preferred date · ${reason}`
+
+          // Check if preferred time slot is available (not blocked by existing bookings)
+          if (preferred_time) {
+            const prefHour = preferred_time.split(':')[0].padStart(2, '0') + ':00'
+            if (availableSlots.includes(prefHour)) {
+              preferredTimeFeasible = true
+              reason = `Customer's preferred time available · ${reason}`
+            } else {
+              preferredTimeFeasible = false
+              reason = `Customer's preferred time conflicts — alternatives available`
+            }
+          } else {
+            reason = `Customer's preferred date · ${reason}`
+          }
         }
 
         // Skip if no slots available
@@ -1000,7 +1029,8 @@ Deno.serve(async (req) => {
           appointment_count: appointmentCount,
           travel_from_home_minutes: travelFromHomeMinutes,
           available_slots: availableSlots,
-          needs_manual_address: needsManualAddress
+          needs_manual_address: needsManualAddress,
+          preferred_time_feasible: preferredTimeFeasible,
         })
       }
 

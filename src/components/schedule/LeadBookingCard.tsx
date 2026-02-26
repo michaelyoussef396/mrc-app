@@ -1,10 +1,10 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { LeadToSchedule } from '@/hooks/useLeadsToSchedule';
 import { bookInspection, TIME_SLOTS, formatTimeForDisplay } from '@/lib/bookingService';
-import { useBookingValidation, DateRecommendation } from '@/hooks/useBookingValidation';
+import { useBookingValidation, type DateRecommendation, type AvailabilityResult, formatTimeDisplay } from '@/hooks/useBookingValidation';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
 import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
 import { useLeadUpdate } from '@/hooks/useLeadUpdate';
@@ -58,7 +58,7 @@ export function LeadBookingCard({
 }: LeadBookingCardProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { getRecommendedDates } = useBookingValidation();
+  const { getRecommendedDates, checkAvailability } = useBookingValidation();
 
   // Address validation state
   const [addressConfirmed, setAddressConfirmed] = useState(false);
@@ -126,8 +126,41 @@ export function LeadBookingCard({
   const [selectedRecDate, setSelectedRecDate] = useState<string>('');
   const [techInfo, setTechInfo] = useState<{ name: string; home: string | null; missingAddress: boolean } | null>(null);
 
+  // Real-time availability / travel info state
+  const [availabilityResult, setAvailabilityResult] = useState<AvailabilityResult | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+
   // Get minimum date (today)
   const today = new Date().toISOString().split('T')[0];
+
+  // Auto-check availability when date + time + technician are all set
+  useEffect(() => {
+    if (!selectedDate || !selectedTime || !selectedTechnician || !lead.propertyAddress) {
+      setAvailabilityResult(null);
+      return;
+    }
+
+    let cancelled = false;
+    setAvailabilityLoading(true);
+
+    checkAvailability({
+      technicianId: selectedTechnician,
+      date: new Date(selectedDate + 'T00:00'),
+      requestedTime: selectedTime,
+      destinationAddress: lead.propertyAddress,
+    })
+      .then((result) => {
+        if (!cancelled) setAvailabilityResult(result);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailabilityResult(null);
+      })
+      .finally(() => {
+        if (!cancelled) setAvailabilityLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [selectedDate, selectedTime, selectedTechnician, lead.propertyAddress, checkAvailability]);
 
   // ---- Address validation handlers ----
 
@@ -238,6 +271,7 @@ export function LeadBookingCard({
     setRecommendations([]);
     setSelectedRecDate('');
     setTechInfo(null);
+    setAvailabilityResult(null);
 
     if (!techId || !lead.propertyAddress) return;
 
@@ -278,6 +312,7 @@ export function LeadBookingCard({
     setSelectedDate(date);
     setSelectedRecDate('');
     setSelectedTime('');
+    setAvailabilityResult(null);
   };
 
   const getTimeSlots = () => {
@@ -325,6 +360,7 @@ export function LeadBookingCard({
         setInternalNotes('');
         setRecommendations([]);
         setSelectedRecDate('');
+        setAvailabilityResult(null);
         onToggle();
       } else {
         toast.error(result.error || 'Failed to book inspection');
@@ -971,10 +1007,28 @@ export function LeadBookingCard({
                           }}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold">
+                            <span className="text-sm font-semibold flex items-center gap-1">
                               {medal} {rec.day_name} {rec.display_date}
                               {bestTime && (
                                 <span className="font-normal"> at {bestTime}</span>
+                              )}
+                              {rec.preferred_time_feasible === true && (
+                                <span
+                                  className="material-symbols-outlined"
+                                  style={{ fontSize: '14px', color: isSelected ? 'rgba(255,255,255,0.9)' : '#34C759' }}
+                                  title="Preferred time available"
+                                >
+                                  check_circle
+                                </span>
+                              )}
+                              {rec.preferred_time_feasible === false && (
+                                <span
+                                  className="material-symbols-outlined"
+                                  style={{ fontSize: '14px', color: isSelected ? 'rgba(255,255,255,0.9)' : '#FF9500' }}
+                                  title="Preferred time conflicts"
+                                >
+                                  warning
+                                </span>
                               )}
                             </span>
                             <span
@@ -1076,6 +1130,116 @@ export function LeadBookingCard({
                 </span>
               </div>
             </div>
+
+            {/* Travel Info Panel */}
+            {availabilityLoading && selectedDate && selectedTime && selectedTechnician && (
+              <div
+                className="p-3 rounded-lg flex items-center justify-center gap-2"
+                style={{ backgroundColor: 'white', border: '1px solid #e5e5e5' }}
+              >
+                <div className="w-4 h-4 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm" style={{ color: '#617589' }}>
+                  Checking travel time...
+                </span>
+              </div>
+            )}
+            {availabilityResult && !availabilityLoading && (
+              <div
+                className="p-3 rounded-lg space-y-2"
+                style={{
+                  backgroundColor: availabilityResult.is_feasible ? 'rgba(52, 199, 89, 0.05)' : 'rgba(255, 149, 0, 0.05)',
+                  border: `1px solid ${availabilityResult.is_feasible ? 'rgba(52, 199, 89, 0.3)' : 'rgba(255, 149, 0, 0.3)'}`,
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: '16px', color: availabilityResult.is_feasible ? '#34C759' : '#FF9500' }}
+                  >
+                    {availabilityResult.is_feasible ? 'check_circle' : 'warning'}
+                  </span>
+                  <label
+                    className="text-xs font-semibold uppercase tracking-wide"
+                    style={{ color: availabilityResult.is_feasible ? '#34C759' : '#FF9500' }}
+                  >
+                    {availabilityResult.is_feasible ? 'Travel Feasible' : 'Travel Warning'}
+                  </label>
+                </div>
+
+                {/* Travel origin */}
+                <div className="flex items-start gap-2">
+                  <span className="material-symbols-outlined text-gray-400 mt-0.5" style={{ fontSize: '14px' }}>
+                    {availabilityResult.previous_appointment ? 'location_on' : 'home'}
+                  </span>
+                  <p className="text-xs" style={{ color: '#1d1d1f' }}>
+                    <span className="font-medium">Travel from: </span>
+                    {availabilityResult.previous_appointment
+                      ? `${availabilityResult.previous_appointment.client_name} (${availabilityResult.previous_appointment.suburb})`
+                      : 'Home'}
+                  </p>
+                </div>
+
+                {/* Travel time + distance */}
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-gray-400" style={{ fontSize: '14px' }}>directions_car</span>
+                    <p className="text-xs font-medium" style={{ color: '#1d1d1f' }}>
+                      {availabilityResult.travel_time_minutes} min
+                      {availabilityResult.travel_distance_km != null && ` · ${availabilityResult.travel_distance_km} km`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined" style={{ fontSize: '14px', color: availabilityResult.is_feasible ? '#34C759' : '#FF9500' }}>
+                      schedule
+                    </span>
+                    <p className="text-xs font-medium" style={{ color: availabilityResult.is_feasible ? '#34C759' : '#FF9500' }}>
+                      Buffer: {availabilityResult.buffer_minutes >= 0 ? `${availabilityResult.buffer_minutes} min` : `${Math.abs(availabilityResult.buffer_minutes)} min short`}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Previous job timing details */}
+                {availabilityResult.previous_appointment && (
+                  <div className="text-xs space-y-0.5" style={{ color: '#86868b' }}>
+                    <p>Previous job ends: {formatTimeDisplay(availabilityResult.previous_appointment.ends_at)}</p>
+                    <p>Earliest arrival: {formatTimeDisplay(availabilityResult.earliest_start)}</p>
+                  </div>
+                )}
+
+                {/* Suggestions for alternative times when not feasible */}
+                {!availabilityResult.is_feasible && availabilityResult.suggestions.length > 0 && (
+                  <div className="pt-1 border-t" style={{ borderColor: 'rgba(255, 149, 0, 0.2)' }}>
+                    <p className="text-xs font-medium mb-1.5" style={{ color: '#FF9500' }}>Suggested times:</p>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {availabilityResult.suggestions.map((time) => (
+                        <button
+                          key={time}
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setSelectedTime(time); }}
+                          className="px-2.5 py-1 rounded-md text-xs font-medium transition-colors hover:brightness-95"
+                          style={{ backgroundColor: 'rgba(255, 149, 0, 0.12)', color: '#FF9500' }}
+                        >
+                          {formatTimeForDisplay(time)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Warning banner above Book button when buffer < 0 */}
+            {availabilityResult && !availabilityResult.is_feasible && !availabilityLoading && (
+              <div
+                className="flex items-center gap-2 p-3 rounded-lg"
+                style={{ backgroundColor: 'rgba(255, 59, 48, 0.08)', border: '1px solid rgba(255, 59, 48, 0.3)' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#FF3B30' }}>error</span>
+                <p className="text-xs font-semibold" style={{ color: '#FF3B30' }}>
+                  Tech needs {Math.abs(availabilityResult.buffer_minutes)} more min to get there — booking will still be created if you proceed
+                </p>
+              </div>
+            )}
 
             {/* Internal Notes */}
             <div className="space-y-1.5">

@@ -30,6 +30,10 @@ export interface AvailabilityResult {
   buffer_minutes: number
   suggestions: string[]
   day_schedule: DayScheduleItem[]
+  travel_time_minutes: number
+  travel_distance_km: number | null
+  travel_origin_address: string
+  is_feasible: boolean
   error?: 'no_starting_address'  // Error flag when starting address is missing
   message?: string  // Error message for user display
   used_override_address?: boolean  // Flag indicating manual address was used
@@ -64,6 +68,7 @@ export interface DateRecommendation {
   travel_from_home_minutes: number | null
   available_slots: string[]
   needs_manual_address?: boolean  // True when no starting address for empty days
+  preferred_time_feasible?: boolean  // True if customer's preferred time slot is available
 }
 
 export interface RecommendedDatesResult {
