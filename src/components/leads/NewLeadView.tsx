@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -30,12 +30,14 @@ import {
   Edit,
   X,
   Save,
+  RefreshCw,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
 import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
 import { useLeadUpdate } from "@/hooks/useLeadUpdate";
 import { leadSourceOptions } from "@/lib/leadUtils";
+import { AddressAutocomplete, type AddressValue } from "@/components/booking/AddressAutocomplete";
 import type { LeadStatus } from "@/lib/statusFlow";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -66,6 +68,23 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
   const [editLeadSource, setEditLeadSource] = useState(lead.lead_source || "");
   const [editPreferredDate, setEditPreferredDate] = useState(lead.inspection_scheduled_date || "");
   const [editPreferredTime, setEditPreferredTime] = useState(lead.scheduled_time || "");
+  const [editInternalNotes, setEditInternalNotes] = useState(lead.internal_notes || "");
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [notesValue, setNotesValue] = useState(lead.internal_notes || "");
+  const [editAddress, setEditAddress] = useState<AddressValue>({
+    street: lead.property_address_street || "",
+    suburb: lead.property_address_suburb || "",
+    state: lead.property_address_state || "",
+    postcode: lead.property_address_postcode || "",
+    fullAddress: [lead.property_address_street, lead.property_address_suburb, lead.property_address_state, lead.property_address_postcode].filter(Boolean).join(", "),
+    lat: lead.property_lat ?? undefined,
+    lng: lead.property_lng ?? undefined,
+  });
+
+  // Sync notesValue when lead data refreshes (e.g. after save)
+  useEffect(() => {
+    setNotesValue(lead.internal_notes || "");
+  }, [lead.internal_notes]);
 
   const resetEditState = () => {
     setEditName(lead.full_name || "");
@@ -75,11 +94,32 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
     setEditLeadSource(lead.lead_source || "");
     setEditPreferredDate(lead.inspection_scheduled_date || "");
     setEditPreferredTime(lead.scheduled_time || "");
+    setEditInternalNotes(lead.internal_notes || "");
+    setEditAddress({
+      street: lead.property_address_street || "",
+      suburb: lead.property_address_suburb || "",
+      state: lead.property_address_state || "",
+      postcode: lead.property_address_postcode || "",
+      fullAddress: [lead.property_address_street, lead.property_address_suburb, lead.property_address_state, lead.property_address_postcode].filter(Boolean).join(", "),
+      lat: lead.property_lat ?? undefined,
+      lng: lead.property_lng ?? undefined,
+    });
     setIsEditing(false);
   };
 
+  // Standalone save for internal notes (no edit mode needed)
+  const handleSaveNotes = async () => {
+    if (notesValue === (lead.internal_notes || "")) return;
+    setIsSavingNotes(true);
+    const original = { internal_notes: lead.internal_notes };
+    const payload = { internal_notes: notesValue || null };
+    const success = await updateLead(payload, original);
+    if (success) onRefetch();
+    setIsSavingNotes(false);
+  };
+
   const handleSaveInline = async () => {
-    const payload: Record<string, string | null> = {};
+    const payload: Record<string, string | number | null> = {};
     const original: Record<string, unknown> = {
       full_name: lead.full_name,
       phone: lead.phone,
@@ -88,6 +128,13 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
       lead_source: lead.lead_source,
       inspection_scheduled_date: lead.inspection_scheduled_date,
       scheduled_time: lead.scheduled_time,
+      internal_notes: lead.internal_notes,
+      property_address_street: lead.property_address_street,
+      property_address_suburb: lead.property_address_suburb,
+      property_address_state: lead.property_address_state,
+      property_address_postcode: lead.property_address_postcode,
+      property_lat: lead.property_lat,
+      property_lng: lead.property_lng,
     };
 
     if (editName !== (lead.full_name || "")) payload.full_name = editName;
@@ -97,6 +144,15 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
     if (editLeadSource !== (lead.lead_source || "")) payload.lead_source = editLeadSource || null;
     if (editPreferredDate !== (lead.inspection_scheduled_date || "")) payload.inspection_scheduled_date = editPreferredDate || null;
     if (editPreferredTime !== (lead.scheduled_time || "")) payload.scheduled_time = editPreferredTime || null;
+    if (editInternalNotes !== (lead.internal_notes || "")) payload.internal_notes = editInternalNotes || null;
+
+    // Address fields
+    if (editAddress.street !== (lead.property_address_street || "")) payload.property_address_street = editAddress.street || null;
+    if (editAddress.suburb !== (lead.property_address_suburb || "")) payload.property_address_suburb = editAddress.suburb || null;
+    if (editAddress.state !== (lead.property_address_state || "")) payload.property_address_state = editAddress.state || null;
+    if (editAddress.postcode !== (lead.property_address_postcode || "")) payload.property_address_postcode = editAddress.postcode || null;
+    if (editAddress.lat !== (lead.property_lat ?? undefined)) payload.property_lat = editAddress.lat ?? null;
+    if (editAddress.lng !== (lead.property_lng ?? undefined)) payload.property_lng = editAddress.lng ?? null;
 
     const success = await updateLead(payload, original);
     if (success) {
@@ -506,30 +562,43 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
                   <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     Property Address
                   </span>
-                  <div className="mt-3 flex items-start gap-4">
-                    <div className="h-10 w-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
-                      <MapPin className="h-4 w-4 text-red-600" />
+                  {isEditing ? (
+                    <div className="mt-3">
+                      <AddressAutocomplete
+                        label=""
+                        value={editAddress}
+                        onChange={setEditAddress}
+                        placeholder="Search for an address..."
+                      />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground">
-                        {fullAddress}
-                      </p>
-                    </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="mt-3 flex items-start gap-4">
+                        <div className="h-10 w-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+                          <MapPin className="h-4 w-4 text-red-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground">
+                            {fullAddress}
+                          </p>
+                        </div>
+                      </div>
 
-                  {/* Map link button */}
-                  <a
-                    href={mapsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-4 flex items-center justify-center gap-2 w-full h-64 md:h-80 rounded-lg bg-slate-100 border border-slate-200 hover:bg-slate-200 transition-colors group"
-                  >
-                    <MapPin className="h-5 w-5 text-slate-500 group-hover:text-blue-600 transition-colors" />
-                    <span className="text-sm font-medium text-slate-600 group-hover:text-blue-600 transition-colors">
-                      View on Google Maps
-                    </span>
-                    <ExternalLink className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                  </a>
+                      {/* Map link button */}
+                      <a
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-4 flex items-center justify-center gap-2 w-full h-64 md:h-80 rounded-lg bg-slate-100 border border-slate-200 hover:bg-slate-200 transition-colors group"
+                      >
+                        <MapPin className="h-5 w-5 text-slate-500 group-hover:text-blue-600 transition-colors" />
+                        <span className="text-sm font-medium text-slate-600 group-hover:text-blue-600 transition-colors">
+                          View on Google Maps
+                        </span>
+                        <ExternalLink className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                      </a>
+                    </>
+                  )}
                 </div>
 
                 {/* Issue Description */}
@@ -614,22 +683,43 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
               </div>
             </div>
 
-            {/* Internal Notes Card */}
+            {/* Internal Notes Card - always editable */}
             <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
               <div className="px-5 py-3 border-b bg-slate-50/50">
-                <div className="flex items-center gap-2">
-                  <StickyNote className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Internal Notes
-                  </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <StickyNote className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Internal Notes
+                    </span>
+                  </div>
+                  {notesValue !== (lead.internal_notes || "") && (
+                    <Button
+                      size="sm"
+                      className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                      onClick={handleSaveNotes}
+                      disabled={isSavingNotes}
+                    >
+                      <Save className="h-3 w-3 mr-1.5" />
+                      {isSavingNotes ? "Saving..." : "Save Notes"}
+                    </Button>
+                  )}
                 </div>
               </div>
               <div className="p-5">
-                <div className="bg-slate-50 rounded-lg p-5 border">
-                  <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">
-                    {lead.internal_notes || "No internal notes added"}
-                  </p>
-                </div>
+                <textarea
+                  value={isEditing ? editInternalNotes : notesValue}
+                  onChange={(e) => {
+                    if (isEditing) {
+                      setEditInternalNotes(e.target.value);
+                    } else {
+                      setNotesValue(e.target.value);
+                    }
+                  }}
+                  rows={4}
+                  placeholder="Add internal notes..."
+                  className="w-full p-4 rounded-lg text-sm border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none leading-relaxed"
+                />
               </div>
             </div>
 
@@ -684,6 +774,17 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
                       </div>
                     </div>
                   )}
+                  {/* Reschedule Button */}
+                  <div className="pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      className="w-full h-12 border-orange-200 text-orange-700 hover:bg-orange-50"
+                      onClick={() => setShowScheduleModal(true)}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Reschedule Inspection
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}

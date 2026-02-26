@@ -13,6 +13,8 @@ interface LeadUpdatePayload {
   property_address_suburb?: string;
   property_address_state?: string;
   property_address_postcode?: string;
+  property_lat?: number | null;
+  property_lng?: number | null;
   property_type?: string | null;
   lead_source?: string | null;
   lead_source_other?: string | null;
