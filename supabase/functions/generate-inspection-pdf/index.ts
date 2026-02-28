@@ -132,6 +132,8 @@ interface Inspection {
   commercial_dehumidifier_qty: number
   air_movers_qty: number
   rcd_box_qty: number
+  treatment_methods: string[] | null
+  option_selected: number | null
   pdf_url?: string
   pdf_version: number
   subfloor_required: boolean
@@ -227,6 +229,11 @@ function getValidValue(primary: string | null | undefined, fallback: string | nu
 
 // Get treatment methods as a list
 function getTreatmentMethods(inspection: Inspection): string {
+  // Prefer the pre-computed array if available
+  if (inspection.treatment_methods && inspection.treatment_methods.length > 0) {
+    return inspection.treatment_methods.join(', ')
+  }
+  // Fallback for older inspections without treatment_methods populated
   const methods: string[] = []
   if (inspection.hepa_vac) methods.push('HEPA Vacuum')
   if (inspection.antimicrobial) methods.push('Antimicrobial Treatment')
@@ -1220,11 +1227,11 @@ function generateReportHtml(
 
   // Demolition content — use AI-generated field, fall back to area descriptions
   const demolitionAreas = inspection.areas?.filter(a => a.demolition_required) || []
-  const demolitionContent = inspection.demolition_content
+  const demolitionContent = inspection.demolition_content?.trim()
     ? markdownToHtml(inspection.demolition_content)
     : demolitionAreas.length > 0
       ? demolitionAreas.map(a => `<strong>${a.area_name}:</strong> ${a.demolition_description || 'Demolition work required.'}`).join('<br/><br/>')
-      : 'No demolition work required for this inspection.'
+      : ''
 
   // Equipment pricing
   const dehumidifierPrice = inspection.commercial_dehumidifier_qty > 0 ? `$132/day × ${inspection.commercial_dehumidifier_qty}` : '$132/day'
@@ -1251,6 +1258,18 @@ function generateReportHtml(
   html = html.replace(/\{\{examined_areas\}\}/g, examinedAreas)
   html = html.replace(/\{\{cover_photo_url\}\}/g, coverPhotoUrl)
   html = html.replace(/\{\{property_address\}\}/g, propertyAddress)
+
+  // Increase Page 1 label font size from 17px → 19px (ORDERED BY, INSPECTOR, DATE, etc.)
+  html = html.replace(
+    /color: #252525; font-size: 17px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 0\.0[45]px;/g,
+    (match) => match.replace('font-size: 17px', 'font-size: 19px')
+  )
+
+  // ===== REMOVE PAGE 2: TABLE OF CONTENTS =====
+  html = html.replace(/<!-- Page 2: Table of Contents[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 3)/, '')
+
+  // ===== REMOVE PAGE 3: OUR SERVICES =====
+  html = html.replace(/<!-- Page 3: Our Services[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 4)/, '')
 
   // ===== PAGE 4: VALUE PROPOSITION (multi-page overflow) =====
   const whatWeFoundHtml = markdownToHtml(inspection.what_we_found_text) ||
@@ -1295,8 +1314,15 @@ function generateReportHtml(
   html = html.replace(/\{\{timeline_text\}\}/g, stripMarkdown(problemSections.timeline_text) || '')
   html = html.replace(/\{\{problem_analysis_content\}\}/g, '') // Already handled by overflow
 
-  // ===== PAGE 6: DEMOLITION (multi-page overflow) =====
-  html = handleDemolitionOverflow(html, demolitionContent)
+  // ===== PAGE 6: DEMOLITION (conditional + multi-page overflow) =====
+  const hasDemolition = demolitionAreas.length > 0 || !!inspection.demolition_content?.trim()
+  if (hasDemolition) {
+    html = handleDemolitionOverflow(html, demolitionContent)
+  } else {
+    // Remove demolition page entirely when no areas require it
+    const demolitionRemoveRegex = /\s*<!-- Page 6: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 7)/
+    html = html.replace(demolitionRemoveRegex, '\n\n')
+  }
 
   // ===== PAGE 7: OUTDOOR ENVIRONMENT =====
   html = html.replace(/\{\{outdoor_temperature\}\}/g, String(inspection.outdoor_temperature || 0))
@@ -1313,13 +1339,13 @@ function generateReportHtml(
   html = handleSubfloorPage(html, inspection, subfloorData, subfloorReadings, subfloorPhotos)
 
   // ===== PAGE 10: VISUAL MOULD CLEANING ESTIMATE =====
-  // Pricing logic: if demolition or subfloor → Option 2 only; otherwise → Option 1 only
-  const hasDemolition = inspection.areas?.some(a => a.demolition_required) || false
+  // Use pre-computed option_selected if available, fall back to algorithmic derivation
   const hasSubfloor = inspection.subfloor_required && subfloorData != null
-  const needsComprehensive = hasDemolition || hasSubfloor
+  const optionSelected = inspection.option_selected
+    ?? ((hasDemolition || hasSubfloor) ? 2 : 1)
 
-  html = html.replace(/\{\{option_1_price\}\}/g, needsComprehensive ? 'N/A' : formatCurrency(inspection.total_inc_gst))
-  html = html.replace(/\{\{option_2_price\}\}/g, needsComprehensive ? formatCurrency(inspection.total_inc_gst) : 'N/A')
+  html = html.replace(/\{\{option_1_price\}\}/g, optionSelected === 2 ? 'N/A' : `${formatCurrency(inspection.total_inc_gst)} +GST`)
+  html = html.replace(/\{\{option_2_price\}\}/g, optionSelected === 2 ? `${formatCurrency(inspection.total_inc_gst)} +GST` : 'N/A')
   html = html.replace(/\{\{equipment_dehumidifier\}\}/g, dehumidifierPrice)
   html = html.replace(/\{\{equipment_air_mover\}\}/g, airMoverPrice)
   html = html.replace(/\{\{equipment_rcd_box\}\}/g, rcdBoxPrice)
@@ -1327,6 +1353,25 @@ function generateReportHtml(
 
   // Clean up any remaining unreplaced placeholders
   html = html.replace(/\{\{[^}]+\}\}/g, '')
+
+  // Update heading text color only (not background boxes)
+  html = html.replace(/color: #121D73/gi, 'color: #150db9')
+
+  // Reorder: VP → Areas Inspected → Outdoor Environment → Problem Analysis
+  // Step 1: Extract Areas Inspected (between Page 8 and Page 9/10)
+  const areasBlockRegex = /<!-- Page 8: Areas[\s\S]*?(?=\s*<!-- Page (?:9|10))/
+  const areasBlock = html.match(areasBlockRegex)
+  if (areasBlock) {
+    html = html.replace(areasBlockRegex, '')
+    html = html.replace(/(?=\s*<!-- Page 5)/, '\n\n    ' + areasBlock[0])
+  }
+  // Step 2: Extract Outdoor Environment (between Page 7 and Page 8/9/10)
+  const outdoorBlockRegex = /<!-- Page 7:[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page (?:8|9|10))/
+  const outdoorBlock = html.match(outdoorBlockRegex)
+  if (outdoorBlock) {
+    html = html.replace(outdoorBlockRegex, '')
+    html = html.replace(/(?=\s*<!-- Page 5)/, '\n\n    ' + outdoorBlock[0])
+  }
 
   return html
 }
@@ -1543,6 +1588,8 @@ Deno.serve(async (req) => {
 
     // Validate template has all required comment markers for regex-based section replacement
     const requiredMarkers = [
+      '<!-- Page 2: Table of Contents',
+      '<!-- Page 3: Our Services',
       '<!-- Page 4: Value Proposition',
       '<!-- Page 5: Problem Analysis',
       '<!-- Page 5',

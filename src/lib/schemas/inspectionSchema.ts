@@ -15,12 +15,8 @@ export const inspectionCompletionSchema = z.object({
 
   areas: z.array(inspectionAreaSchema).min(1, 'At least one area with a name is required'),
 
-  // At least one work procedure must be selected
-  hepaVac: z.boolean(),
-  antimicrobial: z.boolean(),
-  stainRemovingAntimicrobial: z.boolean(),
-  homeSanitationFogging: z.boolean(),
-  dryingEquipmentEnabled: z.boolean(),
+  // Treatment option and methods
+  selectedTreatmentMethods: z.array(z.string()),
 
   // Hours
   noDemolitionHours: z.number(),
@@ -28,11 +24,10 @@ export const inspectionCompletionSchema = z.object({
   subfloorHours: z.number(),
   manualPriceOverride: z.boolean(),
 }).refine(
-  (data) => data.hepaVac || data.antimicrobial || data.stainRemovingAntimicrobial ||
-            data.homeSanitationFogging || data.dryingEquipmentEnabled,
+  (data) => data.selectedTreatmentMethods.length > 0,
   {
-    message: 'At least one work procedure or drying equipment must be selected',
-    path: ['hepaVac'], // attach error to a concrete field
+    message: 'At least one treatment method must be selected',
+    path: ['selectedTreatmentMethods'],
   }
 ).refine(
   (data) => data.manualPriceOverride ||
@@ -53,18 +48,14 @@ export interface ValidationError {
 const FIELD_SECTION_MAP: Record<string, { section: number; label: string }> = {
   inspectionDate: { section: 1, label: 'Basic Information' },
   areas: { section: 3, label: 'Area Inspection' },
-  hepaVac: { section: 7, label: 'Work Procedure' },
+  selectedTreatmentMethods: { section: 7, label: 'Work Procedure' },
   noDemolitionHours: { section: 9, label: 'Cost Estimate' },
 }
 
 export function validateInspectionCompletion(formData: {
   inspectionDate: string
   areas: { areaName: string }[]
-  hepaVac: boolean
-  antimicrobial: boolean
-  stainRemovingAntimicrobial: boolean
-  homeSanitationFogging: boolean
-  dryingEquipmentEnabled: boolean
+  selectedTreatmentMethods: string[]
   noDemolitionHours: number
   demolitionHours: number
   subfloorHours: number

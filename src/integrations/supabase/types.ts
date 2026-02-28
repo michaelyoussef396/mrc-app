@@ -515,6 +515,7 @@ export type Database = {
           manual_total_inc_gst: number | null
           no_demolition_hours: number | null
           non_demo_labour_rate: number | null
+          option_selected: number | null
           outdoor_comments: string | null
           outdoor_dew_point: number | null
           outdoor_humidity: number | null
@@ -548,6 +549,7 @@ export type Database = {
           timeline_text: string | null
           total_inc_gst: number | null
           total_time_minutes: number | null
+          treatment_methods: string[] | null
           triage_description: string | null
           updated_at: string | null
           waste_disposal_amount: string | null
@@ -611,6 +613,7 @@ export type Database = {
           manual_total_inc_gst?: number | null
           no_demolition_hours?: number | null
           non_demo_labour_rate?: number | null
+          option_selected?: number | null
           outdoor_comments?: string | null
           outdoor_dew_point?: number | null
           outdoor_humidity?: number | null
@@ -644,6 +647,7 @@ export type Database = {
           timeline_text?: string | null
           total_inc_gst?: number | null
           total_time_minutes?: number | null
+          treatment_methods?: string[] | null
           triage_description?: string | null
           updated_at?: string | null
           waste_disposal_amount?: string | null
@@ -707,6 +711,7 @@ export type Database = {
           manual_total_inc_gst?: number | null
           no_demolition_hours?: number | null
           non_demo_labour_rate?: number | null
+          option_selected?: number | null
           outdoor_comments?: string | null
           outdoor_dew_point?: number | null
           outdoor_humidity?: number | null
@@ -740,6 +745,7 @@ export type Database = {
           timeline_text?: string | null
           total_inc_gst?: number | null
           total_time_minutes?: number | null
+          treatment_methods?: string[] | null
           triage_description?: string | null
           updated_at?: string | null
           waste_disposal_amount?: string | null
@@ -1522,19 +1528,8 @@ export type Database = {
         Args: { amount_ex_gst: number }
         Returns: number
       }
-      calculate_travel_time: {
-        Args: { zone_from: number; zone_to: number }
-        Returns: number
-      }
       generate_inspection_number: { Args: never; Returns: string }
-      generate_invoice_number: { Args: never; Returns: string }
       generate_lead_number: { Args: never; Returns: string }
-      get_admin_user_ids: {
-        Args: never
-        Returns: {
-          user_id: string
-        }[]
-      }
       get_user_roles_by_id: { Args: { p_user_id: string }; Returns: string[] }
       has_role: {
         Args: { _role_name: string; _user_id: string }
@@ -1773,3 +1768,4 @@ export const Constants = {
     },
   },
 } as const
+

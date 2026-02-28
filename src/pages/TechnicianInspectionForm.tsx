@@ -1583,44 +1583,108 @@ function Section6WasteDisposal({ formData, onChange }: SectionProps) {
   );
 }
 
-// Section 7: Work Procedure
+// Section 7: Work Procedure — Treatment method constants
+const SHARED_TREATMENT_METHODS = [
+  'HEPA Vacuuming',
+  'Surface Remediation Treatment',
+  'ULV Fogging - Property',
+  'ULV Fogging - Subfloor',
+  'Subfloor Remediation',
+  'AFD Installation',
+  'Drying Equipment',
+  'Containment and Prep',
+];
+const OPTION_2_ONLY_METHODS = ['Material Demolition', 'Cavity Treatment', 'Debris Removal'];
+
 function Section7WorkProcedure({ formData, onChange }: SectionProps) {
+  const selected = formData.selectedTreatmentMethods;
+  const optionSelected = formData.optionSelected;
+
+  const toggleMethod = (method: string) => {
+    const next = selected.includes(method)
+      ? selected.filter((m) => m !== method)
+      : [...selected, method];
+    onChange('selectedTreatmentMethods', next);
+  };
+
+  const handleOptionChange = (option: number) => {
+    onChange('optionSelected', option);
+    // When switching from Option 2 → Option 1, remove Option 2-only methods
+    if (option === 1) {
+      const filtered = selected.filter((m) => !OPTION_2_ONLY_METHODS.includes(m));
+      if (filtered.length !== selected.length) {
+        onChange('selectedTreatmentMethods', filtered);
+      }
+    }
+  };
+
+  const availableMethods = optionSelected === 2
+    ? [...SHARED_TREATMENT_METHODS, ...OPTION_2_ONLY_METHODS]
+    : SHARED_TREATMENT_METHODS;
+
+  const dryingEquipmentEnabled = selected.includes('Drying Equipment');
+
   return (
     <section className="space-y-5">
-      {/* Treatment Toggles */}
+      {/* Option Selector */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 bg-gray-50 border-b border-gray-100">
-          <h3 className="font-semibold text-[#1d1d1f]">Treatment Methods</h3>
+          <h3 className="font-semibold text-[#1d1d1f]">Treatment Option</h3>
         </div>
-        <div className="divide-y divide-gray-100">
-          {[
-            { key: 'hepaVac', label: 'HEPA Vacuuming' },
-            { key: 'antimicrobial', label: 'Antimicrobial Treatment' },
-            { key: 'stainRemovingAntimicrobial', label: 'Stain Removing Antimicrobial' },
-            { key: 'homeSanitationFogging', label: 'Home Sanitation Fogging' },
-          ].map(({ key, label }) => (
-            <div key={key} className="flex items-center justify-between p-4">
-              <span className="text-[#1d1d1f]">{label}</span>
-              <ToggleSwitch
-                checked={formData[key as keyof InspectionFormData] as boolean}
-                onChange={(checked) => onChange(key as keyof InspectionFormData, checked)}
-              />
-            </div>
-          ))}
+        <div className="p-4 grid grid-cols-2 gap-3">
+          <button
+            onClick={() => handleOptionChange(1)}
+            className={`p-4 rounded-xl border-2 text-center transition-all ${
+              optionSelected === 1
+                ? 'border-[#007AFF] bg-[#007AFF]/5 text-[#007AFF]'
+                : 'border-gray-200 bg-white text-gray-500'
+            }`}
+            style={{ minHeight: '48px' }}
+          >
+            <div className="font-semibold text-sm">Option 1</div>
+            <div className="text-xs mt-1">Surface Treatment</div>
+          </button>
+          <button
+            onClick={() => handleOptionChange(2)}
+            className={`p-4 rounded-xl border-2 text-center transition-all ${
+              optionSelected === 2
+                ? 'border-[#007AFF] bg-[#007AFF]/5 text-[#007AFF]'
+                : 'border-gray-200 bg-white text-gray-500'
+            }`}
+            style={{ minHeight: '48px' }}
+          >
+            <div className="font-semibold text-sm">Option 2</div>
+            <div className="text-xs mt-1">Comprehensive</div>
+          </button>
         </div>
       </div>
 
-      {/* Drying Equipment */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-100">
-          <h3 className="font-semibold text-[#1d1d1f]">Drying Equipment</h3>
-          <ToggleSwitch
-            checked={formData.dryingEquipmentEnabled}
-            onChange={(checked) => onChange('dryingEquipmentEnabled', checked)}
-          />
+      {/* Treatment Method Toggles — shown when an option is selected */}
+      {optionSelected != null && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-4 bg-gray-50 border-b border-gray-100">
+            <h3 className="font-semibold text-[#1d1d1f]">Treatment Methods</h3>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {availableMethods.map((method) => (
+              <div key={method} className="flex items-center justify-between p-4">
+                <span className="text-[#1d1d1f]">{method}</span>
+                <ToggleSwitch
+                  checked={selected.includes(method)}
+                  onChange={() => toggleMethod(method)}
+                />
+              </div>
+            ))}
+          </div>
         </div>
+      )}
 
-        {formData.dryingEquipmentEnabled && (
+      {/* Drying Equipment Details — shown when "Drying Equipment" is selected */}
+      {dryingEquipmentEnabled && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-4 bg-gray-50 border-b border-gray-100">
+            <h3 className="font-semibold text-[#1d1d1f]">Drying Equipment Details</h3>
+          </div>
           <div className="p-4 space-y-4">
             {/* Commercial Dehumidifier */}
             <div className="flex items-center justify-between">
@@ -1706,8 +1770,8 @@ function Section7WorkProcedure({ formData, onChange }: SectionProps) {
               )}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -2144,10 +2208,8 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
     outdoorComments: formData.outdoorComments,
     wasteDisposalEnabled: formData.wasteDisposalEnabled,
     wasteDisposalAmount: formData.wasteDisposalAmount,
-    hepaVac: formData.hepaVac,
-    antimicrobial: formData.antimicrobial,
-    stainRemovingAntimicrobial: formData.stainRemovingAntimicrobial,
-    homeSanitationFogging: formData.homeSanitationFogging,
+    optionSelected: formData.optionSelected,
+    treatmentMethods: formData.selectedTreatmentMethods,
     commercialDehumidifierEnabled: formData.commercialDehumidifierEnabled,
     commercialDehumidifierQty: formData.commercialDehumidifierQty,
     airMoversEnabled: formData.airMoversEnabled,
@@ -2224,6 +2286,8 @@ export default function TechnicianInspectionForm() {
     directionPhoto: null,
     wasteDisposalEnabled: false,
     wasteDisposalAmount: '',
+    optionSelected: null,
+    selectedTreatmentMethods: [],
     hepaVac: false,
     antimicrobial: false,
     stainRemovingAntimicrobial: false,
@@ -2490,6 +2554,16 @@ export default function TechnicianInspectionForm() {
             directionPhoto: directionPhoto ? mapPhoto(directionPhoto) : null,
             wasteDisposalEnabled: ins.waste_disposal_required || false,
             wasteDisposalAmount: ins.waste_disposal_amount || '',
+            optionSelected: ins.option_selected || null,
+            selectedTreatmentMethods: (ins.treatment_methods && ins.treatment_methods.length > 0)
+              ? ins.treatment_methods
+              : [
+                  // Backward compat: derive from old boolean columns
+                  ...(ins.hepa_vac ? ['HEPA Vacuuming'] : []),
+                  ...(ins.antimicrobial ? ['Surface Remediation Treatment'] : []),
+                  ...(ins.home_sanitation_fogging ? ['ULV Fogging - Property'] : []),
+                  ...(ins.drying_equipment_enabled ? ['Drying Equipment'] : []),
+                ],
             hepaVac: ins.hepa_vac || false,
             antimicrobial: ins.antimicrobial || false,
             stainRemovingAntimicrobial: ins.stain_removing_antimicrobial || false,
@@ -2916,11 +2990,14 @@ export default function TechnicianInspectionForm() {
         direction_photos_enabled: formData.directionPhotosEnabled,
         waste_disposal_required: formData.wasteDisposalEnabled,
         waste_disposal_amount: formData.wasteDisposalAmount || null,
-        hepa_vac: formData.hepaVac,
-        antimicrobial: formData.antimicrobial,
-        stain_removing_antimicrobial: formData.stainRemovingAntimicrobial,
-        home_sanitation_fogging: formData.homeSanitationFogging,
-        drying_equipment_enabled: formData.dryingEquipmentEnabled,
+        option_selected: formData.optionSelected,
+        treatment_methods: formData.selectedTreatmentMethods,
+        // Backward compat: keep old boolean columns in sync
+        hepa_vac: formData.selectedTreatmentMethods.includes('HEPA Vacuuming'),
+        antimicrobial: formData.selectedTreatmentMethods.includes('Surface Remediation Treatment'),
+        stain_removing_antimicrobial: false,
+        home_sanitation_fogging: formData.selectedTreatmentMethods.includes('ULV Fogging - Property'),
+        drying_equipment_enabled: formData.selectedTreatmentMethods.includes('Drying Equipment'),
         commercial_dehumidifier_enabled: formData.commercialDehumidifierEnabled,
         commercial_dehumidifier_qty: formData.commercialDehumidifierQty || 0,
         air_movers_enabled: formData.airMoversEnabled,
@@ -3201,11 +3278,7 @@ export default function TechnicianInspectionForm() {
     const { errors } = validateInspectionCompletion({
       inspectionDate: formData.inspectionDate,
       areas: formData.areas,
-      hepaVac: formData.hepaVac,
-      antimicrobial: formData.antimicrobial,
-      stainRemovingAntimicrobial: formData.stainRemovingAntimicrobial,
-      homeSanitationFogging: formData.homeSanitationFogging,
-      dryingEquipmentEnabled: formData.dryingEquipmentEnabled,
+      selectedTreatmentMethods: formData.selectedTreatmentMethods,
       noDemolitionHours: formData.noDemolitionHours || 0,
       demolitionHours: formData.demolitionHours || 0,
       subfloorHours: formData.subfloorHours || 0,

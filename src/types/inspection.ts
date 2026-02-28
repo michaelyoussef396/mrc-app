@@ -90,6 +90,9 @@ export interface InspectionFormData {
   wasteDisposalAmount: string;
 
   // Section 7: Work Procedure
+  optionSelected: number | null;           // 1 = Surface Treatment, 2 = Comprehensive Treatment
+  selectedTreatmentMethods: string[];      // array of selected method labels
+  // Legacy fields — used by admin InspectionForm.tsx, kept for backward compat
   hepaVac: boolean;
   antimicrobial: boolean;
   stainRemovingAntimicrobial: boolean;
