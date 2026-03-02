@@ -368,7 +368,7 @@ export default function LeadDetail() {
           <Button
             size="lg"
             className="w-full h-14 text-base"
-            onClick={() => navigate(`/inspection/${lead.id}`)}
+            onClick={() => navigate(`/technician/inspection?leadId=${lead.id}`)}
           >
             <FileText className="h-5 w-5 mr-2" />
             {inspection ? "Continue Inspection" : "Start Inspection"}
@@ -390,7 +390,7 @@ export default function LeadDetail() {
               <Button
                 variant="outline"
                 className="w-full h-12"
-                onClick={() => navigate(`/inspection/${lead.id}`)}
+                onClick={() => navigate(`/technician/inspection?leadId=${lead.id}`)}
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Inspection Data
@@ -414,7 +414,7 @@ export default function LeadDetail() {
               <Button
                 variant="outline"
                 className="flex-1 h-12"
-                onClick={() => navigate(`/inspection/${lead.id}`)}
+                onClick={() => navigate(`/technician/inspection?leadId=${lead.id}`)}
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Inspection

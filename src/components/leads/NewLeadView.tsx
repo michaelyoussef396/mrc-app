@@ -310,7 +310,7 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
                   </Button>
                   <Button
                     className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                    onClick={() => navigate(`/inspection/${lead.id}`)}
+                    onClick={() => navigate(`/technician/inspection?leadId=${lead.id}`)}
                   >
                     <ClipboardList className="h-4 w-4 mr-2" />
                     Start Inspection
@@ -836,7 +836,7 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
                   </Button>
                   <Button
                     className="flex-[2] h-12 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                    onClick={() => navigate(`/inspection/${lead.id}`)}
+                    onClick={() => navigate(`/technician/inspection?leadId=${lead.id}`)}
                   >
                     <ClipboardList className="h-4 w-4 mr-2" />
                     Start Inspection

@@ -102,7 +102,7 @@ const LeadsManagement = () => {
 
   const stageActions = {
     startInspection: (leadId: number | string) => {
-      navigate(`/inspection?leadId=${leadId}`);
+      navigate(`/technician/inspection?leadId=${leadId}`);
     },
 
     viewHistory: (leadId: number | string) => {

@@ -86,7 +86,7 @@ export function InspectionJobCard({ lead }: InspectionJobCardProps) {
    * Navigates to inspection form with lead ID as query parameter
    */
   const handleStartInspection = () => {
-    navigate(`/inspection/new?leadId=${lead.id}`);
+    navigate(`/technician/inspection?leadId=${lead.id}`);
   };
 
   const urgencyBadge = getUrgencyBadge();
