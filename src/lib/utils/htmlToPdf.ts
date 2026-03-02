@@ -1,9 +1,7 @@
-import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 
 /**
  * Fetch a URL and return it as a base64 data URL.
- * Returns null if the fetch fails for any reason.
  */
 async function fetchAsBase64DataUrl(url: string): Promise<string | null> {
   try {
@@ -23,8 +21,7 @@ async function fetchAsBase64DataUrl(url: string): Promise<string | null> {
 
 /**
  * Find all external URLs in the HTML (img src, CSS url()) and replace
- * them with inline base64 data URLs. This makes the HTML fully
- * self-contained — no CORS issues, no expired signed URLs.
+ * them with inline base64 data URLs.
  */
 async function embedExternalResources(html: string): Promise<string> {
   const urlRegex = /(?:src="|url\(['"]?)(https?:\/\/[^"'\s)]+)(?:"|['"]?\))/g
@@ -35,7 +32,6 @@ async function embedExternalResources(html: string): Promise<string> {
   }
   if (urls.size === 0) return html
 
-  // Fetch all URLs in parallel
   const entries = await Promise.all(
     [...urls].map(async (url) => ({
       url,
@@ -43,7 +39,6 @@ async function embedExternalResources(html: string): Promise<string> {
     }))
   )
 
-  // Replace each URL with its base64 data URL
   let result = html
   for (const { url, dataUrl } of entries) {
     if (dataUrl) {
@@ -54,28 +49,100 @@ async function embedExternalResources(html: string): Promise<string> {
 }
 
 /**
- * Convert an HTML report string into a real PDF blob.
+ * Render a single page element to a canvas using the browser's native
+ * renderer via SVG foreignObject. This produces pixel-perfect output
+ * unlike html2canvas which re-implements CSS.
+ */
+async function renderPageToCanvas(
+  pageEl: HTMLElement,
+  iframeDoc: Document,
+  width: number,
+  height: number,
+  scale: number
+): Promise<HTMLCanvasElement> {
+  // Clone the page element with all computed styles inlined
+  const clone = pageEl.cloneNode(true) as HTMLElement
+
+  // Get all stylesheets from the iframe as text
+  const styleSheets: string[] = []
+  for (const sheet of Array.from(iframeDoc.styleSheets)) {
+    try {
+      const rules = Array.from(sheet.cssRules)
+      styleSheets.push(rules.map(r => r.cssText).join('\n'))
+    } catch {
+      // Cross-origin stylesheet — skip
+    }
+  }
+
+  // Also grab any <style> tags directly from the document
+  const styleTags = iframeDoc.querySelectorAll('style')
+  styleTags.forEach(tag => {
+    if (tag.textContent) styleSheets.push(tag.textContent)
+  })
+
+  const allStyles = styleSheets.join('\n')
+
+  // Build a self-contained HTML snippet for the foreignObject
+  const foreignHtml = `
+    <div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;overflow:hidden;margin:0;padding:0;">
+      <style>${allStyles}</style>
+      ${clone.outerHTML}
+    </div>
+  `
+
+  // Create SVG with foreignObject
+  const svgString = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+      <foreignObject width="100%" height="100%">
+        ${foreignHtml}
+      </foreignObject>
+    </svg>
+  `
+
+  // Convert SVG to an image
+  const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+  const svgUrl = URL.createObjectURL(svgBlob)
+
+  const img = new Image()
+  img.width = width * scale
+  img.height = height * scale
+
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve()
+    img.onerror = () => reject(new Error('SVG foreignObject render failed'))
+    img.src = svgUrl
+  })
+
+  // Draw to canvas at desired scale
+  const canvas = document.createElement('canvas')
+  canvas.width = width * scale
+  canvas.height = height * scale
+  const ctx = canvas.getContext('2d')!
+  ctx.scale(scale, scale)
+  ctx.drawImage(img, 0, 0, width, height)
+
+  URL.revokeObjectURL(svgUrl)
+  return canvas
+}
+
+/**
+ * Convert an HTML report string into a PDF blob.
  *
- * Works by loading the HTML in a visible (but clipped) iframe, waiting for
- * all fonts to load, capturing each page with html2canvas at 2x resolution,
- * and composing them into a jsPDF A4 document.
+ * Strategy: Load HTML in a hidden iframe, then for each page:
+ * 1. Try SVG foreignObject rendering (uses browser's native renderer)
+ * 2. Fall back to html2canvas if foreignObject fails (CORS/taint issues)
  *
- * Page structure expected: `.report-page.page-break` or `.tc-page.page-break`
- * divs, each representing one A4 page (794×1123px).
+ * Page structure: `.page-break` divs, each ~794×1123px (A4 proportions).
  */
 export async function convertHtmlToPdf(htmlContent: string): Promise<Blob> {
-  // Embed all external resources (images, fonts) as base64 data URLs
-  // so html2canvas has no CORS/expiry issues
   const selfContainedHtml = await embedExternalResources(htmlContent)
 
-  // Create iframe — visible but clipped so html2canvas can render properly.
-  // html2canvas has issues capturing off-screen elements (left:-9999px).
+  // Create iframe — on-screen but invisible
   const iframe = document.createElement('iframe')
   iframe.style.cssText = 'position:fixed;left:0;top:0;width:794px;height:1123px;border:none;opacity:0;pointer-events:none;z-index:-1;'
   document.body.appendChild(iframe)
 
   try {
-    // Write HTML content into the iframe
     const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
     if (!iframeDoc) throw new Error('Failed to access iframe document')
 
@@ -83,89 +150,62 @@ export async function convertHtmlToPdf(htmlContent: string): Promise<Blob> {
     iframeDoc.write(selfContainedHtml)
     iframeDoc.close()
 
-    // Wait for iframe load + fonts ready
+    // Wait for iframe load + fonts
     await new Promise<void>((resolve) => {
       const iframeWin = iframe.contentWindow
       if (!iframeWin) { resolve(); return }
 
       iframeWin.addEventListener('load', async () => {
-        // Wait for all @font-face fonts to finish loading in the iframe
         try {
-          const iframeDocument = iframeWin.document as Document & { fonts?: FontFaceSet }
-          if (iframeDocument.fonts) {
-            await iframeDocument.fonts.ready
-          }
-        } catch {
-          // fonts API not available — fall through
-        }
-        // Extra buffer for rendering to settle (images, layout reflow)
-        setTimeout(resolve, 1500)
+          const doc = iframeWin.document as Document & { fonts?: FontFaceSet }
+          if (doc.fonts) await doc.fonts.ready
+        } catch { /* ignore */ }
+        setTimeout(resolve, 2000)
       })
-
-      // Fallback timeout — don't hang forever
-      setTimeout(resolve, 10000)
+      setTimeout(resolve, 12000)
     })
 
-    // Find all page elements
     const pages = iframeDoc.querySelectorAll('.page-break')
-    if (pages.length === 0) {
-      throw new Error('No page elements found in HTML report')
-    }
+    if (pages.length === 0) throw new Error('No page elements found')
 
-    // A4 dimensions in mm
-    const A4_WIDTH_MM = 210
-    const A4_HEIGHT_MM = 297
+    const A4_W = 210, A4_H = 297
+    const PX_W = 794, PX_H = 1123
+    const SCALE = 2
 
-    // Create PDF
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-    })
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
     for (let i = 0; i < pages.length; i++) {
       const pageEl = pages[i] as HTMLElement
+      if (i > 0) pdf.addPage()
 
-      // Add new page for pages after the first
-      if (i > 0) {
-        pdf.addPage()
+      let canvas: HTMLCanvasElement
+
+      try {
+        // Primary: SVG foreignObject — uses browser's real renderer
+        canvas = await renderPageToCanvas(pageEl, iframeDoc, PX_W, PX_H, SCALE)
+      } catch {
+        // Fallback: html2canvas (may have quality issues but at least produces output)
+        const { default: html2canvas } = await import('html2canvas')
+        pageEl.style.height = `${PX_H}px`
+        pageEl.style.overflow = 'hidden'
+        canvas = await html2canvas(pageEl, {
+          scale: SCALE,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#FFFFFF',
+          width: PX_W,
+          height: PX_H,
+          windowWidth: PX_W,
+          logging: false,
+        })
       }
 
-      // Force each page to exact A4 pixel dimensions to avoid cut-off
-      const origHeight = pageEl.style.height
-      const origOverflow = pageEl.style.overflow
-      pageEl.style.height = '1123px'
-      pageEl.style.overflow = 'hidden'
-
-      // Capture the page element as canvas
-      const canvas = await html2canvas(pageEl, {
-        scale: 2,           // 2x for crisp output on retina
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#FFFFFF',
-        width: 794,
-        height: 1123,       // Fixed A4 height — never exceed
-        windowWidth: 794,
-        logging: false,
-        // Render from the iframe's window context for proper font access
-        foreignObjectRendering: false,
-      })
-
-      // Restore original styles
-      pageEl.style.height = origHeight
-      pageEl.style.overflow = origOverflow
-
-      // Convert canvas to high-quality image
       const imgData = canvas.toDataURL('image/jpeg', 0.95)
-
-      // Add to PDF — full A4 page, no scaling needed since we fixed 794×1123
-      pdf.addImage(imgData, 'JPEG', 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM)
+      pdf.addImage(imgData, 'JPEG', 0, 0, A4_W, A4_H)
     }
 
-    // Return as blob
     return pdf.output('blob')
   } finally {
-    // Clean up iframe
     document.body.removeChild(iframe)
   }
 }
