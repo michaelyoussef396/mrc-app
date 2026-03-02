@@ -222,7 +222,7 @@ export default function AdminSearchBar({ compact = false, onClose }: AdminSearch
       {isOpen && query.length >= 2 && (
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg overflow-hidden z-50"
+          className="absolute top-full left-0 mt-2 min-w-[420px] bg-white rounded-xl shadow-lg overflow-hidden z-50"
           style={{ border: '1px solid #e5e5e5' }}
         >
           {error ? (
@@ -255,7 +255,7 @@ export default function AdminSearchBar({ compact = false, onClose }: AdminSearch
                     {/* Lead Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm truncate" style={{ color: '#1d1d1f' }}>
+                        <span className="font-semibold text-sm" style={{ color: '#1d1d1f' }}>
                           {highlightMatch(lead.full_name, query)}
                         </span>
                         <span
@@ -266,7 +266,7 @@ export default function AdminSearchBar({ compact = false, onClose }: AdminSearch
                           {formatStatus(lead.status)}
                         </span>
                       </div>
-                      <div className="text-xs truncate" style={{ color: '#86868b' }}>
+                      <div className="text-xs" style={{ color: '#86868b' }}>
                         {highlightMatch(
                           `${lead.property_address_street}, ${lead.property_address_suburb}`,
                           query
