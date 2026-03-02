@@ -222,7 +222,7 @@ export function ReportPreviewHTML({
   const [htmlContent, setHtmlContent] = useState<string | null>(null)
   const [zoom, setZoom] = useState(100)
   const [currentPage, setCurrentPage] = useState(1)
-  const totalPages = 9
+  const [totalPages, setTotalPages] = useState(9)
   const pageHeight = 1123
 
   // Page 1 inline edit state
@@ -464,6 +464,18 @@ export function ReportPreviewHTML({
       cancelled = true
       clearTimeout(timer)
     }
+  }, [htmlContent])
+
+  // Count actual pages from rendered .page-break elements
+  useEffect(() => {
+    if (!htmlContent || !contentRef.current) return
+    const timer = setTimeout(() => {
+      const pages = contentRef.current?.querySelectorAll('.page-break')
+      if (pages && pages.length > 0) {
+        setTotalPages(pages.length)
+      }
+    }, 500)
+    return () => clearTimeout(timer)
   }, [htmlContent])
 
   // Get fields for current page (Pages 2+ edit mode)
