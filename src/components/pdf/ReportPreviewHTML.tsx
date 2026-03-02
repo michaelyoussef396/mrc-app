@@ -731,8 +731,16 @@ export function ReportPreviewHTML({
 
   function startCostEdit() {
     if (!costData) return
+    const initial = { ...costData }
+    // If Option 1 fields are empty (new columns, legacy data), pre-fill from Option 2 values
+    if (!initial.option_1_labour_ex_gst && initial.labour_cost_ex_gst) {
+      initial.option_1_labour_ex_gst = initial.labour_cost_ex_gst
+    }
+    if (!initial.option_1_equipment_ex_gst && initial.equipment_cost_ex_gst) {
+      initial.option_1_equipment_ex_gst = initial.equipment_cost_ex_gst
+    }
     setEditingCost(true)
-    setCostForm({ ...costData })
+    setCostForm(recalcTotals(initial))
   }
 
   function recalcTotals(form: CostData): CostData {
