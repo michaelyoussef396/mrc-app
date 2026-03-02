@@ -3130,7 +3130,9 @@ export default function TechnicianInspectionForm() {
         waste_disposal_required: formData.wasteDisposalEnabled,
         waste_disposal_amount: formData.wasteDisposalAmount || null,
         option_selected: formData.optionSelected,
-        treatment_methods: formData.selectedTreatmentMethods,
+        treatment_methods: formData.optionSelected === 1
+          ? formData.selectedTreatmentMethods.filter((m) => !OPTION_2_ONLY_METHODS.includes(m))
+          : formData.selectedTreatmentMethods,
         // Backward compat: keep old boolean columns in sync
         hepa_vac: formData.selectedTreatmentMethods.includes('HEPA Vacuuming'),
         antimicrobial: formData.selectedTreatmentMethods.includes('Surface Remediation Treatment'),

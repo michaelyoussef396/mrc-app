@@ -1433,9 +1433,12 @@ function generateReportHtml(
     ?? ((hasDemolition || hasSubfloor) ? 2 : 1)
 
   // Replace hardcoded scope-of-work steps with selected treatment methods
+  const OPTION_2_ONLY = ['Material Demolition', 'Cavity Treatment', 'Debris Removal']
   const selectedMethods = inspection.treatment_methods && inspection.treatment_methods.length > 0
     ? inspection.treatment_methods
     : [] // Fallback: empty = keep template defaults (backward compat for old inspections)
+  // Option 1 never includes Option 2-only methods
+  const opt1Methods = selectedMethods.filter(m => !OPTION_2_ONLY.includes(m))
 
   if (selectedMethods.length > 0) {
     // Replace hardcoded steps using indexOf — regex fails on deeply nested divs
@@ -1458,7 +1461,7 @@ function generateReportHtml(
         // Build replacement: same opening tag, new content, close tag
         const openTagEnd = stepsContainerHtml.indexOf('>') + 1
         const openTag = stepsContainerHtml.substring(0, openTagEnd)
-        const opt1StepsHtml = generateScopeStepsHtml(selectedMethods, 1)
+        const opt1StepsHtml = generateScopeStepsHtml(opt1Methods, 1)
         const replacement = `${openTag}${opt1StepsHtml}</div>\n\n            `
         html = html.substring(0, containerStart) + replacement + html.substring(priceDivStart)
       }
