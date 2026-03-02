@@ -56,8 +56,9 @@ async function embedExternalResources(html: string): Promise<string> {
 /**
  * Convert an HTML report string into a real PDF blob.
  *
- * Works by loading the HTML in a hidden iframe, capturing each page
- * element with html2canvas, and composing them into a jsPDF A4 document.
+ * Works by loading the HTML in a visible (but clipped) iframe, waiting for
+ * all fonts to load, capturing each page with html2canvas at 2x resolution,
+ * and composing them into a jsPDF A4 document.
  *
  * Page structure expected: `.report-page.page-break` or `.tc-page.page-break`
  * divs, each representing one A4 page (794×1123px).
@@ -67,9 +68,10 @@ export async function convertHtmlToPdf(htmlContent: string): Promise<Blob> {
   // so html2canvas has no CORS/expiry issues
   const selfContainedHtml = await embedExternalResources(htmlContent)
 
-  // Create hidden iframe to render the HTML
+  // Create iframe — visible but clipped so html2canvas can render properly.
+  // html2canvas has issues capturing off-screen elements (left:-9999px).
   const iframe = document.createElement('iframe')
-  iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:794px;height:1123px;border:none;'
+  iframe.style.cssText = 'position:fixed;left:0;top:0;width:794px;height:1123px;border:none;opacity:0;pointer-events:none;z-index:-1;'
   document.body.appendChild(iframe)
 
   try {
@@ -81,15 +83,27 @@ export async function convertHtmlToPdf(htmlContent: string): Promise<Blob> {
     iframeDoc.write(selfContainedHtml)
     iframeDoc.close()
 
-    // Wait for content to render (base64 resources load instantly, short wait)
+    // Wait for iframe load + fonts ready
     await new Promise<void>((resolve) => {
       const iframeWin = iframe.contentWindow
       if (!iframeWin) { resolve(); return }
 
-      // Base64 resources don't need network, short buffer for rendering
-      iframeWin.addEventListener('load', () => setTimeout(resolve, 500))
-      // Fallback timeout
-      setTimeout(resolve, 3000)
+      iframeWin.addEventListener('load', async () => {
+        // Wait for all @font-face fonts to finish loading in the iframe
+        try {
+          const iframeDocument = iframeWin.document as Document & { fonts?: FontFaceSet }
+          if (iframeDocument.fonts) {
+            await iframeDocument.fonts.ready
+          }
+        } catch {
+          // fonts API not available — fall through
+        }
+        // Extra buffer for rendering to settle (images, layout reflow)
+        setTimeout(resolve, 1500)
+      })
+
+      // Fallback timeout — don't hang forever
+      setTimeout(resolve, 10000)
     })
 
     // Find all page elements
@@ -117,33 +131,35 @@ export async function convertHtmlToPdf(htmlContent: string): Promise<Blob> {
         pdf.addPage()
       }
 
+      // Force each page to exact A4 pixel dimensions to avoid cut-off
+      const origHeight = pageEl.style.height
+      const origOverflow = pageEl.style.overflow
+      pageEl.style.height = '1123px'
+      pageEl.style.overflow = 'hidden'
+
       // Capture the page element as canvas
       const canvas = await html2canvas(pageEl, {
-        scale: 2, // 2x for crisp output
+        scale: 2,           // 2x for crisp output on retina
         useCORS: true,
+        allowTaint: true,
         backgroundColor: '#FFFFFF',
         width: 794,
-        height: pageEl.scrollHeight || 1123,
+        height: 1123,       // Fixed A4 height — never exceed
         windowWidth: 794,
         logging: false,
+        // Render from the iframe's window context for proper font access
+        foreignObjectRendering: false,
       })
 
-      // Convert canvas to image and add to PDF
-      const imgData = canvas.toDataURL('image/jpeg', 0.92)
+      // Restore original styles
+      pageEl.style.height = origHeight
+      pageEl.style.overflow = origOverflow
 
-      // Calculate dimensions to fit A4
-      const canvasRatio = canvas.height / canvas.width
-      const pageWidth = A4_WIDTH_MM
-      const pageHeight = pageWidth * canvasRatio
+      // Convert canvas to high-quality image
+      const imgData = canvas.toDataURL('image/jpeg', 0.95)
 
-      // If the page is taller than A4, scale to fit height instead
-      if (pageHeight > A4_HEIGHT_MM) {
-        const scaledWidth = A4_HEIGHT_MM / canvasRatio
-        const xOffset = (A4_WIDTH_MM - scaledWidth) / 2
-        pdf.addImage(imgData, 'JPEG', xOffset, 0, scaledWidth, A4_HEIGHT_MM)
-      } else {
-        pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight)
-      }
+      // Add to PDF — full A4 page, no scaling needed since we fixed 794×1123
+      pdf.addImage(imgData, 'JPEG', 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM)
     }
 
     // Return as blob
