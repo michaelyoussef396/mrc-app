@@ -528,6 +528,7 @@ export type Database = {
           pdf_approved: boolean | null
           pdf_approved_at: string | null
           pdf_approved_by: string | null
+          pdf_blob_url: string | null
           pdf_generated_at: string | null
           pdf_url: string | null
           pdf_version: number | null
@@ -630,6 +631,7 @@ export type Database = {
           pdf_approved?: boolean | null
           pdf_approved_at?: string | null
           pdf_approved_by?: string | null
+          pdf_blob_url?: string | null
           pdf_generated_at?: string | null
           pdf_url?: string | null
           pdf_version?: number | null
@@ -732,6 +734,7 @@ export type Database = {
           pdf_approved?: boolean | null
           pdf_approved_at?: string | null
           pdf_approved_by?: string | null
+          pdf_blob_url?: string | null
           pdf_generated_at?: string | null
           pdf_url?: string | null
           pdf_version?: number | null
@@ -817,6 +820,7 @@ export type Database = {
           report_pdf_url: string | null
           scheduled_dates: string[] | null
           scheduled_time: string | null
+          search_text: string | null
           special_requests: string | null
           status: Database["public"]["Enums"]["lead_status"]
           updated_at: string | null
@@ -858,6 +862,7 @@ export type Database = {
           report_pdf_url?: string | null
           scheduled_dates?: string[] | null
           scheduled_time?: string | null
+          search_text?: string | null
           special_requests?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string | null
@@ -899,6 +904,7 @@ export type Database = {
           report_pdf_url?: string | null
           scheduled_dates?: string[] | null
           scheduled_time?: string | null
+          search_text?: string | null
           special_requests?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string | null
@@ -1550,6 +1556,8 @@ export type Database = {
       is_admin:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       booking_status:
