@@ -1438,18 +1438,50 @@ function generateReportHtml(
     : [] // Fallback: empty = keep template defaults (backward compat for old inspections)
 
   if (selectedMethods.length > 0) {
-    // Option 1 steps: match the div at top:157px containing "1. HEPA Vacuuming"
-    const opt1StepsRegex = /(<div style="width: 720px; left: 33px; top: 157px;[^>]*>)([\s\S]*?)(<\/div>\s*(?=<div[^>]*top: 370px))/
-    const opt1StepsHtml = generateScopeStepsHtml(selectedMethods, 1)
-    if (opt1StepsHtml) {
-      html = html.replace(opt1StepsRegex, `$1${opt1StepsHtml}$3`)
+    // Replace hardcoded steps using indexOf — regex fails on deeply nested divs
+    // Option 1 steps: container div starts at "top: 157px", ends before "top: 370px" sibling
+    const opt1Open = 'left: 33px; top: 157px;'
+    const opt1End = 'TOTAL ESTIMATED COST OF OPTION 1'
+    const opt1Idx = html.indexOf(opt1Open)
+    const opt1EndIdx = html.indexOf(opt1End)
+    if (opt1Idx > 0 && opt1EndIdx > opt1Idx) {
+      // Find the container div's opening tag start
+      const containerStart = html.lastIndexOf('<div', opt1Idx)
+      // Find the closing </div> right before the price label div
+      // The price label div starts with <div style="width: 222px; left: 286px; top: 370px
+      const priceDivMarker = 'top: 370px'
+      const priceDivIdx = html.indexOf(priceDivMarker, opt1Idx)
+      if (priceDivIdx > 0) {
+        const priceDivStart = html.lastIndexOf('<div', priceDivIdx)
+        // Everything from containerStart to priceDivStart is the steps container + its closing </div> + whitespace
+        const stepsContainerHtml = html.substring(containerStart, priceDivStart)
+        // Build replacement: same opening tag, new content, close tag
+        const openTagEnd = stepsContainerHtml.indexOf('>') + 1
+        const openTag = stepsContainerHtml.substring(0, openTagEnd)
+        const opt1StepsHtml = generateScopeStepsHtml(selectedMethods, 1)
+        const replacement = `${openTag}${opt1StepsHtml}</div>\n\n            `
+        html = html.substring(0, containerStart) + replacement + html.substring(priceDivStart)
+      }
     }
 
-    // Option 2 steps: match the div at top:470px containing "1. HEPA Vacuuming"
-    const opt2StepsRegex = /(<div style="width: 720px; left: 33px; top: 470px;[^>]*>)([\s\S]*?)(<\/div>\s*(?=<div[^>]*top: 696px))/
-    const opt2StepsHtml = generateScopeStepsHtml(selectedMethods, 2)
-    if (opt2StepsHtml) {
-      html = html.replace(opt2StepsRegex, `$1${opt2StepsHtml}$3`)
+    // Option 2 steps: container div starts at "top: 470px", ends before "top: 696px" sibling
+    const opt2Open = 'left: 33px; top: 470px;'
+    const opt2End = 'TOTAL ESTIMATED COST OF OPTION 2'
+    const opt2Idx = html.indexOf(opt2Open)
+    const opt2EndIdx = html.indexOf(opt2End)
+    if (opt2Idx > 0 && opt2EndIdx > opt2Idx) {
+      const containerStart = html.lastIndexOf('<div', opt2Idx)
+      const priceDivMarker = 'top: 696px'
+      const priceDivIdx = html.indexOf(priceDivMarker, opt2Idx)
+      if (priceDivIdx > 0) {
+        const priceDivStart = html.lastIndexOf('<div', priceDivIdx)
+        const stepsContainerHtml = html.substring(containerStart, priceDivStart)
+        const openTagEnd = stepsContainerHtml.indexOf('>') + 1
+        const openTag = stepsContainerHtml.substring(0, openTagEnd)
+        const opt2StepsHtml = generateScopeStepsHtml(selectedMethods, 2)
+        const replacement = `${openTag}${opt2StepsHtml}</div>\n\n            `
+        html = html.substring(0, containerStart) + replacement + html.substring(priceDivStart)
+      }
     }
   }
 
