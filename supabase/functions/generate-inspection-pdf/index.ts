@@ -229,6 +229,92 @@ function getValidValue(primary: string | null | undefined, fallback: string | nu
   return defaultValue
 }
 
+// Step descriptions for PDF scope of work — keyed by treatment_methods toggle value
+// Option 1 (surface) and Option 2 (comprehensive) have different descriptions for some methods
+const STEP_DESCRIPTIONS: Record<string, { label1: string; desc1: string; label2: string; desc2: string }> = {
+  'HEPA Vacuuming': {
+    label1: 'HEPA Vacuuming',
+    desc1: 'All visible mould areas are pre-treated using HEPA-certified vacuuming equipment to reduce surface spore density.',
+    label2: 'HEPA Vacuuming',
+    desc2: 'All visible mould areas are pre-treated using HEPA-certified vacuuming equipment to reduce surface spore density.',
+  },
+  'Surface Remediation Treatment': {
+    label1: 'Surface Remediation Treatment',
+    desc1: 'A specialised surface-level antimicrobial solution is applied to neutralise active mould colonies and inhibit regrowth.',
+    label2: 'Deep Penetration Antimicrobial Treatment',
+    desc2: 'A commercial-strength antimicrobial solution is injected or applied to penetrate porous substrates and eliminate embedded mould growth within the material.',
+  },
+  'ULV Fogging - Property': {
+    label1: 'ULV Fogging',
+    desc1: 'Ultra-Low Volume (ULV) fogging disperses a fine antimicrobial mist into all areas of the affected space, targeting airborne spores and settling into hard-to-reach crevices.',
+    label2: 'ULV Fogging (Full Cycle)',
+    desc2: 'Comprehensive ULV fogging is carried out in multiple passes, ensuring deep penetration into wall cavities, ceiling voids, and subfloor areas (where accessible).',
+  },
+  'ULV Fogging - Subfloor': {
+    label1: 'ULV Fogging — Subfloor',
+    desc1: 'ULV fogging is extended to subfloor areas, treating concealed mould growth and preventing re-contamination from below.',
+    label2: 'ULV Fogging — Subfloor',
+    desc2: 'ULV fogging is extended to subfloor areas, treating concealed mould growth and preventing re-contamination from below.',
+  },
+  'Subfloor Remediation': {
+    label1: 'Subfloor Remediation',
+    desc1: 'Complete subfloor treatment including sanitation, antimicrobial application, and assessment of underfloor timbers and supports.',
+    label2: 'Subfloor Remediation',
+    desc2: 'Complete subfloor treatment including sanitation, antimicrobial application, and structural assessment of underfloor timbers and supports.',
+  },
+  'AFD Installation': {
+    label1: 'Air Scrubbing',
+    desc1: 'HEPA air scrubbers are deployed to purify the air within the treatment zone, capturing remaining airborne mould spores and particulates.',
+    label2: 'Air Scrubbing (Extended)',
+    desc2: 'HEPA air scrubbers run for an extended period (minimum 24 hours) post-treatment to ensure all airborne spores are captured and indoor air quality is restored.',
+  },
+  'Drying Equipment': {
+    label1: 'Drying Equipment',
+    desc1: 'Professional drying equipment including commercial dehumidifiers and air movers is installed to reduce moisture levels and prevent mould recurrence.',
+    label2: 'Drying Equipment',
+    desc2: 'Professional drying equipment including commercial dehumidifiers and air movers is installed to reduce moisture levels and prevent mould recurrence.',
+  },
+  'Containment and Prep': {
+    label1: 'Containment &amp; Preparation',
+    desc1: 'Containment and preparation of treatment areas including plastic sheeting barriers and protection of unaffected contents.',
+    label2: 'Containment &amp; Preparation',
+    desc2: 'Full containment and preparation of treatment areas including plastic sheeting barriers, negative air pressure setup, and protection of unaffected contents.',
+  },
+  'Material Demolition': {
+    label1: 'Material Demolition',
+    desc1: 'Controlled removal of mould-affected building materials including plasterboard, insulation, and other compromised substrates.',
+    label2: 'Material Demolition',
+    desc2: 'Controlled removal of mould-affected building materials including plasterboard, insulation, and other compromised substrates that cannot be effectively treated in-situ.',
+  },
+  'Cavity Treatment': {
+    label1: 'Cavity Treatment',
+    desc1: 'Exposed wall cavities and ceiling voids are treated with antimicrobial solution to eliminate hidden mould growth.',
+    label2: 'Cavity Treatment',
+    desc2: 'Exposed wall cavities and ceiling voids are treated with antimicrobial solution to eliminate hidden mould growth within the building structure.',
+  },
+  'Debris Removal': {
+    label1: 'Debris Removal',
+    desc1: 'Safe removal and disposal of all demolished materials and contaminated debris.',
+    label2: 'Debris Removal',
+    desc2: 'Safe removal and disposal of all demolished materials and contaminated debris in accordance with environmental guidelines.',
+  },
+}
+
+// Generate numbered scope-of-work steps HTML for the PDF estimate page
+function generateScopeStepsHtml(methods: string[], optionType: 1 | 2): string {
+  if (!methods || methods.length === 0) return ''
+  const steps = methods
+    .filter(m => STEP_DESCRIPTIONS[m])
+    .map((m, i) => {
+      const desc = STEP_DESCRIPTIONS[m]
+      const label = optionType === 1 ? desc.label1 : desc.label2
+      const text = optionType === 1 ? desc.desc1 : desc.desc2
+      const isLast = i === methods.filter(mm => STEP_DESCRIPTIONS[mm]).length - 1
+      return `<div${isLast ? '' : ' style="margin-bottom: 3px;"'}><span style="font-weight: 700;">${i + 1}. ${label} —</span> ${text}</div>`
+    })
+  return steps.join('')
+}
+
 // Get treatment methods as a list
 function getTreatmentMethods(inspection: Inspection): string {
   // Prefer the pre-computed array if available
@@ -1345,6 +1431,27 @@ function generateReportHtml(
   const hasSubfloor = inspection.subfloor_required && subfloorData != null
   const optionSelected = inspection.option_selected
     ?? ((hasDemolition || hasSubfloor) ? 2 : 1)
+
+  // Replace hardcoded scope-of-work steps with selected treatment methods
+  const selectedMethods = inspection.treatment_methods && inspection.treatment_methods.length > 0
+    ? inspection.treatment_methods
+    : [] // Fallback: empty = keep template defaults (backward compat for old inspections)
+
+  if (selectedMethods.length > 0) {
+    // Option 1 steps: match the div at top:157px containing "1. HEPA Vacuuming"
+    const opt1StepsRegex = /(<div style="width: 720px; left: 33px; top: 157px;[^>]*>)([\s\S]*?)(<\/div>\s*(?=<div[^>]*top: 370px))/
+    const opt1StepsHtml = generateScopeStepsHtml(selectedMethods, 1)
+    if (opt1StepsHtml) {
+      html = html.replace(opt1StepsRegex, `$1${opt1StepsHtml}$3`)
+    }
+
+    // Option 2 steps: match the div at top:470px containing "1. HEPA Vacuuming"
+    const opt2StepsRegex = /(<div style="width: 720px; left: 33px; top: 470px;[^>]*>)([\s\S]*?)(<\/div>\s*(?=<div[^>]*top: 696px))/
+    const opt2StepsHtml = generateScopeStepsHtml(selectedMethods, 2)
+    if (opt2StepsHtml) {
+      html = html.replace(opt2StepsRegex, `$1${opt2StepsHtml}$3`)
+    }
+  }
 
   if (optionSelected === 3) {
     // "Both" mode: show each option's stored price
