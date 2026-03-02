@@ -515,6 +515,8 @@ export type Database = {
           manual_total_inc_gst: number | null
           no_demolition_hours: number | null
           non_demo_labour_rate: number | null
+          option_1_equipment_ex_gst: number | null
+          option_1_labour_ex_gst: number | null
           option_1_total_inc_gst: number | null
           option_2_total_inc_gst: number | null
           option_selected: number | null
@@ -615,6 +617,8 @@ export type Database = {
           manual_total_inc_gst?: number | null
           no_demolition_hours?: number | null
           non_demo_labour_rate?: number | null
+          option_1_equipment_ex_gst?: number | null
+          option_1_labour_ex_gst?: number | null
           option_1_total_inc_gst?: number | null
           option_2_total_inc_gst?: number | null
           option_selected?: number | null
@@ -715,6 +719,8 @@ export type Database = {
           manual_total_inc_gst?: number | null
           no_demolition_hours?: number | null
           non_demo_labour_rate?: number | null
+          option_1_equipment_ex_gst?: number | null
+          option_1_labour_ex_gst?: number | null
           option_1_total_inc_gst?: number | null
           option_2_total_inc_gst?: number | null
           option_selected?: number | null

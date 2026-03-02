@@ -150,6 +150,13 @@ export interface CostData {
   subtotal_ex_gst: number
   gst_amount: number
   total_inc_gst: number
+  // Per-option pricing (for "Both" mode)
+  option_selected: number | null
+  treatment_methods: string[]
+  option_1_labour_ex_gst: number
+  option_1_equipment_ex_gst: number
+  option_1_total_inc_gst: number
+  option_2_total_inc_gst: number
 }
 
 interface ReportPreviewHTMLProps {
@@ -259,7 +266,7 @@ export function ReportPreviewHTML({
 
   // Cleaning Estimate — cost editing state
   const [editingCost, setEditingCost] = useState(false)
-  const [costForm, setCostForm] = useState<CostData>({ labour_cost_ex_gst: 0, equipment_cost_ex_gst: 0, subtotal_ex_gst: 0, gst_amount: 0, total_inc_gst: 0 })
+  const [costForm, setCostForm] = useState<CostData>({ labour_cost_ex_gst: 0, equipment_cost_ex_gst: 0, subtotal_ex_gst: 0, gst_amount: 0, total_inc_gst: 0, option_selected: null, treatment_methods: [], option_1_labour_ex_gst: 0, option_1_equipment_ex_gst: 0, option_1_total_inc_gst: 0, option_2_total_inc_gst: 0 })
   const [savingCost, setSavingCost] = useState(false)
   const [costPageTop, setCostPageTop] = useState<number | null>(null)
 
@@ -714,22 +721,55 @@ export function ReportPreviewHTML({
 
   // --- Cleaning Estimate cost edit handlers ---
 
+  // Treatment method constants (same as TechnicianInspectionForm)
+  const SHARED_TREATMENT_METHODS = [
+    'HEPA Vacuuming', 'Surface Remediation Treatment', 'ULV Fogging - Property',
+    'ULV Fogging - Subfloor', 'Subfloor Remediation', 'AFD Installation',
+    'Drying Equipment', 'Containment and Prep',
+  ]
+  const OPTION_2_ONLY_METHODS = ['Material Demolition', 'Cavity Treatment', 'Debris Removal']
+
   function startCostEdit() {
     if (!costData) return
     setEditingCost(true)
     setCostForm({ ...costData })
   }
 
+  function recalcTotals(form: CostData): CostData {
+    const next = { ...form }
+    // Option 2 / single-option totals
+    next.subtotal_ex_gst = Math.round((next.labour_cost_ex_gst + next.equipment_cost_ex_gst) * 100) / 100
+    next.gst_amount = Math.round(next.subtotal_ex_gst * 0.1 * 100) / 100
+    next.total_inc_gst = Math.round((next.subtotal_ex_gst + next.gst_amount) * 100) / 100
+    // Option 1 totals
+    const o1Sub = Math.round((next.option_1_labour_ex_gst + next.option_1_equipment_ex_gst) * 100) / 100
+    next.option_1_total_inc_gst = Math.round((o1Sub + o1Sub * 0.1) * 100) / 100
+    // Option 2 total = total_inc_gst (same as full calc)
+    next.option_2_total_inc_gst = next.total_inc_gst
+    return next
+  }
+
   function updateCostField(field: keyof CostData, value: number) {
+    setCostForm(prev => recalcTotals({ ...prev, [field]: value }))
+  }
+
+  function toggleTreatmentMethod(method: string) {
     setCostForm(prev => {
-      const next = { ...prev, [field]: value }
-      // Auto-recalculate derived fields when labor or equipment changes
-      if (field === 'labour_cost_ex_gst' || field === 'equipment_cost_ex_gst') {
-        next.subtotal_ex_gst = Math.round((next.labour_cost_ex_gst + next.equipment_cost_ex_gst) * 100) / 100
-        next.gst_amount = Math.round(next.subtotal_ex_gst * 0.1 * 100) / 100
-        next.total_inc_gst = Math.round((next.subtotal_ex_gst + next.gst_amount) * 100) / 100
+      const methods = prev.treatment_methods.includes(method)
+        ? prev.treatment_methods.filter(m => m !== method)
+        : [...prev.treatment_methods, method]
+      return { ...prev, treatment_methods: methods }
+    })
+  }
+
+  function setOptionSelected(option: number) {
+    setCostForm(prev => {
+      let methods = prev.treatment_methods
+      // When switching TO Option 1, remove Option 2-only methods
+      if (option === 1) {
+        methods = methods.filter(m => !OPTION_2_ONLY_METHODS.includes(m))
       }
-      return next
+      return { ...prev, option_selected: option, treatment_methods: methods }
     })
   }
 
@@ -1326,64 +1366,181 @@ export function ReportPreviewHTML({
                 </div>
               )}
 
-              {/* Cleaning Estimate Inline Edit Overlay — 5 cost fields */}
+              {/* Cleaning Estimate — Full Editable Overlay */}
               {costData && costPageTop !== null && (
                 <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 46 }}>
                   {editingCost ? (
                     <div
-                      className="absolute pointer-events-auto bg-white rounded-lg shadow-xl border-2 border-orange-400 p-4"
-                      style={{ left: 30, top: costPageTop - 5, width: 440 }}
+                      className="absolute pointer-events-auto bg-white rounded-lg shadow-xl border-2 border-orange-400 p-4 overflow-y-auto"
+                      style={{ left: 20, top: costPageTop - 10, width: 740, maxHeight: 800 }}
                     >
                       <div className="text-xs text-gray-500 mb-3 font-semibold uppercase tracking-wide">
-                        Cleaning Estimate Costs
+                        Visual Mould Cleaning Estimate
                       </div>
 
-                      <div className="space-y-2.5">
-                        <div className="flex items-center gap-3">
-                          <label className="text-sm text-gray-600 w-36 shrink-0">Labour (ex GST)</label>
-                          <div className="flex items-center gap-1 flex-1">
-                            <span className="text-sm text-gray-400">$</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={costForm.labour_cost_ex_gst}
-                              onChange={(e) => updateCostField('labour_cost_ex_gst', parseFloat(e.target.value) || 0)}
-                              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                              autoFocus
-                            />
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <label className="text-sm text-gray-600 w-36 shrink-0">Equipment (ex GST)</label>
-                          <div className="flex items-center gap-1 flex-1">
-                            <span className="text-sm text-gray-400">$</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={costForm.equipment_cost_ex_gst}
-                              onChange={(e) => updateCostField('equipment_cost_ex_gst', parseFloat(e.target.value) || 0)}
-                              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="border-t border-gray-200 pt-2 space-y-1.5">
-                          <div className="flex items-center gap-3">
-                            <label className="text-sm text-gray-500 w-36 shrink-0">Subtotal (ex GST)</label>
-                            <span className="text-sm font-medium">${costForm.subtotal_ex_gst.toFixed(2)}</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <label className="text-sm text-gray-500 w-36 shrink-0">GST (10%)</label>
-                            <span className="text-sm font-medium">${costForm.gst_amount.toFixed(2)}</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <label className="text-sm text-gray-700 font-semibold w-36 shrink-0">Total (inc GST)</label>
-                            <span className="text-sm font-bold text-orange-700">${costForm.total_inc_gst.toFixed(2)}</span>
-                          </div>
+                      {/* Option Selector */}
+                      <div className="mb-3">
+                        <label className="text-xs text-gray-500 font-medium block mb-1.5">Option</label>
+                        <div className="flex gap-1.5">
+                          {[
+                            { value: 1, label: 'Option 1', sub: 'Surface' },
+                            { value: 3, label: 'Both', sub: 'Options' },
+                            { value: 2, label: 'Option 2', sub: 'Comprehensive' },
+                          ].map(opt => (
+                            <button
+                              key={opt.value}
+                              onClick={() => setOptionSelected(opt.value)}
+                              className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors min-h-[44px] ${
+                                costForm.option_selected === opt.value
+                                  ? 'bg-orange-600 text-white'
+                                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              }`}
+                            >
+                              <div>{opt.label}</div>
+                              <div className="text-[10px] opacity-70">{opt.sub}</div>
+                            </button>
+                          ))}
                         </div>
                       </div>
+
+                      {/* Treatment Methods */}
+                      <div className="mb-3">
+                        <label className="text-xs text-gray-500 font-medium block mb-1.5">Treatment Methods</label>
+                        <div className="grid grid-cols-2 gap-1">
+                          {[...SHARED_TREATMENT_METHODS, ...(costForm.option_selected !== 1 ? OPTION_2_ONLY_METHODS : [])].map(method => (
+                            <label
+                              key={method}
+                              className={`flex items-center gap-1.5 px-2 py-1.5 rounded text-xs cursor-pointer min-h-[36px] ${
+                                costForm.treatment_methods.includes(method)
+                                  ? 'bg-orange-50 text-orange-800 border border-orange-200'
+                                  : 'bg-gray-50 text-gray-500 border border-gray-100'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={costForm.treatment_methods.includes(method)}
+                                onChange={() => toggleTreatmentMethod(method)}
+                                className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 w-3.5 h-3.5"
+                              />
+                              <span className="leading-tight">{method}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Pricing — dual columns for "Both", single for Option 1/2 */}
+                      {costForm.option_selected === 3 ? (
+                        <div className="grid grid-cols-2 gap-3">
+                          {/* Option 1 Pricing */}
+                          <div className="border border-blue-200 rounded-lg p-3 bg-blue-50/50">
+                            <div className="text-xs font-bold text-blue-800 mb-2">OPTION 1 — Surface</div>
+                            <div className="space-y-2">
+                              <div>
+                                <label className="text-[11px] text-gray-500 block">Labour (ex GST)</label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-gray-400">$</span>
+                                  <input type="number" step="0.01" min="0"
+                                    value={costForm.option_1_labour_ex_gst || ''}
+                                    onChange={(e) => updateCostField('option_1_labour_ex_gst', parseFloat(e.target.value) || 0)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-[11px] text-gray-500 block">Equipment (ex GST)</label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-gray-400">$</span>
+                                  <input type="number" step="0.01" min="0"
+                                    value={costForm.option_1_equipment_ex_gst || ''}
+                                    onChange={(e) => updateCostField('option_1_equipment_ex_gst', parseFloat(e.target.value) || 0)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+                              </div>
+                              <div className="border-t border-blue-200 pt-1.5 text-xs space-y-0.5">
+                                <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span>${(costForm.option_1_labour_ex_gst + costForm.option_1_equipment_ex_gst).toFixed(2)}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-500">GST</span><span>${((costForm.option_1_labour_ex_gst + costForm.option_1_equipment_ex_gst) * 0.1).toFixed(2)}</span></div>
+                                <div className="flex justify-between font-bold text-blue-800"><span>Total</span><span>${costForm.option_1_total_inc_gst.toFixed(2)}</span></div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Option 2 Pricing */}
+                          <div className="border border-orange-200 rounded-lg p-3 bg-orange-50/50">
+                            <div className="text-xs font-bold text-orange-800 mb-2">OPTION 2 — Comprehensive</div>
+                            <div className="space-y-2">
+                              <div>
+                                <label className="text-[11px] text-gray-500 block">Labour (ex GST)</label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-gray-400">$</span>
+                                  <input type="number" step="0.01" min="0"
+                                    value={costForm.labour_cost_ex_gst || ''}
+                                    onChange={(e) => updateCostField('labour_cost_ex_gst', parseFloat(e.target.value) || 0)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-[11px] text-gray-500 block">Equipment (ex GST)</label>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-gray-400">$</span>
+                                  <input type="number" step="0.01" min="0"
+                                    value={costForm.equipment_cost_ex_gst || ''}
+                                    onChange={(e) => updateCostField('equipment_cost_ex_gst', parseFloat(e.target.value) || 0)}
+                                    className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                  />
+                                </div>
+                              </div>
+                              <div className="border-t border-orange-200 pt-1.5 text-xs space-y-0.5">
+                                <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span>${costForm.subtotal_ex_gst.toFixed(2)}</span></div>
+                                <div className="flex justify-between"><span className="text-gray-500">GST</span><span>${costForm.gst_amount.toFixed(2)}</span></div>
+                                <div className="flex justify-between font-bold text-orange-800"><span>Total</span><span>${costForm.total_inc_gst.toFixed(2)}</span></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Single option pricing */
+                        <div className="space-y-2.5">
+                          <div className="flex items-center gap-3">
+                            <label className="text-sm text-gray-600 w-36 shrink-0">Labour (ex GST)</label>
+                            <div className="flex items-center gap-1 flex-1">
+                              <span className="text-sm text-gray-400">$</span>
+                              <input type="number" step="0.01" min="0"
+                                value={costForm.labour_cost_ex_gst || ''}
+                                onChange={(e) => updateCostField('labour_cost_ex_gst', parseFloat(e.target.value) || 0)}
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                autoFocus
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <label className="text-sm text-gray-600 w-36 shrink-0">Equipment (ex GST)</label>
+                            <div className="flex items-center gap-1 flex-1">
+                              <span className="text-sm text-gray-400">$</span>
+                              <input type="number" step="0.01" min="0"
+                                value={costForm.equipment_cost_ex_gst || ''}
+                                onChange={(e) => updateCostField('equipment_cost_ex_gst', parseFloat(e.target.value) || 0)}
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                              />
+                            </div>
+                          </div>
+                          <div className="border-t border-gray-200 pt-2 space-y-1.5">
+                            <div className="flex items-center gap-3">
+                              <label className="text-sm text-gray-500 w-36 shrink-0">Subtotal (ex GST)</label>
+                              <span className="text-sm font-medium">${costForm.subtotal_ex_gst.toFixed(2)}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <label className="text-sm text-gray-500 w-36 shrink-0">GST (10%)</label>
+                              <span className="text-sm font-medium">${costForm.gst_amount.toFixed(2)}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <label className="text-sm text-gray-700 font-semibold w-36 shrink-0">Total (inc GST)</label>
+                              <span className="text-sm font-bold text-orange-700">${costForm.total_inc_gst.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="flex justify-end gap-2 mt-3">
                         <button
@@ -1413,7 +1570,7 @@ export function ReportPreviewHTML({
                       onClick={startCostEdit}
                       className="absolute pointer-events-auto w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-orange-600 text-white shadow-lg flex items-center justify-center hover:bg-orange-700 hover:scale-110 transition-all animate-pulse"
                       style={{ left: 740, top: costPageTop }}
-                      title="Edit Cleaning Estimate Costs"
+                      title="Edit Cleaning Estimate"
                     >
                       <Pencil className="w-5 h-5" />
                     </button>

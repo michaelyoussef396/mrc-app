@@ -91,6 +91,12 @@ interface Inspection {
   subtotal_ex_gst?: number
   gst_amount?: number
   total_inc_gst?: number
+  option_selected?: number | null
+  treatment_methods?: string[] | null
+  option_1_labour_ex_gst?: number | null
+  option_1_equipment_ex_gst?: number | null
+  option_1_total_inc_gst?: number | null
+  option_2_total_inc_gst?: number | null
   subfloor_required?: boolean
   lead?: {
     id: string
@@ -154,6 +160,12 @@ const INSPECTION_SELECT = `
   subtotal_ex_gst,
   gst_amount,
   total_inc_gst,
+  option_selected,
+  treatment_methods,
+  option_1_labour_ex_gst,
+  option_1_equipment_ex_gst,
+  option_1_total_inc_gst,
+  option_2_total_inc_gst,
   subfloor_required,
   lead:leads(
     id,
@@ -690,6 +702,12 @@ export default function ViewReportPDF() {
     subtotal_ex_gst: inspection.subtotal_ex_gst ?? 0,
     gst_amount: inspection.gst_amount ?? 0,
     total_inc_gst: inspection.total_inc_gst ?? 0,
+    option_selected: inspection.option_selected ?? null,
+    treatment_methods: inspection.treatment_methods ?? [],
+    option_1_labour_ex_gst: inspection.option_1_labour_ex_gst ?? 0,
+    option_1_equipment_ex_gst: inspection.option_1_equipment_ex_gst ?? 0,
+    option_1_total_inc_gst: inspection.option_1_total_inc_gst ?? 0,
+    option_2_total_inc_gst: inspection.option_2_total_inc_gst ?? 0,
   } : null
 
   async function handleVPFieldSave(key: string, value: string) {
@@ -854,17 +872,39 @@ export default function ViewReportPDF() {
           subtotal_ex_gst: costs.subtotal_ex_gst,
           gst_amount: costs.gst_amount,
           total_inc_gst: costs.total_inc_gst,
+          option_selected: costs.option_selected,
+          treatment_methods: costs.treatment_methods,
+          option_1_labour_ex_gst: costs.option_1_labour_ex_gst || null,
+          option_1_equipment_ex_gst: costs.option_1_equipment_ex_gst || null,
+          option_1_total_inc_gst: costs.option_1_total_inc_gst || null,
+          option_2_total_inc_gst: costs.option_2_total_inc_gst || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', inspection.id)
 
       if (error) throw error
 
-      toast.success('Costs updated')
+      // Update local state so UI reflects changes before PDF regenerates
+      setInspection(prev => prev ? {
+        ...prev,
+        labour_cost_ex_gst: costs.labour_cost_ex_gst,
+        equipment_cost_ex_gst: costs.equipment_cost_ex_gst,
+        subtotal_ex_gst: costs.subtotal_ex_gst,
+        gst_amount: costs.gst_amount,
+        total_inc_gst: costs.total_inc_gst,
+        option_selected: costs.option_selected,
+        treatment_methods: costs.treatment_methods,
+        option_1_labour_ex_gst: costs.option_1_labour_ex_gst,
+        option_1_equipment_ex_gst: costs.option_1_equipment_ex_gst,
+        option_1_total_inc_gst: costs.option_1_total_inc_gst,
+        option_2_total_inc_gst: costs.option_2_total_inc_gst,
+      } : null)
+
+      toast.success('Estimate updated')
       await handleGeneratePDF()
     } catch (error) {
       console.error('Cost save failed:', error)
-      toast.error('Failed to save costs')
+      toast.error('Failed to save estimate')
       throw error
     }
   }

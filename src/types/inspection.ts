@@ -134,7 +134,9 @@ export interface InspectionFormData {
   gstAmount: number;           // GST at 10%
   totalIncGst: number;         // Final total including GST
 
-  // Per-option totals (used when optionSelected === 3 "Both")
+  // Per-option pricing (used when optionSelected === 3 "Both")
+  option1LabourCost: number;
+  option1EquipmentCost: number;
   option1TotalIncGst: number;
   option2TotalIncGst: number;
 

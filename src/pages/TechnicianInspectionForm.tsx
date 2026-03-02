@@ -1866,7 +1866,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
   const calculatedDemoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
   const calculatedSubfloorHours = formData.subfloorTreatmentTime || 0;
 
-  // Calculate cost estimate (full calculation with all hours)
+  // Calculate cost estimate (full calculation with all hours — used as auto-calc reference)
   const costResult = calculateCostEstimate({
     nonDemoHours: calculatedNonDemoHours,
     demolitionHours: calculatedDemoHours,
@@ -1874,8 +1874,6 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
     dehumidifierQty: formData.commercialDehumidifierQty || 0,
     airMoverQty: formData.airMoversQty || 0,
     rcdQty: formData.rcdBoxQty || 0,
-    manualOverride: formData.manualPriceOverride,
-    manualTotal: formData.manualTotal,
   });
 
   // For "Both" mode: also compute Option 1 (surface only, no demo/subfloor)
@@ -2099,161 +2097,222 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
         </div>
       </div>
 
-      {/* Manual Override */}
-      <div className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-gray-100">
-        <div>
-          <span className="font-semibold text-[#1d1d1f]">Manual Price Override</span>
-          <p className="text-sm text-[#86868b]">Enter total manually</p>
-        </div>
-        <ToggleSwitch
-          checked={formData.manualPriceOverride}
-          onChange={(checked) => onChange('manualPriceOverride', checked)}
-        />
-      </div>
-
-      {formData.manualPriceOverride && (
-        <FormField label="Manual Total (Inc GST)">
-          <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#86868b]">$</span>
-            <input
-              type="number"
-              value={formData.manualTotal || ''}
-              onChange={(e) => onChange('manualTotal', parseFloat(e.target.value) || 0)}
-              step={0.01}
-              className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 pl-8 pr-4"
-            />
-          </div>
-        </FormField>
-      )}
-
-      {/* Final Cost Summary */}
+      {/* Editable Estimate */}
       {formData.optionSelected === 3 && option1Result ? (
-        /* Dual pricing display for "Both" mode */
-        <div className="space-y-3">
-          <h3 className="font-bold text-[#1d1d1f] text-lg flex items-center gap-2">
-            <span className="material-symbols-outlined text-purple-600">receipt_long</span>
-            Both Options — Price Comparison
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            {/* Option 1 Card */}
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-3 space-y-2">
-              <div className="text-center pb-2 border-b border-blue-200">
-                <div className="font-bold text-blue-800 text-sm">OPTION 1</div>
-                <div className="text-xs text-blue-600">Surface Treatment</div>
+        /* Dual editable pricing for "Both" mode */
+        (() => {
+          // Option 1 values: use form values if set, else auto-calc
+          const o1Labour = formData.option1LabourCost || option1Result.labourAfterDiscount;
+          const o1Equipment = formData.option1EquipmentCost || option1Result.equipmentCost;
+          const o1Subtotal = o1Labour + o1Equipment;
+          const o1Gst = o1Subtotal * 0.1;
+          const o1Total = o1Subtotal + o1Gst;
+
+          // Option 2 values: use form values if set, else auto-calc
+          const o2Labour = formData.laborCost || costResult.labourAfterDiscount;
+          const o2Equipment = formData.equipmentCost || costResult.equipmentCost;
+          const o2Subtotal = o2Labour + o2Equipment;
+          const o2Gst = o2Subtotal * 0.1;
+          const o2Total = o2Subtotal + o2Gst;
+
+          return (
+            <div className="space-y-3">
+              <h3 className="font-bold text-[#1d1d1f] text-lg flex items-center gap-2">
+                <span className="material-symbols-outlined text-purple-600">receipt_long</span>
+                Both Options — Editable Estimate
+              </h3>
+              <p className="text-xs text-[#86868b] -mt-1">Pre-filled from auto-calc. Edit Labour or Equipment to override.</p>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Option 1 Editable Card */}
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-3 space-y-2">
+                  <div className="text-center pb-2 border-b border-blue-200">
+                    <div className="font-bold text-blue-800 text-sm">OPTION 1</div>
+                    <div className="text-xs text-blue-600">Surface Treatment</div>
+                  </div>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-xs text-[#86868b] block mb-1">Labour (ex GST)</label>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#86868b] text-sm">$</span>
+                        <input
+                          type="number"
+                          value={o1Labour || ''}
+                          onChange={(e) => onChange('option1LabourCost', parseFloat(e.target.value) || 0)}
+                          step={0.01}
+                          className="w-full h-10 bg-white text-[#1d1d1f] text-sm rounded-lg border border-blue-200 pl-6 pr-2"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#86868b] block mb-1">Equipment (ex GST)</label>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#86868b] text-sm">$</span>
+                        <input
+                          type="number"
+                          value={o1Equipment || ''}
+                          onChange={(e) => onChange('option1EquipmentCost', parseFloat(e.target.value) || 0)}
+                          step={0.01}
+                          className="w-full h-10 bg-white text-[#1d1d1f] text-sm rounded-lg border border-blue-200 pl-6 pr-2"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-xs pt-1">
+                    <div className="flex justify-between">
+                      <span className="text-[#86868b]">Subtotal</span>
+                      <span className="font-medium">{formatCurrency(o1Subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#86868b]">GST (10%)</span>
+                      <span className="font-medium">{formatCurrency(o1Gst)}</span>
+                    </div>
+                  </div>
+                  <div className="border-t border-blue-200 pt-2 text-center">
+                    <div className="text-xs text-blue-600">Total (inc GST)</div>
+                    <div className="font-bold text-blue-800 text-xl">{formatCurrency(o1Total)}</div>
+                  </div>
+                </div>
+
+                {/* Option 2 Editable Card */}
+                <div className="bg-gradient-to-br from-[#007AFF]/5 to-[#007AFF]/10 rounded-xl p-3 space-y-2">
+                  <div className="text-center pb-2 border-b border-[#007AFF]/20">
+                    <div className="font-bold text-[#007AFF] text-sm">OPTION 2</div>
+                    <div className="text-xs text-[#007AFF]/70">Comprehensive</div>
+                  </div>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-xs text-[#86868b] block mb-1">Labour (ex GST)</label>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#86868b] text-sm">$</span>
+                        <input
+                          type="number"
+                          value={o2Labour || ''}
+                          onChange={(e) => onChange('laborCost', parseFloat(e.target.value) || 0)}
+                          step={0.01}
+                          className="w-full h-10 bg-white text-[#1d1d1f] text-sm rounded-lg border border-[#007AFF]/20 pl-6 pr-2"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#86868b] block mb-1">Equipment (ex GST)</label>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#86868b] text-sm">$</span>
+                        <input
+                          type="number"
+                          value={o2Equipment || ''}
+                          onChange={(e) => onChange('equipmentCost', parseFloat(e.target.value) || 0)}
+                          step={0.01}
+                          className="w-full h-10 bg-white text-[#1d1d1f] text-sm rounded-lg border border-[#007AFF]/20 pl-6 pr-2"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-xs pt-1">
+                    <div className="flex justify-between">
+                      <span className="text-[#86868b]">Subtotal</span>
+                      <span className="font-medium">{formatCurrency(o2Subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#86868b]">GST (10%)</span>
+                      <span className="font-medium">{formatCurrency(o2Gst)}</span>
+                    </div>
+                  </div>
+                  <div className="border-t border-[#007AFF]/20 pt-2 text-center">
+                    <div className="text-xs text-[#007AFF]/70">Total (inc GST)</div>
+                    <div className="font-bold text-[#007AFF] text-xl">{formatCurrency(o2Total)}</div>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-[#86868b]">Labour</span>
-                  <span className="font-medium">{formatCurrency(option1Result.labourAfterDiscount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#86868b]">Equipment</span>
-                  <span className="font-medium">{formatCurrency(option1Result.equipmentCost)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#86868b]">GST</span>
-                  <span className="font-medium">{formatCurrency(option1Result.gstAmount)}</span>
-                </div>
-              </div>
-              <div className="border-t border-blue-200 pt-2 text-center">
-                <div className="text-xs text-blue-600">Total (inc GST)</div>
-                <div className="font-bold text-blue-800 text-xl">{formatCurrency(option1Result.totalIncGst)}</div>
+
+              {/* Discount Tier Info */}
+              <div className="p-3 bg-white rounded-lg border border-gray-100">
+                <p className="text-sm font-medium text-[#1d1d1f]">{costResult.discountTierDescription}</p>
+                <p className="text-xs text-[#86868b] mt-1">
+                  Total Hours: {costResult.totalLabourHours}h • Work Days: {costResult.totalDays}
+                </p>
               </div>
             </div>
-
-            {/* Option 2 Card */}
-            <div className="bg-gradient-to-br from-[#007AFF]/5 to-[#007AFF]/10 rounded-xl p-3 space-y-2">
-              <div className="text-center pb-2 border-b border-[#007AFF]/20">
-                <div className="font-bold text-[#007AFF] text-sm">OPTION 2</div>
-                <div className="text-xs text-[#007AFF]/70">Comprehensive</div>
-              </div>
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-[#86868b]">Labour</span>
-                  <span className="font-medium">{formatCurrency(costResult.labourAfterDiscount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#86868b]">Equipment</span>
-                  <span className="font-medium">{formatCurrency(costResult.equipmentCost)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#86868b]">GST</span>
-                  <span className="font-medium">{formatCurrency(costResult.gstAmount)}</span>
-                </div>
-              </div>
-              <div className="border-t border-[#007AFF]/20 pt-2 text-center">
-                <div className="text-xs text-[#007AFF]/70">Total (inc GST)</div>
-                <div className="font-bold text-[#007AFF] text-xl">{formatCurrency(costResult.totalIncGst)}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Discount Tier Info */}
-          <div className="p-3 bg-white rounded-lg border border-gray-100">
-            <p className="text-sm font-medium text-[#1d1d1f]">{costResult.discountTierDescription}</p>
-            <p className="text-xs text-[#86868b] mt-1">
-              Total Hours: {costResult.totalLabourHours}h • Work Days: {costResult.totalDays}
-            </p>
-          </div>
-        </div>
+          );
+        })()
       ) : (
-        /* Single pricing display for Option 1 or Option 2 */
-        <div className="bg-gradient-to-br from-[#007AFF]/5 to-[#007AFF]/10 rounded-xl p-4 space-y-3">
-          <h3 className="font-bold text-[#1d1d1f] text-lg flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#007AFF]">receipt_long</span>
-            Final Summary
-          </h3>
+        /* Single option — editable estimate */
+        (() => {
+          const labour = formData.laborCost || costResult.labourAfterDiscount;
+          const equipment = formData.equipmentCost || costResult.equipmentCost;
+          const subtotal = labour + equipment;
+          const gst = subtotal * 0.1;
+          const total = subtotal + gst;
 
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-[#86868b]">Labour Subtotal</span>
-              <span className="font-medium">{formatCurrency(costResult.labourSubtotal)}</span>
-            </div>
+          return (
+            <div className="bg-gradient-to-br from-[#007AFF]/5 to-[#007AFF]/10 rounded-xl p-4 space-y-3">
+              <h3 className="font-bold text-[#1d1d1f] text-lg flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#007AFF]">receipt_long</span>
+                Editable Estimate
+              </h3>
+              <p className="text-xs text-[#86868b] -mt-1">Pre-filled from auto-calc. Edit to override.</p>
 
-            {costResult.discountPercent > 0 && (
-              <div className="flex justify-between text-green-600">
-                <span>Multi-day Discount ({formatPercent(costResult.discountPercent)})</span>
-                <span>-{formatCurrency(costResult.discountAmount)}</span>
+              <div className="space-y-3">
+                {/* Labour input */}
+                <div>
+                  <label className="text-sm text-[#86868b] block mb-1">Labour (ex GST)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#86868b]">$</span>
+                    <input
+                      type="number"
+                      value={labour || ''}
+                      onChange={(e) => onChange('laborCost', parseFloat(e.target.value) || 0)}
+                      step={0.01}
+                      className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 pl-8 pr-4"
+                    />
+                  </div>
+                </div>
+
+                {/* Equipment input */}
+                <div>
+                  <label className="text-sm text-[#86868b] block mb-1">Equipment (ex GST)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#86868b]">$</span>
+                    <input
+                      type="number"
+                      value={equipment || ''}
+                      onChange={(e) => onChange('equipmentCost', parseFloat(e.target.value) || 0)}
+                      step={0.01}
+                      className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 pl-8 pr-4"
+                    />
+                  </div>
+                </div>
+
+                {/* Auto-calculated summary */}
+                <div className="border-t border-[#007AFF]/20 pt-3 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-[#1d1d1f] font-medium">Subtotal (ex GST)</span>
+                    <span className="font-semibold">{formatCurrency(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#86868b]">GST (10%)</span>
+                    <span className="font-medium">{formatCurrency(gst)}</span>
+                  </div>
+                </div>
+
+                <div className="border-t-2 border-[#007AFF]/30 pt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-[#1d1d1f] text-xl">Total (inc GST)</span>
+                    <span className="font-bold text-[#007AFF] text-3xl">{formatCurrency(total)}</span>
+                  </div>
+                </div>
               </div>
-            )}
 
-            <div className="flex justify-between">
-              <span className="text-[#86868b]">Labour After Discount</span>
-              <span className="font-medium">{formatCurrency(costResult.labourAfterDiscount)}</span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className="text-[#86868b]">Equipment Total</span>
-              <span className="font-medium">{formatCurrency(costResult.equipmentCost)}</span>
-            </div>
-
-            <div className="border-t border-[#007AFF]/20 pt-2 mt-2">
-              <div className="flex justify-between">
-                <span className="text-[#1d1d1f] font-medium">Subtotal (ex GST)</span>
-                <span className="font-semibold">{formatCurrency(costResult.subtotalExGst)}</span>
-              </div>
-              <div className="flex justify-between mt-1">
-                <span className="text-[#86868b]">GST (10%)</span>
-                <span className="font-medium">{formatCurrency(costResult.gstAmount)}</span>
+              {/* Discount Tier Info */}
+              <div className="mt-3 p-3 bg-white/60 rounded-lg">
+                <p className="text-sm font-medium text-[#1d1d1f]">{costResult.discountTierDescription}</p>
+                <p className="text-xs text-[#86868b] mt-1">
+                  Total Hours: {costResult.totalLabourHours}h • Work Days: {costResult.totalDays}
+                </p>
               </div>
             </div>
-
-            <div className="border-t-2 border-[#007AFF]/30 pt-3 mt-2">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-[#1d1d1f] text-xl">Total (inc GST)</span>
-                <span className="font-bold text-[#007AFF] text-3xl">{formatCurrency(costResult.totalIncGst)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Discount Tier Info */}
-          <div className="mt-3 p-3 bg-white/60 rounded-lg">
-            <p className="text-sm font-medium text-[#1d1d1f]">{costResult.discountTierDescription}</p>
-            <p className="text-xs text-[#86868b] mt-1">
-              Total Hours: {costResult.totalLabourHours}h • Work Days: {costResult.totalDays}
-            </p>
-          </div>
-        </div>
+          );
+        })()
       )}
     </section>
   );
@@ -2413,6 +2472,8 @@ export default function TechnicianInspectionForm() {
     subtotalExGst: 0,
     gstAmount: 0,
     totalIncGst: 0,
+    option1LabourCost: 0,
+    option1EquipmentCost: 0,
     option1TotalIncGst: 0,
     option2TotalIncGst: 0,
     jobSummaryFinal: '',
@@ -2691,6 +2752,8 @@ export default function TechnicianInspectionForm() {
             subtotalExGst: ins.subtotal_ex_gst ? Number(ins.subtotal_ex_gst) : 0,
             gstAmount: ins.gst_amount ? Number(ins.gst_amount) : 0,
             totalIncGst: ins.total_inc_gst ? Number(ins.total_inc_gst) : 0,
+            option1LabourCost: ins.option_1_labour_ex_gst ? Number(ins.option_1_labour_ex_gst) : 0,
+            option1EquipmentCost: ins.option_1_equipment_ex_gst ? Number(ins.option_1_equipment_ex_gst) : 0,
             option1TotalIncGst: ins.option_1_total_inc_gst ? Number(ins.option_1_total_inc_gst) : 0,
             option2TotalIncGst: ins.option_2_total_inc_gst ? Number(ins.option_2_total_inc_gst) : 0,
             jobSummaryFinal: ins.ai_summary_text || '',
@@ -3072,7 +3135,7 @@ export default function TechnicianInspectionForm() {
     setIsSaving(true);
 
     try {
-      // Compute pricing at save time (Section 9 computes on-the-fly but doesn't sync to formData)
+      // Compute auto-calc pricing as defaults (used when form values are 0 / not yet edited)
       const saveNonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
       const saveDemoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
       const saveSubfloorHours = formData.subfloorTreatmentTime || 0;
@@ -3084,17 +3147,24 @@ export default function TechnicianInspectionForm() {
         dehumidifierQty: formData.commercialDehumidifierQty || 0,
         airMoverQty: formData.airMoversQty || 0,
         rcdQty: formData.rcdBoxQty || 0,
-        manualOverride: formData.manualPriceOverride,
-        manualTotal: formData.manualTotal,
       });
 
-      // Compute per-option totals
+      // Use form values (editable inputs) if set, else fall back to auto-calc
+      const saveLabour = formData.laborCost || saveFullResult.labourAfterDiscount;
+      const saveEquipment = formData.equipmentCost || saveFullResult.equipmentCost;
+      const saveSubtotal = saveLabour + saveEquipment;
+      const saveGst = saveSubtotal * 0.1;
+      const saveTotal = saveSubtotal + saveGst;
+
+      // Per-option totals
       let saveOption1Total: number | null = null;
       let saveOption2Total: number | null = null;
+      let saveOption1Labour: number | null = null;
+      let saveOption1Equipment: number | null = null;
 
       if (formData.optionSelected === 3) {
-        // "Both" mode: compute Option 1 (surface only) and Option 2 (full)
-        const opt1Result = calculateCostEstimate({
+        // "Both" mode: Option 1 has its own labour/equipment
+        const opt1AutoResult = calculateCostEstimate({
           nonDemoHours: saveNonDemoHours,
           demolitionHours: 0,
           subfloorHours: 0,
@@ -3102,12 +3172,17 @@ export default function TechnicianInspectionForm() {
           airMoverQty: formData.airMoversQty || 0,
           rcdQty: formData.rcdBoxQty || 0,
         });
-        saveOption1Total = opt1Result.totalIncGst;
-        saveOption2Total = saveFullResult.totalIncGst;
+        const o1Labour = formData.option1LabourCost || opt1AutoResult.labourAfterDiscount;
+        const o1Equipment = formData.option1EquipmentCost || opt1AutoResult.equipmentCost;
+        const o1Subtotal = o1Labour + o1Equipment;
+        saveOption1Total = o1Subtotal + o1Subtotal * 0.1;
+        saveOption1Labour = o1Labour;
+        saveOption1Equipment = o1Equipment;
+        saveOption2Total = saveTotal;
       } else if (formData.optionSelected === 1) {
-        saveOption1Total = saveFullResult.totalIncGst;
+        saveOption1Total = saveTotal;
       } else if (formData.optionSelected === 2) {
-        saveOption2Total = saveFullResult.totalIncGst;
+        saveOption2Total = saveTotal;
       }
 
       // 1. Upsert inspections row
@@ -3154,14 +3229,14 @@ export default function TechnicianInspectionForm() {
         no_demolition_hours: saveNonDemoHours,
         demolition_hours: saveDemoHours,
         subfloor_hours: saveSubfloorHours,
-        equipment_cost_ex_gst: saveFullResult.equipmentCost || 0,
-        manual_price_override: formData.manualPriceOverride,
-        manual_total_inc_gst: formData.manualTotal || 0,
-        labour_cost_ex_gst: saveFullResult.labourAfterDiscount || 0,
+        equipment_cost_ex_gst: saveEquipment || 0,
+        labour_cost_ex_gst: saveLabour || 0,
         discount_percent: saveFullResult.discountPercent || 0,
-        subtotal_ex_gst: saveFullResult.subtotalExGst || 0,
-        gst_amount: saveFullResult.gstAmount || 0,
-        total_inc_gst: saveFullResult.totalIncGst || 0,
+        subtotal_ex_gst: saveSubtotal || 0,
+        gst_amount: saveGst || 0,
+        total_inc_gst: saveTotal || 0,
+        option_1_labour_ex_gst: saveOption1Labour,
+        option_1_equipment_ex_gst: saveOption1Equipment,
         option_1_total_inc_gst: saveOption1Total,
         option_2_total_inc_gst: saveOption2Total,
         ai_summary_text: formData.jobSummaryFinal || null,
