@@ -111,7 +111,7 @@ const NewLeadView = () => {
         <div className="empty-state">
           <div className="empty-icon">❌</div>
           <h3>Lead not found</h3>
-          <button className="btn-primary" onClick={() => navigate('/leads')}>
+          <button className="btn-primary" onClick={() => navigate('/admin/leads')}>
             Back to Leads
           </button>
         </div>
@@ -130,7 +130,7 @@ const NewLeadView = () => {
       {/* Navigation */}
       <nav className="new-lead-nav">
         <div className="nav-container">
-          <button className="back-btn" onClick={() => navigate('/leads')}>
+          <button className="back-btn" onClick={() => navigate('/admin/leads')}>
             <ArrowLeft size={20} strokeWidth={2} />
             <span>Back to Leads</span>
           </button>

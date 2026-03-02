@@ -219,7 +219,7 @@ export default function LeadDetail() {
           <p className="text-gray-500 mb-4">
             This lead may have been deleted or doesn't exist.
           </p>
-          <Button onClick={() => navigate("/leads")}>Back to Leads</Button>
+          <Button onClick={() => navigate("/admin/leads")}>Back to Leads</Button>
         </div>
       </div>
     );
@@ -270,7 +270,7 @@ export default function LeadDetail() {
     }
 
     toast.success("Lead deleted");
-    navigate("/leads");
+    navigate("/admin/leads");
   };
 
   // Render dedicated view for new leads and inspection_waiting

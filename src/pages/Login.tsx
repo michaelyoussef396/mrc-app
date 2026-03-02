@@ -237,7 +237,7 @@ const Login = () => {
         navigate("/technician");
         break;
       default:
-        navigate("/dashboard");
+        navigate("/admin");
     }
   };
 

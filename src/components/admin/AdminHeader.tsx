@@ -150,7 +150,7 @@ export default function AdminHeader({ userName = 'Admin', onMenuClick }: AdminHe
               <button
                 onClick={() => {
                   setShowProfileMenu(false);
-                  navigate('/profile');
+                  navigate('/admin/profile');
                 }}
                 className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 flex items-center gap-2 min-h-[48px]"
                 style={{ color: '#1d1d1f' }}
@@ -163,7 +163,7 @@ export default function AdminHeader({ userName = 'Admin', onMenuClick }: AdminHe
               <button
                 onClick={() => {
                   setShowProfileMenu(false);
-                  navigate('/settings');
+                  navigate('/admin/settings');
                 }}
                 className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 flex items-center gap-2 min-h-[48px]"
                 style={{ color: '#1d1d1f' }}

@@ -167,7 +167,7 @@ export function LeadsToBook({
               variant="ghost"
               size="sm"
               className="text-xs h-7"
-              onClick={() => navigate('/leads?status=new_lead&unscheduled=true')}
+              onClick={() => navigate('/admin/leads?status=new_lead&unscheduled=true')}
             >
               View All ({leads.length})
               <ChevronRight className="h-3 w-3 ml-1" />

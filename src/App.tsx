@@ -7,7 +7,6 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import RoleProtectedRoute from "@/components/RoleProtectedRoute";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { GlobalLoader, ProgressBar, PageTransition } from "@/components/loading";
 
 import { useSessionRefresh } from "@/lib/hooks/useSessionRefresh";
@@ -28,20 +27,13 @@ import TechnicianDashboard from "./pages/TechnicianDashboard";
 const AdminSchedule = lazy(() => import("./pages/AdminSchedule"));
 const AdminTechnicians = lazy(() => import("./pages/AdminTechnicians"));
 const AdminTechnicianDetail = lazy(() => import("./pages/AdminTechnicianDetail"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const NewLead = lazy(() => import("./pages/NewLead"));
 
 const LeadsManagement = lazy(() => import("./pages/LeadsManagement"));
 const NewLeadView = lazy(() => import("./pages/NewLeadView"));
 const Profile = lazy(() => import("./pages/Profile"));
-const ManageUsers = lazy(() => import("./pages/ManageUsers"));
 const Settings = lazy(() => import("./pages/Settings"));
-const Leads = lazy(() => import("./pages/Leads"));
 const LeadDetail = lazy(() => import("./pages/LeadDetail"));
-const Calendar = lazy(() => import("./pages/Calendar"));
-const InspectionForm = lazy(() => import("./pages/InspectionForm"));
 const Reports = lazy(() => import("./pages/Reports"));
-const SelectLead = lazy(() => import("./pages/SelectLead").then(m => ({ default: m.SelectLead })));
 const RequestInspection = lazy(() => import("./pages/RequestInspection"));
 const InspectionSuccess = lazy(() => import("./pages/InspectionSuccess"));
 const Notifications = lazy(() => import("./pages/Notifications"));
@@ -329,36 +321,72 @@ const AppContent = () => {
               }
             />
 
-            {/* Protected routes - Developer/Admin dashboard (with AppLayout) */}
+            {/* Admin Profile (standalone) */}
             <Route
+              path="/admin/profile"
               element={
                 <ProtectedRoute>
                   <RoleProtectedRoute allowedRoles={["admin"]}>
-                    <AppLayout />
+                    <Suspense fallback={<GlobalLoader />}>
+                      <Profile />
+                    </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>
               }
-            >
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/lead/new" element={<NewLead />} />
-              <Route path="/inspection/select-lead" element={<SelectLead />} />
+            />
 
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/manage-users" element={<ManageUsers />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/help" element={<HelpSupport />} />
-              <Route path="/leads" element={<LeadsManagement />} />
-              <Route path="/lead/new/:id" element={<NewLeadView />} />
-              <Route path="/leads-pipeline" element={<Leads />} />
-              <Route path="/leads/:id" element={<LeadDetail />} />
-              <Route path="/calendar" element={<Calendar />} />
-              <Route path="/inspection" element={<InspectionForm />} />
-              <Route path="/inspection/new" element={<InspectionForm />} />
-              <Route path="/inspection/:id" element={<InspectionForm />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/inspection/:inspectionId/report" element={<ViewReportPDF />} />
-              <Route path="/report/:id" element={<ViewReportPDF />} />
-            </Route>
+            {/* Standalone admin routes (previously inside AppLayout) */}
+            <Route
+              path="/lead/new/:id"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <NewLeadView />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/leads/:id"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <LeadDetail />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/inspection/:inspectionId/report"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <ViewReportPDF />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/report/:id"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <ViewReportPDF />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
 
             <Route path="*" element={<NotFound />} />
           </Routes>

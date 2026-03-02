@@ -6,7 +6,6 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Phone, Mail, Headphones, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav';
 import TechnicianBottomNav from '@/components/technician/TechnicianBottomNav';
 
 // Developer contact details (HARDCODED)
@@ -112,7 +111,7 @@ export default function HelpSupport() {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      {isTechnician ? <TechnicianBottomNav /> : <MobileBottomNav />}
+      {isTechnician && <TechnicianBottomNav />}
     </div>
   );
 }

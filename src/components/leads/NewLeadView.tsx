@@ -212,7 +212,7 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
     setArchiving(true);
     try {
       await onStatusChange("not_landed" as LeadStatus);
-      navigate("/leads");
+      navigate("/admin/leads");
     } finally {
       setArchiving(false);
     }
@@ -260,7 +260,7 @@ export function NewLeadView({ lead, onStatusChange, onRefetch, technicianName }:
           {/* Top row */}
           <div className="flex items-center justify-between h-14">
             <button
-              onClick={() => navigate("/leads")}
+              onClick={() => navigate("/admin/leads")}
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[48px]"
             >
               <ArrowLeft className="h-4 w-4" />
