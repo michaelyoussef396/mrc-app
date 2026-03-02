@@ -473,12 +473,13 @@ export default function ViewReportPDF() {
         reader.readAsDataURL(pdfBlob)
       })
 
-      // 4. Build branded HTML email body
+      // 4. Build branded HTML email body (include custom message if provided)
       toast.loading('Sending email...', { id: 'send-email' })
       const emailHtml = buildReportApprovedHtml({
         customerName: lead.full_name,
         address,
         jobNumber: inspection.job_number || undefined,
+        customMessage: emailBody.trim() || undefined,
       })
 
       // 5. Build filename

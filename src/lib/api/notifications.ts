@@ -147,6 +147,7 @@ export interface ReportApprovedData {
   customerName: string;
   address: string;
   jobNumber?: string;
+  customMessage?: string;
 }
 
 export interface JobStartedData {
@@ -195,11 +196,18 @@ export function buildBookingConfirmationHtml(data: BookingConfirmationData): str
 }
 
 export function buildReportApprovedHtml(data: ReportApprovedData): string {
+  // Convert custom message newlines to <p> tags for proper email rendering
+  const customMessageHtml = data.customMessage
+    ? data.customMessage.split('\n').filter(l => l.trim()).map(l => `<p>${l}</p>`).join('\n    ')
+    : '';
+
   return wrapInBrandedTemplate(`
     <h2>Your Inspection Report is Ready</h2>
+    ${customMessageHtml || `
     <p>Hi ${data.customerName},</p>
     <p>Great news — your mould inspection report for <strong>${data.address}</strong> has been completed and approved${data.jobNumber ? ` (Ref: ${data.jobNumber})` : ''}.</p>
     <p>Our team has thoroughly reviewed the findings and the report is now ready for you.</p>
+    `}
     <div class="details-box">
       <table>
         <tr><td>Property</td><td>${data.address}</td></tr>
@@ -314,23 +322,18 @@ export function buildWelcomeEmailHtml(data: WelcomeEmailData): string {
  * Fire-and-forget — failures are logged, never thrown.
  */
 export async function sendEmail(params: SendEmailParams): Promise<void> {
-  try {
-    const { data, error } = await supabase.functions.invoke('send-email', {
-      body: params,
-    });
+  const { data, error } = await supabase.functions.invoke('send-email', {
+    body: params,
+  });
 
-    if (error) {
-      console.error('[Notifications] Email edge function error:', error);
-      return;
-    }
+  if (error) {
+    console.error('[Notifications] Email edge function error:', error);
+    throw new Error(error.message || 'Email edge function error');
+  }
 
-    if (data && !data.success) {
-      console.error('[Notifications] Email send failed:', data.error);
-      return;
-    }
-
-  } catch (err) {
-    console.error('[Notifications] Email send error:', err);
+  if (data && !data.success) {
+    console.error('[Notifications] Email send failed:', data.error);
+    throw new Error(data.error || 'Email send failed');
   }
 }
 
