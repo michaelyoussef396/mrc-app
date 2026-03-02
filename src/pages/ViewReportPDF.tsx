@@ -61,6 +61,7 @@ interface Inspection {
   pdf_approved: boolean
   pdf_approved_at: string | null
   pdf_generated_at: string | null
+  pdf_blob_url?: string | null
   lead_id?: string
   // Page 1 fields
   requested_by?: string
@@ -135,6 +136,7 @@ const INSPECTION_SELECT = `
   pdf_approved,
   pdf_approved_at,
   pdf_generated_at,
+  pdf_blob_url,
   lead_id,
   requested_by,
   attention_to,
@@ -192,6 +194,10 @@ export default function ViewReportPDF() {
   const [editMode, setEditMode] = useState(false)
   const [showVersions, setShowVersions] = useState(false)
   const [versions, setVersions] = useState<PDFVersion[]>([])
+
+  // PDF upload for email attachment
+  const [showPdfUpload, setShowPdfUpload] = useState(false)
+  const [pdfUploading, setPdfUploading] = useState(false)
 
   // Email approval stage
   const [stage, setStage] = useState<'report' | 'email-approval'>('report')
@@ -439,41 +445,47 @@ export default function ViewReportPDF() {
     try {
       const address = [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ')
 
-      // 1. Download HTML report from Supabase Storage
-      let htmlContent: string
-      const pathMatch = inspection.pdf_url.match(/inspection-reports\/(.+)$/)
+      // 1. Get PDF content as base64
+      let base64Content: string
 
-      if (pathMatch) {
-        const storagePath = pathMatch[1]
-        const { data, error } = await supabase.storage
-          .from('inspection-reports')
-          .download(storagePath)
-
-        if (error || !data) throw new Error('Failed to download report file')
-        htmlContent = await data.text()
+      if (inspection.pdf_blob_url) {
+        // Use stored browser-rendered PDF (perfect quality)
+        toast.loading('Preparing PDF attachment...', { id: 'send-email' })
+        const { data: pdfData, error: pdfError } = await supabase.storage
+          .from('report-pdfs')
+          .download(inspection.pdf_blob_url)
+        if (pdfError || !pdfData) throw new Error('Failed to download stored PDF')
+        const arrayBuffer = await pdfData.arrayBuffer()
+        base64Content = btoa(
+          new Uint8Array(arrayBuffer).reduce((s, b) => s + String.fromCharCode(b), '')
+        )
       } else {
-        const response = await fetch(inspection.pdf_url)
-        if (!response.ok) throw new Error('Failed to fetch report file')
-        htmlContent = await response.text()
+        // Fallback: client-side conversion (lower quality — user should upload PDF first)
+        toast.loading('Generating PDF (upload saved PDF for better quality)...', { id: 'send-email' })
+        let htmlContent: string
+        const pathMatch = inspection.pdf_url!.match(/inspection-reports\/(.+)$/)
+        if (pathMatch) {
+          const { data, error } = await supabase.storage
+            .from('inspection-reports')
+            .download(pathMatch[1])
+          if (error || !data) throw new Error('Failed to download report file')
+          htmlContent = await data.text()
+        } else {
+          const response = await fetch(inspection.pdf_url!)
+          if (!response.ok) throw new Error('Failed to fetch report file')
+          htmlContent = await response.text()
+        }
+        const { convertHtmlToPdf } = await import('@/lib/utils/htmlToPdf')
+        const pdfBlob = await convertHtmlToPdf(htmlContent)
+        base64Content = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve((reader.result as string).split(',')[1])
+          reader.onerror = reject
+          reader.readAsDataURL(pdfBlob)
+        })
       }
 
-      // 2. Convert HTML to actual PDF (lazy-load heavy libraries)
-      toast.loading('Generating PDF pages...', { id: 'send-email' })
-      const { convertHtmlToPdf } = await import('@/lib/utils/htmlToPdf')
-      const pdfBlob = await convertHtmlToPdf(htmlContent)
-
-      // 3. Convert PDF blob to base64
-      const base64Content = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => {
-          const result = reader.result as string
-          resolve(result.split(',')[1])
-        }
-        reader.onerror = reject
-        reader.readAsDataURL(pdfBlob)
-      })
-
-      // 4. Build branded HTML email body (include custom message if provided)
+      // 2. Build branded HTML email body (include custom message if provided)
       toast.loading('Sending email...', { id: 'send-email' })
       const emailHtml = buildReportApprovedHtml({
         customerName: lead.full_name,
@@ -576,12 +588,38 @@ export default function ViewReportPDF() {
       }
 
       toast.success('Print dialog opening — select "Save as PDF"', { id: 'download' })
+      setShowPdfUpload(true)
 
       // Clean up blob URL after 60s
       setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
     } catch (error) {
       console.error('Download failed:', error)
       toast.error('Failed to prepare PDF', { id: 'download' })
+    }
+  }
+
+  async function handlePdfUpload(file: File) {
+    if (!inspection?.id) return
+    setPdfUploading(true)
+    try {
+      const path = `${inspection.id}/report-v${inspection.pdf_version || 1}.pdf`
+      const { error: uploadError } = await supabase.storage
+        .from('report-pdfs')
+        .upload(path, file, { contentType: 'application/pdf', upsert: true })
+      if (uploadError) throw uploadError
+
+      await supabase.from('inspections')
+        .update({ pdf_blob_url: path })
+        .eq('id', inspection.id)
+
+      setInspection(prev => prev ? { ...prev, pdf_blob_url: path } : null)
+      setShowPdfUpload(false)
+      toast.success('PDF uploaded — ready to send as email attachment')
+    } catch (err) {
+      console.error('PDF upload failed:', err)
+      toast.error('Failed to upload PDF')
+    } finally {
+      setPdfUploading(false)
     }
   }
 
@@ -1542,23 +1580,43 @@ export default function ViewReportPDF() {
             {/* Report attachment preview */}
             <div className="bg-white rounded-lg border border-gray-200 p-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">PDF Attachment</label>
-              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-md border border-blue-200">
-                <FileText className="h-8 w-8 text-red-600 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">
-                    MRC-{inspection.job_number || 'Report'}-Inspection-Report.pdf
-                  </p>
-                  <p className="text-xs text-gray-500">Converted to PDF and attached automatically</p>
+              {inspection.pdf_blob_url ? (
+                <div className="flex items-center gap-3 p-3 bg-green-50 rounded-md border border-green-200">
+                  <FileText className="h-8 w-8 text-green-600 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">
+                      MRC-{inspection.job_number || 'Report'}-Inspection-Report.pdf
+                    </p>
+                    <p className="text-xs text-green-600">Browser-quality PDF ready</p>
+                  </div>
+                  <Button
+                    variant="outline" size="sm"
+                    onClick={handleDownload}
+                    className="min-h-[40px] flex-shrink-0"
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    Preview
+                  </Button>
                 </div>
-                <Button
-                  variant="outline" size="sm"
-                  onClick={handleDownload}
-                  className="min-h-[40px] flex-shrink-0"
-                >
-                  <Eye className="h-4 w-4 mr-1" />
-                  Preview
-                </Button>
-              </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-md border border-orange-200">
+                    <AlertCircle className="h-8 w-8 text-orange-500 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm">No PDF uploaded</p>
+                      <p className="text-xs text-orange-600">Go back, click Download, save as PDF, then upload it</p>
+                    </div>
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={() => { setStage('report'); setShowPdfUpload(true) }}
+                      className="min-h-[40px] flex-shrink-0 border-orange-300 text-orange-700 hover:bg-orange-50"
+                    >
+                      <Upload className="h-4 w-4 mr-1" />
+                      Upload PDF
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Actions */}
@@ -1724,6 +1782,43 @@ export default function ViewReportPDF() {
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PDF Upload for Email Attachment */}
+      {showPdfUpload && (
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-3 z-30">
+          <div className="max-w-6xl mx-auto flex items-center gap-3 flex-wrap">
+            <Upload className="h-5 w-5 text-blue-600 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-blue-900">Upload saved PDF for email attachment</p>
+              <p className="text-xs text-blue-700">After saving from the print dialog, select the file here</p>
+            </div>
+            <label className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer min-h-[48px] ${
+              pdfUploading ? 'bg-blue-200 text-blue-700' : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}>
+              {pdfUploading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" />Uploading...</>
+              ) : (
+                <><Upload className="h-4 w-4" />Choose PDF</>
+              )}
+              <input
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                disabled={pdfUploading}
+                onChange={(e) => e.target.files?.[0] && handlePdfUpload(e.target.files[0])}
+              />
+            </label>
+            {inspection?.pdf_blob_url && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                <Check className="h-3 w-3" />PDF ready
+              </span>
+            )}
+            <button onClick={() => setShowPdfUpload(false)} className="text-blue-400 hover:text-blue-600 min-h-[48px] min-w-[48px] flex items-center justify-center">
+              <X className="h-5 w-5" />
+            </button>
           </div>
         </div>
       )}
