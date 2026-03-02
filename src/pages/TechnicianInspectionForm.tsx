@@ -1609,16 +1609,17 @@ function Section7WorkProcedure({ formData, onChange }: SectionProps) {
 
   const handleOptionChange = (option: number) => {
     onChange('optionSelected', option);
-    // When switching from Option 2 → Option 1, remove Option 2-only methods
+    // When switching TO Option 1, remove Option 2-only methods
     if (option === 1) {
       const filtered = selected.filter((m) => !OPTION_2_ONLY_METHODS.includes(m));
       if (filtered.length !== selected.length) {
         onChange('selectedTreatmentMethods', filtered);
       }
     }
+    // Option 2 and Both (3) show all methods — no filtering needed
   };
 
-  const availableMethods = optionSelected === 2
+  const availableMethods = (optionSelected === 2 || optionSelected === 3)
     ? [...SHARED_TREATMENT_METHODS, ...OPTION_2_ONLY_METHODS]
     : SHARED_TREATMENT_METHODS;
 
@@ -1631,10 +1632,10 @@ function Section7WorkProcedure({ formData, onChange }: SectionProps) {
         <div className="p-4 bg-gray-50 border-b border-gray-100">
           <h3 className="font-semibold text-[#1d1d1f]">Treatment Option</h3>
         </div>
-        <div className="p-4 grid grid-cols-2 gap-3">
+        <div className="p-4 grid grid-cols-3 gap-2">
           <button
             onClick={() => handleOptionChange(1)}
-            className={`p-4 rounded-xl border-2 text-center transition-all ${
+            className={`p-3 rounded-xl border-2 text-center transition-all ${
               optionSelected === 1
                 ? 'border-[#007AFF] bg-[#007AFF]/5 text-[#007AFF]'
                 : 'border-gray-200 bg-white text-gray-500'
@@ -1645,8 +1646,20 @@ function Section7WorkProcedure({ formData, onChange }: SectionProps) {
             <div className="text-xs mt-1">Surface Treatment</div>
           </button>
           <button
+            onClick={() => handleOptionChange(3)}
+            className={`p-3 rounded-xl border-2 text-center transition-all ${
+              optionSelected === 3
+                ? 'border-purple-500 bg-purple-50 text-purple-600'
+                : 'border-gray-200 bg-white text-gray-500'
+            }`}
+            style={{ minHeight: '48px' }}
+          >
+            <div className="font-semibold text-sm">Both</div>
+            <div className="text-xs mt-1">Show Both Prices</div>
+          </button>
+          <button
             onClick={() => handleOptionChange(2)}
-            className={`p-4 rounded-xl border-2 text-center transition-all ${
+            className={`p-3 rounded-xl border-2 text-center transition-all ${
               optionSelected === 2
                 ? 'border-[#007AFF] bg-[#007AFF]/5 text-[#007AFF]'
                 : 'border-gray-200 bg-white text-gray-500'
@@ -1853,7 +1866,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
   const calculatedDemoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
   const calculatedSubfloorHours = formData.subfloorTreatmentTime || 0;
 
-  // Calculate cost estimate
+  // Calculate cost estimate (full calculation with all hours)
   const costResult = calculateCostEstimate({
     nonDemoHours: calculatedNonDemoHours,
     demolitionHours: calculatedDemoHours,
@@ -1864,6 +1877,18 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
     manualOverride: formData.manualPriceOverride,
     manualTotal: formData.manualTotal,
   });
+
+  // For "Both" mode: also compute Option 1 (surface only, no demo/subfloor)
+  const option1Result = formData.optionSelected === 3
+    ? calculateCostEstimate({
+        nonDemoHours: calculatedNonDemoHours,
+        demolitionHours: 0,
+        subfloorHours: 0,
+        dehumidifierQty: formData.commercialDehumidifierQty || 0,
+        airMoverQty: formData.airMoversQty || 0,
+        rcdQty: formData.rcdBoxQty || 0,
+      })
+    : null;
 
   const totalLabourHours = calculatedNonDemoHours + calculatedDemoHours + calculatedSubfloorHours;
 
@@ -2102,62 +2127,134 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
       )}
 
       {/* Final Cost Summary */}
-      <div className="bg-gradient-to-br from-[#007AFF]/5 to-[#007AFF]/10 rounded-xl p-4 space-y-3">
-        <h3 className="font-bold text-[#1d1d1f] text-lg flex items-center gap-2">
-          <span className="material-symbols-outlined text-[#007AFF]">receipt_long</span>
-          Final Summary
-        </h3>
-
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-[#86868b]">Labour Subtotal</span>
-            <span className="font-medium">{formatCurrency(costResult.labourSubtotal)}</span>
-          </div>
-
-          {costResult.discountPercent > 0 && (
-            <div className="flex justify-between text-green-600">
-              <span>Multi-day Discount ({formatPercent(costResult.discountPercent)})</span>
-              <span>-{formatCurrency(costResult.discountAmount)}</span>
+      {formData.optionSelected === 3 && option1Result ? (
+        /* Dual pricing display for "Both" mode */
+        <div className="space-y-3">
+          <h3 className="font-bold text-[#1d1d1f] text-lg flex items-center gap-2">
+            <span className="material-symbols-outlined text-purple-600">receipt_long</span>
+            Both Options — Price Comparison
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Option 1 Card */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-3 space-y-2">
+              <div className="text-center pb-2 border-b border-blue-200">
+                <div className="font-bold text-blue-800 text-sm">OPTION 1</div>
+                <div className="text-xs text-blue-600">Surface Treatment</div>
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-[#86868b]">Labour</span>
+                  <span className="font-medium">{formatCurrency(option1Result.labourAfterDiscount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#86868b]">Equipment</span>
+                  <span className="font-medium">{formatCurrency(option1Result.equipmentCost)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#86868b]">GST</span>
+                  <span className="font-medium">{formatCurrency(option1Result.gstAmount)}</span>
+                </div>
+              </div>
+              <div className="border-t border-blue-200 pt-2 text-center">
+                <div className="text-xs text-blue-600">Total (inc GST)</div>
+                <div className="font-bold text-blue-800 text-xl">{formatCurrency(option1Result.totalIncGst)}</div>
+              </div>
             </div>
-          )}
 
-          <div className="flex justify-between">
-            <span className="text-[#86868b]">Labour After Discount</span>
-            <span className="font-medium">{formatCurrency(costResult.labourAfterDiscount)}</span>
+            {/* Option 2 Card */}
+            <div className="bg-gradient-to-br from-[#007AFF]/5 to-[#007AFF]/10 rounded-xl p-3 space-y-2">
+              <div className="text-center pb-2 border-b border-[#007AFF]/20">
+                <div className="font-bold text-[#007AFF] text-sm">OPTION 2</div>
+                <div className="text-xs text-[#007AFF]/70">Comprehensive</div>
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-[#86868b]">Labour</span>
+                  <span className="font-medium">{formatCurrency(costResult.labourAfterDiscount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#86868b]">Equipment</span>
+                  <span className="font-medium">{formatCurrency(costResult.equipmentCost)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#86868b]">GST</span>
+                  <span className="font-medium">{formatCurrency(costResult.gstAmount)}</span>
+                </div>
+              </div>
+              <div className="border-t border-[#007AFF]/20 pt-2 text-center">
+                <div className="text-xs text-[#007AFF]/70">Total (inc GST)</div>
+                <div className="font-bold text-[#007AFF] text-xl">{formatCurrency(costResult.totalIncGst)}</div>
+              </div>
+            </div>
           </div>
 
-          <div className="flex justify-between">
-            <span className="text-[#86868b]">Equipment Total</span>
-            <span className="font-medium">{formatCurrency(costResult.equipmentCost)}</span>
+          {/* Discount Tier Info */}
+          <div className="p-3 bg-white rounded-lg border border-gray-100">
+            <p className="text-sm font-medium text-[#1d1d1f]">{costResult.discountTierDescription}</p>
+            <p className="text-xs text-[#86868b] mt-1">
+              Total Hours: {costResult.totalLabourHours}h • Work Days: {costResult.totalDays}
+            </p>
           </div>
+        </div>
+      ) : (
+        /* Single pricing display for Option 1 or Option 2 */
+        <div className="bg-gradient-to-br from-[#007AFF]/5 to-[#007AFF]/10 rounded-xl p-4 space-y-3">
+          <h3 className="font-bold text-[#1d1d1f] text-lg flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#007AFF]">receipt_long</span>
+            Final Summary
+          </h3>
 
-          <div className="border-t border-[#007AFF]/20 pt-2 mt-2">
+          <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-[#1d1d1f] font-medium">Subtotal (ex GST)</span>
-              <span className="font-semibold">{formatCurrency(costResult.subtotalExGst)}</span>
+              <span className="text-[#86868b]">Labour Subtotal</span>
+              <span className="font-medium">{formatCurrency(costResult.labourSubtotal)}</span>
             </div>
-            <div className="flex justify-between mt-1">
-              <span className="text-[#86868b]">GST (10%)</span>
-              <span className="font-medium">{formatCurrency(costResult.gstAmount)}</span>
+
+            {costResult.discountPercent > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>Multi-day Discount ({formatPercent(costResult.discountPercent)})</span>
+                <span>-{formatCurrency(costResult.discountAmount)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between">
+              <span className="text-[#86868b]">Labour After Discount</span>
+              <span className="font-medium">{formatCurrency(costResult.labourAfterDiscount)}</span>
+            </div>
+
+            <div className="flex justify-between">
+              <span className="text-[#86868b]">Equipment Total</span>
+              <span className="font-medium">{formatCurrency(costResult.equipmentCost)}</span>
+            </div>
+
+            <div className="border-t border-[#007AFF]/20 pt-2 mt-2">
+              <div className="flex justify-between">
+                <span className="text-[#1d1d1f] font-medium">Subtotal (ex GST)</span>
+                <span className="font-semibold">{formatCurrency(costResult.subtotalExGst)}</span>
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-[#86868b]">GST (10%)</span>
+                <span className="font-medium">{formatCurrency(costResult.gstAmount)}</span>
+              </div>
+            </div>
+
+            <div className="border-t-2 border-[#007AFF]/30 pt-3 mt-2">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-[#1d1d1f] text-xl">Total (inc GST)</span>
+                <span className="font-bold text-[#007AFF] text-3xl">{formatCurrency(costResult.totalIncGst)}</span>
+              </div>
             </div>
           </div>
 
-          <div className="border-t-2 border-[#007AFF]/30 pt-3 mt-2">
-            <div className="flex justify-between items-center">
-              <span className="font-bold text-[#1d1d1f] text-xl">Total (inc GST)</span>
-              <span className="font-bold text-[#007AFF] text-3xl">{formatCurrency(costResult.totalIncGst)}</span>
-            </div>
+          {/* Discount Tier Info */}
+          <div className="mt-3 p-3 bg-white/60 rounded-lg">
+            <p className="text-sm font-medium text-[#1d1d1f]">{costResult.discountTierDescription}</p>
+            <p className="text-xs text-[#86868b] mt-1">
+              Total Hours: {costResult.totalLabourHours}h • Work Days: {costResult.totalDays}
+            </p>
           </div>
         </div>
-
-        {/* Discount Tier Info */}
-        <div className="mt-3 p-3 bg-white/60 rounded-lg">
-          <p className="text-sm font-medium text-[#1d1d1f]">{costResult.discountTierDescription}</p>
-          <p className="text-xs text-[#86868b] mt-1">
-            Total Hours: {costResult.totalLabourHours}h • Work Days: {costResult.totalDays}
-          </p>
-        </div>
-      </div>
+      )}
     </section>
   );
 }
@@ -2316,6 +2413,8 @@ export default function TechnicianInspectionForm() {
     subtotalExGst: 0,
     gstAmount: 0,
     totalIncGst: 0,
+    option1TotalIncGst: 0,
+    option2TotalIncGst: 0,
     jobSummaryFinal: '',
     regenerationFeedback: '',
     whatWeFoundText: '',
@@ -2592,6 +2691,8 @@ export default function TechnicianInspectionForm() {
             subtotalExGst: ins.subtotal_ex_gst ? Number(ins.subtotal_ex_gst) : 0,
             gstAmount: ins.gst_amount ? Number(ins.gst_amount) : 0,
             totalIncGst: ins.total_inc_gst ? Number(ins.total_inc_gst) : 0,
+            option1TotalIncGst: ins.option_1_total_inc_gst ? Number(ins.option_1_total_inc_gst) : 0,
+            option2TotalIncGst: ins.option_2_total_inc_gst ? Number(ins.option_2_total_inc_gst) : 0,
             jobSummaryFinal: ins.ai_summary_text || '',
             whatWeFoundText: ins.what_we_found_text || '',
             whatWeWillDoText: ins.what_we_will_do_text || '',
@@ -2971,6 +3072,44 @@ export default function TechnicianInspectionForm() {
     setIsSaving(true);
 
     try {
+      // Compute pricing at save time (Section 9 computes on-the-fly but doesn't sync to formData)
+      const saveNonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
+      const saveDemoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
+      const saveSubfloorHours = formData.subfloorTreatmentTime || 0;
+
+      const saveFullResult = calculateCostEstimate({
+        nonDemoHours: saveNonDemoHours,
+        demolitionHours: saveDemoHours,
+        subfloorHours: saveSubfloorHours,
+        dehumidifierQty: formData.commercialDehumidifierQty || 0,
+        airMoverQty: formData.airMoversQty || 0,
+        rcdQty: formData.rcdBoxQty || 0,
+        manualOverride: formData.manualPriceOverride,
+        manualTotal: formData.manualTotal,
+      });
+
+      // Compute per-option totals
+      let saveOption1Total: number | null = null;
+      let saveOption2Total: number | null = null;
+
+      if (formData.optionSelected === 3) {
+        // "Both" mode: compute Option 1 (surface only) and Option 2 (full)
+        const opt1Result = calculateCostEstimate({
+          nonDemoHours: saveNonDemoHours,
+          demolitionHours: 0,
+          subfloorHours: 0,
+          dehumidifierQty: formData.commercialDehumidifierQty || 0,
+          airMoverQty: formData.airMoversQty || 0,
+          rcdQty: formData.rcdBoxQty || 0,
+        });
+        saveOption1Total = opt1Result.totalIncGst;
+        saveOption2Total = saveFullResult.totalIncGst;
+      } else if (formData.optionSelected === 1) {
+        saveOption1Total = saveFullResult.totalIncGst;
+      } else if (formData.optionSelected === 2) {
+        saveOption2Total = saveFullResult.totalIncGst;
+      }
+
       // 1. Upsert inspections row
       const inspectionRow: Record<string, any> = {
         lead_id: leadId,
@@ -3010,17 +3149,19 @@ export default function TechnicianInspectionForm() {
         additional_equipment_comments: formData.additionalEquipmentComments || null,
         parking_option: formData.parkingOptions || null,
         subfloor_required: formData.subfloorEnabled,
-        no_demolition_hours: formData.noDemolitionHours || 0,
-        demolition_hours: formData.demolitionHours || 0,
-        subfloor_hours: formData.subfloorHours || 0,
-        equipment_cost_ex_gst: formData.equipmentCost || 0,
+        no_demolition_hours: saveNonDemoHours,
+        demolition_hours: saveDemoHours,
+        subfloor_hours: saveSubfloorHours,
+        equipment_cost_ex_gst: saveFullResult.equipmentCost || 0,
         manual_price_override: formData.manualPriceOverride,
         manual_total_inc_gst: formData.manualTotal || 0,
-        labour_cost_ex_gst: formData.laborCost || 0,
-        discount_percent: formData.discountPercent || 0,
-        subtotal_ex_gst: formData.subtotalExGst || 0,
-        gst_amount: formData.gstAmount || 0,
-        total_inc_gst: formData.totalIncGst || 0,
+        labour_cost_ex_gst: saveFullResult.labourAfterDiscount || 0,
+        discount_percent: saveFullResult.discountPercent || 0,
+        subtotal_ex_gst: saveFullResult.subtotalExGst || 0,
+        gst_amount: saveFullResult.gstAmount || 0,
+        total_inc_gst: saveFullResult.totalIncGst || 0,
+        option_1_total_inc_gst: saveOption1Total,
+        option_2_total_inc_gst: saveOption2Total,
         ai_summary_text: formData.jobSummaryFinal || null,
         what_we_found_text: formData.whatWeFoundText || null,
         what_we_will_do_text: formData.whatWeWillDoText || null,
