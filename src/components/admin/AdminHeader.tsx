@@ -94,7 +94,7 @@ export default function AdminHeader({ userName = 'Admin', onMenuClick }: AdminHe
         {/* Mobile Search Button */}
         <button
           onClick={() => setShowMobileSearch(!showMobileSearch)}
-          className="md:hidden relative w-11 h-11 rounded-xl bg-white flex items-center justify-center hover:bg-gray-50 transition-all"
+          className="md:hidden relative w-12 h-12 rounded-xl bg-white flex items-center justify-center hover:bg-gray-50 transition-all"
           style={{ border: '1px solid #e5e5e5' }}
         >
           <span
@@ -237,7 +237,7 @@ const NotificationDropdown = forwardRef<HTMLDivElement, NotificationDropdownProp
       <div className="relative" ref={ref}>
         <button
           onClick={() => setShowNotifications(!showNotifications)}
-          className="relative w-11 h-11 rounded-xl bg-white flex items-center justify-center hover:bg-gray-50 transition-all"
+          className="relative w-12 h-12 rounded-xl bg-white flex items-center justify-center hover:bg-gray-50 transition-all"
           style={{ border: '1px solid #e5e5e5' }}
         >
           <span
@@ -259,7 +259,7 @@ const NotificationDropdown = forwardRef<HTMLDivElement, NotificationDropdownProp
 
         {showNotifications && (
           <div
-            className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-lg overflow-hidden z-50"
+            className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-w-[calc(100vw-1rem)] bg-white rounded-xl shadow-lg overflow-hidden z-50"
             style={{ border: '1px solid #e5e5e5', maxHeight: '480px' }}
           >
             {/* Header */}

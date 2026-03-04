@@ -646,10 +646,10 @@ const LeadsManagement = () => {
           className="bg-white flex-shrink-0 z-40"
           style={{ borderBottom: '1px solid #e5e5e5' }}
         >
-          <div className="flex items-center px-6 py-4 justify-between">
+          <div className="flex items-center px-4 md:px-6 py-4 justify-between">
             {/* Mobile menu button */}
             <button
-              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors mr-3"
+              className="lg:hidden w-12 h-12 flex items-center justify-center hover:bg-gray-100 rounded-lg transition-colors mr-3"
               onClick={() => setSidebarOpen(true)}
             >
               <span className="material-symbols-outlined" style={{ color: '#1d1d1f' }}>
@@ -749,7 +749,7 @@ const LeadsManagement = () => {
             <div className="flex rounded-lg border border-slate-200 bg-white overflow-hidden">
               <button
                 onClick={() => setViewMode('cards')}
-                className={`h-11 w-11 flex items-center justify-center transition-colors
+                className={`h-12 w-12 flex items-center justify-center transition-colors
                   ${viewMode === 'cards' ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
                 title="Card view"
               >
@@ -757,7 +757,7 @@ const LeadsManagement = () => {
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`h-11 w-11 flex items-center justify-center transition-colors border-l border-slate-200
+                className={`h-12 w-12 flex items-center justify-center transition-colors border-l border-slate-200
                   ${viewMode === 'list' ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
                 title="List view"
               >

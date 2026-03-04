@@ -222,7 +222,7 @@ export default function AdminSearchBar({ compact = false, onClose }: AdminSearch
       {isOpen && query.length >= 2 && (
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 mt-2 min-w-[420px] bg-white rounded-xl shadow-lg overflow-hidden z-50"
+          className="absolute top-full left-0 mt-2 w-full sm:min-w-[420px] bg-white rounded-xl shadow-lg overflow-hidden z-50"
           style={{ border: '1px solid #e5e5e5' }}
         >
           {error ? (
