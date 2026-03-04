@@ -189,7 +189,7 @@ export function buildBookingConfirmationHtml(data: BookingConfirmationData): str
       </table>
     </div>
     <p><strong>What to expect:</strong></p>
-    <p>Our technician will arrive at the scheduled time to conduct a thorough mould inspection of your property. The inspection typically takes 1-2 hours depending on the property size.</p>
+    <p>Our technician will arrive at the scheduled time to conduct a thorough mould inspection of your property. The inspection takes a maximum of 1 hour.</p>
     <p>Please ensure access to all areas of the property, including any subfloor or roof spaces if applicable.</p>
     <p style="margin-top:24px;">Need to reschedule? Call us on <a href="tel:1800954117" style="color:#121D73; font-weight:600;">1800 954 117</a></p>
   `);
