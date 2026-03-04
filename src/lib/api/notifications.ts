@@ -97,10 +97,19 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
   .details-box td:first-child { font-weight: 600; color: #555; width: 120px; white-space: nowrap; padding-right: 12px; }
   .details-box td:last-child { color: #1d1d1f; }
   .cta-button { display: inline-block; background: #121D73; color: #ffffff !important; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 15px; margin: 8px 0; }
-  .footer { background: #f8f9fa; border-top: 1px solid #e9ecef; padding: 24px; text-align: center; }
-  .footer p { margin: 0 0 6px; font-size: 12px; color: #888; }
-  .footer a { color: #121D73; text-decoration: none; }
-  .footer .company { font-weight: 600; color: #555; font-size: 13px; }
+  .signature { padding: 24px 24px 16px; border-top: 1px solid #e9ecef; background: #f8f9fa; }
+  .sign-off { font-size: 15px; color: #333; font-weight: 600; margin: 0 0 16px; line-height: 1.5; }
+  .sig-table { width: 100%; border-collapse: collapse; }
+  .sig-logo-cell { width: 130px; vertical-align: top; padding-right: 16px; }
+  .sig-details-cell { vertical-align: top; }
+  .sig-company { font-weight: 700; color: #121D73; font-size: 15px; margin: 0 0 4px !important; }
+  .sig-details-cell p { margin: 0 0 2px !important; font-size: 13px; color: #555; }
+  .sig-details-cell a { color: #121D73; text-decoration: none; }
+  .sig-inquiries { font-size: 13px; color: #666; margin: 14px 0 6px !important; }
+  .sig-review { font-size: 13px; margin: 0 !important; }
+  .sig-review a { color: #121D73; font-weight: 600; text-decoration: none; }
+  .footer { background: #f8f9fa; padding: 0 24px 24px; text-align: center; }
+  .footer p { margin: 0; font-size: 11px; color: #999; line-height: 1.5; }
   @media only screen and (max-width: 620px) {
     .container { margin: 0 12px !important; }
     .body { padding: 24px 16px !important; }
@@ -119,11 +128,27 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
     <div class="body">
       ${bodyHtml}
     </div>
+    <div class="signature">
+      <p class="sign-off">Best Regards,<br>The MRC Team – Mould &amp; Restoration Experts</p>
+      <table class="sig-table" cellpadding="0" cellspacing="0">
+        <tr>
+          <td class="sig-logo-cell">
+            <img src="https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
+          </td>
+          <td class="sig-details-cell">
+            <p class="sig-company">Mould and Restoration Co.</p>
+            <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
+            <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
+            <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
+            <p>Business Hours: Monday to Sunday: 7:00 AM – 7:00 PM</p>
+          </td>
+        </tr>
+      </table>
+      <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
+      <p class="sig-review">Write a Review: <a href="https://g.page/r/CSmcatb7uSq9EBM/review">Leave us a Google Review</a></p>
+    </div>
     <div class="footer">
-      <p class="company">Mould &amp; Restoration Co.</p>
-      <p>Melbourne, Australia</p>
-      <p>Phone: <a href="tel:0433880403">0433 880 403</a></p>
-      <p style="margin-top:12px; font-size:11px; color:#aaa;">This is an automated message. Please do not reply directly to this email.</p>
+      <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it. Mould and Restoration Co. does not accept liability for any damage caused by this email or its attachments.</p>
     </div>
   </div>
 </div>
@@ -150,31 +175,6 @@ export interface ReportApprovedData {
   customMessage?: string;
 }
 
-export interface JobStartedData {
-  customerName: string;
-  address: string;
-}
-
-export interface JobCompletedData {
-  customerName: string;
-  address: string;
-}
-
-export interface JobBookedTechnicianData {
-  clientName: string;
-  date: string;
-  time: string;
-  property: string;
-  suburb: string;
-  quoteAmount?: number;
-}
-
-export interface WelcomeEmailData {
-  firstName: string;
-  email: string;
-  role: string;
-}
-
 export function buildBookingConfirmationHtml(data: BookingConfirmationData): string {
   return wrapInBrandedTemplate(`
     <h2>Booking Confirmed</h2>
@@ -191,7 +191,7 @@ export function buildBookingConfirmationHtml(data: BookingConfirmationData): str
     <p><strong>What to expect:</strong></p>
     <p>Our technician will arrive at the scheduled time to conduct a thorough mould inspection of your property. The inspection typically takes 1-2 hours depending on the property size.</p>
     <p>Please ensure access to all areas of the property, including any subfloor or roof spaces if applicable.</p>
-    <p style="margin-top:24px;">Need to reschedule? Call us on <a href="tel:0433880403" style="color:#121D73; font-weight:600;">0433 880 403</a></p>
+    <p style="margin-top:24px;">Need to reschedule? Call us on <a href="tel:1800954117" style="color:#121D73; font-weight:600;">1800 954 117</a></p>
   `);
 }
 
@@ -217,50 +217,8 @@ export function buildReportApprovedHtml(data: ReportApprovedData): string {
     </div>
     <p>If you have any questions about the report or would like to discuss remediation options, please don't hesitate to get in touch.</p>
     <p style="margin-top:24px;">
-      <a href="tel:0433880403" class="cta-button">Call Us to Discuss</a>
+      <a href="tel:1800954117" class="cta-button">Call Us to Discuss</a>
     </p>
-  `);
-}
-
-export function buildJobStartedHtml(data: JobStartedData): string {
-  return wrapInBrandedTemplate(`
-    <h2>Service Has Started</h2>
-    <p>Hi ${data.customerName},</p>
-    <p>We're writing to let you know that our technician has arrived at <strong>${data.address}</strong> and has started the mould remediation service.</p>
-    <p>We'll keep you updated on the progress. If you have any questions in the meantime, please don't hesitate to contact us.</p>
-    <p style="margin-top:24px;">
-      <a href="tel:0433880403" style="color:#121D73; font-weight:600;">0433 880 403</a>
-    </p>
-  `);
-}
-
-export function buildJobCompletedHtml(data: JobCompletedData): string {
-  return wrapInBrandedTemplate(`
-    <h2>Service Complete</h2>
-    <p>Hi ${data.customerName},</p>
-    <p>The mould remediation service at <strong>${data.address}</strong> has been completed.</p>
-    <p>You will receive your detailed inspection report shortly. The report will include our findings, photos, and any recommendations for ongoing maintenance.</p>
-    <p>If you have any questions, please don't hesitate to contact us.</p>
-    <p style="margin-top:24px;">
-      <a href="tel:0433880403" class="cta-button">Contact Us</a>
-    </p>
-  `);
-}
-
-export function buildJobBookedTechnicianHtml(data: JobBookedTechnicianData): string {
-  return wrapInBrandedTemplate(`
-    <h2>New Job Booked</h2>
-    <p>A new inspection has been scheduled. Please review the details below:</p>
-    <div class="details-box">
-      <table>
-        <tr><td>Client</td><td>${data.clientName}</td></tr>
-        <tr><td>Date</td><td>${data.date}</td></tr>
-        <tr><td>Time</td><td>${data.time}</td></tr>
-        <tr><td>Property</td><td>${data.property}, ${data.suburb}</td></tr>
-        ${data.quoteAmount != null ? `<tr><td>Quote</td><td>$${data.quoteAmount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</td></tr>` : ''}
-      </table>
-    </div>
-    <p>Please ensure you arrive on time with all required equipment.</p>
   `);
 }
 
@@ -289,27 +247,7 @@ export function buildInspectionReminderHtml(data: InspectionReminderData): strin
       <li style="padding:6px 0;font-size:14px;">&#10003; Pets are secured or kept away from work areas</li>
       <li style="padding:6px 0;font-size:14px;">&#10003; Someone is home or access arrangements are made</li>
     </ul>
-    <p style="margin-top:24px;">Need to reschedule? Call us on <a href="tel:0433880403" style="color:#121D73; font-weight:600;">0433 880 403</a></p>
-  `);
-}
-
-export function buildWelcomeEmailHtml(data: WelcomeEmailData): string {
-  const roleLabel = data.role.charAt(0).toUpperCase() + data.role.slice(1);
-  return wrapInBrandedTemplate(`
-    <h2>Welcome to the Team!</h2>
-    <p>Hi ${data.firstName},</p>
-    <p>Your account has been created on the Mould &amp; Restoration Co. system. You can now log in and get started.</p>
-    <div class="details-box">
-      <table>
-        <tr><td>Email</td><td>${data.email}</td></tr>
-        <tr><td>Role</td><td>${roleLabel}</td></tr>
-      </table>
-    </div>
-    <p>Your password has been set by your administrator. If you need to change it, you can do so from your profile settings after logging in.</p>
-    <p style="margin-top:24px;">
-      <a href="https://app.mrcsystem.com" class="cta-button">Log In Now</a>
-    </p>
-    <p style="margin-top:16px;">If you have any questions, contact your admin or call us on <a href="tel:0433880403" style="color:#121D73; font-weight:600;">0433 880 403</a></p>
+    <p style="margin-top:24px;">Need to reschedule? Call us on <a href="tel:1800954117" style="color:#121D73; font-weight:600;">1800 954 117</a></p>
   `);
 }
 

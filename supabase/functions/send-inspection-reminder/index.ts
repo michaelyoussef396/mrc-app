@@ -30,10 +30,19 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
   .checklist { margin: 16px 0; padding: 0; list-style: none; }
   .checklist li { padding: 6px 0; font-size: 14px; color: #333; }
   .checklist li::before { content: "\\2713 "; color: #16a34a; font-weight: 700; margin-right: 6px; }
-  .footer { background: #f8f9fa; border-top: 1px solid #e9ecef; padding: 24px; text-align: center; }
-  .footer p { margin: 0 0 6px; font-size: 12px; color: #888; }
-  .footer a { color: #121D73; text-decoration: none; }
-  .footer .company { font-weight: 600; color: #555; font-size: 13px; }
+  .signature { padding: 24px 24px 16px; border-top: 1px solid #e9ecef; background: #f8f9fa; }
+  .sign-off { font-size: 15px; color: #333; font-weight: 600; margin: 0 0 16px; line-height: 1.5; }
+  .sig-table { width: 100%; border-collapse: collapse; }
+  .sig-logo-cell { width: 130px; vertical-align: top; padding-right: 16px; }
+  .sig-details-cell { vertical-align: top; }
+  .sig-company { font-weight: 700; color: #121D73; font-size: 15px; margin: 0 0 4px !important; }
+  .sig-details-cell p { margin: 0 0 2px !important; font-size: 13px; color: #555; }
+  .sig-details-cell a { color: #121D73; text-decoration: none; }
+  .sig-inquiries { font-size: 13px; color: #666; margin: 14px 0 6px !important; }
+  .sig-review { font-size: 13px; margin: 0 !important; }
+  .sig-review a { color: #121D73; font-weight: 600; text-decoration: none; }
+  .footer { background: #f8f9fa; padding: 0 24px 24px; text-align: center; }
+  .footer p { margin: 0; font-size: 11px; color: #999; line-height: 1.5; }
   @media only screen and (max-width: 620px) {
     .container { margin: 0 12px !important; }
     .body { padding: 24px 16px !important; }
@@ -52,11 +61,27 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
     <div class="body">
       ${bodyHtml}
     </div>
+    <div class="signature">
+      <p class="sign-off">Best Regards,<br>The MRC Team – Mould &amp; Restoration Experts</p>
+      <table class="sig-table" cellpadding="0" cellspacing="0">
+        <tr>
+          <td class="sig-logo-cell">
+            <img src="https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
+          </td>
+          <td class="sig-details-cell">
+            <p class="sig-company">Mould and Restoration Co.</p>
+            <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
+            <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
+            <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
+            <p>Business Hours: Monday to Sunday: 7:00 AM – 7:00 PM</p>
+          </td>
+        </tr>
+      </table>
+      <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
+      <p class="sig-review">Write a Review: <a href="https://g.page/r/CSmcatb7uSq9EBM/review">Leave us a Google Review</a></p>
+    </div>
     <div class="footer">
-      <p class="company">Mould &amp; Restoration Co.</p>
-      <p>Melbourne, Australia</p>
-      <p>Phone: <a href="tel:0433880403">0433 880 403</a></p>
-      <p style="margin-top:12px; font-size:11px; color:#aaa;">This is an automated message. Please do not reply directly to this email.</p>
+      <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it. Mould and Restoration Co. does not accept liability for any damage caused by this email or its attachments.</p>
     </div>
   </div>
 </div>
@@ -87,7 +112,7 @@ function buildReminderHtml(data: {
       <li>Pets are secured or kept away from work areas</li>
       <li>Someone is home or access arrangements are made</li>
     </ul>
-    <p style="margin-top:24px;">Need to reschedule? Call us on <a href="tel:0433880403" style="color:#121D73; font-weight:600;">0433 880 403</a></p>
+    <p style="margin-top:24px;">Need to reschedule? Call us on <a href="tel:1800954117" style="color:#121D73; font-weight:600;">1800 954 117</a></p>
   `);
 }
 

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { margin: 0; padding: 0; background: #f4f4f5; font-family: Arial, Helvetica, sans-serif; color: #333; line-height: 1.6; -webkit-text-size-adjust: 100%; }
+  .wrapper { width: 100%; background: #f4f4f5; padding: 24px 0; }
+  .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .header { background: #121D73; padding: 28px 24px; text-align: center; }
+  .header h1 { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; letter-spacing: 0.3px; }
+  .header p { margin: 4px 0 0; color: rgba(255,255,255,0.7); font-size: 13px; }
+  .body { padding: 32px 24px; }
+  .body h2 { margin: 0 0 16px; color: #121D73; font-size: 20px; }
+  .body p { margin: 0 0 14px; font-size: 15px; color: #333; }
+  .cta-button { display: inline-block; background: #121D73; color: #ffffff !important; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 15px; margin: 8px 0; }
+  .signature { padding: 24px 24px 16px; border-top: 1px solid #e9ecef; background: #f8f9fa; }
+  .sign-off { font-size: 15px; color: #333; font-weight: 600; margin: 0 0 16px; line-height: 1.5; }
+  .sig-table { width: 100%; border-collapse: collapse; }
+  .sig-logo-cell { width: 130px; vertical-align: top; padding-right: 16px; }
+  .sig-details-cell { vertical-align: top; }
+  .sig-company { font-weight: 700; color: #121D73; font-size: 15px; margin: 0 0 4px !important; }
+  .sig-details-cell p { margin: 0 0 2px !important; font-size: 13px; color: #555; }
+  .sig-details-cell a { color: #121D73; text-decoration: none; }
+  .sig-inquiries { font-size: 13px; color: #666; margin: 14px 0 6px !important; }
+  .sig-review { font-size: 13px; margin: 0 !important; }
+  .sig-review a { color: #121D73; font-weight: 600; text-decoration: none; }
+  .footer { background: #f8f9fa; padding: 0 24px 24px; text-align: center; }
+  .footer p { margin: 0; font-size: 11px; color: #999; line-height: 1.5; }
+  @media only screen and (max-width: 620px) {
+    .container { margin: 0 12px !important; }
+    .body { padding: 24px 16px !important; }
+    .header { padding: 24px 16px !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="container">
+    <div class="header">
+      <h1>Mould &amp; Restoration Co.</h1>
+      <p>Professional Mould Remediation</p>
+    </div>
+    <div class="body">
+      <h2>Your Login Link</h2>
+      <p>Hi,</p>
+      <p>Click the button below to log in to your Mould &amp; Restoration Co. account:</p>
+      <p style="margin-top:24px; text-align:center;">
+        <a href="{{ .ConfirmationURL }}" class="cta-button">Log In</a>
+      </p>
+      <p style="margin-top:24px; font-size:13px; color:#666;">This link will expire shortly. If you didn't request this, you can safely ignore this email.</p>
+    </div>
+    <div class="signature">
+      <p class="sign-off">Best Regards,<br>The MRC Team &ndash; Mould &amp; Restoration Experts</p>
+      <table class="sig-table" cellpadding="0" cellspacing="0">
+        <tr>
+          <td class="sig-logo-cell">
+            <img src="https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
+          </td>
+          <td class="sig-details-cell">
+            <p class="sig-company">Mould and Restoration Co.</p>
+            <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
+            <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
+            <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
+            <p>Business Hours: Monday to Sunday: 7:00 AM &ndash; 7:00 PM</p>
+          </td>
+        </tr>
+      </table>
+      <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
+      <p class="sig-review">Write a Review: <a href="https://g.page/r/CSmcatb7uSq9EBM/review">Leave us a Google Review</a></p>
+    </div>
+    <div class="footer">
+      <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it. Mould and Restoration Co. does not accept liability for any damage caused by this email or its attachments.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>
