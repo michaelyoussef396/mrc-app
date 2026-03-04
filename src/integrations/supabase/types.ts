@@ -1269,7 +1269,6 @@ export type Database = {
           inspection_id: string
           landscape: Database["public"]["Enums"]["subfloor_landscape"] | null
           observations: string | null
-          racking_required: boolean | null
           sanitation_required: boolean | null
           treatment_time_minutes: number | null
           updated_at: string | null
@@ -1282,7 +1281,6 @@ export type Database = {
           inspection_id: string
           landscape?: Database["public"]["Enums"]["subfloor_landscape"] | null
           observations?: string | null
-          racking_required?: boolean | null
           sanitation_required?: boolean | null
           treatment_time_minutes?: number | null
           updated_at?: string | null
@@ -1295,7 +1293,6 @@ export type Database = {
           inspection_id?: string
           landscape?: Database["public"]["Enums"]["subfloor_landscape"] | null
           observations?: string | null
-          racking_required?: boolean | null
           sanitation_required?: boolean | null
           treatment_time_minutes?: number | null
           updated_at?: string | null

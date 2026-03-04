@@ -85,7 +85,6 @@ interface SubfloorData {
   comments: string | null
   landscape: string | null
   sanitation_required: boolean
-  racking_required: boolean
   treatment_time_minutes: number | null
 }
 

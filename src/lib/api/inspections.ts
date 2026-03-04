@@ -477,7 +477,6 @@ export interface SubfloorWithDetails {
   comments: string | null
   landscape: string | null
   sanitation_required: boolean
-  racking_required: boolean
   treatment_time_minutes: number | null
   readings: Array<{
     id: string
@@ -629,7 +628,6 @@ export async function fetchCompleteInspectionData(
         comments: subfloorData.comments,
         landscape: subfloorData.landscape,
         sanitation_required: subfloorData.sanitation_required || false,
-        racking_required: subfloorData.racking_required || false,
         treatment_time_minutes: subfloorData.treatment_time_minutes,
         readings: subfloorReadings.map(r => ({
           id: r.id,

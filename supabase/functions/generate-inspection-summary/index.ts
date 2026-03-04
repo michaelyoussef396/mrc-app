@@ -54,7 +54,6 @@ interface InspectionFormData {
   subfloorComments?: string
   subfloorLandscape?: string
   subfloorSanitation?: boolean
-  subfloorRacking?: boolean
   subfloorTreatmentTime?: number
   subfloorReadings?: Array<{
     reading: string
@@ -229,7 +228,6 @@ function buildUserPrompt(formData: InspectionFormData): string {
     if (formData.subfloorLandscape) lines.push(`- Landscape: ${sanitizeField(formData.subfloorLandscape)}`)
     if (formData.subfloorComments) lines.push(`- Comments: ${sanitizeField(formData.subfloorComments)}`)
     if (formData.subfloorSanitation) lines.push('- Sanitation Required: Yes')
-    if (formData.subfloorRacking) lines.push('- Racking Required: Yes')
     if (formData.subfloorTreatmentTime) lines.push(`- Treatment Time: ${formData.subfloorTreatmentTime} hours`)
     if (formData.subfloorReadings && formData.subfloorReadings.length > 0) {
       lines.push('- Moisture Readings:')

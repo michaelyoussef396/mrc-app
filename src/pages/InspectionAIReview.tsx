@@ -683,7 +683,6 @@ function buildEdgeFunctionPayload(inspection: any, areas: any[], lead: LeadData 
     subfloorComments: inspection?.subfloor_comments,
     subfloorLandscape: inspection?.subfloor_landscape,
     subfloorSanitation: inspection?.subfloor_sanitation,
-    subfloorRacking: inspection?.subfloor_racking,
     subfloorTreatmentTime: inspection?.subfloor_treatment_time,
     subfloorReadings: [],
     outdoorTemperature: inspection?.outdoor_temperature?.toString(),

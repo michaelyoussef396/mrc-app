@@ -70,7 +70,6 @@ export interface InspectionFormData {
   subfloorReadings: SubfloorReading[];
   subfloorPhotos: Photo[];
   subfloorSanitation: boolean;
-  subfloorRacking: boolean;
   subfloorTreatmentTime: number;
 
   // Section 5: Outdoor Information

@@ -1406,20 +1406,6 @@ function Section4Subfloor({
           />
         </div>
 
-        {/* Racking (only if sanitation enabled) */}
-        {formData.subfloorSanitation && (
-          <div className="flex items-center justify-between p-4 bg-teal-50 rounded-xl border border-teal-100 ml-4">
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-lg text-teal-600">shelves</span>
-              <span className="font-medium text-[#1d1d1f]">Racking Required</span>
-            </div>
-            <ToggleSwitch
-              checked={formData.subfloorRacking}
-              onChange={(checked) => onChange('subfloorRacking', checked)}
-            />
-          </div>
-        )}
-
         {/* Treatment Time */}
         <FormField label="Treatment Time (Hours)">
           <NumberInput
@@ -2355,7 +2341,6 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
     subfloorComments: formData.subfloorComments,
     subfloorLandscape: formData.subfloorLandscape,
     subfloorSanitation: formData.subfloorSanitation,
-    subfloorRacking: formData.subfloorRacking,
     subfloorTreatmentTime: formData.subfloorTreatmentTime,
     subfloorReadings: formData.subfloorReadings.map((r) => ({ reading: r.reading, location: r.location })),
     outdoorTemperature: formData.outdoorTemperature,
@@ -2428,7 +2413,6 @@ export default function TechnicianInspectionForm() {
     subfloorReadings: [],
     subfloorPhotos: [],
     subfloorSanitation: false,
-    subfloorRacking: false,
     subfloorTreatmentTime: 0,
     outdoorTemperature: '',
     outdoorHumidity: '',
@@ -2700,7 +2684,6 @@ export default function TechnicianInspectionForm() {
             subfloorReadings: mappedSubfloorReadings,
             subfloorPhotos: subfloorPhotos.map(mapPhoto),
             subfloorSanitation: subfloorData?.sanitation_required || false,
-            subfloorRacking: subfloorData?.racking_required || false,
             subfloorTreatmentTime: subfloorData?.treatment_time_minutes ? subfloorData.treatment_time_minutes / 60 : 0,
             outdoorTemperature: ins.outdoor_temperature != null ? String(ins.outdoor_temperature) : '',
             outdoorHumidity: ins.outdoor_humidity != null ? String(ins.outdoor_humidity) : '',
@@ -3387,7 +3370,6 @@ export default function TechnicianInspectionForm() {
           comments: formData.subfloorComments || null,
           landscape: formData.subfloorLandscape || null,
           sanitation_required: formData.subfloorSanitation,
-          racking_required: formData.subfloorRacking,
           treatment_time_minutes: Math.round((formData.subfloorTreatmentTime || 0) * 60),
           updated_at: new Date().toISOString(),
         };

@@ -297,7 +297,6 @@ function SubfloorSection({ subfloor }: { subfloor: SubfloorWithDetails | null })
       <div className="space-y-1 divide-y divide-slate-100">
         <KV label="Landscape" value={<span className="capitalize">{subfloor.landscape || '—'}</span>} />
         <KV label="Sanitation Required" value={fmtBool(subfloor.sanitation_required)} />
-        <KV label="Racking Required" value={fmtBool(subfloor.racking_required)} />
         <KV label="Treatment Time" value={fmtMins(subfloor.treatment_time_minutes)} />
       </div>
 
