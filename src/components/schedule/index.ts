@@ -4,3 +4,4 @@ export { CancelledBookingsList } from './CancelledBookingsList';
 export { LeadBookingCard } from './LeadBookingCard';
 export { LeadsQueue } from './LeadsQueue';
 export { EventDetailsPanel } from './EventDetailsPanel';
+export { ScheduleDailyView } from './ScheduleDailyView';

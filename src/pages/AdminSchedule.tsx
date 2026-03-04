@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminSidebar from '@/components/admin/AdminSidebar';
-import { ScheduleHeader, ScheduleCalendar, LeadsQueue, EventDetailsPanel, CancelledBookingsList } from '@/components/schedule';
+import { ScheduleHeader, ScheduleCalendar, ScheduleDailyView, LeadsQueue, EventDetailsPanel, CancelledBookingsList } from '@/components/schedule';
 import { useScheduleCalendar, getWeekStart, CalendarEvent } from '@/hooks/useScheduleCalendar';
 import { useCancelledBookings } from '@/hooks/useCancelledBookings';
 import { useTechnicians } from '@/hooks/useTechnicians';
@@ -25,6 +25,7 @@ export default function AdminSchedule() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [mobileQueueOpen, setMobileQueueOpen] = useState(false);
   const [showCancelled, setShowCancelled] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
 
   // Fetch technicians using the shared hook
   const { data: technicians = [], isLoading: techniciansLoading, error: techniciansError } = useTechnicians();
@@ -55,6 +56,15 @@ export default function AdminSchedule() {
     setSelectedTechnician(technicianId);
   };
 
+  // Handle mobile day navigation
+  const handleDayChange = (newDate: Date) => {
+    setSelectedDate(newDate);
+    const newWeekStart = getWeekStart(newDate);
+    if (newWeekStart.getTime() !== weekStart.getTime()) {
+      setWeekStart(newWeekStart);
+    }
+  };
+
   return (
     <div
       className="h-screen overflow-hidden"
@@ -76,10 +86,10 @@ export default function AdminSchedule() {
           className="bg-white flex-shrink-0 z-40"
           style={{ borderBottom: '1px solid #e5e5e5' }}
         >
-          <div className="flex items-center px-6 py-3 justify-between">
+          <div className="flex items-center px-4 md:px-6 py-3 justify-between">
             {/* Mobile menu button */}
             <button
-              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors mr-3"
+              className="lg:hidden w-12 h-12 flex items-center justify-center hover:bg-gray-100 rounded-lg transition-colors mr-3"
               onClick={() => setSidebarOpen(true)}
             >
               <span className="material-symbols-outlined" style={{ color: '#1d1d1f' }}>
@@ -142,6 +152,8 @@ export default function AdminSchedule() {
                 onTechnicianChange={handleTechnicianChange}
                 showCancelled={showCancelled}
                 onShowCancelledChange={setShowCancelled}
+                selectedDate={selectedDate}
+                onDayChange={handleDayChange}
               />
             </div>
 
@@ -154,12 +166,26 @@ export default function AdminSchedule() {
                   onEventClick={(event) => setSelectedEvent(event)}
                 />
               ) : (
-                <ScheduleCalendar
-                  weekStart={weekStart}
-                  events={events}
-                  isLoading={isLoading}
-                  onEventClick={(event) => setSelectedEvent(event)}
-                />
+                <>
+                  {/* Mobile: daily card list */}
+                  <div className="lg:hidden">
+                    <ScheduleDailyView
+                      selectedDate={selectedDate}
+                      events={events}
+                      isLoading={isLoading}
+                      onEventClick={(event) => setSelectedEvent(event)}
+                    />
+                  </div>
+                  {/* Desktop: weekly time grid */}
+                  <div className="hidden lg:block h-full">
+                    <ScheduleCalendar
+                      weekStart={weekStart}
+                      events={events}
+                      isLoading={isLoading}
+                      onEventClick={(event) => setSelectedEvent(event)}
+                    />
+                  </div>
+                </>
               )}
             </div>
           </section>

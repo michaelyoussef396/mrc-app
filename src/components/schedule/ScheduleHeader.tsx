@@ -18,6 +18,8 @@ interface ScheduleHeaderProps {
   onTechnicianChange: (technicianId: string | null) => void;
   showCancelled: boolean;
   onShowCancelledChange: (show: boolean) => void;
+  selectedDate?: Date;
+  onDayChange?: (date: Date) => void;
 }
 
 // ============================================================================
@@ -32,7 +34,36 @@ export function ScheduleHeader({
   onTechnicianChange,
   showCancelled,
   onShowCancelledChange,
+  selectedDate,
+  onDayChange,
 }: ScheduleHeaderProps) {
+  // Mobile: day navigation
+  const handlePreviousDay = () => {
+    if (!selectedDate || !onDayChange) return;
+    const prev = new Date(selectedDate);
+    prev.setDate(prev.getDate() - 1);
+    onDayChange(prev);
+  };
+
+  const handleNextDay = () => {
+    if (!selectedDate || !onDayChange) return;
+    const next = new Date(selectedDate);
+    next.setDate(next.getDate() + 1);
+    onDayChange(next);
+  };
+
+  const handleTodayDay = () => {
+    if (onDayChange) onDayChange(new Date());
+  };
+
+  const formatSelectedDay = (date: Date): string =>
+    date.toLocaleDateString('en-AU', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+
+  // Desktop: week navigation
   const handlePreviousWeek = () => {
     const prev = new Date(weekStart);
     prev.setDate(prev.getDate() - 7);
@@ -55,8 +86,52 @@ export function ScheduleHeader({
       style={{ borderBottom: '1px solid #e5e5e5' }}
     >
       {/* Left: Navigation (hidden when viewing cancelled) */}
+
+      {/* MOBILE: Day navigation */}
+      {!showCancelled && selectedDate && onDayChange && (
+        <div className="flex items-center gap-3 lg:hidden">
+          <div
+            className="flex rounded-xl p-1"
+            style={{ backgroundColor: '#f0f2f4' }}
+          >
+            <button
+              onClick={handlePreviousDay}
+              className="flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all"
+              style={{ minWidth: '44px', minHeight: '44px' }}
+              aria-label="Previous day"
+            >
+              <span className="material-symbols-outlined text-sm" style={{ color: '#1d1d1f' }}>
+                arrow_back_ios
+              </span>
+            </button>
+            <button
+              onClick={handleTodayDay}
+              className="px-3 text-sm font-bold hover:bg-white hover:shadow-sm rounded-lg transition-all"
+              style={{ color: '#1d1d1f', minHeight: '44px' }}
+            >
+              Today
+            </button>
+            <button
+              onClick={handleNextDay}
+              className="flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm transition-all"
+              style={{ minWidth: '44px', minHeight: '44px' }}
+              aria-label="Next day"
+            >
+              <span className="material-symbols-outlined text-sm" style={{ color: '#1d1d1f' }}>
+                arrow_forward_ios
+              </span>
+            </button>
+          </div>
+
+          <h3 className="text-base font-bold" style={{ color: '#1d1d1f' }}>
+            {formatSelectedDay(selectedDate)}
+          </h3>
+        </div>
+      )}
+
+      {/* DESKTOP: Week navigation */}
       {!showCancelled && (
-        <div className="flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-3">
           <div
             className="flex rounded-xl p-1"
             style={{ backgroundColor: '#f0f2f4' }}
