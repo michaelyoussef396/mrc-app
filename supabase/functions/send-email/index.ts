@@ -118,6 +118,42 @@ Deno.serve(async (req) => {
       attachments,
     } = parsed.data
 
+    // Rate limiting: max 1 email to same recipient per 5 minutes
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    const { data: recentToRecipient } = await supabase
+      .from('email_logs')
+      .select('id')
+      .eq('recipient_email', to)
+      .eq('status', 'sent')
+      .gt('sent_at', fiveMinutesAgo)
+      .limit(1)
+
+    if (recentToRecipient && recentToRecipient.length > 0) {
+      return new Response(
+        JSON.stringify({ error: 'Rate limit: wait 5 minutes before resending to same recipient' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Global rate limit: max 100 emails per hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const { count: hourlyCount } = await supabase
+      .from('email_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'sent')
+      .gt('sent_at', oneHourAgo)
+
+    if ((hourlyCount || 0) >= 100) {
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded: 100 emails per hour' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Send email via Resend with retry
     const result = await sendWithRetry({
       from: from || 'Mould & Restoration Co <noreply@mrcsystem.com>',
@@ -129,10 +165,6 @@ Deno.serve(async (req) => {
     }, RESEND_API_KEY)
 
     // Log to email_logs table (both success and failure)
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseKey)
-
     await supabase.from('email_logs').insert({
       recipient_email: to,
       subject,

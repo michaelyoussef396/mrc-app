@@ -147,7 +147,22 @@ Deno.serve(async (req) => {
       )
     }
 
-    // All authenticated users can access user management
+    // AUTHORIZATION: Only admins can manage users
+    const { data: callerRoles } = await supabaseAdmin
+      .from('user_roles')
+      .select('roles:role_id(name)')
+      .eq('user_id', userId)
+
+    const callerRoleNames = (callerRoles || [])
+      .map((r: { roles: { name: string } | null }) => (r.roles as { name: string })?.name)
+      .filter(Boolean)
+
+    if (!callerRoleNames.includes('admin')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Only admins can manage users' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     const url = new URL(req.url)
     const targetUserId = url.searchParams.get('userId')
