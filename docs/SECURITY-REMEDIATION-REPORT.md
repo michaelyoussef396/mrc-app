@@ -1,7 +1,7 @@
 # MRC Security Remediation Report
 
 **Date:** 2026-03-11
-**Commits:** `6c6b22e` (error handling) + `8e4242a` (security hardening)
+**Commits:** `6c6b22e` (error handling) + `8e4242a` (security hardening) + `69aa6e8` (auth + audit + rate limiting)
 **Status:** PRODUCTION READY
 
 ---
@@ -208,13 +208,52 @@ All tables have Row Level Security enabled with appropriate policies:
 
 ---
 
-## Part 5: Follow-Up Items (Not In This Sprint)
+## Part 5: Security Hardening Phase 2 (Commit `69aa6e8`)
+
+### HIGH: manage-users Admin-Only Authorization
+
+**File:** `supabase/functions/manage-users/index.ts`
+**Problem:** Any authenticated user (including technicians) could create/edit/delete users
+**Fix:** Added role check via `user_roles` table — non-admins get 403
+
+```
+Flow: Auth check → JWT decode → user_roles query → admin check → proceed or 403
+```
+
+### MEDIUM: Audit Log Automation
+
+**File:** `supabase/migrations/20260311000001_add_audit_triggers.sql`
+**PostgreSQL triggers on:**
+
+| Table | Events | Actions Logged |
+|-------|--------|----------------|
+| leads | INSERT, UPDATE, DELETE | create_lead, update_lead, delete_lead |
+| inspections | INSERT, UPDATE, DELETE | create_inspection, update_inspection, delete_inspection |
+| inspection_areas | INSERT, UPDATE, DELETE | create/update/delete_inspection_area |
+| user_roles | INSERT, DELETE | grant_role, revoke_role |
+
+**Features:**
+- SECURITY DEFINER function bypasses RLS for logging
+- Metadata includes before/after JSON snapshots
+- audit_logs made **immutable** — DELETE and UPDATE blocked by triggers
+
+### MEDIUM: Email Rate Limiting
+
+**File:** `supabase/functions/send-email/index.ts`
+
+| Limit | Threshold | Response |
+|-------|-----------|----------|
+| Per-recipient | 1 email per 5 minutes | 429 + descriptive error |
+| Global hourly | 100 emails per hour | 429 + descriptive error |
+
+Rate checks query `email_logs` table before sending.
+
+---
+
+## Part 6: Remaining Follow-Up Items (LOW Priority — Phase 3)
 
 | Item | Priority | Notes |
 |------|----------|-------|
-| Audit log automation | MEDIUM | Add PostgreSQL triggers on leads/inspections mutations |
-| manage-users authorization | HIGH | Any authenticated user can manage users — needs admin-only guard |
-| Rate limiting on send-email | MEDIUM | Prevent email spam abuse via edge function |
 | MFA implementation | LOW | Tables exist (login_activity, user_devices, user_sessions) |
 | Data retention policies | LOW | No TTL/cleanup on log tables |
 | CSP monitoring | LOW | Add `report-uri` directive for CSP violation reporting |
@@ -239,6 +278,9 @@ All tables have Row Level Security enabled with appropriate policies:
 | CSP headers | Configured in vercel.json |
 | Service role isolated | YES (edge functions only) |
 | RLS coverage | 38/38 tables (100%) |
+| manage-users auth | Admin-only (403 for non-admins) |
+| Audit triggers | 11 triggers on 4 tables + immutable audit_logs |
+| Email rate limiting | 1/recipient/5min + 100/hour global |
 
 ---
 
@@ -301,3 +343,9 @@ All tables have Row Level Security enabled with appropriate policies:
 - `supabase/functions/calculate-travel-time/index.ts` — Zod
 - `supabase/functions/export-inspection-context/index.ts` — Zod
 - `vercel.json` — CSP + security headers
+
+### Security Hardening Phase 2 (Commit `69aa6e8` — 3 files, +160 lines)
+
+- `supabase/functions/manage-users/index.ts` — Admin-only authorization guard
+- `supabase/functions/send-email/index.ts` — Rate limiting (per-recipient + global)
+- `supabase/migrations/20260311000001_add_audit_triggers.sql` (NEW) — 11 audit triggers + immutable audit_logs
