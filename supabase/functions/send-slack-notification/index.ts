@@ -1,4 +1,31 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { z } from 'https://esm.sh/zod@3.22.4'
+
+const SlackNotificationSchema = z.object({
+  event: z.enum(['new_lead', 'inspection_booked', 'report_ready', 'report_approved', 'status_changed', 'lead_updated']),
+  leadId: z.string().max(500).optional(),
+  full_name: z.string().max(500).optional(),
+  phone: z.string().max(500).optional(),
+  email: z.string().max(500).optional(),
+  street_address: z.string().max(500).optional(),
+  suburb: z.string().max(500).optional(),
+  postcode: z.string().max(500).optional(),
+  state: z.string().max(500).optional(),
+  issue_description: z.string().max(500).optional(),
+  lead_source: z.string().max(500).optional(),
+  preferred_date: z.string().max(500).optional(),
+  preferred_time: z.string().max(500).optional(),
+  created_at: z.string().max(500).optional(),
+  leadName: z.string().max(500).optional(),
+  propertyAddress: z.string().max(500).optional(),
+  technicianName: z.string().max(500).optional(),
+  bookingDate: z.string().max(500).optional(),
+  oldStatus: z.string().max(500).optional(),
+  newStatus: z.string().max(500).optional(),
+  oldStatusLabel: z.string().max(500).optional(),
+  newStatusLabel: z.string().max(500).optional(),
+  changedFields: z.string().max(500).optional(),
+})
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -283,7 +310,17 @@ Deno.serve(async (req) => {
       )
     }
 
-    const notification: SlackNotification = await req.json()
+    const rawBody = await req.json()
+    const parseResult = SlackNotificationSchema.safeParse(rawBody)
+
+    if (!parseResult.success) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body', issues: parseResult.error.issues }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const notification = parseResult.data as SlackNotification
 
     let payload
     switch (notification.event) {

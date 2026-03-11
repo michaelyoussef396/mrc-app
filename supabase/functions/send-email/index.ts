@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { z } from 'https://esm.sh/zod@3.22.4'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,21 +8,21 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-interface EmailRequest {
-  to: string
-  subject: string
-  html: string
-  from?: string
-  replyTo?: string
-  leadId?: string
-  inspectionId?: string
-  templateName?: string
-  attachments?: Array<{
-    filename: string
-    content: string
-    content_type: string
-  }>
-}
+const EmailRequestSchema = z.object({
+  to: z.string().email(),
+  subject: z.string().min(1).max(500),
+  html: z.string().min(1).max(500_000),
+  from: z.string().optional(),
+  replyTo: z.string().email().optional(),
+  leadId: z.string().uuid().optional(),
+  inspectionId: z.string().uuid().optional(),
+  templateName: z.string().max(100).optional(),
+  attachments: z.array(z.object({
+    filename: z.string().max(255),
+    content: z.string(),
+    content_type: z.string().max(100),
+  })).optional(),
+})
 
 interface SendResult {
   success: boolean
@@ -95,6 +96,16 @@ Deno.serve(async (req) => {
       )
     }
 
+    const rawBody = await req.json()
+    const parsed = EmailRequestSchema.safeParse(rawBody)
+
+    if (!parsed.success) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request', details: parsed.error.flatten() }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const {
       to,
       subject,
@@ -105,14 +116,7 @@ Deno.serve(async (req) => {
       inspectionId,
       templateName,
       attachments,
-    }: EmailRequest = await req.json()
-
-    if (!to || !subject || !html) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: to, subject, html' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    } = parsed.data
 
     // Send email via Resend with retry
     const result = await sendWithRetry({

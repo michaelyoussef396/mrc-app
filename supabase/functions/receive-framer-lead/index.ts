@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { z } from 'https://esm.sh/zod@3.22.4'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -58,6 +59,19 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_RE = /^[\d\s()+-]{8,15}$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const TIME_RE = /^\d{1,2}:\d{2}(:\d{2})?$/
+
+const ParsedLeadSchema = z.object({
+  fullName: z.string().min(1).max(200),
+  phone: z.string().min(8).max(20),
+  email: z.string().email().max(254),
+  street: z.string().max(500).optional(),
+  suburb: z.string().max(100).optional(),
+  preferredDate: z.string().max(30).optional(),
+  preferredTime: z.string().max(20).optional(),
+  issueDescription: z.string().max(5000).optional(),
+})
+
+const MAX_BODY_SIZE = 50_000
 
 interface FramerLeadPayload {
   full_name: string
@@ -328,6 +342,14 @@ Deno.serve(async (req) => {
     console.log('Raw body (first 1000 chars):', rawBody.substring(0, 1000))
     console.log('Raw body length:', rawBody.length)
 
+    // Body size check — reject oversized payloads
+    if (rawBody.length > MAX_BODY_SIZE) {
+      return new Response(
+        JSON.stringify({ error: 'Request body too large' }),
+        { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     if (contentType.includes('multipart/form-data')) {
       // Re-parse as FormData from raw text - need a new Request
       const newReq = new Request(req.url, {
@@ -464,9 +486,20 @@ Deno.serve(async (req) => {
 
     console.log('Final parsed fields:', { fullName, phone, email, street, suburb, preferredDate, preferredTime, issueDescription })
 
-    if (!fullName || !phone || !email) {
+    const parsedLead = ParsedLeadSchema.safeParse({
+      fullName: fullName || undefined,
+      phone: phone || undefined,
+      email: email || undefined,
+      street: street || undefined,
+      suburb: suburb || undefined,
+      preferredDate: preferredDate || undefined,
+      preferredTime: preferredTime || undefined,
+      issueDescription: issueDescription || undefined,
+    })
+
+    if (!parsedLead.success) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: full_name, phone, email' }),
+        JSON.stringify({ error: 'Invalid lead data', details: parsedLead.error.flatten() }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }

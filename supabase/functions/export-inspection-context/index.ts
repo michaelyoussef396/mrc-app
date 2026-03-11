@@ -2,6 +2,18 @@
 // Exports full lead + inspection data as JSON for prompt refinement and debugging
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { z } from 'https://esm.sh/zod@3.22.4'
+
+// ============================================================================
+// ZOD SCHEMAS
+// ============================================================================
+
+const ExportRequestSchema = z.object({
+  leadId: z.string().uuid().optional(),
+  inspectionId: z.string().uuid().optional(),
+}).refine(data => data.leadId || data.inspectionId, {
+  message: 'At least one of leadId or inspectionId must be provided',
+})
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,14 +33,17 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { leadId, inspectionId } = await req.json()
+    const rawBody = await req.json()
+    const parseResult = ExportRequestSchema.safeParse(rawBody)
 
-    if (!leadId && !inspectionId) {
+    if (!parseResult.success) {
       return new Response(
-        JSON.stringify({ error: 'Missing leadId or inspectionId in request body' }),
+        JSON.stringify({ error: 'Validation failed', details: parseResult.error.flatten() }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    const { leadId, inspectionId } = parseResult.data
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!

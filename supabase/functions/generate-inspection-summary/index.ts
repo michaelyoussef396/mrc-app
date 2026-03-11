@@ -1,6 +1,17 @@
 // Supabase Edge Function: generate-inspection-summary
 // Calls OpenRouter AI to generate professional MRC inspection report sections
 
+import { z } from 'https://esm.sh/zod@3.22.4'
+
+const RequestBodySchema = z.object({
+  formData: z.record(z.unknown()),
+  section: z.string().optional(),
+  structured: z.boolean().optional(),
+  customPrompt: z.string().max(2000, 'customPrompt must be 2000 characters or less').optional(),
+  currentContent: z.string().optional(),
+  feedback: z.string().optional(),
+})
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -453,14 +464,17 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { formData, section, structured, customPrompt, currentContent }: RequestBody = await req.json()
+    const rawBody = await req.json()
+    const parseResult = RequestBodySchema.safeParse(rawBody)
 
-    if (!formData) {
+    if (!parseResult.success) {
       return new Response(
-        JSON.stringify({ error: 'Missing formData in request body' }),
+        JSON.stringify({ error: 'Invalid request body', issues: parseResult.error.issues }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    const { formData, section, structured, customPrompt, currentContent } = parseResult.data as RequestBody
 
     const userDataPrompt = buildUserPrompt(formData)
     const hasDemolition = formData.areas?.some(a => a.demolitionRequired) || false

@@ -1,10 +1,54 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { z } from 'https://esm.sh/zod@3.22.4'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+// ============================================================================
+// ZOD SCHEMAS
+// ============================================================================
+
+const TriageLeadSchema = z.object({
+  action: z.literal('triage_lead'),
+  lead_id: z.string().uuid(),
+})
+
+const CheckAvailabilitySchema = z.object({
+  action: z.literal('check_availability'),
+  technician_id: z.string().uuid(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
+  requested_time: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be HH:MM'),
+  destination_address: z.string().min(1),
+  override_start_address: z.string().optional(),
+  duration_minutes: z.number().positive().optional(),
+})
+
+const RecommendedDatesSchema = z.object({
+  action: z.literal('get_recommended_dates'),
+  technician_id: z.string().uuid(),
+  destination_address: z.string().min(1),
+  destination_suburb: z.string().optional(),
+  days_ahead: z.number().positive().optional(),
+  duration_minutes: z.number().positive().optional(),
+  preferred_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD').optional(),
+  preferred_time: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be HH:MM').optional(),
+})
+
+const TravelTimeSchema = z.object({
+  origin: z.string().min(1),
+  destination: z.string().min(1),
+  departure_time: z.union([z.number(), z.literal('now')]).optional(),
+})
+
+const RequestBodySchema = z.union([
+  TriageLeadSchema,
+  CheckAvailabilitySchema,
+  RecommendedDatesSchema,
+  TravelTimeSchema,
+])
 
 // ============================================================================
 // TYPES
@@ -393,21 +437,23 @@ Deno.serve(async (req) => {
 
     const body = await req.json()
 
+    // Validate request body with Zod
+    const parseResult = RequestBodySchema.safeParse(body)
+    if (!parseResult.success) {
+      return new Response(
+        JSON.stringify({
+          error: 'Validation failed',
+          details: parseResult.error.flatten()
+        } as ErrorResponse),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // ========================================================================
     // ACTION: triage_lead
     // ========================================================================
     if (body.action === 'triage_lead') {
       const { lead_id } = body as TriageLeadRequest
-
-      if (!lead_id) {
-        return new Response(
-          JSON.stringify({
-            error: 'Missing required field',
-            details: 'lead_id is required'
-          } as ErrorResponse),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
 
       if (!supabaseUrl || !serviceRoleKey) {
         return new Response(
@@ -608,15 +654,7 @@ Deno.serve(async (req) => {
     if (body.action === 'check_availability') {
       const { technician_id, date, requested_time, destination_address, override_start_address } = body as AvailabilityRequest
 
-      if (!technician_id || !date || !requested_time || !destination_address) {
-        return new Response(
-          JSON.stringify({
-            error: 'Missing required fields',
-            details: 'technician_id, date, requested_time, and destination_address are required'
-          } as ErrorResponse),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+      // Validation already handled by Zod schema above
 
       if (!supabaseUrl || !serviceRoleKey) {
         return new Response(
@@ -806,15 +844,7 @@ Deno.serve(async (req) => {
         preferred_time
       } = body as RecommendedDatesRequest
 
-      if (!technician_id || !destination_address) {
-        return new Response(
-          JSON.stringify({
-            error: 'Missing required fields',
-            details: 'technician_id and destination_address are required'
-          } as ErrorResponse),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+      // Validation already handled by Zod schema above
 
       if (!supabaseUrl || !serviceRoleKey) {
         return new Response(
@@ -1066,12 +1096,7 @@ Deno.serve(async (req) => {
     // ========================================================================
     const { origin, destination, departure_time = 'now' }: TravelTimeRequest = body
 
-    if (!origin || !destination) {
-      return new Response(
-        JSON.stringify({ error: 'Origin and destination are required' } as ErrorResponse),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    // Validation already handled by Zod schema above
 
     // Build the Google Maps Distance Matrix API URL
     const params = new URLSearchParams({

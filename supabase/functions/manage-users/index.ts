@@ -1,5 +1,30 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import { decode } from 'https://deno.land/std@0.208.0/encoding/base64url.ts'
+import { z } from 'https://esm.sh/zod@3.22.4'
+
+// ============================================================================
+// ZOD SCHEMAS
+// ============================================================================
+
+const CreateUserSchema = z.object({
+  email: z.string().email(),
+  first_name: z.string().min(1).max(100),
+  last_name: z.string().max(100).optional(),
+  phone: z.string().max(20).optional(),
+  password: z.string().min(8).max(128),
+  home_address: z.record(z.unknown()).nullable().optional(),
+  role: z.enum(['admin', 'technician', 'developer']).optional(),
+})
+
+const UpdateUserSchema = z.object({
+  email: z.string().email().optional(),
+  password: z.string().min(8).max(128).optional(),
+  first_name: z.string().max(100).optional(),
+  last_name: z.string().max(100).optional(),
+  phone: z.string().max(20).optional(),
+  is_active: z.boolean().optional(),
+  starting_address: z.record(z.unknown()).nullable().optional(),
+}).refine(data => Object.keys(data).length > 0, { message: 'At least one field required for update' })
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -186,29 +211,17 @@ Deno.serve(async (req) => {
 
     // POST - Create new user with password (direct creation, no invite needed)
     if (req.method === 'POST') {
-      const userData: UserData = await req.json()
+      const rawBody = await req.json()
+      const parseResult = CreateUserSchema.safeParse(rawBody)
 
-      if (!userData.email || !userData.first_name) {
+      if (!parseResult.success) {
         return new Response(
-          JSON.stringify({ success: false, error: 'Missing required fields: email, first_name' }),
+          JSON.stringify({ success: false, error: 'Validation failed', details: parseResult.error.flatten() }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      if (!userData.password) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Password is required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
-      // Validate password strength
-      if (userData.password.length < 8) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Password must be at least 8 characters' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+      const userData = parseResult.data
 
       // Create user directly with password (no email confirmation needed since admin is creating)
       const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -296,7 +309,17 @@ Deno.serve(async (req) => {
         )
       }
 
-      const updateData: UpdateUserData = await req.json()
+      const rawBody = await req.json()
+      const parseResult = UpdateUserSchema.safeParse(rawBody)
+
+      if (!parseResult.success) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Validation failed', details: parseResult.error.flatten() }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const updateData = parseResult.data
 
       // Build auth update object
       const authUpdate: { email?: string; password?: string; user_metadata?: Record<string, unknown> } = {}

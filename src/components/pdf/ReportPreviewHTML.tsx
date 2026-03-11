@@ -3,6 +3,7 @@
 // Fetches HTML content and renders it directly to avoid cross-origin issues
 
 import { useState, useEffect, useRef } from 'react'
+import DOMPurify from 'dompurify'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/integrations/supabase/client'
 import {
@@ -301,7 +302,20 @@ export function ReportPreviewHTML({
           html = await response.text()
         }
 
-        setHtmlContent(html)
+        // Sanitize HTML to prevent XSS from user-controlled data in PDF template
+        const sanitized = DOMPurify.sanitize(html, {
+          ALLOWED_TAGS: [
+            'div', 'span', 'p', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'tfoot',
+            'img', 'strong', 'em', 'b', 'i', 'u', 'ul', 'ol', 'li', 'br', 'a',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'section', 'footer',
+            'sup', 'sub', 'hr', 'colgroup', 'col', 'caption',
+          ],
+          ALLOWED_ATTR: [
+            'style', 'src', 'alt', 'class', 'width', 'height', 'id',
+            'colspan', 'rowspan', 'href', 'target', 'rel',
+          ],
+        })
+        setHtmlContent(sanitized)
         setLoading(false)
         onLoadSuccess?.()
       } catch (err) {

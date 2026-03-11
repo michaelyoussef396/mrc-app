@@ -4,6 +4,7 @@
 // Returns: Populated HTML for client-side PDF generation OR stored HTML URL
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { z } from 'https://esm.sh/zod@3.22.4'
 
 // Static PDF assets hosted in Supabase Storage (public bucket)
 const ASSET_BASE = 'https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets'
@@ -156,10 +157,22 @@ interface Inspection {
   photos?: Photo[]
 }
 
-interface RequestBody {
-  inspectionId: string
-  regenerate?: boolean
-  returnHtml?: boolean
+const RequestBodySchema = z.object({
+  inspectionId: z.string().uuid(),
+  regenerate: z.boolean().optional().default(false),
+  returnHtml: z.boolean().optional().default(false),
+})
+type RequestBody = z.infer<typeof RequestBodySchema>
+
+// Escape user-controlled strings before HTML template interpolation to prevent XSS
+function escapeHtml(str: string | null | undefined): string {
+  if (!str) return ''
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 // Format currency in Australian format
@@ -348,7 +361,13 @@ function getEquipmentList(inspection: Inspection): string {
 function markdownToHtml(text: string | null | undefined): string {
   if (!text) return ''
 
+  // Escape HTML entities in the raw text first to prevent injection,
+  // but preserve markdown syntax characters (*, #, -, etc.)
   let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 
   // Convert bold **text** to <strong>text</strong>
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
@@ -1079,14 +1098,14 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
     }
 
     // Environmental readings
-    page = page.replace(/\{\{area_name\}\}/g, area.area_name || 'Unnamed Area')
+    page = page.replace(/\{\{area_name\}\}/g, escapeHtml(area.area_name || 'Unnamed Area'))
     page = page.replace(/\{\{area_temperature\}\}/g, `${area.temperature || 0}°C`)
     page = page.replace(/\{\{area_humidity\}\}/g, `${area.humidity || 0}%`)
     page = page.replace(/\{\{area_dew_point\}\}/g, `${area.dew_point || 0}°C`)
 
     // Mould description
     const mouldLocations = getMouldDescription(area)
-    page = page.replace(/\{\{visible_mould\}\}/g, mouldLocations)
+    page = page.replace(/\{\{visible_mould\}\}/g, escapeHtml(mouldLocations))
 
     // Moisture readings
     const moistureReadings = area.moisture_readings?.sort((a, b) => (a.reading_order || 0) - (b.reading_order || 0)) || []
@@ -1109,7 +1128,7 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
     page = page.replace(/\{\{area_natural_infrared_photo\}\}/g, naturalInfraredPhoto?.storage_path ? getPhotoUrl(naturalInfraredPhoto.storage_path) : '')
 
     // Notes
-    page = page.replace(/\{\{area_notes\}\}/g, area.comments || 'No notes recorded for this area.')
+    page = page.replace(/\{\{area_notes\}\}/g, escapeHtml(area.comments || 'No notes recorded for this area.'))
     page = page.replace(/\{\{extra_notes\}\}/g, infraredPhoto || naturalInfraredPhoto
       ? 'Thermal imaging reveals moisture patterns not visible to the naked eye.'
       : '')
@@ -1310,14 +1329,14 @@ function generateReportHtml(
   const problemSections = parseProblemAnalysis(
     inspection.problem_analysis_content || inspection.ai_summary_text
   )
-  const defaultAnalysis = `During our comprehensive inspection at ${propertyAddress}, we identified mould growth in the examined areas requiring professional treatment.`
+  const defaultAnalysis = `During our comprehensive inspection at ${escapeHtml(propertyAddress)}, we identified mould growth in the examined areas requiring professional treatment.`
 
   // Demolition content — use AI-generated field, fall back to area descriptions
   const demolitionAreas = inspection.areas?.filter(a => a.demolition_required) || []
   const demolitionContent = inspection.demolition_content?.trim()
     ? markdownToHtml(inspection.demolition_content)
     : demolitionAreas.length > 0
-      ? demolitionAreas.map(a => `<strong>${a.area_name}:</strong> ${a.demolition_description || 'Demolition work required.'}`).join('<br/><br/>')
+      ? demolitionAreas.map(a => `<strong>${escapeHtml(a.area_name)}:</strong> ${escapeHtml(a.demolition_description || 'Demolition work required.')}`).join('<br/><br/>')
       : ''
 
   // Equipment pricing
@@ -1337,14 +1356,14 @@ function generateReportHtml(
   html = html.replace(/url\('\/pages\//g, `url('${ASSET_BASE}/pages/`)
 
   // ===== PAGE 1: COVER =====
-  html = html.replace(/\{\{ordered_by\}\}/g, getValidValue(inspection.requested_by, lead?.full_name, 'Property Owner'))
-  html = html.replace(/\{\{inspector\}\}/g, inspectorName)
+  html = html.replace(/\{\{ordered_by\}\}/g, escapeHtml(getValidValue(inspection.requested_by, lead?.full_name, 'Property Owner')))
+  html = html.replace(/\{\{inspector\}\}/g, escapeHtml(inspectorName))
   html = html.replace(/\{\{inspection_date\}\}/g, formatDate(inspection.inspection_date))
-  html = html.replace(/\{\{directed_to\}\}/g, getValidValue(inspection.attention_to, lead?.full_name, 'Property Owner'))
-  html = html.replace(/\{\{property_type\}\}/g, lead?.property_type || inspection.dwelling_type || 'Residential')
-  html = html.replace(/\{\{examined_areas\}\}/g, examinedAreas)
+  html = html.replace(/\{\{directed_to\}\}/g, escapeHtml(getValidValue(inspection.attention_to, lead?.full_name, 'Property Owner')))
+  html = html.replace(/\{\{property_type\}\}/g, escapeHtml(lead?.property_type || inspection.dwelling_type || 'Residential'))
+  html = html.replace(/\{\{examined_areas\}\}/g, escapeHtml(examinedAreas))
   html = html.replace(/\{\{cover_photo_url\}\}/g, coverPhotoUrl)
-  html = html.replace(/\{\{property_address\}\}/g, propertyAddress)
+  html = html.replace(/\{\{property_address\}\}/g, escapeHtml(propertyAddress))
 
   // Increase Page 1 label font size from 17px → 19px (ORDERED BY, INSPECTOR, DATE, etc.)
   html = html.replace(
@@ -1566,10 +1585,10 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Parse request body
-    let body: RequestBody
+    // Parse and validate request body
+    let rawBody: unknown
     try {
-      body = await req.json()
+      rawBody = await req.json()
     } catch {
       return new Response(
         JSON.stringify({ error: 'Invalid JSON in request body' }),
@@ -1577,14 +1596,15 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { inspectionId, regenerate = false, returnHtml = false } = body
-
-    if (!inspectionId) {
+    const parsed = RequestBodySchema.safeParse(rawBody)
+    if (!parsed.success) {
       return new Response(
-        JSON.stringify({ error: 'Missing inspectionId in request body' }),
+        JSON.stringify({ error: 'Invalid request body', details: parsed.error.issues }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    const { inspectionId, regenerate, returnHtml } = parsed.data
 
     console.log(`Generating PDF for inspection: ${inspectionId}, regenerate: ${regenerate}`)
 
