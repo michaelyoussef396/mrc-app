@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { AddressAutocomplete, type AddressValue } from "@/components/booking";
 import { sendEmail, sendSlackNotification, buildBookingConfirmationHtml } from "@/lib/api/notifications";
 import { checkBookingConflict } from "@/lib/bookingService";
+import { captureBusinessError } from "@/lib/sentry";
 
 interface BookInspectionModalProps {
   open: boolean;
@@ -322,7 +323,10 @@ export function BookInspectionModal({
 
       onOpenChange(false);
     } catch (error) {
-      console.error("Error booking inspection:", error);
+      captureBusinessError('Book inspection modal failed', {
+        leadId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       toast.error("Failed to book inspection");
     } finally {
       setLoading(false);

@@ -10,7 +10,8 @@ import RoleProtectedRoute from "@/components/RoleProtectedRoute";
 import { GlobalLoader, ProgressBar, PageTransition } from "@/components/loading";
 
 import { useSessionRefresh } from "@/lib/hooks/useSessionRefresh";
-import ErrorBoundary from "@/components/ErrorBoundary";
+import ErrorBoundary, { PageErrorBoundary } from "@/components/ErrorBoundary";
+import OfflineBanner from "@/components/OfflineBanner";
 import { Loader2 } from "lucide-react";
 
 // Eagerly loaded pages (login flow - needed immediately)
@@ -58,6 +59,11 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 2 * 60 * 1000, // 2 minutes — prevents refetch on every navigation
       refetchOnWindowFocus: false,
+      retry: 2,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+    },
+    mutations: {
+      retry: false,
     },
   },
 });
@@ -67,6 +73,7 @@ const AppContent = () => {
 
   return (
     <>
+      <OfflineBanner />
       <ProgressBar />
       <PageTransition location={location.pathname}>
         <Suspense fallback={<PageLoader />}>
@@ -148,7 +155,9 @@ const AppContent = () => {
                 <ProtectedRoute>
                   <RoleProtectedRoute allowedRoles={["admin"]}>
                     <Suspense fallback={<GlobalLoader />}>
-                      <InspectionAIReview />
+                      <PageErrorBoundary name="ai-review">
+                        <InspectionAIReview />
+                      </PageErrorBoundary>
                     </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>
@@ -272,7 +281,9 @@ const AppContent = () => {
                 <ProtectedRoute>
                   <RoleProtectedRoute allowedRoles={["technician"]}>
                     <Suspense fallback={<GlobalLoader />}>
-                      <TechnicianInspectionForm />
+                      <PageErrorBoundary name="inspection-form">
+                        <TechnicianInspectionForm />
+                      </PageErrorBoundary>
                     </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>
@@ -355,7 +366,9 @@ const AppContent = () => {
                 <ProtectedRoute>
                   <RoleProtectedRoute allowedRoles={["admin"]}>
                     <Suspense fallback={<GlobalLoader />}>
-                      <LeadDetail />
+                      <PageErrorBoundary name="lead-detail">
+                        <LeadDetail />
+                      </PageErrorBoundary>
                     </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>

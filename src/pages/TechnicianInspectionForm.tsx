@@ -24,6 +24,7 @@ import type {
   Photo,
 } from '@/types/inspection';
 import { validateInspectionCompletion } from '@/lib/schemas/inspectionSchema';
+import { captureBusinessError } from '@/lib/sentry';
 
 // Helper: invoke edge functions via direct fetch (bypasses supabase.functions.invoke timeout issues)
 async function invokeEdgeFunction(functionName: string, body: object): Promise<{ data: any; error: any }> {
@@ -3442,7 +3443,12 @@ export default function TechnicianInspectionForm() {
         });
       }
     } catch (err: any) {
-      console.error('[InspectionForm] Save error:', err);
+      captureBusinessError('Inspection form save failed', {
+        leadId,
+        inspectionId: currentInspectionId,
+        section: currentSection,
+        error: err?.message || String(err),
+      });
       toast({
         title: 'Save Failed',
         description: err?.message || 'Failed to save inspection data',
@@ -3469,6 +3475,63 @@ export default function TechnicianInspectionForm() {
     }, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // localStorage backup — saves form state every 30s as crash recovery
+  const localStorageKey = currentInspectionId ? `mrc_inspection_backup_${currentInspectionId}` : null;
+
+  useEffect(() => {
+    if (!localStorageKey || !hasUnsavedChanges) return;
+    const backupTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(localStorageKey, JSON.stringify({
+          formData,
+          currentSection,
+          savedAt: new Date().toISOString(),
+        }));
+      } catch {
+        // localStorage full or unavailable — ignore
+      }
+    }, 30000);
+    return () => clearTimeout(backupTimer);
+  }, [formData, currentSection, localStorageKey, hasUnsavedChanges]);
+
+  // On mount: check for localStorage backup and offer restore
+  useEffect(() => {
+    if (!localStorageKey) return;
+    try {
+      const backup = localStorage.getItem(localStorageKey);
+      if (backup) {
+        const parsed = JSON.parse(backup);
+        const savedAt = new Date(parsed.savedAt);
+        const ageMinutes = (Date.now() - savedAt.getTime()) / 60000;
+        // Only offer restore if backup is less than 24 hours old
+        if (ageMinutes < 1440 && parsed.formData) {
+          toast({
+            title: 'Unsaved work found',
+            description: `You have a backup from ${savedAt.toLocaleTimeString('en-AU')}. Tap to restore.`,
+            duration: 10000,
+            action: {
+              label: 'Restore',
+              onClick: () => {
+                setFormData(parsed.formData);
+                if (parsed.currentSection) setCurrentSection(parsed.currentSection);
+                toast({ title: 'Restored', description: 'Your previous work has been restored.' });
+              },
+            },
+          } as any);
+        }
+      }
+    } catch {
+      // Corrupt backup — ignore
+    }
+  }, [localStorageKey]);
+
+  // Clear localStorage backup on successful save
+  useEffect(() => {
+    if (!hasUnsavedChanges && localStorageKey) {
+      try { localStorage.removeItem(localStorageKey); } catch {}
+    }
+  }, [hasUnsavedChanges, localStorageKey]);
 
   // Form validation before submit
   const [validationErrors, setValidationErrors] = useState<{ section: number; label: string; message: string }[]>([]);
@@ -3552,7 +3615,11 @@ export default function TechnicianInspectionForm() {
         });
         navigate('/technician');
       } catch (err: any) {
-        console.error('[Complete Inspection] Error:', err);
+        captureBusinessError('Complete inspection failed', {
+          leadId,
+          inspectionId: currentInspectionId,
+          error: err?.message || String(err),
+        });
         toast({
           title: 'Error',
           description: err?.message || 'Failed to complete inspection. Please try again.',

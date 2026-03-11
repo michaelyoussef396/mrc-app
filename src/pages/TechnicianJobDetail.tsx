@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { setInspectionContext, clearInspectionContext } from '@/lib/sentry';
 import { useToast } from '@/hooks/use-toast';
 import { TechnicianBottomNav } from '@/components/technician';
 import { Button } from '@/components/ui/button';
@@ -128,7 +129,10 @@ export default function TechnicianJobDetail() {
         .limit(1)
         .maybeSingle();
 
-      if (inspectionData) setInspection(inspectionData);
+      if (inspectionData) {
+        setInspection(inspectionData);
+        setInspectionContext(inspectionData.id, id);
+      }
     } catch (err: unknown) {
       console.error('Error fetching job details:', err);
       toast({
@@ -143,6 +147,8 @@ export default function TechnicianJobDetail() {
 
   useEffect(() => {
     fetchJobData();
+    if (id) setInspectionContext('', id);
+    return () => clearInspectionContext();
   }, [id]);
 
   // Sync edit state when lead loads/changes

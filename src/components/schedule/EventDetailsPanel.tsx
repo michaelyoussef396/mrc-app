@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { CalendarEvent } from '@/hooks/useScheduleCalendar';
 import { formatTimeForDisplay } from '@/lib/bookingService';
+import { captureBusinessError } from '@/lib/sentry';
 import {
   Sheet,
   SheetContent,
@@ -78,7 +79,7 @@ export function EventDetailsPanel({ event, open, onClose }: EventDetailsPanelPro
       toast.success('Booking cancelled');
       onClose();
     } catch (err) {
-      console.error('Failed to cancel booking:', err);
+      captureBusinessError('Failed to cancel booking', { eventId: event.id, error: err instanceof Error ? err.message : String(err) });
       toast.error('Failed to cancel booking');
     }
   };

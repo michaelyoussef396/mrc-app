@@ -2,9 +2,15 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  define: {
+    __APP_VERSION__: JSON.stringify(
+      `mrc-app@${process.env.npm_package_version || "0.0.0"}`
+    ),
+  },
   server: {
     host: "::",
     port: 8080,
@@ -96,6 +102,18 @@ export default defineConfig(({ mode }) => ({
         ],
       },
     }),
+    sentryVitePlugin({
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      release: {
+        name: `mrc-app@${process.env.npm_package_version || "0.0.0"}`,
+      },
+      sourcemaps: {
+        filesToDeleteAfterUpload: ["./dist/**/*.map"],
+      },
+      disable: mode !== "production",
+    }),
   ].filter(Boolean),
   resolve: {
     alias: {
@@ -103,6 +121,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    sourcemap: "hidden",
     rollupOptions: {
       output: {
         manualChunks: {
@@ -134,6 +153,8 @@ export default defineConfig(({ mode }) => ({
           'vendor-form': ['react-hook-form', '@hookform/resolvers', 'zod'],
           // Charts
           'vendor-charts': ['recharts'],
+          // Error tracking
+          'vendor-sentry': ['@sentry/react'],
         },
       },
     },

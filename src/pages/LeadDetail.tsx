@@ -56,6 +56,7 @@ import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/
 import { STATUS_FLOW, LeadStatus } from "@/lib/statusFlow";
 import { sendSlackNotification } from "@/lib/api/notifications";
 import { useActivityTimeline } from "@/hooks/useActivityTimeline";
+import { captureBusinessError } from "@/lib/sentry";
 import { ActivityTimeline } from "@/components/dashboard/ActivityTimeline";
 import { toast } from "sonner";
 
@@ -234,6 +235,7 @@ export default function LeadDetail() {
       .eq("id", lead.id);
 
     if (error) {
+      captureBusinessError("Failed to update lead status", { leadId: lead.id, status, error: error.message });
       toast.error("Failed to update status");
       return;
     }
@@ -265,6 +267,7 @@ export default function LeadDetail() {
     const { error } = await supabase.from("leads").delete().eq("id", lead.id);
 
     if (error) {
+      captureBusinessError("Failed to delete lead", { leadId: lead.id, error: error.message });
       toast.error("Failed to delete lead");
       return;
     }

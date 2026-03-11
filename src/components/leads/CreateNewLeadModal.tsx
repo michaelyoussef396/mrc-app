@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
 import { sendSlackNotification } from '@/lib/api/notifications';
 import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
+import { captureBusinessError } from '@/lib/sentry';
 
 // ============================================================================
 // TYPES
@@ -433,7 +434,11 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
       setModalState('success');
       if (onSuccess) onSuccess(data.id);
     } catch (err) {
-      console.error('[CreateNewLead] Error:', err);
+      captureBusinessError('Create new lead failed', {
+        error: err instanceof Error ? err.message : String(err),
+        customerName: formData.fullName,
+        source: formData.source,
+      });
       setErrors({
         general: err instanceof Error ? err.message : 'Failed to create lead. Please try again.',
       });

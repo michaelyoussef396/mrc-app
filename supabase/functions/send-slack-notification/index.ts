@@ -322,6 +322,30 @@ Deno.serve(async (req) => {
     )
   } catch (error) {
     console.error('Error sending Slack notification:', error)
+
+    // Log to error_logs table (fire-and-forget, non-blocking)
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+      if (supabaseUrl && supabaseServiceKey) {
+        await fetch(`${supabaseUrl}/rest/v1/error_logs`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseServiceKey,
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            error_type: 'edge_function_error',
+            severity: 'warning',
+            message: `Slack notification failed: ${error.message}`,
+            context: { function: 'send-slack-notification' },
+            source: 'edge_function',
+          }),
+        })
+      }
+    } catch { /* non-blocking */ }
+
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

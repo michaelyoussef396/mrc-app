@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { calculatePropertyZone, cleanPhoneNumber } from "@/lib/leadUtils";
 import { sendSlackNotification } from "@/lib/api/notifications";
+import { captureBusinessError } from "@/lib/sentry";
 
 interface LeadUpdatePayload {
   full_name?: string;
@@ -100,6 +101,7 @@ export function useLeadUpdate(leadId: string) {
       return true;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to update lead";
+      captureBusinessError("Lead update failed", { leadId, error: message });
       toast.error(message);
       return false;
     } finally {

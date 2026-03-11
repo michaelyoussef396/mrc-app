@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { captureBusinessError } from '@/lib/sentry';
 
 // Types
 export interface Notification {
@@ -139,9 +140,11 @@ export function useMarkAsRead() {
       if (error) throw error;
     },
     onSuccess: () => {
-      // Invalidate queries to refetch
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['unread-count'] });
+    },
+    onError: (error) => {
+      captureBusinessError('Failed to mark notification as read', { error: error.message });
     },
   });
 }
@@ -165,6 +168,9 @@ export function useMarkAsUnread() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['unread-count'] });
+    },
+    onError: (error) => {
+      captureBusinessError('Failed to mark notification as unread', { error: error.message });
     },
   });
 }
@@ -193,6 +199,9 @@ export function useMarkAllAsRead() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['unread-count'] });
     },
+    onError: (error) => {
+      captureBusinessError('Failed to mark all notifications as read', { error: error.message });
+    },
   });
 }
 
@@ -212,6 +221,9 @@ export function useDeleteNotification() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['unread-count'] });
+    },
+    onError: (error) => {
+      captureBusinessError('Failed to delete notification', { error: error.message });
     },
   });
 }

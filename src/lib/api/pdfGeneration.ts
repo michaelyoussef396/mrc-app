@@ -2,6 +2,7 @@
 // Calls the generate-inspection-pdf Supabase Edge Function
 
 import { supabase } from '@/integrations/supabase/client'
+import { addBusinessBreadcrumb, captureBusinessError } from '@/lib/sentry'
 
 export interface PDFGenerationResult {
   success: boolean
@@ -47,6 +48,8 @@ export async function generateInspectionPDF(
     }
 
 
+    addBusinessBreadcrumb('PDF generation started', { inspectionId, regenerate: options.regenerate })
+
     // Use direct fetch instead of supabase.functions.invoke to debug the issue
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
     const functionUrl = `${supabaseUrl}/functions/v1/generate-inspection-pdf`
@@ -70,6 +73,11 @@ export async function generateInspectionPDF(
     if (!response.ok) {
       const errorText = await response.text()
       console.error('[PDF Generation] Error response:', errorText)
+      captureBusinessError('PDF generation failed', {
+        inspectionId,
+        statusCode: response.status,
+        error: errorText,
+      })
       return {
         success: false,
         error: `Server error (${response.status}): ${errorText}`
@@ -88,11 +96,10 @@ export async function generateInspectionPDF(
     }
   } catch (error) {
     console.error('[PDF Generation] Caught error:', error)
-    if (error instanceof Error) {
-      console.error('[PDF Generation] Error name:', error.name)
-      console.error('[PDF Generation] Error message:', error.message)
-      console.error('[PDF Generation] Error stack:', error.stack)
-    }
+    captureBusinessError('PDF generation exception', {
+      inspectionId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred'

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client'
+import { captureBusinessError, addBusinessBreadcrumb } from '@/lib/sentry'
 
 export interface InspectionData {
   lead_id: string
@@ -153,7 +154,7 @@ export async function createInspection(data: InspectionData) {
     .single()
 
   if (error) {
-    console.error('Failed to create inspection:', error)
+    captureBusinessError('Failed to create inspection', { error: error.message, code: error.code, leadId: data.lead_id })
     throw new Error(`Failed to create inspection: ${error.message}`)
   }
 
@@ -181,12 +182,12 @@ export async function updateInspection(
 
 
   if (error) {
-    console.error('Failed to update inspection:', error)
+    captureBusinessError('Failed to update inspection', { inspectionId, error: error.message, code: error.code })
     throw new Error(`Failed to update inspection: ${error.message}`)
   }
 
   if (!result || result.length === 0) {
-    console.error('Update succeeded but affected 0 rows - RLS policy may be blocking')
+    captureBusinessError('Inspection update affected 0 rows', { inspectionId })
     throw new Error('Update failed: No rows were affected. This may be due to Row Level Security policies. Please check your permissions.')
   }
 }
@@ -234,7 +235,7 @@ export async function saveInspectionArea(
     .maybeSingle()
 
   if (fetchError) {
-    console.error('Failed to check existing area:', fetchError)
+    captureBusinessError('Failed to check existing area', { inspectionId: areaData.inspection_id, error: fetchError.message })
     throw new Error(`Failed to check existing area: ${fetchError.message}`)
   }
 
@@ -249,7 +250,7 @@ export async function saveInspectionArea(
       .eq('id', existing.id)
 
     if (updateError) {
-      console.error('Failed to update area:', updateError)
+      captureBusinessError('Failed to update area', { areaId: existing.id, error: updateError.message })
       throw new Error(`Failed to update area: ${updateError.message}`)
     }
 
@@ -267,7 +268,7 @@ export async function saveInspectionArea(
       .single()
 
     if (insertError) {
-      console.error('Failed to insert area:', insertError)
+      captureBusinessError('Failed to insert area', { inspectionId: areaData.inspection_id, error: insertError.message })
       throw new Error(`Failed to insert area: ${insertError.message}`)
     }
 
@@ -344,7 +345,7 @@ export async function getInspectionByLeadId(leadId: string) {
     .maybeSingle()
 
   if (error) {
-    console.error('Failed to get inspection by lead:', error)
+    captureBusinessError('Failed to get inspection by lead', { leadId, error: error.message })
     throw new Error(`Failed to get inspection by lead: ${error.message}`)
   }
 

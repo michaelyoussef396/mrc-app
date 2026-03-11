@@ -1873,6 +1873,24 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in generate-inspection-pdf:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+    // Log to error_logs table (fire-and-forget)
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+      if (supabaseUrl && supabaseServiceKey) {
+        const logClient = createClient(supabaseUrl, supabaseServiceKey)
+        await logClient.from('error_logs').insert({
+          error_type: 'edge_function_error',
+          severity: 'critical',
+          message: `PDF generation failed: ${errorMessage}`,
+          stack_trace: error instanceof Error ? error.stack : null,
+          context: { function: 'generate-inspection-pdf' },
+          source: 'edge_function',
+        })
+      }
+    } catch { /* non-blocking */ }
+
     return new Response(
       JSON.stringify({
         success: false,

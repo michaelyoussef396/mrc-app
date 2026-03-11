@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { captureBusinessError } from '@/lib/sentry';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 
 // Helper: invoke edge functions via direct fetch
@@ -159,6 +160,7 @@ export default function InspectionAIReview() {
       setIsDirty(false);
       toast({ title: 'Saved', description: 'AI content saved successfully' });
     } catch (err: any) {
+      captureBusinessError('AI review save failed', { leadId, error: err?.message });
       toast({ title: 'Save Failed', description: err?.message || 'Failed to save', variant: 'destructive' });
     } finally {
       setSaving(false);
@@ -181,6 +183,7 @@ export default function InspectionAIReview() {
       toast({ title: 'Approved', description: 'AI content approved. Lead moved to report approval stage.' });
       navigate('/admin/leads');
     } catch (err: any) {
+      captureBusinessError('AI review approve failed', { leadId, error: err?.message });
       toast({ title: 'Error', description: err?.message || 'Failed to approve', variant: 'destructive' });
     }
   };
@@ -200,6 +203,7 @@ export default function InspectionAIReview() {
       toast({ title: 'Rejected', description: 'Lead sent back to awaiting inspection.' });
       navigate('/admin/leads');
     } catch (err: any) {
+      captureBusinessError('AI review reject failed', { leadId, error: err?.message });
       toast({ title: 'Error', description: err?.message || 'Failed to reject', variant: 'destructive' });
     }
   };

@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import { syncManager, resizePhoto } from '@/lib/offline'
+import { captureBusinessError } from '@/lib/sentry'
 
 export interface PhotoUploadResult {
   storage_path: string
@@ -54,13 +55,19 @@ export async function uploadInspectionPhoto(
   file: File,
   metadata: PhotoMetadata
 ): Promise<PhotoUploadResult> {
-  // 1. Generate unique filename with timestamp and UUID to prevent collisions
+  // 1. Resize photo before upload (converts to JPEG, max 1600px, ~200-500KB)
+  const resizedBlob = await resizePhoto(file)
+
+  // 2. Convert to ArrayBuffer to avoid FormData/multipart encoding issues
+  // This sends a simple binary POST with Content-Type header instead
+  const resizedBuffer = await resizedBlob.arrayBuffer()
+
+  // 3. Generate unique filename with timestamp and UUID to prevent collisions
   const timestamp = Date.now()
   const uniqueId = crypto.randomUUID().slice(0, 8) // 8 chars of randomness
-  const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-  const filename = `${metadata.photo_type}-${timestamp}-${uniqueId}.${extension}`
+  const filename = `${metadata.photo_type}-${timestamp}-${uniqueId}.jpg`
 
-  // 2. Construct storage path based on metadata
+  // 4. Construct storage path based on metadata
   let storagePath: string
   if (metadata.area_id) {
     storagePath = `${metadata.inspection_id}/${metadata.area_id}/${filename}`
@@ -70,20 +77,28 @@ export async function uploadInspectionPhoto(
     storagePath = `${metadata.inspection_id}/${filename}`
   }
 
-  // 3. Upload file to Storage
+  // 5. Upload resized photo to Storage
   const { data: uploadData, error: uploadError } = await supabase.storage
     .from('inspection-photos')
-    .upload(storagePath, file, {
+    .upload(storagePath, resizedBuffer, {
       cacheControl: '3600',
+      contentType: 'image/jpeg',
       upsert: false
     })
 
   if (uploadError) {
     console.error('Photo upload error:', uploadError)
+    captureBusinessError('Photo upload failed', {
+      inspectionId: metadata.inspection_id,
+      photoType: metadata.photo_type,
+      fileName: file.name,
+      fileSize: resizedBlob.size,
+      error: uploadError.message,
+    })
     throw new Error(`Failed to upload photo: ${uploadError.message}`)
   }
 
-  // 4. Get signed URL for display (valid for 1 hour)
+  // 6. Get signed URL for display (valid for 1 hour)
   const { data: urlData } = await supabase.storage
     .from('inspection-photos')
     .createSignedUrl(uploadData.path, 3600)
@@ -92,7 +107,7 @@ export async function uploadInspectionPhoto(
     throw new Error('Failed to generate signed URL for photo')
   }
 
-  // 5. Get current user ID for uploaded_by tracking
+  // 7. Get current user ID for uploaded_by tracking
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -103,7 +118,7 @@ export async function uploadInspectionPhoto(
     throw new Error('User must be authenticated to upload photos')
   }
 
-  // 6. Save photo metadata to photos table
+  // 8. Save photo metadata to photos table
   const { data: photoData, error: photoError } = await supabase
     .from('photos')
     .insert({
@@ -114,8 +129,8 @@ export async function uploadInspectionPhoto(
       photo_type: metadata.photo_type,
       storage_path: uploadData.path,
       file_name: filename,
-      file_size: file.size,
-      mime_type: file.type,
+      file_size: resizedBlob.size,
+      mime_type: 'image/jpeg',
       caption: metadata.caption || null,
       order_index: metadata.order_index || 0,
       uploaded_by: user.id

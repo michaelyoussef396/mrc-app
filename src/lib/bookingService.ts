@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { QueryClient } from '@tanstack/react-query';
 import { sendEmail, sendSlackNotification, buildBookingConfirmationHtml } from '@/lib/api/notifications';
+import { captureBusinessError, addBusinessBreadcrumb } from '@/lib/sentry';
 
 // ============================================================================
 // TYPES
@@ -88,6 +89,8 @@ export async function bookInspection(
 
 
   try {
+    addBusinessBreadcrumb('Booking inspection', { leadId, technicianId, inspectionDate, inspectionTime });
+
     // Combine date and time
     const startDateTime = new Date(`${inspectionDate}T${inspectionTime}:00`);
     const endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60 * 1000);
@@ -209,7 +212,12 @@ export async function bookInspection(
       bookingId: bookingData.id,
     };
   } catch (error) {
-    console.error('[BookingService] Booking failed:', error);
+    captureBusinessError('Booking failed', {
+      leadId,
+      technicianId,
+      inspectionDate,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',

@@ -53,3 +53,85 @@ Execute the following implementation plan.
 
 **OUTPUT:**
 Report back to Antigravity when the feature is implemented and verified.
+
+## [PLANNING] 2026-02-14
+**Task:** Admin AI Summary Review System
+**Role:** High-Level Architect & Planner (Antigravity)
+**Status:** READY FOR CLAUDE CODE EXECUTION
+
+### System Architecture
+Technician Mobile App (Complete Inspection) 
+    ↓
+[Trigger: Auto-Generate AI] 
+    ↓
+Edge Function (generate-inspection-summary)
+    ↓
+Database Update (leads.status = 'inspection_ai_summary')
+    ↓
+Admin Dashboard (Lead Management)
+    ↓
+[Action: Approve AI Generation]
+    ↓
+Admin Review Page (/admin/inspection-ai-summary/:leadId)
+    ↓
+[Review / Edit / Regenerate]
+    ↓
+[Action: Approve Report] -> Status 'approve_report'
+
+### Database Changes
+1.  **Enums**: Update `lead_status` to include `inspection_ai_summary`.
+2.  **Schema**: Add the following columns to `inspections` table to support the 4-section review workflow:
+    - `what_we_found_text` (TEXT)
+    - `what_we_will_do_text` (TEXT)
+    - `problem_analysis_content` (TEXT)
+    - `demolition_content` (TEXT)
+
+### Page Design: Inspection AI Summary
+**URL:** `/admin/inspection-ai-summary/:leadId`
+**Layout:** Desktop-first (Macbook optimized).
+-   **Header**: Lead Name, Address, Status Indicator ("AI Generated").
+-   **Main Content (2-Column)**:
+    -   **Left (30%)**: Lead Context (Internal Notes, Key Inspection Data Summary).
+    -   **Right (70%)**: 4 Editable Cards.
+        1.  **What We Found** (Textarea + Regen Button)
+        2.  **Problem Analysis & Recommendations** (Rich Text/Textarea + Regen Button)
+        3.  **What We're Going To Do** (Textarea + Regen Button)
+        4.  **Demolition Details** (Textarea + Regen Button - only if demolition required)
+-   **Footer**: Sticky action bar.
+    -   "Reject / Back to Technician" (Secondary)
+    -   "Save Draft" (Secondary)
+    -   "Approve & Next" (Primary) -> Moves to `approve_report`.
+
+### Workflow Stages
+1.  **Technician**: Completes Section 9. Clicks "Complete Inspection". System checks internet.
+    -   If Online: Call `generate-inspection-summary` -> Update DB -> Move to `inspection_ai_summary`.
+    -   If Offline: Queue sync.
+2.  **Admin Check**: Sees lead in "Inspection AI Summary" column in Leads Management.
+    -   New card action: "Approve AI".
+3.  **Review**: Admin opens review page. Checks AI text against internal notes. Edits typos.
+4.  **Approval**: Admin hits Approve. Lead moves to `approve_report` (ready for PDF generation/sending).
+
+### Claude Code Execution Prompt
+Please reference the plan above and execute the following:
+
+**Phase 1: Database & Backend**
+1.  Create migration to add `inspection_ai_summary` to `lead_status` enum (check `statusFlow.ts` too).
+2.  Create migration to add the 4 text columns to `inspections` table.
+3.  Update `generate-inspection-summary` Edge Function to populate these 4 new columns (map from AI JSON response).
+
+**Phase 2: Technician Workflow**
+1.  Modify `InspectionForm.tsx`:
+    -   Remove Section 10 (AI Generation) UI.
+    -   Change "Complete" button logic to trigger AI generation in background (with toast "Generating Report...") and then navigate home.
+
+**Phase 3: Admin UI**
+1.  Create `src/pages/InspectionAIReview.tsx`.
+2.  Implement the 4-section editable layout.
+3.  Add "Regenerate Section" functionality (calls Edge Function with section param).
+4.  Update `LeadsManagement.tsx` and `LeadCard.tsx` to verify/handle the new status and routing.
+
+**Phase 4: Routing**
+1.  Add route `/admin/inspection-ai-summary/:id` to `App.tsx`.
+2.  Ensure `ProtectedRoute` allows Admin/Developer access.
+
+Start with Phase 1.

@@ -84,6 +84,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
 
         if (session?.user) {
+          // Set Sentry user context for error tracking
+          import("@sentry/react").then((Sentry) => {
+            Sentry.setUser({
+              id: session.user.id,
+              email: session.user.email,
+            });
+          });
           // Fetch roles without blocking the auth state change callback
           const userId = session.user.id;
 
@@ -125,6 +132,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const roleNames = (rolesData || []).map(r => r.name).filter(Boolean) as string[];
               setUserRoles(roleNames);
 
+              // Tag Sentry with user role for error filtering
+              import("@sentry/react").then((Sentry) => {
+                Sentry.setTag("user.role", roleNames.join(","));
+              });
+
               const savedRole = localStorage.getItem('mrc_current_role');
               if (savedRole && roleNames.includes(savedRole.toLowerCase())) {
                 setCurrentRoleState(savedRole.toLowerCase());
@@ -133,10 +145,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setLoading(false);
             } catch (err) {
               console.error('[Auth] Exception:', err);
+              import("@sentry/react").then((Sentry) => {
+                Sentry.captureException(err, {
+                  contexts: { auth: { userId, event: 'role_fetch_failed' } },
+                });
+              });
               if (mounted) setLoading(false);
             }
           }, 0);
         } else if (event === 'SIGNED_OUT') {
+          // Clear Sentry user context on logout
+          import("@sentry/react").then((Sentry) => {
+            Sentry.setUser(null);
+          });
           setUserRoles([]);
           setProfile(null);
           setCurrentRoleState(null);

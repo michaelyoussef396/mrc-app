@@ -562,3 +562,113 @@ JOIN public.calendar_bookings cb ON cb.lead_id = l.id
 WHERE l.phone >= '0412300051' AND l.phone <= '0412300100'
 ORDER BY l.inspection_scheduled_date, l.scheduled_time
 LIMIT 10;
+
+-- =============================================================================
+-- POST-SEED: Fix data for technician pages
+-- Run AFTER the main seed above
+-- =============================================================================
+
+-- 1. Delete orphaned bookings (lead_id IS NULL) that cause "Unknown Client"
+DELETE FROM public.calendar_bookings WHERE lead_id IS NULL;
+
+-- 2. Move 3 bookings to TODAY so TechnicianHome shows real data
+--    Liam Fitzgerald → 09:00, Anh Nguyen → 11:00, Patrick O'Sullivan → 14:00
+--    Adjust UTC offsets for Melbourne AEDT (UTC+11)
+DO $$
+DECLARE
+  tech_id uuid := 'd22fa3bb-9bf0-4e27-8681-1f09841f0d8e';
+  today date := (NOW() AT TIME ZONE 'Australia/Melbourne')::date;
+BEGIN
+  -- Update leads' inspection_scheduled_date to today
+  UPDATE public.leads SET inspection_scheduled_date = today
+  WHERE full_name IN ('Liam Fitzgerald', 'Anh Nguyen', 'Patrick O''Sullivan')
+    AND assigned_to = tech_id;
+
+  -- Update calendar bookings to today's Melbourne times
+  -- Liam: 09:00-10:00 Melbourne
+  UPDATE public.calendar_bookings SET
+    start_datetime = (today || ' 09:00:00')::timestamp AT TIME ZONE 'Australia/Melbourne',
+    end_datetime   = (today || ' 10:00:00')::timestamp AT TIME ZONE 'Australia/Melbourne'
+  WHERE lead_id = (SELECT id FROM public.leads WHERE full_name = 'Liam Fitzgerald' AND assigned_to = tech_id LIMIT 1);
+
+  -- Anh: 11:00-12:15 Melbourne
+  UPDATE public.calendar_bookings SET
+    start_datetime = (today || ' 11:00:00')::timestamp AT TIME ZONE 'Australia/Melbourne',
+    end_datetime   = (today || ' 12:15:00')::timestamp AT TIME ZONE 'Australia/Melbourne'
+  WHERE lead_id = (SELECT id FROM public.leads WHERE full_name = 'Anh Nguyen' AND assigned_to = tech_id LIMIT 1);
+
+  -- Patrick: 14:00-15:15 Melbourne
+  UPDATE public.calendar_bookings SET
+    start_datetime = (today || ' 14:00:00')::timestamp AT TIME ZONE 'Australia/Melbourne',
+    end_datetime   = (today || ' 15:15:00')::timestamp AT TIME ZONE 'Australia/Melbourne'
+  WHERE lead_id = (SELECT id FROM public.leads WHERE full_name = 'Patrick O''Sullivan' AND assigned_to = tech_id LIMIT 1);
+
+  RAISE NOTICE 'Moved 3 bookings to today: %', today;
+END $$;
+
+-- 3. Seed activities for technician alerts page
+DO $$
+DECLARE
+  tech_id uuid := 'd22fa3bb-9bf0-4e27-8681-1f09841f0d8e';
+  r RECORD;
+BEGIN
+  -- Insert 'inspection_booked' for all booked leads (skip if already exists)
+  FOR r IN
+    SELECT l.id as lead_id, l.full_name,
+           cb.start_datetime,
+           to_char(cb.start_datetime AT TIME ZONE 'Australia/Melbourne', 'DD Mon YYYY') as date_str,
+           to_char(cb.start_datetime AT TIME ZONE 'Australia/Melbourne', 'HH:MI AM') as time_str
+    FROM leads l
+    JOIN calendar_bookings cb ON cb.lead_id = l.id
+    WHERE cb.assigned_to = tech_id
+    AND l.id NOT IN (SELECT DISTINCT lead_id FROM activities WHERE activity_type = 'inspection_booked')
+  LOOP
+    INSERT INTO activities (lead_id, activity_type, title, description, created_at)
+    VALUES (
+      r.lead_id, 'inspection_booked', 'Inspection Booked',
+      'Inspection scheduled for ' || r.date_str || ' at ' || r.time_str,
+      r.start_datetime - interval '2 days' + (random() * interval '24 hours')
+    );
+  END LOOP;
+
+  -- Insert 'status_change' for half the leads
+  FOR r IN
+    SELECT l.id as lead_id, l.created_at as lead_created
+    FROM leads l
+    JOIN calendar_bookings cb ON cb.lead_id = l.id
+    WHERE cb.assigned_to = tech_id
+    AND l.id NOT IN (SELECT DISTINCT lead_id FROM activities WHERE activity_type = 'status_change')
+    LIMIT 25
+  LOOP
+    INSERT INTO activities (lead_id, activity_type, title, description, created_at)
+    VALUES (
+      r.lead_id, 'status_change', 'Status changed to Inspection Waiting',
+      'Lead assigned and inspection date confirmed',
+      r.lead_created + interval '1 hour' + (random() * interval '4 hours')
+    );
+  END LOOP;
+
+  -- Insert recent activities for today's 3 leads (shows in "Recent" section)
+  INSERT INTO activities (lead_id, activity_type, title, description, created_at)
+  SELECT l.id, 'status_change', 'New Job Assigned',
+    'Mould inspection at ' || l.property_address_street || ', ' || l.property_address_suburb || ' assigned to you',
+    NOW() - (row_number() OVER (ORDER BY l.full_name)) * interval '1 hour'
+  FROM leads l
+  WHERE l.full_name IN ('Liam Fitzgerald', 'Anh Nguyen', 'Patrick O''Sullivan')
+    AND l.assigned_to = tech_id;
+
+  -- Insert note_added for today's leads
+  INSERT INTO activities (lead_id, activity_type, title, description, created_at)
+  VALUES
+    ((SELECT id FROM leads WHERE full_name = 'Liam Fitzgerald' AND assigned_to = tech_id LIMIT 1),
+     'note_added', 'Note Added', 'Customer confirmed access via side gate. Key under the mat.', NOW() - interval '5 hours'),
+    ((SELECT id FROM leads WHERE full_name = 'Anh Nguyen' AND assigned_to = tech_id LIMIT 1),
+     'note_added', 'Note Added', 'Building manager will meet at front entrance. Buzzer unit 4.', NOW() - interval '4 hours'),
+    ((SELECT id FROM leads WHERE full_name = 'Patrick O''Sullivan' AND assigned_to = tech_id LIMIT 1),
+     'note_added', 'Note Added', 'Customer has dog - will be secured in backyard during inspection.', NOW() - interval '30 minutes');
+
+  RAISE NOTICE 'Activities seeded successfully';
+END $$;
+
+-- Verify activities
+SELECT activity_type, count(*) FROM activities GROUP BY activity_type ORDER BY count(*) DESC;

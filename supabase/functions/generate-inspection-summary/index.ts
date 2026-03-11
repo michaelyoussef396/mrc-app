@@ -697,6 +697,31 @@ Write 2 paragraphs in flowing prose. Australian English.`
   } catch (error) {
     console.error('Error in generate-inspection-summary:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+    // Log to error_logs table (fire-and-forget)
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+      if (supabaseUrl && supabaseServiceKey) {
+        await fetch(`${supabaseUrl}/rest/v1/error_logs`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseServiceKey,
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            error_type: 'edge_function_error',
+            severity: 'critical',
+            message: `AI summary generation failed: ${errorMessage}`,
+            stack_trace: error instanceof Error ? error.stack : null,
+            context: { function: 'generate-inspection-summary' },
+            source: 'edge_function',
+          }),
+        })
+      }
+    } catch { /* non-blocking */ }
+
     return new Response(
       JSON.stringify({
         success: false,
