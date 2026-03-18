@@ -268,7 +268,7 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
       <table class="sig-table" cellpadding="0" cellspacing="0">
         <tr>
           <td class="sig-logo-cell">
-            <img src="https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
+            <img src="${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
           </td>
           <td class="sig-details-cell">
             <p class="sig-company">Mould and Restoration Co.</p>

@@ -7,8 +7,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { z } from 'https://esm.sh/zod@3.22.4'
 
 // Static PDF assets hosted in Supabase Storage (public bucket)
-const ASSET_BASE = 'https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets'
-const TEMPLATE_URL = 'https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-templates/inspection-report-template-final.html'
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const ASSET_BASE = `${SUPABASE_URL}/storage/v1/object/public/pdf-assets`
+const TEMPLATE_URL = `${SUPABASE_URL}/storage/v1/object/public/pdf-templates/inspection-report-template-final.html`
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
