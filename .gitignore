@@ -36,8 +36,6 @@ dist-ssr
 **/config/secrets.*
 credentials.json
 service-account.json
-.env.local
-.env
 
 # Playwright MCP logs
 .playwright-mcp/
