@@ -46,17 +46,7 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [showComingSoon, setShowComingSoon] = useState(false);
-  const [comingSoonFeature, setComingSoonFeature] = useState('');
   const [showCreateLeadModal, setShowCreateLeadModal] = useState(false);
-
-  // Handle Coming Soon toast for features not yet built
-  const handleComingSoon = (featureName: string) => {
-    setComingSoonFeature(featureName);
-    setShowComingSoon(true);
-    // Auto-hide after 3 seconds
-    setTimeout(() => setShowComingSoon(false), 3000);
-  };
 
   // Fetch real dashboard stats from Supabase
   const {
@@ -104,19 +94,6 @@ export default function AdminDashboard() {
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
-      {/* Coming Soon Toast */}
-      {showComingSoon && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <div className="bg-[#1d1d1f] text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3">
-            <span className="material-symbols-outlined" style={{ color: '#FF9500' }}>construction</span>
-            <div>
-              <p className="font-medium text-sm">{comingSoonFeature}</p>
-              <p className="text-xs text-gray-400">Coming soon!</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Sidebar */}
       <AdminSidebar
         isOpen={sidebarOpen}
