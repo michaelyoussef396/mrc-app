@@ -24,6 +24,15 @@ Deno.serve(async (req) => {
       }
     )
 
+    // Require password from environment variable
+    const seedPassword = Deno.env.get('ADMIN_SEED_PASSWORD')
+    if (!seedPassword) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'ADMIN_SEED_PASSWORD environment variable is not set' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Check if any users exist
     const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers()
     
@@ -39,13 +48,13 @@ Deno.serve(async (req) => {
     const adminUsers = [
       {
         email: 'admin@mrc.com.au',
-        password: 'Admin123!',
+        password: seedPassword,
         full_name: 'System Administrator',
         phone: null
       },
       {
         email: 'michaelyoussef396@gmail.com',
-        password: 'Admin123!',
+        password: seedPassword,
         full_name: 'Michael Youssef',
         phone: '0433 880 403'
       }
