@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import logoMRC from '@/assets/logoMRC.png';
 import { createPublicLead, URGENCY_OPTIONS, type BookingUrgency } from '@/lib/api/public-leads';
+import { supabase } from '@/integrations/supabase/client';
 
 // Validation schema
 const inspectionSchema = z.object({
@@ -82,8 +83,33 @@ const RequestInspection = () => {
         urgency: validatedData.urgency,
       });
 
-      // TODO: Send confirmation email here
-      // await sendNewLeadEmail({ ... });
+      // Send confirmation email (fire-and-forget — don't block success redirect)
+      try {
+        const firstName = validatedData.name.split(' ')[0];
+        const refNumber = lead.lead_number || lead.lead_id.substring(0, 8);
+        const confirmationHtml = `
+          <h2>Thank You, ${firstName}!</h2>
+          <p>We've received your inspection request <strong>#${refNumber}</strong>.</p>
+          <p>Our team will contact you within <strong>24 hours</strong> to arrange a suitable time for your inspection.</p>
+          <h3>Your Request Details:</h3>
+          <ul>
+            <li><strong>Property:</strong> ${validatedData.streetAddress}, ${validatedData.suburb} ${validatedData.postcode}</li>
+            <li><strong>Issue:</strong> ${validatedData.description.substring(0, 200)}</li>
+            <li><strong>Urgency:</strong> ${validatedData.urgency}</li>
+          </ul>
+          <p>If you need to reach us sooner, call <strong>1800 954 117</strong> during business hours (Mon–Sun, 7am–7pm).</p>
+        `;
+        supabase.functions.invoke('send-email', {
+          body: {
+            to: validatedData.email,
+            subject: 'Inspection Request Received — Mould & Restoration Co.',
+            html: confirmationHtml,
+            leadId: lead.lead_id,
+          }
+        }).catch(err => console.error('Email send failed:', err));
+      } catch (emailErr) {
+        console.error('Email preparation failed:', emailErr);
+      }
 
       // Navigate to success page with query params
       const firstName = validatedData.name.split(' ')[0];
