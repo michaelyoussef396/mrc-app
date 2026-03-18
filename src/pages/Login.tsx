@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import logoLarge from "@/assets/logo-large.png";
 
-type Role = "Admin" | "Technician" | "Developer";
+type Role = "Admin" | "Technician";
 
 type ErrorType = "validation" | "auth" | "network" | "lockout" | "role";
 
@@ -162,7 +162,7 @@ const Login = () => {
       setEmail(rememberedEmail);
       setRememberMe(true);
     }
-    if (savedRole && ["Admin", "Technician", "Developer"].includes(savedRole)) {
+    if (savedRole && ["Admin", "Technician"].includes(savedRole)) {
       setRole(savedRole);
     }
   }, []);
@@ -227,9 +227,6 @@ const Login = () => {
   const redirectByRole = (roleName: string) => {
     const lowerRole = roleName.toLowerCase();
     switch (lowerRole) {
-      case "developer":
-        navigate("/developer");
-        break;
       case "admin":
         navigate("/admin");
         break;
@@ -311,7 +308,7 @@ const Login = () => {
     }
   };
 
-  const roles: Role[] = ["Admin", "Technician", "Developer"];
+  const roles: Role[] = ["Admin", "Technician"];
 
   return (
     <div
@@ -412,7 +409,7 @@ const Login = () => {
             className="p-1 rounded-xl"
             style={{ backgroundColor: "rgba(0, 0, 0, 0.06)" }}
           >
-            <div className="grid grid-cols-3 gap-1">
+            <div className="grid grid-cols-2 gap-1">
               {roles.map((r) => (
                 <button
                   key={r}

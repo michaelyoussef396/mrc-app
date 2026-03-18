@@ -14,9 +14,7 @@ import {
   Loader2,
   MapPin,
   Smartphone,
-  Lock,
   Shield,
-  Wrench,
   UserCog,
   LogOut
 } from 'lucide-react';
@@ -38,15 +36,6 @@ interface ProfileData {
 // Role badge configuration
 const getRoleBadgeConfig = (role: string | null) => {
   switch (role) {
-    case 'developer':
-      return {
-        label: 'Developer',
-        bgColor: 'bg-blue-100',
-        textColor: 'text-blue-700',
-        borderColor: 'border-blue-200',
-        icon: Wrench,
-        iconColor: 'text-blue-500',
-      };
     case 'admin':
       return {
         label: 'Admin',
@@ -81,7 +70,7 @@ export default function Profile() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { forceLogoutAllDevices, currentRole, signOut } = useAuth();
-  const isDeveloper = currentRole === 'developer';
+  const isAdmin = currentRole === 'admin';
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -512,7 +501,7 @@ export default function Profile() {
                 <ArrowLeft size={18} strokeWidth={2} className="text-gray-400 transform rotate-180" />
               </button>
 
-              {isDeveloper ? (
+              {isAdmin && (
                 <button
                   className="flex items-center gap-3.5 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-white hover:border-orange-500 hover:shadow-sm transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={handleLogoutAllDevices}
@@ -533,19 +522,6 @@ export default function Profile() {
                   </div>
                   <ArrowLeft size={18} strokeWidth={2} className="text-gray-400 transform rotate-180" />
                 </button>
-              ) : (
-                <div className="flex items-center gap-3.5 p-4 bg-gray-100 border-2 border-gray-200 rounded-xl">
-                  <div className="w-12 h-12 rounded-xl bg-gray-200 border border-gray-300 text-gray-400 flex items-center justify-center flex-shrink-0">
-                    <Smartphone size={20} strokeWidth={2} />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-[15px] font-semibold text-gray-400 mb-1">Log Out All Devices</h4>
-                    <p className="text-sm text-gray-500 m-0 flex items-center gap-1.5">
-                      <Lock size={14} strokeWidth={2} />
-                      Developer only - Contact admin for assistance
-                    </p>
-                  </div>
-                </div>
               )}
 
               {/* Sign Out Button */}

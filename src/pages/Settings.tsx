@@ -10,7 +10,6 @@ import {
   Key,
   Loader2,
   Smartphone,
-  Lock,
   HelpCircle
 } from 'lucide-react';
 import TechnicianBottomNav from '@/components/technician/TechnicianBottomNav';
@@ -22,8 +21,8 @@ export default function Settings() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { forceLogoutAllDevices, signOut, currentRole } = useAuth();
-  const isDeveloper = currentRole === 'developer';
   const isTechnician = currentRole === 'technician';
+  const isAdmin = currentRole === 'admin';
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
@@ -285,7 +284,7 @@ export default function Settings() {
               <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
             </button>
 
-            {isDeveloper ? (
+            {isAdmin && (
               <button
                 className="flex items-center justify-between gap-3 px-4 py-4 w-full border-b border-gray-100 bg-transparent hover:bg-orange-50 transition-colors cursor-pointer text-left disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleLogoutAllDevices}
@@ -308,21 +307,6 @@ export default function Settings() {
                 </div>
                 <ChevronRight size={18} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
               </button>
-            ) : (
-              <div className="flex items-center justify-between gap-3 px-4 py-4 w-full border-b border-gray-100 bg-gray-50">
-                <div className="flex items-center gap-3.5 flex-1">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 text-gray-400 flex items-center justify-center flex-shrink-0">
-                    <Smartphone size={20} strokeWidth={2} />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-[15px] font-semibold text-gray-400 mb-1">Log out from ALL devices</h3>
-                    <p className="text-sm text-gray-500 m-0 flex items-center gap-1.5">
-                      <Lock size={14} strokeWidth={2} />
-                      Developer only - Contact admin for assistance
-                    </p>
-                  </div>
-                </div>
-              </div>
             )}
 
             <button
