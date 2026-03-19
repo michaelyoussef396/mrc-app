@@ -1533,22 +1533,6 @@ function generateReportHtml(
   // Update heading text color only (not background boxes)
   html = html.replace(/color: #121D73/gi, 'color: #150db9')
 
-  // Reorder: VP → Areas Inspected → Outdoor Environment → Problem Analysis
-  // Step 1: Extract Areas Inspected (between Page 8 and Page 9/10)
-  const areasBlockRegex = /<!-- Page 8: Areas[\s\S]*?(?=\s*<!-- Page (?:9|10))/
-  const areasBlock = html.match(areasBlockRegex)
-  if (areasBlock) {
-    html = html.replace(areasBlockRegex, '')
-    html = html.replace(/(?=\s*<!-- Page 5)/, '\n\n    ' + areasBlock[0])
-  }
-  // Step 2: Extract Outdoor Environment (between Page 7 and Page 8/9/10)
-  const outdoorBlockRegex = /<!-- Page 7:[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page (?:8|9|10))/
-  const outdoorBlock = html.match(outdoorBlockRegex)
-  if (outdoorBlock) {
-    html = html.replace(outdoorBlockRegex, '')
-    html = html.replace(/(?=\s*<!-- Page 5)/, '\n\n    ' + outdoorBlock[0])
-  }
-
   return html
 }
 
