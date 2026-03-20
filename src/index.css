@@ -18051,3 +18051,325 @@ a.contact-value:hover {
 }
 
 
+
+/* ===== PDF Report Viewer Styles =====
+ * These styles are needed because DOMPurify strips <style> tags from the
+ * stored HTML reports. Without them, report pages render as blank white space.
+ */
+
+/* Font declarations for PDF report rendering */
+@font-face {
+  font-family: 'Garet Heavy';
+  src: url('https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets/fonts/Garet-Heavy.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Galvji';
+  src: url('https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets/fonts/Galvji.ttc') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+.report-content {
+  font-family: 'Galvji', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.report-content * {
+  box-sizing: border-box;
+}
+
+.report-content .report-page {
+  width: 794px;
+  height: 1123px;
+  margin: 0 auto;
+  background: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.report-content .report-page-2 {
+  width: 794px;
+  height: 800px;
+  margin: 0 auto;
+  background: white;
+  position: relative;
+}
+
+.report-content .report-page img,
+.report-content .report-page-2 img {
+  max-width: none !important;
+}
+
+.report-content .page-break {
+  page-break-after: always;
+  break-after: page;
+}
+
+/* T&C page styles */
+.report-content .tc-page {
+  width: 794px;
+  height: 1123px;
+  margin: 0 auto;
+  background: white;
+  position: relative;
+  padding: 50px 55px 60px 55px;
+  page-break-after: always;
+  break-after: page;
+}
+
+.report-content .tc-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.report-content .tc-page .page-title {
+  line-height: 1;
+}
+
+.report-content .tc-page .page-title .line1 {
+  font-family: 'Garet Heavy', 'Impact', sans-serif;
+  font-size: 64px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  color: #000000;
+  line-height: 0.95;
+  display: block;
+}
+
+.report-content .tc-page .page-title .line2 {
+  font-family: 'Garet Heavy', 'Impact', sans-serif;
+  font-size: 64px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  color: #150db9;
+  line-height: 0.95;
+  display: block;
+}
+
+.report-content .tc-page .page-logo {
+  width: 62px;
+  height: 62px;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.report-content .tc-page .section-title {
+  font-family: 'Garet Heavy', 'Impact', sans-serif;
+  font-size: 32px;
+  font-weight: 400;
+  letter-spacing: 0.8px;
+  color: #000000;
+  border-bottom: 3px solid #121D73;
+  padding-bottom: 4px;
+  display: inline-block;
+  margin-top: 28px;
+  margin-bottom: 18px;
+  line-height: 1;
+}
+
+.report-content .tc-page .intro-text {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: #252525;
+  margin-bottom: 10px;
+}
+
+.report-content .tc-page .warranty-list {
+  list-style: disc;
+  padding-left: 22px;
+  margin-top: 8px;
+}
+
+.report-content .tc-page .warranty-list > li {
+  font-size: 14.5px;
+  line-height: 1.55;
+  margin-bottom: 16px;
+  padding-left: 4px;
+}
+
+.report-content .tc-page .warranty-list > li:first-child {
+  margin-bottom: 20px;
+}
+
+.report-content .tc-page .sub-list {
+  list-style: disc;
+  padding-left: 20px;
+  margin-top: 4px;
+}
+
+.report-content .tc-page .sub-list > li {
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 3px;
+}
+
+.report-content .tc-page .payment-intro {
+  font-size: 13.5px;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.report-content .tc-page .payment-item {
+  font-size: 13.5px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.report-content .tc-page .payment-item-number {
+  font-weight: 600;
+}
+
+.report-content .tc-page .subsection-title {
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+  margin-top: 16px;
+  margin-bottom: 6px;
+  color: #252525;
+}
+
+.report-content .tc-page .subsection-title-bold {
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 18px;
+  margin-bottom: 6px;
+  color: #252525;
+}
+
+.report-content .tc-page .detail-list {
+  padding-left: 12px;
+  margin-bottom: 10px;
+}
+
+.report-content .tc-page .detail-list li {
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin-bottom: 2px;
+  list-style: none;
+}
+
+.report-content .tc-page .detail-list li::before {
+  content: "\00B7\00A0";
+  font-weight: 700;
+}
+
+.report-content .tc-page .bold-text {
+  font-weight: 700;
+}
+
+.report-content .tc-page .red-bold {
+  font-weight: 700;
+  color: #E30000;
+}
+
+.report-content .tc-page .italic-note {
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.5;
+  margin-top: 12px;
+}
+
+.report-content .tc-page .summary-subtitle {
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+.report-content .tc-page .summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+  font-size: 13px;
+}
+
+.report-content .tc-page .summary-table th {
+  text-align: left;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-bottom: 2px solid #333;
+  font-size: 13px;
+}
+
+.report-content .tc-page .summary-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 13px;
+  line-height: 1.4;
+  vertical-align: top;
+}
+
+.report-content .tc-page .summary-table .highlight-row td {
+  font-weight: 700;
+}
+
+.report-content .tc-page .summary-table .day-col {
+  width: 80px;
+  white-space: nowrap;
+}
+
+.report-content .tc-page .acknowledgement-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 30px;
+  margin-bottom: 8px;
+}
+
+.report-content .tc-page .acknowledgement-text {
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+/* T&C Page 2 compact variant */
+.report-content .tc-page.page-2 .page-title .line1,
+.report-content .tc-page.page-2 .page-title .line2 {
+  font-size: 50px;
+}
+
+.report-content .tc-page.page-2 .page-logo {
+  width: 50px;
+  height: 50px;
+}
+
+.report-content .tc-page.page-2 .section-title {
+  font-size: 28px;
+  margin-top: 14px;
+  margin-bottom: 12px;
+}
+
+.report-content .tc-page.page-2 .payment-item,
+.report-content .tc-page.page-2 .payment-intro,
+.report-content .tc-page.page-2 .detail-list li {
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.report-content .tc-page.page-2 .subsection-title,
+.report-content .tc-page.page-2 .subsection-title-bold {
+  font-size: 13px;
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
+.report-content .tc-page.page-2 .detail-list {
+  margin-bottom: 6px;
+}
+
+.report-content .tc-page.page-2 .detail-list li {
+  margin-bottom: 1px;
+}
+
+.report-content .tc-page .admin-fees-section {
+  margin-top: 6px;
+}
+
+.report-content .tc-page .admin-fees-section .subsection-title {
+  margin-top: 8px;
+}

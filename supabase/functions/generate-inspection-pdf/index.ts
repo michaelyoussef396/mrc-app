@@ -712,7 +712,7 @@ function generateValuePropositionPages(
 
 // Replace the static VP page in the template with dynamically generated multi-page VP
 function handleValuePropositionOverflow(html: string, whatWeFoundHtml: string, whatWeWillDoHtml: string): string {
-  // Find the VP page block: between "Page 4: Value Proposition" and "Page 5:"
+  // Find the VP page block: between "Page 4: Value Proposition" and "Page 5: Areas Inspected"
   const vpPageRegex = /<!-- Page 4: Value Proposition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 5)/
   const match = html.match(vpPageRegex)
 
@@ -1533,6 +1533,9 @@ function generateReportHtml(
   // Update heading text color only (not background boxes)
   html = html.replace(/color: #121D73/gi, 'color: #150db9')
 
+  // Template already has pages in correct order:
+  // Cover → VP → Areas → Outdoor → Subfloor → Problem → Demolition → Cleaning → T&C → Contact
+
   return html
 }
 
@@ -1753,7 +1756,11 @@ Deno.serve(async (req) => {
       '<!-- Page 3: Our Services',
       '<!-- Page 4: Value Proposition',
       '<!-- Page 5: Areas Inspected',
+<<<<<<< HEAD
       '<!-- Page 6',
+=======
+      '<!-- Page 6: Outdoor Environment',
+>>>>>>> fe7e2ba (fix: PDF report pages rendering as blank white space)
       '<!-- Page 7: Subfloor',
       '<!-- Page 8: Problem Analysis',
       '<!-- Page 9: Demolition',
