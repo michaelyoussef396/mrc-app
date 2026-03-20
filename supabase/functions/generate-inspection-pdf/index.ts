@@ -1392,6 +1392,20 @@ function generateReportHtml(
   html = html.replace(/\{\{what_we_will_do_text\}\}/g, whatWeWillDoHtml)
   html = html.replace(/\{\{what_you_get_text\}\}/g, '')
 
+  // ===== PAGE 5: AREAS INSPECTED (duplicate per area) =====
+  html = duplicateAreaPages(html, inspection.areas, inspection.photos)
+
+  // ===== PAGE 6: OUTDOOR ENVIRONMENT =====
+  html = html.replace(/\{\{outdoor_temperature\}\}/g, String(inspection.outdoor_temperature || 0))
+  html = html.replace(/\{\{outdoor_humidity\}\}/g, String(inspection.outdoor_humidity || 0))
+  html = html.replace(/\{\{outdoor_dew_point\}\}/g, String(inspection.outdoor_dew_point || 0))
+  html = html.replace(/\{\{outdoor_photo_1\}\}/g, outdoorPhotos[0]?.storage_path ? getPhotoUrl(outdoorPhotos[0].storage_path) : '')
+  html = html.replace(/\{\{outdoor_photo_2\}\}/g, outdoorPhotos[1]?.storage_path ? getPhotoUrl(outdoorPhotos[1].storage_path) : '')
+  html = html.replace(/\{\{outdoor_photo_3\}\}/g, outdoorPhotos[2]?.storage_path ? getPhotoUrl(outdoorPhotos[2].storage_path) : '')
+
+  // ===== PAGE 7: SUBFLOOR (conditional) =====
+  html = handleSubfloorPage(html, inspection, subfloorData, subfloorReadings, subfloorPhotos)
+
   // ===== PAGE 8: PROBLEM ANALYSIS (multi-page overflow) =====
   // Override sections with individual column values when user has edited them
   let problemMarkdown = inspection.problem_analysis_content || inspection.ai_summary_text || ''
@@ -1430,20 +1444,6 @@ function generateReportHtml(
     const demolitionRemoveRegex = /\s*<!-- Page 9: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 10)/
     html = html.replace(demolitionRemoveRegex, '\n\n')
   }
-
-  // ===== PAGE 6: OUTDOOR ENVIRONMENT =====
-  html = html.replace(/\{\{outdoor_temperature\}\}/g, String(inspection.outdoor_temperature || 0))
-  html = html.replace(/\{\{outdoor_humidity\}\}/g, String(inspection.outdoor_humidity || 0))
-  html = html.replace(/\{\{outdoor_dew_point\}\}/g, String(inspection.outdoor_dew_point || 0))
-  html = html.replace(/\{\{outdoor_photo_1\}\}/g, outdoorPhotos[0]?.storage_path ? getPhotoUrl(outdoorPhotos[0].storage_path) : '')
-  html = html.replace(/\{\{outdoor_photo_2\}\}/g, outdoorPhotos[1]?.storage_path ? getPhotoUrl(outdoorPhotos[1].storage_path) : '')
-  html = html.replace(/\{\{outdoor_photo_3\}\}/g, outdoorPhotos[2]?.storage_path ? getPhotoUrl(outdoorPhotos[2].storage_path) : '')
-
-  // ===== PAGE 5: AREAS INSPECTED (duplicate per area) =====
-  html = duplicateAreaPages(html, inspection.areas, inspection.photos)
-
-  // ===== PAGE 7: SUBFLOOR (conditional) =====
-  html = handleSubfloorPage(html, inspection, subfloorData, subfloorReadings, subfloorPhotos)
 
   // ===== PAGE 10: VISUAL MOULD CLEANING ESTIMATE =====
   // Use pre-computed option_selected if available, fall back to algorithmic derivation
