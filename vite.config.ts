@@ -36,6 +36,11 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         // Clean up old SW caches
         cleanupOutdatedCaches: true,
+        // Force new service worker to activate immediately (don't wait for tabs to close)
+        skipWaiting: true,
+        clientsClaim: true,
+        // Ensure navigation requests always get the latest index.html
+        navigateFallback: '/index.html',
         // Runtime caching strategies
         runtimeCaching: [
           // Google Fonts - cache first (rarely changes)
