@@ -892,44 +892,6 @@ export default function LeadDetail() {
           </Card>
         )}
 
-        {/* AI Summary - if generated (new 4-column format) */}
-        {(inspection?.what_we_found_text || inspection?.problem_analysis_content || inspection?.what_we_will_do_text || inspection?.demolition_content) && (
-          <Card className="border-purple-200 bg-purple-50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2 text-purple-800">
-                <Sparkles className="h-4 w-4" />
-                AI Generated Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {inspection.what_we_found_text && (
-                <div>
-                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">What We Found</p>
-                  <p className="text-sm text-purple-900 whitespace-pre-wrap">{inspection.what_we_found_text}</p>
-                </div>
-              )}
-              {inspection.problem_analysis_content && (
-                <div>
-                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">Problem Analysis</p>
-                  <p className="text-sm text-purple-900 whitespace-pre-wrap">{inspection.problem_analysis_content}</p>
-                </div>
-              )}
-              {inspection.what_we_will_do_text && (
-                <div>
-                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">What We Will Do</p>
-                  <p className="text-sm text-purple-900 whitespace-pre-wrap">{inspection.what_we_will_do_text}</p>
-                </div>
-              )}
-              {inspection.demolition_content && (
-                <div>
-                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-1">Demolition Details</p>
-                  <p className="text-sm text-purple-900 whitespace-pre-wrap">{inspection.demolition_content}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
         {/* Complete Inspection Data Display — shown for all post-inspection statuses */}
         {POST_INSPECTION_STATUSES.includes(lead.status) && (
           <div id="inspection-data" className="space-y-4">
