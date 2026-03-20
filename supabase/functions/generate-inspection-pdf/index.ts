@@ -909,7 +909,7 @@ function generateNavyBoxSectionPages(contentHtml: string, config: SectionConfig)
 
 // Handle PROBLEM ANALYSIS & RECOMMENDATIONS overflow
 function handleProblemAnalysisOverflow(html: string, problemContentHtml: string): string {
-  const regex = /<!-- Page 5: Problem Analysis[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 6)/
+  const regex = /<!-- Page 8: Problem Analysis[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 9)/
   const match = html.match(regex)
 
   if (!match) return html
@@ -918,7 +918,7 @@ function handleProblemAnalysisOverflow(html: string, problemContentHtml: string)
   const logoUrl = logoMatch ? logoMatch[1] : `${ASSET_BASE}/assets/logos/logo-mrc.png`
 
   const config: SectionConfig = {
-    pageComment: '<!-- Page 5: Problem Analysis & Recommendations -->',
+    pageComment: '<!-- Page 8: Problem Analysis & Recommendations -->',
     titleHtml: `<!-- PROBLEM title -->
             <div style="width: 400px; left: 41px; top: 25px; position: absolute; color: #000000; font-size: 56px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">PROBLEM</div>
             <div style="width: 650px; left: 40px; top: 85px; position: absolute; color: #121D73; font-size: 23px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">ANALYSIS &amp; RECOMMENDATIONS</div>`,
@@ -933,7 +933,7 @@ function handleProblemAnalysisOverflow(html: string, problemContentHtml: string)
 
 // Handle DEMOLITION section overflow
 function handleDemolitionOverflow(html: string, demolitionContentHtml: string): string {
-  const regex = /<!-- Page 6: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 7)/
+  const regex = /<!-- Page 9: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 10)/
   const match = html.match(regex)
 
   if (!match) return html
@@ -942,7 +942,7 @@ function handleDemolitionOverflow(html: string, demolitionContentHtml: string): 
   const logoUrl = logoMatch ? logoMatch[1] : `${ASSET_BASE}/assets/logos/logo-mrc.png`
 
   const config: SectionConfig = {
-    pageComment: '<!-- Page 6: Demolition Page -->',
+    pageComment: '<!-- Page 9: Demolition Page -->',
     titleHtml: `<!-- DEMOLITION title -->
             <div style="width: 600px; left: 41px; top: 25px; position: absolute; color: #000000; font-size: 56px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">DEMOLITION</div>`,
     contentTop: 145,
@@ -1054,8 +1054,8 @@ function rebuildProblemAnalysisMarkdown(sections: Record<string, string>): strin
 // The template has a single Area page with {{area_*}} placeholders
 // We duplicate it once per inspected area
 function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, photos: Photo[] | undefined): string {
-  // Find the Area page block: between "Page 8: Areas Inspected" comment and "Page 9:" comment
-  const areaPageRegex = /(<!-- Page 8: Areas Inspected[\s\S]*?<\/div>\s*<\/div>)\s*(?=\s*<!-- Page 9)/
+  // Find the Area page block: between "Page 5: Areas Inspected" comment and "Page 6:" comment
+  const areaPageRegex = /(<!-- Page 5: Areas Inspected[\s\S]*?<\/div>\s*<\/div>)\s*(?=\s*<!-- Page 6)/
   const match = html.match(areaPageRegex)
 
   if (!match) {
@@ -1161,7 +1161,7 @@ function handleSubfloorPage(
   subfloorReadings: SubfloorReading[],
   subfloorPhotos: Photo[]
 ): string {
-  const subfloorPageRegex = /\s*<!-- Page 9: Subfloor[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 10)/
+  const subfloorPageRegex = /\s*<!-- Page 7: Subfloor[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 8)/
 
   if (!inspection.subfloor_required || !subfloorData) {
     return html.replace(subfloorPageRegex, '\n\n')
@@ -1270,7 +1270,7 @@ function handleSubfloorPage(
             <div style="width: 290px; left: 484px; top: ${tp.bodyTop}px; position: absolute; color: #FFFFFF; font-size: 13px; font-family: 'Galvji'; font-weight: 400; line-height: 20px; letter-spacing: 0.5px; z-index: 10; white-space: pre-wrap;">${tp.body}</div>`
     ).join('')
 
-    pagesHtml.push(`<!-- Page 9: Subfloor${isFirstPage ? '' : ' (continued)'} -->
+    pagesHtml.push(`<!-- Page 7: Subfloor${isFirstPage ? '' : ' (continued)'} -->
     <div class="report-page page-break">
         <div style="width: 794px; height: 1123px; position: relative; background: #FFFFFF; overflow: hidden">
             <img src="${bgUrl}" style="width: 794px; height: 1123px; left: 0; top: 0; position: absolute; display: block; object-fit: cover; z-index: 0;" alt="" />
@@ -1392,7 +1392,7 @@ function generateReportHtml(
   html = html.replace(/\{\{what_we_will_do_text\}\}/g, whatWeWillDoHtml)
   html = html.replace(/\{\{what_you_get_text\}\}/g, '')
 
-  // ===== PAGE 5: PROBLEM ANALYSIS (multi-page overflow) =====
+  // ===== PAGE 8: PROBLEM ANALYSIS (multi-page overflow) =====
   // Override sections with individual column values when user has edited them
   let problemMarkdown = inspection.problem_analysis_content || inspection.ai_summary_text || ''
   if (inspection.what_we_discovered || inspection.identified_causes || inspection.why_this_happened) {
@@ -1421,17 +1421,17 @@ function generateReportHtml(
   html = html.replace(/\{\{timeline_text\}\}/g, stripMarkdown(problemSections.timeline_text) || '')
   html = html.replace(/\{\{problem_analysis_content\}\}/g, '') // Already handled by overflow
 
-  // ===== PAGE 6: DEMOLITION (conditional + multi-page overflow) =====
+  // ===== PAGE 9: DEMOLITION (conditional + multi-page overflow) =====
   const hasDemolition = demolitionAreas.length > 0 || !!inspection.demolition_content?.trim()
   if (hasDemolition) {
     html = handleDemolitionOverflow(html, demolitionContent)
   } else {
     // Remove demolition page entirely when no areas require it
-    const demolitionRemoveRegex = /\s*<!-- Page 6: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 7)/
+    const demolitionRemoveRegex = /\s*<!-- Page 9: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 10)/
     html = html.replace(demolitionRemoveRegex, '\n\n')
   }
 
-  // ===== PAGE 7: OUTDOOR ENVIRONMENT =====
+  // ===== PAGE 6: OUTDOOR ENVIRONMENT =====
   html = html.replace(/\{\{outdoor_temperature\}\}/g, String(inspection.outdoor_temperature || 0))
   html = html.replace(/\{\{outdoor_humidity\}\}/g, String(inspection.outdoor_humidity || 0))
   html = html.replace(/\{\{outdoor_dew_point\}\}/g, String(inspection.outdoor_dew_point || 0))
@@ -1439,10 +1439,10 @@ function generateReportHtml(
   html = html.replace(/\{\{outdoor_photo_2\}\}/g, outdoorPhotos[1]?.storage_path ? getPhotoUrl(outdoorPhotos[1].storage_path) : '')
   html = html.replace(/\{\{outdoor_photo_3\}\}/g, outdoorPhotos[2]?.storage_path ? getPhotoUrl(outdoorPhotos[2].storage_path) : '')
 
-  // ===== PAGE 8: AREAS INSPECTED (duplicate per area) =====
+  // ===== PAGE 5: AREAS INSPECTED (duplicate per area) =====
   html = duplicateAreaPages(html, inspection.areas, inspection.photos)
 
-  // ===== PAGE 9: SUBFLOOR (conditional) =====
+  // ===== PAGE 7: SUBFLOOR (conditional) =====
   html = handleSubfloorPage(html, inspection, subfloorData, subfloorReadings, subfloorPhotos)
 
   // ===== PAGE 10: VISUAL MOULD CLEANING ESTIMATE =====
@@ -1532,38 +1532,6 @@ function generateReportHtml(
 
   // Update heading text color only (not background boxes)
   html = html.replace(/color: #121D73/gi, 'color: #150db9')
-
-  // ===== REORDER PAGES =====
-  // Target order: Cover → VP → Areas → Outdoor → Subfloor → Problem Analysis → Demolition → Estimate → Terms → Contact
-  // After EF processing, pages are: Cover → VP → Problem → Demolition → Outdoor → Areas → Subfloor → Estimate → Terms → Contact
-  // We need to move Areas+Outdoor+Subfloor before Problem Analysis
-
-  // Step 1: Extract the Outdoor block (between "Page 7:" and the next page marker)
-  const outdoorRegex = /(\s*<!-- Page 7:[\s\S]*?<\/div>\s*<\/div>)\s*(?=\s*<!-- Page 8)/
-  const outdoorMatch = html.match(outdoorRegex)
-
-  // Step 2: Extract all Areas blocks (between first "Page 8:" and "Page 9:" or "Page 10:")
-  const areasRegex = /(\s*<!-- Page 8:[\s\S]*?)(?=\s*<!-- Page (?:9|10):)/
-  const areasMatch = html.match(areasRegex)
-
-  // Step 3: Extract Subfloor blocks if present (between "Page 9:" and "Page 10:")
-  const subfloorRegex = /(\s*<!-- Page 9:[\s\S]*?)(?=\s*<!-- Page 10:)/
-  const subfloorMatch = html.match(subfloorRegex)
-
-  if (outdoorMatch && areasMatch) {
-    // Remove the blocks from their current positions
-    if (subfloorMatch) {
-      html = html.replace(subfloorRegex, '')
-    }
-    html = html.replace(areasRegex, '')
-    html = html.replace(outdoorRegex, '')
-
-    // Build the reordered block: Areas → Outdoor → Subfloor
-    const reorderedBlock = areasMatch[1] + outdoorMatch[1] + (subfloorMatch ? subfloorMatch[1] : '')
-
-    // Insert before Problem Analysis (Page 5)
-    html = html.replace(/(\s*<!-- Page 5: Problem Analysis)/, reorderedBlock + '$1')
-  }
 
   return html
 }
@@ -1784,14 +1752,11 @@ Deno.serve(async (req) => {
       '<!-- Page 2: Table of Contents',
       '<!-- Page 3: Our Services',
       '<!-- Page 4: Value Proposition',
-      '<!-- Page 5: Problem Analysis',
-      '<!-- Page 5',
-      '<!-- Page 6: Demolition',
+      '<!-- Page 5: Areas Inspected',
       '<!-- Page 6',
-      '<!-- Page 7',
-      '<!-- Page 8: Areas Inspected',
-      '<!-- Page 9: Subfloor',
-      '<!-- Page 9',
+      '<!-- Page 7: Subfloor',
+      '<!-- Page 8: Problem Analysis',
+      '<!-- Page 9: Demolition',
       '<!-- Page 10',
     ]
     const missingMarkers = requiredMarkers.filter(marker => !templateHtml.includes(marker))
