@@ -1533,6 +1533,38 @@ function generateReportHtml(
   // Update heading text color only (not background boxes)
   html = html.replace(/color: #121D73/gi, 'color: #150db9')
 
+  // ===== REORDER PAGES =====
+  // Target order: Cover → VP → Areas → Outdoor → Subfloor → Problem Analysis → Demolition → Estimate → Terms → Contact
+  // After EF processing, pages are: Cover → VP → Problem → Demolition → Outdoor → Areas → Subfloor → Estimate → Terms → Contact
+  // We need to move Areas+Outdoor+Subfloor before Problem Analysis
+
+  // Step 1: Extract the Outdoor block (between "Page 7:" and the next page marker)
+  const outdoorRegex = /(\s*<!-- Page 7:[\s\S]*?<\/div>\s*<\/div>)\s*(?=\s*<!-- Page 8)/
+  const outdoorMatch = html.match(outdoorRegex)
+
+  // Step 2: Extract all Areas blocks (between first "Page 8:" and "Page 9:" or "Page 10:")
+  const areasRegex = /(\s*<!-- Page 8:[\s\S]*?)(?=\s*<!-- Page (?:9|10):)/
+  const areasMatch = html.match(areasRegex)
+
+  // Step 3: Extract Subfloor blocks if present (between "Page 9:" and "Page 10:")
+  const subfloorRegex = /(\s*<!-- Page 9:[\s\S]*?)(?=\s*<!-- Page 10:)/
+  const subfloorMatch = html.match(subfloorRegex)
+
+  if (outdoorMatch && areasMatch) {
+    // Remove the blocks from their current positions
+    if (subfloorMatch) {
+      html = html.replace(subfloorRegex, '')
+    }
+    html = html.replace(areasRegex, '')
+    html = html.replace(outdoorRegex, '')
+
+    // Build the reordered block: Areas → Outdoor → Subfloor
+    const reorderedBlock = areasMatch[1] + outdoorMatch[1] + (subfloorMatch ? subfloorMatch[1] : '')
+
+    // Insert before Problem Analysis (Page 5)
+    html = html.replace(/(\s*<!-- Page 5: Problem Analysis)/, reorderedBlock + '$1')
+  }
+
   return html
 }
 
