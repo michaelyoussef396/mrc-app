@@ -12,6 +12,7 @@ export interface TimelineEvent {
   leadId: string | null;
   leadName: string | null;
   leadNumber: string | null;
+  actorName: string | null;
   timestamp: string;
   metadata?: Record<string, unknown>;
 }
@@ -71,7 +72,7 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
       // Build queries in parallel
       let activitiesQuery = supabase
         .from('activities')
-        .select('id, activity_type, title, description, metadata, created_at, lead_id, leads(full_name, lead_number)')
+        .select('id, activity_type, title, description, metadata, created_at, lead_id, user_id, leads(full_name, lead_number)')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -102,6 +103,23 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
 
       const events: TimelineEvent[] = [];
 
+      // Fetch profile names for activity user_ids
+      const userIds = [...new Set(
+        (activitiesRes.data || []).map(a => a.user_id).filter(Boolean) as string[]
+      )];
+      const profileMap = new Map<string, string>();
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+        if (profiles) {
+          for (const p of profiles) {
+            profileMap.set(p.id, p.full_name || '');
+          }
+        }
+      }
+
       // Map activities
       if (activitiesRes.data) {
         for (const a of activitiesRes.data) {
@@ -118,6 +136,7 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
             leadId: a.lead_id,
             leadName: lead?.full_name || null,
             leadNumber: lead?.lead_number || null,
+            actorName: a.user_id ? (profileMap.get(a.user_id) || null) : null,
             timestamp: a.created_at,
             metadata: a.metadata as Record<string, unknown> | undefined,
           });
@@ -141,6 +160,7 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
             leadId: e.lead_id,
             leadName: lead?.full_name || null,
             leadNumber: lead?.lead_number || null,
+            actorName: null,
             timestamp: e.sent_at,
             metadata: { recipient: e.recipient_email, status: e.status },
           });
@@ -163,6 +183,7 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
             leadId: n.lead_id,
             leadName: lead?.full_name || null,
             leadNumber: lead?.lead_number || null,
+            actorName: null,
             timestamp: n.created_at,
           });
         }

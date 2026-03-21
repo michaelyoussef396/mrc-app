@@ -186,6 +186,9 @@ export function ActivityTimeline({
                   dateStyle: 'medium',
                   timeStyle: 'short',
                 })}
+                {event.actorName && (
+                  <span className="text-gray-500"> — {event.actorName}</span>
+                )}
               </p>
             </div>
           </div>

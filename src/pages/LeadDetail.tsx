@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { NewLeadView } from "@/components/leads/NewLeadView";
 import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
+import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
 import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
 import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/api/inspections";
@@ -108,6 +109,7 @@ export default function LeadDetail() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showEditSheet, setShowEditSheet] = useState(false);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [newStatus, setNewStatus] = useState<LeadStatus | null>(null);
 
   // Fetch lead data
@@ -589,64 +591,81 @@ export default function LeadDetail() {
               </div>
             </div>
 
-            {/* Action Buttons */}
+            {/* Action Buttons — Desktop: inline buttons, Mobile: 3-dot menu */}
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Button variant="outline" size="icon" onClick={handleCall} className="h-10 w-10">
-                <Phone className="h-5 w-5" />
-              </Button>
+              {/* Desktop action buttons (hidden on mobile) */}
+              <div className="hidden md:flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowEditSheet(true)} className="h-9">
+                  <Edit className="h-4 w-4 mr-1.5" />
+                  Edit
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleCall} className="h-9">
+                  <Phone className="h-4 w-4 mr-1.5" />
+                  Call
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleEmail} className="h-9">
+                  <Mail className="h-4 w-4 mr-1.5" />
+                  Email
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleDirections} className="h-9">
+                  <Navigation className="h-4 w-4 mr-1.5" />
+                  Directions
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowStatusDialog(true)} className="h-9 text-blue-600 border-blue-200 hover:bg-blue-50">
+                  <RefreshCw className="h-4 w-4 mr-1.5" />
+                  Status
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowDeleteDialog(true)} className="h-9 text-red-600 border-red-200 hover:bg-red-50">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
 
-              {/* MORE OPTIONS Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" className="h-10 w-10">
-                    <MoreVertical className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem onClick={() => setShowEditSheet(true)}>
-                    <Edit className="h-4 w-4 mr-3" />
-                    Edit Lead
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleCall}>
-                    <Phone className="h-4 w-4 mr-3" />
-                    Call
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleEmail}>
-                    <Mail className="h-4 w-4 mr-3" />
-                    Email
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleSMS}>
-                    <MessageSquare className="h-4 w-4 mr-3" />
-                    SMS
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleDirections}>
-                    <Navigation className="h-4 w-4 mr-3" />
-                    Get Directions
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSeparator />
-
-                  {/* Change Status Submenu */}
-                  <DropdownMenuItem
-                    onClick={() => setShowStatusDialog(true)}
-                    className="text-blue-600"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-3" />
-                    Change Status
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem
-                    onClick={() => setShowDeleteDialog(true)}
-                    className="text-red-600"
-                  >
-                    <Trash2 className="h-4 w-4 mr-3" />
-                    Delete Lead
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* Mobile: phone + 3-dot menu (hidden on desktop) */}
+              <div className="flex md:hidden items-center gap-2">
+                <Button variant="outline" size="icon" onClick={handleCall} className="h-10 w-10">
+                  <Phone className="h-5 w-5" />
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-10 w-10">
+                      <MoreVertical className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => setShowEditSheet(true)}>
+                      <Edit className="h-4 w-4 mr-3" />
+                      Edit Lead
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleCall}>
+                      <Phone className="h-4 w-4 mr-3" />
+                      Call
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleEmail}>
+                      <Mail className="h-4 w-4 mr-3" />
+                      Email
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSMS}>
+                      <MessageSquare className="h-4 w-4 mr-3" />
+                      SMS
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDirections}>
+                      <Navigation className="h-4 w-4 mr-3" />
+                      Get Directions
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setShowStatusDialog(true)} className="text-blue-600">
+                      <RefreshCw className="h-4 w-4 mr-3" />
+                      Change Status
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-red-600">
+                      <Trash2 className="h-4 w-4 mr-3" />
+                      Delete Lead
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
         </div>
@@ -792,6 +811,56 @@ export default function LeadDetail() {
           </CardContent>
         </Card>
 
+        {/* Pipeline Dates — show milestone timestamps when available */}
+        {(lead.booked_at || lead.inspection_completed_date || lead.job_completed_date || lead.invoice_sent_date || lead.payment_received_date || lead.invoice_amount) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Pipeline Timeline
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {lead.booked_at && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Booked On</span>
+                  <span className="text-sm font-medium">{formatDate(lead.booked_at)}</span>
+                </div>
+              )}
+              {lead.inspection_completed_date && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Inspection Completed</span>
+                  <span className="text-sm font-medium">{formatDate(lead.inspection_completed_date)}</span>
+                </div>
+              )}
+              {lead.job_completed_date && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Job Completed</span>
+                  <span className="text-sm font-medium">{formatDate(lead.job_completed_date)}</span>
+                </div>
+              )}
+              {lead.invoice_sent_date && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Invoice Sent</span>
+                  <span className="text-sm font-medium">{formatDate(lead.invoice_sent_date)}</span>
+                </div>
+              )}
+              {lead.invoice_amount && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Invoice Amount</span>
+                  <span className="text-sm font-medium">{formatCurrency(lead.invoice_amount)}</span>
+                </div>
+              )}
+              {lead.payment_received_date && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Payment Received</span>
+                  <span className="text-sm font-medium text-green-700">{formatDate(lead.payment_received_date)}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Inspection Scheduled - with booking notes inside */}
         {lead.inspection_scheduled_date && (
           <Card className="border-l-4 border-l-green-500 border-green-200 bg-green-50">
@@ -833,10 +902,36 @@ export default function LeadDetail() {
                 </div>
               )}
 
-              <Button variant="outline" className="w-full h-12 border-green-300 text-green-700 hover:bg-green-100">
+              <Button variant="outline" className="w-full h-12 border-green-300 text-green-700 hover:bg-green-100" onClick={() => setShowRescheduleModal(true)}>
                 <Calendar className="h-4 w-4 mr-2" />
                 Reschedule Inspection
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Customer Requests & Access Instructions — shown when either exists */}
+        {(lead.special_requests || lead.access_instructions) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Customer Requests
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {lead.access_instructions && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Access Instructions</p>
+                  <p className="text-sm text-foreground whitespace-pre-line">{lead.access_instructions}</p>
+                </div>
+              )}
+              {lead.special_requests && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Special Requests</p>
+                  <p className="text-sm text-foreground whitespace-pre-line">{lead.special_requests}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -1009,6 +1104,17 @@ export default function LeadDetail() {
 
       {/* Edit Lead Sheet */}
       <EditLeadSheet lead={lead} open={showEditSheet} onOpenChange={setShowEditSheet} />
+
+      {/* Reschedule Inspection Modal */}
+      <BookInspectionModal
+        open={showRescheduleModal}
+        onOpenChange={setShowRescheduleModal}
+        leadId={lead.id}
+        leadNumber={lead.lead_number || ''}
+        customerName={lead.full_name}
+        propertyAddress={`${lead.property_address_street}, ${lead.property_address_suburb}`}
+        propertySuburb={lead.property_address_suburb}
+      />
     </div>
   );
 }
