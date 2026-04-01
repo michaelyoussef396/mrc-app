@@ -25,12 +25,13 @@
 
 ## Context Files
 ```
-context/PRD.md                # Product requirements
-context/PM_WORKFLOW.md        # Workflow guide
-context/active_sprint.md      # Current sprint spec
-context/MASTER-TODO.md        # Master backlog
+context/PRD.md                # Product requirements (stages 1-12)
+context/TODO.md               # Current task list (forward-looking)
+context/PLANNING.md           # Architecture & deployment readiness
+context/WORKFLOW.md           # Session summaries & decisions
+context/PM_WORKFLOW.md        # PM/Dev workflow process
 context/AGENTS.md             # Agent instructions
-context/Channel.md            # Communication channel
+context/MASTER-TODO.md        # Historical reference (archived)
 ```
 
 ---
@@ -95,15 +96,31 @@ context/Channel.md            # Communication channel
 
 ---
 
-## Recent Session (2026-02-08)
+## Current State (April 2026)
 
-### Phase 1: Technician Role (Current)
-- **Status:** 🟡 80% Complete
-- **Completed:** Dashboard, Jobs Page, Inspection Form UI (10 sections)
-- **Next:** Skills Infrastructure, Database Wiring, PDF Generation
+### Phase 1: COMPLETE
+- **Status:** All inspection workflow features working end-to-end
+- **Built:** 91 components, 26 pages, 22 hooks, 10 Edge Functions, 16 DB tables
+- **Security:** RLS on all tables, rate limiting, XSS/CSP, Sentry monitoring
+- **Deployment:** Vercel with security headers, PWA with service worker
 
-**Critical Next Step:** Run `claude` with `context/active_sprint.md` to build skills library.
+### Next: Job Completion Workflow
+- Job completion form, job report PDF, admin approval flow
+- Invoice helper, payment tracking, audit trail
+- See `context/TODO.md` for full task list
+
+### Active Tasks
+- Framer → Supabase lead capture
+- Email domain switch (mouldandrestoration.com.au)
+- API key rotation
+- Dev Supabase project + Vercel preview env vars
+- Team walkthrough with technicians
+
+### Git Workflow
+- Production branch: `main`
+- Deploy: push to main triggers Vercel deployment
+- Working directory: `~/Mould/mrc-app` (canonical)
 
 ---
 
-*Last Updated: 2026-02-08*
+*Last Updated: 2026-04-01*
