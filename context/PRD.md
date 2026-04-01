@@ -2,7 +2,7 @@
 
 **Version:** 2.0
 **Date:** February 7, 2025
-**Status:** In Development - Phase 1 Technician Role (80% Complete)
+**Status:** Phase 1 Complete - Preparing for Team Access (April 2026)
 **Project:** Mould & Restoration Co. Lead Management System
 
 ---
@@ -498,7 +498,7 @@ Final Calculation:
 
 ---
 
-### **Stage 9: Job Completed** (Sprint 2)
+### **Stage 9: Job Completed** (Next: Job Completion Workflow)
 
 **Trigger:** Technician marks job as complete
 
@@ -510,7 +510,7 @@ Final Calculation:
 
 ---
 
-### **Stage 10: Invoice Sent** (Sprint 2)
+### **Stage 10: Invoice Sent** (Next: Job Completion Workflow)
 
 **Trigger:** Job marked complete
 
@@ -521,7 +521,7 @@ Final Calculation:
 
 ---
 
-### **Stage 11: Payment Received** (Sprint 2)
+### **Stage 11: Payment Received** (Next: Job Completion Workflow)
 
 **Trigger:** Admin manually marks "Payment Received"
 
@@ -532,7 +532,7 @@ Final Calculation:
 
 ---
 
-### **Stage 12: Job Closed - Request Review** (Sprint 2)
+### **Stage 12: Job Closed - Request Review** (Next: Job Completion Workflow)
 
 **Trigger:** Payment received
 
@@ -541,6 +541,77 @@ Final Calculation:
 - Subject: "We'd love your feedback!"
 - Body: Thank you, request review, link to Google
 - Track if review left
+
+---
+
+## Job Completion Workflow (Next Major Feature)
+
+**Status:** Not yet built. This is the next feature to implement after team access.
+
+**Pipeline Extension:** After inspection report is approved and emailed (Stage 6), the lead progresses through stages 7-12 as the remediation job is booked, completed, invoiced, and closed.
+
+### Job Completion Form (Technician)
+
+Technician fills this out after completing the remediation work on-site.
+
+**Form Sections:**
+1. **Office Info** - Job reference, date completed, technician
+2. **Summary** - Overview of work performed
+3. **Before/After Photos** - Visual comparison of remediation results
+4. **Treatment Methods** - Methods used during the job
+5. **Chemical Toggles** - Chemicals applied (antimicrobial, stain remover, etc.)
+6. **Equipment** - Equipment used (dehumidifiers, air movers, etc.)
+7. **Variations** - Any changes from the original inspection quote
+8. **Job Notes** - Technician notes (visible in report)
+9. **Office Notes** - Admin-only notes (not visible to customer)
+
+### Job Report PDF
+
+- Same design system as the inspection report
+- Generated from job completion form data
+- Before/after photo comparison layout
+- Treatment summary and equipment used
+- Variations noted against original quote
+
+### Admin Review + Approve + Email Flow
+
+1. Admin reviews completed job report
+2. Can request changes (sends back to technician)
+3. Approve → generates final PDF
+4. Email job report to customer with PDF attachment
+
+### Invoice Helper
+
+- Auto-populate line items from inspection pricing (Option 1/Option 2/Both)
+- Editable line items (add/remove/modify)
+- GST calculation (10%)
+- PDF invoice generation
+- Send invoice via email
+
+### Payment Tracking
+
+- Track payment status: unpaid, paid, overdue
+- Payment method: bank transfer, card, cash
+- Payment date recorded
+- Overdue notifications (7 days, 14 days, 30 days)
+
+### Audit Trail
+
+- All status transitions logged to activities table
+- Timestamps + user who performed action
+- Immutable history viewable on lead detail page
+
+### Acceptance Criteria
+
+- [ ] Technician can complete job form on mobile at 375px
+- [ ] Touch targets >= 48px throughout
+- [ ] Before/after photos upload and display correctly
+- [ ] Job report PDF generates with correct data
+- [ ] Admin can review, approve, and email job report
+- [ ] Invoice auto-populates from inspection pricing
+- [ ] Payment status tracks correctly (paid/unpaid/overdue)
+- [ ] All transitions logged in activity timeline
+- [ ] Google review request email sends after payment received
 
 ---
 
@@ -1903,16 +1974,14 @@ async function verifyAvailability(startDate, endDate, technician) {
 
 ---
 
-**This PRD documents the complete Sprint 1 scope for the MRC Lead Management System. All features are designed to be production-ready and demo-ready for business owners.**
-
-**Next Steps:**
-1. Review and approve this PRD
-2. Proceed to Technical Specification (database schema, API design, implementation details)
-3. Break down into 2-week sprint tasks
-4. Begin development
+**Current Status (April 2026):**
+- Phase 1 (Stages 1-6): COMPLETE — full inspection workflow working end-to-end
+- Next: Job Completion Workflow (Stages 7-12) — see section above
+- See `context/TODO.md` for current task list
+- See `context/PLANNING.md` for architecture and deployment readiness
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** November 11, 2025
-**Status:** Ready for Review
+**Document Version:** 2.1
+**Last Updated:** April 1, 2026
+**Status:** Phase 1 Complete
