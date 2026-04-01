@@ -1,3 +1,11 @@
+> **ARCHIVED:** This file is kept for historical reference. The active task list
+> is now in `context/TODO.md`. Architecture and deployment status is in
+> `context/PLANNING.md`. Session history is in `context/WORKFLOW.md`.
+>
+> Last active: 2026-02-17. Superseded: 2026-04-01.
+
+---
+
 # MRC Lead Management System - Master TODO
 
 **Last Updated:** 2026-02-17 (Phase 1 Completion Audit - ~95% Complete)
