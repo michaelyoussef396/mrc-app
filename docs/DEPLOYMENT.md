@@ -5,6 +5,31 @@
 
 ---
 
+## Branch Strategy
+
+| Branch | Purpose | Vercel Target |
+|--------|---------|---------------|
+| `production` | Live app (Clayton & Glen use this) | Production deployment |
+| `main` | Development/staging (Michael builds here) | Preview deployment |
+
+- **Push to `main`** — Vercel creates a preview deployment (for testing)
+- **Push to `production`** — Vercel deploys to the live URL
+- **Never push directly to `production`** — always merge from `main`
+
+### Deploy Flow
+1. Push changes to `main`
+2. Check the Vercel preview URL
+3. Create a PR: `main` → `production`
+4. Merge the PR
+5. Vercel auto-deploys to the live URL
+
+### Manual Setup Required (Vercel Dashboard)
+1. **Set production branch:** Project Settings → Git → Production Branch → `production`
+2. **Set environment variables:** Settings → Environment Variables (Production scope → live Supabase, Preview scope → dev Supabase)
+3. **Redeploy** the `production` branch after changing any settings
+
+---
+
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
