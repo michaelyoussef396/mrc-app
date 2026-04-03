@@ -164,7 +164,7 @@ Never exit early. Never skip phases. Never skip testing.
 
 **TESTING REQUIREMENTS**
 - Playwright: UI at 375px + 1920px + save/load cycle
-- TestSprite: Unit tests + edge cases
+- Vitest: Unit tests + edge cases
 - Supabase: Data verification + RLS policies
 
 **DOCUMENTATION**
@@ -202,7 +202,7 @@ Never exit early. Never skip phases. Never skip testing.
 **Business**: Mould & Restoration Co. (Melbourne, Australia)
 **Users**: Field technicians (Clayton & Glen) on mobile devices
 **Tech Stack**: React/TypeScript + Supabase + PWA
-**Critical Features**: 15-section inspection form, pricing calculator (13% discount cap), calendar booking
+**Critical Features**: 9-section inspection form, pricing calculator (13% discount cap), calendar booking
 **Compliance**: Australian standards, mobile-first (375px), touch targets ≥48px, offline capability
 
 # YOUR SUCCESS METRICS

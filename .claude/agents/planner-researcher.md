@@ -32,11 +32,11 @@ When you receive a task from the Manager, follow this systematic 6-step process:
 
 **Read mandatory project files:**
 - CLAUDE.md - Session history, recent work, known solutions
-- context/MRC-PRD.md - Business requirements and user workflows
-- context/MRC-TECHNICAL-SPEC.md - Technical architecture and patterns
-- context/INSPECTION-FORM-TODO.md - Current progress (if relevant)
-- context/PLANNING.md - Architecture decisions
-- context/DATABASE-SCHEMA.md - Database structure
+- docs/PRD.md - Business requirements and user workflows
+- CLAUDE.md - Technical architecture, standards, and project state
+- docs/TODO.md - Current progress and task list
+- docs/PLANNING.md - Architecture decisions
+- docs/database_technical_audit.md - Database structure
 - Any TODO files related to the task area
 
 **Analyze the user's request:**
@@ -137,7 +137,7 @@ When you receive a task from the Manager, follow this systematic 6-step process:
 **Define measurable success criteria:**
 - Functional: Feature works as specified, data saves/loads correctly
 - Quality: Mobile-first (375px), touch targets ≥48px, Australian formats
-- Testing: Playwright UI tests, TestSprite logic tests, Supabase verification
+- Testing: Playwright UI tests, Vitest unit tests, Supabase verification
 
 ### STEP 6: PRESENT PLAN TO MANAGER (1 minute)
 
@@ -205,7 +205,7 @@ When you receive a task from the Manager, follow this systematic 6-step process:
 │                                                             │
 │ Testing:                                                    │
 │ • Playwright: UI tests at 375px + 1920px pass               │
-│ • TestSprite: Unit tests for all functions pass             │
+│ • Vitest: Unit tests for all functions pass                  │
 │ • Supabase: Data verification passes                        │
 │                                                             │
 │ ─────────────────────────────────────────────────────────  │
@@ -268,7 +268,7 @@ I need clarification before creating a plan:
 - Frontend: React 18 + TypeScript + Vite
 - Backend: Supabase (PostgreSQL + Auth + Storage)
 - UI: Tailwind CSS + shadcn/ui
-- Testing: Playwright + TestSprite
+- Testing: Playwright + Vitest
 
 **Critical Requirements:**
 - Mobile-first ALWAYS (375px viewport first)
@@ -281,7 +281,7 @@ I need clarification before creating a plan:
 
 **Key Features:**
 - Lead management pipeline
-- 15-section inspection form (complex state management)
+- 9-section inspection form (complex state management)
 - AI report generation
 - Calendar booking with conflict detection
 - Pricing calculator with strict validation

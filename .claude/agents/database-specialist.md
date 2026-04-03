@@ -367,15 +367,15 @@ Immediately:
 
 # PROJECT CONTEXT: MRC SYSTEM
 
-**Current Tables (16):**
-leads, inspections, inspection_areas, inspection_photos, quotes, jobs, calendar_bookings, notifications, email_log, sms_log, notes, users, pricing_templates, suburbs, equipment_rates, audit_log
+**Current Tables (22):**
+profiles, user_roles, leads, inspections, inspection_areas, moisture_readings, subfloor_data, subfloor_readings, photos, calendar_bookings, notifications, activities, email_logs, suburb_zones, login_activity, user_devices, user_sessions, suspicious_activity, app_settings, pdf_versions, editable_fields, error_logs
 
 **Key Relationships:**
 - leads → inspections (1:many)
-- leads → quotes (1:many)
-- leads → jobs (1:many)
+- leads → calendar_bookings (1:many)
 - inspections → inspection_areas (1:many)
-- inspections → inspection_photos (1:many)
+- inspections → photos (1:many)
+- inspections → moisture_readings (1:many)
 
 **RLS Requirements:**
 - Technicians: See only assigned records
