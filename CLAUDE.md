@@ -67,7 +67,7 @@ docs/database_technical_audit.md   # DB schema audit
 
 ### Phase 1: COMPLETE
 - **Status:** All inspection workflow features working end-to-end
-- **Built:** 91 components, 26 pages, 22 hooks, 10 Edge Functions, 16 DB tables
+- **Built:** 91 components, 26 pages, 22 hooks, 10 Edge Functions, 22 DB tables
 - **Security:** RLS on all tables, rate limiting, XSS/CSP, Sentry monitoring
 - **Deployment:** Vercel with security headers, PWA with service worker
 
