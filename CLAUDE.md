@@ -10,7 +10,7 @@
 
 ### Mobile-First Standards (Non-Negotiable)
 - Test 375px viewport FIRST
-- Touch targets ≥48px (gloves requirement)
+- Touch targets >=48px (gloves requirement)
 - Currency: $X,XXX.XX | Date: DD/MM/YYYY | Time: Australia/Melbourne
 
 ### Pricing Rules (Absolute)
@@ -23,15 +23,22 @@
 
 ---
 
-## Context Files
+## Documentation
+
+All docs live in `docs/`. Key files:
+
 ```
-context/PRD.md                # Product requirements (stages 1-12)
-context/TODO.md               # Current task list (forward-looking)
-context/PLANNING.md           # Architecture & deployment readiness
-context/WORKFLOW.md           # Session summaries & decisions
-context/PM_WORKFLOW.md        # PM/Dev workflow process
-context/AGENTS.md             # Agent instructions
-context/MASTER-TODO.md        # Historical reference (archived)
+docs/PRD.md                        # Product requirements (stages 1-12)
+docs/TODO.md                       # Current task list (forward-looking)
+docs/PLANNING.md                   # Architecture & deployment readiness
+docs/WORKFLOW.md                   # Session summaries & decisions
+docs/JOB_COMPLETION_PLAN.md        # Phase 2 job completion plan
+docs/JOB_COMPLETION_PRD.md         # Phase 2 requirements
+docs/PHASE_2_EXECUTION.md          # Phase 2 execution tracker
+docs/API_AUDIT.md                  # API security audit
+docs/MCP_STACK.md                  # MCP server configuration
+docs/COST_CALCULATION_SYSTEM.md    # Pricing/cost calc docs
+docs/database_technical_audit.md   # DB schema audit
 ```
 
 ---
@@ -43,46 +50,6 @@ context/MASTER-TODO.md        # Historical reference (archived)
 | Supabase | Database operations, RLS policies, migrations |
 | Playwright | Visual testing at 375px/768px/1440px |
 | GitHub | Git operations, branches, commits |
-| Filesystem | File operations |
-
----
-
-## Agent Delegation
-
-| Task Type | Agent |
-|-----------|-------|
-| Database changes | database-specialist |
-| Business logic | backend-builder |
-| UI components | frontend-builder |
-| Connect UI to backend | integration-specialist |
-| Debugging | error-detective |
-| Pricing validation | pricing-guardian |
-| Deployment | deployment-captain |
-
----
-
-## Key Workflows
-
-### Feature Development
-1. planner-researcher → Research & plan
-2. database-specialist → Schema changes
-3. frontend-builder → UI components
-4. integration-specialist → Wire to backend
-5. Testing (Playwright + Supabase verification)
-6. documentation-agent → Commit & docs
-
-### Bug Fix
-1. error-detective → Debug systematically
-2. Fix implementation
-3. Verify with Playwright at 375px
-4. Git checkpoint
-
-### Pre-Deployment (All must pass)
-1. Security scan (zero high/critical)
-2. pricing-guardian (48 scenarios)
-3. Mobile performance (>90, <3s load)
-4. Bundle size (<500KB)
-5. All tests passing
 
 ---
 
@@ -104,23 +71,23 @@ context/MASTER-TODO.md        # Historical reference (archived)
 - **Security:** RLS on all tables, rate limiting, XSS/CSP, Sentry monitoring
 - **Deployment:** Vercel with security headers, PWA with service worker
 
-### Next: Job Completion Workflow
+### Next: Job Completion Workflow (Phase 2)
 - Job completion form, job report PDF, admin approval flow
 - Invoice helper, payment tracking, audit trail
-- See `context/TODO.md` for full task list
+- See `docs/TODO.md` for full task list
 
 ### Active Tasks
-- Framer → Supabase lead capture
+- Framer -> Supabase lead capture
 - Email domain switch (mouldandrestoration.com.au)
 - API key rotation
 - Dev Supabase project + Vercel preview env vars
 - Team walkthrough with technicians
 
 ### Git Workflow
-- Production branch: `main`
-- Deploy: push to main triggers Vercel deployment
-- Working directory: `~/Mould/mrc-app` (canonical)
+- Production branch: `production` (Vercel production deployment)
+- Development branch: `main` (Vercel preview deployment)
+- Working directory: `~/mrc-app-1`
 
 ---
 
-*Last Updated: 2026-04-01*
+*Last Updated: 2026-04-03*

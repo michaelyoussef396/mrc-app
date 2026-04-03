@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "skills": {
+    "sentry-android-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "98b89828512faa8b22137c6aa2053dfea03b91007a804b3538d4a5ce853006a8"
+    },
+    "sentry-browser-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "0ca21f883fefc9fc71dea0b8dc1e38fb9e03203923d49a93ec652addf297f2eb"
+    },
+    "sentry-cocoa-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "828b41151cf3a9f1ec17e4368474be0f1c4f66070fe1bf2f702418ad01c637dc"
+    },
+    "sentry-code-review": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "3f2134bdeffc92ac7cd1d8561f056006cd1908ea87590182cefefdab441ed472"
+    },
+    "sentry-create-alert": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "05f78a17a70f3e38d283fef4f97b013024a01093ef436b96df12d51e2f1a7b00"
+    },
+    "sentry-dotnet-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "0bc8aee622ae00f1cc2d63f19f7f1608110a6cc90696dac2def1e49f5a7fda88"
+    },
+    "sentry-feature-setup": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "36a3cad99fa5c3fab7151c86ceadc7d5903147db278f53c191f25976e11b33b4"
+    },
+    "sentry-fix-issues": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "0ef2103f20d698acc56d856a07a372a0a68cb02bad654d0dacb4e2ffe87e98b5"
+    },
+    "sentry-go-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "b08fe5ee7f9cc4c3cd9e9679439c1f248095e9f910bc9e1898b1054c0fa7e838"
+    },
+    "sentry-nestjs-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "79960b95679f26e1a58d36256a223fb9c980aefb97bec125a026f6b9bbe42555"
+    },
+    "sentry-nextjs-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "f663f60518aa159aadd4c9ee4b29479a0941a60e88ebf00528e806c987293e6d"
+    },
+    "sentry-node-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "8fde6764ef95583c0fd587438c9646b02cebd4c025c8959f1a59ed14d239f062"
+    },
+    "sentry-otel-exporter-setup": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "9088d3cd9dd57a78797685f0993da10c99ab921ac6089e0bdf1d1de3506407c5"
+    },
+    "sentry-php-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "2c7991497979c684cbb27bb49b71a1d753e39c15e4610e44b94ab195b6211710"
+    },
+    "sentry-pr-code-review": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "50d60bad66edd86ebda5302b67fb2980396b942fb125f70858f103c5a7692eb7"
+    },
+    "sentry-python-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "e34640abda4946827f914e5e679482bd6058f2749a29ed061150d540d697e353"
+    },
+    "sentry-react-native-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "7a7817452d872fb67f22fc884e335e785f0d4519774051848ad9a1e8fd3ae84e"
+    },
+    "sentry-react-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "1906567519bda70bed4d0576ea5f4c7313f373cc23a505758b241d48934009d7"
+    },
+    "sentry-ruby-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "569119a925ebc42a22fa9b444a07be49efb94f9a2934fc10e8f405c64ab81663"
+    },
+    "sentry-sdk-setup": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "3bca6e444ef09fdfb94577d4e3977b00293650695a38529d1a33ca32a1f3cfb7"
+    },
+    "sentry-sdk-skill-creator": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "fa232b782f4f64e083b67bf23d30977f7e676507879d317d704b550f57c66b1a"
+    },
+    "sentry-sdk-upgrade": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "ef1881ddfe80380e6814cc2dcd072c6c238783ebc3985acc46d3141b2c3fdf6b"
+    },
+    "sentry-setup-ai-monitoring": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "84a098eadb988507c2a004d759c4d963dbca02c2960b37a5d7c59845236e754c"
+    },
+    "sentry-svelte-sdk": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "7b534f841456f2bb3dab813c2b0de58752dfcf144a5eb828f01c3b354b36d6c2"
+    },
+    "sentry-workflow": {
+      "source": "getsentry/sentry-for-ai",
+      "sourceType": "github",
+      "computedHash": "84c4e4d0ffd4758ceee1a60485b61b5a33fabaa425a77123929af3587c90c525"
+    }
+  }
+}
