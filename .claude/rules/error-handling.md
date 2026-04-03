@@ -1,10 +1,8 @@
 ---
 paths:
-  - "src/api/**"
-  - "src/services/**"
-  - "**/controllers/**"
-  - "**/routes/**"
-  - "**/handlers/**"
+  - "supabase/functions/**"
+  - "src/lib/api/**"
+  - "src/hooks/**"
 ---
 
 # Error Handling
