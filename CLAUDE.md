@@ -1,93 +1,70 @@
-# MRC Lead Management System - Claude Code Guide
+# MRC Lead Management System
 
-**Mould & Restoration Co. - Business Automation Platform**
-**Users:** Field technicians on mobile devices | **Location:** Melbourne, Australia
-**Tech Stack:** React/TypeScript + Supabase + PWA
+Mould & Restoration Co. — mobile-first field tech app for mould inspection and remediation.
+React 18 + TypeScript + Supabase + Vite + Tailwind + shadcn/ui | PWA with offline support
 
----
+## Commands
+- `npm run dev` — local dev server
+- `npm run build` — production build
+- `npm run typecheck` — TypeScript check
+- `npx supabase functions deploy <name> --project-ref ecyivrxjpsmjmexqatym` — deploy Edge Function
 
-## Quick Reference
+## Architecture
+- /src/auth — auth logic (HIGH RISK — always ask before touching)
+- /src/pages — page components
+- /src/components — UI only, no business logic
+- /src/hooks — custom hooks
+- /src/types — all TypeScript types
+- /src/lib — Supabase client + utils
+- /supabase/functions — 10 Edge Functions
+- /supabase/migrations — DB migrations
 
-### Mobile-First Standards (Non-Negotiable)
-- Test 375px viewport FIRST
-- Touch targets >=48px (gloves requirement)
-- Currency: $X,XXX.XX | Date: DD/MM/YYYY | Time: Australia/Melbourne
+## Business Rules (Non-Negotiable)
+- 13% discount cap (0.87 multiplier) — NEVER exceed
+- GST always 10% on subtotal
+- Equipment: Dehumidifier $132/day, Air Mover $46/day, RCD $5/day
+- Mobile-first: 375px primary, 48px touch targets, no horizontal scroll
+- Australian: DD/MM/YYYY, $X,XXX.XX, (03) XXXX XXXX, ABN XX XXX XXX XXX
+- Auto-save every 30 seconds on forms
+- Zero data loss on navigation
 
-### Pricing Rules (Absolute)
-- **13% discount cap** (0.87 multiplier) - NEVER exceed
-- GST always 10% | Equipment: Dehumidifier $132, Air Mover $46, RCD $5
+## Git Workflow
+- `main` — development (Vercel preview deploys)
+- `production` — live app (Vercel production deploys)
+- Never push directly to production — always merge from main
+- Working directory: ~/mrc-app-1
 
-### Australian Standards
-- Currency: $X,XXX.XX | Phone: (03) XXXX XXXX or 04XX XXX XXX
-- Date: DD/MM/YYYY | Timezone: Australia/Melbourne | ABN: XX XXX XXX XXX
+## Database
+- Supabase project ref: ecyivrxjpsmjmexqatym
+- 22 tables with RLS on all tables
+- Never modify schema without migration + explicit approval
 
----
-
-## Documentation
-
-All docs live in `docs/`. Key files:
-
-```
-docs/PRD.md                        # Product requirements (stages 1-12)
-docs/TODO.md                       # Current task list (forward-looking)
-docs/PLANNING.md                   # Architecture & deployment readiness
-docs/WORKFLOW.md                   # Session summaries & decisions
-docs/JOB_COMPLETION_PLAN.md        # Phase 2 job completion plan
-docs/JOB_COMPLETION_PRD.md         # Phase 2 requirements
-docs/PHASE_2_EXECUTION.md          # Phase 2 execution tracker
-docs/API_AUDIT.md                  # API security audit
-docs/MCP_STACK.md                  # MCP server configuration
-docs/COST_CALCULATION_SYSTEM.md    # Pricing/cost calc docs
-docs/database_technical_audit.md   # DB schema audit
-```
-
----
-
-## MCP Servers
-
-| Server | Purpose |
-|--------|---------|
-| Supabase | Database operations, RLS policies, migrations |
-| Playwright | Visual testing at 375px/768px/1440px |
-| GitHub | Git operations, branches, commits |
-
----
-
-## Critical Rules
-
-- No hardcoded secrets (use .env)
-- All tables have RLS policies
-- TypeScript strict mode, no `any` types
-- shadcn/ui for components
-- Test mobile 375px FIRST
-
----
+## Co-Owner Rules
+- Glen and Clayton — consult before architectural decisions
+- Never touch /src/auth without asking
+- Vryan — marketing/sales for white-label venture
 
 ## Current State (April 2026)
+- Phase 1: COMPLETE — inspection workflow end-to-end
+- Phase 2: IN PROGRESS — job completion workflow
+- See @docs/TODO.md for current tasks
+- See @docs/PHASE_2_EXECUTION.md for build plan
+- See @docs/JOB_COMPLETION_PRD.md for full spec
 
-### Phase 1: COMPLETE
-- **Status:** All inspection workflow features working end-to-end
-- **Built:** 91 components, 26 pages, 22 hooks, 10 Edge Functions, 22 DB tables
-- **Security:** RLS on all tables, rate limiting, XSS/CSP, Sentry monitoring
-- **Deployment:** Vercel with security headers, PWA with service worker
+## Deep Docs (on-demand, not loaded every session)
+- @docs/PRD.md — full product requirements
+- @docs/JOB_COMPLETION_PRD.md — job completion spec
+- @docs/JOB_COMPLETION_PLAN.md — phased build order
+- @docs/PHASE_2_EXECUTION.md — execution tracker
+- @docs/API_AUDIT.md — API inventory + rotation needs
+- @docs/MCP_STACK.md — MCP server configuration
+- @docs/DEPLOYMENT.md — deployment guide
+- @docs/COST_CALCULATION_SYSTEM.md — pricing logic
+- @docs/database_technical_audit.md — schema reference
 
-### Next: Job Completion Workflow (Phase 2)
-- Job completion form, job report PDF, admin approval flow
-- Invoice helper, payment tracking, audit trail
-- See `docs/TODO.md` for full task list
-
-### Active Tasks
-- Framer -> Supabase lead capture
-- Email domain switch (mouldandrestoration.com.au)
-- API key rotation
-- Dev Supabase project + Vercel preview env vars
-- Team walkthrough with technicians
-
-### Git Workflow
-- Production branch: `production` (Vercel production deployment)
-- Development branch: `main` (Vercel preview deployment)
-- Working directory: `~/mrc-app-1`
-
----
-
-*Last Updated: 2026-04-03*
+## Key Principles
+1. Manual over automatic — explicit user selection always
+2. Data integrity non-negotiable — every field must trace to real DB records
+3. Verify before building — check existing schema/code first
+4. Pattern replication — copy proven patterns, don't invent new ones
+5. Production-first — features must be visibly functional
