@@ -47,6 +47,8 @@ import {
   Sparkles,
   ClipboardList,
   StickyNote,
+  ClipboardCheck,
+  Receipt,
 } from "lucide-react";
 import { NewLeadView } from "@/components/leads/NewLeadView";
 import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
@@ -54,6 +56,8 @@ import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
 import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
 import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/api/inspections";
+import { getJobCompletionByLeadId } from "@/lib/api/jobCompletions";
+import type { JobCompletionRow } from "@/types/jobCompletion";
 import { STATUS_FLOW, LeadStatus } from "@/lib/statusFlow";
 import { sendSlackNotification } from "@/lib/api/notifications";
 import { useActivityTimeline } from "@/hooks/useActivityTimeline";
@@ -182,6 +186,9 @@ export default function LeadDetail() {
   const [inspectionDisplayData, setInspectionDisplayData] = useState<CompleteInspectionData | null>(null);
   const [inspectionDisplayLoading, setInspectionDisplayLoading] = useState(false);
 
+  // Job completion data for Phase 2 statuses
+  const [jobCompletion, setJobCompletion] = useState<JobCompletionRow | null>(null);
+
   const POST_INSPECTION_STATUSES = [
     'inspection_ai_summary',
     'approve_inspection_report',
@@ -199,6 +206,19 @@ export default function LeadDetail() {
         .finally(() => setInspectionDisplayLoading(false));
     }
   }, [lead?.status, id]);
+
+  const PHASE_2_STATUSES = [
+    'job_waiting', 'job_completed', 'pending_review', 'job_report_pdf_sent',
+    'invoicing_sent', 'paid', 'google_review', 'finished',
+  ];
+
+  React.useEffect(() => {
+    if (lead && PHASE_2_STATUSES.includes(lead.status)) {
+      getJobCompletionByLeadId(lead.id)
+        .then(setJobCompletion)
+        .catch(console.error);
+    }
+  }, [lead?.id, lead?.status]);
 
   // Loading state
   if (isLoading) {
@@ -1010,6 +1030,160 @@ export default function LeadDetail() {
                   <p className="text-sm text-slate-400">No inspection data available</p>
                 </CardContent>
               </Card>
+            )}
+          </div>
+        )}
+
+        {/* Job Completion Summary */}
+        {jobCompletion && (
+          <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-emerald-600" />
+              <h3 className="font-semibold text-[#1d1d1f]">Job Completion</h3>
+              <Badge variant={jobCompletion.status === 'submitted' ? 'default' : 'secondary'}>
+                {jobCompletion.status}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-[#86868b]">Job Number</span>
+                <p className="font-medium">{jobCompletion.job_number || '—'}</p>
+              </div>
+              <div>
+                <span className="text-[#86868b]">Completion Date</span>
+                <p className="font-medium">
+                  {jobCompletion.completion_date
+                    ? new Date(jobCompletion.completion_date).toLocaleDateString('en-AU')
+                    : '—'}
+                </p>
+              </div>
+              <div>
+                <span className="text-[#86868b]">Premises Type</span>
+                <p className="font-medium capitalize">{jobCompletion.premises_type || '—'}</p>
+              </div>
+              <div>
+                <span className="text-[#86868b]">SWMS</span>
+                <p className="font-medium">{jobCompletion.swms_completed ? 'Completed' : 'Not completed'}</p>
+              </div>
+            </div>
+
+            {jobCompletion.scope_changed && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-amber-800 text-sm font-medium">Scope variations recorded</p>
+              </div>
+            )}
+
+            {jobCompletion.request_review && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-800 text-sm font-medium">Admin review requested by technician</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Invoice Helper */}
+        {lead && ['job_report_pdf_sent', 'invoicing_sent', 'paid', 'google_review', 'finished'].includes(lead.status) && (
+          <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-purple-600" />
+              <h3 className="font-semibold text-[#1d1d1f]">Invoice</h3>
+            </div>
+
+            {lead.status === 'job_report_pdf_sent' && (
+              <Button
+                className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={async () => {
+                  const { error } = await supabase
+                    .from('leads')
+                    .update({ status: 'invoicing_sent' })
+                    .eq('id', lead.id);
+                  if (!error) {
+                    toast.success('Invoice marked as sent');
+                    await supabase.from('activities').insert({
+                      lead_id: lead.id,
+                      activity_type: 'invoice_sent',
+                      title: 'Invoice Sent',
+                      description: 'Invoice marked as sent to customer',
+                    });
+                    refetch();
+                  }
+                }}
+              >
+                Mark Invoice Sent
+              </Button>
+            )}
+
+            {lead.status === 'invoicing_sent' && (
+              <Button
+                className="w-full h-12 bg-green-600 hover:bg-green-700 text-white"
+                onClick={async () => {
+                  const { error } = await supabase
+                    .from('leads')
+                    .update({ status: 'paid' })
+                    .eq('id', lead.id);
+                  if (!error) {
+                    toast.success('Payment recorded');
+                    await supabase.from('activities').insert({
+                      lead_id: lead.id,
+                      activity_type: 'payment_received',
+                      title: 'Payment Received',
+                      description: 'Customer payment recorded',
+                    });
+                    refetch();
+                  }
+                }}
+              >
+                Mark as Paid
+              </Button>
+            )}
+
+            {lead.status === 'paid' && (
+              <Button
+                className="w-full h-12 bg-yellow-500 hover:bg-yellow-600 text-white"
+                onClick={async () => {
+                  const { error } = await supabase
+                    .from('leads')
+                    .update({ status: 'google_review' })
+                    .eq('id', lead.id);
+                  if (!error) {
+                    toast.success('Review request sent');
+                    await supabase.from('activities').insert({
+                      lead_id: lead.id,
+                      activity_type: 'review_requested',
+                      title: 'Google Review Requested',
+                      description: 'Review request sent to customer',
+                    });
+                    refetch();
+                  }
+                }}
+              >
+                Send Review Request
+              </Button>
+            )}
+
+            {lead.status === 'google_review' && (
+              <Button
+                className="w-full h-12 bg-gray-800 hover:bg-gray-900 text-white"
+                onClick={async () => {
+                  const { error } = await supabase
+                    .from('leads')
+                    .update({ status: 'finished' })
+                    .eq('id', lead.id);
+                  if (!error) {
+                    toast.success('Lead marked as finished');
+                    await supabase.from('activities').insert({
+                      lead_id: lead.id,
+                      activity_type: 'lead_finished',
+                      title: 'Lead Finished',
+                      description: 'Lead workflow completed',
+                    });
+                    refetch();
+                  }
+                }}
+              >
+                Close Lead
+              </Button>
             )}
           </div>
         )}

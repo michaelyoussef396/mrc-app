@@ -51,16 +51,16 @@ React 18 + TypeScript + Supabase + Vite + Tailwind + shadcn/ui | PWA with offlin
 - See @docs/PHASE_2_EXECUTION.md for build plan
 - See @docs/JOB_COMPLETION_PRD.md for full spec
 
-## Deep Docs (on-demand, not loaded every session)
-- @docs/PRD.md — full product requirements
-- @docs/JOB_COMPLETION_PRD.md — job completion spec
-- @docs/JOB_COMPLETION_PLAN.md — phased build order
-- @docs/PHASE_2_EXECUTION.md — execution tracker
-- @docs/API_AUDIT.md — API inventory + rotation needs
-- @docs/MCP_STACK.md — MCP server configuration
-- @docs/DEPLOYMENT.md — deployment guide
-- @docs/COST_CALCULATION_SYSTEM.md — pricing logic
-- @docs/database_technical_audit.md — schema reference
+## Deep Docs (read on-demand with Read tool, NOT auto-loaded)
+- docs/PRD.md — full product requirements
+- docs/JOB_COMPLETION_PRD.md — job completion spec (ACTIVE BUILD)
+- docs/JOB_COMPLETION_PLAN.md — phased build order
+- docs/PHASE_2_EXECUTION.md — execution tracker
+- docs/API_AUDIT.md — API inventory + rotation needs
+- docs/MCP_STACK.md — MCP server configuration
+- docs/DEPLOYMENT.md — deployment guide
+- docs/COST_CALCULATION_SYSTEM.md — pricing logic
+- docs/database_technical_audit.md — schema reference
 
 ## Key Principles
 1. Manual over automatic — explicit user selection always

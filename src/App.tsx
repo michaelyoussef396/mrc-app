@@ -45,6 +45,7 @@ const TechnicianJobs = lazy(() => import("./pages/TechnicianJobs"));
 const TechnicianAlerts = lazy(() => import("./pages/TechnicianAlerts"));
 const TechnicianInspectionForm = lazy(() => import("./pages/TechnicianInspectionForm"));
 const TechnicianJobDetail = lazy(() => import("./pages/TechnicianJobDetail"));
+const JobCompletionForm = lazy(() => import("./pages/JobCompletionForm"));
 const InspectionAIReview = lazy(() => import("./pages/InspectionAIReview"));
 
 // Loading fallback component
@@ -298,6 +299,22 @@ const AppContent = () => {
                   <RoleProtectedRoute allowedRoles={["technician"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <TechnicianJobDetail />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Technician Job Completion Form */}
+            <Route
+              path="/technician/job-completion/:leadId"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["technician"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <PageErrorBoundary name="job-completion-form">
+                        <JobCompletionForm />
+                      </PageErrorBoundary>
                     </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>
