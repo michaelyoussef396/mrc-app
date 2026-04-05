@@ -12,10 +12,11 @@ export function initSentry() {
     // Performance: 20% in prod, 100% in dev
     tracesSampleRate: import.meta.env.PROD ? 0.2 : 1.0,
 
-    // Distributed tracing: propagate to localhost (dev) and Supabase API
+    // Distributed tracing: propagate to localhost (dev) and Supabase REST API
+    // NOTE: Edge Functions excluded — their CORS headers don't allow baggage/sentry-trace
     tracePropagationTargets: [
       "localhost",
-      /^https:\/\/ecyivrxjpsmjmexqatym\.supabase\.co/,
+      /^https:\/\/ecyivrxjpsmjmexqatym\.supabase\.co\/rest/,
     ],
 
     // Session Replay: 10% of sessions, 100% of error sessions
