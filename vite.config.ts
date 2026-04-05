@@ -88,16 +88,10 @@ export default defineConfig(({ mode }) => ({
             urlPattern: /^https:\/\/.*\.supabase\.co\/auth\/.*/i,
             handler: "NetworkOnly",
           },
-          // Supabase Edge Functions - network first
+          // Supabase Edge Functions - network only (POST operations must not be cached)
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/functions\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "edge-functions-cache",
-              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 5 },
-              networkTimeoutSeconds: 15,
-              cacheableResponse: { statuses: [0, 200] },
-            },
+            handler: "NetworkOnly",
           },
           // Supabase Storage - network only (uploads must not be cached)
           {
