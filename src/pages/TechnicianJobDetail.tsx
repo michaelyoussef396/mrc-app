@@ -244,6 +244,10 @@ export default function TechnicianJobDetail() {
     navigate(`/technician/inspection?leadId=${id}`);
   };
 
+  const handleStartJobCompletion = () => {
+    navigate(`/technician/job-completion/${id}`);
+  };
+
   const handleCall = () => {
     if (lead?.phone) window.location.href = `tel:${lead.phone.replace(/\s/g, '')}`;
   };
@@ -780,7 +784,14 @@ export default function TechnicianJobDetail() {
                   Reschedule
                 </Button>
               )}
-              {inspection?.pdf_url ? (
+              {lead.status === 'job_waiting' || lead.status === 'job_completed' || lead.status === 'pending_review' ? (
+                <Button
+                  className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                  onClick={handleStartJobCompletion}
+                >
+                  {lead.status === 'job_waiting' ? 'Start Job Completion' : 'View Job Completion'}
+                </Button>
+              ) : inspection?.pdf_url ? (
                 <Button
                   className="flex-1 h-12 bg-green-600 hover:bg-green-700 text-white shadow-sm"
                   onClick={() => navigate(`/inspection/${inspection.id}/report`)}
