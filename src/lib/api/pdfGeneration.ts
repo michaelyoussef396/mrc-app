@@ -50,25 +50,37 @@ export async function generateInspectionPDF(
 
     addBusinessBreadcrumb('PDF generation started', { inspectionId, regenerate: options.regenerate })
 
-    const { data, error: fnError } = await supabase.functions.invoke('generate-inspection-pdf', {
-      body: {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+    const functionUrl = `${supabaseUrl}/functions/v1/generate-inspection-pdf`
+
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
         inspectionId,
         regenerate: options.regenerate || false,
-        returnHtml: options.returnHtml || false
-      }
+        returnHtml: options.returnHtml || false,
+      }),
     })
 
-    if (fnError) {
-      console.error('[PDF Generation] Edge function error:', fnError)
+    if (!response.ok) {
+      const errorBody = await response.text()
+      console.error('[PDF Generation] Edge function error:', response.status, errorBody)
       captureBusinessError('PDF generation failed', {
         inspectionId,
-        error: fnError.message,
+        status: response.status,
+        error: errorBody,
       })
       return {
         success: false,
-        error: fnError.message || 'Edge function error'
+        error: `Edge function error (${response.status}): ${errorBody}`
       }
     }
+
+    const data = await response.json()
 
     return {
       success: true,
