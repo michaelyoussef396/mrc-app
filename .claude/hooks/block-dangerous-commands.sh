@@ -1,5 +1,5 @@
 #!/bin/bash
-# Blocks dangerous shell commands: push to main, force push, destructive operations.
+# Blocks dangerous shell commands: push to production, force push, destructive operations.
 # Used as a PreToolUse hook for Bash operations.
 # Exit 2 = block the action. Exit 0 = allow.
 
@@ -28,16 +28,16 @@ deny() {
 # Check if the command contains git push (handles chaining with &&, ;, |, subshells)
 if echo "$COMMAND" | grep -qE '(^|[;&|()]+[[:space:]]*)git[[:space:]]+push'; then
 
-  # Block push to main or master
-  if echo "$COMMAND" | grep -qE 'git[[:space:]]+push.*(origin[[:space:]]+|:)(main|master)\b'; then
-    deny "Blocked: cannot push directly to main/master. Use a feature branch and create a PR."
+# Block push to production (live branch — only merge from main)
+  if echo "$COMMAND" | grep -qE 'git[[:space:]]+push.*(origin[[:space:]]+|:)production\b'; then
+    deny "Blocked: cannot push directly to production. Merge from main instead."
   fi
 
-  # Block bare "git push" when on main/master
+  # Block bare "git push" when on production
   if echo "$COMMAND" | grep -qE 'git[[:space:]]+push[[:space:]]*($|[;&|])'; then
     CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)
-    if [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then
-      deny "Blocked: you are on $CURRENT_BRANCH. Use a feature branch and create a PR."
+    if [ "$CURRENT_BRANCH" = "production" ]; then
+      deny "Blocked: you are on production. Merge from main instead."
     fi
   fi
 
