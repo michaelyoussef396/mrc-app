@@ -1,7 +1,9 @@
 # MRC Lead Management System - Database Technical Audit
 
+> **Re-audited April 2026:** Score improved from 68/100 to 91/100. All critical/high issues resolved — legacy `inspection_reports` table dropped, 12 unused tables dropped (31 to 23), all broken FKs and functions fixed, duplicate triggers and indexes removed. Remaining items: 2 overly permissive RLS policies (activities, calendar_bookings) deferred until team access. See migration `20260405000001_cleanup_duplicate_index_and_app_settings_rls.sql` for latest fixes.
+
 **Auditor:** Claude Code (Opus 4.6)
-**Date:** 2026-02-17
+**Date:** 2026-02-17 (original) | 2026-04-05 (re-audit)
 **Supabase Project:** `ecyivrxjpsmjmexqatym`
 **Method:** Live schema introspection via Supabase MCP + full codebase scan + migration file analysis
 
@@ -9,7 +11,7 @@
 
 ## 1. Executive Summary
 
-### Health Score: 68/100
+### Health Score: 68/100 (Feb 2026) → 91/100 (Apr 2026)
 
 | Area | Score | Notes |
 |------|-------|-------|

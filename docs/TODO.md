@@ -1,6 +1,6 @@
 # MRC Lead Management System - Current TODO
 
-**Last Updated:** 2026-04-01
+**Last Updated:** 2026-04-05
 **Status:** Phase 1 COMPLETE. Preparing for team access.
 
 ---
@@ -63,15 +63,15 @@ The pipeline currently ends at "Awaiting Job Approval" (Stage 6). This workflow 
 - [ ] Update Resend configuration
 - [ ] Test deliverability
 
-### 4. Rotate All API Keys (Weekend)
+### ~~4. Rotate All API Keys~~ (COMPLETE 2026-04-05)
 
-- [ ] Rotate Supabase anon key + service role key
-- [ ] Rotate Resend API key
-- [ ] Rotate OpenRouter API key
-- [ ] Rotate Google Maps API key
-- [ ] Update all environment variables in Vercel
-- [ ] Update all Edge Function secrets in Supabase
-- [ ] Verify all Edge Functions still work after rotation
+- [x] Rotate Supabase anon key + service role key
+- [x] Rotate Resend API key
+- [x] Rotate OpenRouter API key
+- [x] Rotate Google Maps API key
+- [x] Update all environment variables in Vercel
+- [x] Update all Edge Function secrets in Supabase
+- [x] Verify all Edge Functions still work after rotation
 
 ### 5. Environment Separation
 
@@ -100,3 +100,5 @@ The pipeline currently ends at "Awaiting Job Approval" (Stage 6). This workflow 
 - [x] Sentry error tracking + offline resilience
 - [x] PDF page ordering fix
 - [x] Lead detail improvements (inline editing, travel time, activity logging)
+- [x] MCP server stack configured (Supabase, GitHub, Resend, Slack, Playwright, Context7, Memory)
+- [x] Database cleanup & hardening (68/100 → 91/100: 12 legacy tables dropped, broken FKs/functions fixed, duplicate indexes removed)
