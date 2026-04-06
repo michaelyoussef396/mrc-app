@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLeadsToSchedule } from '@/hooks/useLeadsToSchedule';
 import LeadBookingCard from './LeadBookingCard';
+import { BookInspectionModal } from '@/components/leads/BookInspectionModal';
 
 // ============================================================================
 // TYPES
@@ -21,8 +22,15 @@ interface LeadsQueueProps {
 // ============================================================================
 
 export function LeadsQueue({ technicians }: LeadsQueueProps) {
-  const { leads, totalCount, isLoading, error } = useLeadsToSchedule();
+  const { leads, totalCount, isLoading, error, refetch } = useLeadsToSchedule();
   const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
+  const [bookJobLead, setBookJobLead] = useState<{
+    id: string;
+    leadNumber: string;
+    fullName: string;
+    propertyAddress: string;
+    suburb: string;
+  } | null>(null);
 
   const handleToggle = (leadId: string) => {
     setExpandedLeadId(expandedLeadId === leadId ? null : leadId);
@@ -108,18 +116,74 @@ export function LeadsQueue({ technicians }: LeadsQueueProps) {
             </p>
           </div>
         ) : (
-          // Lead Cards
-          leads.map((lead) => (
-            <LeadBookingCard
-              key={lead.id}
-              lead={lead}
-              technicians={technicians}
-              isExpanded={expandedLeadId === lead.id}
-              onToggle={() => handleToggle(lead.id)}
-            />
-          ))
+          // Lead Cards — job leads get a compact card, inspection leads get the full LeadBookingCard
+          leads.map((lead) =>
+            lead.scheduleType === 'job' ? (
+              <div
+                key={lead.id}
+                className="bg-white rounded-lg border border-amber-200 p-4 space-y-3"
+                style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-amber-100 flex-shrink-0">
+                      <span className="text-xs font-bold text-amber-700">{lead.initials}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm truncate text-[#1d1d1f]">{lead.displayName}</p>
+                      <p className="text-xs text-[#86868b] truncate">{lead.suburb || 'No suburb'}</p>
+                    </div>
+                  </div>
+                  <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 uppercase tracking-wide">
+                    Job to Book
+                  </span>
+                </div>
+                <button
+                  onClick={() =>
+                    setBookJobLead({
+                      id: lead.id,
+                      leadNumber: lead.leadNumber,
+                      fullName: lead.fullName,
+                      propertyAddress: lead.propertyAddress,
+                      suburb: lead.suburb,
+                    })
+                  }
+                  className="w-full h-11 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium transition-colors"
+                >
+                  Book Job
+                </button>
+              </div>
+            ) : (
+              <LeadBookingCard
+                key={lead.id}
+                lead={lead}
+                technicians={technicians}
+                isExpanded={expandedLeadId === lead.id}
+                onToggle={() => handleToggle(lead.id)}
+              />
+            )
+          )
         )}
       </div>
+
+      {/* Book Job Modal (rendered once, reused per selected job lead) */}
+      {bookJobLead && (
+        <BookInspectionModal
+          open={!!bookJobLead}
+          onOpenChange={(open) => {
+            if (!open) {
+              setBookJobLead(null);
+              refetch();
+            }
+          }}
+          leadId={bookJobLead.id}
+          leadNumber={bookJobLead.leadNumber}
+          customerName={bookJobLead.fullName}
+          propertyAddress={bookJobLead.propertyAddress}
+          propertySuburb={bookJobLead.suburb}
+          bookingType="job"
+        />
+      )}
     </div>
   );
 }

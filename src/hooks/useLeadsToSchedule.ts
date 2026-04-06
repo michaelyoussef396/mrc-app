@@ -6,6 +6,8 @@ import { getTimeAgo } from '@/lib/bookingService';
 // TYPES
 // ============================================================================
 
+export type ScheduleType = 'inspection' | 'job';
+
 export interface LeadToSchedule {
   id: string;
   leadNumber: string;
@@ -23,6 +25,8 @@ export interface LeadToSchedule {
   preferredTime: string | null;     // Customer's preferred inspection time
   createdAt: string;
   timeAgo: string;
+  scheduleType: ScheduleType;       // 'inspection' for new leads, 'job' for job_waiting
+  status: string;                   // raw lead status for filtering downstream
 }
 
 interface UseLeadsToScheduleResult {
@@ -42,13 +46,14 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
     queryKey: ['leads-to-schedule'],
     queryFn: async () => {
 
-      // Fetch leads that:
-      // 1. Have status 'new_lead' or 'hipages_lead'
-      // 2. AND have no assigned technician yet
+      // Fetch leads that need scheduling:
+      // 1. New inspection leads (new_lead, hipages_lead) with no technician assigned
+      // 2. Leads in job_waiting status (customer approved, remediation needs booking)
       const { data: leadsData, error: fetchError, count } = await supabase
         .from('leads')
         .select(`
           id,
+          status,
           lead_number,
           full_name,
           phone,
@@ -64,8 +69,7 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
           scheduled_time,
           created_at
         `, { count: 'exact' })
-        .in('status', ['new_lead', 'hipages_lead'])
-        .is('assigned_to', null)
+        .or('and(status.in.(new_lead,hipages_lead),assigned_to.is.null),status.eq.job_waiting')
         .order('created_at', { ascending: false });
 
       if (fetchError) {
@@ -86,6 +90,7 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
 
         return {
           id: lead.id,
+          status: lead.status,
           leadNumber: lead.lead_number || '',
           fullName: lead.full_name || 'Unknown',
           displayName: formatDisplayName(nameParts.firstName, nameParts.lastName),
@@ -101,6 +106,7 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
           preferredTime: lead.scheduled_time || null,
           createdAt: lead.created_at,
           timeAgo: getTimeAgo(lead.created_at),
+          scheduleType: lead.status === 'job_waiting' ? 'job' : 'inspection',
         };
       });
 
