@@ -62,6 +62,7 @@ import { NewLeadView } from "@/components/leads/NewLeadView";
 import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
 import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
 import { BookJobSheet } from "@/components/leads/BookJobSheet";
+import { JobBookingDetails } from "@/components/leads/JobBookingDetails";
 import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
 import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/api/inspections";
@@ -571,36 +572,8 @@ export default function LeadDetail() {
         );
 
       case "job_scheduled":
-        return (
-          <div className="space-y-3">
-            {lead.job_scheduled_date && (
-              <Card className="border-blue-200 bg-blue-50/50">
-                <CardContent className="py-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-blue-600" />
-                    <span className="font-semibold text-blue-800">Job Scheduled</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="text-gray-500">Date</div>
-                    <div className="font-medium">
-                      {new Date(lead.job_scheduled_date).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                    </div>
-                    <div className="text-gray-500">Time</div>
-                    <div className="font-medium">{lead.scheduled_time || 'TBD'}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            <Button
-              variant="outline"
-              className="w-full h-12"
-              onClick={() => setShowBookJobModal(true)}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Reschedule Job
-            </Button>
-          </div>
-        );
+        // Render the rich JobBookingDetails component that fetches all job day bookings
+        return <JobBookingDetails leadId={lead.id} onReschedule={() => setShowBookJobModal(true)} />;
 
       case "not_landed":
         return (
@@ -1090,60 +1063,6 @@ export default function LeadDetail() {
                 </CardContent>
               </Card>
             )}
-          </div>
-        )}
-
-        {/* Book Job CTA — shown when lead is ready for job scheduling */}
-        {lead && lead.status === 'job_waiting' && (
-          <div className="bg-white rounded-xl border border-amber-200 p-5 space-y-3">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-amber-600" />
-              <h3 className="font-semibold text-[#1d1d1f]">Book Remediation Job</h3>
-            </div>
-            <p className="text-sm text-[#86868b]">
-              Customer approved the inspection report. Schedule the remediation job with a technician.
-            </p>
-            <Button
-              className="w-full h-12 bg-amber-600 hover:bg-amber-700 text-white"
-              onClick={() => setShowBookJobModal(true)}
-            >
-              <Calendar className="h-4 w-4 mr-2" />
-              Book Job
-            </Button>
-          </div>
-        )}
-
-        {/* Scheduled Job Info Card */}
-        {lead && lead.status === 'job_scheduled' && lead.job_scheduled_date && (
-          <div className="bg-white rounded-xl border border-blue-200 p-5 space-y-3">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-blue-600" />
-              <h3 className="font-semibold text-[#1d1d1f]">Job Scheduled</h3>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-[#86868b]">Date</span>
-                <p className="font-medium">
-                  {new Date(lead.job_scheduled_date).toLocaleDateString('en-AU', {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  })}
-                </p>
-              </div>
-              <div>
-                <span className="text-[#86868b]">Time</span>
-                <p className="font-medium">{lead.scheduled_time || 'TBD'}</p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              className="w-full h-11"
-              onClick={() => setShowBookJobModal(true)}
-            >
-              Reschedule Job
-            </Button>
           </div>
         )}
 
