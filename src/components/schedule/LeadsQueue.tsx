@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLeadsToSchedule } from '@/hooks/useLeadsToSchedule';
 import LeadBookingCard from './LeadBookingCard';
-import { BookInspectionModal } from '@/components/leads/BookInspectionModal';
+import { BookJobSheet } from '@/components/leads/BookJobSheet';
 
 // ============================================================================
 // TYPES
@@ -166,9 +166,9 @@ export function LeadsQueue({ technicians }: LeadsQueueProps) {
         )}
       </div>
 
-      {/* Book Job Modal (rendered once, reused per selected job lead) */}
+      {/* Book Job Sheet — slide-out drawer */}
       {bookJobLead && (
-        <BookInspectionModal
+        <BookJobSheet
           open={!!bookJobLead}
           onOpenChange={(open) => {
             if (!open) {
@@ -181,7 +181,7 @@ export function LeadsQueue({ technicians }: LeadsQueueProps) {
           customerName={bookJobLead.fullName}
           propertyAddress={bookJobLead.propertyAddress}
           propertySuburb={bookJobLead.suburb}
-          bookingType="job"
+          onBooked={() => refetch()}
         />
       )}
     </div>

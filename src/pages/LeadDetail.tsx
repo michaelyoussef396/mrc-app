@@ -61,6 +61,7 @@ import {
 import { NewLeadView } from "@/components/leads/NewLeadView";
 import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
 import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
+import { BookJobSheet } from "@/components/leads/BookJobSheet";
 import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
 import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/api/inspections";
@@ -1404,8 +1405,8 @@ export default function LeadDetail() {
         propertySuburb={lead.property_address_suburb}
       />
 
-      {/* Book Job Modal */}
-      <BookInspectionModal
+      {/* Book Job Sheet — slide-out drawer from right */}
+      <BookJobSheet
         open={showBookJobModal}
         onOpenChange={(open) => {
           setShowBookJobModal(open);
@@ -1416,7 +1417,7 @@ export default function LeadDetail() {
         customerName={lead.full_name}
         propertyAddress={`${lead.property_address_street}, ${lead.property_address_suburb}`}
         propertySuburb={lead.property_address_suburb}
-        bookingType="job"
+        onBooked={() => refetch()}
       />
     </div>
   );
