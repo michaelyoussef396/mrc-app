@@ -259,47 +259,34 @@ function ActiveJobCard({
         </button>
       </div>
 
-      {/* Primary Action Buttons */}
-      {/*
-        Remediation jobs: always show "Start Job Completion" as the primary
-        action because a multi-day job can be worked on any day during the
-        booking, not only today.
-        Inspections: keep the previous behaviour (primary action only on today).
-      */}
-      {isRemediationJob(job.eventType) || isToday ? (
-        <div className="flex flex-col gap-2">
-          <button
-            onClick={onStartJob}
-            className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-[#007AFF] text-white text-base font-bold shadow-lg active:scale-[0.98] transition-all"
-            style={{ boxShadow: '0 4px 12px rgba(0, 122, 255, 0.2)' }}
-          >
-            {job.status === 'in_progress' && (
-              <span className="material-symbols-outlined">play_arrow</span>
-            )}
-            {buttonLabel}
-            {job.status !== 'in_progress' && (
-              <span className="material-symbols-outlined">{buttonIcon}</span>
-            )}
-          </button>
-          <button
-            onClick={onViewDetails}
-            className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-[#1d1d1f] text-sm font-semibold hover:bg-gray-50 transition-colors"
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-              visibility
-            </span>
-            View Lead
-          </button>
-        </div>
-      ) : (
+      {/* Primary Action Buttons
+          Both inspections and remediation jobs always show the primary
+          Start button (inspections always, jobs any day within the booking).
+          Below it is a secondary "View Lead" button. */}
+      <div className="flex flex-col gap-2">
+        <button
+          onClick={onStartJob}
+          className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-[#007AFF] text-white text-base font-bold shadow-lg active:scale-[0.98] transition-all"
+          style={{ boxShadow: '0 4px 12px rgba(0, 122, 255, 0.2)' }}
+        >
+          {job.status === 'in_progress' && (
+            <span className="material-symbols-outlined">play_arrow</span>
+          )}
+          {buttonLabel}
+          {job.status !== 'in_progress' && (
+            <span className="material-symbols-outlined">{buttonIcon}</span>
+          )}
+        </button>
         <button
           onClick={onViewDetails}
-          className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-[#f0f2f4] text-[#1d1d1f] text-base font-semibold hover:bg-gray-200 transition-colors"
+          className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-[#1d1d1f] text-sm font-semibold hover:bg-gray-50 transition-colors"
         >
-          <span className="material-symbols-outlined">visibility</span>
+          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+            visibility
+          </span>
           View Lead
         </button>
-      )}
+      </div>
     </div>
   );
 }
