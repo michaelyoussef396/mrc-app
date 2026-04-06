@@ -29,6 +29,9 @@ export interface TransformedLead {
   inspection_scheduled_date?: string | null;
   access_instructions?: string;
   assigned_technician?: string;
+  // For job_waiting / job_scheduled status
+  job_scheduled_date?: string | null;
+  assigned_to?: string | null;
   // For not_landed status
   remove_reason?: string;
 }
@@ -245,6 +248,37 @@ export default function LeadCard({
             </p>
           </div>
         ) : null;
+
+      case 'job_waiting':
+        return (
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-medium">
+              <span className="material-symbols-outlined text-sm">event_available</span>
+              Ready to book
+            </span>
+            {lead.estimatedValue && (
+              <span className="text-xs text-slate-500">
+                ${lead.estimatedValue.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} inc GST
+              </span>
+            )}
+          </div>
+        );
+
+      case 'job_scheduled':
+        return (
+          <div className="flex flex-col gap-1.5">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium w-fit">
+              <span className="material-symbols-outlined text-sm">engineering</span>
+              Awaiting technician
+            </span>
+            {lead.job_scheduled_date && (
+              <span className="text-xs text-slate-600">
+                Starts {formatDate(lead.job_scheduled_date)}
+                {lead.scheduled_time && ` at ${lead.scheduled_time}`}
+              </span>
+            )}
+          </div>
+        );
 
       default:
         return null;
