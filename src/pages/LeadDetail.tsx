@@ -200,10 +200,22 @@ export default function LeadDetail() {
   // Job completion data for Phase 2 statuses
   const [jobCompletion, setJobCompletion] = useState<JobCompletionRow | null>(null);
 
+  // Statuses where the full inspection data should be displayed.
+  // Phase 2 statuses are included so the lead detail accumulates information
+  // as the job progresses — nothing is hidden once collected.
   const POST_INSPECTION_STATUSES = [
     'inspection_ai_summary',
     'approve_inspection_report',
     'inspection_email_approval',
+    'job_waiting',
+    'job_scheduled',
+    'job_completed',
+    'pending_review',
+    'job_report_pdf_sent',
+    'invoicing_sent',
+    'paid',
+    'google_review',
+    'finished',
     'closed',
     'not_landed',
   ];
@@ -564,6 +576,14 @@ export default function LeadDetail() {
             >
               <Calendar className="h-5 w-5 mr-2" />
               Book Remediation Job
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full h-12 border-red-200 text-red-700 hover:bg-red-50"
+              onClick={() => handleChangeStatus("not_landed")}
+            >
+              <XCircle className="h-4 w-4 mr-2" />
+              Not Proceeding
             </Button>
             <p className="text-xs text-gray-500 text-center">
               Customer approved the inspection report. Schedule the remediation with a technician.

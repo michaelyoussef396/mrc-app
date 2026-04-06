@@ -45,6 +45,8 @@ interface LeadCardProps {
   onReactivate: (id: string | number) => void;
   onViewHistory: (id: string | number) => void;
   onReviewAI?: (id: string | number) => void;
+  onBookJob?: (id: string | number) => void;
+  onNotProceeding?: (id: string | number) => void;
 }
 
 // ============================================================================
@@ -57,6 +59,15 @@ const statusBadgeStyles: Record<string, string> = {
   inspection_ai_summary: 'bg-violet-50 text-violet-700 border-violet-100',
   approve_inspection_report: 'bg-slate-800 text-white border-slate-700',
   inspection_email_approval: 'bg-purple-50 text-purple-700 border-purple-100',
+  job_waiting: 'bg-amber-50 text-amber-800 border-amber-100',
+  job_scheduled: 'bg-blue-50 text-blue-700 border-blue-100',
+  job_completed: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  pending_review: 'bg-yellow-50 text-yellow-800 border-yellow-100',
+  job_report_pdf_sent: 'bg-sky-50 text-sky-700 border-sky-100',
+  invoicing_sent: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100',
+  paid: 'bg-green-50 text-green-700 border-green-100',
+  google_review: 'bg-yellow-50 text-yellow-700 border-yellow-100',
+  finished: 'bg-green-50 text-green-800 border-green-200',
   closed: 'bg-blue-50 text-blue-700 border-blue-100',
   not_landed: 'bg-red-50 text-red-700 border-red-100',
 };
@@ -67,6 +78,15 @@ const statusLabels: Record<string, string> = {
   inspection_ai_summary: 'AI Review',
   approve_inspection_report: 'Approve Report',
   inspection_email_approval: 'Email Approval',
+  job_waiting: 'Awaiting Job',
+  job_scheduled: 'Job Scheduled',
+  job_completed: 'Job Completed',
+  pending_review: 'Pending Review',
+  job_report_pdf_sent: 'Report Sent',
+  invoicing_sent: 'Invoice Sent',
+  paid: 'Paid',
+  google_review: 'Google Review',
+  finished: 'Finished',
   closed: 'Closed',
   not_landed: 'Not Landed',
 };
@@ -119,6 +139,8 @@ export default function LeadCard({
   onReactivate,
   onViewHistory,
   onReviewAI,
+  onBookJob,
+  onNotProceeding,
 }: LeadCardProps) {
   const badgeStyle = statusBadgeStyles[lead.status] || 'bg-slate-100 text-slate-600 border-slate-200';
 
@@ -382,6 +404,34 @@ export default function LeadCard({
             >
               <span className="material-symbols-outlined text-lg">history</span>
               History
+            </button>
+          </>
+        );
+
+      case 'job_waiting':
+        return (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onBookJob?.(lead.id);
+              }}
+              className="flex-1 h-10 px-4 rounded-lg bg-amber-600 text-white text-sm font-medium
+                hover:bg-amber-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+            >
+              <span className="material-symbols-outlined text-lg">calendar_month</span>
+              Book Job
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onNotProceeding?.(lead.id);
+              }}
+              className="flex-1 h-10 px-4 rounded-lg border border-red-200 text-red-700 text-sm font-medium
+                hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-lg">cancel</span>
+              Not Proceeding
             </button>
           </>
         );
