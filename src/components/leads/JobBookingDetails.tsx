@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
-import { Calendar, CheckCircle2, Clock, Hammer, Loader2, RefreshCw, User, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, Hammer, Loader2, Mail, RefreshCw, User, UserCheck, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface JobBookingDetailsProps {
@@ -138,6 +138,23 @@ export function JobBookingDetails({ leadId, onReschedule }: JobBookingDetailsPro
       <div className="flex items-center gap-2">
         <Hammer className="h-5 w-5 text-blue-600" />
         <h3 className="font-semibold text-[#1d1d1f]">Job Schedule</h3>
+      </div>
+
+      {/* Awaiting Technician banner */}
+      <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2">
+        <UserCheck className="h-4 w-4 text-amber-700 flex-shrink-0 mt-0.5" />
+        <div className="text-xs text-amber-900">
+          <p className="font-semibold">Awaiting Technician — {technicianName}</p>
+          <p className="mt-0.5">Scheduled across {bookings.length} {bookings.length === 1 ? 'day' : 'days'} starting {formatDay(bookings[0].start_datetime)}.</p>
+        </div>
+      </div>
+
+      {/* Confirmation email sent notice */}
+      <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2.5 flex items-start gap-2">
+        <Mail className="h-4 w-4 text-emerald-700 flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-emerald-900">
+          Job Booking Confirmation email sent to the customer.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-sm pb-3 border-b border-gray-100">

@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { captureBusinessError } from '@/lib/sentry'
 import { checkBookingConflict } from '@/lib/bookingService'
 import { formatCurrency, EQUIPMENT_RATES } from '@/lib/calculations/pricing'
+import { sendEmail, buildJobBookingConfirmationHtml } from '@/lib/api/notifications'
 
 // ============================================================================
 // CONSTANTS
@@ -427,6 +428,48 @@ export function BookJobSheet({
         description: `${dateRange} at ${formatTimeLabel(startTime)} with ${selectedTechName}. ${totalHours} hours total.`,
         user_id: user?.id,
       })
+
+      // 4.5 Send confirmation email to the customer (fire-and-forget — don't block UI)
+      // Fetch email + lead_number from leads, then send via send-email Edge Function
+      supabase
+        .from('leads')
+        .select('email, lead_number')
+        .eq('id', leadId)
+        .single()
+        .then(({ data: leadData }) => {
+          if (!leadData?.email) return
+          const subject = `Job Booking Confirmed — ${dateRange} | ${leadData.lead_number ?? ''}`.trim()
+          const html = buildJobBookingConfirmationHtml({
+            customerName,
+            leadNumber: leadData.lead_number ?? leadId.slice(0, 8),
+            address: propertyAddress,
+            firstDate: firstLabel,
+            lastDate: formatDayLabel(schedule[schedule.length - 1].dateStr) + ' ' + new Date(schedule[schedule.length - 1].dateStr).getFullYear(),
+            startTime: formatTimeLabel(startTime),
+            durationDays: schedule.length,
+            totalHours,
+            technicianName: selectedTechName,
+            isSingleDay: schedule.length === 1,
+          })
+          return sendEmail({
+            to: leadData.email,
+            subject,
+            html,
+            leadId,
+            templateName: 'job-booking-confirmation',
+          }).then(() => {
+            // Log the email send as a separate activity
+            return supabase.from('activities').insert({
+              lead_id: leadId,
+              activity_type: 'email_sent',
+              title: 'Job Booking Confirmation sent',
+              description: `Sent to ${leadData.email} — "${subject}"`,
+              user_id: user?.id,
+            })
+          }).catch((err) => {
+            console.error('[BookJobSheet] Failed to send confirmation email:', err)
+          })
+        })
 
       // 5. Invalidate caches
       queryClient.invalidateQueries({ queryKey: ['lead', leadId] })
