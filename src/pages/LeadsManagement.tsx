@@ -62,6 +62,48 @@ const statusOptions: StatusOption[] = [
 ];
 
 // ============================================================================
+// HELPERS
+// ============================================================================
+
+/**
+ * Fetch user full names for a list of user UUIDs via the manage-users
+ * Edge Function. Returns a map of { userId -> full name }.
+ * Used to display "Awaiting technician: michael youssef" on lead cards.
+ */
+async function fetchTechnicianNames(userIds: string[]): Promise<Record<string, string>> {
+  if (userIds.length === 0) return {};
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return {};
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    const result = await response.json();
+    if (!result.success) return {};
+
+    const map: Record<string, string> = {};
+    for (const user of result.users as Array<{ id: string; full_name?: string; first_name?: string; last_name?: string; email?: string }>) {
+      if (userIds.includes(user.id)) {
+        map[user.id] = user.full_name || `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() || user.email || 'Unknown';
+      }
+    }
+    return map;
+  } catch (err) {
+    console.error('[LeadsManagement] Failed to fetch technician names:', err);
+    return {};
+  }
+}
+
+// ============================================================================
 // COMPONENT
 // ============================================================================
 
@@ -304,7 +346,13 @@ const LeadsManagement = () => {
         setHasMore(false);
       } else {
         const rows = data || [];
-        setLeads(rows.map(transformLead));
+        // Batch-fetch technician names for any assigned_to UUIDs we see
+        const technicianIds = [...new Set(rows.map((r: any) => r.assigned_to).filter(Boolean))];
+        const technicianNameMap = await fetchTechnicianNames(technicianIds as string[]);
+        setLeads(rows.map((r: any) => ({
+          ...transformLead(r),
+          assigned_technician: r.assigned_to ? technicianNameMap[r.assigned_to] : undefined,
+        })));
         setHasMore(rows.length === PAGE_SIZE);
       }
     } catch (err) {

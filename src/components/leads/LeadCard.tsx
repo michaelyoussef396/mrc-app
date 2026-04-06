@@ -269,7 +269,7 @@ export default function LeadCard({
           <div className="flex flex-col gap-1.5">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium w-fit">
               <span className="material-symbols-outlined text-sm">engineering</span>
-              Awaiting technician
+              Awaiting technician{lead.assigned_technician ? `: ${lead.assigned_technician}` : ''}
             </span>
             {lead.job_scheduled_date && (
               <span className="text-xs text-slate-600">
