@@ -37,6 +37,10 @@ export interface TechnicianJob {
   issueDescription: string | null;
   accessInstructions: string | null;
   travelTimeMinutes: number | null;
+  // Multi-day job indicator parsed from title (e.g. "Day 1 of 6")
+  dayLabel?: string;
+  dayNumber?: number;
+  totalDays?: number;
 }
 
 interface UseTechnicianJobsResult {
@@ -174,6 +178,14 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
         const state = lead?.property_address_state || '';
         const postcode = lead?.property_address_postcode || '';
 
+        // Parse multi-day label from the booking title, e.g. "Job (Day 3/6) - John Smith"
+        const dayMatch = typeof booking.title === 'string'
+          ? booking.title.match(/\(Day (\d+)\/(\d+)\)/)
+          : null;
+        const dayNumber = dayMatch ? parseInt(dayMatch[1], 10) : undefined;
+        const totalDays = dayMatch ? parseInt(dayMatch[2], 10) : undefined;
+        const dayLabel = dayMatch ? `Day ${dayNumber} of ${totalDays}` : undefined;
+
         return {
           id: booking.id,
           bookingId: booking.id,
@@ -197,6 +209,9 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
           issueDescription: lead?.issue_description || null,
           accessInstructions: lead?.access_instructions || null,
           travelTimeMinutes: booking.travel_time_minutes,
+          dayLabel,
+          dayNumber,
+          totalDays,
         };
       });
 

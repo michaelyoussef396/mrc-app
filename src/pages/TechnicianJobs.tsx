@@ -78,20 +78,25 @@ function getJobTypeIcon(eventType: string): string {
 
 function getJobTypeLabel(eventType: string): string {
   if (eventType.toLowerCase().includes('removal')) {
-    return 'Mould Removal';
+    return 'Remediation Job';
   }
   if (eventType.toLowerCase().includes('job')) {
-    return 'Mould Removal Job';
+    return 'Remediation Job';
   }
   return 'Mould Inspection';
+}
+
+function isRemediationJob(eventType: string): boolean {
+  const t = eventType.toLowerCase();
+  return t.includes('job') || t.includes('removal');
 }
 
 function getButtonLabel(eventType: string, status: string): string {
   const isJob = eventType.toLowerCase().includes('removal') || eventType.toLowerCase().includes('job');
   if (status === 'in_progress') {
-    return isJob ? 'Resume Job' : 'Resume Inspection';
+    return isJob ? 'Continue Job Completion' : 'Resume Inspection';
   }
-  return isJob ? 'Start Job' : 'Start Inspection';
+  return isJob ? 'Start Job Completion' : 'Start Inspection';
 }
 
 // ============================================================================
@@ -102,10 +107,26 @@ function getButtonLabel(eventType: string, status: string): string {
 function JobsHeader({
   activeTab,
   onTabChange,
+  counts,
 }: {
   activeTab: TabFilter;
   onTabChange: (tab: TabFilter) => void;
+  counts: {
+    today: number;
+    thisWeek: number;
+    thisMonth: number;
+    upcoming: number;
+    completed: number;
+  };
 }) {
+  const countByTab: Record<TabFilter, number> = {
+    today: counts.today,
+    this_week: counts.thisWeek,
+    this_month: counts.thisMonth,
+    upcoming: counts.upcoming,
+    completed: counts.completed,
+  };
+
   return (
     <header className="sticky top-0 z-20 w-full bg-white/90 backdrop-blur-md border-b border-gray-200 overflow-x-hidden">
       <div className="px-4 pt-12 pb-2">
@@ -118,18 +139,29 @@ function JobsHeader({
         <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-2">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.id;
+            const count = countByTab[tab.id];
+            const showCount = count > 0;
 
             return (
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`px-5 py-3 text-sm rounded-full whitespace-nowrap flex-shrink-0 transition-colors ${isActive
+                className={`flex items-center gap-2 px-5 py-3 text-sm rounded-full whitespace-nowrap flex-shrink-0 transition-colors ${isActive
                     ? 'bg-[#007AFF] text-white font-semibold'
                     : 'bg-white border border-gray-200 text-[#86868b] hover:bg-gray-50'
                   }`}
                 style={{ minHeight: '48px' }}
               >
-                {tab.label}
+                <span>{tab.label}</span>
+                {showCount && (
+                  <span
+                    className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold flex items-center justify-center ${
+                      isActive ? 'bg-white/25 text-white' : 'bg-[#007AFF] text-white'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -181,12 +213,19 @@ function ActiveJobCard({
             {job.address}
             {job.suburb && `, ${job.suburb}`}
           </p>
-          {/* Job Type */}
-          <div className="flex items-center gap-1 mt-1 text-[#86868b] text-xs">
-            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
-              {getJobTypeIcon(job.eventType)}
-            </span>
-            <span>{getJobTypeLabel(job.eventType)}</span>
+          {/* Job Type + Day label for multi-day jobs */}
+          <div className="flex items-center gap-2 mt-1 text-[#86868b] text-xs flex-wrap">
+            <div className="flex items-center gap-1">
+              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
+                {getJobTypeIcon(job.eventType)}
+              </span>
+              <span>{getJobTypeLabel(job.eventType)}</span>
+            </div>
+            {job.dayLabel && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-semibold">
+                {job.dayLabel}
+              </span>
+            )}
           </div>
         </div>
         {/* Status Badge */}
@@ -416,7 +455,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 export default function TechnicianJobs() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabFilter>('today');
-  const { jobs, isLoading, error, refetch } = useTechnicianJobs(activeTab);
+  const { jobs, isLoading, error, refetch, counts } = useTechnicianJobs(activeTab);
 
   // Get today's date for comparison (YYYY-MM-DD in Melbourne timezone)
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' }).format(new Date());
@@ -451,7 +490,12 @@ export default function TechnicianJobs() {
   };
 
   const handleStartJob = (job: TechnicianJob) => {
-    navigate(`/technician/job/${job.leadId}`);
+    // Remediation jobs go to the job completion form; inspections go to the inspection form
+    if (isRemediationJob(job.eventType)) {
+      navigate(`/technician/job-completion/${job.leadId}`);
+    } else {
+      navigate(`/technician/inspection?leadId=${job.leadId}`);
+    }
   };
 
   const handleViewDetails = (job: TechnicianJob) => {
@@ -464,6 +508,7 @@ export default function TechnicianJobs() {
       <JobsHeader
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        counts={counts}
       />
 
       {/* Scrollable Content */}

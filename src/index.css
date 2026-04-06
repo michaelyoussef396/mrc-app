@@ -3,6 +3,32 @@
 @tailwind utilities;
 
 /* ============================================
+   MATERIAL SYMBOLS OUTLINED
+   The Google Fonts CSS2 endpoint for Material Symbols only ships
+   @font-face rules — the .material-symbols-outlined class has to be
+   defined manually. Without this, all <span class="material-symbols-outlined">
+   icons render as raw ligature text.
+   Source: https://developers.google.com/fonts/docs/material_symbols
+   ============================================ */
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'liga';
+}
+
+/* ============================================
    UTILITY CLASSES
    ============================================ */
 

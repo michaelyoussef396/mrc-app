@@ -68,7 +68,7 @@ const statusOptions: StatusOption[] = [
 const PAGE_SIZE = 50;
 
 // Only fetch columns needed for the lead cards
-const LEAD_COLUMNS = 'id,full_name,email,phone,property_address_street,property_address_suburb,property_address_state,property_address_postcode,status,lead_source,created_at,updated_at,quoted_amount,issue_description,notes,lead_number,inspection_scheduled_date,scheduled_time' as const;
+const LEAD_COLUMNS = 'id,full_name,email,phone,property_address_street,property_address_suburb,property_address_state,property_address_postcode,status,lead_source,created_at,updated_at,quoted_amount,issue_description,notes,lead_number,inspection_scheduled_date,scheduled_time,assigned_to,job_scheduled_date' as const;
 
 const LeadsManagement = () => {
   const navigate = useNavigate();
@@ -278,6 +278,8 @@ const LeadsManagement = () => {
     leadNumber: lead.lead_number,
     inspection_scheduled_date: lead.inspection_scheduled_date,
     scheduled_time: lead.scheduled_time,
+    job_scheduled_date: lead.job_scheduled_date,
+    assigned_to: lead.assigned_to,
   });
 
   const loadLeads = async () => {
