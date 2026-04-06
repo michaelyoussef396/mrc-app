@@ -472,6 +472,39 @@ const LeadsManagement = () => {
     stageActions.reviewAISummary(id);
   };
 
+  // Book Job from the Awaiting Job tab → open Schedule page where the
+  // BookJobSheet is available via the "To Schedule" sidebar.
+  const handleBookJob = (_id: string | number) => {
+    navigate('/admin/schedule');
+  };
+
+  // Not Proceeding → mark lead as not_landed (confirm + update).
+  const handleNotProceeding = async (id: string | number) => {
+    if (!window.confirm('Mark this lead as Not Proceeding? It will move to the Not Landed pipeline.')) {
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ status: 'not_landed' })
+        .eq('id', id as string);
+      if (error) throw error;
+
+      await supabase.from('activities').insert({
+        lead_id: id as string,
+        activity_type: 'lead_not_proceeding',
+        title: 'Lead Not Proceeding',
+        description: 'Customer declined to proceed with remediation job',
+      });
+
+      setLeads(prev => prev.map(l => (l.id === id ? { ...l, status: 'not_landed' } : l)));
+      toast({ title: 'Lead updated', description: 'Lead marked as Not Proceeding.' });
+    } catch (error) {
+      console.error('Failed to mark lead as not proceeding:', error);
+      toast({ title: 'Error', description: 'Failed to update lead.', variant: 'destructive' });
+    }
+  };
+
   const handleViewHistory = async (id: string | number) => {
     setHistoryLeadId(id);
     setHistoryLoading(true);
@@ -833,6 +866,8 @@ const LeadsManagement = () => {
                 onReactivate={handleReactivate}
                 onViewHistory={handleViewHistory}
                 onReviewAI={handleReviewAI}
+                onBookJob={handleBookJob}
+                onNotProceeding={handleNotProceeding}
               />
             ))}
 
