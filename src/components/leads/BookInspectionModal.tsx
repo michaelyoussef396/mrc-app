@@ -24,6 +24,8 @@ interface BookInspectionModalProps {
   customerName: string;
   propertyAddress: string;
   propertySuburb?: string;
+  /** Type of booking — 'inspection' (default) or 'job' for remediation work */
+  bookingType?: 'inspection' | 'job';
 }
 
 interface UserType {
@@ -78,9 +80,13 @@ export function BookInspectionModal({
   customerName,
   propertyAddress,
   propertySuburb,
+  bookingType = 'inspection',
 }: BookInspectionModalProps) {
+  const isJob = bookingType === 'job';
+  const bookingLabel = isJob ? 'Job' : 'Inspection';
   const [loading, setLoading] = useState(false);
-  const [durationMinutes, setDurationMinutes] = useState(60);
+  // Jobs default to a full 8-hour workday; inspections default to 60 minutes
+  const [durationMinutes, setDurationMinutes] = useState(isJob ? 480 : 60);
   const [formData, setFormData] = useState({
     inspectionDate: "",
     inspectionTime: "",
@@ -243,8 +249,8 @@ export function BookInspectionModal({
         .from("calendar_bookings")
         .insert({
           lead_id: leadId,
-          event_type: "inspection",
-          title: `Inspection - ${customerName}`,
+          event_type: bookingType,
+          title: `${bookingLabel} - ${customerName}`,
           start_datetime: startDateTime.toISOString(),
           end_datetime: endDateTime.toISOString(),
           location_address: propertyAddress,
@@ -255,15 +261,22 @@ export function BookInspectionModal({
 
       if (calendarError) throw calendarError;
 
-      // Update lead with status, inspection date, time, and assigned_to
+      // Update lead — branch on booking type to set the right date columns and status
+      const leadUpdate: Record<string, unknown> = {
+        scheduled_time: formData.inspectionTime,
+        assigned_to: formData.assignedTo || null,
+      };
+      if (isJob) {
+        leadUpdate.status = 'job_scheduled';
+        leadUpdate.job_scheduled_date = formData.inspectionDate;
+      } else {
+        leadUpdate.status = 'inspection_waiting';
+        leadUpdate.inspection_scheduled_date = formData.inspectionDate;
+      }
+
       const { error: leadError } = await supabase
         .from("leads")
-        .update({
-          status: "inspection_waiting",
-          inspection_scheduled_date: formData.inspectionDate,
-          scheduled_time: formData.inspectionTime,
-          assigned_to: formData.assignedTo || null,
-        })
+        .update(leadUpdate)
         .eq("id", leadId);
 
       if (leadError) throw leadError;
@@ -272,12 +285,12 @@ export function BookInspectionModal({
       const techName = selectedTechnician?.full_name || selectedTechnician?.first_name || 'technician';
       await supabase.from("activities").insert({
         lead_id: leadId,
-        activity_type: "inspection_booked",
-        title: "Inspection Booked",
+        activity_type: isJob ? "job_booked" : "inspection_booked",
+        title: `${bookingLabel} Booked`,
         description: `Scheduled to ${techName} for ${formData.inspectionDate} at ${formData.inspectionTime}`,
       });
 
-      toast.success("Inspection booked successfully!");
+      toast.success(`${bookingLabel} booked successfully!`);
       queryClient.invalidateQueries({ queryKey: ["leads"] });
       queryClient.invalidateQueries({ queryKey: ["lead", leadId] });
       queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
@@ -287,15 +300,17 @@ export function BookInspectionModal({
       const displayDate = new Date(formData.inspectionDate + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       const displayTime = formatTimeDisplay(formData.inspectionTime);
 
-      // Slack: inspection_booked
-      sendSlackNotification({
-        event: 'inspection_booked',
-        leadId,
-        leadName: customerName,
-        propertyAddress,
-        technicianName: techName,
-        bookingDate: `${displayDate} at ${displayTime}`,
-      });
+      // Slack notification — only for inspection bookings (job Slack events not wired yet)
+      if (!isJob) {
+        sendSlackNotification({
+          event: 'inspection_booked',
+          leadId,
+          leadName: customerName,
+          propertyAddress,
+          technicianName: techName,
+          bookingDate: `${displayDate} at ${displayTime}`,
+        });
+      }
 
       // Email booking confirmation to customer (fetch email from lead)
       supabase
@@ -307,7 +322,7 @@ export function BookInspectionModal({
           if (leadData?.email) {
             sendEmail({
               to: leadData.email,
-              subject: `Inspection Booking Confirmed — ${displayDate}`,
+              subject: `${bookingLabel} Booking Confirmed — ${displayDate}`,
               html: buildBookingConfirmationHtml({
                 customerName,
                 date: displayDate,
@@ -323,11 +338,11 @@ export function BookInspectionModal({
 
       onOpenChange(false);
     } catch (error) {
-      captureBusinessError('Book inspection modal failed', {
+      captureBusinessError(`Book ${bookingLabel.toLowerCase()} modal failed`, {
         leadId,
         error: error instanceof Error ? error.message : String(error),
       });
-      toast.error("Failed to book inspection");
+      toast.error(`Failed to book ${bookingLabel.toLowerCase()}`);
     } finally {
       setLoading(false);
     }
@@ -345,7 +360,7 @@ export function BookInspectionModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Book Inspection - {leadNumber}
+            Book {bookingLabel} - {leadNumber}
           </DialogTitle>
         </DialogHeader>
 
@@ -399,7 +414,7 @@ export function BookInspectionModal({
               <Label>
                 <span className="flex items-center gap-1.5">
                   <Calendar size={14} />
-                  Inspection Date <span className="text-destructive">*</span>
+                  {bookingLabel} Date <span className="text-destructive">*</span>
                 </span>
               </Label>
 
@@ -498,7 +513,7 @@ export function BookInspectionModal({
               <Label>
                 <span className="flex items-center gap-1.5">
                   <Clock size={14} />
-                  Inspection Time <span className="text-destructive">*</span>
+                  {bookingLabel} Time <span className="text-destructive">*</span>
                 </span>
               </Label>
 
@@ -736,7 +751,7 @@ export function BookInspectionModal({
               disabled={loading || !canBook}
               className="flex-1"
             >
-              {loading ? "Booking..." : "Book Inspection"}
+              {loading ? "Booking..." : `Book ${bookingLabel}`}
             </Button>
           </div>
         </form>

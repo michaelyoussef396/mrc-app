@@ -23,9 +23,12 @@ export interface CalendarEvent {
   technicianColor: string;
 }
 
+export type EventTypeFilter = 'all' | 'inspection' | 'job';
+
 interface UseScheduleCalendarParams {
   weekStart: Date;
   technicianFilter: string | null; // null = "All", or technician ID
+  eventTypeFilter?: EventTypeFilter; // defaults to 'all'
 }
 
 interface UseScheduleCalendarResult {
@@ -131,11 +134,12 @@ export function formatWeekRange(weekStart: Date): string {
 export function useScheduleCalendar({
   weekStart,
   technicianFilter,
+  eventTypeFilter = 'all',
 }: UseScheduleCalendarParams): UseScheduleCalendarResult {
   const weekEnd = getWeekEnd(weekStart);
 
   const { data: events = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['schedule-calendar', formatDateKey(weekStart), technicianFilter],
+    queryKey: ['schedule-calendar', formatDateKey(weekStart), technicianFilter, eventTypeFilter],
     queryFn: async () => {
 
       // Build query for calendar_bookings with lead joins
@@ -166,6 +170,11 @@ export function useScheduleCalendar({
       // Apply technician filter if not "All"
       if (technicianFilter) {
         query = query.eq('assigned_to', technicianFilter);
+      }
+
+      // Apply event type filter if not "All"
+      if (eventTypeFilter && eventTypeFilter !== 'all') {
+        query = query.eq('event_type', eventTypeFilter);
       }
 
       const { data, error: fetchError } = await query;

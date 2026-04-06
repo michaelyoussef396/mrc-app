@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import { ScheduleHeader, ScheduleCalendar, ScheduleDailyView, LeadsQueue, EventDetailsPanel, CancelledBookingsList } from '@/components/schedule';
-import { useScheduleCalendar, getWeekStart, CalendarEvent } from '@/hooks/useScheduleCalendar';
+import { useScheduleCalendar, getWeekStart, CalendarEvent, type EventTypeFilter } from '@/hooks/useScheduleCalendar';
 import { useCancelledBookings } from '@/hooks/useCancelledBookings';
 import { useTechnicians } from '@/hooks/useTechnicians';
 import {
@@ -22,6 +22,7 @@ export default function AdminSchedule() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [selectedTechnician, setSelectedTechnician] = useState<string | null>(null);
+  const [eventTypeFilter, setEventTypeFilter] = useState<EventTypeFilter>('all');
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [mobileQueueOpen, setMobileQueueOpen] = useState(false);
   const [showCancelled, setShowCancelled] = useState(false);
@@ -41,6 +42,7 @@ export default function AdminSchedule() {
   const { events, isLoading, refetch } = useScheduleCalendar({
     weekStart,
     technicianFilter: selectedTechnician,
+    eventTypeFilter,
   });
 
   // Fetch cancelled bookings
@@ -155,6 +157,29 @@ export default function AdminSchedule() {
                 selectedDate={selectedDate}
                 onDayChange={handleDayChange}
               />
+
+              {/* Event Type Filter Pills */}
+              <div className="flex items-center gap-2 px-4 md:px-6 py-2 border-t border-gray-100 bg-white">
+                <span className="text-xs font-medium text-[#86868b] mr-1">Show:</span>
+                {(['all', 'inspection', 'job'] as EventTypeFilter[]).map((type) => {
+                  const isActive = eventTypeFilter === type;
+                  const label = type === 'all' ? 'All' : type === 'inspection' ? 'Inspections' : 'Jobs';
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => setEventTypeFilter(type)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        isActive
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                      }`}
+                      style={{ minHeight: '32px' }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Calendar Grid or Cancelled List - Scrollable */}
