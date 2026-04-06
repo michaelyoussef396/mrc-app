@@ -229,6 +229,42 @@ export interface InspectionReminderData {
   address: string;
 }
 
+export interface JobBookingConfirmationData {
+  customerName: string;
+  leadNumber: string;
+  address: string;
+  firstDate: string;      // e.g. "Tue 7 Apr"
+  lastDate: string;       // e.g. "Sun 12 Apr 2026"
+  startTime: string;      // e.g. "8:00 AM"
+  durationDays: number;
+  totalHours: number;
+  technicianName: string;
+  isSingleDay: boolean;
+}
+
+export function buildJobBookingConfirmationHtml(data: JobBookingConfirmationData): string {
+  const dateRange = data.isSingleDay ? data.firstDate : `${data.firstDate} – ${data.lastDate}`;
+  const durationLabel = `${data.durationDays} ${data.durationDays === 1 ? 'day' : 'days'} (${data.totalHours} hours)`;
+  return wrapInBrandedTemplate(`
+    <h2>Job Booking Confirmed</h2>
+    <p>Hi ${data.customerName},</p>
+    <p>Great news — your mould remediation job at <strong>${data.address}</strong> has been confirmed and scheduled.</p>
+    <div class="details-box">
+      <table>
+        <tr><td>Reference</td><td>${data.leadNumber}</td></tr>
+        <tr><td>Dates</td><td>${dateRange}</td></tr>
+        <tr><td>Start Time</td><td>${data.startTime} daily</td></tr>
+        <tr><td>Duration</td><td>${durationLabel}</td></tr>
+        <tr><td>Technician</td><td>${data.technicianName}</td></tr>
+        <tr><td>Address</td><td>${data.address}</td></tr>
+      </table>
+    </div>
+    <p><strong>What to expect:</strong></p>
+    <p>Our technician will arrive at ${data.startTime} on ${data.firstDate} to begin work. Please ensure access to all affected areas of the property for the duration of the job.</p>
+    <p>If you need to reschedule, please call us on <a href="tel:0433553199" style="color:#121D73; font-weight:600;">0433 553 199</a> as soon as possible.</p>
+  `);
+}
+
 export function buildInspectionReminderHtml(data: InspectionReminderData): string {
   return wrapInBrandedTemplate(`
     <h2>Inspection Reminder</h2>
