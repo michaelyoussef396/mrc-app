@@ -3,16 +3,21 @@
 @tailwind utilities;
 
 /* ============================================
-   MATERIAL SYMBOLS OUTLINED
-   The Google Fonts CSS2 endpoint for Material Symbols only ships
-   @font-face rules — the .material-symbols-outlined class has to be
-   defined manually. Without this, all <span class="material-symbols-outlined">
-   icons render as raw ligature text.
-   Source: https://developers.google.com/fonts/docs/material_symbols
+   MATERIAL ICONS
+   We load both classic Material Icons (~128 KB) and Material Symbols
+   Outlined (~315 KB non-variable) from Google Fonts. The classic font
+   loads first and covers every icon we use (mail, lock, visibility,
+   inbox, dashboard, etc.). Material Symbols is kept as a fallback for
+   any icon names unique to the newer set.
+
+   The .material-symbols-outlined class name is used across the app —
+   we alias it to the Material Icons font family so no component
+   changes are needed.
    ============================================ */
 
+.material-icons,
 .material-symbols-outlined {
-  font-family: 'Material Symbols Outlined';
+  font-family: 'Material Icons', 'Material Symbols Outlined';
   font-weight: normal;
   font-style: normal;
   font-size: 24px;
