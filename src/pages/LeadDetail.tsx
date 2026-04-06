@@ -63,6 +63,8 @@ import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
 import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
 import { BookJobSheet } from "@/components/leads/BookJobSheet";
 import { JobBookingDetails } from "@/components/leads/JobBookingDetails";
+import { TechnicianBottomNav } from "@/components/technician";
+import { useAuth } from "@/contexts/AuthContext";
 import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
 import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/api/inspections";
@@ -118,6 +120,9 @@ const getInitials = (name: string | null | undefined) => {
 
 export default function LeadDetail() {
   const { id } = useParams<{ id: string }>();
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole('admin');
+  const isTechnician = hasRole('technician');
   const navigate = useNavigate();
   const [regeneratingPdf, setRegeneratingPdf] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -592,8 +597,26 @@ export default function LeadDetail() {
         );
 
       case "job_scheduled":
-        // Render the rich JobBookingDetails component that fetches all job day bookings
-        return <JobBookingDetails leadId={lead.id} onReschedule={() => setShowBookJobModal(true)} />;
+        // Technicians: prominent "Start Job Completion" button, then the schedule below
+        // Admins: schedule with "Reschedule Job" button
+        return (
+          <div className="space-y-3">
+            {isTechnician && (
+              <Button
+                size="lg"
+                className="w-full h-14 text-base bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => navigate(`/technician/job-completion/${lead.id}`)}
+              >
+                <FileText className="h-5 w-5 mr-2" />
+                Start Job Completion
+              </Button>
+            )}
+            <JobBookingDetails
+              leadId={lead.id}
+              onReschedule={isAdmin ? () => setShowBookJobModal(true) : () => navigate(`/technician/job-completion/${lead.id}`)}
+            />
+          </div>
+        );
 
       case "not_landed":
         return (
@@ -667,10 +690,12 @@ export default function LeadDetail() {
             <div className="flex items-center gap-2 flex-shrink-0">
               {/* Desktop action buttons (hidden on mobile) */}
               <div className="hidden md:flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setShowEditSheet(true)} className="h-9">
-                  <Edit className="h-4 w-4 mr-1.5" />
-                  Edit
-                </Button>
+                {isAdmin && (
+                  <Button variant="outline" size="sm" onClick={() => setShowEditSheet(true)} className="h-9">
+                    <Edit className="h-4 w-4 mr-1.5" />
+                    Edit
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={handleCall} className="h-9">
                   <Phone className="h-4 w-4 mr-1.5" />
                   Call
@@ -683,13 +708,17 @@ export default function LeadDetail() {
                   <Navigation className="h-4 w-4 mr-1.5" />
                   Directions
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => setShowStatusDialog(true)} className="h-9 text-blue-600 border-blue-200 hover:bg-blue-50">
-                  <RefreshCw className="h-4 w-4 mr-1.5" />
-                  Status
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setShowDeleteDialog(true)} className="h-9 text-red-600 border-red-200 hover:bg-red-50">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {isAdmin && (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => setShowStatusDialog(true)} className="h-9 text-blue-600 border-blue-200 hover:bg-blue-50">
+                      <RefreshCw className="h-4 w-4 mr-1.5" />
+                      Status
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setShowDeleteDialog(true)} className="h-9 text-red-600 border-red-200 hover:bg-red-50">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
               </div>
 
               {/* Mobile: phone + 3-dot menu (hidden on desktop) */}
@@ -704,11 +733,15 @@ export default function LeadDetail() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={() => setShowEditSheet(true)}>
-                      <Edit className="h-4 w-4 mr-3" />
-                      Edit Lead
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
+                    {isAdmin && (
+                      <>
+                        <DropdownMenuItem onClick={() => setShowEditSheet(true)}>
+                          <Edit className="h-4 w-4 mr-3" />
+                          Edit Lead
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                      </>
+                    )}
                     <DropdownMenuItem onClick={handleCall}>
                       <Phone className="h-4 w-4 mr-3" />
                       Call
@@ -725,16 +758,20 @@ export default function LeadDetail() {
                       <Navigation className="h-4 w-4 mr-3" />
                       Get Directions
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setShowStatusDialog(true)} className="text-blue-600">
-                      <RefreshCw className="h-4 w-4 mr-3" />
-                      Change Status
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-red-600">
-                      <Trash2 className="h-4 w-4 mr-3" />
-                      Delete Lead
-                    </DropdownMenuItem>
+                    {isAdmin && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setShowStatusDialog(true)} className="text-blue-600">
+                          <RefreshCw className="h-4 w-4 mr-3" />
+                          Change Status
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-red-600">
+                          <Trash2 className="h-4 w-4 mr-3" />
+                          Delete Lead
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -1358,6 +1395,9 @@ export default function LeadDetail() {
         propertySuburb={lead.property_address_suburb}
         onBooked={() => refetch()}
       />
+
+      {/* Technician bottom nav — only shown when viewing as a technician */}
+      {isTechnician && !isAdmin && <TechnicianBottomNav />}
     </div>
   );
 }

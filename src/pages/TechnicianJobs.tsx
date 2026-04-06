@@ -260,7 +260,13 @@ function ActiveJobCard({
       </div>
 
       {/* Primary Action Buttons */}
-      {isToday ? (
+      {/*
+        Remediation jobs: always show "Start Job Completion" as the primary
+        action because a multi-day job can be worked on any day during the
+        booking, not only today.
+        Inspections: keep the previous behaviour (primary action only on today).
+      */}
+      {isRemediationJob(job.eventType) || isToday ? (
         <div className="flex flex-col gap-2">
           <button
             onClick={onStartJob}

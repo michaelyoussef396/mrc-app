@@ -291,14 +291,19 @@ const AppContent = () => {
               }
             />
 
-            {/* Technician Job Detail (handoff page) */}
+            {/* Technician Job Detail — reuses the shared LeadDetail page so
+                technicians see the full lead view (contact, property, inspection
+                data, cost estimate, AI summary, job schedule, activity log).
+                LeadDetail renders role-aware UI to hide admin-only actions. */}
             <Route
               path="/technician/job/:id"
               element={
                 <ProtectedRoute>
                   <RoleProtectedRoute allowedRoles={["technician"]}>
                     <Suspense fallback={<GlobalLoader />}>
-                      <TechnicianJobDetail />
+                      <PageErrorBoundary name="technician-lead-detail">
+                        <LeadDetail />
+                      </PageErrorBoundary>
                     </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>
