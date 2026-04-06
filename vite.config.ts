@@ -62,7 +62,17 @@ export default defineConfig(({ mode }) => ({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // Material Symbols icons
+          // Material Icons (classic) — primary icon font
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/icon\?family=Material\+Icons.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "material-icons-cache",
+              expiration: { maxEntries: 5, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // Material Symbols icons (fallback only)
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/css2\?family=Material\+Symbols.*/i,
             handler: "CacheFirst",
