@@ -6,6 +6,7 @@ export type LeadStatus =
   | "approve_inspection_report"
   | "inspection_email_approval"
   | "job_waiting"
+  | "job_scheduled"
   | "job_completed"
   | "pending_review"
   | "job_report_pdf_sent"
@@ -79,14 +80,24 @@ export const STATUS_FLOW: Record<LeadStatus, StatusFlowConfig> = {
     borderColor: 'hsl(200 70% 60%)',
   },
   'job_waiting': {
-    next: 'job_completed',
+    next: 'job_scheduled',
     title: 'Awaiting Job',
     shortTitle: 'JOB WAIT',
-    nextAction: 'Complete remediation job on-site',
+    nextAction: 'Book the remediation job with a technician',
     iconName: 'Hammer',
     color: 'hsl(25 95% 53%)',
     bgColor: 'hsl(25 95% 97%)',
     borderColor: 'hsl(25 95% 53%)',
+  },
+  'job_scheduled': {
+    next: 'job_completed',
+    title: 'Job Scheduled',
+    shortTitle: 'SCHEDULED',
+    nextAction: 'Technician to complete on-site work',
+    iconName: 'Calendar',
+    color: 'hsl(217 91% 60%)',
+    bgColor: 'hsl(217 91% 97%)',
+    borderColor: 'hsl(217 91% 60%)',
   },
   'job_completed': {
     next: 'job_report_pdf_sent',
@@ -101,7 +112,7 @@ export const STATUS_FLOW: Record<LeadStatus, StatusFlowConfig> = {
   'pending_review': {
     next: 'job_report_pdf_sent',
     title: 'Pending Review',
-    shortTitle: 'REVIEW',
+    shortTitle: 'ADMIN REVIEW',
     nextAction: 'Admin review requested by technician',
     iconName: 'AlertTriangle',
     color: 'hsl(45 93% 47%)',
@@ -141,7 +152,7 @@ export const STATUS_FLOW: Record<LeadStatus, StatusFlowConfig> = {
   'google_review': {
     next: 'finished',
     title: 'Google Review',
-    shortTitle: 'REVIEW',
+    shortTitle: 'GOOGLE REVIEW',
     nextAction: 'Awaiting Google review or close lead',
     iconName: 'Star',
     color: 'hsl(48 96% 53%)',
@@ -188,6 +199,7 @@ export const ALL_STATUSES: LeadStatus[] = [
   'approve_inspection_report',
   'inspection_email_approval',
   'job_waiting',
+  'job_scheduled',
   'job_completed',
   'pending_review',
   'job_report_pdf_sent',

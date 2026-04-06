@@ -114,6 +114,7 @@ export default function LeadDetail() {
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showEditSheet, setShowEditSheet] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [showBookJobModal, setShowBookJobModal] = useState(false);
   const [newStatus, setNewStatus] = useState<LeadStatus | null>(null);
 
   // Fetch lead data
@@ -1034,6 +1035,60 @@ export default function LeadDetail() {
           </div>
         )}
 
+        {/* Book Job CTA — shown when lead is ready for job scheduling */}
+        {lead && lead.status === 'job_waiting' && (
+          <div className="bg-white rounded-xl border border-amber-200 p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-amber-600" />
+              <h3 className="font-semibold text-[#1d1d1f]">Book Remediation Job</h3>
+            </div>
+            <p className="text-sm text-[#86868b]">
+              Customer approved the inspection report. Schedule the remediation job with a technician.
+            </p>
+            <Button
+              className="w-full h-12 bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={() => setShowBookJobModal(true)}
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              Book Job
+            </Button>
+          </div>
+        )}
+
+        {/* Scheduled Job Info Card */}
+        {lead && lead.status === 'job_scheduled' && lead.job_scheduled_date && (
+          <div className="bg-white rounded-xl border border-blue-200 p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-blue-600" />
+              <h3 className="font-semibold text-[#1d1d1f]">Job Scheduled</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-[#86868b]">Date</span>
+                <p className="font-medium">
+                  {new Date(lead.job_scheduled_date).toLocaleDateString('en-AU', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </p>
+              </div>
+              <div>
+                <span className="text-[#86868b]">Time</span>
+                <p className="font-medium">{lead.scheduled_time || 'TBD'}</p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              className="w-full h-11"
+              onClick={() => setShowBookJobModal(true)}
+            >
+              Reschedule Job
+            </Button>
+          </div>
+        )}
+
         {/* Job Completion Summary */}
         {jobCompletion && (
           <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
@@ -1260,7 +1315,7 @@ export default function LeadDetail() {
                   }
                 >
                   <span className="mr-2">{config.icon}</span>
-                  {config.shortTitle}
+                  {config.title}
                   {isCurrentStatus && (
                     <Badge variant="secondary" className="ml-auto">
                       Current
@@ -1288,6 +1343,21 @@ export default function LeadDetail() {
         customerName={lead.full_name}
         propertyAddress={`${lead.property_address_street}, ${lead.property_address_suburb}`}
         propertySuburb={lead.property_address_suburb}
+      />
+
+      {/* Book Job Modal */}
+      <BookInspectionModal
+        open={showBookJobModal}
+        onOpenChange={(open) => {
+          setShowBookJobModal(open);
+          if (!open) refetch();
+        }}
+        leadId={lead.id}
+        leadNumber={lead.lead_number || ''}
+        customerName={lead.full_name}
+        propertyAddress={`${lead.property_address_street}, ${lead.property_address_suburb}`}
+        propertySuburb={lead.property_address_suburb}
+        bookingType="job"
       />
     </div>
   );

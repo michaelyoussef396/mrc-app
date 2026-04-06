@@ -49,6 +49,7 @@ const statusOptions: StatusOption[] = [
   { value: 'approve_inspection_report', label: 'Approve Report', dotColor: 'bg-slate-700' },
   { value: 'inspection_email_approval', label: 'Email Approval', dotColor: 'bg-purple-500' },
   { value: 'job_waiting', label: 'Awaiting Job', dotColor: 'bg-amber-500' },
+  { value: 'job_scheduled', label: 'Job Scheduled', dotColor: 'bg-blue-500' },
   { value: 'job_completed', label: 'Job Completed', dotColor: 'bg-emerald-500' },
   { value: 'pending_review', label: 'Pending Review', dotColor: 'bg-yellow-500' },
   { value: 'job_report_pdf_sent', label: 'Report Sent', dotColor: 'bg-sky-500' },

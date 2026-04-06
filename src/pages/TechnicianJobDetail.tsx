@@ -784,12 +784,19 @@ export default function TechnicianJobDetail() {
                   Reschedule
                 </Button>
               )}
-              {lead.status === 'job_waiting' || lead.status === 'job_completed' || lead.status === 'pending_review' ? (
+              {lead.status === 'job_waiting' ? (
+                <Button
+                  className="flex-1 h-12 bg-slate-300 text-slate-600 cursor-not-allowed"
+                  disabled
+                >
+                  Awaiting Admin Booking
+                </Button>
+              ) : lead.status === 'job_scheduled' || lead.status === 'job_completed' || lead.status === 'pending_review' ? (
                 <Button
                   className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
                   onClick={handleStartJobCompletion}
                 >
-                  {lead.status === 'job_waiting' ? 'Start Job Completion' : 'View Job Completion'}
+                  {lead.status === 'job_scheduled' ? 'Start Job Completion' : 'View Job Completion'}
                 </Button>
               ) : inspection?.pdf_url ? (
                 <Button
