@@ -38,6 +38,7 @@ export interface JobCompletionFormData {
   // Section 2: Summary
   swmsCompleted: boolean;
   premisesType: PremisesType | '';
+  remediationCompletedBy: string; // free-text name of who did the work
   completionDate: string;       // ISO date string (YYYY-MM-DD)
   areasTreated: string[];       // array of area names from inspection
 
@@ -112,6 +113,7 @@ export interface JobCompletionRow {
   swms_completed: boolean;
   premises_type: string | null;
   completed_by: string;
+  remediation_completed_by: string | null;
   completion_date: string;
   areas_treated: string[];
   demolition_works: boolean;
@@ -176,6 +178,7 @@ export const DEFAULT_JOB_COMPLETION_FORM: JobCompletionFormData = {
   attentionTo: '',
   swmsCompleted: false,
   premisesType: '',
+  remediationCompletedBy: '',
   completionDate: new Date().toISOString().split('T')[0],
   areasTreated: [],
   demolitionWorks: false,

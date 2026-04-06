@@ -33,6 +33,7 @@ function rowToFormData(row: JobCompletionRow): JobCompletionFormData {
     // Section 2: Summary
     swmsCompleted: row.swms_completed,
     premisesType: (row.premises_type as JobCompletionFormData['premisesType']) ?? '',
+    remediationCompletedBy: row.remediation_completed_by ?? '',
     completionDate: row.completion_date,
     areasTreated: row.areas_treated ?? [],
 
@@ -186,8 +187,24 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
 
         if (cancelled) return
 
+        // Pre-populate "Remediation Completed By" with the logged-in user's
+        // name — they can override it in the form if someone else did the work.
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .maybeSingle()
+        const defaultCompletedByName =
+          profile?.full_name ||
+          (user.user_metadata as { full_name?: string } | null)?.full_name ||
+          user.email ||
+          ''
+
         setJobCompletionId(row.id)
-        setFormData(rowToFormData(row))
+        setFormData({
+          ...rowToFormData(row),
+          remediationCompletedBy: defaultCompletedByName,
+        })
 
         // Log activity: job completion started
         supabase.from('activities').insert({

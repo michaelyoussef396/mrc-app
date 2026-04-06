@@ -25,6 +25,7 @@ function formDataToRow(data: Partial<JobCompletionFormData>): Record<string, unk
   // Section 2
   if (data.swmsCompleted !== undefined) row.swms_completed = data.swmsCompleted
   if (data.premisesType !== undefined) row.premises_type = data.premisesType || null
+  if (data.remediationCompletedBy !== undefined) row.remediation_completed_by = data.remediationCompletedBy || null
   if (data.completionDate !== undefined) row.completion_date = data.completionDate
   if (data.areasTreated !== undefined) row.areas_treated = data.areasTreated
 

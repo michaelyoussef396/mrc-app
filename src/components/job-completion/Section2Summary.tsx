@@ -1,5 +1,8 @@
 'use client';
 
+import { useState } from 'react';
+import { X, Plus } from 'lucide-react';
+
 import type { JobCompletionFormData, PremisesType } from '@/types/jobCompletion';
 
 interface SectionProps {
@@ -50,23 +53,37 @@ function ToggleRow({ id, label, checked, onToggle, disabled = false }: ToggleRow
 /**
  * Section2Summary — Overview of the completed remediation work.
  *
- * Collects the SWMS status, premises type, completion date, and which
- * inspection areas were treated. Areas treated defaults to whatever was
- * identified during the inspection (pre-populated by the parent form).
+ * Collects the SWMS status, premises type, who did the work, completion
+ * date, and which areas were treated. Areas are editable as removable
+ * chips with an Add button.
  *
  * @param formData - Full job completion form state
  * @param onChange - Field update callback
  * @param isReadOnly - When true, all fields are locked
  */
 export function Section2Summary({ formData, onChange, isReadOnly = false }: SectionProps) {
+  const [newAreaInput, setNewAreaInput] = useState('');
   const today = new Date().toISOString().split('T')[0];
 
-  function handleAreaToggle(areaName: string) {
-    const current = formData.areasTreated;
-    const updated = current.includes(areaName)
-      ? current.filter((a) => a !== areaName)
-      : [...current, areaName];
-    onChange('areasTreated', updated);
+  function handleAddArea() {
+    const trimmed = newAreaInput.trim();
+    if (!trimmed || formData.areasTreated.includes(trimmed)) {
+      setNewAreaInput('');
+      return;
+    }
+    onChange('areasTreated', [...formData.areasTreated, trimmed]);
+    setNewAreaInput('');
+  }
+
+  function handleRemoveArea(areaName: string) {
+    onChange('areasTreated', formData.areasTreated.filter((a) => a !== areaName));
+  }
+
+  function handleAreaInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddArea();
+    }
   }
 
   // Format ISO date to DD/MM/YYYY for display in the date input's label
@@ -117,6 +134,28 @@ export function Section2Summary({ formData, onChange, isReadOnly = false }: Sect
         </select>
       </div>
 
+      {/* Remediation Completed By */}
+      <div>
+        <label
+          htmlFor="remediation-completed-by"
+          className="block text-sm font-medium text-[#1d1d1f] mb-1.5"
+        >
+          Remediation Completed By
+        </label>
+        <input
+          id="remediation-completed-by"
+          type="text"
+          value={formData.remediationCompletedBy}
+          onChange={(e) => onChange('remediationCompletedBy', e.target.value)}
+          disabled={isReadOnly}
+          placeholder="Name of the person who completed the work"
+          className="w-full h-12 px-3 rounded-lg border border-gray-200 text-[15px] text-[#1d1d1f] bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF] focus:border-transparent disabled:bg-gray-50 disabled:text-[#86868b]"
+        />
+        <p className="text-xs text-[#86868b] mt-1">
+          Defaults to the logged-in user. Change if someone else did the work.
+        </p>
+      </div>
+
       {/* Completion Date */}
       <div>
         <label
@@ -143,45 +182,67 @@ export function Section2Summary({ formData, onChange, isReadOnly = false }: Sect
         />
       </div>
 
-      {/* Areas Treated */}
+      {/* Areas Treated — editable chips */}
       <div>
         <p className="text-sm font-medium text-[#1d1d1f] mb-2">
           Areas Treated <span className="text-red-500" aria-hidden="true">*</span>
         </p>
-        <div
-          role="group"
-          aria-label="Select areas that were treated"
-          className="bg-white rounded-xl overflow-hidden"
-        >
+
+        {/* Chips */}
+        <div className="bg-white rounded-xl p-3 min-h-[56px] flex flex-wrap gap-2 border border-gray-200">
           {formData.areasTreated.length === 0 ? (
-            <p className="p-4 text-[15px] text-[#86868b] italic">
-              No areas from inspection. Areas will appear here once pre-populated.
+            <p className="text-sm text-[#86868b] italic self-center px-1">
+              No areas yet. Add areas below.
             </p>
           ) : (
-            formData.areasTreated.map((area, index) => {
-              const checkboxId = `area-${index}`;
-              return (
-                <label
-                  key={area}
-                  htmlFor={checkboxId}
-                  className={`flex items-center gap-3 px-4 min-h-[48px] cursor-pointer ${
-                    index < formData.areasTreated.length - 1 ? 'border-b border-gray-100' : ''
-                  } ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}`}
-                >
-                  <input
-                    id={checkboxId}
-                    type="checkbox"
-                    checked={true}
-                    onChange={() => !isReadOnly && handleAreaToggle(area)}
-                    disabled={isReadOnly}
-                    className="w-5 h-5 rounded border-gray-300 text-[#007AFF] focus:ring-[#007AFF] focus:ring-offset-0"
-                  />
-                  <span className="text-[15px] text-[#1d1d1f]">{area}</span>
-                </label>
-              );
-            })
+            formData.areasTreated.map((area) => (
+              <span
+                key={area}
+                className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full bg-[#007AFF]/10 text-[#007AFF] text-sm font-medium"
+              >
+                {area}
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveArea(area)}
+                    aria-label={`Remove ${area}`}
+                    className="w-5 h-5 rounded-full hover:bg-[#007AFF]/20 flex items-center justify-center"
+                  >
+                    <X className="w-3 h-3" aria-hidden="true" />
+                  </button>
+                )}
+              </span>
+            ))
           )}
         </div>
+
+        {/* Add new area */}
+        {!isReadOnly && (
+          <div className="flex gap-2 mt-2">
+            <input
+              type="text"
+              value={newAreaInput}
+              onChange={(e) => setNewAreaInput(e.target.value)}
+              onKeyDown={handleAreaInputKeyDown}
+              placeholder="e.g. Bathroom, Bedroom 2..."
+              className="flex-1 h-12 px-3 rounded-lg border border-gray-200 text-[15px] text-[#1d1d1f] bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF] focus:border-transparent"
+              aria-label="New area name"
+            />
+            <button
+              type="button"
+              onClick={handleAddArea}
+              disabled={!newAreaInput.trim()}
+              className="h-12 px-4 rounded-lg bg-[#007AFF] text-white text-sm font-semibold hover:bg-[#0062cc] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" aria-hidden="true" />
+              Add Area
+            </button>
+          </div>
+        )}
+
+        <p className="text-xs text-[#86868b] mt-1.5">
+          Pre-populated from the inspection. Tap the × to remove, or add new areas above.
+        </p>
       </div>
     </section>
   );
