@@ -16,6 +16,8 @@ export interface PhotoMetadata {
   photo_type: 'area' | 'subfloor' | 'general' | 'outdoor'
   caption?: string
   order_index?: number
+  job_completion_id?: string
+  photo_category?: 'before' | 'after' | 'demolition'
 }
 
 /**
@@ -133,7 +135,9 @@ export async function uploadInspectionPhoto(
       mime_type: 'image/jpeg',
       caption: metadata.caption || null,
       order_index: metadata.order_index || 0,
-      uploaded_by: user.id
+      uploaded_by: user.id,
+      job_completion_id: metadata.job_completion_id || null,
+      photo_category: metadata.photo_category || null
     })
     .select()
     .single()

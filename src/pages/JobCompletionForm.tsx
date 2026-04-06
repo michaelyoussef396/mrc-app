@@ -139,7 +139,7 @@ export default function JobCompletionForm() {
       case 1: return <Section1OfficeInfo {...props} />
       case 2: return <Section2Summary {...props} />
       case 3: return <Section3BeforePhotos {...props} leadId={leadId} jobCompletionId={jobCompletionId} />
-      case 4: return <Section4AfterPhotos {...props} />
+      case 4: return <Section4AfterPhotos {...props} leadId={leadId} jobCompletionId={jobCompletionId} />
       case 5: return <Section5TreatmentMethods {...props} />
       case 6: return <Section6ChemicalToggles {...props} />
       case 7: return <Section7Equipment {...props} />
