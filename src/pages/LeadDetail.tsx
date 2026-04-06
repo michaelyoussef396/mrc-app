@@ -23,6 +23,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   ArrowLeft,
   Phone,
   Mail,
@@ -540,6 +548,55 @@ export default function LeadDetail() {
             <Button variant="outline" className="w-full h-12" onClick={handleCall}>
               <Phone className="h-4 w-4 mr-2" />
               Call Customer
+            </Button>
+          </div>
+        );
+
+      case "job_waiting":
+        return (
+          <div className="space-y-3">
+            <Button
+              size="lg"
+              className="w-full h-14 text-base bg-amber-600 hover:bg-amber-700"
+              onClick={() => setShowBookJobModal(true)}
+            >
+              <Calendar className="h-5 w-5 mr-2" />
+              Book Remediation Job
+            </Button>
+            <p className="text-xs text-gray-500 text-center">
+              Customer approved the inspection report. Schedule the remediation with a technician.
+            </p>
+          </div>
+        );
+
+      case "job_scheduled":
+        return (
+          <div className="space-y-3">
+            {lead.job_scheduled_date && (
+              <Card className="border-blue-200 bg-blue-50/50">
+                <CardContent className="py-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-blue-600" />
+                    <span className="font-semibold text-blue-800">Job Scheduled</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="text-gray-500">Date</div>
+                    <div className="font-medium">
+                      {new Date(lead.job_scheduled_date).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                    </div>
+                    <div className="text-gray-500">Time</div>
+                    <div className="font-medium">{lead.scheduled_time || 'TBD'}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            <Button
+              variant="outline"
+              className="w-full h-12"
+              onClick={() => setShowBookJobModal(true)}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reschedule Job
             </Button>
           </div>
         );
@@ -1284,15 +1341,15 @@ export default function LeadDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Change Status Dialog */}
-      <AlertDialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Change Status</AlertDialogTitle>
-            <AlertDialogDescription>
+      {/* Change Status Dialog — uses Dialog (not AlertDialog) so click-outside and Esc close it */}
+      <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Change Status</DialogTitle>
+            <DialogDescription>
               Select a new status for this lead.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+            </DialogDescription>
+          </DialogHeader>
           <div className="grid gap-2 py-4">
             {(Object.keys(STATUS_FLOW) as LeadStatus[]).map((status) => {
               const config = STATUS_FLOW[status];
@@ -1325,11 +1382,13 @@ export default function LeadDetail() {
               );
             })}
           </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowStatusDialog(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Lead Sheet */}
       <EditLeadSheet lead={lead} open={showEditSheet} onOpenChange={setShowEditSheet} />
