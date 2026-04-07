@@ -63,6 +63,7 @@ import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
 import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
 import { BookJobSheet } from "@/components/leads/BookJobSheet";
 import { JobBookingDetails } from "@/components/leads/JobBookingDetails";
+import { JobCompletionSummary } from "@/components/leads/JobCompletionSummary";
 import { TechnicianBottomNav } from "@/components/technician";
 import { useAuth } from "@/contexts/AuthContext";
 import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
@@ -1124,51 +1125,12 @@ export default function LeadDetail() {
         )}
 
         {/* Job Completion Summary */}
-        {jobCompletion && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5 text-emerald-600" />
-              <h3 className="font-semibold text-[#1d1d1f]">Job Completion</h3>
-              <Badge variant={jobCompletion.status === 'submitted' ? 'default' : 'secondary'}>
-                {jobCompletion.status}
-              </Badge>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-[#86868b]">Job Number</span>
-                <p className="font-medium">{jobCompletion.job_number || '—'}</p>
-              </div>
-              <div>
-                <span className="text-[#86868b]">Completion Date</span>
-                <p className="font-medium">
-                  {jobCompletion.completion_date
-                    ? new Date(jobCompletion.completion_date).toLocaleDateString('en-AU')
-                    : '—'}
-                </p>
-              </div>
-              <div>
-                <span className="text-[#86868b]">Premises Type</span>
-                <p className="font-medium capitalize">{jobCompletion.premises_type || '—'}</p>
-              </div>
-              <div>
-                <span className="text-[#86868b]">SWMS</span>
-                <p className="font-medium">{jobCompletion.swms_completed ? 'Completed' : 'Not completed'}</p>
-              </div>
-            </div>
-
-            {jobCompletion.scope_changed && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-amber-800 text-sm font-medium">Scope variations recorded</p>
-              </div>
-            )}
-
-            {jobCompletion.request_review && (
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-yellow-800 text-sm font-medium">Admin review requested by technician</p>
-              </div>
-            )}
-          </div>
+        {jobCompletion && lead && (
+          <JobCompletionSummary
+            jobCompletion={jobCompletion}
+            leadId={lead.id}
+            isAdmin={hasRole('admin')}
+          />
         )}
 
         {/* Invoice Helper */}
