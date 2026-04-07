@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Camera, ImageIcon, Loader2, Plus, X } from 'lucide-react';
+import { ImageIcon, ImagePlus, Loader2, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -183,12 +183,13 @@ export function Section4AfterPhotos({
 
   return (
     <section aria-labelledby="after-photos-heading" className="space-y-5">
-      {/* Hidden file input — reused by both grids via pendingCategoryRef */}
+      {/* Hidden file input — reused by both grids via pendingCategoryRef.
+          No `capture` attribute so iOS shows its native action sheet with
+          Camera / Photo Library / Browse Files options (matches inspection form). */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         multiple
         className="hidden"
         onChange={handleFileChange}
@@ -249,14 +250,14 @@ export function Section4AfterPhotos({
             onClick={() => triggerUpload('after')}
             disabled={!canUpload}
             className="flex items-center justify-center gap-2 w-full h-12 bg-[#007AFF] text-white rounded-lg font-medium text-[15px] focus:outline-none focus:ring-2 focus:ring-[#007AFF] focus:ring-offset-2 active:opacity-90 disabled:opacity-50"
-            aria-label="Take a photo"
+            aria-label="Add photos"
           >
             {isUploading ? (
               <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
             ) : (
-              <Camera className="w-5 h-5" aria-hidden="true" />
+              <ImagePlus className="w-5 h-5" aria-hidden="true" />
             )}
-            {isUploading ? 'Uploading...' : 'Take Photo'}
+            {isUploading ? 'Uploading...' : 'Add Photos'}
           </button>
         )}
 
@@ -268,7 +269,7 @@ export function Section4AfterPhotos({
           deletingId={deletingId}
           onAdd={() => triggerUpload('after')}
           onDelete={handleDelete}
-          emptyLabel="No after photos yet. Tap Take Photo to add one."
+          emptyLabel="No after photos yet. Tap Add Photos to get started."
         />
       </div>
 
