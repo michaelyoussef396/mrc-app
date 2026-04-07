@@ -12,6 +12,7 @@ import { useTechnicianStats } from '@/hooks/useTechnicianStats';
 import { useActivityTimeline } from '@/hooks/useActivityTimeline';
 import { ActivityTimeline } from '@/components/dashboard/ActivityTimeline';
 import { getTechnicianColor } from '@/hooks/useTechnicians';
+import { NeedsAttentionList } from '@/components/admin/NeedsAttentionList';
 
 // Status badge styling based on lead status
 const getStatusStyle = (status: string) => {
@@ -108,8 +109,11 @@ export default function AdminDashboard() {
           onMenuClick={() => setSidebarOpen(true)}
         />
 
+        {/* Needs Attention - leads flagged by technicians for admin review */}
+        <NeedsAttentionList />
+
         {/* Stats Row - Responsive grid: 1 col mobile, 2 cols tablet, 4 cols desktop */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8 mt-6 lg:mt-8">
           <StatsCard
             title="Today's Jobs"
             value={statsLoading ? '...' : todaysJobs}
