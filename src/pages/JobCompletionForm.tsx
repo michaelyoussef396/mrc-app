@@ -13,7 +13,7 @@ import {
   Section9JobNotes,
   Section10OfficeNotes,
 } from '@/components/job-completion'
-import { Loader2, ArrowLeft, Save, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { Loader2, ChevronLeft } from 'lucide-react'
 import { toast } from 'sonner'
 
 const TOTAL_SECTIONS = 10
@@ -83,6 +83,9 @@ export default function JobCompletionForm() {
   }
 
   const progressPercent = Math.round((currentSection / TOTAL_SECTIONS) * 100)
+  const sectionTitle = SECTION_TITLES[currentSection - 1] || 'Job Completion'
+  const isLastSection = currentSection === TOTAL_SECTIONS
+  const showPrevious = currentSection > 1
 
   const handleBack = () => {
     if (hasUnsavedChanges) {
@@ -154,120 +157,100 @@ export default function JobCompletionForm() {
     <div className="min-h-screen bg-[#f5f7f8] pb-[160px]">
       {/* ───── Sticky Header ───── */}
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200">
-        <div className="flex items-center justify-between px-4 h-14">
+        <div className="flex items-center justify-between px-4 py-3">
           <button
             onClick={handleBack}
-            className="flex items-center justify-center w-11 h-11 -ml-2 rounded-lg"
+            className="flex items-center justify-center p-2 -ml-2 text-[#007AFF] hover:bg-gray-100 rounded-lg transition-colors"
+            style={{ minWidth: '44px', minHeight: '44px' }}
             aria-label="Go back"
           >
-            <ArrowLeft className="h-5 w-5 text-[#1d1d1f]" />
+            <span className="material-symbols-outlined text-3xl">chevron_left</span>
           </button>
-
-          <div className="flex-1 text-center">
-            <h1 className="text-[15px] font-semibold text-[#1d1d1f] truncate">
-              Job Completion
-            </h1>
-            <p className="text-[11px] text-[#86868b]">
-              Section {currentSection} of {TOTAL_SECTIONS}
-            </p>
-          </div>
-
+          <h1 className="text-lg font-bold leading-tight flex-1 text-center text-[#1d1d1f]">
+            {sectionTitle}
+          </h1>
           <button
             onClick={() => handleSave()}
             disabled={isSaving || !hasUnsavedChanges}
-            className="flex items-center justify-center w-11 h-11 -mr-2 rounded-lg disabled:opacity-40"
+            className="flex items-center justify-center p-2 -mr-2 text-[#007AFF] hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-40"
+            style={{ minWidth: '44px', minHeight: '44px' }}
             aria-label="Save"
           >
             {isSaving ? (
-              <Loader2 className="h-5 w-5 animate-spin text-[#007AFF]" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <Save className="h-5 w-5 text-[#007AFF]" />
+              <span className="material-symbols-outlined text-2xl">save</span>
             )}
           </button>
         </div>
 
-        {/* Progress bar */}
-        <div className="h-1 bg-gray-100">
-          <div
-            className="h-full bg-[#007AFF] transition-all duration-300"
-            style={{ width: `${progressPercent}%` }}
-          />
+        {/* Progress Bar */}
+        <div className="px-4 pb-3">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs font-semibold text-[#86868b] uppercase tracking-wide">
+              Section {currentSection} of {TOTAL_SECTIONS}
+            </span>
+            <span className="text-xs font-medium text-[#007AFF]">{progressPercent}%</span>
+          </div>
+          <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#007AFF] rounded-full transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
         </div>
       </header>
 
-      {/* ───── Section Title Bar ───── */}
-      <div className="bg-white border-b border-gray-100 px-4 py-3">
-        <h2 className="text-[17px] font-semibold text-[#1d1d1f]">
-          {SECTION_TITLES[currentSection - 1]}
-        </h2>
-        {formData.jobNumber && (
-          <p className="text-[13px] text-[#86868b] mt-0.5">
-            {formData.jobNumber}
-          </p>
-        )}
-      </div>
-
       {/* ───── Section Content ───── */}
-      <main className="flex-1 p-4 space-y-5">
+      <main className="flex-1 p-4 space-y-6">
         {renderSection()}
       </main>
 
       {/* ───── Fixed Footer ───── */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] z-50">
-        <div className="max-w-md mx-auto space-y-2">
-          {/* Section navigation dots */}
-          <div className="flex justify-center gap-1.5 pb-1">
-            {Array.from({ length: TOTAL_SECTIONS }, (_, i) => (
-              <button
-                key={i}
-                onClick={() => {
-                  if (hasUnsavedChanges) handleSave()
-                  setCurrentSection(i + 1)
-                }}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  i + 1 === currentSection
-                    ? 'bg-[#007AFF] w-4'
-                    : i + 1 < currentSection
-                    ? 'bg-[#34C759]'
-                    : 'bg-gray-300'
-                }`}
-                aria-label={`Go to section ${i + 1}: ${SECTION_TITLES[i]}`}
-              />
-            ))}
-          </div>
+      <footer
+        className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 z-40"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 16px)' }}
+      >
+        <div className="flex flex-col gap-3 max-w-md mx-auto w-full">
+          <button
+            onClick={() => handleSave()}
+            disabled={isSaving}
+            className="w-full h-14 bg-[#007AFF] text-white text-lg font-bold rounded-xl shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {isSaving ? (
+              <>
+                <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                Saving...
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined">save</span>
+                Save
+              </>
+            )}
+          </button>
 
-          {/* Navigation buttons */}
           <div className="flex gap-3">
-            {currentSection > 1 && (
+            {showPrevious && (
               <button
                 onClick={handlePrevious}
-                className="flex-1 h-12 flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-[#1d1d1f] font-medium text-[15px]"
+                className="flex-1 text-center text-[#007AFF] font-semibold text-base py-2 flex items-center justify-center gap-1 active:opacity-70 bg-gray-100 rounded-lg"
+                style={{ minHeight: '48px' }}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-5 w-5" />
                 Previous
               </button>
             )}
-
-            {currentSection < TOTAL_SECTIONS ? (
-              <button
-                onClick={handleNext}
-                className={`flex-1 h-12 flex items-center justify-center gap-2 rounded-xl bg-[#007AFF] text-white font-medium text-[15px] ${
-                  currentSection === 1 ? 'w-full' : ''
-                }`}
-              >
-                Next Section
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            ) : (
-              <button
-                onClick={handleComplete}
-                disabled={isSaving}
-                className="flex-1 h-12 flex items-center justify-center gap-2 rounded-xl bg-[#34C759] text-white font-medium text-[15px] disabled:opacity-50"
-              >
-                <CheckCircle2 className="h-5 w-5" />
-                {isSaving ? 'Submitting...' : 'Complete'}
-              </button>
-            )}
+            <button
+              onClick={isLastSection ? handleComplete : handleNext}
+              className={`${showPrevious ? 'flex-1' : 'w-full'} text-center text-[#007AFF] font-semibold text-base py-2 flex items-center justify-center gap-1 active:opacity-70`}
+              style={{ minHeight: '48px' }}
+            >
+              {isLastSection ? 'Complete' : 'Next Section'}
+              <span className="material-symbols-outlined text-lg">
+                {isLastSection ? 'check_circle' : 'arrow_forward'}
+              </span>
+            </button>
           </div>
         </div>
       </footer>
