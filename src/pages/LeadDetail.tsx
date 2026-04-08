@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -132,6 +133,10 @@ export default function LeadDetail() {
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [showBookJobModal, setShowBookJobModal] = useState(false);
   const [newStatus, setNewStatus] = useState<LeadStatus | null>(null);
+  const [showSendBackDialog, setShowSendBackDialog] = useState(false);
+  const [sendBackNote, setSendBackNote] = useState('');
+  const [isSendingBack, setIsSendingBack] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
 
   // Fetch lead data
   const { data: lead, isLoading, refetch } = useQuery({
@@ -249,6 +254,22 @@ export default function LeadDetail() {
     }
   }, [lead?.id, lead?.status]);
 
+  // Fetch the technician profile for job_completions.completed_by
+  // (used by the pending_review CTA card to show "Submitted by …")
+  const { data: completedByProfile } = useQuery({
+    queryKey: ['profile', jobCompletion?.completed_by],
+    queryFn: async () => {
+      if (!jobCompletion?.completed_by) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', jobCompletion.completed_by)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!jobCompletion?.completed_by,
+  });
+
   // Loading state
   if (isLoading) {
     return (
@@ -312,6 +333,69 @@ export default function LeadDetail() {
 
     toast.success(`Status updated to ${STATUS_FLOW[status].shortTitle}`);
     refetch();
+  };
+
+  const handleApproveJobCompletion = async () => {
+    if (!lead) return;
+    setIsApproving(true);
+    try {
+      // handleChangeStatus already logs activity, sends Slack, toasts and refetches.
+      // Downstream job-report PDF pipeline picks up job_completed leads when it ships.
+      await handleChangeStatus('job_completed');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleSendBackToTechnician = async () => {
+    if (!lead || !sendBackNote.trim()) return;
+    setIsSendingBack(true);
+    try {
+      const { error: statusError } = await supabase
+        .from('leads')
+        .update({ status: 'job_scheduled' })
+        .eq('id', lead.id);
+      if (statusError) throw statusError;
+
+      // Clear request_review so the lead drops out of the Needs Attention list
+      // and reset the job_completion back to draft so the tech can edit again.
+      if (jobCompletion?.id) {
+        await supabase
+          .from('job_completions')
+          .update({ request_review: false, status: 'draft' })
+          .eq('id', jobCompletion.id);
+      }
+
+      await supabase.from('activities').insert({
+        lead_id: lead.id,
+        activity_type: 'status_change',
+        title: 'Job completion sent back to technician',
+        description: sendBackNote.trim(),
+      });
+
+      sendSlackNotification({
+        event: 'status_changed',
+        leadId: lead.id,
+        leadName: lead.full_name || 'Unknown',
+        oldStatus: 'pending_review',
+        newStatus: 'job_scheduled',
+        oldStatusLabel: 'ADMIN REVIEW',
+        newStatusLabel: 'SCHEDULED',
+      });
+
+      toast.success('Sent back to technician');
+      setShowSendBackDialog(false);
+      setSendBackNote('');
+      refetch();
+    } catch (err) {
+      captureBusinessError('Failed to send back to technician', {
+        leadId: lead.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      toast.error('Failed to send back');
+    } finally {
+      setIsSendingBack(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -618,6 +702,72 @@ export default function LeadDetail() {
             />
           </div>
         );
+
+      case "pending_review": {
+        const submittedAt = jobCompletion?.submitted_at
+          ? new Date(jobCompletion.submitted_at).toLocaleDateString('en-AU', {
+              day: 'numeric', month: 'long', year: 'numeric',
+            })
+          : null;
+        const submittedBy =
+          completedByProfile?.full_name ??
+          jobCompletion?.remediation_completed_by ??
+          'Technician';
+
+        return (
+          <div className="space-y-3">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-amber-900 text-sm">
+                    Technician requested admin review
+                  </p>
+                  <p className="text-xs text-amber-800 mt-0.5">
+                    Submitted by {submittedBy}{submittedAt ? ` · ${submittedAt}` : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 h-12" onClick={handleCall}>
+                <Phone className="h-4 w-4 mr-2" />
+                Call Customer
+              </Button>
+              <Button variant="outline" className="flex-1 h-12" onClick={handleEmail}>
+                <Mail className="h-4 w-4 mr-2" />
+                Email Customer
+              </Button>
+            </div>
+
+            <Button
+              size="lg"
+              className="w-full h-14 text-base bg-emerald-600 hover:bg-emerald-700"
+              onClick={handleApproveJobCompletion}
+              disabled={isApproving}
+            >
+              {isApproving
+                ? <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                : <CheckCircle2 className="h-5 w-5 mr-2" />}
+              Approve &amp; Generate Report
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full h-12 border-amber-200 text-amber-800 hover:bg-amber-50"
+              onClick={() => setShowSendBackDialog(true)}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Send Back to Technician
+            </Button>
+
+            <p className="text-xs text-gray-500 text-center">
+              Full submission shown below in the Job Completion section.
+            </p>
+          </div>
+        );
+      }
 
       case "not_landed":
         return (
@@ -1279,6 +1429,54 @@ export default function LeadDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Send Back to Technician Dialog — pending_review flow */}
+      <Dialog
+        open={showSendBackDialog}
+        onOpenChange={(open) => {
+          setShowSendBackDialog(open);
+          if (!open) setSendBackNote('');
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send back to technician</DialogTitle>
+            <DialogDescription>
+              Leave a note explaining what the technician needs to revise. They'll see this in the activity timeline and the job will return to Scheduled.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Textarea
+              value={sendBackNote}
+              onChange={(e) => setSendBackNote(e.target.value)}
+              placeholder="e.g. Please add before photos for the kitchen area and re-check the equipment quantities."
+              rows={5}
+              className="resize-none"
+              autoFocus
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowSendBackDialog(false);
+                setSendBackNote('');
+              }}
+              disabled={isSendingBack}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendBackToTechnician}
+              disabled={isSendingBack || !sendBackNote.trim()}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {isSendingBack && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Send Back
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Change Status Dialog — uses Dialog (not AlertDialog) so click-outside and Esc close it */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
