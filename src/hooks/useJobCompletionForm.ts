@@ -22,7 +22,7 @@ const BACKUP_MAX_AGE_MINUTES = 1440 // 24 hours
  * Only maps the form-editable fields. Metadata fields (id, created_at, etc.)
  * are intentionally excluded — the DB record id is tracked separately.
  */
-function rowToFormData(row: JobCompletionRow): JobCompletionFormData {
+export function rowToFormData(row: JobCompletionRow): JobCompletionFormData {
   return {
     // Section 1: Office Info
     jobNumber: row.job_number ?? '',

@@ -528,6 +528,29 @@ const LeadsManagement = () => {
     navigate('/admin/schedule');
   };
 
+  const handleApproveJobReport = async (leadId: string) => {
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ status: 'job_report_pdf_sent' })
+        .eq('id', leadId);
+      if (error) throw error;
+
+      await supabase.from('activities').insert({
+        lead_id: leadId,
+        activity_type: 'status_change',
+        title: 'Job report approved',
+        description: 'Admin approved the job report',
+      });
+
+      setLeads(prev => prev.map(l => (l.id === leadId ? { ...l, status: 'job_report_pdf_sent' } : l)));
+      toast({ title: 'Report approved', description: 'Job report has been approved.' });
+    } catch (error) {
+      console.error('Failed to approve job report:', error);
+      toast({ title: 'Error', description: 'Failed to approve report.', variant: 'destructive' });
+    }
+  };
+
   // Not Proceeding → mark lead as not_landed (confirm + update).
   const handleNotProceeding = async (id: string | number) => {
     if (!window.confirm('Mark this lead as Not Proceeding? It will move to the Not Landed pipeline.')) {
@@ -918,6 +941,7 @@ const LeadsManagement = () => {
                 onReviewAI={handleReviewAI}
                 onBookJob={handleBookJob}
                 onNotProceeding={handleNotProceeding}
+                onApproveJobReport={handleApproveJobReport}
               />
             ))}
 

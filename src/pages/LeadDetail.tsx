@@ -65,6 +65,7 @@ import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
 import { BookJobSheet } from "@/components/leads/BookJobSheet";
 import { JobBookingDetails } from "@/components/leads/JobBookingDetails";
 import { JobCompletionSummary } from "@/components/leads/JobCompletionSummary";
+import { JobCompletionEditSheet } from "@/components/leads/JobCompletionEditSheet";
 import { TechnicianBottomNav } from "@/components/technician";
 import { useAuth } from "@/contexts/AuthContext";
 import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
@@ -137,6 +138,7 @@ export default function LeadDetail() {
   const [sendBackNote, setSendBackNote] = useState('');
   const [isSendingBack, setIsSendingBack] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
+  const [editingSection, setEditingSection] = useState<number | null>(null);
 
   // Fetch lead data
   const { data: lead, isLoading, refetch } = useQuery({
@@ -246,13 +248,13 @@ export default function LeadDetail() {
     'invoicing_sent', 'paid', 'google_review', 'finished',
   ];
 
-  React.useEffect(() => {
+  const refetchJobCompletion = React.useCallback(() => {
     if (lead && PHASE_2_STATUSES.includes(lead.status)) {
-      getJobCompletionByLeadId(lead.id)
-        .then(setJobCompletion)
-        .catch(console.error);
+      getJobCompletionByLeadId(lead.id).then(setJobCompletion).catch(console.error);
     }
   }, [lead?.id, lead?.status]);
+
+  React.useEffect(() => { refetchJobCompletion(); }, [refetchJobCompletion]);
 
   // Fetch the technician profile for job_completions.completed_by
   // (used by the pending_review CTA card to show "Submitted by …")
@@ -769,6 +771,110 @@ export default function LeadDetail() {
         );
       }
 
+      case "job_completed": {
+        const submittedAt = jobCompletion?.submitted_at
+          ? new Date(jobCompletion.submitted_at).toLocaleDateString('en-AU', {
+              day: 'numeric', month: 'long', year: 'numeric',
+            })
+          : null;
+        const submittedBy =
+          completedByProfile?.full_name ??
+          jobCompletion?.remediation_completed_by ??
+          'Technician';
+
+        return (
+          <div className="space-y-3">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-emerald-900 text-sm">Job completion submitted</p>
+                  <p className="text-xs text-emerald-800 mt-0.5">
+                    Submitted by {submittedBy}{submittedAt ? ` · ${submittedAt}` : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Button disabled className="w-full h-12 bg-gray-100 text-gray-500 cursor-not-allowed">
+              <FileText className="h-4 w-4 mr-2" />
+              Job Report PDF — coming soon
+            </Button>
+            <p className="text-xs text-gray-500 text-center -mt-1">
+              PDF generation ships in Phase 2C. Approve below to advance the lead.
+            </p>
+
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 h-12" onClick={handleCall}>
+                <Phone className="h-4 w-4 mr-2" /> Call Customer
+              </Button>
+              <Button variant="outline" className="flex-1 h-12" onClick={handleEmail}>
+                <Mail className="h-4 w-4 mr-2" /> Email Customer
+              </Button>
+            </div>
+
+            <Button
+              size="lg"
+              className="w-full h-14 text-base bg-emerald-600 hover:bg-emerald-700"
+              onClick={() => handleChangeStatus('job_report_pdf_sent')}
+            >
+              <CheckCircle2 className="h-5 w-5 mr-2" />
+              Approve &amp; Mark as Sent
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full h-12 border-amber-200 text-amber-800 hover:bg-amber-50"
+              onClick={() => setShowSendBackDialog(true)}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Request Changes
+            </Button>
+          </div>
+        );
+      }
+
+      case "job_report_pdf_sent": {
+        return (
+          <div className="space-y-3">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-start gap-2">
+                <Mail className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-emerald-900 text-sm">Job report marked as sent</p>
+                  <p className="text-xs text-emerald-800 mt-0.5">
+                    Ready to invoice the customer.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Button disabled className="w-full h-12 bg-gray-100 text-gray-500 cursor-not-allowed">
+              <FileText className="h-4 w-4 mr-2" />
+              View Report — coming soon
+            </Button>
+
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 h-12" onClick={handleCall}>
+                <Phone className="h-4 w-4 mr-2" /> Call Customer
+              </Button>
+              <Button variant="outline" className="flex-1 h-12" onClick={handleEmail}>
+                <Mail className="h-4 w-4 mr-2" /> Email Customer
+              </Button>
+            </div>
+
+            <Button
+              size="lg"
+              className="w-full h-14 text-base bg-blue-600 hover:bg-blue-700"
+              onClick={() => handleChangeStatus('invoicing_sent')}
+            >
+              <Receipt className="h-5 w-5 mr-2" />
+              Move to Invoicing
+            </Button>
+          </div>
+        );
+      }
+
       case "not_landed":
         return (
           <div className="space-y-3">
@@ -1280,6 +1386,7 @@ export default function LeadDetail() {
             jobCompletion={jobCompletion}
             leadId={lead.id}
             isAdmin={hasRole('admin')}
+            onEdit={isAdmin ? setEditingSection : undefined}
           />
         )}
 
@@ -1555,6 +1662,19 @@ export default function LeadDetail() {
         propertySuburb={lead.property_address_suburb}
         onBooked={() => refetch()}
       />
+
+      {/* Job Completion Edit Sheet — admin inline section editing */}
+      {editingSection !== null && jobCompletion && (
+        <JobCompletionEditSheet
+          sectionIndex={editingSection as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10}
+          jobCompletion={jobCompletion}
+          leadId={lead.id}
+          isAdmin={isAdmin}
+          open={editingSection !== null}
+          onOpenChange={(open) => !open && setEditingSection(null)}
+          onSaved={refetchJobCompletion}
+        />
+      )}
 
       {/* Technician bottom nav — only shown when viewing as a technician */}
       {isTechnician && !isAdmin && <TechnicianBottomNav />}
