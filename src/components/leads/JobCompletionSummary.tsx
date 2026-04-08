@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Check, Minus, X, ClipboardCheck, AlertTriangle } from 'lucide-react';
+import { Check, Minus, Pencil, X, ClipboardCheck, AlertTriangle } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import {
@@ -21,6 +21,8 @@ interface JobCompletionSummaryProps {
   jobCompletion: JobCompletionRow;
   leadId: string;
   isAdmin: boolean;
+  /** When provided, a pencil edit button appears in each section header (admin only). */
+  onEdit?: (sectionIndex: number) => void;
 }
 
 interface PhotoWithUrl {
@@ -172,6 +174,7 @@ export function JobCompletionSummary({
   jobCompletion,
   leadId: _leadId,
   isAdmin,
+  onEdit,
 }: JobCompletionSummaryProps) {
   // Signed photo URLs for all three categories
   const { data: photosByCategory, isLoading: photosLoading } =
@@ -341,7 +344,21 @@ export function JobCompletionSummary({
       <Accordion type="multiple" className="w-full">
         {/* 1. Office Info */}
         <AccordionItem value="section-1">
-          <AccordionTrigger>Section 1 of 10 — Office Info</AccordionTrigger>
+          <AccordionTrigger>
+            <span className="flex items-center gap-2 flex-1 min-w-0">
+              <span>Section 1 of 10 — Office Info</span>
+              {onEdit && (
+                <button
+                  type="button"
+                  aria-label="Edit Section 1"
+                  className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 ml-1 flex-shrink-0"
+                  onClick={(e) => { e.stopPropagation(); onEdit(1); }}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-gray-500" aria-hidden="true" />
+                </button>
+              )}
+            </span>
+          </AccordionTrigger>
           <AccordionContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -368,7 +385,21 @@ export function JobCompletionSummary({
 
         {/* 2. Summary */}
         <AccordionItem value="section-2">
-          <AccordionTrigger>Section 2 of 10 — Summary</AccordionTrigger>
+          <AccordionTrigger>
+            <span className="flex items-center gap-2 flex-1 min-w-0">
+              <span>Section 2 of 10 — Summary</span>
+              {onEdit && (
+                <button
+                  type="button"
+                  aria-label="Edit Section 2"
+                  className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 ml-1 flex-shrink-0"
+                  onClick={(e) => { e.stopPropagation(); onEdit(2); }}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-gray-500" aria-hidden="true" />
+                </button>
+              )}
+            </span>
+          </AccordionTrigger>
           <AccordionContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               <div>
@@ -439,7 +470,21 @@ export function JobCompletionSummary({
 
         {/* 3. Before Photos */}
         <AccordionItem value="section-3">
-          <AccordionTrigger>Section 3 of 10 — Before Photos</AccordionTrigger>
+          <AccordionTrigger>
+            <span className="flex items-center gap-2 flex-1 min-w-0">
+              <span>Section 3 of 10 — Before Photos</span>
+              {onEdit && (
+                <button
+                  type="button"
+                  aria-label="Edit Section 3"
+                  className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 ml-1 flex-shrink-0"
+                  onClick={(e) => { e.stopPropagation(); onEdit(3); }}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-gray-500" aria-hidden="true" />
+                </button>
+              )}
+            </span>
+          </AccordionTrigger>
           <AccordionContent>
             <PhotoGrid
               photos={photosByCategory?.before ?? []}
@@ -451,7 +496,21 @@ export function JobCompletionSummary({
 
         {/* 4. After Photos */}
         <AccordionItem value="section-4">
-          <AccordionTrigger>Section 4 of 10 — After Photos</AccordionTrigger>
+          <AccordionTrigger>
+            <span className="flex items-center gap-2 flex-1 min-w-0">
+              <span>Section 4 of 10 — After Photos</span>
+              {onEdit && (
+                <button
+                  type="button"
+                  aria-label="Edit Section 4"
+                  className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 ml-1 flex-shrink-0"
+                  onClick={(e) => { e.stopPropagation(); onEdit(4); }}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-gray-500" aria-hidden="true" />
+                </button>
+              )}
+            </span>
+          </AccordionTrigger>
           <AccordionContent>
             <div className="space-y-4">
               {/* Demolition badge */}
@@ -493,7 +552,19 @@ export function JobCompletionSummary({
         {/* 5. Treatment Methods */}
         <AccordionItem value="section-5">
           <AccordionTrigger>
-            Section 5 of 10 — Treatment Methods
+            <span className="flex items-center gap-2 flex-1 min-w-0">
+              <span>Section 5 of 10 — Treatment Methods</span>
+              {onEdit && (
+                <button
+                  type="button"
+                  aria-label="Edit Section 5"
+                  className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 ml-1 flex-shrink-0"
+                  onClick={(e) => { e.stopPropagation(); onEdit(5); }}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-gray-500" aria-hidden="true" />
+                </button>
+              )}
+            </span>
           </AccordionTrigger>
           <AccordionContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
@@ -510,7 +581,21 @@ export function JobCompletionSummary({
 
         {/* 6. Chemicals Used */}
         <AccordionItem value="section-6">
-          <AccordionTrigger>Section 6 of 10 — Chemicals Used</AccordionTrigger>
+          <AccordionTrigger>
+            <span className="flex items-center gap-2 flex-1 min-w-0">
+              <span>Section 6 of 10 — Chemicals Used</span>
+              {onEdit && (
+                <button
+                  type="button"
+                  aria-label="Edit Section 6"
+                  className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 ml-1 flex-shrink-0"
+                  onClick={(e) => { e.stopPropagation(); onEdit(6); }}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-gray-500" aria-hidden="true" />
+                </button>
+              )}
+            </span>
+          </AccordionTrigger>
           <AccordionContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
               {chemicals.map(({ field, label }) => (
@@ -526,7 +611,21 @@ export function JobCompletionSummary({
 
         {/* 7. Equipment */}
         <AccordionItem value="section-7">
-          <AccordionTrigger>Section 7 of 10 — Equipment</AccordionTrigger>
+          <AccordionTrigger>
+            <span className="flex items-center gap-2 flex-1 min-w-0">
+              <span>Section 7 of 10 — Equipment</span>
+              {onEdit && (
+                <button
+                  type="button"
+                  aria-label="Edit Section 7"
+                  className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 ml-1 flex-shrink-0"
+                  onClick={(e) => { e.stopPropagation(); onEdit(7); }}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-gray-500" aria-hidden="true" />
+                </button>
+              )}
+            </span>
+          </AccordionTrigger>
           <AccordionContent>
             <div className="space-y-2">
               {equipmentRows.map((row) => (
@@ -538,7 +637,21 @@ export function JobCompletionSummary({
 
         {/* 8. Variations */}
         <AccordionItem value="section-8">
-          <AccordionTrigger>Section 8 of 10 — Variations</AccordionTrigger>
+          <AccordionTrigger>
+            <span className="flex items-center gap-2 flex-1 min-w-0">
+              <span>Section 8 of 10 — Variations</span>
+              {onEdit && (
+                <button
+                  type="button"
+                  aria-label="Edit Section 8"
+                  className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 ml-1 flex-shrink-0"
+                  onClick={(e) => { e.stopPropagation(); onEdit(8); }}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-gray-500" aria-hidden="true" />
+                </button>
+              )}
+            </span>
+          </AccordionTrigger>
           <AccordionContent>
             {!jobCompletion.scope_changed ? (
               <p className="text-sm text-[#86868b]">
@@ -585,7 +698,21 @@ export function JobCompletionSummary({
 
         {/* 9. Job Notes */}
         <AccordionItem value="section-9">
-          <AccordionTrigger>Section 9 of 10 — Job Notes</AccordionTrigger>
+          <AccordionTrigger>
+            <span className="flex items-center gap-2 flex-1 min-w-0">
+              <span>Section 9 of 10 — Job Notes</span>
+              {onEdit && (
+                <button
+                  type="button"
+                  aria-label="Edit Section 9"
+                  className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 ml-1 flex-shrink-0"
+                  onClick={(e) => { e.stopPropagation(); onEdit(9); }}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-gray-500" aria-hidden="true" />
+                </button>
+              )}
+            </span>
+          </AccordionTrigger>
           <AccordionContent>
             {!hasJobNotes ? (
               <p className="text-sm text-[#86868b]">No notes recorded.</p>
@@ -647,7 +774,19 @@ export function JobCompletionSummary({
         {isAdmin && (
           <AccordionItem value="section-10">
             <AccordionTrigger>
-              Section 10 of 10 — Office Notes
+              <span className="flex items-center gap-2 flex-1 min-w-0">
+                <span>Section 10 of 10 — Office Notes</span>
+                {onEdit && (
+                  <button
+                    type="button"
+                    aria-label="Edit Section 10"
+                    className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-100 ml-1 flex-shrink-0"
+                    onClick={(e) => { e.stopPropagation(); onEdit(10); }}
+                  >
+                    <Pencil className="h-3.5 w-3.5 text-gray-500" aria-hidden="true" />
+                  </button>
+                )}
+              </span>
             </AccordionTrigger>
             <AccordionContent>
               <div className="space-y-3">

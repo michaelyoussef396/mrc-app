@@ -50,6 +50,7 @@ interface LeadCardProps {
   onReviewAI?: (id: string | number) => void;
   onBookJob?: (id: string | number) => void;
   onNotProceeding?: (id: string | number) => void;
+  onApproveJobReport?: (id: string) => void;
 }
 
 // ============================================================================
@@ -144,6 +145,7 @@ export default function LeadCard({
   onReviewAI,
   onBookJob,
   onNotProceeding,
+  onApproveJobReport,
 }: LeadCardProps) {
   const badgeStyle = statusBadgeStyles[lead.status] || 'bg-slate-100 text-slate-600 border-slate-200';
 
@@ -278,6 +280,11 @@ export default function LeadCard({
               </span>
             )}
           </div>
+        );
+
+      case 'job_report_pdf_sent':
+        return (
+          <p className="text-xs text-slate-500">Report sent to customer</p>
         );
 
       default:
@@ -478,11 +485,91 @@ export default function LeadCard({
                 e.stopPropagation();
                 onViewLead(lead.id, lead.status);
               }}
-              className="flex-1 h-10 px-4 rounded-lg bg-amber-600 text-white text-sm font-medium
-                hover:bg-amber-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+              className="flex-1 h-10 px-3 rounded-lg bg-amber-600 text-white text-sm font-medium
+                hover:bg-amber-700 transition-colors flex items-center justify-center gap-1.5 shadow-sm"
             >
               <span className="material-symbols-outlined text-lg">rate_review</span>
               Review
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (lead.phone) window.location.href = `tel:${lead.phone}`;
+              }}
+              className="flex-1 h-10 px-3 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
+                hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-lg">call</span>
+              Call
+            </button>
+            {lead.email && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.location.href = `mailto:${lead.email}`;
+                }}
+                className="flex-1 h-10 px-3 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
+                  hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-lg">mail</span>
+                Email
+              </button>
+            )}
+          </>
+        );
+
+      case 'job_completed':
+        return (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onApproveJobReport?.(String(lead.id));
+              }}
+              className="flex-1 h-10 px-3 rounded-lg bg-emerald-600 text-white text-sm font-medium
+                hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <span className="material-symbols-outlined text-lg">check_circle</span>
+              Approve Report
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (lead.phone) window.location.href = `tel:${lead.phone}`;
+              }}
+              className="flex-1 h-10 px-3 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
+                hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-lg">call</span>
+              Call
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewLead(lead.id, lead.status);
+              }}
+              className="flex-1 h-10 px-3 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
+                hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-lg">visibility</span>
+              View
+            </button>
+          </>
+        );
+
+      case 'job_report_pdf_sent':
+        return (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewLead(lead.id, lead.status);
+              }}
+              className="flex-1 h-10 px-4 rounded-lg bg-blue-600 text-white text-sm font-medium
+                hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+            >
+              <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
+              View Report
             </button>
             <button
               onClick={(e) => {
@@ -493,7 +580,7 @@ export default function LeadCard({
                 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
             >
               <span className="material-symbols-outlined text-lg">call</span>
-              Call
+              Call Customer
             </button>
           </>
         );
