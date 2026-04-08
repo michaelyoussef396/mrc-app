@@ -470,6 +470,34 @@ export default function LeadCard({
           </>
         );
 
+      case 'pending_review':
+        return (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewLead(lead.id, lead.status);
+              }}
+              className="flex-1 h-10 px-4 rounded-lg bg-amber-600 text-white text-sm font-medium
+                hover:bg-amber-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+            >
+              <span className="material-symbols-outlined text-lg">rate_review</span>
+              Review
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (lead.phone) window.location.href = `tel:${lead.phone}`;
+              }}
+              className="flex-1 h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
+                hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-lg">call</span>
+              Call
+            </button>
+          </>
+        );
+
       default:
         return null;
     }
