@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +14,7 @@ import { captureBusinessError } from '@/lib/sentry'
 import { checkBookingConflict } from '@/lib/bookingService'
 import { formatCurrency, EQUIPMENT_RATES } from '@/lib/calculations/pricing'
 import { sendEmail, buildJobBookingConfirmationHtml } from '@/lib/api/notifications'
+import { logFieldEdits, type FieldChange } from '@/lib/api/fieldEditLog'
 
 // ============================================================================
 // CONSTANTS
@@ -112,6 +113,20 @@ function formatTimeLabel(timeStr: string): string {
   return d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
+/** Format an ISO datetime as "DD/MM/YYYY h:mm a" en-AU Australia/Melbourne */
+function formatDateTimeAu(iso: string | Date): string {
+  const date = typeof iso === 'string' ? new Date(iso) : iso
+  return new Intl.DateTimeFormat('en-AU', {
+    timeZone: 'Australia/Melbourne',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date)
+}
+
 /** Build a local Date from YYYY-MM-DD + HH:MM */
 function buildLocalDateTime(dateStr: string, timeStr: string): Date {
   return new Date(`${dateStr}T${timeStr}:00`)
@@ -200,10 +215,20 @@ export function BookJobSheet({
   const [conflictMap, setConflictMap] = useState<Record<string, string>>({})
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false)
   const [isReschedule, setIsReschedule] = useState(false)
+  // Snapshot of the OLD job bookings (before reschedule) for field_edit diffing.
+  const initialBookingsRef = useRef<Array<{
+    id: string
+    start_datetime: string
+    end_datetime: string
+    assigned_to: string | null
+  }> | null>(null)
 
   // ---------- Prefill from inspection + lead on open ----------
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      initialBookingsRef.current = null
+      return
+    }
     let cancelled = false
 
     const prefill = async () => {
@@ -227,10 +252,11 @@ export function BookJobSheet({
             .maybeSingle(),
           supabase
             .from('calendar_bookings')
-            .select('id')
+            .select('id, start_datetime, end_datetime, assigned_to')
             .eq('lead_id', leadId)
             .eq('event_type', 'job')
-            .neq('status', 'cancelled'),
+            .neq('status', 'cancelled')
+            .order('start_datetime', { ascending: true }),
         ])
 
         if (cancelled) return
@@ -242,8 +268,10 @@ export function BookJobSheet({
           setAssignedTo(leadResult.data.assigned_to)
         }
 
-        // Detect reschedule (existing job bookings)
-        setIsReschedule((existingJobsResult.data?.length ?? 0) > 0)
+        // Detect reschedule (existing job bookings) and snapshot them for diffing.
+        const existingJobs = existingJobsResult.data ?? []
+        setIsReschedule(existingJobs.length > 0)
+        initialBookingsRef.current = existingJobs.length > 0 ? existingJobs : null
 
         // If there's already a scheduled job date, pre-fill it (reschedule)
         if (leadResult.data?.job_scheduled_date) {
@@ -398,7 +426,10 @@ export function BookJobSheet({
         description: notes || null,
       }))
 
-      const { error: insertError } = await supabase.from('calendar_bookings').insert(insertRows)
+      const { data: insertedBookings, error: insertError } = await supabase
+        .from('calendar_bookings')
+        .insert(insertRows)
+        .select('id, start_datetime, end_datetime, assigned_to')
       if (insertError) throw insertError
 
       // 3. Update lead
@@ -428,6 +459,59 @@ export function BookJobSheet({
         description: `${dateRange} at ${formatTimeLabel(startTime)} with ${selectedTechName}. ${totalHours} hours total.`,
         user_id: user?.id,
       })
+
+      // 4a. Field-edit diff log (reschedule only — CREATE is already logged above)
+      if (isReschedule && initialBookingsRef.current) {
+        const oldBookings = initialBookingsRef.current
+        const newBookings = insertedBookings ?? []
+        const maxDays = Math.max(oldBookings.length, newBookings.length)
+        const changes: FieldChange[] = []
+
+        for (let i = 0; i < maxDays; i++) {
+          const oldB = oldBookings[i]
+          const newB = newBookings[i]
+          const dayLabel = `Day ${i + 1}`
+
+          const oldStart = oldB ? formatDateTimeAu(oldB.start_datetime) : null
+          const newStart = newB ? formatDateTimeAu(newB.start_datetime) : null
+          if (oldStart !== newStart) {
+            changes.push({ field: `${dayLabel} start`, old: oldStart, new: newStart })
+          }
+
+          const oldEnd = oldB ? formatDateTimeAu(oldB.end_datetime) : null
+          const newEnd = newB ? formatDateTimeAu(newB.end_datetime) : null
+          if (oldEnd !== newEnd) {
+            changes.push({ field: `${dayLabel} end`, old: oldEnd, new: newEnd })
+          }
+        }
+
+        // Assigned technician change (single value across all days)
+        const oldTechId = oldBookings[0]?.assigned_to ?? null
+        const newTechId = newBookings[0]?.assigned_to ?? null
+        if (oldTechId !== newTechId) {
+          const ids = [oldTechId, newTechId].filter((v): v is string => !!v)
+          const { data: profs } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', ids)
+          const nameFor = (id: string | null) =>
+            id ? profs?.find((p) => p.id === id)?.full_name ?? null : null
+          changes.push({
+            field: 'Assigned Technician',
+            old: nameFor(oldTechId),
+            new: nameFor(newTechId),
+          })
+        }
+
+        const entityId =
+          newBookings[0]?.id ?? oldBookings[0]?.id ?? `job:${leadId}`
+        await logFieldEdits({
+          leadId,
+          entityType: 'job_booking',
+          entityId,
+          changes,
+        })
+      }
 
       // 4.5 Send confirmation email to the customer (fire-and-forget — don't block UI)
       // Fetch email + lead_number from leads, then send via send-email Edge Function

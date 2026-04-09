@@ -69,6 +69,7 @@ import { JobCompletionEditSheet } from "@/components/leads/JobCompletionEditShee
 import { TechnicianBottomNav } from "@/components/technician";
 import { useAuth } from "@/contexts/AuthContext";
 import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
+import { InspectionReportHistory } from "@/components/leads/InspectionReportHistory";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
 import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/api/inspections";
 import { getJobCompletionByLeadId } from "@/lib/api/jobCompletions";
@@ -234,14 +235,14 @@ export default function LeadDetail() {
   ];
 
   React.useEffect(() => {
-    if (lead && POST_INSPECTION_STATUSES.includes(lead.status) && id) {
+    if (lead && inspection && id) {
       setInspectionDisplayLoading(true);
       fetchCompleteInspectionData(id)
         .then(data => setInspectionDisplayData(data))
         .catch(err => console.error('[LeadDetail] Failed to load inspection display data:', err))
         .finally(() => setInspectionDisplayLoading(false));
     }
-  }, [lead?.status, id]);
+  }, [lead?.id, inspection?.id, id]);
 
   const PHASE_2_STATUSES = [
     'job_waiting', 'job_completed', 'pending_review', 'job_report_pdf_sent',
@@ -1353,12 +1354,24 @@ export default function LeadDetail() {
           </Card>
         )}
 
-        {/* Complete Inspection Data Display — shown for all post-inspection statuses */}
-        {POST_INSPECTION_STATUSES.includes(lead.status) && (
+        {/* Complete Inspection Data Display — always visible whenever an inspection exists */}
+        {inspection && (
           <div id="inspection-data" className="space-y-4">
-            <div className="flex items-center gap-2 pt-2">
-              <ClipboardList className="h-5 w-5 text-violet-600" />
-              <h2 className="text-lg font-bold text-slate-900">Inspection Data</h2>
+            <div className="flex items-center justify-between gap-2 pt-2">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-violet-600" />
+                <h2 className="text-lg font-bold text-slate-900">Inspection Data</h2>
+              </div>
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/admin/inspection/${lead.id}`)}
+                >
+                  <Edit className="h-4 w-4 mr-1.5" />
+                  Edit Inspection Data
+                </Button>
+              )}
             </div>
 
             {inspectionDisplayLoading ? (
@@ -1377,6 +1390,13 @@ export default function LeadDetail() {
                 </CardContent>
               </Card>
             )}
+
+            <InspectionReportHistory
+              inspectionId={inspection.id}
+              leadId={lead.id}
+              onRegenerate={handleRegeneratePDF}
+              isRegenerating={regeneratingPdf}
+            />
           </div>
         )}
 

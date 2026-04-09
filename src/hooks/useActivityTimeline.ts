@@ -1,6 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface FieldEditMetadata {
+  version: number;
+  entity_type: string;
+  entity_id: string;
+  changes: Array<{ field: string; old: unknown; new: unknown }>;
+}
+
 export interface TimelineEvent {
   id: string;
   source: 'activity' | 'email' | 'notification';
@@ -33,6 +40,8 @@ function getActivityIcon(type: string): { iconName: string; iconColor: string } 
       return { iconName: 'XCircle', iconColor: 'text-red-600 bg-red-100' };
     case 'archived':
       return { iconName: 'Archive', iconColor: 'text-gray-600 bg-gray-100' };
+    case 'field_edit':
+      return { iconName: 'PencilLine', iconColor: 'text-blue-600 bg-blue-100' };
     default:
       return { iconName: 'Activity', iconColor: 'text-gray-600 bg-gray-100' };
   }

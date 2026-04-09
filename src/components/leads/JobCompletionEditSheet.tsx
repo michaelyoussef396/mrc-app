@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -26,9 +26,76 @@ import {
 } from '@/components/job-completion';
 import { rowToFormData } from '@/hooks/useJobCompletionForm';
 import { updateJobCompletion } from '@/lib/api/jobCompletions';
-import { supabase } from '@/integrations/supabase/client';
+import { logFieldEdits, diffRows } from '@/lib/api/fieldEditLog';
 
 import type { JobCompletionRow, JobCompletionFormData } from '@/types/jobCompletion';
+
+// Per-section field → human label map for the field_edit activity log.
+// Photos (sections 3 & 4) are handled by separate upload hooks and skipped here.
+const SECTION_FIELD_MAPS: Record<
+  number,
+  Partial<Record<keyof JobCompletionFormData, string>>
+> = {
+  1: { attentionTo: 'Attention To' },
+  2: {
+    swmsCompleted: 'SWMS Completed',
+    premisesType: 'Premises Type',
+    remediationCompletedBy: 'Completed By',
+    completionDate: 'Completion Date',
+    areasTreated: 'Areas Treated',
+  },
+  3: {},
+  4: { demolitionWorks: 'Demolition Works' },
+  5: {
+    methodHepaVacuuming: 'HEPA Vacuuming',
+    methodSurfaceMouldRemediation: 'Surface Mould Remediation',
+    methodUlvFoggingProperty: 'ULV Fogging Property',
+    methodUlvFoggingSubfloor: 'ULV Fogging Subfloor',
+    methodSubfloorRemediation: 'Subfloor Remediation',
+    methodAfdInstallation: 'AFD Installation',
+    methodDryingEquipment: 'Drying Equipment',
+    methodContainmentPrv: 'Containment & PRV',
+    methodMaterialDemolition: 'Material Demolition',
+    methodCavityTreatment: 'Cavity Treatment',
+    methodDebrisRemoval: 'Debris Removal',
+  },
+  6: {
+    chemicalAirFiltration: 'Air Filtration',
+    chemicalWaterBased: 'Water Based',
+    chemicalSodiumHypochlorite: 'Sodium Hypochlorite',
+    chemicalHepaVacuumed: "HEPA Vac'd",
+    chemicalSanitisedPremises: 'Sanitised Premises',
+  },
+  7: {
+    actualDehumidifierQty: 'Dehumidifier Qty',
+    actualDehumidifierDays: 'Dehumidifier Days',
+    actualAirMoverQty: 'Air Mover Qty',
+    actualAirMoverDays: 'Air Mover Days',
+    actualAfdQty: 'AFD Qty',
+    actualAfdDays: 'AFD Days',
+    actualRcdQty: 'RCD Qty',
+    actualRcdDays: 'RCD Days',
+  },
+  8: {
+    scopeChanged: 'Scope Changed',
+    scopeWhatChanged: 'What Changed',
+    scopeWhyChanged: 'Why Changed',
+    scopeExtraWork: 'Extra Work',
+    scopeReduced: 'Scope Reduced',
+  },
+  9: {
+    requestReview: 'Review Requested',
+    damagesPresent: 'Damages Present',
+    damagesDetails: 'Damages Details',
+    stainingPresent: 'Staining Present',
+    stainingDetails: 'Staining Details',
+    additionalNotes: 'Additional Notes',
+  },
+  10: {
+    officeNotes: 'Office Notes',
+    followupRequired: 'Followup Required',
+  },
+};
 
 // Human-readable names for each section, indexed 1–10.
 const SECTION_NAMES: Record<number, string> = {
@@ -87,13 +154,18 @@ export function JobCompletionEditSheet({
   );
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const initialFormDataRef = useRef<JobCompletionFormData | null>(null);
 
   // Reset form state whenever the sheet opens on a (potentially different) section
   // or when the underlying jobCompletion row changes.
   useEffect(() => {
     if (open) {
-      setFormData(rowToFormData(jobCompletion));
+      const initial = rowToFormData(jobCompletion);
+      setFormData(initial);
+      initialFormDataRef.current = initial;
       setIsDirty(false);
+    } else {
+      initialFormDataRef.current = null;
     }
   }, [open, jobCompletion]);
 
@@ -121,13 +193,19 @@ export function JobCompletionEditSheet({
     if (!isDirty) return;
     setIsSaving(true);
     try {
+      const changes = diffRows(
+        initialFormDataRef.current as unknown as Record<string, unknown> | null,
+        formData as unknown as Record<string, unknown>,
+        SECTION_FIELD_MAPS[sectionIndex] as Partial<Record<string, string>>,
+      );
+
       await updateJobCompletion(jobCompletion.id, formData);
 
-      await supabase.from('activities').insert({
-        lead_id: leadId,
-        activity_type: 'status_change',
-        title: `Admin edited Section ${sectionIndex} — ${sectionName}`,
-        description: 'Job completion fields updated',
+      await logFieldEdits({
+        leadId,
+        entityType: 'job_completion',
+        entityId: jobCompletion.id,
+        changes,
       });
 
       toast.success('Saved');

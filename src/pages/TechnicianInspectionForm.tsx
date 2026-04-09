@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +25,7 @@ import type {
 } from '@/types/inspection';
 import { validateInspectionCompletion } from '@/lib/schemas/inspectionSchema';
 import { captureBusinessError } from '@/lib/sentry';
+import { logFieldEdits, type FieldChange } from '@/lib/api/fieldEditLog';
 
 // Helper: invoke edge functions via direct fetch (bypasses supabase.functions.invoke timeout issues)
 async function invokeEdgeFunction(functionName: string, body: object): Promise<{ data: any; error: any }> {
@@ -253,11 +254,12 @@ interface HeaderProps {
   onSave: () => void;
   currentSection: number;
   totalSections: number;
+  titleOverride?: string;
 }
 
-function Header({ onBack, onSave, currentSection, totalSections }: HeaderProps) {
+function Header({ onBack, onSave, currentSection, totalSections, titleOverride }: HeaderProps) {
   const progress = (currentSection / totalSections) * 100;
-  const sectionTitle = SECTION_TITLES[currentSection - 1] || 'Inspection Form';
+  const sectionTitle = titleOverride ?? SECTION_TITLES[currentSection - 1] ?? 'Inspection Form';
 
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200">
@@ -2376,12 +2378,20 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
 // MAIN PAGE COMPONENT
 // ============================================================================
 
-export default function TechnicianInspectionForm() {
+interface TechnicianInspectionFormProps {
+  adminMode?: boolean;
+}
+
+export default function TechnicianInspectionForm({ adminMode = false }: TechnicianInspectionFormProps = {}) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const leadId = searchParams.get('leadId');
+  const routeParams = useParams<{ leadId?: string }>();
+  const leadId = adminMode ? routeParams.leadId ?? null : searchParams.get('leadId');
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Capture the initial inspection row when adminMode loads so we can diff on unmount
+  const initialInspectionRef = useRef<Record<string, unknown> | null>(null);
 
   // Navigation State
   const [currentSection, setCurrentSection] = useState(1);
@@ -2534,6 +2544,9 @@ export default function TechnicianInspectionForm() {
         if (existingInspection) {
           // Load existing inspection data
           setCurrentInspectionId(existingInspection.id);
+          if (adminMode) {
+            initialInspectionRef.current = existingInspection as Record<string, unknown>;
+          }
 
           // Load inspection areas with their moisture readings
           const { data: areasData } = await supabase
@@ -3110,8 +3123,68 @@ export default function TechnicianInspectionForm() {
       const confirmed = window.confirm('You have unsaved changes. Discard them?');
       if (!confirmed) return;
     }
+    if (adminMode && leadId) {
+      navigate(`/leads/${leadId}`);
+      return;
+    }
     navigate(-1);
   };
+
+  // Admin-mode one-shot diff log on unmount — captures admin field edits as a single activity row.
+  // Uses refs so the cleanup closure reads the latest form state, not the mount-time snapshot.
+  const adminDiffStateRef = useRef({ formData, currentInspectionId, leadId });
+  adminDiffStateRef.current = { formData, currentInspectionId, leadId };
+  useEffect(() => {
+    if (!adminMode) return;
+    return () => {
+      const { formData: fd, currentInspectionId: insId, leadId: lid } = adminDiffStateRef.current;
+      const initial = initialInspectionRef.current;
+      if (!insId || !lid || !initial) return;
+
+      const changes: FieldChange[] = [];
+      const initialDate = (initial.inspection_date as string | null) ?? null;
+      const newDate = fd.inspectionDate || null;
+      if (initialDate !== newDate) {
+        changes.push({ field: 'Inspection Date', old: initialDate, new: newDate });
+      }
+
+      const initialTotal = initial.total_inc_gst == null ? null : Number(initial.total_inc_gst);
+      const newTotal = fd.totalIncGst || null;
+      if (initialTotal !== newTotal) {
+        changes.push({ field: 'Total (inc GST)', old: initialTotal, new: newTotal });
+      }
+
+      const initialSummary = (initial.ai_summary_text as string | null) ?? null;
+      const newSummary = fd.jobSummaryFinal || null;
+      if (initialSummary !== newSummary) {
+        changes.push({ field: 'AI Summary', old: initialSummary, new: newSummary });
+      }
+
+      const initialOpt1 = initial.option_1_total_inc_gst == null ? null : Number(initial.option_1_total_inc_gst);
+      const newOpt1 = fd.option1TotalIncGst || null;
+      if (initialOpt1 !== newOpt1) {
+        changes.push({ field: 'Option 1 Total', old: initialOpt1, new: newOpt1 });
+      }
+
+      const initialOpt2 = initial.option_2_total_inc_gst == null ? null : Number(initial.option_2_total_inc_gst);
+      const newOpt2 = fd.option2TotalIncGst || null;
+      if (initialOpt2 !== newOpt2) {
+        changes.push({ field: 'Option 2 Total', old: initialOpt2, new: newOpt2 });
+      }
+
+      if (changes.length > 0) {
+        void logFieldEdits({
+          leadId: lid,
+          entityType: 'inspection',
+          entityId: insId,
+          changes,
+          actorLabel: user?.email ?? 'Admin',
+        });
+      }
+    };
+    // Only (re)install the cleanup when adminMode flips — the ref handles latest state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminMode]);
 
   // Save handler - multi-table upsert to Supabase
   const handleSave = async (options?: { silent?: boolean }) => {
@@ -3670,6 +3743,7 @@ export default function TechnicianInspectionForm() {
         onSave={handleSave}
         currentSection={currentSection}
         totalSections={TOTAL_SECTIONS}
+        titleOverride={adminMode ? 'Edit Inspection (Admin)' : undefined}
       />
 
       <main className="flex-1 p-4 space-y-6">

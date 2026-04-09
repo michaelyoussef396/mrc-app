@@ -291,6 +291,22 @@ const AppContent = () => {
               }
             />
 
+            {/* Admin Inspection Edit — reuses TechnicianInspectionForm via adminMode flag */}
+            <Route
+              path="/admin/inspection/:leadId"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <PageErrorBoundary name="admin-inspection-form">
+                        <TechnicianInspectionForm adminMode />
+                      </PageErrorBoundary>
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
             {/* Technician Job Detail — reuses the shared LeadDetail page so
                 technicians see the full lead view (contact, property, inspection
                 data, cost estimate, AI summary, job schedule, activity log).
