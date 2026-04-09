@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mould &amp; Restoration Co. — Job Report</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* ============================================================
+           MRC Job Report template
+           ----------------------------------------------------------
+           Canvas        : 793 × 1123 px (A4 @ 96 dpi)
+           Brand accents : #2C05D4 (purple) — headings & highlights
+                           #10216C (deep navy) — warranty sub-heading
+                           #000000 / #606060 / #FFFFFF — body / mute
+           Fonts         : Inter (400–900)
+           Placeholders  : {{variable}} — replaced by edge function
+           Conditionals  : HTML comment markers parsed server-side
+                           <!-- IF: demolition_works --> ... <!-- ENDIF -->
+           Repeatable    : <!-- REPEATABLE: before_photos per 6 -->
+                           (photo pages duplicated when >6 photos)
+           ============================================================ */
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: #f5f5f5;
+            color: #000;
+        }
+
+        .report-page {
+            width: 794px;
+            height: 1123px;
+            margin: 0 auto;
+            background: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .page-break { page-break-after: always; break-after: page; }
+
+        /* Shared — purple H1 heading style (matches Garet-Heavy in PSD) */
+        .mrc-heading {
+            color: #2C05D4;
+            font-family: 'Inter', sans-serif;
+            font-weight: 900;
+            text-transform: uppercase;
+            line-height: 0.92;
+            letter-spacing: 0.5px;
+        }
+
+        /* Shared — small section label (the PSD's black uppercase labels) */
+        .mrc-label {
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #000;
+        }
+
+        /* Shared — body text used inside navy info boxes / bullet lists */
+        .mrc-body {
+            font-family: 'Inter', sans-serif;
+            font-weight: 400;
+            line-height: 1.5;
+            color: #000;
+            letter-spacing: 0.2px;
+        }
+
+        /* Photo slot placeholder (shown when no image) */
+        .photo-slot {
+            background: #6e6e6e;
+            border-radius: 10px;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* Navy info card used on P1 (technician details) and P2 (TOC) */
+        .navy-card {
+            background: #10216C;
+            border-radius: 20px;
+        }
+
+        /* ============================================================
+           Print fidelity — same contract as the inspection template
+           ============================================================ */
+        @media print {
+            @page { margin: 0; size: A4; }
+            html, body { margin: 0 !important; padding: 0 !important; background: white !important; }
+            *, *::before, *::after {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            /* Strip shadows/borders everywhere */
+            * { box-shadow: none !important; border: none !important; outline: none !important; }
+            /* Keep brand-coloured cards — be explicit so they survive the strip */
+            div[style*="background: #10216C"],
+            div[style*="background:#10216C"],
+            .navy-card { background: #10216C !important; }
+            div[style*="background: #2C05D4"],
+            div[style*="background:#2C05D4"] { background: #2C05D4 !important; }
+            div[style*="background: #F3F3F8"],
+            div[style*="background:#F3F3F8"] { background: #F3F3F8 !important; }
+            /* Photo placeholder block colour */
+            .photo-slot { background: #6e6e6e !important; }
+            img { box-shadow: none !important; }
+            .report-page {
+                margin: 0;
+                page-break-after: always;
+                background: white !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- =========================================================
+         PAGE 1 — TITLE / COVER
+         ========================================================= -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: white;">
+
+            <!-- Decorative MRC dotted ring (bleeds off the left edge) -->
+            <img src="/pages/page-2-value-proposition/logo-page2.png"
+                 alt=""
+                 style="position: absolute; left: -320px; top: 180px; width: 880px; height: 880px; opacity: 0.08; z-index: 1;" />
+
+            <!-- MRC wordmark, top-left (dark-on-white — reused from inspection template) -->
+            <img src="/pages/page-1-cover/logo-bottom-right.png"
+                 alt="Mould & Restoration Co."
+                 style="position: absolute; left: 53px; top: 51px; width: 214px; height: auto; z-index: 10;" />
+
+            <!-- Date badge, top-right -->
+            <div class="mrc-label" style="position: absolute; right: 40px; top: 60px; font-size: 20px; z-index: 10;">
+                {{job_date}}
+            </div>
+
+            <!-- Huge "JOB REPORT" heading -->
+            <div class="mrc-heading" style="position: absolute; left: 56px; top: 240px; font-size: 96px; z-index: 10;">
+                JOB REPORT
+            </div>
+
+            <!-- Address block under the heading -->
+            <div class="mrc-label" style="position: absolute; left: 55px; top: 350px; font-size: 18px; line-height: 1.25; z-index: 10;">
+                {{business_address_line_1}}<br/>
+                {{business_address_line_2}}
+            </div>
+
+            <!-- Navy info card with 4 detail rows -->
+            <div class="navy-card" style="position: absolute; left: 119px; top: 479px; width: 554px; height: 321px; z-index: 5;"></div>
+
+            <!-- Row 1 — Technician -->
+            <div class="mrc-label" style="position: absolute; left: 149px; top: 512px; color: #fff; font-size: 18px; z-index: 10;">TECHNICIAN:</div>
+            <div class="mrc-body" style="position: absolute; left: 374px; top: 514px; color: #fff; font-size: 17px; font-weight: 500; letter-spacing: 1.4px; text-transform: uppercase; z-index: 10;">{{technician_name}}</div>
+
+            <!-- Row 2 — Ordered by -->
+            <div class="mrc-label" style="position: absolute; left: 149px; top: 583px; color: #fff; font-size: 18px; z-index: 10;">ORDERED BY:</div>
+            <div class="mrc-body" style="position: absolute; left: 374px; top: 585px; color: #fff; font-size: 17px; font-weight: 500; letter-spacing: 1.4px; text-transform: uppercase; z-index: 10;">{{ordered_by}}</div>
+
+            <!-- Row 3 — Directed to -->
+            <div class="mrc-label" style="position: absolute; left: 150px; top: 659px; color: #fff; font-size: 18px; z-index: 10;">DIRECTED TO:</div>
+            <div class="mrc-body" style="position: absolute; left: 374px; top: 661px; color: #fff; font-size: 17px; font-weight: 500; letter-spacing: 1.4px; text-transform: uppercase; z-index: 10;">{{directed_to}}</div>
+
+            <!-- Row 4 — Property type -->
+            <div class="mrc-label" style="position: absolute; left: 151px; top: 735px; color: #fff; font-size: 18px; z-index: 10;">PROPERTY TYPE:</div>
+            <div class="mrc-body" style="position: absolute; left: 374px; top: 737px; color: #fff; font-size: 17px; font-weight: 500; letter-spacing: 1.4px; text-transform: uppercase; z-index: 10;">{{property_type}}</div>
+
+            <!-- Tagline under the card -->
+            <div class="mrc-label" style="position: absolute; left: 0; right: 0; top: 934px; text-align: center; font-size: 16px; color: #606060; font-weight: 700; z-index: 10;">
+                LET US BRING YOUR HOME BACK TO SAFETY AND COMFORT!
+            </div>
+
+            <!-- Footer divider + contact strip -->
+            <div style="position: absolute; left: 23px; right: 23px; top: 1076px; height: 1px; background: #c5c5c5; z-index: 10;"></div>
+            <div class="mrc-label" style="position: absolute; left: 0; right: 0; top: 1089px; text-align: center; font-size: 11px; color: #606060; letter-spacing: 1.3px; z-index: 10;">
+                1800 954 117  |  MOULDANDRESTORATION.COM.AU  |  ADMIN@MOULDANDRESTORATION.COM.AU
+            </div>
+        </div>
+    </div>
+
+
+    <!-- =========================================================
+         PAGE 2 — CONTENTS / TOC
+         ========================================================= -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: white;">
+
+            <!-- Small circle logo, top-right (reused on every page 2–10) -->
+            <img src="/pages/page-2-value-proposition/logo-page2.png"
+                 alt="MRC"
+                 style="position: absolute; right: 40px; top: 38px; width: 75px; height: 75px; z-index: 10;" />
+
+            <!-- Heading -->
+            <div class="mrc-heading" style="position: absolute; left: 42px; top: 52px; font-size: 84px;">
+                CONTENTS
+            </div>
+
+            <!-- TOC card -->
+            <div class="navy-card" style="position: absolute; left: 48px; top: 320px; width: 696px; height: 520px;"></div>
+
+            <!-- Row 1 — Work Summary -->
+            <div style="position: absolute; left: 90px; top: 365px; width: 612px; display: flex; align-items: center; gap: 44px; z-index: 10;">
+                <div class="mrc-heading" style="color: #fff; font-size: 34px; min-width: 90px;">03</div>
+                <div class="mrc-label" style="color: #fff; font-size: 22px;">WORK SUMMARY</div>
+            </div>
+            <div style="position: absolute; left: 90px; top: 415px; width: 612px; height: 1px; background: rgba(255,255,255,0.35); z-index: 10;"></div>
+
+            <!-- Row 2 — Before Photos -->
+            <div style="position: absolute; left: 90px; top: 435px; width: 612px; display: flex; align-items: center; gap: 44px; z-index: 10;">
+                <div class="mrc-heading" style="color: #fff; font-size: 34px; min-width: 90px;">04</div>
+                <div class="mrc-label" style="color: #fff; font-size: 22px;">BEFORE PHOTOS</div>
+            </div>
+            <div style="position: absolute; left: 90px; top: 485px; width: 612px; height: 1px; background: rgba(255,255,255,0.35); z-index: 10;"></div>
+
+            <!-- Row 3 — After Photos -->
+            <div style="position: absolute; left: 90px; top: 505px; width: 612px; display: flex; align-items: center; gap: 44px; z-index: 10;">
+                <div class="mrc-heading" style="color: #fff; font-size: 34px; min-width: 90px;">05</div>
+                <div class="mrc-label" style="color: #fff; font-size: 22px;">AFTER PHOTOS</div>
+            </div>
+            <div style="position: absolute; left: 90px; top: 555px; width: 612px; height: 1px; background: rgba(255,255,255,0.35); z-index: 10;"></div>
+
+            <!-- Row 4 — Demolition (page number hidden when not demolition) -->
+            <div style="position: absolute; left: 90px; top: 575px; width: 612px; display: flex; align-items: center; gap: 44px; z-index: 10;">
+                <div class="mrc-heading" style="color: #fff; font-size: 34px; min-width: 90px;">06</div>
+                <div class="mrc-label" style="color: #fff; font-size: 22px;">DEMOLITION DETAILS</div>
+            </div>
+            <div style="position: absolute; left: 90px; top: 625px; width: 612px; height: 1px; background: rgba(255,255,255,0.35); z-index: 10;"></div>
+
+            <!-- Row 5 — Warranty -->
+            <div style="position: absolute; left: 90px; top: 645px; width: 612px; display: flex; align-items: center; gap: 44px; z-index: 10;">
+                <div class="mrc-heading" style="color: #fff; font-size: 34px; min-width: 90px;">07</div>
+                <div class="mrc-label" style="color: #fff; font-size: 22px;">WARRANTY CONDITIONS</div>
+            </div>
+            <div style="position: absolute; left: 90px; top: 695px; width: 612px; height: 1px; background: rgba(255,255,255,0.35); z-index: 10;"></div>
+
+            <!-- Row 6 — Payment terms (3 pages) -->
+            <div style="position: absolute; left: 90px; top: 715px; width: 612px; display: flex; align-items: center; gap: 44px; z-index: 10;">
+                <div class="mrc-heading" style="color: #fff; font-size: 34px; min-width: 90px;">08–10</div>
+                <div class="mrc-label" style="color: #fff; font-size: 22px;">PAYMENT TERMS</div>
+            </div>
+
+            <!-- Page number -->
+            <div class="mrc-label" style="position: absolute; right: 30px; bottom: 25px; font-size: 16px; letter-spacing: 1.5px;">P.02</div>
+        </div>
+    </div>
+
+
+    <!-- =========================================================
+         PAGE 3 — WORK SUMMARY (NEW — not in original PSDs)
+         Folds in: treatment methods, chemicals, equipment, variations
+         ========================================================= -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: white;">
+
+            <img src="/pages/page-2-value-proposition/logo-page2.png" alt="MRC"
+                 style="position: absolute; right: 40px; top: 38px; width: 75px; height: 75px; z-index: 10;" />
+
+            <!-- Heading -->
+            <div class="mrc-heading" style="position: absolute; left: 35px; top: 35px; font-size: 82px; line-height: 0.85;">
+                WORK<br/>SUMMARY
+            </div>
+
+            <!-- Sub-heading row — job + completion meta -->
+            <div class="mrc-label" style="position: absolute; left: 40px; top: 222px; font-size: 20px;">JOB DETAILS</div>
+
+            <!-- Meta grid — 4 cells -->
+            <div style="position: absolute; left: 40px; top: 255px; width: 715px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px;">
+                <div class="mrc-body" style="font-size: 13px; letter-spacing: 0.4px;">
+                    <span style="color: #606060; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 11px;">Completion Date</span><br/>
+                    <span style="font-size: 15px; font-weight: 600;">{{completion_date_long}}</span>
+                </div>
+                <div class="mrc-body" style="font-size: 13px; letter-spacing: 0.4px;">
+                    <span style="color: #606060; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 11px;">Completed By</span><br/>
+                    <span style="font-size: 15px; font-weight: 600;">{{completed_by_name}}</span>
+                </div>
+                <div class="mrc-body" style="font-size: 13px; letter-spacing: 0.4px; margin-top: 10px;">
+                    <span style="color: #606060; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 11px;">SWMS</span><br/>
+                    <span style="font-size: 15px; font-weight: 600;">{{swms_status}}</span>
+                </div>
+                <div class="mrc-body" style="font-size: 13px; letter-spacing: 0.4px; margin-top: 10px;">
+                    <span style="color: #606060; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 11px;">Premises Type</span><br/>
+                    <span style="font-size: 15px; font-weight: 600;">{{premises_type}}</span>
+                </div>
+            </div>
+
+            <!-- AREAS TREATED -->
+            <div class="mrc-label" style="position: absolute; left: 40px; top: 360px; font-size: 20px;">AREAS TREATED</div>
+            <div class="mrc-body" style="position: absolute; left: 40px; top: 395px; width: 715px; font-size: 14px; line-height: 1.6;">
+                {{areas_treated_list}}
+            </div>
+
+            <!-- TREATMENT METHODS (2-column) -->
+            <div class="mrc-label" style="position: absolute; left: 40px; top: 450px; font-size: 20px;">TREATMENT METHODS</div>
+            <div style="position: absolute; left: 40px; top: 485px; width: 715px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px;">
+                <div class="mrc-body" style="font-size: 13px;">{{method_hepa_vacuuming_mark}} HEPA Vacuuming</div>
+                <div class="mrc-body" style="font-size: 13px;">{{method_surface_mould_remediation_mark}} Surface Mould Remediation</div>
+                <div class="mrc-body" style="font-size: 13px;">{{method_ulv_fogging_property_mark}} ULV Fogging — Property</div>
+                <div class="mrc-body" style="font-size: 13px;">{{method_ulv_fogging_subfloor_mark}} ULV Fogging — Subfloor</div>
+                <div class="mrc-body" style="font-size: 13px;">{{method_subfloor_remediation_mark}} Subfloor Remediation</div>
+                <div class="mrc-body" style="font-size: 13px;">{{method_afd_installation_mark}} AFD Installation</div>
+                <div class="mrc-body" style="font-size: 13px;">{{method_drying_equipment_mark}} Drying Equipment</div>
+                <div class="mrc-body" style="font-size: 13px;">{{method_containment_prv_mark}} Containment &amp; PRV</div>
+                <div class="mrc-body" style="font-size: 13px;">{{method_material_demolition_mark}} Material Demolition</div>
+                <div class="mrc-body" style="font-size: 13px;">{{method_cavity_treatment_mark}} Cavity Treatment</div>
+                <div class="mrc-body" style="font-size: 13px;">{{method_debris_removal_mark}} Debris Removal</div>
+            </div>
+
+            <!-- CHEMICALS USED -->
+            <div class="mrc-label" style="position: absolute; left: 40px; top: 640px; font-size: 20px;">CHEMICALS USED</div>
+            <div style="position: absolute; left: 40px; top: 675px; width: 715px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px;">
+                <div class="mrc-body" style="font-size: 13px;">{{chemical_air_filtration_mark}} Air Filtration Device</div>
+                <div class="mrc-body" style="font-size: 13px;">{{chemical_water_based_mark}} Water-Based Solution</div>
+                <div class="mrc-body" style="font-size: 13px;">{{chemical_sodium_hypochlorite_mark}} Sodium Hypochlorite</div>
+                <div class="mrc-body" style="font-size: 13px;">{{chemical_hepa_vacuumed_mark}} HEPA Vac&#39;d</div>
+                <div class="mrc-body" style="font-size: 13px;">{{chemical_sanitised_premises_mark}} Sanitised Premises</div>
+            </div>
+
+            <!-- EQUIPMENT TABLE -->
+            <div class="mrc-label" style="position: absolute; left: 40px; top: 760px; font-size: 20px;">EQUIPMENT USED</div>
+            <div style="position: absolute; left: 40px; top: 795px; width: 715px; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden;">
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; background: #F3F3F8; padding: 8px 12px;">
+                    <div class="mrc-label" style="font-size: 11px; letter-spacing: 1px;">EQUIPMENT</div>
+                    <div class="mrc-label" style="font-size: 11px; letter-spacing: 1px; text-align: right;">QTY</div>
+                    <div class="mrc-label" style="font-size: 11px; letter-spacing: 1px; text-align: right;">DAYS</div>
+                    <div class="mrc-label" style="font-size: 11px; letter-spacing: 1px; text-align: right;">VS QUOTED</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 8px 12px; border-top: 1px solid #eee;">
+                    <div class="mrc-body" style="font-size: 13px; font-weight: 600;">Dehumidifier</div>
+                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_dehumidifier_qty}}</div>
+                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_dehumidifier_days}}</div>
+                    <div class="mrc-body" style="font-size: 13px; text-align: right; color: #606060;">{{dehumidifier_quoted_compare}}</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 8px 12px; border-top: 1px solid #eee;">
+                    <div class="mrc-body" style="font-size: 13px; font-weight: 600;">Air Mover</div>
+                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_air_mover_qty}}</div>
+                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_air_mover_days}}</div>
+                    <div class="mrc-body" style="font-size: 13px; text-align: right; color: #606060;">{{air_mover_quoted_compare}}</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 8px 12px; border-top: 1px solid #eee;">
+                    <div class="mrc-body" style="font-size: 13px; font-weight: 600;">AFD (Air Filtration Device)</div>
+                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_afd_qty}}</div>
+                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_afd_days}}</div>
+                    <div class="mrc-body" style="font-size: 13px; text-align: right; color: #606060;">—</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 8px 12px; border-top: 1px solid #eee;">
+                    <div class="mrc-body" style="font-size: 13px; font-weight: 600;">RCD Box</div>
+                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_rcd_qty}}</div>
+                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_rcd_days}}</div>
+                    <div class="mrc-body" style="font-size: 13px; text-align: right; color: #606060;">{{rcd_quoted_compare}}</div>
+                </div>
+            </div>
+
+            <!-- Page number -->
+            <div class="mrc-label" style="position: absolute; right: 30px; bottom: 25px; font-size: 16px; letter-spacing: 1.5px;">P.03</div>
+        </div>
+    </div>
+
+
+    <!-- =========================================================
+         PAGE 4 — BEFORE PHOTOS
+         REPEATABLE: before_photos per 6 — edge function clones this
+                     block for every extra group of up to 6 photos.
+         ========================================================= -->
+    <!-- REPEATABLE: before_photos per 6 -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: white;">
+
+            <img src="/pages/page-2-value-proposition/logo-page2.png" alt="MRC"
+                 style="position: absolute; right: 40px; top: 38px; width: 75px; height: 75px; z-index: 10;" />
+
+            <!-- Heading -->
+            <div class="mrc-heading" style="position: absolute; left: 35px; top: 39px; font-size: 84px; line-height: 0.77;">
+                TREATED<br/>AREAS
+            </div>
+
+            <!-- Subheading -->
+            <div class="mrc-label" style="position: absolute; left: 0; right: 0; text-align: center; top: 228px; font-size: 24px;">BEFORE PHOTOS</div>
+
+            <!-- 2×3 photo grid — 6 slots -->
+            <!-- Col 1 Row 1 -->
+            <img src="{{before_photo_1}}" alt="Before photo 1"
+                 class="photo-slot"
+                 style="position: absolute; left: 5px; top: 263px; width: 383px; height: 255px;" />
+            <!-- Col 2 Row 1 -->
+            <img src="{{before_photo_2}}" alt="Before photo 2"
+                 class="photo-slot"
+                 style="position: absolute; left: 403px; top: 263px; width: 383px; height: 255px;" />
+            <!-- Col 1 Row 2 -->
+            <img src="{{before_photo_3}}" alt="Before photo 3"
+                 class="photo-slot"
+                 style="position: absolute; left: 5px; top: 535px; width: 383px; height: 255px;" />
+            <!-- Col 2 Row 2 -->
+            <img src="{{before_photo_4}}" alt="Before photo 4"
+                 class="photo-slot"
+                 style="position: absolute; left: 403px; top: 535px; width: 383px; height: 255px;" />
+            <!-- Col 1 Row 3 -->
+            <img src="{{before_photo_5}}" alt="Before photo 5"
+                 class="photo-slot"
+                 style="position: absolute; left: 5px; top: 807px; width: 383px; height: 255px;" />
+            <!-- Col 2 Row 3 -->
+            <img src="{{before_photo_6}}" alt="Before photo 6"
+                 class="photo-slot"
+                 style="position: absolute; left: 403px; top: 807px; width: 383px; height: 255px;" />
+
+            <div class="mrc-label" style="position: absolute; right: 30px; bottom: 25px; font-size: 16px; letter-spacing: 1.5px;">P.04</div>
+        </div>
+    </div>
+    <!-- END REPEATABLE -->
+
+
+    <!-- =========================================================
+         PAGE 5 — AFTER PHOTOS
+         REPEATABLE: after_photos per 6
+         ========================================================= -->
+    <!-- REPEATABLE: after_photos per 6 -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: white;">
+
+            <img src="/pages/page-2-value-proposition/logo-page2.png" alt="MRC"
+                 style="position: absolute; right: 40px; top: 38px; width: 75px; height: 75px; z-index: 10;" />
+
+            <div class="mrc-heading" style="position: absolute; left: 35px; top: 39px; font-size: 84px; line-height: 0.77;">
+                TREATED<br/>AREAS
+            </div>
+
+            <div class="mrc-label" style="position: absolute; left: 0; right: 0; text-align: center; top: 228px; font-size: 24px;">AFTER PHOTOS</div>
+
+            <img src="{{after_photo_1}}" alt="After photo 1" class="photo-slot"
+                 style="position: absolute; left: 7px; top: 263px; width: 383px; height: 255px;" />
+            <img src="{{after_photo_2}}" alt="After photo 2" class="photo-slot"
+                 style="position: absolute; left: 405px; top: 263px; width: 383px; height: 255px;" />
+            <img src="{{after_photo_3}}" alt="After photo 3" class="photo-slot"
+                 style="position: absolute; left: 7px; top: 535px; width: 383px; height: 255px;" />
+            <img src="{{after_photo_4}}" alt="After photo 4" class="photo-slot"
+                 style="position: absolute; left: 405px; top: 535px; width: 383px; height: 255px;" />
+            <img src="{{after_photo_5}}" alt="After photo 5" class="photo-slot"
+                 style="position: absolute; left: 7px; top: 807px; width: 383px; height: 255px;" />
+            <img src="{{after_photo_6}}" alt="After photo 6" class="photo-slot"
+                 style="position: absolute; left: 405px; top: 807px; width: 383px; height: 255px;" />
+
+            <div class="mrc-label" style="position: absolute; right: 30px; bottom: 25px; font-size: 16px; letter-spacing: 1.5px;">P.05</div>
+        </div>
+    </div>
+    <!-- END REPEATABLE -->
+
+
+    <!-- =========================================================
+         PAGE 6 — DEMOLITION (conditional: only if demolition_works)
+         Wrapped in IF marker — edge function drops the whole block
+         when demolition_works is false.
+         ========================================================= -->
+    <!-- IF: demolition_works -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: white;">
+
+            <img src="/pages/page-2-value-proposition/logo-page2.png" alt="MRC"
+                 style="position: absolute; right: 40px; top: 38px; width: 75px; height: 75px; z-index: 10;" />
+
+            <div class="mrc-heading" style="position: absolute; left: 39px; top: 33px; font-size: 72px; line-height: 1;">
+                DEMOLITION<br/>DETAILS
+            </div>
+
+            <!-- Justification section -->
+            <div class="mrc-label" style="position: absolute; left: 38px; top: 250px; font-size: 22px;">JUSTIFICATION</div>
+            <div class="mrc-body" style="position: absolute; left: 38px; top: 290px; width: 720px; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
+                {{demolition_justification}}
+            </div>
+
+            <!-- Removal notes section -->
+            <div class="mrc-label" style="position: absolute; left: 36px; top: 460px; font-size: 22px;">REMOVAL NOTES</div>
+            <div class="mrc-body" style="position: absolute; left: 36px; top: 500px; width: 720px; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">
+                {{demolition_removal_notes}}
+            </div>
+
+            <!-- Photo sub-heading -->
+            <div class="mrc-label" style="position: absolute; left: 0; right: 0; text-align: center; top: 651px; font-size: 22px;">DEMOLITION PHOTOS</div>
+
+            <!-- 2×2 demolition photo grid -->
+            <img src="{{demolition_photo_1}}" alt="Demolition photo 1" class="photo-slot"
+                 style="position: absolute; left: 97px; top: 683px; width: 295px; height: 181px;" />
+            <img src="{{demolition_photo_2}}" alt="Demolition photo 2" class="photo-slot"
+                 style="position: absolute; left: 400px; top: 683px; width: 295px; height: 181px;" />
+            <img src="{{demolition_photo_3}}" alt="Demolition photo 3" class="photo-slot"
+                 style="position: absolute; left: 97px; top: 875px; width: 295px; height: 181px;" />
+            <img src="{{demolition_photo_4}}" alt="Demolition photo 4" class="photo-slot"
+                 style="position: absolute; left: 400px; top: 875px; width: 295px; height: 181px;" />
+
+            <div class="mrc-label" style="position: absolute; right: 30px; bottom: 25px; font-size: 16px; letter-spacing: 1.5px;">P.06</div>
+        </div>
+    </div>
+    <!-- ENDIF -->
+
+
+    <!-- =========================================================
+         PAGE 7 — TERMS &amp; CONDITIONS (1) — Warranty
+         Static content — sourced from PSD p6-tc1.png render
+         ========================================================= -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: white;">
+
+            <img src="/pages/page-2-value-proposition/logo-page2.png" alt="MRC"
+                 style="position: absolute; right: 40px; top: 38px; width: 75px; height: 75px; z-index: 10;" />
+
+            <div class="mrc-heading" style="position: absolute; left: 37px; top: 32px; font-size: 78px; line-height: 0.88;">
+                TERMS &amp;<br/>CONDITIONS
+            </div>
+
+            <!-- Intro paragraph -->
+            <div class="mrc-body" style="position: absolute; left: 35px; top: 206px; width: 700px; font-size: 15px; line-height: 1.45;">
+                The conditions listed below govern the provision of services by Mould &amp; Restoration Co. By agreeing to and scheduling the services described in this document, you, as the Client, acknowledge and accept these terms and conditions.
+            </div>
+
+            <!-- Warranty conditions section label -->
+            <div class="mrc-label" style="position: absolute; left: 34px; top: 351px; font-size: 22px;">WARRANTY CONDITIONS</div>
+
+            <!-- Navy sub-heading (#10216C) -->
+            <div style="position: absolute; left: 36px; top: 393px; width: 700px; color: #10216C; font-family: 'Inter', sans-serif; font-weight: 800; font-size: 15px; line-height: 1.35; letter-spacing: 0.3px;">
+                MOULD &amp; RESTORATION CO. PROVIDES A 12-MONTH WARRANTY ON MOULD REMEDIATION SERVICES UNDER THE CONDITIONS LISTED:
+            </div>
+
+            <!-- Conditions list -->
+            <div class="mrc-body" style="position: absolute; left: 35px; top: 455px; width: 730px; font-size: 13px; line-height: 1.55;">
+                <p style="margin-bottom: 10px;">1. All sources of the mould problem must be rectified as per our recommendations, including completing necessary repairs and inspections.</p>
+                <p style="margin-bottom: 10px;">2. The premises should not have suffered any natural disasters, such as floods, storm damage, or roof damage, post-remediation.</p>
+                <p style="margin-bottom: 10px;">3. The warranty does not cover areas altered or repaired after our service. Any issues arising from third-party alterations or repairs will be their responsibility.</p>
+                <p style="margin-bottom: 10px;">4. Should there be any issues or queries concerning the work performed, these must be communicated to Mould &amp; Restoration Co. within 5 business days following the completion of remediation.</p>
+                <p style="margin-bottom: 10px;">5. The warranty is <strong>SUSPENDED</strong> if the invoice is not paid by the due date. Mould recurrence during suspension is not covered. The warranty is permanently <strong>VOID</strong> if the invoice is not paid within 30 days of issuance. This cannot be reinstated.</p>
+                <p>6. <strong>Residential Clients:</strong> Warranty void 16 days after due date (Day 30 from invoice). <strong>Commercial/PM Clients:</strong> Warranty void upon becoming overdue (Day 31 from invoice).</p>
+            </div>
+
+            <div class="mrc-label" style="position: absolute; right: 30px; bottom: 25px; font-size: 16px; letter-spacing: 1.5px;">P.07</div>
+        </div>
+    </div>
+
+
+    <!-- =========================================================
+         PAGE 8 — TERMS &amp; CONDITIONS (2) — Payment Terms
+         ========================================================= -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: white;">
+
+            <img src="/pages/page-2-value-proposition/logo-page2.png" alt="MRC"
+                 style="position: absolute; right: 40px; top: 38px; width: 75px; height: 75px; z-index: 10;" />
+
+            <div class="mrc-heading" style="position: absolute; left: 44px; top: 32px; font-size: 78px; line-height: 0.88;">
+                TERMS &amp;<br/>CONDITIONS
+            </div>
+
+            <div class="mrc-label" style="position: absolute; left: 52px; top: 223px; font-size: 22px;">PAYMENT TERMS</div>
+
+            <div class="mrc-body" style="position: absolute; left: 53px; top: 260px; width: 680px; font-size: 13px; line-height: 1.55;">
+                <p style="margin-bottom: 12px;">Our invoicing procedures and charges are delineated in our Customer Relationship Agreement.</p>
+
+                <p style="margin-bottom: 10px;"><strong>1.</strong> Details on charging and invoicing are specified in our Customer Relationship Agreement.</p>
+
+                <p style="margin-bottom: 6px;"><strong>2. Payment Due Dates:</strong></p>
+                <p style="margin-bottom: 12px; padding-left: 18px;">Residential Clients: 14 days from invoice date.</p>
+
+                <p style="margin-bottom: 12px;"><strong>3.</strong> Payment must be completed by the due date on the invoice. We accept cash, Visa, Mastercard, bank transfer, or cheque.</p>
+
+                <p style="margin-bottom: 6px;"><strong>Late Payment Charges</strong></p>
+                <p style="margin-bottom: 4px; padding-left: 18px;">Accounts unpaid after the due date will attract:</p>
+                <p style="margin-bottom: 12px; padding-left: 18px;">Interest: 10% per annum, calculated daily, in accordance with the Penalty Interest Rates Act 1983 (Vic).</p>
+
+                <p style="margin-bottom: 6px;"><strong>Administration Fees:</strong></p>
+                <p style="padding-left: 18px;">$65 — First reminder (upon becoming overdue)</p>
+                <p style="padding-left: 18px;">$65 — Second reminder (7 days after first reminder)</p>
+                <p style="padding-left: 18px;">$65 — Final notice (14 days after first reminder)</p>
+                <p style="padding-left: 18px; margin-bottom: 12px;">$65 — For each subsequent 14-day period the account remains unpaid</p>
+
+                <p>Accounts unpaid for over <strong>30 days</strong> will attract an additional <strong>25% per annum</strong> interest charge, calculated daily on the remaining balance.</p>
+            </div>
+
+            <div class="mrc-label" style="position: absolute; right: 30px; bottom: 25px; font-size: 16px; letter-spacing: 1.5px;">P.08</div>
+        </div>
+    </div>
+
+
+    <!-- =========================================================
+         PAGE 9 — TERMS &amp; CONDITIONS (3) — Credit Reporting + Debt
+         ========================================================= -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: white;">
+
+            <img src="/pages/page-2-value-proposition/logo-page2.png" alt="MRC"
+                 style="position: absolute; right: 40px; top: 38px; width: 75px; height: 75px; z-index: 10;" />
+
+            <div class="mrc-heading" style="position: absolute; left: 42px; top: 32px; font-size: 78px; line-height: 0.88;">
+                TERMS &amp;<br/>CONDITIONS
+            </div>
+
+            <div class="mrc-label" style="position: absolute; left: 44px; top: 205px; font-size: 22px;">PAYMENT TERMS</div>
+
+            <div class="mrc-body" style="position: absolute; left: 45px; top: 240px; width: 700px; font-size: 13px; line-height: 1.55;">
+                <p style="margin-bottom: 10px;">Accounts unpaid for 60 days or more may be reported to credit reporting bodies including Equifax, Experian, and illion.</p>
+
+                <p style="margin-bottom: 6px;"><strong>Before listing a default, we will:</strong></p>
+                <ul style="margin-bottom: 12px; padding-left: 22px;">
+                    <li>Issue a First Default Notice (minimum 31 days after due date)</li>
+                    <li>Issue a Second Default Notice at least 30 days later, providing 14 days final warning</li>
+                </ul>
+
+                <p style="margin-bottom: 6px;"><strong>A credit default listing:</strong></p>
+                <ul style="margin-bottom: 12px; padding-left: 22px;">
+                    <li>Remains on your credit file for 5 years</li>
+                    <li>Cannot be removed even after payment</li>
+                    <li>May affect your ability to obtain loans, credit cards, mortgages, rental accommodation, and some employment</li>
+                </ul>
+
+                <p style="margin-bottom: 6px;"><strong>Debt Recovery</strong></p>
+                <p style="margin-bottom: 10px;">Failure to settle the account within 60 days will lead to the account being reported to our credit reporting agency. This default will appear on your credit file for five years. Mould &amp; Restoration Co. also reserves the right to initiate legal proceedings to recover any outstanding amounts.</p>
+                <p style="margin-bottom: 10px;">If we engage a debt collection agency or commence legal proceedings, you agree to pay all reasonable recovery costs including collection agency fees, legal fees on a solicitor/client basis, court filing fees, and enforcement costs.</p>
+
+                <p style="margin-bottom: 6px;"><strong>Disputes</strong></p>
+                <p>If you dispute any amount, you must notify us in writing within 5 business days of receiving the invoice, specifying the nature of the dispute and providing supporting documentation. Undisputed portions remain payable by the due date. Interest and fees will not apply to genuinely disputed amounts during review, but will apply in full from the original due date if the dispute is resolved in our favour.</p>
+            </div>
+
+            <div class="mrc-label" style="position: absolute; right: 30px; bottom: 25px; font-size: 16px; letter-spacing: 1.5px;">P.09</div>
+        </div>
+    </div>
+
+
+    <!-- =========================================================
+         PAGE 10 — TERMS &amp; CONDITIONS (4) — Timeline + Acknowledgement
+         ========================================================= -->
+    <div class="report-page page-break">
+        <div style="width: 100%; height: 100%; position: relative; background: white;">
+
+            <img src="/pages/page-2-value-proposition/logo-page2.png" alt="MRC"
+                 style="position: absolute; right: 40px; top: 38px; width: 75px; height: 75px; z-index: 10;" />
+
+            <div class="mrc-heading" style="position: absolute; left: 30px; top: 39px; font-size: 80px; line-height: 0.82;">
+                TERMS &amp;<br/>CONDITIONS
+            </div>
+
+            <div class="mrc-label" style="position: absolute; left: 29px; top: 212px; font-size: 22px;">PAYMENT TERMS</div>
+
+            <!-- Timeline table -->
+            <div style="position: absolute; left: 31px; top: 260px; width: 720px; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden; font-family: 'Inter', sans-serif; font-size: 13px;">
+                <div style="display: grid; grid-template-columns: 140px 1fr; background: #F3F3F8; padding: 10px 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; font-size: 11px;">
+                    <div>DAY</div>
+                    <div>WHAT HAPPENS</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 140px 1fr; padding: 9px 14px; border-top: 1px solid #eee;">
+                    <div style="font-weight: 600;">Day 14</div>
+                    <div>Payment due</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 140px 1fr; padding: 9px 14px; border-top: 1px solid #eee;">
+                    <div style="font-weight: 600;">Day 15</div>
+                    <div>OVERDUE — Warranty SUSPENDED — $65 fee — Interest starts</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 140px 1fr; padding: 9px 14px; border-top: 1px solid #eee;">
+                    <div style="font-weight: 600;">Day 22</div>
+                    <div>$65 second reminder</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 140px 1fr; padding: 9px 14px; border-top: 1px solid #eee;">
+                    <div style="font-weight: 600;">Day 29</div>
+                    <div>$65 final notice</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 140px 1fr; padding: 9px 14px; border-top: 1px solid #eee; background: #fff6e6;">
+                    <div style="font-weight: 900;">Day 30</div>
+                    <div style="font-weight: 900;">WARRANTY VOID — 25% interest kicks in</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 140px 1fr; padding: 9px 14px; border-top: 1px solid #eee;">
+                    <div style="font-weight: 600;">Day 43</div>
+                    <div>$65 ongoing fee</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 140px 1fr; padding: 9px 14px; border-top: 1px solid #eee;">
+                    <div style="font-weight: 600;">Day 60+</div>
+                    <div>Credit default listing</div>
+                </div>
+            </div>
+
+            <!-- Acknowledgement -->
+            <div class="mrc-label" style="position: absolute; left: 30px; top: 640px; font-size: 22px;">ACKNOWLEDGEMENT</div>
+            <div class="mrc-body" style="position: absolute; left: 30px; top: 680px; width: 720px; font-size: 13px; line-height: 1.55;">
+                By proceeding with the services quoted, you confirm that you have read, understood, and agree to these Payment Terms &amp; Conditions, including late payment charges, warranty conditions, and credit reporting provisions.
+            </div>
+
+            <!-- Footer contact strip (matches p1 style) -->
+            <div style="position: absolute; left: 23px; right: 23px; top: 1054px; height: 1px; background: #c5c5c5;"></div>
+            <div class="mrc-label" style="position: absolute; left: 0; right: 0; top: 1067px; text-align: center; font-size: 11px; color: #606060; letter-spacing: 1.3px;">
+                1800 954 117  |  MOULDANDRESTORATION.COM.AU  |  ADMIN@MOULDANDRESTORATION.COM.AU
+            </div>
+
+            <div class="mrc-label" style="position: absolute; right: 30px; bottom: 25px; font-size: 16px; letter-spacing: 1.5px;">P.10</div>
+        </div>
+    </div>
+
+</body>
+</html>
