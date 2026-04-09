@@ -12,8 +12,9 @@ import {
   MailX,
   Bell,
   Clock,
+  PencilLine,
 } from 'lucide-react';
-import type { TimelineEvent } from '@/hooks/useActivityTimeline';
+import type { TimelineEvent, FieldEditMetadata } from '@/hooks/useActivityTimeline';
 
 // Icon component lookup
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -27,7 +28,36 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   MailCheck,
   MailX,
   Bell,
+  PencilLine,
 };
+
+const MAX_DIFF_STRING_LENGTH = 60;
+
+function formatDiffValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'string') {
+    const truncated =
+      value.length > MAX_DIFF_STRING_LENGTH
+        ? `${value.slice(0, MAX_DIFF_STRING_LENGTH)}…`
+        : value;
+    return `"${truncated}"`;
+  }
+  const json = JSON.stringify(value);
+  return json.length > MAX_DIFF_STRING_LENGTH
+    ? `${json.slice(0, MAX_DIFF_STRING_LENGTH)}…`
+    : json;
+}
+
+function getFieldEditMetadata(
+  metadata: Record<string, unknown> | undefined
+): FieldEditMetadata | null {
+  if (!metadata) return null;
+  const changes = metadata.changes;
+  if (!Array.isArray(changes)) return null;
+  return metadata as unknown as FieldEditMetadata;
+}
 
 // Relative time formatting (Australian)
 function formatRelativeTime(dateString: string): string {
@@ -158,6 +188,9 @@ export function ActivityTimeline({
         }
 
         // Full timeline view for lead detail
+        const fieldEdit =
+          event.type === 'field_edit' ? getFieldEditMetadata(event.metadata) : null;
+
         return (
           <div
             key={event.id}
@@ -170,6 +203,11 @@ export function ActivityTimeline({
 
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
+                {fieldEdit && (
+                  <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-medium">
+                    v{fieldEdit.version}
+                  </span>
+                )}
                 <p className="text-sm font-medium">{event.title}</p>
                 {sourceBadge && (
                   <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${sourceBadge.className}`}>
@@ -177,8 +215,19 @@ export function ActivityTimeline({
                   </Badge>
                 )}
               </div>
-              {event.description && (
-                <p className="text-xs text-gray-500">{event.description}</p>
+              {fieldEdit ? (
+                <ul className="space-y-0.5">
+                  {fieldEdit.changes.map((change, i) => (
+                    <li key={i} className="text-xs text-muted-foreground">
+                      <span className="font-medium">{change.field}:</span>{' '}
+                      {formatDiffValue(change.old)} → {formatDiffValue(change.new)}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                event.description && (
+                  <p className="text-xs text-gray-500">{event.description}</p>
+                )
               )}
               <p className="text-xs text-gray-400 flex items-center gap-1">
                 <Clock className="h-3 w-3" />

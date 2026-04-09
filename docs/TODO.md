@@ -89,6 +89,14 @@ The pipeline currently ends at "Awaiting Job Approval" (Stage 6). This workflow 
 
 ---
 
+## Post-Launch
+
+- [ ] Migrate all API services to dedicated MRC business accounts (Google Cloud, Resend, OpenRouter, Sentry)
+- [ ] Switch email sender domain to mouldandrestoration.com.au
+- [ ] Transfer Resend domain verification to MRC account
+
+---
+
 ## Completed (Reference)
 
 - [x] Phase 1: Technician Role (dashboard, jobs, inspection form, all 10 sections)
