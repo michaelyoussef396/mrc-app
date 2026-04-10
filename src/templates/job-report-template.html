@@ -88,6 +88,7 @@
             border-radius: 20px;
         }
 
+
         /* ============================================================
            Print fidelity — same contract as the inspection template
            ============================================================ */
@@ -220,44 +221,37 @@
             <!-- TOC card -->
             <div class="navy-card" style="position: absolute; left: 48px; top: 320px; width: 696px; height: 520px;"></div>
 
-            <!-- Row 1 — Work Summary -->
+            <!-- Row 1 — Before Photos -->
             <div style="position: absolute; left: 90px; top: 365px; width: 612px; display: flex; align-items: center; gap: 44px; z-index: 10;">
                 <div class="mrc-heading" style="color: #fff; font-size: 34px; min-width: 90px;">03</div>
-                <div class="mrc-label" style="color: #fff; font-size: 22px;">WORK SUMMARY</div>
+                <div class="mrc-label" style="color: #fff; font-size: 22px;">BEFORE PHOTOS</div>
             </div>
             <div style="position: absolute; left: 90px; top: 415px; width: 612px; height: 1px; background: rgba(255,255,255,0.35); z-index: 10;"></div>
 
-            <!-- Row 2 — Before Photos -->
+            <!-- Row 2 — After Photos -->
             <div style="position: absolute; left: 90px; top: 435px; width: 612px; display: flex; align-items: center; gap: 44px; z-index: 10;">
                 <div class="mrc-heading" style="color: #fff; font-size: 34px; min-width: 90px;">04</div>
-                <div class="mrc-label" style="color: #fff; font-size: 22px;">BEFORE PHOTOS</div>
+                <div class="mrc-label" style="color: #fff; font-size: 22px;">AFTER PHOTOS</div>
             </div>
             <div style="position: absolute; left: 90px; top: 485px; width: 612px; height: 1px; background: rgba(255,255,255,0.35); z-index: 10;"></div>
 
-            <!-- Row 3 — After Photos -->
+            <!-- Row 3 — Demolition -->
             <div style="position: absolute; left: 90px; top: 505px; width: 612px; display: flex; align-items: center; gap: 44px; z-index: 10;">
                 <div class="mrc-heading" style="color: #fff; font-size: 34px; min-width: 90px;">05</div>
-                <div class="mrc-label" style="color: #fff; font-size: 22px;">AFTER PHOTOS</div>
+                <div class="mrc-label" style="color: #fff; font-size: 22px;">DEMOLITION DETAILS</div>
             </div>
             <div style="position: absolute; left: 90px; top: 555px; width: 612px; height: 1px; background: rgba(255,255,255,0.35); z-index: 10;"></div>
 
-            <!-- Row 4 — Demolition (page number hidden when not demolition) -->
+            <!-- Row 4 — Warranty -->
             <div style="position: absolute; left: 90px; top: 575px; width: 612px; display: flex; align-items: center; gap: 44px; z-index: 10;">
                 <div class="mrc-heading" style="color: #fff; font-size: 34px; min-width: 90px;">06</div>
-                <div class="mrc-label" style="color: #fff; font-size: 22px;">DEMOLITION DETAILS</div>
+                <div class="mrc-label" style="color: #fff; font-size: 22px;">WARRANTY CONDITIONS</div>
             </div>
             <div style="position: absolute; left: 90px; top: 625px; width: 612px; height: 1px; background: rgba(255,255,255,0.35); z-index: 10;"></div>
 
-            <!-- Row 5 — Warranty -->
+            <!-- Row 5 — Payment terms (3 pages) -->
             <div style="position: absolute; left: 90px; top: 645px; width: 612px; display: flex; align-items: center; gap: 44px; z-index: 10;">
-                <div class="mrc-heading" style="color: #fff; font-size: 34px; min-width: 90px;">07</div>
-                <div class="mrc-label" style="color: #fff; font-size: 22px;">WARRANTY CONDITIONS</div>
-            </div>
-            <div style="position: absolute; left: 90px; top: 695px; width: 612px; height: 1px; background: rgba(255,255,255,0.35); z-index: 10;"></div>
-
-            <!-- Row 6 — Payment terms (3 pages) -->
-            <div style="position: absolute; left: 90px; top: 715px; width: 612px; display: flex; align-items: center; gap: 44px; z-index: 10;">
-                <div class="mrc-heading" style="color: #fff; font-size: 34px; min-width: 90px;">08–10</div>
+                <div class="mrc-heading" style="color: #fff; font-size: 34px; min-width: 90px;">07–09</div>
                 <div class="mrc-label" style="color: #fff; font-size: 22px;">PAYMENT TERMS</div>
             </div>
 
@@ -267,116 +261,7 @@
 
 
     <!-- =========================================================
-         PAGE 3 — WORK SUMMARY (NEW — not in original PSDs)
-         Folds in: treatment methods, chemicals, equipment, variations
-         ========================================================= -->
-    <div class="report-page page-break">
-        <div style="width: 100%; height: 100%; position: relative; background: white;">
-
-            <div class="bg-mrc-circle" role="img" aria-label="MRC" style="position: absolute; right: 40px; top: 38px; width: 75px; height: 75px; z-index: 10;"></div>
-
-            <!-- Heading -->
-            <div class="mrc-heading" style="position: absolute; left: 35px; top: 35px; font-size: 82px; line-height: 0.85;">
-                WORK<br/>SUMMARY
-            </div>
-
-            <!-- Sub-heading row — job + completion meta -->
-            <div class="mrc-label" style="position: absolute; left: 40px; top: 222px; font-size: 20px;">JOB DETAILS</div>
-
-            <!-- Meta grid — 4 cells -->
-            <div style="position: absolute; left: 40px; top: 255px; width: 715px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px;">
-                <div class="mrc-body" style="font-size: 13px; letter-spacing: 0.4px;">
-                    <span style="color: #606060; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 11px;">Completion Date</span><br/>
-                    <span style="font-size: 15px; font-weight: 600;">{{completion_date_long}}</span>
-                </div>
-                <div class="mrc-body" style="font-size: 13px; letter-spacing: 0.4px;">
-                    <span style="color: #606060; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 11px;">Completed By</span><br/>
-                    <span style="font-size: 15px; font-weight: 600;">{{completed_by_name}}</span>
-                </div>
-                <div class="mrc-body" style="font-size: 13px; letter-spacing: 0.4px; margin-top: 10px;">
-                    <span style="color: #606060; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 11px;">SWMS</span><br/>
-                    <span style="font-size: 15px; font-weight: 600;">{{swms_status}}</span>
-                </div>
-                <div class="mrc-body" style="font-size: 13px; letter-spacing: 0.4px; margin-top: 10px;">
-                    <span style="color: #606060; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 11px;">Premises Type</span><br/>
-                    <span style="font-size: 15px; font-weight: 600;">{{premises_type}}</span>
-                </div>
-            </div>
-
-            <!-- AREAS TREATED -->
-            <div class="mrc-label" style="position: absolute; left: 40px; top: 360px; font-size: 20px;">AREAS TREATED</div>
-            <div class="mrc-body" style="position: absolute; left: 40px; top: 395px; width: 715px; font-size: 14px; line-height: 1.6;">
-                {{areas_treated_list}}
-            </div>
-
-            <!-- TREATMENT METHODS (2-column) -->
-            <div class="mrc-label" style="position: absolute; left: 40px; top: 450px; font-size: 20px;">TREATMENT METHODS</div>
-            <div style="position: absolute; left: 40px; top: 485px; width: 715px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px;">
-                <div class="mrc-body" style="font-size: 13px;">{{method_hepa_vacuuming_mark}} HEPA Vacuuming</div>
-                <div class="mrc-body" style="font-size: 13px;">{{method_surface_mould_remediation_mark}} Surface Mould Remediation</div>
-                <div class="mrc-body" style="font-size: 13px;">{{method_ulv_fogging_property_mark}} ULV Fogging — Property</div>
-                <div class="mrc-body" style="font-size: 13px;">{{method_ulv_fogging_subfloor_mark}} ULV Fogging — Subfloor</div>
-                <div class="mrc-body" style="font-size: 13px;">{{method_subfloor_remediation_mark}} Subfloor Remediation</div>
-                <div class="mrc-body" style="font-size: 13px;">{{method_afd_installation_mark}} AFD Installation</div>
-                <div class="mrc-body" style="font-size: 13px;">{{method_drying_equipment_mark}} Drying Equipment</div>
-                <div class="mrc-body" style="font-size: 13px;">{{method_containment_prv_mark}} Containment &amp; PRV</div>
-                <div class="mrc-body" style="font-size: 13px;">{{method_material_demolition_mark}} Material Demolition</div>
-                <div class="mrc-body" style="font-size: 13px;">{{method_cavity_treatment_mark}} Cavity Treatment</div>
-                <div class="mrc-body" style="font-size: 13px;">{{method_debris_removal_mark}} Debris Removal</div>
-            </div>
-
-            <!-- CHEMICALS USED -->
-            <div class="mrc-label" style="position: absolute; left: 40px; top: 640px; font-size: 20px;">CHEMICALS USED</div>
-            <div style="position: absolute; left: 40px; top: 675px; width: 715px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px;">
-                <div class="mrc-body" style="font-size: 13px;">{{chemical_air_filtration_mark}} Air Filtration Device</div>
-                <div class="mrc-body" style="font-size: 13px;">{{chemical_water_based_mark}} Water-Based Solution</div>
-                <div class="mrc-body" style="font-size: 13px;">{{chemical_sodium_hypochlorite_mark}} Sodium Hypochlorite</div>
-                <div class="mrc-body" style="font-size: 13px;">{{chemical_hepa_vacuumed_mark}} HEPA Vac&#39;d</div>
-                <div class="mrc-body" style="font-size: 13px;">{{chemical_sanitised_premises_mark}} Sanitised Premises</div>
-            </div>
-
-            <!-- EQUIPMENT TABLE -->
-            <div class="mrc-label" style="position: absolute; left: 40px; top: 760px; font-size: 20px;">EQUIPMENT USED</div>
-            <div style="position: absolute; left: 40px; top: 795px; width: 715px; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden;">
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; background: #F3F3F8; padding: 8px 12px;">
-                    <div class="mrc-label" style="font-size: 11px; letter-spacing: 1px;">EQUIPMENT</div>
-                    <div class="mrc-label" style="font-size: 11px; letter-spacing: 1px; text-align: right;">QTY</div>
-                    <div class="mrc-label" style="font-size: 11px; letter-spacing: 1px; text-align: right;">DAYS</div>
-                    <div class="mrc-label" style="font-size: 11px; letter-spacing: 1px; text-align: right;">VS QUOTED</div>
-                </div>
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 8px 12px; border-top: 1px solid #eee;">
-                    <div class="mrc-body" style="font-size: 13px; font-weight: 600;">Dehumidifier</div>
-                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_dehumidifier_qty}}</div>
-                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_dehumidifier_days}}</div>
-                    <div class="mrc-body" style="font-size: 13px; text-align: right; color: #606060;">{{dehumidifier_quoted_compare}}</div>
-                </div>
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 8px 12px; border-top: 1px solid #eee;">
-                    <div class="mrc-body" style="font-size: 13px; font-weight: 600;">Air Mover</div>
-                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_air_mover_qty}}</div>
-                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_air_mover_days}}</div>
-                    <div class="mrc-body" style="font-size: 13px; text-align: right; color: #606060;">{{air_mover_quoted_compare}}</div>
-                </div>
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 8px 12px; border-top: 1px solid #eee;">
-                    <div class="mrc-body" style="font-size: 13px; font-weight: 600;">AFD (Air Filtration Device)</div>
-                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_afd_qty}}</div>
-                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_afd_days}}</div>
-                    <div class="mrc-body" style="font-size: 13px; text-align: right; color: #606060;">—</div>
-                </div>
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 8px 12px; border-top: 1px solid #eee;">
-                    <div class="mrc-body" style="font-size: 13px; font-weight: 600;">RCD Box</div>
-                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_rcd_qty}}</div>
-                    <div class="mrc-body" style="font-size: 13px; text-align: right;">{{actual_rcd_days}}</div>
-                    <div class="mrc-body" style="font-size: 13px; text-align: right; color: #606060;">{{rcd_quoted_compare}}</div>
-                </div>
-            </div>
-
-            <!-- Page number -->
-        </div>
-    </div>
-
-
-    <!-- =========================================================
-         PAGE 4 — BEFORE PHOTOS
+         PAGE 3 — BEFORE PHOTOS
          REPEATABLE: before_photos per 6 — edge function clones this
                      block for every extra group of up to 6 photos.
          ========================================================= -->
@@ -426,7 +311,7 @@
 
 
     <!-- =========================================================
-         PAGE 5 — AFTER PHOTOS
+         PAGE 4 — AFTER PHOTOS
          REPEATABLE: after_photos per 6
          ========================================================= -->
     <!-- REPEATABLE: after_photos per 6 -->
@@ -460,7 +345,7 @@
 
 
     <!-- =========================================================
-         PAGE 6 — DEMOLITION (conditional: only if demolition_works)
+         PAGE 5 — DEMOLITION (conditional: only if demolition_works)
          Wrapped in IF marker — edge function drops the whole block
          when demolition_works is false.
          ========================================================= -->
@@ -505,7 +390,7 @@
 
 
     <!-- =========================================================
-         PAGE 7 — TERMS &amp; CONDITIONS (1) — Warranty
+         PAGE 6 — TERMS &amp; CONDITIONS (1) — Warranty
          Static content — sourced from PSD p6-tc1.png render
          ========================================================= -->
     <div class="report-page page-break">
@@ -545,7 +430,7 @@
 
 
     <!-- =========================================================
-         PAGE 8 — TERMS &amp; CONDITIONS (2) — Payment Terms
+         PAGE 7 — TERMS &amp; CONDITIONS (2) — Payment Terms
          ========================================================= -->
     <div class="report-page page-break">
         <div style="width: 100%; height: 100%; position: relative; background: white;">
@@ -586,7 +471,7 @@
 
 
     <!-- =========================================================
-         PAGE 9 — TERMS &amp; CONDITIONS (3) — Credit Reporting + Debt
+         PAGE 8 — TERMS &amp; CONDITIONS (3) — Credit Reporting + Debt
          ========================================================= -->
     <div class="report-page page-break">
         <div style="width: 100%; height: 100%; position: relative; background: white;">
@@ -628,7 +513,7 @@
 
 
     <!-- =========================================================
-         PAGE 10 — TERMS &amp; CONDITIONS (4) — Timeline + Acknowledgement
+         PAGE 9 — TERMS &amp; CONDITIONS (4) — Timeline + Acknowledgement
          ========================================================= -->
     <div class="report-page page-break">
         <div style="width: 100%; height: 100%; position: relative; background: white;">
