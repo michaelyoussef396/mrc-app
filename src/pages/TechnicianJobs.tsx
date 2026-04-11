@@ -1,7 +1,22 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TechnicianBottomNav } from '@/components/technician';
 import { useTechnicianJobs, TabFilter, TechnicianJob } from '@/hooks/useTechnicianJobs';
+import {
+  AlertCircle,
+  ArrowRight,
+  CalendarDays,
+  CheckCircle2,
+  Eye,
+  HardHat,
+  Loader2,
+  MapPin,
+  Navigation,
+  Phone,
+  Play,
+  RefreshCw,
+  Search,
+} from 'lucide-react';
 
 // ============================================================================
 // TYPES & CONSTANTS
@@ -69,11 +84,11 @@ function formatShortDate(dateStr: string): string {
   });
 }
 
-function getJobTypeIcon(eventType: string): string {
+function getJobTypeIcon(eventType: string, className: string = "h-3.5 w-3.5"): ReactNode {
   if (eventType.toLowerCase().includes('removal') || eventType.toLowerCase().includes('job')) {
-    return 'construction';
+    return <HardHat className={className} />;
   }
-  return 'search';
+  return <Search className={className} />;
 }
 
 function getJobTypeLabel(eventType: string): string {
@@ -216,9 +231,7 @@ function ActiveJobCard({
           {/* Job Type + Day label for multi-day jobs */}
           <div className="flex items-center gap-2 mt-1 text-[#86868b] text-xs flex-wrap">
             <div className="flex items-center gap-1">
-              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
-                {getJobTypeIcon(job.eventType)}
-              </span>
+              {getJobTypeIcon(job.eventType, "h-3.5 w-3.5")}
               <span>{getJobTypeLabel(job.eventType)}</span>
             </div>
             {job.dayLabel && (
@@ -243,18 +256,14 @@ function ActiveJobCard({
           onClick={onCall}
           className="flex items-center justify-center gap-2 h-12 rounded-xl bg-[#f0f2f4] text-[#1d1d1f] text-sm font-semibold hover:bg-gray-200 transition-colors"
         >
-          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-            call
-          </span>
+          <Phone className="h-5 w-5" />
           Call
         </button>
         <button
           onClick={onDirections}
           className="flex items-center justify-center gap-2 h-12 rounded-xl bg-[#f0f2f4] text-[#1d1d1f] text-sm font-semibold hover:bg-gray-200 transition-colors"
         >
-          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-            directions
-          </span>
+          <Navigation className="h-5 w-5" />
           Directions
         </button>
       </div>
@@ -270,20 +279,18 @@ function ActiveJobCard({
           style={{ boxShadow: '0 4px 12px rgba(0, 122, 255, 0.2)' }}
         >
           {job.status === 'in_progress' && (
-            <span className="material-symbols-outlined">play_arrow</span>
+            <Play className="h-5 w-5" />
           )}
           {buttonLabel}
           {job.status !== 'in_progress' && (
-            <span className="material-symbols-outlined">{buttonIcon}</span>
+            buttonIcon === 'play_arrow' ? <Play className="h-5 w-5" /> : <ArrowRight className="h-5 w-5" />
           )}
         </button>
         <button
           onClick={onViewDetails}
           className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-[#1d1d1f] text-sm font-semibold hover:bg-gray-50 transition-colors"
         >
-          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-            visibility
-          </span>
+          <Eye className="h-5 w-5" />
           View Lead
         </button>
       </div>
@@ -308,27 +315,21 @@ function CompletedJobCard({ job, onViewLead }: { job: TechnicianJob; onViewLead:
       <div className="space-y-1">
         <h3 className="text-lg font-bold leading-tight text-[#1d1d1f]">{job.clientName}</h3>
         <div className="flex items-center gap-1.5 text-sm text-[#86868b]">
-          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-            location_on
-          </span>
+          <MapPin className="h-[18px] w-[18px]" />
           <span>
             {job.address}
             {job.suburb && `, ${job.suburb}`}
           </span>
         </div>
         <div className="flex items-center gap-1.5 text-sm text-[#86868b]">
-          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-            {getJobTypeIcon(job.eventType)}
-          </span>
+          {getJobTypeIcon(job.eventType, "h-[18px] w-[18px]")}
           <span>{getJobTypeLabel(job.eventType)}</span>
         </div>
       </div>
 
       {/* Completion Time */}
       <div className="flex items-center gap-2 border-t border-gray-100 pt-3">
-        <span className="material-symbols-outlined text-[#34C759]" style={{ fontSize: '20px' }}>
-          check_circle
-        </span>
+        <CheckCircle2 className="h-5 w-5 text-[#34C759]" />
         <p className="text-sm font-medium text-[#34C759]">Completed at {job.time}</p>
       </div>
 
@@ -337,9 +338,7 @@ function CompletedJobCard({ job, onViewLead }: { job: TechnicianJob; onViewLead:
         onClick={onViewLead}
         className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-[#f0f2f4] text-[#1d1d1f] text-sm font-semibold hover:bg-gray-200 transition-colors"
       >
-        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-          visibility
-        </span>
+        <Eye className="h-5 w-5" />
         View Lead
       </button>
     </article>
@@ -369,9 +368,7 @@ function EmptyState({
       <div className="flex flex-col items-center text-center gap-6">
         {/* Icon Circle */}
         <div className="h-24 w-24 rounded-full bg-[#f0f2f4] flex items-center justify-center mb-2 shadow-sm">
-          <span className="material-symbols-outlined text-[#86868b]" style={{ fontSize: '48px' }}>
-            calendar_today
-          </span>
+          <CalendarDays className="h-12 w-12 text-[#86868b]" />
         </div>
 
         {/* Message */}
@@ -389,12 +386,7 @@ function EmptyState({
           className="mt-4 flex items-center justify-center gap-2 h-10 px-6 rounded-full bg-white border border-gray-200 shadow-sm active:scale-95 transition-all"
           style={{ opacity: isLoading ? 0.7 : 1 }}
         >
-          <span
-            className={`material-symbols-outlined text-[#007AFF] ${isLoading ? 'animate-spin' : ''}`}
-            style={{ fontSize: '20px' }}
-          >
-            {isLoading ? 'progress_activity' : 'refresh'}
-          </span>
+          {isLoading ? <Loader2 className="h-5 w-5 text-[#007AFF] animate-spin" /> : <RefreshCw className="h-5 w-5 text-[#007AFF]" />}
           <span className="text-[#1d1d1f] text-sm font-semibold">
             {isLoading ? 'Refreshing...' : 'Refresh Schedule'}
           </span>
@@ -422,9 +414,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
   return (
     <div className="flex-1 flex flex-col items-center justify-center py-16 px-6">
       <div className="h-24 w-24 rounded-full bg-[rgba(255,59,48,0.1)] flex items-center justify-center mb-6">
-        <span className="material-symbols-outlined text-[#FF3B30]" style={{ fontSize: '48px' }}>
-          error
-        </span>
+        <AlertCircle className="h-12 w-12 text-[#FF3B30]" />
       </div>
       <h2 className="text-[#1d1d1f] text-xl font-bold mb-2">Something went wrong</h2>
       <p className="text-[#86868b] text-base text-center mb-6">{message}</p>
@@ -432,9 +422,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
         onClick={onRetry}
         className="flex items-center gap-2 h-10 px-6 rounded-full bg-white border border-gray-200 shadow-sm active:scale-95 transition-all"
       >
-        <span className="material-symbols-outlined text-[#007AFF]" style={{ fontSize: '20px' }}>
-          refresh
-        </span>
+        <RefreshCw className="h-5 w-5 text-[#007AFF]" />
         <span className="text-[#1d1d1f] text-sm font-semibold">Try Again</span>
       </button>
     </div>

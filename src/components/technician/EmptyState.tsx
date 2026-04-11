@@ -1,4 +1,5 @@
-interface EmptyStateProps {
+
+import { CheckCircle2, RefreshCw, Sun } from 'lucide-react';interface EmptyStateProps {
   onSyncSchedule: () => void;
   isLoading?: boolean;
 }
@@ -34,20 +35,13 @@ export default function EmptyState({ onSyncSchedule, isLoading = false }: EmptyS
               className="absolute bottom-4 -right-2.5 rounded-full p-2 shadow-md"
               style={{ backgroundColor: 'white', border: '4px solid #f5f7f8' }}
             >
-              <span
-                className="material-symbols-outlined text-3xl font-bold"
-                style={{ color: '#34C759' }}
-              >
-                check_circle
-              </span>
+              <CheckCircle2 className="h-8 w-8" style={{ color: '#34C759' }} />
             </div>
           </div>
 
           {/* Sun icon decoration */}
           <div className="absolute top-0 right-4" style={{ color: '#007AFF', opacity: 0.6 }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>
-              wb_sunny
-            </span>
+            <Sun className="h-6 w-6" />
           </div>
         </div>
 
@@ -78,11 +72,7 @@ export default function EmptyState({ onSyncSchedule, isLoading = false }: EmptyS
             minHeight: '56px',
           }}
         >
-          <span
-            className={`material-symbols-outlined transition-transform duration-500 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180'}`}
-          >
-            sync
-          </span>
+          <RefreshCw className={`h-5 w-5 transition-transform duration-500 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180'} ${isLoading ? 'animate-spin' : 'group-hover:rotate-180'}`} />
           <span>{isLoading ? 'Syncing...' : 'Sync Schedule'}</span>
         </button>
       </div>

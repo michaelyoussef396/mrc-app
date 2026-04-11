@@ -4,6 +4,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import logoLarge from "@/assets/logo-large.png";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  UserX,
+  WifiOff,
+} from 'lucide-react';
 
 type Role = "Admin" | "Technician";
 
@@ -365,16 +375,8 @@ const Login = () => {
                 border: "1px solid rgba(52, 199, 89, 0.3)",
               }}
             >
-              <span
-                className="material-symbols-outlined flex-shrink-0"
-                style={{
-                  fontSize: "20px",
-                  color: "#34C759",
-                  fontVariationSettings: "'FILL' 1",
-                }}
-              >
-                check_circle
-              </span>
+              <CheckCircle2 className="h-5 w-5 flex-shrink-0" style={{ color: "#34C759",
+                  fontVariationSettings: "'FILL' 1" }} />
               <p className="text-sm font-medium" style={{ color: "#34C759" }}>
                 {successMessage}
               </p>
@@ -392,12 +394,7 @@ const Login = () => {
                 border: "1px solid rgba(255, 149, 0, 0.3)",
               }}
             >
-              <span
-                className="material-symbols-outlined flex-shrink-0"
-                style={{ fontSize: "20px", color: "#FF9500" }}
-              >
-                wifi_off
-              </span>
+              <WifiOff className="h-5 w-5 flex-shrink-0" style={{ color: "#FF9500" }} />
               <p className="text-sm" style={{ color: "#CC7700" }}>
                 {errors.network}
               </p>
@@ -439,15 +436,7 @@ const Login = () => {
                 errors.email && "bg-red-50/50"
               )}
             >
-              <span
-                className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2"
-                style={{
-                  fontSize: "20px",
-                  color: errors.email ? "#FF3B30" : "#86868b",
-                }}
-              >
-                mail
-              </span>
+              <Mail className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2" style={{ color: errors.email ? "#FF3B30" : "#86868b" }} />
               <input
                 type="email"
                 placeholder="Email"
@@ -468,9 +457,7 @@ const Login = () => {
             </div>
             {errors.email && (
               <p className="mt-1.5 text-sm flex items-center gap-1" style={{ color: "#FF3B30" }}>
-                <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>
-                  error
-                </span>
+                <AlertCircle className="h-4 w-4" />
                 {errors.email}
               </p>
             )}
@@ -484,15 +471,7 @@ const Login = () => {
                 errors.password && "bg-red-50/50"
               )}
             >
-              <span
-                className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2"
-                style={{
-                  fontSize: "20px",
-                  color: errors.password ? "#FF3B30" : "#86868b",
-                }}
-              >
-                lock
-              </span>
+              <Lock className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2" style={{ color: errors.password ? "#FF3B30" : "#86868b" }} />
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
@@ -519,19 +498,12 @@ const Login = () => {
                   isFormDisabled && "opacity-50 cursor-not-allowed"
                 )}
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: "20px", color: "#86868b" }}
-                >
-                  {showPassword ? "visibility_off" : "visibility"}
-                </span>
+                {showPassword ? <EyeOff className="h-5 w-5" style={{ color: "#86868b" }} /> : <Eye className="h-5 w-5" style={{ color: "#86868b" }} />}
               </button>
             </div>
             {errors.password && (
               <p className="mt-1.5 text-sm flex items-center gap-1" style={{ color: "#FF3B30" }}>
-                <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>
-                  error
-                </span>
+                <AlertCircle className="h-4 w-4" />
                 {errors.password}
               </p>
             )}
@@ -582,15 +554,7 @@ const Login = () => {
                     : "1px solid rgba(255, 59, 48, 0.3)",
               }}
             >
-              <span
-                className="material-symbols-outlined flex-shrink-0"
-                style={{
-                  fontSize: "20px",
-                  color: errors.type === "role" ? "#FF9500" : "#FF3B30",
-                }}
-              >
-                {errors.type === "role" ? "person_off" : "error"}
-              </span>
+              {errors.type === "role" ? <UserX className="h-5 w-5 flex-shrink-0" style={{ color: "#FF9500" }} /> : <AlertCircle className="h-5 w-5 flex-shrink-0" style={{ color: "#FF3B30" }} />}
               <p
                 className="text-sm"
                 style={{

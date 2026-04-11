@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLeadSearch, SearchLead } from '@/hooks/useLeadSearch';
+import { ChevronRight, Search, X } from 'lucide-react';
 
 interface AdminSearchBarProps {
   /** Optional: Compact mode for mobile */
@@ -170,12 +171,7 @@ export default function AdminSearchBar({ compact = false, onClose }: AdminSearch
     <div className={`relative ${compact ? 'flex-1' : 'w-[200px] lg:w-[280px]'}`}>
       {/* Search Input */}
       <div className="relative">
-        <span
-          className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2"
-          style={{ fontSize: '20px', color: '#86868b' }}
-        >
-          search
-        </span>
+        <Search className="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#86868b' }} />
         <input
           ref={inputRef}
           type="text"
@@ -211,9 +207,7 @@ export default function AdminSearchBar({ compact = false, onClose }: AdminSearch
             }}
             className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
           >
-            <span className="material-symbols-outlined" style={{ fontSize: '14px', color: '#666' }}>
-              close
-            </span>
+            <X className="h-3.5 w-3.5" style={{ color: '#666' }} />
           </button>
         )}
       </div>
@@ -290,9 +284,7 @@ export default function AdminSearchBar({ compact = false, onClose }: AdminSearch
                     </div>
 
                     {/* Chevron */}
-                    <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: '18px', color: '#86868b' }}>
-                      chevron_right
-                    </span>
+                    <ChevronRight className="h-[18px] w-[18px] flex-shrink-0" style={{ color: '#86868b' }} />
                   </button>
                 ))}
               </div>

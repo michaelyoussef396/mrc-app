@@ -13,6 +13,19 @@ import { useActivityTimeline } from '@/hooks/useActivityTimeline';
 import { ActivityTimeline } from '@/components/dashboard/ActivityTimeline';
 import { getTechnicianColor } from '@/hooks/useTechnicians';
 import { NeedsAttentionList } from '@/components/admin/NeedsAttentionList';
+import {
+  AlertCircle,
+  ArrowRight,
+  Calendar,
+  CalendarCheck,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardCheck,
+  DollarSign,
+  FileText,
+  UserPlus,
+  Users,
+} from 'lucide-react';
 
 // Status badge styling based on lead status
 const getStatusStyle = (status: string) => {
@@ -117,7 +130,7 @@ export default function AdminDashboard() {
           <StatsCard
             title="Today's Jobs"
             value={statsLoading ? '...' : todaysJobs}
-            icon="calendar_today"
+            icon={CalendarDays}
             iconBg="bg-blue-50"
             iconColor="text-[#007AFF]"
           />
@@ -125,7 +138,7 @@ export default function AdminDashboard() {
             title="Leads to Assign"
             value={statsLoading ? '...' : leadsToAssign}
             change={leadsToAssign > 0 ? 'Needs attention' : undefined}
-            icon="person_add"
+            icon={UserPlus}
             iconBg={leadsToAssign > 0 ? 'bg-orange-50' : 'bg-gray-100'}
             iconColor={leadsToAssign > 0 ? 'text-[#FF9500]' : 'text-[#86868b]'}
             trend={leadsToAssign > 0 ? 'neutral' : undefined}
@@ -133,14 +146,14 @@ export default function AdminDashboard() {
           <StatsCard
             title="Completed This Week"
             value={statsLoading ? '...' : completedThisWeek}
-            icon="check_circle"
+            icon={CheckCircle2}
             iconBg="bg-green-50"
             iconColor="text-[#34C759]"
           />
           <StatsCard
             title="Revenue This Week"
             value={statsLoading ? '...' : formatCurrency(revenueThisWeek)}
-            icon="payments"
+            icon={DollarSign}
             iconBg="bg-green-50"
             iconColor="text-[#34C759]"
           />
@@ -168,9 +181,7 @@ export default function AdminDashboard() {
                   style={{ color: '#007AFF' }}
                 >
                   View All
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-                    arrow_forward
-                  </span>
+                  <ArrowRight className="h-[18px] w-[18px]" />
                 </button>
               </div>
 
@@ -183,12 +194,12 @@ export default function AdminDashboard() {
                   </div>
                 ) : scheduleError ? (
                   <div className="py-12 text-center">
-                    <span className="material-symbols-outlined text-4xl mb-2" style={{ color: '#FF3B30' }}>error</span>
+                    <AlertCircle className="h-10 w-10 mb-2" style={{ color: '#FF3B30' }} />
                     <p className="text-sm" style={{ color: '#FF3B30' }}>{scheduleError}</p>
                   </div>
                 ) : schedule.length === 0 ? (
                   <div className="py-12 text-center">
-                    <span className="material-symbols-outlined text-4xl mb-2 opacity-50" style={{ color: '#86868b' }}>event_available</span>
+                    <CalendarCheck className="h-10 w-10 mb-2 opacity-50" style={{ color: '#86868b' }} />
                     <p className="text-sm" style={{ color: '#86868b' }}>No inspections scheduled for today</p>
                   </div>
                 ) : (
@@ -280,12 +291,12 @@ export default function AdminDashboard() {
                   </div>
                 ) : scheduleError ? (
                   <div className="py-12 text-center">
-                    <span className="material-symbols-outlined text-4xl mb-2" style={{ color: '#FF3B30' }}>error</span>
+                    <AlertCircle className="h-10 w-10 mb-2" style={{ color: '#FF3B30' }} />
                     <p className="text-sm" style={{ color: '#FF3B30' }}>{scheduleError}</p>
                   </div>
                 ) : schedule.length === 0 ? (
                   <div className="py-12 text-center">
-                    <span className="material-symbols-outlined text-4xl mb-2 opacity-50" style={{ color: '#86868b' }}>event_available</span>
+                    <CalendarCheck className="h-10 w-10 mb-2 opacity-50" style={{ color: '#86868b' }} />
                     <p className="text-sm" style={{ color: '#86868b' }}>No inspections scheduled for today</p>
                   </div>
                 ) : (
@@ -390,7 +401,7 @@ export default function AdminDashboard() {
                 </div>
               ) : unassignedLeadsData.length === 0 ? (
                 <div className="py-8 text-center">
-                  <span className="material-symbols-outlined text-[32px] mb-2 opacity-50" style={{ color: '#34C759' }}>check_circle</span>
+                  <CheckCircle2 className="h-8 w-8 mb-2 opacity-50" style={{ color: '#34C759' }} />
                   <p className="text-sm" style={{ color: '#86868b' }}>All leads assigned!</p>
                 </div>
               ) : (
@@ -462,7 +473,7 @@ export default function AdminDashboard() {
                   </div>
                 ) : !technicianStats || technicianStats.length === 0 ? (
                   <div className="py-8 text-center">
-                    <span className="material-symbols-outlined text-[32px] mb-2 opacity-50" style={{ color: '#86868b' }}>group</span>
+                    <Users className="h-8 w-8 mb-2 opacity-50" style={{ color: '#86868b' }} />
                     <p className="text-sm" style={{ color: '#86868b' }}>No technicians found</p>
                   </div>
                 ) : (
@@ -529,12 +540,7 @@ export default function AdminDashboard() {
                     className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                     style={{ backgroundColor: 'rgba(0, 122, 255, 0.1)' }}
                   >
-                    <span
-                      className="material-symbols-outlined"
-                      style={{ fontSize: '20px', color: '#007AFF' }}
-                    >
-                      person_add
-                    </span>
+                    <UserPlus className="h-5 w-5" style={{ color: '#007AFF' }} />
                   </div>
                   <span className="text-xs md:text-sm font-medium" style={{ color: '#1d1d1f' }}>
                     New Lead
@@ -551,12 +557,7 @@ export default function AdminDashboard() {
                     className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                     style={{ backgroundColor: 'rgba(255, 149, 0, 0.1)' }}
                   >
-                    <span
-                      className="material-symbols-outlined"
-                      style={{ fontSize: '20px', color: '#FF9500' }}
-                    >
-                      fact_check
-                    </span>
+                    <ClipboardCheck className="h-5 w-5" style={{ color: '#FF9500' }} />
                   </div>
                   <span className="text-xs md:text-sm font-medium" style={{ color: '#1d1d1f' }}>
                     Approve Reports
@@ -573,12 +574,7 @@ export default function AdminDashboard() {
                     className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                     style={{ backgroundColor: 'rgba(147, 51, 234, 0.1)' }}
                   >
-                    <span
-                      className="material-symbols-outlined"
-                      style={{ fontSize: '20px', color: 'rgb(147, 51, 234)' }}
-                    >
-                      calendar_month
-                    </span>
+                    <Calendar className="h-5 w-5" style={{ color: 'rgb(147, 51, 234)' }} />
                   </div>
                   <span className="text-xs md:text-sm font-medium" style={{ color: '#1d1d1f' }}>
                     Calendar
@@ -595,12 +591,7 @@ export default function AdminDashboard() {
                     className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                     style={{ backgroundColor: 'rgba(52, 199, 89, 0.1)' }}
                   >
-                    <span
-                      className="material-symbols-outlined"
-                      style={{ fontSize: '20px', color: '#34C759' }}
-                    >
-                      summarize
-                    </span>
+                    <FileText className="h-5 w-5" style={{ color: '#34C759' }} />
                   </div>
                   <span className="text-xs md:text-sm font-medium" style={{ color: '#1d1d1f' }}>
                     Reports

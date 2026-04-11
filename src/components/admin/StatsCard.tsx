@@ -1,8 +1,10 @@
+import type { LucideIcon } from 'lucide-react';
+
 interface StatsCardProps {
   title: string;
   value: string | number;
   change?: string;
-  icon: string;
+  icon: LucideIcon;
   iconBg: string;
   iconColor: string;
   trend?: 'up' | 'down' | 'neutral';
@@ -37,12 +39,7 @@ export default function StatsCard({
         <div
           className={`w-12 h-12 rounded-xl flex items-center justify-center ${iconBg}`}
         >
-          <span
-            className={`material-symbols-outlined ${iconColor}`}
-            style={{ fontSize: '24px' }}
-          >
-            {icon}
-          </span>
+          {(() => { const Icon = icon; return <Icon className={`h-6 w-6 ${iconColor}`} />; })()}
         </div>
       </div>
       <p

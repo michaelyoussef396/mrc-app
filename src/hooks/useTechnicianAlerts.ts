@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import type { LucideIcon } from 'lucide-react';
+import { ClipboardList, Clock, Bell, XCircle, Info } from 'lucide-react';
 
 // ============================================================================
 // TYPES
@@ -20,7 +22,7 @@ export interface TechnicianAlert {
 }
 
 export interface AlertTypeConfig {
-  icon: string;
+  icon: LucideIcon;
   iconBg: string;
   iconColor: string;
 }
@@ -31,27 +33,27 @@ export interface AlertTypeConfig {
 
 export const ALERT_TYPE_CONFIG: Record<AlertType, AlertTypeConfig> = {
   new_job: {
-    icon: 'assignment',
+    icon: ClipboardList,
     iconBg: '#E3F2FD',
     iconColor: '#007AFF',
   },
   schedule_change: {
-    icon: 'schedule',
+    icon: Clock,
     iconBg: '#FFF3E0',
     iconColor: '#FF9500',
   },
   reminder: {
-    icon: 'alarm',
+    icon: Bell,
     iconBg: '#E8F5E9',
     iconColor: '#34C759',
   },
   cancelled: {
-    icon: 'cancel',
+    icon: XCircle,
     iconBg: '#FFEBEE',
     iconColor: '#FF3B30',
   },
   system: {
-    icon: 'info',
+    icon: Info,
     iconBg: '#E5E5E5',
     iconColor: '#86868b',
   },

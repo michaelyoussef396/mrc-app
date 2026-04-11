@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getDeviceInfo } from '@/utils/deviceFingerprint';
 import { getLocationInfo } from '@/utils/ipLocation';
 import logoLarge from '@/assets/logo-large.png';
+import { AlertCircle, Check, ChevronLeft, Mail } from 'lucide-react';
 
 // Rate limiting constants
 const RESET_LIMIT = 3;
@@ -225,12 +226,7 @@ export default function ForgotPassword() {
               className="w-24 h-24 rounded-full flex items-center justify-center shadow-lg"
               style={{ backgroundColor: '#34C759' }}
             >
-              <span
-                className="material-symbols-outlined text-white"
-                style={{ fontSize: '48px', fontVariationSettings: "'FILL' 1" }}
-              >
-                check
-              </span>
+              <Check className="h-12 w-12 text-white" style={{ fontVariationSettings: "'FILL' 1" }} />
             </div>
           </div>
 
@@ -403,15 +399,7 @@ export default function ForgotPassword() {
             <div
               className={`relative rounded-xl transition-all ${error ? 'bg-red-50/50' : ''}`}
             >
-              <span
-                className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2"
-                style={{
-                  fontSize: '20px',
-                  color: error ? '#FF3B30' : '#86868b',
-                }}
-              >
-                mail
-              </span>
+              <Mail className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2" style={{ color: error ? '#FF3B30' : '#86868b' }} />
               <input
                 type="email"
                 placeholder="staff@mrc.com"
@@ -433,9 +421,7 @@ export default function ForgotPassword() {
                 className="mt-1.5 text-sm flex items-center gap-1"
                 style={{ color: '#FF3B30' }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
-                  error
-                </span>
+                <AlertCircle className="h-4 w-4" />
                 {error}
               </p>
             )}
@@ -490,9 +476,7 @@ export default function ForgotPassword() {
             className="flex items-center gap-2 font-medium hover:opacity-80 transition-opacity min-h-[48px]"
             style={{ color: '#007AFF' }}
           >
-            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-              arrow_back_ios
-            </span>
+            <ChevronLeft className="h-5 w-5" />
             <span>Back to Sign In</span>
           </Link>
         </div>
