@@ -9,6 +9,7 @@ import {
 } from '@/hooks/useScheduleCalendar';
 import { TIME_SLOTS } from '@/lib/bookingService';
 import { getEventStyles, getDurationLabel } from './scheduleUtils';
+import { CheckCircle2, Clock, XCircle } from 'lucide-react';
 
 // ============================================================================
 // TYPES
@@ -184,13 +185,13 @@ export function ScheduleCalendar({
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {/* Status icon */}
                           {event.status === 'completed' && (
-                            <span className="material-symbols-outlined text-green-600" style={{ fontSize: '14px' }}>check_circle</span>
+                            <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
                           )}
                           {event.status === 'in_progress' && (
-                            <span className="material-symbols-outlined text-yellow-600" style={{ fontSize: '14px' }}>pending</span>
+                            <Clock className="h-3.5 w-3.5 text-yellow-600" />
                           )}
                           {event.status === 'cancelled' && (
-                            <span className="material-symbols-outlined text-red-400" style={{ fontSize: '14px' }}>cancel</span>
+                            <XCircle className="h-3.5 w-3.5 text-red-400" />
                           )}
                           <span
                             className="w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold"

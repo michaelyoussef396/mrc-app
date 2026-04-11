@@ -1,4 +1,5 @@
 import type { CalendarEvent } from '@/hooks/useScheduleCalendar';
+import { CalendarX2 } from 'lucide-react';
 
 // ============================================================================
 // TYPES
@@ -35,12 +36,7 @@ export function CancelledBookingsList({ events, isLoading, onEventClick }: Cance
   if (events.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <span
-          className="material-symbols-outlined text-5xl mb-3"
-          style={{ color: '#c7c7cc' }}
-        >
-          event_busy
-        </span>
+        <CalendarX2 className="h-12 w-12 mb-3" style={{ color: '#c7c7cc' }} />
         <p className="text-base font-semibold" style={{ color: '#86868b' }}>
           No cancelled bookings
         </p>

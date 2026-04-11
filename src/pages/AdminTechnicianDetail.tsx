@@ -6,6 +6,13 @@ import { TechnicianStatsGrid } from '@/components/technicians/TechnicianStatsGri
 import { WorkloadBreakdown } from '@/components/technicians/WorkloadBreakdown';
 import { UpcomingBookingsList } from '@/components/technicians/UpcomingBookingsList';
 import { useTechnicianDetail, useUpcomingJobs } from '@/hooks/useTechnicianDetail';
+import {
+  AlertCircle,
+  ArrowLeft,
+  Menu,
+  RefreshCw,
+  UserX,
+} from 'lucide-react';
 
 // ============================================================================
 // LOADING SKELETON
@@ -92,12 +99,7 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
         className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center"
         style={{ backgroundColor: 'rgba(255, 59, 48, 0.1)' }}
       >
-        <span
-          className="material-symbols-outlined"
-          style={{ fontSize: '40px', color: '#FF3B30' }}
-        >
-          error
-        </span>
+        <AlertCircle className="h-12 w-12" style={{ color: '#FF3B30' }} />
       </div>
       <h3 className="text-lg font-semibold mb-2" style={{ color: '#1d1d1f' }}>
         Failed to Load Technician
@@ -129,12 +131,7 @@ function NotFoundState({ onBack }: { onBack: () => void }) {
         className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center"
         style={{ backgroundColor: 'rgba(255, 149, 0, 0.1)' }}
       >
-        <span
-          className="material-symbols-outlined"
-          style={{ fontSize: '40px', color: '#FF9500' }}
-        >
-          person_off
-        </span>
+        <UserX className="h-12 w-12" style={{ color: '#FF9500' }} />
       </div>
       <h3 className="text-lg font-semibold mb-2" style={{ color: '#1d1d1f' }}>
         Technician Not Found
@@ -208,9 +205,7 @@ export default function AdminTechnicianDetail() {
               className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors mr-2"
               onClick={() => setSidebarOpen(true)}
             >
-              <span className="material-symbols-outlined" style={{ color: '#1d1d1f' }}>
-                menu
-              </span>
+              <Menu className="h-5 w-5" style={{ color: '#1d1d1f' }} />
             </button>
 
             {/* Back Button */}
@@ -219,9 +214,7 @@ export default function AdminTechnicianDetail() {
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors mr-3"
               title="Back to Technicians"
             >
-              <span className="material-symbols-outlined" style={{ color: '#1d1d1f' }}>
-                arrow_back
-              </span>
+              <ArrowLeft className="h-5 w-5" style={{ color: '#1d1d1f' }} />
             </button>
 
             {/* Title */}
@@ -246,12 +239,7 @@ export default function AdminTechnicianDetail() {
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
               title="Refresh"
             >
-              <span
-                className={`material-symbols-outlined ${isLoading ? 'animate-spin' : ''}`}
-                style={{ color: '#617589' }}
-              >
-                refresh
-              </span>
+              <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''} ${isLoading ? 'animate-spin' : ''}`} style={{ color: '#617589' }} />
             </button>
           </div>
         </header>

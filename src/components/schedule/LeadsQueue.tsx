@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLeadsToSchedule } from '@/hooks/useLeadsToSchedule';
 import LeadBookingCard from './LeadBookingCard';
 import { BookJobSheet } from '@/components/leads/BookJobSheet';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 // ============================================================================
 // TYPES
@@ -89,12 +90,7 @@ export function LeadsQueue({ technicians }: LeadsQueueProps) {
         ) : error ? (
           // Error State
           <div className="py-12 text-center">
-            <span
-              className="material-symbols-outlined text-4xl mb-2"
-              style={{ color: '#FF3B30' }}
-            >
-              error
-            </span>
+            <AlertCircle className="h-10 w-10 mb-2" style={{ color: '#FF3B30' }} />
             <p className="text-sm" style={{ color: '#FF3B30' }}>
               {error}
             </p>
@@ -102,12 +98,7 @@ export function LeadsQueue({ technicians }: LeadsQueueProps) {
         ) : leads.length === 0 ? (
           // Empty State
           <div className="py-12 text-center">
-            <span
-              className="material-symbols-outlined text-4xl mb-3 opacity-50"
-              style={{ color: '#34C759' }}
-            >
-              check_circle
-            </span>
+            <CheckCircle2 className="h-10 w-10 mb-3 opacity-50" style={{ color: '#34C759' }} />
             <p className="text-sm font-medium" style={{ color: '#1d1d1f' }}>
               All caught up!
             </p>

@@ -73,6 +73,7 @@ import { InspectionReportHistory } from "@/components/leads/InspectionReportHist
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
 import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/api/inspections";
 import { getJobCompletionByLeadId } from "@/lib/api/jobCompletions";
+import { generateJobReportPdf } from "@/lib/api/jobReportPdf";
 import type { JobCompletionRow } from "@/types/jobCompletion";
 import { STATUS_FLOW, LeadStatus } from "@/lib/statusFlow";
 import { sendSlackNotification } from "@/lib/api/notifications";
@@ -140,6 +141,7 @@ export default function LeadDetail() {
   const [isSendingBack, setIsSendingBack] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [editingSection, setEditingSection] = useState<number | null>(null);
+  const [generatingJobPdf, setGeneratingJobPdf] = useState(false);
 
   // Fetch lead data
   const { data: lead, isLoading, refetch } = useQuery({
@@ -342,9 +344,19 @@ export default function LeadDetail() {
     if (!lead) return;
     setIsApproving(true);
     try {
-      // handleChangeStatus already logs activity, sends Slack, toasts and refetches.
-      // Downstream job-report PDF pipeline picks up job_completed leads when it ships.
       await handleChangeStatus('job_completed');
+      // Auto-trigger PDF generation after approval
+      if (jobCompletion) {
+        toast.info('Generating job report PDF...');
+        try {
+          await generateJobReportPdf(jobCompletion.id);
+          toast.success('Job report PDF generated');
+          refetchJobCompletion();
+        } catch (pdfErr) {
+          console.error('PDF generation failed:', pdfErr);
+          toast.error('PDF generation failed — you can retry from the lead detail');
+        }
+      }
     } finally {
       setIsApproving(false);
     }
@@ -797,13 +809,38 @@ export default function LeadDetail() {
               </div>
             </div>
 
-            <Button disabled className="w-full h-12 bg-gray-100 text-gray-500 cursor-not-allowed">
-              <FileText className="h-4 w-4 mr-2" />
-              Job Report PDF — coming soon
+            <Button
+              className="w-full h-12"
+              variant={jobCompletion?.pdf_url ? 'outline' : 'default'}
+              disabled={generatingJobPdf}
+              onClick={async () => {
+                if (jobCompletion?.pdf_url) {
+                  window.open(jobCompletion.pdf_url, '_blank');
+                  return;
+                }
+                if (!jobCompletion) return;
+                setGeneratingJobPdf(true);
+                try {
+                  const { pdfUrl } = await generateJobReportPdf(jobCompletion.id);
+                  toast.success('Job report PDF generated');
+                  refetchJobCompletion();
+                  window.open(pdfUrl, '_blank');
+                } catch (err) {
+                  toast.error('PDF generation failed');
+                  console.error(err);
+                } finally {
+                  setGeneratingJobPdf(false);
+                }
+              }}
+            >
+              {generatingJobPdf ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating PDF...</>
+              ) : jobCompletion?.pdf_url ? (
+                <><FileText className="h-4 w-4 mr-2" /> View Job Report PDF</>
+              ) : (
+                <><FileText className="h-4 w-4 mr-2" /> Generate Job Report PDF</>
+              )}
             </Button>
-            <p className="text-xs text-gray-500 text-center -mt-1">
-              PDF generation ships in Phase 2C. Approve below to advance the lead.
-            </p>
 
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1 h-12" onClick={handleCall}>
@@ -850,9 +887,15 @@ export default function LeadDetail() {
               </div>
             </div>
 
-            <Button disabled className="w-full h-12 bg-gray-100 text-gray-500 cursor-not-allowed">
+            <Button
+              className="w-full h-12"
+              onClick={() => {
+                if (jobCompletion?.pdf_url) window.open(jobCompletion.pdf_url, '_blank');
+              }}
+              disabled={!jobCompletion?.pdf_url}
+            >
               <FileText className="h-4 w-4 mr-2" />
-              View Report — coming soon
+              {jobCompletion?.pdf_url ? 'View Job Report PDF' : 'No PDF generated yet'}
             </Button>
 
             <div className="flex gap-3">

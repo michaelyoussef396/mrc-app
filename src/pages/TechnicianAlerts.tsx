@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import TechnicianBottomNav from '@/components/technician/TechnicianBottomNav';
+import { BellOff, Check, RefreshCw } from 'lucide-react';
 import {
   useTechnicianAlerts,
   TechnicianAlert,
@@ -75,12 +76,7 @@ function AlertCard({ alert, onNavigate }: AlertCardProps) {
         className="flex items-center justify-center w-12 h-12 rounded-full flex-shrink-0"
         style={{ backgroundColor: config.iconBg }}
       >
-        <span
-          className="material-symbols-outlined text-[24px]"
-          style={{ color: config.iconColor }}
-        >
-          {config.icon}
-        </span>
+        <config.icon className="h-6 w-6" style={{ color: config.iconColor }} />
       </div>
 
       {/* Content */}
@@ -134,9 +130,7 @@ function EmptyState({ onRefresh }: EmptyStateProps) {
         {/* Icon with checkmark badge */}
         <div className="relative mb-2">
           <div className="w-20 h-20 rounded-full bg-[#f0f2f4] flex items-center justify-center">
-            <span className="material-symbols-outlined text-[#86868b] text-[48px]">
-              notifications_off
-            </span>
+            <BellOff className="h-12 w-12 text-[#86868b]" />
           </div>
           <div
             className="absolute -bottom-1 -right-1 rounded-full p-1"
@@ -145,9 +139,7 @@ function EmptyState({ onRefresh }: EmptyStateProps) {
               border: '3px solid #f5f7f8',
             }}
           >
-            <span className="material-symbols-outlined text-white text-[16px]">
-              check
-            </span>
+            <Check className="h-4 w-4 text-white" />
           </div>
         </div>
 
@@ -166,7 +158,7 @@ function EmptyState({ onRefresh }: EmptyStateProps) {
           style={{ minHeight: '48px' }}
         >
           Refresh Status
-          <span className="material-symbols-outlined text-[16px]">refresh</span>
+          <RefreshCw className="h-4 w-4" />
         </button>
       </div>
     </main>

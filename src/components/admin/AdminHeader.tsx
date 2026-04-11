@@ -8,6 +8,16 @@ import {
 } from '@/hooks/useNotifications';
 import { useActivityTimeline } from '@/hooks/useActivityTimeline';
 import { ActivityTimeline } from '@/components/dashboard/ActivityTimeline';
+import {
+  ArrowLeft,
+  Clock,
+  ChevronDown,
+  LogOut,
+  Menu,
+  Search,
+  Settings,
+  User,
+} from 'lucide-react';
 
 interface AdminHeaderProps {
   userName?: string;
@@ -51,12 +61,7 @@ export default function AdminHeader({ userName = 'Admin', onMenuClick }: AdminHe
           className="lg:hidden w-12 h-12 rounded-xl bg-white flex items-center justify-center hover:bg-gray-50 transition-all"
           style={{ border: '1px solid #e5e5e5' }}
         >
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: '24px', color: '#1d1d1f' }}
-          >
-            menu
-          </span>
+          <Menu className="h-6 w-6" style={{ color: '#1d1d1f' }} />
         </button>
 
         {/* Welcome Section */}
@@ -97,12 +102,7 @@ export default function AdminHeader({ userName = 'Admin', onMenuClick }: AdminHe
           className="md:hidden relative w-12 h-12 rounded-xl bg-white flex items-center justify-center hover:bg-gray-50 transition-all"
           style={{ border: '1px solid #e5e5e5' }}
         >
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: '22px', color: '#86868b' }}
-          >
-            search
-          </span>
+          <Search className="h-6 w-6" style={{ color: '#86868b' }} />
         </button>
 
         {/* Notifications */}
@@ -133,12 +133,7 @@ export default function AdminHeader({ userName = 'Admin', onMenuClick }: AdminHe
             >
               {userName}
             </span>
-            <span
-              className="hidden md:block material-symbols-outlined"
-              style={{ fontSize: '18px', color: '#86868b' }}
-            >
-              expand_more
-            </span>
+            <ChevronDown className="hidden md:block h-[18px] w-[18px]" style={{ color: '#86868b' }} />
           </button>
 
           {/* Profile Dropdown */}
@@ -155,9 +150,7 @@ export default function AdminHeader({ userName = 'Admin', onMenuClick }: AdminHe
                 className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 flex items-center gap-2 min-h-[48px]"
                 style={{ color: '#1d1d1f' }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-                  person
-                </span>
+                <User className="h-[18px] w-[18px]" />
                 Profile
               </button>
               <button
@@ -168,9 +161,7 @@ export default function AdminHeader({ userName = 'Admin', onMenuClick }: AdminHe
                 className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 flex items-center gap-2 min-h-[48px]"
                 style={{ color: '#1d1d1f' }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-                  settings
-                </span>
+                <Settings className="h-[18px] w-[18px]" />
                 Settings
               </button>
               <hr className="my-2 border-gray-100" />
@@ -179,9 +170,7 @@ export default function AdminHeader({ userName = 'Admin', onMenuClick }: AdminHe
                 className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 flex items-center gap-2 min-h-[48px]"
                 style={{ color: '#FF3B30' }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-                  logout
-                </span>
+                <LogOut className="h-[18px] w-[18px]" />
                 Sign Out
               </button>
             </div>
@@ -198,9 +187,7 @@ export default function AdminHeader({ userName = 'Admin', onMenuClick }: AdminHe
               onClick={() => setShowMobileSearch(false)}
               className="w-12 h-12 rounded-full flex items-center justify-center hover:bg-gray-100 flex-shrink-0"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '24px', color: '#86868b' }}>
-                arrow_back
-              </span>
+              <ArrowLeft className="h-6 w-6" style={{ color: '#86868b' }} />
             </button>
             <AdminSearchBar compact onClose={() => setShowMobileSearch(false)} />
           </div>
@@ -240,12 +227,7 @@ const NotificationDropdown = forwardRef<HTMLDivElement, NotificationDropdownProp
           className="relative w-12 h-12 rounded-xl bg-white flex items-center justify-center hover:bg-gray-50 transition-all"
           style={{ border: '1px solid #e5e5e5' }}
         >
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: '22px', color: '#86868b' }}
-          >
-            history
-          </span>
+          <Clock className="h-6 w-6" style={{ color: '#86868b' }} />
           {/* Unread badge */}
           {(unreadCount ?? 0) > 0 && (
             <span

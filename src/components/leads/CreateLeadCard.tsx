@@ -1,4 +1,5 @@
-/**
+
+import { Plus } from 'lucide-react';/**
  * CreateLeadCard Component
  * Dashed border card for creating a new lead
  */
@@ -28,9 +29,7 @@ export default function CreateLeadCard({ onClick }: CreateLeadCardProps) {
           transition-colors
         "
       >
-        <span className="material-symbols-outlined text-2xl text-slate-400 group-hover:text-blue-600 transition-colors">
-          add
-        </span>
+        <Plus className="h-6 w-6 text-slate-400 group-hover:text-blue-600 transition-colors" />
       </div>
 
       {/* Text */}

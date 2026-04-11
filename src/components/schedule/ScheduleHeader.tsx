@@ -1,4 +1,12 @@
 import { formatWeekRange, getWeekStart } from '@/hooks/useScheduleCalendar';
+import {
+  CalendarX2,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  XCircle,
+} from 'lucide-react';
 
 // ============================================================================
 // TYPES
@@ -100,9 +108,7 @@ export function ScheduleHeader({
               style={{ minWidth: '44px', minHeight: '44px' }}
               aria-label="Previous day"
             >
-              <span className="material-symbols-outlined text-sm" style={{ color: '#1d1d1f' }}>
-                arrow_back_ios
-              </span>
+              <ChevronLeft className="h-4 w-4" style={{ color: '#1d1d1f' }} />
             </button>
             <button
               onClick={handleTodayDay}
@@ -117,9 +123,7 @@ export function ScheduleHeader({
               style={{ minWidth: '44px', minHeight: '44px' }}
               aria-label="Next day"
             >
-              <span className="material-symbols-outlined text-sm" style={{ color: '#1d1d1f' }}>
-                arrow_forward_ios
-              </span>
+              <ChevronRight className="h-4 w-4" style={{ color: '#1d1d1f' }} />
             </button>
           </div>
 
@@ -141,9 +145,7 @@ export function ScheduleHeader({
               className="p-2 rounded-lg hover:bg-white hover:shadow-sm transition-all"
               aria-label="Previous week"
             >
-              <span className="material-symbols-outlined text-sm" style={{ color: '#1d1d1f' }}>
-                arrow_back_ios
-              </span>
+              <ChevronLeft className="h-4 w-4" style={{ color: '#1d1d1f' }} />
             </button>
             <button
               onClick={handleToday}
@@ -157,9 +159,7 @@ export function ScheduleHeader({
               className="p-2 rounded-lg hover:bg-white hover:shadow-sm transition-all"
               aria-label="Next week"
             >
-              <span className="material-symbols-outlined text-sm" style={{ color: '#1d1d1f' }}>
-                arrow_forward_ios
-              </span>
+              <ChevronRight className="h-4 w-4" style={{ color: '#1d1d1f' }} />
             </button>
           </div>
 
@@ -171,9 +171,7 @@ export function ScheduleHeader({
 
       {showCancelled && (
         <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-lg" style={{ color: '#ef4444' }}>
-            event_busy
-          </span>
+          <CalendarX2 className="h-5 w-5" style={{ color: '#ef4444' }} />
           <h3 className="text-lg font-bold" style={{ color: '#1d1d1f' }}>
             Cancelled Bookings
           </h3>
@@ -197,7 +195,7 @@ export function ScheduleHeader({
         >
           <span className="text-sm font-medium">All</span>
           {selectedTechnician === null && !showCancelled && (
-            <span className="material-symbols-outlined text-[18px]">check</span>
+            <Check className="h-[18px] w-[18px]" />
           )}
         </button>
 
@@ -222,7 +220,7 @@ export function ScheduleHeader({
           >
             <span className="text-sm font-medium">{tech.name}</span>
             {selectedTechnician === tech.id && !showCancelled && (
-              <span className="material-symbols-outlined text-[18px]">close</span>
+              <X className="h-[18px] w-[18px]" />
             )}
           </button>
         ))}
@@ -243,7 +241,7 @@ export function ScheduleHeader({
             color: showCancelled ? undefined : '#ef4444',
           }}
         >
-          <span className="material-symbols-outlined text-[16px]">cancel</span>
+          <XCircle className="h-4 w-4" />
           <span className="text-sm font-medium">Cancelled</span>
         </button>
       </div>

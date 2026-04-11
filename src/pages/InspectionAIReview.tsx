@@ -4,6 +4,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { captureBusinessError } from '@/lib/sentry';
 import AdminSidebar from '@/components/admin/AdminSidebar';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  BarChart3,
+  Check,
+  HardHat,
+  Loader2,
+  Menu,
+  MessageSquare,
+  RefreshCw,
+  Save,
+  Search,
+  Sparkles,
+  Wrench,
+  X,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 // Helper: invoke edge functions via direct fetch
 async function invokeEdgeFunction(functionName: string, body: object): Promise<{ data: any; error: any }> {
@@ -325,7 +342,7 @@ export default function InspectionAIReview() {
               className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors mr-3"
               onClick={() => setSidebarOpen(true)}
             >
-              <span className="material-symbols-outlined text-slate-900">menu</span>
+              <Menu className="h-5 w-5 text-slate-900" />
             </button>
 
             <div className="flex items-center gap-4">
@@ -333,14 +350,14 @@ export default function InspectionAIReview() {
                 onClick={() => navigate('/admin/leads')}
                 className="h-10 w-10 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors"
               >
-                <span className="material-symbols-outlined text-slate-600">arrow_back</span>
+                <ArrowLeft className="h-5 w-5 text-slate-600" />
               </button>
               <div className="flex items-center gap-3">
                 <div
                   className="flex w-10 h-10 items-center justify-center rounded-lg text-white"
                   style={{ backgroundColor: '#7c3aed' }}
                 >
-                  <span className="material-symbols-outlined">rate_review</span>
+                  <MessageSquare className="h-5 w-5" />
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-slate-900">AI Summary Review</h1>
@@ -359,7 +376,7 @@ export default function InspectionAIReview() {
                 onClick={handleReject}
                 className="h-10 px-4 rounded-lg border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors flex items-center gap-2"
               >
-                <span className="material-symbols-outlined text-lg">close</span>
+                <X className="h-5 w-5" />
                 Reject
               </button>
               <button
@@ -367,14 +384,14 @@ export default function InspectionAIReview() {
                 disabled={saving || !isDirty}
                 className="h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors flex items-center gap-2 disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-lg">save</span>
+                <Save className="h-5 w-5" />
                 {saving ? 'Saving...' : 'Save Draft'}
               </button>
               <button
                 onClick={handleApprove}
                 className="h-10 px-4 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm"
               >
-                <span className="material-symbols-outlined text-lg">check</span>
+                <Check className="h-5 w-5" />
                 Approve & Next
               </button>
             </div>
@@ -485,12 +502,12 @@ export default function InspectionAIReview() {
                 >
                   {regeneratingAll ? (
                     <>
-                      <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
+                      <Loader2 className="h-5 w-5 animate-spin" />
                       Regenerating All...
                     </>
                   ) : (
                     <>
-                      <span className="material-symbols-outlined text-lg">auto_awesome</span>
+                      <Sparkles className="h-5 w-5" />
                       Regenerate All Sections
                     </>
                   )}
@@ -502,7 +519,7 @@ export default function InspectionAIReview() {
                 {/* Empty state */}
                 {!whatWeFound && !problemAnalysis && !whatWeWillDo && !demolitionContent && (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
-                    <span className="material-symbols-outlined text-amber-500 text-3xl mb-2">warning</span>
+                    <AlertTriangle className="h-8 w-8 text-amber-500 mb-2" />
                     <h3 className="text-lg font-semibold text-amber-800 mb-1">AI Content Not Generated</h3>
                     <p className="text-sm text-amber-700 mb-4">
                       The AI summary was not generated during inspection completion. Use "Regenerate All Sections" to generate content now.
@@ -513,7 +530,7 @@ export default function InspectionAIReview() {
                 {/* 1. What We Found */}
                 <SectionCard
                   title="What We Found"
-                  icon="search"
+                  icon={Search}
                   value={whatWeFound}
                   onChange={(v) => { setWhatWeFound(v); setIsDirty(true); }}
                   onRegenerate={() => handleRegenerateSection('whatWeFound')}
@@ -524,7 +541,7 @@ export default function InspectionAIReview() {
                 {/* 2. Problem Analysis & Recommendations */}
                 <SectionCard
                   title="Problem Analysis & Recommendations"
-                  icon="analytics"
+                  icon={BarChart3}
                   value={problemAnalysis}
                   onChange={(v) => { setProblemAnalysis(v); setIsDirty(true); }}
                   onRegenerate={() => handleRegenerateSection('detailedAnalysis')}
@@ -535,7 +552,7 @@ export default function InspectionAIReview() {
                 {/* 3. What We're Going To Do */}
                 <SectionCard
                   title="What We're Going To Do"
-                  icon="handyman"
+                  icon={Wrench}
                   value={whatWeWillDo}
                   onChange={(v) => { setWhatWeWillDo(v); setIsDirty(true); }}
                   onRegenerate={() => handleRegenerateSection('whatWeWillDo')}
@@ -547,7 +564,7 @@ export default function InspectionAIReview() {
                 {hasDemolition && (
                   <SectionCard
                     title="Demolition Details"
-                    icon="construction"
+                    icon={HardHat}
                     value={demolitionContent}
                     onChange={(v) => { setDemolitionContent(v); setIsDirty(true); }}
                     onRegenerate={() => handleRegenerateSection('demolitionDetails')}
@@ -566,7 +583,7 @@ export default function InspectionAIReview() {
             onClick={handleReject}
             className="h-12 px-4 rounded-lg border border-red-200 text-red-600 text-sm font-medium flex items-center justify-center gap-1"
           >
-            <span className="material-symbols-outlined text-lg">close</span>
+            <X className="h-5 w-5" />
             Reject
           </button>
           <button
@@ -574,14 +591,14 @@ export default function InspectionAIReview() {
             disabled={saving || !isDirty}
             className="flex-1 h-12 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium flex items-center justify-center gap-1 disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-lg">save</span>
+            <Save className="h-5 w-5" />
             {saving ? 'Saving...' : 'Save'}
           </button>
           <button
             onClick={handleApprove}
             className="flex-1 h-12 px-4 rounded-lg bg-emerald-600 text-white text-sm font-medium flex items-center justify-center gap-1 shadow-sm"
           >
-            <span className="material-symbols-outlined text-lg">check</span>
+            <Check className="h-5 w-5" />
             Approve
           </button>
         </div>
@@ -596,7 +613,7 @@ export default function InspectionAIReview() {
 
 function SectionCard({
   title,
-  icon,
+  icon: Icon,
   value,
   onChange,
   onRegenerate,
@@ -604,7 +621,7 @@ function SectionCard({
   rows = 6,
 }: {
   title: string;
-  icon: string;
+  icon: LucideIcon;
   value: string;
   onChange: (value: string) => void;
   onRegenerate: () => void;
@@ -615,7 +632,7 @@ function SectionCard({
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
         <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-          <span className="material-symbols-outlined text-violet-600">{icon}</span>
+          <Icon className="h-5 w-5 text-violet-600" />
           {title}
         </h3>
         <button
@@ -624,10 +641,10 @@ function SectionCard({
           className="h-8 px-3 rounded-lg text-violet-600 text-sm font-medium hover:bg-violet-50 transition-colors flex items-center gap-1 disabled:opacity-50"
         >
           {isRegenerating ? (
-            <span className="material-symbols-outlined animate-spin text-base">progress_activity</span>
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <>
-              <span className="material-symbols-outlined text-base">refresh</span>
+              <RefreshCw className="h-4 w-4" />
               Regenerate
             </>
           )}

@@ -9,6 +9,28 @@ import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps
 import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
 import { useLeadUpdate } from '@/hooks/useLeadUpdate';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  AlertCircle,
+  AlertTriangle,
+  Car,
+  Check,
+  ChevronDown,
+  Clock,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  FileEdit,
+  FileText,
+  Home,
+  Lock,
+  MapPin,
+  Save,
+  Search,
+  Sparkles,
+  Timer,
+  User,
+} from 'lucide-react';
 
 // ============================================================================
 // TYPES
@@ -425,24 +447,18 @@ export function LeadBookingCard({
         <div className="flex items-center gap-2 flex-shrink-0">
           {/* Address status indicator */}
           {isExpanded && (
-            <span
-              className="material-symbols-outlined text-base"
-              style={{ color: addressConfirmed ? '#34C759' : '#FF9500' }}
-              title={addressConfirmed ? 'Address confirmed' : 'Address not confirmed'}
-            >
-              {addressConfirmed ? 'check_circle' : 'warning'}
-            </span>
+            addressConfirmed
+              ? <CheckCircle2 className="h-4 w-4" style={{ color: '#34C759' }} title="Address confirmed" />
+              : <AlertTriangle className="h-4 w-4" style={{ color: '#FF9500' }} title="Address not confirmed" />
           )}
           <button
             className="w-8 h-8 flex items-center justify-center rounded-full transition-colors"
             style={{ backgroundColor: isExpanded ? '#007AFF' : '#f0f2f4' }}
           >
-            <span
-              className="material-symbols-outlined text-xl"
-              style={{ color: isExpanded ? 'white' : '#617589' }}
-            >
-              {isExpanded ? 'expand_less' : 'expand_more'}
-            </span>
+            {isExpanded
+              ? <ChevronUp className="h-5 w-5" style={{ color: 'white' }} />
+              : <ChevronDown className="h-5 w-5" style={{ color: '#617589' }} />
+            }
           </button>
         </div>
       </div>
@@ -462,12 +478,10 @@ export function LeadBookingCard({
             }}
           >
             <div className="flex items-center gap-2">
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: '16px', color: addressConfirmed ? '#34C759' : '#FF9500' }}
-              >
-                {addressConfirmed ? 'check_circle' : 'location_on'}
-              </span>
+              {addressConfirmed
+                ? <CheckCircle2 className="h-4 w-4" style={{ color: '#34C759' }} />
+                : <MapPin className="h-4 w-4" style={{ color: '#FF9500' }} />
+              }
               <label
                 className="text-xs font-semibold uppercase tracking-wide"
                 style={{ color: addressConfirmed ? '#34C759' : '#FF9500' }}
@@ -478,9 +492,7 @@ export function LeadBookingCard({
 
             {/* Current address display */}
             <div className="flex items-start gap-2">
-              <span className="material-symbols-outlined text-gray-400 mt-0.5" style={{ fontSize: '16px' }}>
-                home
-              </span>
+              <Home className="h-4 w-4 text-gray-400 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium" style={{ color: '#1d1d1f' }}>
                   {validatedAddress ? validatedAddress.street : (displayAddress || 'No address on file')}
@@ -508,7 +520,7 @@ export function LeadBookingCard({
                         color: 'white',
                       }}
                     >
-                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check</span>
+                      <Check className="h-[18px] w-[18px]" />
                       Address is Correct
                     </button>
                     <button
@@ -521,7 +533,7 @@ export function LeadBookingCard({
                         color: '#617589',
                       }}
                     >
-                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>search</span>
+                      <Search className="h-[18px] w-[18px]" />
                       Update Address
                     </button>
                   </div>
@@ -542,9 +554,7 @@ export function LeadBookingCard({
                         style={{ outline: 'none' }}
                         onClick={e => e.stopPropagation()}
                       />
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" style={{ fontSize: '16px' }}>
-                        search
-                      </span>
+                      <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
 
                       {/* Predictions dropdown */}
                       {showPredictions && predictions.length > 0 && (
@@ -556,7 +566,7 @@ export function LeadBookingCard({
                               onClick={() => handleSelectPrediction(prediction.place_id, prediction.description)}
                               className="w-full px-3 py-2.5 text-left hover:bg-gray-50 flex items-start gap-2 transition-colors border-b border-gray-100 last:border-b-0"
                             >
-                              <span className="material-symbols-outlined text-gray-400 mt-0.5" style={{ fontSize: '16px' }}>location_on</span>
+                              <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium truncate" style={{ color: '#1d1d1f' }}>
                                   {prediction.structured_formatting.main_text}
@@ -574,7 +584,7 @@ export function LeadBookingCard({
                     {/* Postcode warning */}
                     {postcodeWarning && (
                       <div className="flex items-center gap-1.5 px-2">
-                        <span className="material-symbols-outlined" style={{ fontSize: '14px', color: '#FF9500' }}>warning</span>
+                        <AlertTriangle className="h-3.5 w-3.5" style={{ color: '#FF9500' }} />
                         <p className="text-xs" style={{ color: '#FF9500' }}>{postcodeWarning}</p>
                       </div>
                     )}
@@ -595,7 +605,7 @@ export function LeadBookingCard({
                           </>
                         ) : (
                           <>
-                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check</span>
+                            <Check className="h-[18px] w-[18px]" />
                             Confirm Address
                           </>
                         )}
@@ -634,9 +644,7 @@ export function LeadBookingCard({
               className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1"
               style={{ color: '#007AFF' }}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
-                notes
-              </span>
+              <FileText className="h-3.5 w-3.5" />
               Notes from Enquiry
             </label>
             <div
@@ -671,12 +679,7 @@ export function LeadBookingCard({
             style={{ backgroundColor: 'white', border: '1px solid #e5e5e5' }}
           >
             <div className="flex items-center gap-2">
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: '16px', color: '#007AFF' }}
-              >
-                edit_note
-              </span>
+              <FileEdit className="h-4 w-4" style={{ color: '#007AFF' }} />
               <label
                 className="text-xs font-semibold uppercase tracking-wide"
                 style={{ color: '#007AFF' }}
@@ -773,12 +776,7 @@ export function LeadBookingCard({
                     </option>
                   ))}
                 </select>
-                <span
-                  className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                  style={{ color: '#617589', fontSize: '20px' }}
-                >
-                  expand_more
-                </span>
+                <ChevronDown className="h-5 w-5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#617589' }} />
               </div>
             </div>
 
@@ -798,7 +796,7 @@ export function LeadBookingCard({
                   </>
                 ) : (
                   <>
-                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>save</span>
+                    <Save className="h-[18px] w-[18px]" />
                     Save Changes
                   </>
                 )}
@@ -814,7 +812,7 @@ export function LeadBookingCard({
                 className="flex items-center gap-2 p-3 rounded-lg"
                 style={{ backgroundColor: 'rgba(255, 149, 0, 0.08)', border: '1px solid rgba(255, 149, 0, 0.2)' }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#FF9500' }}>lock</span>
+                <Lock className="h-[18px] w-[18px]" style={{ color: '#FF9500' }} />
                 <p className="text-xs font-medium" style={{ color: '#FF9500' }}>
                   Confirm address above to enable scheduling
                 </p>
@@ -827,9 +825,7 @@ export function LeadBookingCard({
                 className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1"
                 style={{ color: '#617589' }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
-                  timer
-                </span>
+                <Timer className="h-3.5 w-3.5" />
                 Est. Duration (minutes)
               </label>
               <input
@@ -934,9 +930,7 @@ export function LeadBookingCard({
                   className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1"
                   style={{ color: '#617589' }}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
-                    auto_awesome
-                  </span>
+                  <Sparkles className="h-3.5 w-3.5" />
                   Recommended Days
                 </label>
 
@@ -949,12 +943,10 @@ export function LeadBookingCard({
                       border: techInfo.missingAddress ? '1px solid rgba(255, 149, 0, 0.2)' : '1px solid rgba(0, 122, 255, 0.15)',
                     }}
                   >
-                    <span
-                      className="material-symbols-outlined mt-0.5"
-                      style={{ fontSize: '16px', color: techInfo.missingAddress ? '#FF9500' : '#007AFF' }}
-                    >
-                      {techInfo.missingAddress ? 'warning' : 'home'}
-                    </span>
+                    {techInfo.missingAddress
+                      ? <AlertTriangle className="h-4 w-4 mt-0.5" style={{ color: '#FF9500' }} />
+                      : <Home className="h-4 w-4 mt-0.5" style={{ color: '#007AFF' }} />
+                    }
                     <div>
                       <p className="text-xs font-medium" style={{ color: techInfo.missingAddress ? '#FF9500' : '#007AFF' }}>
                         Travelling from: {techInfo.home || 'Address not set'}
@@ -1013,22 +1005,10 @@ export function LeadBookingCard({
                                 <span className="font-normal"> at {bestTime}</span>
                               )}
                               {rec.preferred_time_feasible === true && (
-                                <span
-                                  className="material-symbols-outlined"
-                                  style={{ fontSize: '14px', color: isSelected ? 'rgba(255,255,255,0.9)' : '#34C759' }}
-                                  title="Preferred time available"
-                                >
-                                  check_circle
-                                </span>
+                                <CheckCircle2 className="h-3.5 w-3.5" style={{ color: isSelected ? 'rgba(255,255,255,0.9)' : '#34C759' }} title="Preferred time available" />
                               )}
                               {rec.preferred_time_feasible === false && (
-                                <span
-                                  className="material-symbols-outlined"
-                                  style={{ fontSize: '14px', color: isSelected ? 'rgba(255,255,255,0.9)' : '#FF9500' }}
-                                  title="Preferred time conflicts"
-                                >
-                                  warning
-                                </span>
+                                <AlertTriangle className="h-3.5 w-3.5" style={{ color: isSelected ? 'rgba(255,255,255,0.9)' : '#FF9500' }} title="Preferred time conflicts" />
                               )}
                             </span>
                             <span
@@ -1065,7 +1045,7 @@ export function LeadBookingCard({
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg"
                 style={{ backgroundColor: 'rgba(0, 122, 255, 0.06)', border: '1px solid rgba(0, 122, 255, 0.15)' }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#007AFF' }}>person</span>
+                <User className="h-4 w-4" style={{ color: '#007AFF' }} />
                 <p className="text-xs font-medium" style={{ color: '#007AFF' }}>
                   Customer's preferred time
                 </p>
@@ -1122,12 +1102,7 @@ export function LeadBookingCard({
                     </option>
                   ))}
                 </select>
-                <span
-                  className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                  style={{ color: '#617589', fontSize: '20px' }}
-                >
-                  schedule
-                </span>
+                <Clock className="h-5 w-5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#617589' }} />
               </div>
             </div>
 
@@ -1152,12 +1127,10 @@ export function LeadBookingCard({
                 }}
               >
                 <div className="flex items-center gap-2">
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ fontSize: '16px', color: availabilityResult.is_feasible ? '#34C759' : '#FF9500' }}
-                  >
-                    {availabilityResult.is_feasible ? 'check_circle' : 'warning'}
-                  </span>
+                  {availabilityResult.is_feasible
+                    ? <CheckCircle2 className="h-4 w-4" style={{ color: '#34C759' }} />
+                    : <AlertTriangle className="h-4 w-4" style={{ color: '#FF9500' }} />
+                  }
                   <label
                     className="text-xs font-semibold uppercase tracking-wide"
                     style={{ color: availabilityResult.is_feasible ? '#34C759' : '#FF9500' }}
@@ -1168,9 +1141,10 @@ export function LeadBookingCard({
 
                 {/* Travel origin */}
                 <div className="flex items-start gap-2">
-                  <span className="material-symbols-outlined text-gray-400 mt-0.5" style={{ fontSize: '14px' }}>
-                    {availabilityResult.previous_appointment ? 'location_on' : 'home'}
-                  </span>
+                  {availabilityResult.previous_appointment
+                    ? <MapPin className="h-3.5 w-3.5 text-gray-400 mt-0.5" />
+                    : <Home className="h-3.5 w-3.5 text-gray-400 mt-0.5" />
+                  }
                   <p className="text-xs" style={{ color: '#1d1d1f' }}>
                     <span className="font-medium">Travel from: </span>
                     {availabilityResult.previous_appointment
@@ -1182,16 +1156,14 @@ export function LeadBookingCard({
                 {/* Travel time + distance */}
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-gray-400" style={{ fontSize: '14px' }}>directions_car</span>
+                    <Car className="h-3.5 w-3.5 text-gray-400" />
                     <p className="text-xs font-medium" style={{ color: '#1d1d1f' }}>
                       {availabilityResult.travel_time_minutes} min
                       {availabilityResult.travel_distance_km != null && ` · ${availabilityResult.travel_distance_km} km`}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined" style={{ fontSize: '14px', color: availabilityResult.is_feasible ? '#34C759' : '#FF9500' }}>
-                      schedule
-                    </span>
+                    <Clock className="h-3.5 w-3.5" style={{ color: availabilityResult.is_feasible ? '#34C759' : '#FF9500' }} />
                     <p className="text-xs font-medium" style={{ color: availabilityResult.is_feasible ? '#34C759' : '#FF9500' }}>
                       Buffer: {availabilityResult.buffer_minutes >= 0 ? `${availabilityResult.buffer_minutes} min` : `${Math.abs(availabilityResult.buffer_minutes)} min short`}
                     </p>
@@ -1234,7 +1206,7 @@ export function LeadBookingCard({
                 className="flex items-center gap-2 p-3 rounded-lg"
                 style={{ backgroundColor: 'rgba(255, 59, 48, 0.08)', border: '1px solid rgba(255, 59, 48, 0.3)' }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#FF3B30' }}>error</span>
+                <AlertCircle className="h-[18px] w-[18px]" style={{ color: '#FF3B30' }} />
                 <p className="text-xs font-semibold" style={{ color: '#FF3B30' }}>
                   Tech needs {Math.abs(availabilityResult.buffer_minutes)} more min to get there — booking will still be created if you proceed
                 </p>

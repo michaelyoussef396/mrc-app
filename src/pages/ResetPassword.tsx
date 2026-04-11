@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import logoLarge from '@/assets/logo-large.png';
+import { AlertCircle, Check, CheckCircle2, Eye, EyeOff, Lock, XCircle } from 'lucide-react';
 
 export default function ResetPassword() {
   const { updatePassword } = useAuth();
@@ -200,12 +201,7 @@ export default function ResetPassword() {
               className="w-24 h-24 rounded-full flex items-center justify-center shadow-lg"
               style={{ backgroundColor: '#FF3B30' }}
             >
-              <span
-                className="material-symbols-outlined text-white"
-                style={{ fontSize: '48px' }}
-              >
-                error
-              </span>
+              <AlertCircle className="h-12 w-12 text-white" />
             </div>
           </div>
 
@@ -256,12 +252,7 @@ export default function ResetPassword() {
               className="w-24 h-24 rounded-full flex items-center justify-center shadow-lg"
               style={{ backgroundColor: '#34C759' }}
             >
-              <span
-                className="material-symbols-outlined text-white"
-                style={{ fontSize: '48px', fontVariationSettings: "'FILL' 1" }}
-              >
-                check
-              </span>
+              <Check className="h-12 w-12 text-white" style={{ fontVariationSettings: "'FILL' 1" }} />
             </div>
           </div>
 
@@ -378,12 +369,7 @@ export default function ResetPassword() {
                 border: '1px solid rgba(255, 59, 48, 0.3)',
               }}
             >
-              <span
-                className="material-symbols-outlined flex-shrink-0"
-                style={{ fontSize: '20px', color: '#FF3B30' }}
-              >
-                error
-              </span>
+              <AlertCircle className="h-5 w-5 flex-shrink-0" style={{ color: '#FF3B30' }} />
               <p className="text-sm" style={{ color: '#FF3B30' }}>
                 {error}
               </p>
@@ -393,12 +379,7 @@ export default function ResetPassword() {
           {/* New Password Input */}
           <div>
             <div className="relative rounded-xl">
-              <span
-                className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2"
-                style={{ fontSize: '20px', color: '#86868b' }}
-              >
-                lock
-              </span>
+              <Lock className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#86868b' }} />
               <input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="New password"
@@ -420,12 +401,7 @@ export default function ResetPassword() {
                 disabled={isLoading}
                 className="absolute right-4 top-1/2 -translate-y-1/2"
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: '20px', color: '#86868b' }}
-                >
-                  {showPassword ? 'visibility_off' : 'visibility'}
-                </span>
+                {showPassword ? <EyeOff className="h-5 w-5" style={{ color: '#86868b' }} /> : <Eye className="h-5 w-5" style={{ color: '#86868b' }} />}
               </button>
             </div>
             <p className="mt-1 text-xs" style={{ color: '#86868b' }}>
@@ -436,12 +412,7 @@ export default function ResetPassword() {
           {/* Confirm Password Input */}
           <div>
             <div className="relative rounded-xl">
-              <span
-                className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2"
-                style={{ fontSize: '20px', color: '#86868b' }}
-              >
-                lock
-              </span>
+              <Lock className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#86868b' }} />
               <input
                 type={showConfirmPassword ? 'text' : 'password'}
                 placeholder="Confirm new password"
@@ -462,12 +433,7 @@ export default function ResetPassword() {
                 disabled={isLoading}
                 className="absolute right-4 top-1/2 -translate-y-1/2"
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: '20px', color: '#86868b' }}
-                >
-                  {showConfirmPassword ? 'visibility_off' : 'visibility'}
-                </span>
+                {showConfirmPassword ? <EyeOff className="h-5 w-5" style={{ color: '#86868b' }} /> : <Eye className="h-5 w-5" style={{ color: '#86868b' }} />}
               </button>
             </div>
             {confirmPassword && (
@@ -475,9 +441,7 @@ export default function ResetPassword() {
                 className="mt-1 text-xs font-medium flex items-center gap-1"
                 style={{ color: password === confirmPassword ? '#34C759' : '#FF3B30' }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
-                  {password === confirmPassword ? 'check_circle' : 'cancel'}
-                </span>
+                {password === confirmPassword ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
                 {password === confirmPassword ? 'Passwords match' : 'Passwords do not match'}
               </p>
             )}

@@ -1,5 +1,6 @@
 import { UpcomingJob } from '@/hooks/useTechnicianDetail';
 import { UpcomingBookingCard } from './UpcomingBookingCard';
+import { CalendarCheck } from 'lucide-react';
 
 interface UpcomingBookingsListProps {
   bookings: UpcomingJob[];
@@ -40,12 +41,7 @@ function EmptyState() {
         className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
         style={{ backgroundColor: 'rgba(0, 122, 255, 0.1)' }}
       >
-        <span
-          className="material-symbols-outlined"
-          style={{ fontSize: '28px', color: '#007AFF' }}
-        >
-          event_available
-        </span>
+        <CalendarCheck className="h-8 w-8" style={{ color: '#007AFF' }} />
       </div>
       <h4 className="text-base font-semibold mb-1" style={{ color: '#1d1d1f' }}>
         No Upcoming Jobs

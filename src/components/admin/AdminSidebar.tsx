@@ -2,21 +2,33 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import logoLarge from '@/assets/logo-large.png';
+import {
+  BarChart3,
+  Calendar,
+  Clock,
+  HelpCircle,
+  Inbox,
+  LayoutDashboard,
+  Settings,
+  Users,
+  X,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface NavItem {
-  icon: string;
+  icon: LucideIcon;
   label: string;
   path: string;
 }
 
 const navItems: NavItem[] = [
-  { icon: 'dashboard', label: 'Dashboard', path: '/admin' },
-  { icon: 'inbox', label: 'Leads', path: '/admin/leads' },
-  { icon: 'calendar_month', label: 'Schedule', path: '/admin/schedule' },
-  { icon: 'groups', label: 'Technicians', path: '/admin/technicians' },
-  { icon: 'assessment', label: 'Reports', path: '/admin/reports' },
-  { icon: 'history', label: 'Recent Activity', path: '/admin/activity' },
-  { icon: 'settings', label: 'Settings', path: '/admin/settings' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
+  { icon: Inbox, label: 'Leads', path: '/admin/leads' },
+  { icon: Calendar, label: 'Schedule', path: '/admin/schedule' },
+  { icon: Users, label: 'Technicians', path: '/admin/technicians' },
+  { icon: BarChart3, label: 'Reports', path: '/admin/reports' },
+  { icon: Clock, label: 'Recent Activity', path: '/admin/activity' },
+  { icon: Settings, label: 'Settings', path: '/admin/settings' },
 ];
 
 interface AdminSidebarProps {
@@ -90,17 +102,7 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
                     : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`}
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{
-                    fontSize: '22px',
-                    fontVariationSettings: isActive(item.path)
-                      ? "'FILL' 1"
-                      : "'FILL' 0",
-                  }}
-                >
-                  {item.icon}
-                </span>
+                <item.icon className="h-[22px] w-[22px]" />
                 <span className="font-medium text-[15px]">{item.label}</span>
                 {item.label === 'Leads' && newLeadsCount > 0 && (
                   <span
@@ -125,12 +127,7 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
           onClick={() => handleNavClick('/admin/help')}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/10 hover:text-white transition-all min-h-[48px]"
         >
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: '22px' }}
-          >
-            help
-          </span>
+          <HelpCircle className="h-6 w-6" />
           <span className="font-medium text-[15px]">Help & Support</span>
         </button>
       </div>
@@ -166,9 +163,7 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
               onClick={onClose}
               className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-all"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>
-                close
-              </span>
+              <X className="h-6 w-6" />
             </button>
 
             <SidebarContent />

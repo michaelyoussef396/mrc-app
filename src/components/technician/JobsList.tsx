@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { Clock, Eye } from 'lucide-react';
 
 export interface Job {
   id: string;
@@ -83,12 +84,7 @@ export default function JobsList({ jobs, title }: JobsListProps) {
               {/* Top Row - Time & Status */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ fontSize: '18px', color: '#86868b' }}
-                  >
-                    schedule
-                  </span>
+                  <Clock className="h-[18px] w-[18px]" style={{ color: '#86868b' }} />
                   <span
                     className="text-sm font-semibold"
                     style={{ color: '#1d1d1f' }}
@@ -131,12 +127,7 @@ export default function JobsList({ jobs, title }: JobsListProps) {
                   color: '#1d1d1f',
                 }}
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: '18px', color: '#007AFF' }}
-                >
-                  visibility
-                </span>
+                <Eye className="h-[18px] w-[18px]" style={{ color: '#007AFF' }} />
                 <span>View Lead</span>
               </button>
             </div>

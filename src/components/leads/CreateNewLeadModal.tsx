@@ -5,6 +5,17 @@ import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps
 import { sendSlackNotification } from '@/lib/api/notifications';
 import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
 import { captureBusinessError } from '@/lib/sentry';
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  MapPin,
+  Search,
+  X,
+  Zap,
+} from 'lucide-react';
 
 // ============================================================================
 // TYPES
@@ -487,7 +498,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
             className="flex items-center justify-center rounded-full h-10 w-10 bg-gray-100 hover:bg-gray-200 transition-colors"
             style={{ color: '#1d1d1f' }}
           >
-            <span className="material-symbols-outlined">close</span>
+            <X className="h-5 w-5" />
           </button>
         </div>
 
@@ -498,9 +509,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
               className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
               style={{ backgroundColor: 'rgba(52, 199, 89, 0.1)' }}
             >
-              <span className="material-symbols-outlined text-[48px]" style={{ color: '#34C759' }}>
-                check_circle
-              </span>
+              <CheckCircle2 className="h-12 w-12" style={{ color: '#34C759' }} />
             </div>
             <h3 className="text-xl font-bold mb-2" style={{ color: '#1d1d1f' }}>
               Lead Created Successfully!
@@ -521,7 +530,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                   className="p-4 rounded-xl flex items-start gap-3"
                   style={{ backgroundColor: 'rgba(255, 59, 48, 0.1)' }}
                 >
-                  <span className="material-symbols-outlined" style={{ color: '#FF3B30' }}>error</span>
+                  <AlertCircle className="h-5 w-5" style={{ color: '#FF3B30' }} />
                   <p className="text-sm" style={{ color: '#FF3B30' }}>{errors.general}</p>
                 </div>
               )}
@@ -532,7 +541,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                   className="p-4 rounded-xl flex items-start gap-3"
                   style={{ backgroundColor: 'rgba(255, 149, 0, 0.1)' }}
                 >
-                  <span className="material-symbols-outlined" style={{ color: '#FF9500' }}>warning</span>
+                  <AlertTriangle className="h-5 w-5" style={{ color: '#FF9500' }} />
                   <div>
                     <p className="text-sm font-medium" style={{ color: '#FF9500' }}>Duplicate Lead Detected</p>
                     <p className="text-sm mt-1" style={{ color: '#86868b' }}>{duplicateWarning}</p>
@@ -627,12 +636,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                       <option key={slot.time} value={slot.time}>{slot.label}</option>
                     ))}
                   </select>
-                  <span
-                    className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                    style={{ color: '#617589', fontSize: '20px' }}
-                  >
-                    schedule
-                  </span>
+                  <Clock className="h-5 w-5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#617589' }} />
                 </div>
                 {errors.preferredTime && (
                   <p className="text-xs mt-1 ml-1" style={{ color: '#FF3B30' }}>{errors.preferredTime}</p>
@@ -662,7 +666,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                     style={{ outline: 'none' }}
                   />
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                    <span className="material-symbols-outlined text-lg">search</span>
+                    <Search className="h-5 w-5" />
                   </div>
 
                   {/* Address Predictions Dropdown */}
@@ -675,7 +679,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                           onClick={() => handleSelectPrediction(prediction.place_id, prediction.description)}
                           className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-start gap-3 transition-colors border-b border-gray-100 last:border-b-0"
                         >
-                          <span className="material-symbols-outlined text-gray-400 text-lg mt-0.5">location_on</span>
+                          <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate" style={{ color: '#1d1d1f' }}>
                               {prediction.structured_formatting.main_text}
@@ -800,12 +804,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                       </option>
                     ))}
                   </select>
-                  <span
-                    className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                    style={{ color: '#617589', fontSize: '20px' }}
-                  >
-                    expand_more
-                  </span>
+                  <ChevronDown className="h-5 w-5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#617589' }} />
                 </div>
                 {errors.source && (
                   <p className="text-xs mt-1 ml-1" style={{ color: '#FF3B30' }}>{errors.source}</p>
@@ -816,7 +815,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
             {/* Footer */}
             <div className="px-6 py-6 border-t border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-2 mb-4 pb-4 border-b border-gray-100">
-                <span className="material-symbols-outlined text-lg" style={{ color: '#86868b' }}>bolt</span>
+                <Zap className="h-5 w-5" style={{ color: '#86868b' }} />
                 <p className="text-xs" style={{ color: '#86868b' }}>
                   New leads are automatically posted to Slack #leads channel
                 </p>

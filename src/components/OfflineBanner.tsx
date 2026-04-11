@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useOfflineSync } from "@/lib/offline/useOfflineSync";
+import { WifiOff, X } from 'lucide-react';
 
 export default function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -30,7 +31,7 @@ export default function OfflineBanner() {
   return (
     <div className="fixed top-0 left-0 right-0 z-[9999] bg-amber-500 text-white px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <span className="material-symbols-outlined text-lg">wifi_off</span>
+        <WifiOff className="h-5 w-5" />
         {message}
       </div>
       <button
@@ -39,7 +40,7 @@ export default function OfflineBanner() {
         style={{ minWidth: "48px", minHeight: "48px" }}
         aria-label="Dismiss"
       >
-        <span className="material-symbols-outlined text-lg">close</span>
+        <X className="h-5 w-5" />
       </button>
     </div>
   );

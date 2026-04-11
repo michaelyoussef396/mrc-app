@@ -1,4 +1,26 @@
-/**
+
+import {
+  Archive,
+  BadgeCheck,
+  Calendar,
+  CalendarCheck,
+  Check,
+  CheckCircle,
+  CheckCircle2,
+  Clock,
+  Eye,
+  FileText,
+  FolderOpen,
+  Hourglass,
+  Mail,
+  MapPin,
+  MessageSquare,
+  Phone,
+  RefreshCw,
+  Sparkles,
+  Wrench,
+  XCircle,
+} from 'lucide-react';/**
  * LeadCard Component
  * Status-specific card for the lead pipeline with action buttons
  */
@@ -200,7 +222,7 @@ export default function LeadCard({
         return (
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 text-xs font-medium">
-              <span className="material-symbols-outlined text-sm">auto_awesome</span>
+              <Sparkles className="h-4 w-4" />
               AI Generated — Ready for review
             </span>
           </div>
@@ -210,7 +232,7 @@ export default function LeadCard({
         return (
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">
-              <span className="material-symbols-outlined text-sm">check_circle</span>
+              <CheckCircle2 className="h-4 w-4" />
               PDF Ready
             </span>
           </div>
@@ -220,7 +242,7 @@ export default function LeadCard({
         return (
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-medium">
-              <span className="material-symbols-outlined text-sm">verified</span>
+              <BadgeCheck className="h-4 w-4" />
               Report Approved
             </span>
           </div>
@@ -230,7 +252,7 @@ export default function LeadCard({
         return (
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
-              <span className="material-symbols-outlined text-sm">task_alt</span>
+              <CheckCircle className="h-4 w-4" />
               Completed
             </span>
             {lead.lastContact && (
@@ -255,7 +277,7 @@ export default function LeadCard({
         return (
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-medium">
-              <span className="material-symbols-outlined text-sm">event_available</span>
+              <CalendarCheck className="h-4 w-4" />
               Ready to book
             </span>
             {lead.estimatedValue && (
@@ -270,7 +292,7 @@ export default function LeadCard({
         return (
           <div className="flex flex-col gap-1.5">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium w-fit">
-              <span className="material-symbols-outlined text-sm">engineering</span>
+              <Wrench className="h-4 w-4" />
               Awaiting technician{lead.assigned_technician ? `: ${lead.assigned_technician}` : ''}
             </span>
             {lead.job_scheduled_date && (
@@ -308,7 +330,7 @@ export default function LeadCard({
             className="flex-1 h-10 px-4 rounded-lg bg-blue-600 text-white text-sm font-medium
               hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
           >
-            <span className="material-symbols-outlined text-lg">calendar_month</span>
+            <Calendar className="h-5 w-5" />
             Schedule
           </button>
         );
@@ -317,7 +339,7 @@ export default function LeadCard({
         return (
           <div className="flex-1 h-10 px-4 rounded-lg bg-slate-100 text-slate-500 text-sm font-medium
             flex items-center justify-center gap-2">
-            <span className="material-symbols-outlined text-lg">hourglass_top</span>
+            <Hourglass className="h-5 w-5" />
             Awaiting on {lead.assigned_technician || 'Technician'}
           </div>
         );
@@ -332,7 +354,7 @@ export default function LeadCard({
             className="flex-1 h-10 px-4 rounded-lg bg-violet-600 text-white text-sm font-medium
               hover:bg-violet-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
           >
-            <span className="material-symbols-outlined text-lg">rate_review</span>
+            <MessageSquare className="h-5 w-5" />
             Review AI Summary
           </button>
         );
@@ -348,7 +370,7 @@ export default function LeadCard({
               className="flex-1 h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
                 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
             >
-              <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
+              <FileText className="h-5 w-5" />
               View PDF
             </button>
             <button
@@ -359,7 +381,7 @@ export default function LeadCard({
               className="flex-1 h-10 px-4 rounded-lg bg-emerald-600 text-white text-sm font-medium
                 hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
             >
-              <span className="material-symbols-outlined text-lg">check</span>
+              <Check className="h-5 w-5" />
               Approve
             </button>
           </>
@@ -376,7 +398,7 @@ export default function LeadCard({
               className="flex-1 h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
                 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
             >
-              <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
+              <FileText className="h-5 w-5" />
               View PDF
             </button>
             <button
@@ -387,7 +409,7 @@ export default function LeadCard({
               className="flex-1 h-10 px-4 rounded-lg bg-blue-600 text-white text-sm font-medium
                 hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
             >
-              <span className="material-symbols-outlined text-lg">mail</span>
+              <Mail className="h-5 w-5" />
               Send Email
             </button>
           </>
@@ -404,7 +426,7 @@ export default function LeadCard({
               className="flex-1 h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
                 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
             >
-              <span className="material-symbols-outlined text-lg">folder_open</span>
+              <FolderOpen className="h-5 w-5" />
               Files & Photos
             </button>
             <button
@@ -415,7 +437,7 @@ export default function LeadCard({
               className="flex-1 h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
                 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
             >
-              <span className="material-symbols-outlined text-lg">history</span>
+              <Clock className="h-5 w-5" />
               History
             </button>
           </>
@@ -432,7 +454,7 @@ export default function LeadCard({
               className="flex-1 h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
                 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
             >
-              <span className="material-symbols-outlined text-lg">refresh</span>
+              <RefreshCw className="h-5 w-5" />
               Reactivate
             </button>
             <button
@@ -443,7 +465,7 @@ export default function LeadCard({
               className="flex-1 h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
                 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
             >
-              <span className="material-symbols-outlined text-lg">history</span>
+              <Clock className="h-5 w-5" />
               History
             </button>
           </>
@@ -460,7 +482,7 @@ export default function LeadCard({
               className="flex-1 h-10 px-4 rounded-lg bg-amber-600 text-white text-sm font-medium
                 hover:bg-amber-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
             >
-              <span className="material-symbols-outlined text-lg">calendar_month</span>
+              <Calendar className="h-5 w-5" />
               Book Job
             </button>
             <button
@@ -471,7 +493,7 @@ export default function LeadCard({
               className="flex-1 h-10 px-4 rounded-lg border border-red-200 text-red-700 text-sm font-medium
                 hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
             >
-              <span className="material-symbols-outlined text-lg">cancel</span>
+              <XCircle className="h-5 w-5" />
               Not Proceeding
             </button>
           </>
@@ -489,7 +511,7 @@ export default function LeadCard({
             className="flex-1 h-10 px-4 rounded-lg bg-amber-600 text-white text-sm font-medium
               hover:bg-amber-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
           >
-            <span className="material-symbols-outlined text-lg">rate_review</span>
+            <MessageSquare className="h-5 w-5" />
             Review
           </button>
         );
@@ -504,7 +526,7 @@ export default function LeadCard({
             className="flex-1 h-10 px-4 rounded-lg bg-emerald-600 text-white text-sm font-medium
               hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
           >
-            <span className="material-symbols-outlined text-lg">check_circle</span>
+            <CheckCircle2 className="h-5 w-5" />
             Approve Report
           </button>
         );
@@ -519,7 +541,7 @@ export default function LeadCard({
             className="flex-1 h-10 px-4 rounded-lg bg-blue-600 text-white text-sm font-medium
               hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
           >
-            <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
+            <FileText className="h-5 w-5" />
             View Report
           </button>
         );
@@ -551,7 +573,7 @@ export default function LeadCard({
         title="Archive lead"
         aria-label="Archive lead"
       >
-        <span className="material-symbols-outlined text-lg">archive</span>
+        <Archive className="h-5 w-5" />
       </button>
 
       {/* Header: Avatar + Info */}
@@ -582,7 +604,7 @@ export default function LeadCard({
 
       {/* Address */}
       <div className="flex items-start gap-2 text-sm text-slate-600 mb-3">
-        <span className="material-symbols-outlined text-lg text-slate-400 shrink-0">location_on</span>
+        <MapPin className="h-5 w-5 text-slate-400 shrink-0" />
         <span className="line-clamp-1">
           {lead.property}, {lead.suburb} {lead.state} {lead.postcode}
         </span>
@@ -598,13 +620,13 @@ export default function LeadCard({
             className="flex-1 h-9 px-3 rounded-lg bg-blue-50 text-blue-700 text-sm font-medium
               hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5"
           >
-            <span className="material-symbols-outlined text-base">call</span>
+            <Phone className="h-4 w-4" />
             <span className="truncate">{formatPhone(lead.phone)}</span>
           </a>
         ) : (
           <div className="flex-1 h-9 px-3 rounded-lg bg-slate-50 text-slate-400 text-sm
             flex items-center justify-center gap-1.5">
-            <span className="material-symbols-outlined text-base">call</span>
+            <Phone className="h-4 w-4" />
             <span>No phone</span>
           </div>
         )}
@@ -617,13 +639,13 @@ export default function LeadCard({
             className="flex-1 h-9 px-3 rounded-lg bg-blue-50 text-blue-700 text-sm font-medium
               hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5 overflow-hidden"
           >
-            <span className="material-symbols-outlined text-base shrink-0">mail</span>
+            <Mail className="h-4 w-4 shrink-0" />
             <span className="truncate">{lead.email}</span>
           </a>
         ) : (
           <div className="flex-1 h-9 px-3 rounded-lg bg-slate-50 text-slate-400 text-sm
             flex items-center justify-center gap-1.5">
-            <span className="material-symbols-outlined text-base">mail</span>
+            <Mail className="h-4 w-4" />
             <span>No email</span>
           </div>
         )}
@@ -647,7 +669,7 @@ export default function LeadCard({
           className="h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium
             hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
         >
-          <span className="material-symbols-outlined text-lg">visibility</span>
+          <Eye className="h-5 w-5" />
           View
         </button>
 

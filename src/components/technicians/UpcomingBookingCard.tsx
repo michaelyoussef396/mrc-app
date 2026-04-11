@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { UpcomingJob, formatJobDateTime, getEventTypeColor, getJobAccentColor } from '@/hooks/useTechnicianDetail';
+import { MapPin, Phone } from 'lucide-react';
 
 interface UpcomingBookingCardProps {
   booking: UpcomingJob;
@@ -62,12 +63,7 @@ export function UpcomingBookingCard({ booking }: UpcomingBookingCardProps) {
             {/* Location */}
             {booking.suburb && (
               <div className="flex items-center gap-1 mt-1">
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: '14px', color: '#617589' }}
-                >
-                  location_on
-                </span>
+                <MapPin className="h-3.5 w-3.5" style={{ color: '#617589' }} />
                 <span className="text-xs" style={{ color: '#617589' }}>
                   {booking.suburb}
                 </span>
@@ -89,12 +85,7 @@ export function UpcomingBookingCard({ booking }: UpcomingBookingCardProps) {
                 e.currentTarget.style.backgroundColor = 'rgba(52, 199, 89, 0.1)';
               }}
             >
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: '20px', color: '#34C759' }}
-              >
-                call
-              </span>
+              <Phone className="h-5 w-5" style={{ color: '#34C759' }} />
             </a>
           )}
         </div>

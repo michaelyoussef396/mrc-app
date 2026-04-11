@@ -1,4 +1,5 @@
-interface TechnicianHeaderProps {
+
+import { Bell } from 'lucide-react';interface TechnicianHeaderProps {
   userName: string;
   subtitle?: string;
   showNotification?: boolean;
@@ -77,12 +78,7 @@ export default function TechnicianHeader({
           className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-sm hover:bg-gray-50 transition-colors"
           style={{ minWidth: '48px', minHeight: '48px' }}
         >
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: '24px', color: '#1d1d1f' }}
-          >
-            notifications
-          </span>
+          <Bell className="h-6 w-6" style={{ color: '#1d1d1f' }} />
           {/* Notification dot */}
           {hasUnread && (
             <span
