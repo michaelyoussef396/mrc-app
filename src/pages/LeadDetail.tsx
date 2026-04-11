@@ -352,6 +352,7 @@ export default function LeadDetail() {
           await generateJobReportPdf(jobCompletion.id);
           toast.success('Job report PDF generated');
           refetchJobCompletion();
+          navigate(`/admin/job-report/${lead.id}`);
         } catch (pdfErr) {
           console.error('PDF generation failed:', pdfErr);
           toast.error('PDF generation failed — you can retry from the lead detail');
@@ -815,16 +816,16 @@ export default function LeadDetail() {
               disabled={generatingJobPdf}
               onClick={async () => {
                 if (jobCompletion?.pdf_url) {
-                  window.open(jobCompletion.pdf_url, '_blank');
+                  navigate(`/admin/job-report/${lead.id}`);
                   return;
                 }
                 if (!jobCompletion) return;
                 setGeneratingJobPdf(true);
                 try {
-                  const { pdfUrl } = await generateJobReportPdf(jobCompletion.id);
+                  await generateJobReportPdf(jobCompletion.id);
                   toast.success('Job report PDF generated');
                   refetchJobCompletion();
-                  window.open(pdfUrl, '_blank');
+                  navigate(`/admin/job-report/${lead.id}`);
                 } catch (err) {
                   toast.error('PDF generation failed');
                   console.error(err);
@@ -889,13 +890,10 @@ export default function LeadDetail() {
 
             <Button
               className="w-full h-12"
-              onClick={() => {
-                if (jobCompletion?.pdf_url) window.open(jobCompletion.pdf_url, '_blank');
-              }}
-              disabled={!jobCompletion?.pdf_url}
+              onClick={() => navigate(`/admin/job-report/${lead.id}`)}
             >
               <FileText className="h-4 w-4 mr-2" />
-              {jobCompletion?.pdf_url ? 'View Job Report PDF' : 'No PDF generated yet'}
+              View Job Report PDF
             </Button>
 
             <div className="flex gap-3">
