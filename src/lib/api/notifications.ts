@@ -315,6 +315,58 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
  * Send a Slack notification via the `send-slack-notification` Supabase Edge Function.
  * Fire-and-forget — failures are logged, never thrown.
  */
+// ============================================================================
+// JOB REPORT EMAIL
+// ============================================================================
+
+export function buildJobReportEmailHtml(params: {
+  customerName: string;
+  propertyAddress: string;
+  jobNumber: string;
+  completionDate: string;
+  technicianName: string;
+  pdfUrl: string;
+}): string {
+  return wrapInBrandedTemplate(`
+    <h2>Job Completion Report</h2>
+    <p>Dear ${params.customerName},</p>
+    <p>Please find your job completion report for the remediation work carried out at:</p>
+    <div class="details-box">
+      <table>
+        <tr><td>Property</td><td>${params.propertyAddress}</td></tr>
+        <tr><td>Job Number</td><td>${params.jobNumber}</td></tr>
+        <tr><td>Completion Date</td><td>${params.completionDate}</td></tr>
+        <tr><td>Technician</td><td>${params.technicianName}</td></tr>
+      </table>
+    </div>
+    <p style="margin-top:24px;">
+      <a href="${params.pdfUrl}" class="cta-button">View Job Report</a>
+    </p>
+    <p>This report includes before and after photos, treatment methods used, and our warranty conditions.
+    If you have any questions, contact us at <strong>1800 954 117</strong> or reply to this email.</p>
+  `);
+}
+
+export async function sendJobReportEmail(params: {
+  leadId: string;
+  customerEmail: string;
+  customerName: string;
+  propertyAddress: string;
+  jobNumber: string;
+  completionDate: string;
+  technicianName: string;
+  pdfUrl: string;
+}): Promise<void> {
+  const html = buildJobReportEmailHtml(params);
+  await sendEmail({
+    to: params.customerEmail,
+    subject: `Job Completion Report — ${params.jobNumber}`,
+    html,
+    leadId: params.leadId,
+    templateName: 'job_report_sent',
+  });
+}
+
 export async function sendSlackNotification(params: SendSlackNotificationParams): Promise<void> {
   try {
     const { data, error } = await supabase.functions.invoke('send-slack-notification', {

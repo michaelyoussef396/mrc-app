@@ -361,6 +361,15 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
           : 'Job completion submitted successfully',
       }).then() // fire-and-forget
 
+      // Fire-and-forget: generate PDF when going directly to job_completed (Path B)
+      if (!formData.requestReview && jobCompletionId) {
+        import('@/lib/api/jobReportPdf').then(({ generateJobReportPdf }) => {
+          generateJobReportPdf(jobCompletionId).catch(err =>
+            console.error('[auto-pdf] Job report generation failed (non-fatal):', err)
+          );
+        });
+      }
+
       toast.success('Job submitted', {
         description: formData.requestReview
           ? 'Flagged for admin review.'

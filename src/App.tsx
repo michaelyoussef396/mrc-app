@@ -47,6 +47,7 @@ const TechnicianInspectionForm = lazy(() => import("./pages/TechnicianInspection
 const TechnicianJobDetail = lazy(() => import("./pages/TechnicianJobDetail"));
 const JobCompletionForm = lazy(() => import("./pages/JobCompletionForm"));
 const InspectionAIReview = lazy(() => import("./pages/InspectionAIReview"));
+const ViewJobReportPDF = lazy(() => import("./pages/ViewJobReportPDF"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -420,6 +421,20 @@ const AppContent = () => {
                   <RoleProtectedRoute allowedRoles={["admin"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <ViewReportPDF />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin Job Report Viewer */}
+            <Route
+              path="/admin/job-report/:leadId"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <ViewJobReportPDF />
                     </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>
