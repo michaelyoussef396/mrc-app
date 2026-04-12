@@ -7,7 +7,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import DOMPurify from 'dompurify'
 import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
 import type { Page1Data, VPData, OutdoorData, AreaRecord, SubfloorEditData, CostData } from '@/components/pdf/ReportPreviewHTML'
@@ -184,33 +183,12 @@ const INSPECTION_SELECT = `
   )
 `
 
-const JOB_REPORT_ALLOWED_TAGS = [
-  'div', 'span', 'p', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'tfoot',
-  'img', 'strong', 'em', 'b', 'i', 'u', 'ul', 'ol', 'li', 'br', 'a',
-  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'section', 'footer',
-  'sup', 'sub', 'hr', 'colgroup', 'col', 'caption',
-  'style', 'link',
-]
-
-const JOB_REPORT_ALLOWED_ATTR = [
-  'style', 'src', 'alt', 'class', 'width', 'height', 'id',
-  'colspan', 'rowspan', 'href', 'target', 'rel', 'crossorigin', 'type', 'media',
-]
-
-function extractHeadAndBody(rawHtml: string): string {
-  const doc = new DOMParser().parseFromString(rawHtml, 'text/html')
-  const headBits: string[] = []
-  doc.head.querySelectorAll('style').forEach((el) => headBits.push(el.outerHTML))
-  doc.head
-    .querySelectorAll('link[rel="stylesheet"], link[rel="preconnect"]')
-    .forEach((el) => headBits.push(el.outerHTML))
-  return `${headBits.join('\n')}\n${doc.body.innerHTML}`
-}
-
 function JobReportPreview({ htmlUrl }: { htmlUrl: string }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null)
   const [htmlContent, setHtmlContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [iframeHeight, setIframeHeight] = useState(1200)
 
   useEffect(() => {
     let cancelled = false
@@ -240,15 +218,7 @@ function JobReportPreview({ htmlUrl }: { htmlUrl: string }) {
 
         if (cancelled) return
 
-        const prepared = extractHeadAndBody(raw)
-        const sanitized = DOMPurify.sanitize(prepared, {
-          ALLOWED_TAGS: JOB_REPORT_ALLOWED_TAGS,
-          ALLOWED_ATTR: JOB_REPORT_ALLOWED_ATTR,
-          FORCE_BODY: true,
-          WHOLE_DOCUMENT: false,
-        })
-
-        setHtmlContent(sanitized)
+        setHtmlContent(raw)
         setLoading(false)
       } catch (err) {
         if (!cancelled) {
@@ -263,6 +233,18 @@ function JobReportPreview({ htmlUrl }: { htmlUrl: string }) {
       cancelled = true
     }
   }, [htmlUrl])
+
+  function handleIframeLoad() {
+    const doc = iframeRef.current?.contentDocument
+    if (!doc) return
+    // Give fonts + background images a tick to settle before measuring.
+    const measure = () => {
+      const h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight)
+      if (h > 0) setIframeHeight(h)
+    }
+    measure()
+    window.setTimeout(measure, 300)
+  }
 
   if (loading) {
     return (
@@ -284,15 +266,15 @@ function JobReportPreview({ htmlUrl }: { htmlUrl: string }) {
   }
 
   return (
-    <div className="p-4 flex justify-center w-full">
-      <div className="relative bg-white shadow-2xl" style={{ width: '794px' }}>
-        <div
-          className="report-content"
-          style={{ width: '794px' }}
-          dangerouslySetInnerHTML={{ __html: htmlContent }}
-        />
-      </div>
-    </div>
+    <iframe
+      ref={iframeRef}
+      title="Job Completion Report"
+      srcDoc={htmlContent}
+      sandbox="allow-same-origin allow-scripts"
+      onLoad={handleIframeLoad}
+      className="bg-white shadow-2xl mx-auto block"
+      style={{ width: '794px', height: `${iframeHeight}px`, border: 'none' }}
+    />
   )
 }
 
