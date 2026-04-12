@@ -13,8 +13,10 @@ import {
   Section9JobNotes,
   Section10OfficeNotes,
 } from '@/components/job-completion'
-import { ArrowRight, CheckCircle2, ChevronLeft, Loader2, Save } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, ChevronLeft, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/integrations/supabase/client'
 
 const TOTAL_SECTIONS = 10
 
@@ -40,6 +42,7 @@ export default function JobCompletionForm() {
   const {
     formData,
     jobCompletionId,
+    submittedAt,
     isLoading,
     isSaving,
     hasUnsavedChanges,
@@ -50,6 +53,24 @@ export default function JobCompletionForm() {
     handleSubmit,
     error,
   } = useJobCompletionForm(leadId || '')
+
+  const isRevision = !!submittedAt
+
+  const { data: sendBackActivity } = useQuery({
+    queryKey: ['send-back-note', leadId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('activities')
+        .select('description, created_at')
+        .eq('lead_id', leadId!)
+        .eq('title', 'Job completion sent back to technician')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      return data
+    },
+    enabled: isRevision && !!leadId,
+  })
 
   if (!leadId) {
     return (
@@ -200,6 +221,26 @@ export default function JobCompletionForm() {
           </div>
         </div>
       </header>
+
+      {/* ───── Revision Banner ───── */}
+      {isRevision && sendBackActivity && (
+        <div className="mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-amber-900 text-sm">
+                Admin requested changes
+              </p>
+              <p className="text-sm text-amber-800 mt-1">
+                {sendBackActivity.description}
+              </p>
+              <p className="text-xs text-amber-500 mt-1">
+                {new Date(sendBackActivity.created_at).toLocaleDateString('en-AU')}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ───── Section Content ───── */}
       <main className="flex-1 p-4 space-y-6">

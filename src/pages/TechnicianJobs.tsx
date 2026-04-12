@@ -2,8 +2,10 @@ import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TechnicianBottomNav } from '@/components/technician';
 import { useTechnicianJobs, TabFilter, TechnicianJob } from '@/hooks/useTechnicianJobs';
+import { useRevisionJobs, RevisionJob } from '@/hooks/useRevisionJobs';
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowRight,
   CalendarDays,
   CheckCircle2,
@@ -22,12 +24,15 @@ import {
 // TYPES & CONSTANTS
 // ============================================================================
 
+type JobTab = 'revisions' | TabFilter;
+
 interface TabConfig {
-  id: TabFilter;
+  id: JobTab;
   label: string;
 }
 
 const TABS: TabConfig[] = [
+  { id: 'revisions', label: 'Revisions' },
   { id: 'today', label: 'Today' },
   { id: 'this_week', label: 'This Week' },
   { id: 'this_month', label: 'This Month' },
@@ -124,9 +129,10 @@ function JobsHeader({
   onTabChange,
   counts,
 }: {
-  activeTab: TabFilter;
-  onTabChange: (tab: TabFilter) => void;
+  activeTab: JobTab;
+  onTabChange: (tab: JobTab) => void;
   counts: {
+    revisions: number;
     today: number;
     thisWeek: number;
     thisMonth: number;
@@ -134,7 +140,8 @@ function JobsHeader({
     completed: number;
   };
 }) {
-  const countByTab: Record<TabFilter, number> = {
+  const countByTab: Record<JobTab, number> = {
+    revisions: counts.revisions,
     today: counts.today,
     this_week: counts.thisWeek,
     this_month: counts.thisMonth,
@@ -162,7 +169,9 @@ function JobsHeader({
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
                 className={`flex items-center gap-2 px-5 py-3 text-sm rounded-full whitespace-nowrap flex-shrink-0 transition-colors ${isActive
-                    ? 'bg-[#007AFF] text-white font-semibold'
+                    ? tab.id === 'revisions'
+                      ? 'bg-amber-500 text-white font-semibold'
+                      : 'bg-[#007AFF] text-white font-semibold'
                     : 'bg-white border border-gray-200 text-[#86868b] hover:bg-gray-50'
                   }`}
                 style={{ minHeight: '48px' }}
@@ -171,7 +180,11 @@ function JobsHeader({
                 {showCount && (
                   <span
                     className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold flex items-center justify-center ${
-                      isActive ? 'bg-white/25 text-white' : 'bg-[#007AFF] text-white'
+                      isActive
+                        ? 'bg-white/25 text-white'
+                        : tab.id === 'revisions'
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-[#007AFF] text-white'
                     }`}
                   >
                     {count}
@@ -351,11 +364,12 @@ function EmptyState({
   onRefresh,
   isLoading,
 }: {
-  tab: TabFilter;
+  tab: JobTab;
   onRefresh: () => void;
   isLoading: boolean;
 }) {
-  const messages: Record<TabFilter, { title: string; subtitle: string }> = {
+  const messages: Record<JobTab, { title: string; subtitle: string }> = {
+    revisions: { title: 'No revisions needed', subtitle: 'All job completions are up to date' },
     today: { title: 'No jobs scheduled for today', subtitle: 'Check back tomorrow' },
     this_week: { title: 'No jobs scheduled this week', subtitle: 'Check back later' },
     this_month: { title: 'No jobs scheduled this month', subtitle: 'Check back later' },
@@ -429,14 +443,50 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
   );
 }
 
+// Revision Job Card Component
+function RevisionCard({ revision, onRevise }: { revision: RevisionJob; onRevise: () => void }) {
+  return (
+    <div className="bg-white rounded-xl border border-amber-200 p-4 shadow-sm space-y-3">
+      <div className="flex items-start justify-between">
+        <div className="space-y-1 min-w-0 flex-1">
+          <h3 className="text-lg font-bold text-[#1d1d1f] leading-tight">{revision.customerName}</h3>
+          <div className="flex items-center gap-1.5 text-sm text-[#86868b]">
+            <MapPin className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">{revision.address}{revision.suburb && `, ${revision.suburb}`}</span>
+          </div>
+        </div>
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 flex-shrink-0">
+          Revision
+        </span>
+      </div>
+      {revision.sendBackNote && (
+        <p className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
+          {revision.sendBackNote}
+        </p>
+      )}
+      <button
+        onClick={onRevise}
+        className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-amber-500 text-white text-sm font-bold active:scale-[0.98] transition-all"
+      >
+        Revise Job Completion
+        <ArrowRight className="h-5 w-5" />
+      </button>
+    </div>
+  );
+}
+
 // ============================================================================
 // MAIN PAGE COMPONENT
 // ============================================================================
 
 export default function TechnicianJobs() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabFilter>('today');
-  const { jobs, isLoading, error, refetch, counts } = useTechnicianJobs(activeTab);
+  const [activeTab, setActiveTab] = useState<JobTab>('today');
+  const { revisions, isLoading: revisionsLoading, count: revisionCount } = useRevisionJobs();
+
+  const isRevisionsTab = activeTab === 'revisions';
+  const jobsTab = isRevisionsTab ? 'today' : activeTab as TabFilter;
+  const { jobs, isLoading, error, refetch, counts } = useTechnicianJobs(jobsTab);
 
   // Get today's date for comparison (YYYY-MM-DD in Melbourne timezone)
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' }).format(new Date());
@@ -489,12 +539,28 @@ export default function TechnicianJobs() {
       <JobsHeader
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        counts={counts}
+        counts={{ revisions: revisionCount, ...counts }}
       />
 
       {/* Scrollable Content */}
       <main className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
-        {isLoading ? (
+        {isRevisionsTab ? (
+          revisionsLoading ? (
+            <LoadingState />
+          ) : revisions.length === 0 ? (
+            <EmptyState tab="revisions" onRefresh={refetch} isLoading={false} />
+          ) : (
+            <div className="space-y-4">
+              {revisions.map((rev) => (
+                <RevisionCard
+                  key={rev.leadId}
+                  revision={rev}
+                  onRevise={() => navigate(`/technician/job/${rev.leadId}`)}
+                />
+              ))}
+            </div>
+          )
+        ) : isLoading ? (
           <LoadingState />
         ) : error ? (
           <ErrorState message={error} onRetry={refetch} />
@@ -505,7 +571,7 @@ export default function TechnicianJobs() {
             {sortedDates.map((date) => (
               <div key={date}>
                 {/* Date Header - show for multi-day views */}
-                {activeTab !== 'today' && (
+                {activeTab !== 'today' && activeTab !== 'revisions' && (
                   <h2 className="text-sm font-bold uppercase tracking-wider mb-3 px-1 text-[#86868b]">
                     {formatDateHeader(date)}
                   </h2>
