@@ -18,9 +18,9 @@
            Fonts         : Inter (400–900)
            Placeholders  : {{variable}} — replaced by edge function
            Conditionals  : HTML comment markers parsed server-side
-                           <!-- IF: demolition_works --> ... <!-- ENDIF -->
-           Repeatable    : before_photos (per 6 photos)
-                           (photo pages duplicated when >6 photos)
+                           IF demolition_works ... ENDIF
+           Repeatable    : treated_areas (per 3 paired rows)
+                           (photo pages duplicated when >3 pairs)
            ============================================================ */
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -261,83 +261,39 @@
 
 
     <!-- =========================================================
-         PAGE 3 — BEFORE PHOTOS
-         REPEATABLE: before_photos per 6 — edge function clones this
-                     block for every extra group of up to 6 photos.
+         PAGE 3+ — TREATED AREAS (before/after paired rows)
+         REPEATABLE: treated_areas per 3 — edge function clones this
+                     block for every extra group of up to 3 pairs.
          ========================================================= -->
-    <!-- REPEATABLE: before_photos per 6 -->
+    <!-- REPEATABLE: treated_areas per 3 -->
     <div class="report-page page-break">
         <div style="width: 100%; height: 100%; position: relative; background: white;">
 
             <div class="bg-mrc-circle" role="img" aria-label="MRC" style="position: absolute; right: 40px; top: 38px; width: 75px; height: 75px; z-index: 10;"></div>
 
-            <!-- Heading -->
             <div class="mrc-heading" style="position: absolute; left: 35px; top: 39px; font-size: 84px; line-height: 0.77;">
                 TREATED<br/>AREAS
             </div>
 
-            <!-- Subheading -->
-            <div class="mrc-label" style="position: absolute; left: 0; right: 0; text-align: center; top: 228px; font-size: 24px;">BEFORE PHOTOS</div>
+            <!-- Column headers -->
+            <div class="mrc-label" style="position: absolute; left: 5px; width: 383px; text-align: center; top: 228px; font-size: 20px;">BEFORE</div>
+            <div class="mrc-label" style="position: absolute; left: 403px; width: 383px; text-align: center; top: 228px; font-size: 20px;">AFTER</div>
 
-            <!-- 2×3 photo grid — 6 slots -->
-            <!-- Col 1 Row 1 -->
-            <img src="{{before_photo_1}}" alt="Before photo 1"
-                 class="photo-slot"
+            <!-- Row 1: before left, after right -->
+            <img src="{{before_photo_1}}" alt="Before 1" class="photo-slot"
                  style="position: absolute; left: 5px; top: 263px; width: 383px; height: 255px;" />
-            <!-- Col 2 Row 1 -->
-            <img src="{{before_photo_2}}" alt="Before photo 2"
-                 class="photo-slot"
+            <img src="{{after_photo_1}}" alt="After 1" class="photo-slot"
                  style="position: absolute; left: 403px; top: 263px; width: 383px; height: 255px;" />
-            <!-- Col 1 Row 2 -->
-            <img src="{{before_photo_3}}" alt="Before photo 3"
-                 class="photo-slot"
+            <!-- Row 2 -->
+            <img src="{{before_photo_2}}" alt="Before 2" class="photo-slot"
                  style="position: absolute; left: 5px; top: 535px; width: 383px; height: 255px;" />
-            <!-- Col 2 Row 2 -->
-            <img src="{{before_photo_4}}" alt="Before photo 4"
-                 class="photo-slot"
+            <img src="{{after_photo_2}}" alt="After 2" class="photo-slot"
                  style="position: absolute; left: 403px; top: 535px; width: 383px; height: 255px;" />
-            <!-- Col 1 Row 3 -->
-            <img src="{{before_photo_5}}" alt="Before photo 5"
-                 class="photo-slot"
+            <!-- Row 3 -->
+            <img src="{{before_photo_3}}" alt="Before 3" class="photo-slot"
                  style="position: absolute; left: 5px; top: 807px; width: 383px; height: 255px;" />
-            <!-- Col 2 Row 3 -->
-            <img src="{{before_photo_6}}" alt="Before photo 6"
-                 class="photo-slot"
+            <img src="{{after_photo_3}}" alt="After 3" class="photo-slot"
                  style="position: absolute; left: 403px; top: 807px; width: 383px; height: 255px;" />
-
-        </div>
-    </div>
-    <!-- END REPEATABLE -->
-
-
-    <!-- =========================================================
-         PAGE 4 — AFTER PHOTOS
-         REPEATABLE: after_photos per 6
-         ========================================================= -->
-    <!-- REPEATABLE: after_photos per 6 -->
-    <div class="report-page page-break">
-        <div style="width: 100%; height: 100%; position: relative; background: white;">
-
-            <div class="bg-mrc-circle" role="img" aria-label="MRC" style="position: absolute; right: 40px; top: 38px; width: 75px; height: 75px; z-index: 10;"></div>
-
-            <div class="mrc-heading" style="position: absolute; left: 35px; top: 39px; font-size: 84px; line-height: 0.77;">
-                TREATED<br/>AREAS
-            </div>
-
-            <div class="mrc-label" style="position: absolute; left: 0; right: 0; text-align: center; top: 228px; font-size: 24px;">AFTER PHOTOS</div>
-
-            <img src="{{after_photo_1}}" alt="After photo 1" class="photo-slot"
-                 style="position: absolute; left: 7px; top: 263px; width: 383px; height: 255px;" />
-            <img src="{{after_photo_2}}" alt="After photo 2" class="photo-slot"
-                 style="position: absolute; left: 405px; top: 263px; width: 383px; height: 255px;" />
-            <img src="{{after_photo_3}}" alt="After photo 3" class="photo-slot"
-                 style="position: absolute; left: 7px; top: 535px; width: 383px; height: 255px;" />
-            <img src="{{after_photo_4}}" alt="After photo 4" class="photo-slot"
-                 style="position: absolute; left: 405px; top: 535px; width: 383px; height: 255px;" />
-            <img src="{{after_photo_5}}" alt="After photo 5" class="photo-slot"
-                 style="position: absolute; left: 7px; top: 807px; width: 383px; height: 255px;" />
-            <img src="{{after_photo_6}}" alt="After photo 6" class="photo-slot"
-                 style="position: absolute; left: 405px; top: 807px; width: 383px; height: 255px;" />
 
         </div>
     </div>

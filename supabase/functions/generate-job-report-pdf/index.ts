@@ -267,11 +267,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 5c. Repeatable: before photos pages
-    html = expandRepeatablePhotoPages(html, 'before_photos', beforePhotos, getPhotoUrl, 'before_photo')
-
-    // 5d. Repeatable: after photos pages
-    html = expandRepeatablePhotoPages(html, 'after_photos', afterPhotos, getPhotoUrl, 'after_photo')
+    // 5c. Repeatable: paired before/after photo pages (3 pairs per page)
+    html = expandPairedPhotoPages(html, beforePhotos, afterPhotos, getPhotoUrl)
 
     // ===== STEP 6: Store and return =====
     const newVersion = regenerate ? (jc.pdf_version || 0) + 1 : (jc.pdf_version || 0) + 1
@@ -390,44 +387,50 @@ Deno.serve(async (req) => {
 
 // --- Repeatable photo page expansion ---
 
-function expandRepeatablePhotoPages(
+function expandPairedPhotoPages(
   html: string,
-  markerName: string,
-  photos: Array<{ storage_path: string }>,
+  beforePhotos: Array<{ storage_path: string }>,
+  afterPhotos: Array<{ storage_path: string }>,
   getUrl: (photo: { storage_path: string } | undefined) => string,
-  slotPrefix: string,
 ): string {
-  const startMarker = `<!-- REPEATABLE: ${markerName} per 6 -->`
+  const startMarker = '<!-- REPEATABLE: treated_areas per 3 -->'
   const endMarker = '<!-- END REPEATABLE -->'
 
   const startIdx = html.indexOf(startMarker)
   const endIdx = html.indexOf(endMarker, startIdx)
   if (startIdx === -1 || endIdx === -1) return html
 
-  // Extract the page block between the markers
   const beforeBlock = html.substring(0, startIdx)
   const pageTemplate = html.substring(startIdx + startMarker.length, endIdx)
   const afterBlock = html.substring(endIdx + endMarker.length)
 
-  // Split photos into groups of 6
-  const groups: Array<Array<{ storage_path: string } | undefined>> = []
-  if (photos.length === 0) {
-    // Keep one page with empty slots
-    groups.push([undefined, undefined, undefined, undefined, undefined, undefined])
+  const pairCount = Math.max(beforePhotos.length, afterPhotos.length)
+
+  type PhotoOrUndef = { storage_path: string } | undefined
+  const groups: Array<{ befores: PhotoOrUndef[]; afters: PhotoOrUndef[] }> = []
+
+  if (pairCount === 0) {
+    groups.push({
+      befores: [undefined, undefined, undefined],
+      afters: [undefined, undefined, undefined],
+    })
   } else {
-    for (let i = 0; i < photos.length; i += 6) {
-      const group = photos.slice(i, i + 6)
-      // Pad to 6 with undefined
-      while (group.length < 6) group.push(undefined as unknown as { storage_path: string })
-      groups.push(group)
+    for (let i = 0; i < pairCount; i += 3) {
+      const befores: PhotoOrUndef[] = []
+      const afters: PhotoOrUndef[] = []
+      for (let j = 0; j < 3; j++) {
+        befores.push(beforePhotos[i + j] ?? undefined)
+        afters.push(afterPhotos[i + j] ?? undefined)
+      }
+      groups.push({ befores, afters })
     }
   }
 
-  // Generate one page per group
-  const pages = groups.map((group) => {
+  const pages = groups.map(({ befores, afters }) => {
     let page = pageTemplate
-    for (let i = 1; i <= 6; i++) {
-      page = page.replaceAll(`{{${slotPrefix}_${i}}}`, getUrl(group[i - 1]))
+    for (let i = 1; i <= 3; i++) {
+      page = page.replaceAll(`{{before_photo_${i}}}`, getUrl(befores[i - 1]))
+      page = page.replaceAll(`{{after_photo_${i}}}`, getUrl(afters[i - 1]))
     }
     return page
   })
