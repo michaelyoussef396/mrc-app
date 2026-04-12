@@ -44,6 +44,8 @@ export interface JobCompletionFormData {
 
   // Section 3 & 4: Photos (managed separately via photo upload hooks)
   demolitionWorks: boolean;
+  demolitionJustification: string;
+  demolitionRemovalNotes: string;
 
   // Section 5: Treatment Methods (11 toggles)
   methodHepaVacuuming: boolean;
@@ -117,6 +119,8 @@ export interface JobCompletionRow {
   completion_date: string;
   areas_treated: string[];
   demolition_works: boolean;
+  demolition_justification: string | null;
+  demolition_removal_notes: string | null;
   method_hepa_vacuuming: boolean;
   method_surface_mould_remediation: boolean;
   method_ulv_fogging_property: boolean;
@@ -182,6 +186,8 @@ export const DEFAULT_JOB_COMPLETION_FORM: JobCompletionFormData = {
   completionDate: new Date().toISOString().split('T')[0],
   areasTreated: [],
   demolitionWorks: false,
+  demolitionJustification: '',
+  demolitionRemovalNotes: '',
   methodHepaVacuuming: false,
   methodSurfaceMouldRemediation: false,
   methodUlvFoggingProperty: false,
