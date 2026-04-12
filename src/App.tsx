@@ -47,7 +47,7 @@ const TechnicianInspectionForm = lazy(() => import("./pages/TechnicianInspection
 const TechnicianJobDetail = lazy(() => import("./pages/TechnicianJobDetail"));
 const JobCompletionForm = lazy(() => import("./pages/JobCompletionForm"));
 const InspectionAIReview = lazy(() => import("./pages/InspectionAIReview"));
-const ViewJobReportPDF = lazy(() => import("./pages/ViewJobReportPDF"));
+// ViewJobReportPDF deleted — unified into ViewReportPDF with reportType detection
 
 // Loading fallback component
 const PageLoader = () => (
@@ -434,7 +434,7 @@ const AppContent = () => {
                 <ProtectedRoute>
                   <RoleProtectedRoute allowedRoles={["admin"]}>
                     <Suspense fallback={<GlobalLoader />}>
-                      <ViewJobReportPDF />
+                      <ViewReportPDF />
                     </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>
