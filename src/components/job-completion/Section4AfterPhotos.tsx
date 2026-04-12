@@ -31,8 +31,8 @@ interface JobPhoto {
 }
 
 const SIGNED_URL_TTL_SECONDS = 3600;
+const DEMOLITION_PHOTO_LIMIT = 4;
 
-/** Look up the most recent inspection for a lead — needed because the photos table requires inspection_id. */
 async function fetchInspectionId(leadId: string): Promise<string | null> {
   const { data, error } = await supabase
     .from('inspections')
@@ -45,7 +45,6 @@ async function fetchInspectionId(leadId: string): Promise<string | null> {
   return data?.id ?? null;
 }
 
-/** Fetch all after/demolition photos for a job completion, enriched with signed URLs. */
 async function fetchJobCompletionPhotos(jobCompletionId: string): Promise<JobPhoto[]> {
   const { data: rows, error } = await supabase
     .from('photos')
@@ -74,14 +73,17 @@ async function fetchJobCompletionPhotos(jobCompletionId: string): Promise<JobPho
   return withUrls.filter((p) => p.signed_url);
 }
 
-/**
- * Section4AfterPhotos — After-remediation photo capture.
- *
- * Technicians upload photos of completed work. When the demolition toggle
- * is on, an additional grid for demolition photos appears. All photos are
- * stored in the photos table linked to the job_completion via
- * job_completion_id and tagged with photo_category ('after' | 'demolition').
- */
+async function fetchBeforePhotoCount(jobCompletionId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('photos')
+    .select('id', { count: 'exact', head: true })
+    .eq('job_completion_id', jobCompletionId)
+    .eq('photo_category', 'before');
+
+  if (error) return 0;
+  return count ?? 0;
+}
+
 export function Section4AfterPhotos({
   formData,
   onChange,
@@ -97,7 +99,6 @@ export function Section4AfterPhotos({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingCategoryRef = useRef<PhotoCategory>('after');
 
-  // Resolve the inspection_id once per lead — required for photos.insert.
   useEffect(() => {
     let cancelled = false;
     fetchInspectionId(leadId)
@@ -123,6 +124,12 @@ export function Section4AfterPhotos({
     enabled: !!jobCompletionId,
   });
 
+  const { data: beforeCount = 0 } = useQuery({
+    queryKey: ['before-photo-count', jobCompletionId],
+    queryFn: () => fetchBeforePhotoCount(jobCompletionId as string),
+    enabled: !!jobCompletionId,
+  });
+
   const { afterPhotos, demolitionPhotos } = useMemo(() => {
     const after: JobPhoto[] = [];
     const demolition: JobPhoto[] = [];
@@ -133,24 +140,61 @@ export function Section4AfterPhotos({
     return { afterPhotos: after, demolitionPhotos: demolition };
   }, [photos]);
 
+  const afterLimit = beforeCount;
+  const isAfterAtLimit = afterPhotos.length >= afterLimit;
+  const isDemolitionAtLimit = demolitionPhotos.length >= DEMOLITION_PHOTO_LIMIT;
+
   const canUpload = !isReadOnly && !!inspectionId && !!jobCompletionId && !isUploading;
 
   function triggerUpload(category: PhotoCategory) {
     if (!canUpload) return;
+
+    if (category === 'after') {
+      if (afterLimit === 0) {
+        toast.error('Select before photos in Section 3 first');
+        return;
+      }
+      if (isAfterAtLimit) {
+        toast.error(`You already have ${afterLimit} after photos matching your ${afterLimit} before photos`);
+        return;
+      }
+    }
+
+    if (category === 'demolition' && isDemolitionAtLimit) {
+      toast.error(`Demolition photos limited to ${DEMOLITION_PHOTO_LIMIT}`);
+      return;
+    }
+
     pendingCategoryRef.current = category;
     fileInputRef.current?.click();
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
-    // Reset the input immediately so the same file can be re-selected later.
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (files.length === 0 || !inspectionId || !jobCompletionId) return;
 
     const category = pendingCategoryRef.current;
+    const currentCount = category === 'after' ? afterPhotos.length : demolitionPhotos.length;
+    const limit = category === 'after' ? afterLimit : DEMOLITION_PHOTO_LIMIT;
+    const remaining = limit - currentCount;
+
+    if (remaining <= 0) {
+      toast.error(`Limit reached — ${limit} ${category} photos allowed`);
+      return;
+    }
+
+    const filesToUpload = files.length > remaining
+      ? files.slice(0, remaining)
+      : files;
+
+    if (filesToUpload.length < files.length) {
+      toast.info(`Only uploading ${filesToUpload.length} of ${files.length} — limit is ${limit}`);
+    }
+
     setIsUploading(true);
     try {
-      const results = await uploadMultiplePhotos(files, {
+      const results = await uploadMultiplePhotos(filesToUpload, {
         inspection_id: inspectionId,
         job_completion_id: jobCompletionId,
         photo_category: category,
@@ -183,9 +227,6 @@ export function Section4AfterPhotos({
 
   return (
     <section aria-labelledby="after-photos-heading" className="space-y-5">
-      {/* Hidden file input — reused by both grids via pendingCategoryRef.
-          No `capture` attribute so iOS shows its native action sheet with
-          Camera / Photo Library / Browse Files options (matches inspection form). */}
       <input
         ref={fileInputRef}
         type="file"
@@ -244,11 +285,28 @@ export function Section4AfterPhotos({
 
       {/* After photos card */}
       <div className="bg-white rounded-xl p-5 space-y-4">
-        {!isReadOnly && (
+        <div className="flex items-center justify-between">
+          <h3 className="text-[15px] font-semibold text-[#1d1d1f]">
+            After Photos
+          </h3>
+          {afterLimit > 0 && (
+            <span className={`text-sm font-semibold ${isAfterAtLimit ? 'text-[#34C759]' : 'text-[#007AFF]'}`}>
+              {afterPhotos.length}/{afterLimit}
+            </span>
+          )}
+        </div>
+
+        {afterLimit === 0 && !isLoading && (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+            Select before photos in Section 3 first — after photos must match the before photo count.
+          </div>
+        )}
+
+        {afterLimit > 0 && !isReadOnly && (
           <button
             type="button"
             onClick={() => triggerUpload('after')}
-            disabled={!canUpload}
+            disabled={!canUpload || isAfterAtLimit}
             className="flex items-center justify-center gap-2 w-full h-12 bg-[#007AFF] text-white rounded-lg font-medium text-[15px] focus:outline-none focus:ring-2 focus:ring-[#007AFF] focus:ring-offset-2 active:opacity-90 disabled:opacity-50"
             aria-label="Add photos"
           >
@@ -257,7 +315,11 @@ export function Section4AfterPhotos({
             ) : (
               <ImagePlus className="w-5 h-5" aria-hidden="true" />
             )}
-            {isUploading ? 'Uploading...' : 'Add Photos'}
+            {isUploading
+              ? 'Uploading...'
+              : isAfterAtLimit
+                ? `All ${afterLimit} photos uploaded`
+                : `Add Photos (${afterLimit - afterPhotos.length} remaining)`}
           </button>
         )}
 
@@ -265,26 +327,55 @@ export function Section4AfterPhotos({
           photos={afterPhotos}
           isLoading={isLoading}
           isReadOnly={isReadOnly}
-          canUpload={canUpload}
+          canUpload={canUpload && !isAfterAtLimit}
           deletingId={deletingId}
           onAdd={() => triggerUpload('after')}
           onDelete={handleDelete}
-          emptyLabel="No after photos yet. Tap Add Photos to get started."
+          emptyLabel={afterLimit > 0 ? 'No after photos yet. Tap Add Photos to get started.' : ''}
         />
       </div>
 
       {/* Demolition photos — conditional on toggle */}
       {formData.demolitionWorks && (
         <div className="bg-white rounded-xl p-5 space-y-4">
-          <h3 className="text-[15px] font-semibold text-[#1d1d1f]">Demolition Photos</h3>
-          <p className="text-xs text-[#86868b]">
-            Document material removal and cavity exposure
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-[15px] font-semibold text-[#1d1d1f]">Demolition Photos</h3>
+              <p className="text-xs text-[#86868b]">
+                Document material removal and cavity exposure
+              </p>
+            </div>
+            <span className={`text-sm font-semibold ${isDemolitionAtLimit ? 'text-[#34C759]' : 'text-[#007AFF]'}`}>
+              {demolitionPhotos.length}/{DEMOLITION_PHOTO_LIMIT}
+            </span>
+          </div>
+
+          {!isReadOnly && (
+            <button
+              type="button"
+              onClick={() => triggerUpload('demolition')}
+              disabled={!canUpload || isDemolitionAtLimit}
+              className="flex items-center justify-center gap-2 w-full h-12 bg-[#007AFF] text-white rounded-lg font-medium text-[15px] focus:outline-none focus:ring-2 focus:ring-[#007AFF] focus:ring-offset-2 active:opacity-90 disabled:opacity-50"
+              aria-label="Add demolition photos"
+            >
+              {isUploading ? (
+                <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+              ) : (
+                <ImagePlus className="w-5 h-5" aria-hidden="true" />
+              )}
+              {isUploading
+                ? 'Uploading...'
+                : isDemolitionAtLimit
+                  ? `All ${DEMOLITION_PHOTO_LIMIT} photos uploaded`
+                  : `Add Photos (${DEMOLITION_PHOTO_LIMIT - demolitionPhotos.length} remaining)`}
+            </button>
+          )}
+
           <PhotoGrid
             photos={demolitionPhotos}
             isLoading={isLoading}
             isReadOnly={isReadOnly}
-            canUpload={canUpload}
+            canUpload={canUpload && !isDemolitionAtLimit}
             deletingId={deletingId}
             onAdd={() => triggerUpload('demolition')}
             onDelete={handleDelete}
@@ -356,11 +447,10 @@ function PhotoGrid({
         </div>
       ))}
 
-      {!isReadOnly && (
+      {!isReadOnly && canUpload && (
         <button
           type="button"
           onClick={onAdd}
-          disabled={!canUpload}
           aria-label="Add photo"
           className="aspect-square rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 min-h-[48px] hover:border-[#007AFF] hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-[#007AFF] disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -369,7 +459,7 @@ function PhotoGrid({
         </button>
       )}
 
-      {photos.length === 0 && isReadOnly && (
+      {photos.length === 0 && (isReadOnly || !canUpload) && emptyLabel && (
         <div className="col-span-full flex flex-col items-center justify-center py-6 gap-2">
           <ImageIcon className="w-7 h-7 text-gray-300" aria-hidden="true" />
           <p className="text-xs text-[#86868b]">{emptyLabel}</p>
