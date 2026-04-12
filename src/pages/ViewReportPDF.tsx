@@ -7,6 +7,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import DOMPurify from 'dompurify'
 import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
 import type { Page1Data, VPData, OutdoorData, AreaRecord, SubfloorEditData, CostData } from '@/components/pdf/ReportPreviewHTML'
@@ -182,6 +183,118 @@ const INSPECTION_SELECT = `
     property_address_postcode
   )
 `
+
+const JOB_REPORT_ALLOWED_TAGS = [
+  'div', 'span', 'p', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'tfoot',
+  'img', 'strong', 'em', 'b', 'i', 'u', 'ul', 'ol', 'li', 'br', 'a',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'section', 'footer',
+  'sup', 'sub', 'hr', 'colgroup', 'col', 'caption',
+  'style', 'link',
+]
+
+const JOB_REPORT_ALLOWED_ATTR = [
+  'style', 'src', 'alt', 'class', 'width', 'height', 'id',
+  'colspan', 'rowspan', 'href', 'target', 'rel', 'crossorigin', 'type', 'media',
+]
+
+function extractHeadAndBody(rawHtml: string): string {
+  const doc = new DOMParser().parseFromString(rawHtml, 'text/html')
+  const headBits: string[] = []
+  doc.head.querySelectorAll('style').forEach((el) => headBits.push(el.outerHTML))
+  doc.head
+    .querySelectorAll('link[rel="stylesheet"], link[rel="preconnect"]')
+    .forEach((el) => headBits.push(el.outerHTML))
+  return `${headBits.join('\n')}\n${doc.body.innerHTML}`
+}
+
+function JobReportPreview({ htmlUrl }: { htmlUrl: string }) {
+  const [htmlContent, setHtmlContent] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchHtml() {
+      try {
+        setLoading(true)
+        setError(null)
+
+        let raw: string | null = null
+
+        if (htmlUrl.includes('supabase') && htmlUrl.includes('/storage/')) {
+          const pathMatch = htmlUrl.match(/inspection-reports\/(.+)$/)
+          if (pathMatch) {
+            const { data, error: dlErr } = await supabase.storage
+              .from('inspection-reports')
+              .download(pathMatch[1])
+            if (!dlErr && data) raw = await data.text()
+          }
+        }
+
+        if (!raw) {
+          const res = await fetch(htmlUrl, { mode: 'cors', credentials: 'omit' })
+          if (!res.ok) throw new Error(`Failed to fetch report: ${res.status}`)
+          raw = await res.text()
+        }
+
+        if (cancelled) return
+
+        const prepared = extractHeadAndBody(raw)
+        const sanitized = DOMPurify.sanitize(prepared, {
+          ALLOWED_TAGS: JOB_REPORT_ALLOWED_TAGS,
+          ALLOWED_ATTR: JOB_REPORT_ALLOWED_ATTR,
+          FORCE_BODY: true,
+          WHOLE_DOCUMENT: false,
+        })
+
+        setHtmlContent(sanitized)
+        setLoading(false)
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load report')
+          setLoading(false)
+        }
+      }
+    }
+
+    if (htmlUrl) fetchHtml()
+    return () => {
+      cancelled = true
+    }
+  }, [htmlUrl])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        <span className="ml-3 text-gray-500">Loading report...</span>
+      </div>
+    )
+  }
+
+  if (error || !htmlContent) {
+    return (
+      <div className="text-center space-y-2 py-20">
+        <AlertCircle className="h-12 w-12 text-red-400 mx-auto" />
+        <p className="text-red-600 font-medium">Failed to load report</p>
+        {error && <p className="text-sm text-gray-500">{error}</p>}
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-4 flex justify-center w-full">
+      <div className="relative bg-white shadow-2xl" style={{ width: '794px' }}>
+        <div
+          className="report-content"
+          style={{ width: '794px' }}
+          dangerouslySetInnerHTML={{ __html: htmlContent }}
+        />
+      </div>
+    </div>
+  )
+}
 
 export default function ViewReportPDF() {
   const { inspectionId, id, leadId } = useParams<{ inspectionId?: string; id?: string; leadId?: string }>()
@@ -2034,12 +2147,7 @@ export default function ViewReportPDF() {
         {reportType === 'job' ? (
           <div className="flex-1 bg-gray-50 flex flex-col items-center justify-start p-6 overflow-auto">
             {jobCompletion?.pdf_url ? (
-              <iframe
-                src={jobCompletion.pdf_url}
-                title="Job Completion Report"
-                className="w-full border-0 bg-white shadow-lg rounded-lg"
-                style={{ minHeight: '1000px', maxWidth: '820px' }}
-              />
+              <JobReportPreview htmlUrl={jobCompletion.pdf_url} />
             ) : (
               <div className="text-center space-y-4 py-20">
                 <FileText className="h-16 w-16 text-gray-300 mx-auto" />
