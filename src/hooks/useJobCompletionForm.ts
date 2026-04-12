@@ -39,6 +39,8 @@ export function rowToFormData(row: JobCompletionRow): JobCompletionFormData {
 
     // Section 3/4: Photos
     demolitionWorks: row.demolition_works,
+    demolitionJustification: row.demolition_justification ?? '',
+    demolitionRemovalNotes: row.demolition_removal_notes ?? '',
 
     // Section 5: Treatment Methods
     methodHepaVacuuming: row.method_hepa_vacuuming,

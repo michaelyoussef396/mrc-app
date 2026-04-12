@@ -258,8 +258,8 @@ Deno.serve(async (req) => {
         html = html.replace(ifDemoStart, '')
         html = html.replace(ifDemoEnd, '')
 
-        html = html.replaceAll('{{demolition_justification}}', escapeHtml(jc.scope_what_changed || ''))
-        html = html.replaceAll('{{demolition_removal_notes}}', escapeHtml(jc.scope_extra_work || jc.additional_notes || ''))
+        html = html.replaceAll('{{demolition_justification}}', escapeHtml(jc.demolition_justification || ''))
+        html = html.replaceAll('{{demolition_removal_notes}}', escapeHtml(jc.demolition_removal_notes || ''))
 
         for (let i = 1; i <= 4; i++) {
           html = html.replaceAll(`{{demolition_photo_${i}}}`, getPhotoUrl(demolitionPhotos[i - 1]))

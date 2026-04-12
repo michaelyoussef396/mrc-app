@@ -31,6 +31,8 @@ function formDataToRow(data: Partial<JobCompletionFormData>): Record<string, unk
 
   // Section 3/4
   if (data.demolitionWorks !== undefined) row.demolition_works = data.demolitionWorks
+  if (data.demolitionJustification !== undefined) row.demolition_justification = data.demolitionJustification || null
+  if (data.demolitionRemovalNotes !== undefined) row.demolition_removal_notes = data.demolitionRemovalNotes || null
 
   // Section 5: Treatment Methods
   if (data.methodHepaVacuuming !== undefined) row.method_hepa_vacuuming = data.methodHepaVacuuming

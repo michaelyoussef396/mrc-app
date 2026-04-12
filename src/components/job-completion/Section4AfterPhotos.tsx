@@ -381,6 +381,37 @@ export function Section4AfterPhotos({
             onDelete={handleDelete}
             emptyLabel="No demolition photos yet."
           />
+
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <label htmlFor="demolition-justification" className="block text-[15px] font-medium text-[#1d1d1f]">
+                Justification
+              </label>
+              <textarea
+                id="demolition-justification"
+                value={formData.demolitionJustification}
+                readOnly={isReadOnly}
+                onChange={(e) => onChange('demolitionJustification', e.target.value)}
+                rows={3}
+                placeholder="Describe why demolition was required..."
+                className="w-full p-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#007AFF] focus:border-transparent resize-none text-[15px] text-[#1d1d1f] placeholder:text-[#86868b] read-only:bg-gray-50 read-only:text-[#86868b]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="demolition-removal-notes" className="block text-[15px] font-medium text-[#1d1d1f]">
+                Removal Notes
+              </label>
+              <textarea
+                id="demolition-removal-notes"
+                value={formData.demolitionRemovalNotes}
+                readOnly={isReadOnly}
+                onChange={(e) => onChange('demolitionRemovalNotes', e.target.value)}
+                rows={3}
+                placeholder="Describe what materials were removed and the process used..."
+                className="w-full p-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#007AFF] focus:border-transparent resize-none text-[15px] text-[#1d1d1f] placeholder:text-[#86868b] read-only:bg-gray-50 read-only:text-[#86868b]"
+              />
+            </div>
+          </div>
         </div>
       )}
     </section>
