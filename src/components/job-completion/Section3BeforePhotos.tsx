@@ -54,40 +54,54 @@ async function fetchInspectionPhotos(leadId: string): Promise<PhotoWithUrl[]> {
   if (inspError) throw inspError;
   if (!inspection) return [];
 
-  const { data: rows, error: photosError } = await supabase
-    .from('photos')
-    .select(`
-      id, storage_path, caption, area_id, photo_type, job_completion_id,
-      inspection_areas ( area_name )
-    `)
-    .eq('inspection_id', inspection.id)
-    .order('order_index', { ascending: true });
+  const [photosResult, areasResult] = await Promise.all([
+    supabase
+      .from('photos')
+      .select('id, storage_path, caption, area_id, photo_type, job_completion_id')
+      .eq('inspection_id', inspection.id)
+      .order('order_index', { ascending: true }),
+    supabase
+      .from('inspection_areas')
+      .select('id, area_name')
+      .eq('inspection_id', inspection.id),
+  ]);
 
-  if (photosError) throw photosError;
-  if (!rows || rows.length === 0) return [];
+  if (photosResult.error) throw photosResult.error;
+  if (!photosResult.data || photosResult.data.length === 0) return [];
+
+  const areaNameMap = new Map<string, string>();
+  if (areasResult.data) {
+    for (const area of areasResult.data) {
+      areaNameMap.set(area.id, area.area_name);
+    }
+  }
 
   const withUrls = await Promise.all(
-    rows.map(async (row) => {
+    photosResult.data.map(async (row) => {
       try {
         const { data } = await supabase.storage
           .from('inspection-photos')
           .createSignedUrl(row.storage_path, SIGNED_URL_TTL_SECONDS);
 
-        const areaData = row.inspection_areas as { area_name: string } | null;
         return {
           id: row.id,
           storage_path: row.storage_path,
           caption: row.caption,
           area_id: row.area_id,
-          area_name: areaData?.area_name ?? null,
+          area_name: row.area_id ? (areaNameMap.get(row.area_id) ?? null) : null,
           photo_type: row.photo_type,
           job_completion_id: row.job_completion_id,
           signed_url: data?.signedUrl ?? '',
         } as PhotoWithUrl;
       } catch {
         return {
-          ...row,
-          area_name: null,
+          id: row.id,
+          storage_path: row.storage_path,
+          caption: row.caption,
+          area_id: row.area_id,
+          area_name: row.area_id ? (areaNameMap.get(row.area_id) ?? null) : null,
+          photo_type: row.photo_type,
+          job_completion_id: row.job_completion_id,
           signed_url: '',
         } as PhotoWithUrl;
       }
