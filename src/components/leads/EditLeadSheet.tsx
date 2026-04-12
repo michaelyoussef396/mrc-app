@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -36,9 +36,31 @@ import {
   stateOptions,
 } from "@/lib/leadUtils";
 import { useLeadUpdate } from "@/hooks/useLeadUpdate";
+import { logFieldEdits, diffRows } from "@/lib/api/fieldEditLog";
 import type { Database } from "@/integrations/supabase/types";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
+
+// DB column → human label for the field_edit activity log.
+// Only fields actually editable in this sheet are listed.
+const LEAD_FIELD_MAP: Partial<Record<keyof Lead, string>> = {
+  full_name: "Name",
+  phone: "Phone",
+  email: "Email",
+  property_address_street: "Street",
+  property_address_suburb: "Suburb",
+  property_address_state: "State",
+  property_address_postcode: "Postcode",
+  property_type: "Property Type",
+  lead_source: "Lead Source",
+  lead_source_other: "Lead Source (Other)",
+  urgency: "Urgency",
+  issue_description: "Issue Description",
+  internal_notes: "Internal Notes",
+  notes: "General Notes",
+  access_instructions: "Access Instructions",
+  special_requests: "Special Requests",
+};
 
 const editFormSchema = z.object({
   full_name: z.string().optional(),
@@ -69,6 +91,7 @@ interface EditLeadSheetProps {
 
 export function EditLeadSheet({ lead, open, onOpenChange }: EditLeadSheetProps) {
   const { updateLead, isUpdating } = useLeadUpdate(lead.id);
+  const initialLeadRef = useRef<Lead | null>(null);
 
   const form = useForm<EditFormValues>({
     resolver: zodResolver(editFormSchema),
@@ -79,6 +102,9 @@ export function EditLeadSheet({ lead, open, onOpenChange }: EditLeadSheetProps) 
   useEffect(() => {
     if (open) {
       form.reset(getDefaults(lead));
+      initialLeadRef.current = lead;
+    } else {
+      initialLeadRef.current = null;
     }
   }, [lead.id, open]);
 
@@ -96,6 +122,17 @@ export function EditLeadSheet({ lead, open, onOpenChange }: EditLeadSheetProps) 
       lead as unknown as Record<string, unknown>,
     );
     if (success) {
+      const changes = diffRows(
+        initialLeadRef.current as unknown as Record<string, unknown> | null,
+        payload,
+        LEAD_FIELD_MAP as Partial<Record<string, string>>,
+      );
+      await logFieldEdits({
+        leadId: lead.id,
+        entityType: "lead",
+        entityId: lead.id,
+        changes,
+      });
       onOpenChange(false);
     }
   };

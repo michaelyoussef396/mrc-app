@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useLeadsNeedsAttention } from '@/hooks/useLeadsNeedsAttention';
+import { CheckCircle2 } from 'lucide-react';
 
 /**
  * NeedsAttentionList
@@ -46,12 +47,7 @@ export function NeedsAttentionList() {
         </div>
       ) : leads.length === 0 ? (
         <div className="py-8 text-center">
-          <span
-            className="material-symbols-outlined text-[32px] mb-2 opacity-50"
-            style={{ color: '#34C759' }}
-          >
-            check_circle
-          </span>
+          <CheckCircle2 className="h-8 w-8 mb-2 opacity-50" style={{ color: '#34C759' }} />
           <p className="text-sm" style={{ color: '#86868b' }}>
             No leads need attention
           </p>

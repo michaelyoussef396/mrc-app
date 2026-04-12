@@ -13,7 +13,7 @@ import {
   Section9JobNotes,
   Section10OfficeNotes,
 } from '@/components/job-completion'
-import { Loader2, ChevronLeft } from 'lucide-react'
+import { ArrowRight, CheckCircle2, ChevronLeft, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner'
 
 const TOTAL_SECTIONS = 10
@@ -164,7 +164,7 @@ export default function JobCompletionForm() {
             style={{ minWidth: '44px', minHeight: '44px' }}
             aria-label="Go back"
           >
-            <span className="material-symbols-outlined text-3xl">chevron_left</span>
+            <ChevronLeft className="h-8 w-8" />
           </button>
           <h1 className="text-lg font-bold leading-tight flex-1 text-center text-[#1d1d1f]">
             {sectionTitle}
@@ -179,7 +179,7 @@ export default function JobCompletionForm() {
             {isSaving ? (
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <span className="material-symbols-outlined text-2xl">save</span>
+              <Save className="h-6 w-6" />
             )}
           </button>
         </div>
@@ -219,12 +219,12 @@ export default function JobCompletionForm() {
           >
             {isSaving ? (
               <>
-                <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                <Loader2 className="h-5 w-5 animate-spin" />
                 Saving...
               </>
             ) : (
               <>
-                <span className="material-symbols-outlined">save</span>
+                <Save className="h-5 w-5" />
                 Save
               </>
             )}
@@ -247,9 +247,7 @@ export default function JobCompletionForm() {
               style={{ minHeight: '48px' }}
             >
               {isLastSection ? 'Complete' : 'Next Section'}
-              <span className="material-symbols-outlined text-lg">
-                {isLastSection ? 'check_circle' : 'arrow_forward'}
-              </span>
+              {isLastSection ? <CheckCircle2 className="h-5 w-5" /> : <ArrowRight className="h-5 w-5" />}
             </button>
           </div>
         </div>

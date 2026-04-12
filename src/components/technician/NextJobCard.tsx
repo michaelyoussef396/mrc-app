@@ -1,4 +1,5 @@
-interface NextJobCardProps {
+
+import { Clock, Eye, MapPin, Navigation } from 'lucide-react';interface NextJobCardProps {
   customerName: string;
   timeSlot: string;
   address: string;
@@ -52,23 +53,13 @@ export default function NextJobCard({
         <div className="flex flex-col gap-3">
           {/* Time */}
           <div className="flex items-center gap-3" style={{ color: '#86868b' }}>
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: '20px', color: '#007AFF' }}
-            >
-              schedule
-            </span>
+            <Clock className="h-5 w-5" style={{ color: '#007AFF' }} />
             <span className="text-base font-medium">{timeSlot}</span>
           </div>
 
           {/* Location */}
           <div className="flex items-start gap-3" style={{ color: '#86868b' }}>
-            <span
-              className="material-symbols-outlined mt-0.5"
-              style={{ fontSize: '20px', color: '#007AFF' }}
-            >
-              location_on
-            </span>
+            <MapPin className="h-5 w-5 mt-0.5" style={{ color: '#007AFF' }} />
             <div className="flex flex-col">
               <span className="text-base font-medium leading-snug">{address}</span>
               <span className="text-xs text-gray-400 mt-0.5">
@@ -105,12 +96,7 @@ export default function NextJobCard({
               color: '#1d1d1f',
             }}
           >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: '20px', color: '#007AFF' }}
-            >
-              directions
-            </span>
+            <Navigation className="h-5 w-5" style={{ color: '#007AFF' }} />
             <span>Get Directions{travelTime ? ` (${travelTime} min)` : ''}</span>
           </button>
 
@@ -126,12 +112,7 @@ export default function NextJobCard({
                 color: '#007AFF',
               }}
             >
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: '18px' }}
-              >
-                visibility
-              </span>
+              <Eye className="h-[18px] w-[18px]" />
               <span>View Lead</span>
             </button>
           )}

@@ -1,4 +1,5 @@
 import { TechnicianDetail } from '@/hooks/useTechnicianDetail';
+import { Mail, MapPin, Phone } from 'lucide-react';
 
 interface TechnicianProfileHeaderProps {
   technician: TechnicianDetail;
@@ -67,12 +68,7 @@ export function TechnicianProfileHeader({ technician }: TechnicianProfileHeaderP
           {/* Location */}
           {(technician.homeAddress || technician.homeSuburb) && (
             <div className="flex items-center justify-center sm:justify-start gap-1.5 mt-2">
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: '16px', color: '#617589' }}
-              >
-                location_on
-              </span>
+              <MapPin className="h-4 w-4" style={{ color: '#617589' }} />
               <span className="text-sm" style={{ color: '#617589' }}>
                 {technician.homeAddress || `Based in ${technician.homeSuburb}`}
               </span>
@@ -97,12 +93,7 @@ export function TechnicianProfileHeader({ technician }: TechnicianProfileHeaderP
                   e.currentTarget.style.backgroundColor = 'white';
                 }}
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: '18px', color: '#34C759' }}
-                >
-                  call
-                </span>
+                <Phone className="h-[18px] w-[18px]" style={{ color: '#34C759' }} />
                 Call
               </a>
             )}
@@ -118,12 +109,7 @@ export function TechnicianProfileHeader({ technician }: TechnicianProfileHeaderP
                   e.currentTarget.style.backgroundColor = '#007AFF';
                 }}
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: '18px' }}
-                >
-                  mail
-                </span>
+                <Mail className="h-[18px] w-[18px]" />
                 Email
               </a>
             )}

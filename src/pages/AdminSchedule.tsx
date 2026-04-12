@@ -5,6 +5,7 @@ import { ScheduleHeader, ScheduleCalendar, ScheduleDailyView, LeadsQueue, EventD
 import { useScheduleCalendar, getWeekStart, CalendarEvent, type EventTypeFilter } from '@/hooks/useScheduleCalendar';
 import { useCancelledBookings } from '@/hooks/useCancelledBookings';
 import { useTechnicians } from '@/hooks/useTechnicians';
+import { CalendarDays, CalendarPlus, Menu } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -94,9 +95,7 @@ export default function AdminSchedule() {
               className="lg:hidden w-12 h-12 flex items-center justify-center hover:bg-gray-100 rounded-lg transition-colors mr-3"
               onClick={() => setSidebarOpen(true)}
             >
-              <span className="material-symbols-outlined" style={{ color: '#1d1d1f' }}>
-                menu
-              </span>
+              <Menu className="h-5 w-5" style={{ color: '#1d1d1f' }} />
             </button>
 
             {/* Logo and Title */}
@@ -105,7 +104,7 @@ export default function AdminSchedule() {
                 className="flex w-10 h-10 items-center justify-center rounded-lg text-white"
                 style={{ backgroundColor: '#007AFF' }}
               >
-                <span className="material-symbols-outlined">calendar_today</span>
+                <CalendarDays className="h-5 w-5" />
               </div>
               <h2
                 className="text-xl font-bold leading-tight tracking-tight"
@@ -229,7 +228,7 @@ export default function AdminSchedule() {
                 className="w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
                 style={{ minWidth: '48px', minHeight: '48px' }}
               >
-                <span className="material-symbols-outlined text-2xl">calendar_add_on</span>
+                <CalendarPlus className="h-6 w-6" />
               </button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl">

@@ -1,4 +1,25 @@
 import { useState } from 'react';
+import {
+  BarChart3,
+  Building2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  DollarSign,
+  HardHat,
+  Home,
+  ImageOff,
+  Info,
+  MapPin,
+  Search,
+  Sparkles,
+  Sun,
+  Trash2,
+  Wrench,
+  X,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type {
   CompleteInspectionData,
   AreaWithDetails,
@@ -48,11 +69,11 @@ export default function InspectionDataDisplay({ data }: InspectionDataDisplayPro
 
   return (
     <div className="space-y-3">
-      <AccordionSection title="Basic Information" icon="info" defaultOpen>
+      <AccordionSection title="Basic Information" icon={Info} defaultOpen>
         <BasicInfoSection inspection={insp} />
       </AccordionSection>
 
-      <AccordionSection title="Property Details" icon="home">
+      <AccordionSection title="Property Details" icon={Home}>
         <PropertyDetailsSection inspection={insp} />
       </AccordionSection>
 
@@ -60,7 +81,7 @@ export default function InspectionDataDisplay({ data }: InspectionDataDisplayPro
         <AccordionSection
           key={area.id}
           title={`Area ${i + 1}: ${area.area_name || 'Unnamed'}`}
-          icon="room"
+          icon={MapPin}
           badge={area.demolition_required ? 'Demo Required' : undefined}
         >
           <AreaSection area={area} />
@@ -68,33 +89,33 @@ export default function InspectionDataDisplay({ data }: InspectionDataDisplayPro
       ))}
 
       {(insp.subfloor_required || subfloor) && (
-        <AccordionSection title="Subfloor Assessment" icon="foundation">
+        <AccordionSection title="Subfloor Assessment" icon={Building2}>
           <SubfloorSection subfloor={subfloor} />
         </AccordionSection>
       )}
 
-      <AccordionSection title="Outdoor Environment" icon="wb_sunny">
+      <AccordionSection title="Outdoor Environment" icon={Sun}>
         <OutdoorSection inspection={insp} photos={generalPhotos} />
       </AccordionSection>
 
-      <AccordionSection title="Waste Disposal" icon="delete">
+      <AccordionSection title="Waste Disposal" icon={Trash2}>
         <WasteDisposalSection inspection={insp} />
       </AccordionSection>
 
-      <AccordionSection title="Work Procedure & Equipment" icon="construction">
+      <AccordionSection title="Work Procedure & Equipment" icon={HardHat}>
         <WorkProcedureSection inspection={insp} />
       </AccordionSection>
 
-      <AccordionSection title="Job Summary" icon="assignment">
+      <AccordionSection title="Job Summary" icon={ClipboardList}>
         <JobSummarySection inspection={insp} />
       </AccordionSection>
 
-      <AccordionSection title="Cost Estimate" icon="payments">
+      <AccordionSection title="Cost Estimate" icon={DollarSign}>
         <CostEstimateSection inspection={insp} />
       </AccordionSection>
 
       {(insp.what_we_found_text || insp.problem_analysis_content || insp.what_we_will_do_text || insp.demolition_content) && (
-        <AccordionSection title="AI Summary" icon="auto_awesome" defaultOpen>
+        <AccordionSection title="AI Summary" icon={Sparkles} defaultOpen>
           <AISummarySection inspection={insp} />
         </AccordionSection>
       )}
@@ -108,13 +129,13 @@ export default function InspectionDataDisplay({ data }: InspectionDataDisplayPro
 
 function AccordionSection({
   title,
-  icon,
+  icon: Icon,
   badge,
   defaultOpen = false,
   children,
 }: {
   title: string;
-  icon: string;
+  icon: LucideIcon;
   badge?: string;
   defaultOpen?: boolean;
   children: React.ReactNode;
@@ -128,7 +149,7 @@ function AccordionSection({
         className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
       >
         <div className="flex items-center gap-2.5">
-          <span className="material-symbols-outlined text-slate-500 text-xl">{icon}</span>
+          <Icon className="h-5 w-5 text-slate-500" />
           <span className="font-semibold text-slate-800 text-sm">{title}</span>
           {badge && (
             <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
@@ -136,11 +157,7 @@ function AccordionSection({
             </span>
           )}
         </div>
-        <span
-          className={`material-symbols-outlined text-slate-400 text-lg transition-transform ${open ? 'rotate-180' : ''}`}
-        >
-          expand_more
-        </span>
+        <ChevronDown className={`h-5 w-5 text-slate-400 transition-transform ${open ? 'rotate-180' : ''} ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && <div className="p-4">{children}</div>}
     </div>
@@ -537,26 +554,26 @@ function AISummarySection({ inspection: i }: { inspection: Record<string, any> }
   return (
     <div className="space-y-4">
       {i.what_we_found_text && (
-        <AICard title="What We Found" icon="search" content={i.what_we_found_text} />
+        <AICard title="What We Found" icon={Search} content={i.what_we_found_text} />
       )}
       {i.problem_analysis_content && (
-        <AICard title="Problem Analysis & Recommendations" icon="analytics" content={i.problem_analysis_content} />
+        <AICard title="Problem Analysis & Recommendations" icon={BarChart3} content={i.problem_analysis_content} />
       )}
       {i.what_we_will_do_text && (
-        <AICard title="What We're Going To Do" icon="handyman" content={i.what_we_will_do_text} />
+        <AICard title="What We're Going To Do" icon={Wrench} content={i.what_we_will_do_text} />
       )}
       {i.demolition_content && (
-        <AICard title="Demolition Details" icon="construction" content={i.demolition_content} />
+        <AICard title="Demolition Details" icon={HardHat} content={i.demolition_content} />
       )}
     </div>
   );
 }
 
-function AICard({ title, icon, content }: { title: string; icon: string; content: string }) {
+function AICard({ title, icon: Icon, content }: { title: string; icon: LucideIcon; content: string }) {
   return (
     <div className="bg-violet-50 rounded-lg border border-violet-100 overflow-hidden">
       <div className="px-4 py-2 bg-violet-100/50 flex items-center gap-2">
-        <span className="material-symbols-outlined text-violet-600 text-base">{icon}</span>
+        <Icon className="h-4 w-4 text-violet-600" />
         <span className="text-sm font-semibold text-violet-800">{title}</span>
       </div>
       <div className="px-4 py-3">
@@ -686,7 +703,7 @@ function PhotoGrid({ photos, label }: { photos: PhotoWithUrl[]; label: string })
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <span className="material-symbols-outlined text-slate-400">broken_image</span>
+                <ImageOff className="h-5 w-5 text-slate-400" />
               </div>
             )}
             <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1">
@@ -747,7 +764,7 @@ function PhotoLightbox({
         onClick={onClose}
         className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
       >
-        <span className="material-symbols-outlined">close</span>
+        <X className="h-5 w-5" />
       </button>
 
       {/* Navigation */}
@@ -758,14 +775,14 @@ function PhotoLightbox({
             className="absolute left-4 z-10 w-12 h-12 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
             style={{ minWidth: '48px', minHeight: '48px' }}
           >
-            <span className="material-symbols-outlined text-2xl">chevron_left</span>
+            <ChevronLeft className="h-6 w-6" />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); goNext(); }}
             className="absolute right-4 z-10 w-12 h-12 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
             style={{ minWidth: '48px', minHeight: '48px' }}
           >
-            <span className="material-symbols-outlined text-2xl">chevron_right</span>
+            <ChevronRight className="h-6 w-6" />
           </button>
         </>
       )}
@@ -783,7 +800,7 @@ function PhotoLightbox({
           />
         ) : (
           <div className="w-64 h-64 bg-slate-800 rounded-lg flex items-center justify-center">
-            <span className="material-symbols-outlined text-slate-500 text-4xl">broken_image</span>
+            <ImageOff className="h-10 w-10 text-slate-500" />
           </div>
         )}
 

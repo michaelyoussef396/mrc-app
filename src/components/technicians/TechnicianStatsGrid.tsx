@@ -1,4 +1,6 @@
 import { formatRevenue } from '@/hooks/useTechnicianStats';
+import { Calendar, CalendarCheck, CalendarDays, DollarSign } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface TechnicianStatsGridProps {
   inspectionsToday: number;
@@ -10,12 +12,12 @@ interface TechnicianStatsGridProps {
 interface StatCardProps {
   label: string;
   value: string | number;
-  icon: string;
+  icon: LucideIcon;
   iconColor: string;
   iconBg: string;
 }
 
-function StatCard({ label, value, icon, iconColor, iconBg }: StatCardProps) {
+function StatCard({ label, value, icon: Icon, iconColor, iconBg }: StatCardProps) {
   return (
     <div
       className="bg-white rounded-2xl p-4 sm:p-5 transition-all hover:shadow-md"
@@ -27,12 +29,7 @@ function StatCard({ label, value, icon, iconColor, iconBg }: StatCardProps) {
           className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
           style={{ backgroundColor: iconBg }}
         >
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: '22px', color: iconColor }}
-          >
-            {icon}
-          </span>
+          <Icon className="h-[22px] w-[22px]" style={{ color: iconColor }} />
         </div>
 
         {/* Content */}
@@ -66,28 +63,28 @@ export function TechnicianStatsGrid({
       <StatCard
         label="Today"
         value={inspectionsToday}
-        icon="event_available"
+        icon={CalendarCheck}
         iconColor="#007AFF"
         iconBg="rgba(0, 122, 255, 0.1)"
       />
       <StatCard
         label="This Week"
         value={inspectionsThisWeek}
-        icon="date_range"
+        icon={CalendarDays}
         iconColor="#AF52DE"
         iconBg="rgba(175, 82, 222, 0.1)"
       />
       <StatCard
         label="This Month"
         value={inspectionsThisMonth}
-        icon="calendar_month"
+        icon={Calendar}
         iconColor="#FF9500"
         iconBg="rgba(255, 149, 0, 0.1)"
       />
       <StatCard
         label="Revenue"
         value={formatRevenue(revenueThisMonth)}
-        icon="payments"
+        icon={DollarSign}
         iconColor="#34C759"
         iconBg="rgba(52, 199, 89, 0.1)"
       />

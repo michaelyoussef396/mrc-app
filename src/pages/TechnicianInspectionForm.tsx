@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +25,40 @@ import type {
 } from '@/types/inspection';
 import { validateInspectionCompletion } from '@/lib/schemas/inspectionSchema';
 import { captureBusinessError } from '@/lib/sentry';
+import { logFieldEdits, type FieldChange } from '@/lib/api/fieldEditLog';
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  Building2,
+  Calculator,
+  Camera,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Clock,
+  Droplets,
+  Eye,
+  Image,
+  Info,
+  ListChecks,
+  Loader2,
+  Lock,
+  Mail,
+  MapPin,
+  Phone,
+  Plus,
+  Receipt,
+  Save,
+  StickyNote,
+  Sun,
+  Thermometer,
+  Trash2,
+  Wind,
+  X,
+} from 'lucide-react';
 
 // Helper: invoke edge functions via direct fetch (bypasses supabase.functions.invoke timeout issues)
 async function invokeEdgeFunction(functionName: string, body: object): Promise<{ data: any; error: any }> {
@@ -253,11 +287,12 @@ interface HeaderProps {
   onSave: () => void;
   currentSection: number;
   totalSections: number;
+  titleOverride?: string;
 }
 
-function Header({ onBack, onSave, currentSection, totalSections }: HeaderProps) {
+function Header({ onBack, onSave, currentSection, totalSections, titleOverride }: HeaderProps) {
   const progress = (currentSection / totalSections) * 100;
-  const sectionTitle = SECTION_TITLES[currentSection - 1] || 'Inspection Form';
+  const sectionTitle = titleOverride ?? SECTION_TITLES[currentSection - 1] ?? 'Inspection Form';
 
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200">
@@ -267,7 +302,7 @@ function Header({ onBack, onSave, currentSection, totalSections }: HeaderProps) 
           className="flex items-center justify-center p-2 -ml-2 text-[#007AFF] hover:bg-gray-100 rounded-lg transition-colors"
           style={{ minWidth: '44px', minHeight: '44px' }}
         >
-          <span className="material-symbols-outlined text-3xl">chevron_left</span>
+          <ChevronLeft className="h-8 w-8" />
         </button>
         <h1 className="text-lg font-bold leading-tight flex-1 text-center text-[#1d1d1f]">
           {sectionTitle}
@@ -277,7 +312,7 @@ function Header({ onBack, onSave, currentSection, totalSections }: HeaderProps) 
           className="flex items-center justify-center p-2 -mr-2 text-[#007AFF] hover:bg-gray-100 rounded-lg transition-colors"
           style={{ minWidth: '44px', minHeight: '44px' }}
         >
-          <span className="material-symbols-outlined text-2xl">save</span>
+          <Save className="h-6 w-6" />
         </button>
       </div>
 
@@ -335,9 +370,7 @@ function CustomerInfoCard({ lead, booking, isExpanded, onToggle }: CustomerInfoC
           className="p-2 bg-white rounded-full shadow-sm text-[#86868b] hover:text-[#007AFF] transition-colors"
           style={{ minWidth: '44px', minHeight: '44px' }}
         >
-          <span className="material-symbols-outlined text-xl">
-            {isExpanded ? 'expand_less' : 'expand_more'}
-          </span>
+          {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
         </button>
       </div>
 
@@ -348,13 +381,13 @@ function CustomerInfoCard({ lead, booking, isExpanded, onToggle }: CustomerInfoC
             className="flex items-center p-4 active:bg-gray-50 transition-colors group"
           >
             <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-[#007AFF] mr-4">
-              <span className="material-symbols-outlined text-xl">call</span>
+              <Phone className="h-5 w-5" />
             </div>
             <div className="flex-1">
               <p className="text-xs text-[#86868b] mb-0.5">Phone</p>
               <p className="font-medium text-[#1d1d1f] text-base">{formatPhone(lead.phone)}</p>
             </div>
-            <span className="material-symbols-outlined text-gray-400 text-xl">chevron_right</span>
+            <ChevronRight className="h-5 w-5 text-gray-400" />
           </a>
 
           <a
@@ -362,13 +395,13 @@ function CustomerInfoCard({ lead, booking, isExpanded, onToggle }: CustomerInfoC
             className="flex items-center p-4 active:bg-gray-50 transition-colors group"
           >
             <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-[#007AFF] mr-4">
-              <span className="material-symbols-outlined text-xl">mail</span>
+              <Mail className="h-5 w-5" />
             </div>
             <div className="flex-1">
               <p className="text-xs text-[#86868b] mb-0.5">Email</p>
               <p className="font-medium text-[#1d1d1f] text-base">{lead.email}</p>
             </div>
-            <span className="material-symbols-outlined text-gray-400 text-xl">chevron_right</span>
+            <ChevronRight className="h-5 w-5 text-gray-400" />
           </a>
 
           <a
@@ -378,19 +411,19 @@ function CustomerInfoCard({ lead, booking, isExpanded, onToggle }: CustomerInfoC
             className="flex items-center p-4 active:bg-gray-50 transition-colors group"
           >
             <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-[#007AFF] mr-4">
-              <span className="material-symbols-outlined text-xl">location_on</span>
+              <MapPin className="h-5 w-5" />
             </div>
             <div className="flex-1">
               <p className="text-xs text-[#86868b] mb-0.5">Address</p>
               <p className="font-medium text-[#1d1d1f] text-base">{fullAddress}</p>
             </div>
-            <span className="material-symbols-outlined text-gray-400 text-xl">chevron_right</span>
+            <ChevronRight className="h-5 w-5 text-gray-400" />
           </a>
 
           {booking && (
             <div className="flex items-center p-4">
               <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-[#007AFF] mr-4">
-                <span className="material-symbols-outlined text-xl">schedule</span>
+                <Clock className="h-5 w-5" />
               </div>
               <div className="flex-1">
                 <p className="text-xs text-[#86868b] mb-0.5">Scheduled</p>
@@ -404,7 +437,7 @@ function CustomerInfoCard({ lead, booking, isExpanded, onToggle }: CustomerInfoC
           {lead.internal_notes && (
             <div className="flex items-start p-4">
               <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 mr-4 shrink-0">
-                <span className="material-symbols-outlined text-xl">sticky_note_2</span>
+                <StickyNote className="h-5 w-5" />
               </div>
               <div className="flex-1">
                 <p className="text-xs text-[#86868b] mb-0.5">Internal Notes</p>
@@ -449,7 +482,7 @@ function ReadOnlyInput({ value }: ReadOnlyInputProps) {
         readOnly
         className="w-full h-12 bg-[#f5f7f8] text-[#86868b] font-medium rounded-lg border border-gray-200 px-4 cursor-not-allowed"
       />
-      <span className="absolute right-4 text-gray-400 material-symbols-outlined text-lg">lock</span>
+      <Lock className="absolute right-4 text-gray-400 h-5 w-5" />
     </div>
   );
 }
@@ -553,7 +586,7 @@ function PhotoUploadButton({ onClick, label, count = 0, maxCount }: PhotoUploadB
       className="flex items-center justify-center gap-2 w-full h-14 bg-white border-2 border-dashed border-gray-300 rounded-xl text-[#007AFF] font-medium hover:bg-gray-50 active:bg-gray-100 transition-colors"
       style={{ minHeight: '56px' }}
     >
-      <span className="material-symbols-outlined">add_a_photo</span>
+      <Camera className="h-5 w-5" />
       {label} {countText}
     </button>
   );
@@ -581,7 +614,7 @@ function PhotoGrid({ photos, onRemove }: PhotoGridProps) {
             onClick={() => onRemove(photo.id)}
             className="absolute top-2 right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg"
           >
-            <span className="material-symbols-outlined text-lg">close</span>
+            <X className="h-5 w-5" />
           </button>
         </div>
       ))}
@@ -606,7 +639,7 @@ function SinglePhoto({ photo, onCapture, onRemove, label }: SinglePhotoProps) {
           onClick={onRemove}
           className="absolute top-2 right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg"
         >
-          <span className="material-symbols-outlined text-lg">close</span>
+          <X className="h-5 w-5" />
         </button>
       </div>
     );
@@ -640,12 +673,12 @@ function Footer({ onSave, onPrevious, onNext, isSaving, showPrevious, isLastSect
         >
           {isSaving ? (
             <>
-              <span className="material-symbols-outlined animate-spin">progress_activity</span>
+              <Loader2 className="h-5 w-5 animate-spin" />
               Saving...
             </>
           ) : (
             <>
-              <span className="material-symbols-outlined">save</span>
+              <Save className="h-5 w-5" />
               Save
             </>
           )}
@@ -658,7 +691,7 @@ function Footer({ onSave, onPrevious, onNext, isSaving, showPrevious, isLastSect
               className="flex-1 text-center text-[#007AFF] font-semibold text-base py-2 flex items-center justify-center gap-1 active:opacity-70 bg-gray-100 rounded-lg"
               style={{ minHeight: '48px' }}
             >
-              <span className="material-symbols-outlined text-lg">arrow_back</span>
+              <ArrowLeft className="h-5 w-5" />
               Previous
             </button>
           )}
@@ -668,9 +701,7 @@ function Footer({ onSave, onPrevious, onNext, isSaving, showPrevious, isLastSect
             style={{ minHeight: '48px' }}
           >
             {isLastSection ? 'Complete' : 'Next Section'}
-            <span className="material-symbols-outlined text-lg">
-              {isLastSection ? 'check_circle' : 'arrow_forward'}
-            </span>
+            {isLastSection ? <CheckCircle2 className="h-5 w-5" /> : <ArrowRight className="h-5 w-5" />}
           </button>
         </div>
       </div>
@@ -873,12 +904,10 @@ function Section3AreaInspection({
                   className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
                   style={{ minWidth: '44px', minHeight: '44px' }}
                 >
-                  <span className="material-symbols-outlined">delete</span>
+                  <Trash2 className="h-5 w-5" />
                 </button>
               )}
-              <span className="material-symbols-outlined text-[#86868b]">
-                {expandedAreas[area.id] ? 'expand_less' : 'expand_more'}
-              </span>
+              {expandedAreas[area.id] ? <ChevronUp className="h-5 w-5 text-[#86868b]" /> : <ChevronDown className="h-5 w-5 text-[#86868b]" />}
             </div>
           </div>
 
@@ -899,7 +928,7 @@ function Section3AreaInspection({
               {/* Visible Mould Checkboxes */}
               <div className="bg-amber-50 rounded-xl border border-amber-100 p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-lg text-amber-600">visibility</span>
+                  <Eye className="h-5 w-5 text-amber-600" />
                   <span className="text-sm font-semibold text-amber-900">Visible Mould</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -1014,7 +1043,7 @@ function Section3AreaInspection({
                           onClick={() => onPhotoCapture?.('single', area.id, reading.id)}
                           className="w-12 h-12 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-[#007AFF] flex-shrink-0"
                         >
-                          <span className="material-symbols-outlined">photo_camera</span>
+                          <Camera className="h-5 w-5" />
                         </button>
                       )}
                     </div>
@@ -1062,7 +1091,7 @@ function Section3AreaInspection({
                           onClick={() => onPhotoCapture?.('single', area.id, reading.id)}
                           className="w-12 h-12 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-[#007AFF] flex-shrink-0"
                         >
-                          <span className="material-symbols-outlined">photo_camera</span>
+                          <Camera className="h-5 w-5" />
                         </button>
                       )}
                     </div>
@@ -1097,7 +1126,7 @@ function Section3AreaInspection({
                 {/* Room View Photos */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-lg text-slate-600">photo_library</span>
+                    <Image className="h-5 w-5 text-slate-600" />
                     <span className="text-sm font-semibold text-[#1d1d1f]">Room View Photos</span>
                     <span className="text-xs text-[#86868b] ml-auto">{area.roomViewPhotos.length}/4</span>
                   </div>
@@ -1119,7 +1148,7 @@ function Section3AreaInspection({
                 <div className="bg-purple-50 rounded-xl border border-purple-100 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-lg text-purple-600">infrared</span>
+                      <Thermometer className="h-5 w-5 text-purple-600" />
                       <span className="text-sm font-semibold text-purple-900">Infrared Inspection</span>
                     </div>
                     <ToggleSwitch
@@ -1143,7 +1172,7 @@ function Section3AreaInspection({
                 {area.infraredEnabled && (
                   <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-4 space-y-3">
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-lg text-emerald-600">wb_sunny</span>
+                      <Sun className="h-5 w-5 text-emerald-600" />
                       <span className="text-sm font-semibold text-emerald-900">Natural Light Comparison</span>
                     </div>
                     <SinglePhoto
@@ -1159,7 +1188,7 @@ function Section3AreaInspection({
                 {area.infraredEnabled && (
                   <div className="bg-purple-50 rounded-xl border border-purple-100 p-4 space-y-3">
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-lg text-purple-600">checklist</span>
+                      <ListChecks className="h-5 w-5 text-purple-600" />
                       <span className="text-sm font-semibold text-purple-900">Infrared Observations</span>
                     </div>
                     <div className="space-y-2">
@@ -1237,7 +1266,7 @@ function Section3AreaInspection({
         onClick={onAddArea}
         className="w-full h-14 bg-[#007AFF] text-white font-bold rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
       >
-        <span className="material-symbols-outlined">add</span>
+        <Plus className="h-5 w-5" />
         Add Another Area
       </button>
     </section>
@@ -1260,7 +1289,7 @@ function Section4Subfloor({
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center">
-            <span className="material-symbols-outlined text-xl text-orange-600">foundation</span>
+            <Building2 className="h-5 w-5 text-orange-600" />
           </div>
           <div>
             <h3 className="font-semibold text-[#1d1d1f]">Subfloor Assessment</h3>
@@ -1328,7 +1357,7 @@ function Section4Subfloor({
                 className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
                 style={{ minWidth: '48px', minHeight: '48px' }}
               >
-                <span className="material-symbols-outlined text-lg">delete</span>
+                <Trash2 className="h-5 w-5" />
               </button>
             </div>
 
@@ -1357,7 +1386,7 @@ function Section4Subfloor({
           className="w-full h-14 bg-white border-2 border-dashed border-orange-300 rounded-xl text-orange-600 font-medium flex items-center justify-center gap-2 hover:bg-orange-50 active:bg-orange-100 transition-colors"
           style={{ minHeight: '56px' }}
         >
-          <span className="material-symbols-outlined">add</span>
+          <Plus className="h-5 w-5" />
           Add Another Reading
         </button>
       </div>
@@ -1370,7 +1399,7 @@ function Section4Subfloor({
 
         <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-lg text-slate-600">photo_library</span>
+            <Image className="h-5 w-5 text-slate-600" />
             <span className="text-sm font-semibold text-[#1d1d1f]">Subfloor Photos</span>
             <span className="text-xs text-[#86868b] ml-auto">{formData.subfloorPhotos.length}/20</span>
           </div>
@@ -1398,7 +1427,7 @@ function Section4Subfloor({
         {/* Sanitation Toggle */}
         <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-lg text-teal-600">sanitizer</span>
+            <Droplets className="h-5 w-5 text-teal-600" />
             <span className="font-medium text-[#1d1d1f]">Subfloor Sanitation</span>
           </div>
           <ToggleSwitch
@@ -1882,7 +1911,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
       {/* Labour Hours — Auto-calculated from Sections 3 & 4 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
         <h3 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-          <span className="material-symbols-outlined text-[#007AFF]">schedule</span>
+          <Clock className="h-5 w-5 text-[#007AFF]" />
           Labour Hours
         </h3>
         <p className="text-xs text-[#86868b] -mt-2">Auto-calculated from Area Inspection &amp; Subfloor sections</p>
@@ -1910,7 +1939,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
         <div className="bg-orange-50 rounded-lg p-3">
           <div className="flex justify-between text-sm">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-sm text-orange-600">foundation</span>
+              <Building2 className="h-4 w-4 text-orange-600" />
               <span className="text-[#1d1d1f]">Subfloor Treatment</span>
             </div>
             <span className="font-medium text-[#1d1d1f]">{calculatedSubfloorHours}h</span>
@@ -1933,7 +1962,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 bg-gray-50 border-b border-gray-100">
           <h3 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#007AFF]">info</span>
+            <Info className="h-5 w-5 text-[#007AFF]" />
             Labour Rate Reference
           </h3>
         </div>
@@ -1973,7 +2002,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
       {/* Labour Calculation Breakdown */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
         <h3 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-          <span className="material-symbols-outlined text-[#007AFF]">calculate</span>
+          <Calculator className="h-5 w-5 text-[#007AFF]" />
           Labour Breakdown
         </h3>
         <div className="space-y-2 text-sm">
@@ -2036,7 +2065,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
       {/* Equipment Calculation Breakdown */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
         <h3 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-          <span className="material-symbols-outlined text-[#007AFF]">air</span>
+          <Wind className="h-5 w-5 text-[#007AFF]" />
           Equipment Breakdown ({costResult.totalDays} day{costResult.totalDays !== 1 ? 's' : ''})
         </h3>
         <div className="space-y-2 text-sm">
@@ -2105,7 +2134,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
           return (
             <div className="space-y-3">
               <h3 className="font-bold text-[#1d1d1f] text-lg flex items-center gap-2">
-                <span className="material-symbols-outlined text-purple-600">receipt_long</span>
+                <Receipt className="h-5 w-5 text-purple-600" />
                 Both Options — Editable Estimate
               </h3>
               <p className="text-xs text-[#86868b] -mt-1">Pre-filled from auto-calc. Edit Labour or Equipment to override.</p>
@@ -2234,7 +2263,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
           return (
             <div className="bg-gradient-to-br from-[#007AFF]/5 to-[#007AFF]/10 rounded-xl p-4 space-y-3">
               <h3 className="font-bold text-[#1d1d1f] text-lg flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#007AFF]">receipt_long</span>
+                <Receipt className="h-5 w-5 text-[#007AFF]" />
                 Editable Estimate
               </h3>
               <p className="text-xs text-[#86868b] -mt-1">Pre-filled from auto-calc. Edit to override.</p>
@@ -2376,12 +2405,20 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
 // MAIN PAGE COMPONENT
 // ============================================================================
 
-export default function TechnicianInspectionForm() {
+interface TechnicianInspectionFormProps {
+  adminMode?: boolean;
+}
+
+export default function TechnicianInspectionForm({ adminMode = false }: TechnicianInspectionFormProps = {}) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const leadId = searchParams.get('leadId');
+  const routeParams = useParams<{ leadId?: string }>();
+  const leadId = adminMode ? routeParams.leadId ?? null : searchParams.get('leadId');
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Capture the initial inspection row when adminMode loads so we can diff on unmount
+  const initialInspectionRef = useRef<Record<string, unknown> | null>(null);
 
   // Navigation State
   const [currentSection, setCurrentSection] = useState(1);
@@ -2534,6 +2571,9 @@ export default function TechnicianInspectionForm() {
         if (existingInspection) {
           // Load existing inspection data
           setCurrentInspectionId(existingInspection.id);
+          if (adminMode) {
+            initialInspectionRef.current = existingInspection as Record<string, unknown>;
+          }
 
           // Load inspection areas with their moisture readings
           const { data: areasData } = await supabase
@@ -3110,8 +3150,68 @@ export default function TechnicianInspectionForm() {
       const confirmed = window.confirm('You have unsaved changes. Discard them?');
       if (!confirmed) return;
     }
+    if (adminMode && leadId) {
+      navigate(`/leads/${leadId}`);
+      return;
+    }
     navigate(-1);
   };
+
+  // Admin-mode one-shot diff log on unmount — captures admin field edits as a single activity row.
+  // Uses refs so the cleanup closure reads the latest form state, not the mount-time snapshot.
+  const adminDiffStateRef = useRef({ formData, currentInspectionId, leadId });
+  adminDiffStateRef.current = { formData, currentInspectionId, leadId };
+  useEffect(() => {
+    if (!adminMode) return;
+    return () => {
+      const { formData: fd, currentInspectionId: insId, leadId: lid } = adminDiffStateRef.current;
+      const initial = initialInspectionRef.current;
+      if (!insId || !lid || !initial) return;
+
+      const changes: FieldChange[] = [];
+      const initialDate = (initial.inspection_date as string | null) ?? null;
+      const newDate = fd.inspectionDate || null;
+      if (initialDate !== newDate) {
+        changes.push({ field: 'Inspection Date', old: initialDate, new: newDate });
+      }
+
+      const initialTotal = initial.total_inc_gst == null ? null : Number(initial.total_inc_gst);
+      const newTotal = fd.totalIncGst || null;
+      if (initialTotal !== newTotal) {
+        changes.push({ field: 'Total (inc GST)', old: initialTotal, new: newTotal });
+      }
+
+      const initialSummary = (initial.ai_summary_text as string | null) ?? null;
+      const newSummary = fd.jobSummaryFinal || null;
+      if (initialSummary !== newSummary) {
+        changes.push({ field: 'AI Summary', old: initialSummary, new: newSummary });
+      }
+
+      const initialOpt1 = initial.option_1_total_inc_gst == null ? null : Number(initial.option_1_total_inc_gst);
+      const newOpt1 = fd.option1TotalIncGst || null;
+      if (initialOpt1 !== newOpt1) {
+        changes.push({ field: 'Option 1 Total', old: initialOpt1, new: newOpt1 });
+      }
+
+      const initialOpt2 = initial.option_2_total_inc_gst == null ? null : Number(initial.option_2_total_inc_gst);
+      const newOpt2 = fd.option2TotalIncGst || null;
+      if (initialOpt2 !== newOpt2) {
+        changes.push({ field: 'Option 2 Total', old: initialOpt2, new: newOpt2 });
+      }
+
+      if (changes.length > 0) {
+        void logFieldEdits({
+          leadId: lid,
+          entityType: 'inspection',
+          entityId: insId,
+          changes,
+          actorLabel: user?.email ?? 'Admin',
+        });
+      }
+    };
+    // Only (re)install the cleanup when adminMode flips — the ref handles latest state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminMode]);
 
   // Save handler - multi-table upsert to Supabase
   const handleSave = async (options?: { silent?: boolean }) => {
@@ -3670,6 +3770,7 @@ export default function TechnicianInspectionForm() {
         onSave={handleSave}
         currentSection={currentSection}
         totalSections={TOTAL_SECTIONS}
+        titleOverride={adminMode ? 'Edit Inspection (Admin)' : undefined}
       />
 
       <main className="flex-1 p-4 space-y-6">
@@ -3709,7 +3810,7 @@ export default function TechnicianInspectionForm() {
             <div className="p-5 border-b border-gray-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined text-red-600" style={{ fontSize: '20px' }}>error</span>
+                  <AlertCircle className="h-5 w-5 text-red-600" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-[#1d1d1f]">Missing Required Fields</h3>
@@ -3735,7 +3836,7 @@ export default function TechnicianInspectionForm() {
                     <div className="text-sm font-semibold text-red-800">{err.label}</div>
                     <div className="text-xs text-red-600 truncate">{err.message}</div>
                   </div>
-                  <span className="material-symbols-outlined text-red-400" style={{ fontSize: '18px' }}>chevron_right</span>
+                  <ChevronRight className="h-[18px] w-[18px] text-red-400" />
                 </button>
               ))}
             </div>
@@ -3765,7 +3866,7 @@ export default function TechnicianInspectionForm() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
           <div className="bg-white rounded-2xl p-8 mx-4 max-w-sm w-full text-center shadow-xl">
             <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-[#007AFF] rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="material-symbols-outlined text-white text-3xl animate-spin">progress_activity</span>
+              <Loader2 className="h-8 w-8 text-white animate-spin" />
             </div>
             <h3 className="text-lg font-bold text-[#1d1d1f] mb-2">Generating AI Summary</h3>
             <p className="text-sm text-[#86868b]">

@@ -1,4 +1,5 @@
-interface WorkloadBreakdownProps {
+
+import { ClipboardList } from 'lucide-react';interface WorkloadBreakdownProps {
   scheduled: number;
   inProgress: number;
   completed: number;
@@ -149,12 +150,7 @@ export function WorkloadBreakdown({
         </>
       ) : (
         <div className="text-center py-8">
-          <span
-            className="material-symbols-outlined mb-2"
-            style={{ fontSize: '32px', color: '#617589' }}
-          >
-            assignment
-          </span>
+          <ClipboardList className="h-8 w-8 mb-2" style={{ color: '#617589' }} />
           <p className="text-sm" style={{ color: '#617589' }}>
             No workload data available
           </p>

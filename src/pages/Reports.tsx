@@ -12,7 +12,7 @@ import {
   SourcesChart,
   TimelineChart,
 } from '@/components/reports';
-import { Users, TrendingUp, Clock, DollarSign, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Users, TrendingUp, Clock, DollarSign, Loader2, AlertCircle, RefreshCw, BarChart3 } from 'lucide-react';
 import AdminPageLayout from '@/components/admin/AdminPageLayout';
 
 // ============================================================================
@@ -49,7 +49,7 @@ const Reports = () => {
       <AdminPageLayout
         title="Reports"
         subtitle="Analytics and insights for your lead pipeline"
-        icon="assessment"
+        icon={BarChart3}
         actions={<PeriodFilter value={period} onChange={setPeriod} />}
       >
         <div className="max-w-[1440px] mx-auto">
@@ -70,7 +70,7 @@ const Reports = () => {
       <AdminPageLayout
         title="Reports"
         subtitle="Analytics and insights for your lead pipeline"
-        icon="assessment"
+        icon={BarChart3}
         actions={<PeriodFilter value={period} onChange={setPeriod} />}
       >
         <div className="max-w-[1440px] mx-auto">
@@ -101,7 +101,7 @@ const Reports = () => {
     <AdminPageLayout
       title="Reports"
       subtitle="Analytics and insights for your lead pipeline"
-      icon="assessment"
+      icon={BarChart3}
       actions={<PeriodFilter value={period} onChange={setPeriod} />}
     >
       <div className="max-w-[1440px] mx-auto space-y-6">

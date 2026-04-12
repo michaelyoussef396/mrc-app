@@ -28,10 +28,13 @@ deny() {
 # Check if the command contains git push (handles chaining with &&, ;, |, subshells)
 if echo "$COMMAND" | grep -qE '(^|[;&|()]+[[:space:]]*)git[[:space:]]+push'; then
 
-# Block push to production (live branch — only merge from main)
-  if echo "$COMMAND" | grep -qE 'git[[:space:]]+push.*(origin[[:space:]]+|:)production\b'; then
-    deny "Blocked: cannot push directly to production. Merge from main instead."
-  fi
+# Block push to production UNLESS already on production branch (merge workflow)
+if echo "$COMMAND" | grep -qE 'git[[:space:]]+push.*(origin[[:space:]]+|:)production\b'; then
+    CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)
+    if [ "$CURRENT_BRANCH" != "production" ]; then
+      deny "Blocked: cannot push to production from $CURRENT_BRANCH. Checkout production and merge from main first."
+    fi
+fi
 
   # Block bare "git push" when on production
   if echo "$COMMAND" | grep -qE 'git[[:space:]]+push[[:space:]]*($|[;&|])'; then

@@ -251,6 +251,29 @@ export async function submitJobCompletion(id: string): Promise<void> {
     captureBusinessError('Failed to update lead status after job submit', { leadId: jc.lead_id, error: leadError.message })
     throw new Error(`Failed to update lead status: ${leadError.message}`)
   }
+
+  // Fire-and-forget Slack notification — failure must not break the submit flow.
+  try {
+    const { data: leadRow } = await supabase
+      .from('leads')
+      .select('full_name, property_address_street, property_address_suburb')
+      .eq('id', jc.lead_id)
+      .single()
+
+    const { sendSlackNotification } = await import('@/lib/api/notifications')
+    sendSlackNotification({
+      event: 'status_changed',
+      leadId: jc.lead_id,
+      leadName: leadRow?.full_name || 'Unknown',
+      propertyAddress: [leadRow?.property_address_street, leadRow?.property_address_suburb].filter(Boolean).join(', ') || undefined,
+      oldStatus: 'job_scheduled',
+      newStatus: nextLeadStatus,
+      oldStatusLabel: 'SCHEDULED',
+      newStatusLabel: nextLeadStatus === 'pending_review' ? 'ADMIN REVIEW' : 'COMPLETED',
+    })
+  } catch (err) {
+    console.error('[submitJobCompletion] Slack notification failed (non-fatal):', err)
+  }
 }
 
 /**

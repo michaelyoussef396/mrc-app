@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Job } from './JobsList';
+import { Check, CheckCircle2, ChevronRight } from 'lucide-react';
 
 interface AllCompleteStateProps {
   completedJobs: Job[];
@@ -39,12 +40,7 @@ export default function AllCompleteState({ completedJobs, totalJobs }: AllComple
               className="w-16 h-16 rounded-full flex items-center justify-center shadow-sm"
               style={{ backgroundColor: 'rgba(52, 199, 89, 0.15)' }}
             >
-              <span
-                className="material-symbols-outlined text-4xl"
-                style={{ color: '#34C759' }}
-              >
-                check_circle
-              </span>
+              <CheckCircle2 className="h-10 w-10" style={{ color: '#34C759' }} />
             </div>
 
             {/* Text */}
@@ -95,9 +91,7 @@ export default function AllCompleteState({ completedJobs, totalJobs }: AllComple
                   className="shrink-0 flex items-center justify-center rounded-lg w-10 h-10"
                   style={{ backgroundColor: 'rgba(52, 199, 89, 0.1)', color: '#34C759' }}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-                    check
-                  </span>
+                  <Check className="h-5 w-5" />
                 </div>
 
                 {/* Job Details */}
@@ -146,9 +140,7 @@ export default function AllCompleteState({ completedJobs, totalJobs }: AllComple
                 style={{ color: '#007AFF', minHeight: '48px' }}
               >
                 <span>View Report</span>
-                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
-                  chevron_right
-                </span>
+                <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>

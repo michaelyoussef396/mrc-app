@@ -1,5 +1,6 @@
 import { CalendarEvent, getEventsForDate, isToday } from '@/hooks/useScheduleCalendar';
 import { getEventStyles, getDurationLabel } from './scheduleUtils';
+import { CalendarCheck, CheckCircle2, Clock, XCircle } from 'lucide-react';
 
 interface ScheduleDailyViewProps {
   selectedDate: Date;
@@ -42,12 +43,7 @@ export function ScheduleDailyView({
   if (dayEvents.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-        <span
-          className="material-symbols-outlined text-5xl mb-3"
-          style={{ color: '#c7c7cc' }}
-        >
-          event_available
-        </span>
+        <CalendarCheck className="h-12 w-12 mb-3" style={{ color: '#c7c7cc' }} />
         <p className="text-base font-semibold" style={{ color: '#86868b' }}>
           No bookings
         </p>
@@ -148,28 +144,13 @@ function DailyEventCard({ event, onClick }: { event: CalendarEvent; onClick: () 
         {/* Right: status icon + tech badge */}
         <div className="flex-shrink-0 flex items-center gap-1.5">
           {event.status === 'completed' && (
-            <span
-              className="material-symbols-outlined text-green-600"
-              style={{ fontSize: '18px' }}
-            >
-              check_circle
-            </span>
+            <CheckCircle2 className="h-[18px] w-[18px] text-green-600" />
           )}
           {event.status === 'in_progress' && (
-            <span
-              className="material-symbols-outlined text-yellow-600"
-              style={{ fontSize: '18px' }}
-            >
-              pending
-            </span>
+            <Clock className="h-[18px] w-[18px] text-yellow-600" />
           )}
           {event.status === 'cancelled' && (
-            <span
-              className="material-symbols-outlined text-red-400"
-              style={{ fontSize: '18px' }}
-            >
-              cancel
-            </span>
+            <XCircle className="h-[18px] w-[18px] text-red-400" />
           )}
           <span
             className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"

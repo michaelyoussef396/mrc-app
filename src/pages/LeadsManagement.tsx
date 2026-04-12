@@ -5,7 +5,27 @@ import { useToast } from '@/hooks/use-toast';
 import { generateInspectionPDF } from '@/lib/api/pdfGeneration';
 import { sendEmail, buildReportApprovedHtml } from '@/lib/api/notifications';
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
-import { ChevronDown, Search, X, LayoutGrid, List, Loader2, Clock, Copy, ExternalLink, Send, FileText } from 'lucide-react';
+import {
+  AlertTriangle,
+  ChevronDown,
+  Clock,
+  Copy,
+  ExternalLink,
+  FileText,
+  Inbox,
+  Info,
+  LayoutGrid,
+  List,
+  Loader2,
+  MapPin,
+  Menu,
+  Plus,
+  Search,
+  SearchX,
+  Send,
+  Trash2,
+  X,
+} from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,8 +70,8 @@ const statusOptions: StatusOption[] = [
   { value: 'inspection_email_approval', label: 'Email Approval', dotColor: 'bg-purple-500' },
   { value: 'job_waiting', label: 'Awaiting Job', dotColor: 'bg-amber-500' },
   { value: 'job_scheduled', label: 'Job Scheduled', dotColor: 'bg-blue-500' },
-  { value: 'job_completed', label: 'Job Completed', dotColor: 'bg-emerald-500' },
   { value: 'pending_review', label: 'Pending Review', dotColor: 'bg-yellow-500' },
+  { value: 'job_completed', label: 'Job Completed', dotColor: 'bg-emerald-500' },
   { value: 'job_report_pdf_sent', label: 'Report Sent', dotColor: 'bg-sky-500' },
   { value: 'invoicing_sent', label: 'Invoice Sent', dotColor: 'bg-fuchsia-500' },
   { value: 'paid', label: 'Paid', dotColor: 'bg-green-600' },
@@ -528,6 +548,29 @@ const LeadsManagement = () => {
     navigate('/admin/schedule');
   };
 
+  const handleApproveJobReport = async (leadId: string) => {
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ status: 'job_report_pdf_sent' })
+        .eq('id', leadId);
+      if (error) throw error;
+
+      await supabase.from('activities').insert({
+        lead_id: leadId,
+        activity_type: 'status_change',
+        title: 'Job report approved',
+        description: 'Admin approved the job report',
+      });
+
+      setLeads(prev => prev.map(l => (l.id === leadId ? { ...l, status: 'job_report_pdf_sent' } : l)));
+      toast({ title: 'Report approved', description: 'Job report has been approved.' });
+    } catch (error) {
+      console.error('Failed to approve job report:', error);
+      toast({ title: 'Error', description: 'Failed to approve report.', variant: 'destructive' });
+    }
+  };
+
   // Not Proceeding → mark lead as not_landed (confirm + update).
   const handleNotProceeding = async (id: string | number) => {
     if (!window.confirm('Mark this lead as Not Proceeding? It will move to the Not Landed pipeline.')) {
@@ -744,9 +787,7 @@ const LeadsManagement = () => {
               className="lg:hidden w-12 h-12 flex items-center justify-center hover:bg-gray-100 rounded-lg transition-colors mr-3"
               onClick={() => setSidebarOpen(true)}
             >
-              <span className="material-symbols-outlined" style={{ color: '#1d1d1f' }}>
-                menu
-              </span>
+              <Menu className="h-5 w-5" style={{ color: '#1d1d1f' }} />
             </button>
 
             {/* Logo and Title */}
@@ -755,7 +796,7 @@ const LeadsManagement = () => {
                 className="flex w-10 h-10 items-center justify-center rounded-lg text-white"
                 style={{ backgroundColor: '#007AFF' }}
               >
-                <span className="material-symbols-outlined">inbox</span>
+                <Inbox className="h-5 w-5" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-slate-900">Lead Management</h1>
@@ -774,7 +815,7 @@ const LeadsManagement = () => {
               className="h-10 px-4 rounded-lg bg-blue-600 text-white text-sm font-medium
                 hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
             >
-              <span className="material-symbols-outlined text-lg">add</span>
+              <Plus className="h-5 w-5" />
               <span className="hidden sm:inline">New Lead</span>
             </button>
           </div>
@@ -868,9 +909,7 @@ const LeadsManagement = () => {
         ) : filteredLeads.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-              <span className="material-symbols-outlined text-3xl text-slate-400">
-                {searchQuery || statusFilter !== 'all' ? 'search_off' : 'inbox'}
-              </span>
+              {searchQuery || statusFilter !== 'all' ? <SearchX className="h-8 w-8 text-slate-400" /> : <Inbox className="h-8 w-8 text-slate-400" />}
             </div>
             <h3 className="text-lg font-semibold text-slate-900 mb-1">
               {searchQuery || statusFilter !== 'all' ? 'No leads found' : 'No leads yet'}
@@ -886,7 +925,7 @@ const LeadsManagement = () => {
                 className="h-11 px-6 rounded-lg bg-blue-600 text-white text-sm font-medium
                   hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
               >
-                <span className="material-symbols-outlined text-lg">add</span>
+                <Plus className="h-5 w-5" />
                 Create First Lead
               </button>
             )}
@@ -918,6 +957,7 @@ const LeadsManagement = () => {
                 onReviewAI={handleReviewAI}
                 onBookJob={handleBookJob}
                 onNotProceeding={handleNotProceeding}
+                onApproveJobReport={handleApproveJobReport}
               />
             ))}
 
@@ -988,7 +1028,7 @@ const LeadsManagement = () => {
             <div className="flex items-start justify-between p-6 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-amber-600">warning</span>
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">Remove Lead</h2>
@@ -999,7 +1039,7 @@ const LeadsManagement = () => {
                 onClick={() => setShowRemoveReasonModal(false)}
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
               >
-                <span className="material-symbols-outlined text-slate-500">close</span>
+                <X className="h-5 w-5 text-slate-500" />
               </button>
             </div>
 
@@ -1009,7 +1049,7 @@ const LeadsManagement = () => {
               <div className="p-3 rounded-lg bg-slate-50">
                 <p className="font-medium text-slate-900">{selectedLeadForRemoval.name}</p>
                 <p className="text-sm text-slate-500 flex items-center gap-1 mt-1">
-                  <span className="material-symbols-outlined text-base">location_on</span>
+                  <MapPin className="h-4 w-4" />
                   {selectedLeadForRemoval.property}, {selectedLeadForRemoval.suburb}
                 </p>
               </div>
@@ -1054,7 +1094,7 @@ const LeadsManagement = () => {
 
               {/* Warning */}
               <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 text-blue-700">
-                <span className="material-symbols-outlined text-lg shrink-0">info</span>
+                <Info className="h-5 w-5 shrink-0" />
                 <p className="text-sm">
                   This lead will be moved to "Not Landed" and removed from the active pipeline.
                   You can reactivate it later if needed.
@@ -1078,7 +1118,7 @@ const LeadsManagement = () => {
                   hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
                   flex items-center gap-2"
               >
-                <span className="material-symbols-outlined text-lg">delete</span>
+                <Trash2 className="h-5 w-5" />
                 Remove Lead
               </button>
             </div>
@@ -1117,7 +1157,7 @@ const LeadsManagement = () => {
             </div>
           ) : historyActivities.length === 0 ? (
             <div className="text-center py-12">
-              <span className="material-symbols-outlined text-4xl text-slate-400 mb-2 block">history</span>
+              <Clock className="h-10 w-10 text-slate-400 mb-2 block" />
               <p className="text-sm text-slate-500">No activity recorded for this lead</p>
             </div>
           ) : (

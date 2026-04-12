@@ -3,9 +3,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { SyncIndicator } from '@/lib/offline/SyncIndicator';
 import { useTechnicianAlerts } from '@/hooks/useTechnicianAlerts';
+import { Bell, ClipboardList, Home, LogOut, Settings, User } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface NavItem {
-  icon: string;
+  icon: LucideIcon;
   label: string;
   path: string;
   badgeKey?: string;
@@ -13,10 +15,10 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { icon: 'home', label: 'Home', path: '/technician' },
-  { icon: 'assignment', label: 'My Jobs', path: '/technician/jobs' },
-  { icon: 'notifications', label: 'Alerts', path: '/technician/alerts', badgeKey: 'alerts' },
-  { icon: 'person', label: 'Profile', path: '/technician/profile', isProfile: true },
+  { icon: Home, label: 'Home', path: '/technician' },
+  { icon: ClipboardList, label: 'My Jobs', path: '/technician/jobs' },
+  { icon: Bell, label: 'Alerts', path: '/technician/alerts', badgeKey: 'alerts' },
+  { icon: User, label: 'Profile', path: '/technician/profile', isProfile: true },
 ];
 
 export default function TechnicianBottomNav() {
@@ -89,12 +91,7 @@ export default function TechnicianBottomNav() {
             className="w-full px-4 py-3 text-left text-sm font-medium hover:bg-gray-50 flex items-center gap-3 active:bg-gray-100"
             style={{ color: '#1d1d1f', minHeight: '48px' }}
           >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: '20px', color: '#86868b' }}
-            >
-              person
-            </span>
+            <User className="h-5 w-5" style={{ color: '#86868b' }} />
             My Profile
           </button>
 
@@ -110,12 +107,7 @@ export default function TechnicianBottomNav() {
             className="w-full px-4 py-3 text-left text-sm font-medium hover:bg-gray-50 flex items-center gap-3 active:bg-gray-100"
             style={{ color: '#1d1d1f', minHeight: '48px' }}
           >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: '20px', color: '#86868b' }}
-            >
-              settings
-            </span>
+            <Settings className="h-5 w-5" style={{ color: '#86868b' }} />
             Settings
           </button>
 
@@ -128,12 +120,7 @@ export default function TechnicianBottomNav() {
             className="w-full px-4 py-3 text-left text-sm font-medium hover:bg-gray-50 flex items-center gap-3 active:bg-gray-100"
             style={{ color: '#FF3B30', minHeight: '48px' }}
           >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: '20px' }}
-            >
-              logout
-            </span>
+            <LogOut className="h-5 w-5" />
             Log Out
           </button>
         </div>
@@ -160,15 +147,7 @@ export default function TechnicianBottomNav() {
               }}
             >
               <div className="relative w-10 h-8 rounded-full flex items-center justify-center">
-                <span
-                  className="material-symbols-outlined"
-                  style={{
-                    fontSize: '24px',
-                    fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0",
-                  }}
-                >
-                  {item.icon}
-                </span>
+                <item.icon className="h-6 w-6" />
 
                 {/* Badge/Notification Dot */}
                 {item.badgeKey === 'alerts' && unreadCount > 0 && (

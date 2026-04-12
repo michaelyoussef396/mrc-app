@@ -47,6 +47,7 @@ const TechnicianInspectionForm = lazy(() => import("./pages/TechnicianInspection
 const TechnicianJobDetail = lazy(() => import("./pages/TechnicianJobDetail"));
 const JobCompletionForm = lazy(() => import("./pages/JobCompletionForm"));
 const InspectionAIReview = lazy(() => import("./pages/InspectionAIReview"));
+// ViewJobReportPDF deleted — unified into ViewReportPDF with reportType detection
 
 // Loading fallback component
 const PageLoader = () => (
@@ -291,6 +292,22 @@ const AppContent = () => {
               }
             />
 
+            {/* Admin Inspection Edit — reuses TechnicianInspectionForm via adminMode flag */}
+            <Route
+              path="/admin/inspection/:leadId"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <PageErrorBoundary name="admin-inspection-form">
+                        <TechnicianInspectionForm adminMode />
+                      </PageErrorBoundary>
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
             {/* Technician Job Detail — reuses the shared LeadDetail page so
                 technicians see the full lead view (contact, property, inspection
                 data, cost estimate, AI summary, job schedule, activity log).
@@ -399,6 +416,20 @@ const AppContent = () => {
 
             <Route
               path="/inspection/:inspectionId/report"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <ViewReportPDF />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin Job Report Viewer */}
+            <Route
+              path="/admin/job-report/:leadId"
               element={
                 <ProtectedRoute>
                   <RoleProtectedRoute allowedRoles={["admin"]}>

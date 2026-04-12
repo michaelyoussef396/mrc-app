@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,12 +65,15 @@ import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
 import { BookJobSheet } from "@/components/leads/BookJobSheet";
 import { JobBookingDetails } from "@/components/leads/JobBookingDetails";
 import { JobCompletionSummary } from "@/components/leads/JobCompletionSummary";
+import { JobCompletionEditSheet } from "@/components/leads/JobCompletionEditSheet";
 import { TechnicianBottomNav } from "@/components/technician";
 import { useAuth } from "@/contexts/AuthContext";
 import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
+import { InspectionReportHistory } from "@/components/leads/InspectionReportHistory";
 import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
 import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/api/inspections";
 import { getJobCompletionByLeadId } from "@/lib/api/jobCompletions";
+import { generateJobReportPdf } from "@/lib/api/jobReportPdf";
 import type { JobCompletionRow } from "@/types/jobCompletion";
 import { STATUS_FLOW, LeadStatus } from "@/lib/statusFlow";
 import { sendSlackNotification } from "@/lib/api/notifications";
@@ -132,6 +136,12 @@ export default function LeadDetail() {
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [showBookJobModal, setShowBookJobModal] = useState(false);
   const [newStatus, setNewStatus] = useState<LeadStatus | null>(null);
+  const [showSendBackDialog, setShowSendBackDialog] = useState(false);
+  const [sendBackNote, setSendBackNote] = useState('');
+  const [isSendingBack, setIsSendingBack] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [editingSection, setEditingSection] = useState<number | null>(null);
+  const [generatingJobPdf, setGeneratingJobPdf] = useState(false);
 
   // Fetch lead data
   const { data: lead, isLoading, refetch } = useQuery({
@@ -227,27 +237,43 @@ export default function LeadDetail() {
   ];
 
   React.useEffect(() => {
-    if (lead && POST_INSPECTION_STATUSES.includes(lead.status) && id) {
+    if (lead && inspection && id) {
       setInspectionDisplayLoading(true);
       fetchCompleteInspectionData(id)
         .then(data => setInspectionDisplayData(data))
         .catch(err => console.error('[LeadDetail] Failed to load inspection display data:', err))
         .finally(() => setInspectionDisplayLoading(false));
     }
-  }, [lead?.status, id]);
+  }, [lead?.id, inspection?.id, id]);
 
   const PHASE_2_STATUSES = [
     'job_waiting', 'job_completed', 'pending_review', 'job_report_pdf_sent',
     'invoicing_sent', 'paid', 'google_review', 'finished',
   ];
 
-  React.useEffect(() => {
+  const refetchJobCompletion = React.useCallback(() => {
     if (lead && PHASE_2_STATUSES.includes(lead.status)) {
-      getJobCompletionByLeadId(lead.id)
-        .then(setJobCompletion)
-        .catch(console.error);
+      getJobCompletionByLeadId(lead.id).then(setJobCompletion).catch(console.error);
     }
   }, [lead?.id, lead?.status]);
+
+  React.useEffect(() => { refetchJobCompletion(); }, [refetchJobCompletion]);
+
+  // Fetch the technician profile for job_completions.completed_by
+  // (used by the pending_review CTA card to show "Submitted by …")
+  const { data: completedByProfile } = useQuery({
+    queryKey: ['profile', jobCompletion?.completed_by],
+    queryFn: async () => {
+      if (!jobCompletion?.completed_by) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', jobCompletion.completed_by)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!jobCompletion?.completed_by,
+  });
 
   // Loading state
   if (isLoading) {
@@ -312,6 +338,80 @@ export default function LeadDetail() {
 
     toast.success(`Status updated to ${STATUS_FLOW[status].shortTitle}`);
     refetch();
+  };
+
+  const handleApproveJobCompletion = async () => {
+    if (!lead) return;
+    setIsApproving(true);
+    try {
+      await handleChangeStatus('job_completed');
+      // Auto-trigger PDF generation after approval
+      if (jobCompletion) {
+        toast.info('Generating job report PDF...');
+        try {
+          await generateJobReportPdf(jobCompletion.id);
+          toast.success('Job report PDF generated');
+          refetchJobCompletion();
+          navigate(`/admin/job-report/${lead.id}`);
+        } catch (pdfErr) {
+          console.error('PDF generation failed:', pdfErr);
+          toast.error('PDF generation failed — you can retry from the lead detail');
+        }
+      }
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleSendBackToTechnician = async () => {
+    if (!lead || !sendBackNote.trim()) return;
+    setIsSendingBack(true);
+    try {
+      const { error: statusError } = await supabase
+        .from('leads')
+        .update({ status: 'job_scheduled' })
+        .eq('id', lead.id);
+      if (statusError) throw statusError;
+
+      // Clear request_review so the lead drops out of the Needs Attention list
+      // and reset the job_completion back to draft so the tech can edit again.
+      if (jobCompletion?.id) {
+        await supabase
+          .from('job_completions')
+          .update({ request_review: false, status: 'draft' })
+          .eq('id', jobCompletion.id);
+      }
+
+      await supabase.from('activities').insert({
+        lead_id: lead.id,
+        activity_type: 'status_change',
+        title: 'Job completion sent back to technician',
+        description: sendBackNote.trim(),
+      });
+
+      sendSlackNotification({
+        event: 'status_changed',
+        leadId: lead.id,
+        leadName: lead.full_name || 'Unknown',
+        oldStatus: 'pending_review',
+        newStatus: 'job_scheduled',
+        oldStatusLabel: 'ADMIN REVIEW',
+        newStatusLabel: 'SCHEDULED',
+      });
+
+      toast.success('Sent back to technician');
+      setShowSendBackDialog(false);
+      setSendBackNote('');
+      refetch();
+    } catch (err) {
+      captureBusinessError('Failed to send back to technician', {
+        leadId: lead.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      toast.error('Failed to send back');
+    } finally {
+      setIsSendingBack(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -618,6 +718,204 @@ export default function LeadDetail() {
             />
           </div>
         );
+
+      case "pending_review": {
+        const submittedAt = jobCompletion?.submitted_at
+          ? new Date(jobCompletion.submitted_at).toLocaleDateString('en-AU', {
+              day: 'numeric', month: 'long', year: 'numeric',
+            })
+          : null;
+        const submittedBy =
+          completedByProfile?.full_name ??
+          jobCompletion?.remediation_completed_by ??
+          'Technician';
+
+        return (
+          <div className="space-y-3">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-amber-900 text-sm">
+                    Technician requested admin review
+                  </p>
+                  <p className="text-xs text-amber-800 mt-0.5">
+                    Submitted by {submittedBy}{submittedAt ? ` · ${submittedAt}` : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 h-12" onClick={handleCall}>
+                <Phone className="h-4 w-4 mr-2" />
+                Call Customer
+              </Button>
+              <Button variant="outline" className="flex-1 h-12" onClick={handleEmail}>
+                <Mail className="h-4 w-4 mr-2" />
+                Email Customer
+              </Button>
+            </div>
+
+            <Button
+              size="lg"
+              className="w-full h-14 text-base bg-emerald-600 hover:bg-emerald-700"
+              onClick={handleApproveJobCompletion}
+              disabled={isApproving}
+            >
+              {isApproving
+                ? <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                : <CheckCircle2 className="h-5 w-5 mr-2" />}
+              Approve &amp; Generate Report
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full h-12 border-amber-200 text-amber-800 hover:bg-amber-50"
+              onClick={() => setShowSendBackDialog(true)}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Send Back to Technician
+            </Button>
+
+            <p className="text-xs text-gray-500 text-center">
+              Full submission shown below in the Job Completion section.
+            </p>
+          </div>
+        );
+      }
+
+      case "job_completed": {
+        const submittedAt = jobCompletion?.submitted_at
+          ? new Date(jobCompletion.submitted_at).toLocaleDateString('en-AU', {
+              day: 'numeric', month: 'long', year: 'numeric',
+            })
+          : null;
+        const submittedBy =
+          completedByProfile?.full_name ??
+          jobCompletion?.remediation_completed_by ??
+          'Technician';
+
+        return (
+          <div className="space-y-3">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-emerald-900 text-sm">Job completion submitted</p>
+                  <p className="text-xs text-emerald-800 mt-0.5">
+                    Submitted by {submittedBy}{submittedAt ? ` · ${submittedAt}` : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Button
+              className="w-full h-12"
+              variant={jobCompletion?.pdf_url ? 'outline' : 'default'}
+              disabled={generatingJobPdf}
+              onClick={async () => {
+                if (jobCompletion?.pdf_url) {
+                  navigate(`/admin/job-report/${lead.id}`);
+                  return;
+                }
+                if (!jobCompletion) return;
+                setGeneratingJobPdf(true);
+                try {
+                  await generateJobReportPdf(jobCompletion.id);
+                  toast.success('Job report PDF generated');
+                  refetchJobCompletion();
+                  navigate(`/admin/job-report/${lead.id}`);
+                } catch (err) {
+                  toast.error('PDF generation failed');
+                  console.error(err);
+                } finally {
+                  setGeneratingJobPdf(false);
+                }
+              }}
+            >
+              {generatingJobPdf ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating PDF...</>
+              ) : jobCompletion?.pdf_url ? (
+                <><FileText className="h-4 w-4 mr-2" /> View Job Report PDF</>
+              ) : (
+                <><FileText className="h-4 w-4 mr-2" /> Generate Job Report PDF</>
+              )}
+            </Button>
+
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 h-12" onClick={handleCall}>
+                <Phone className="h-4 w-4 mr-2" /> Call Customer
+              </Button>
+              <Button variant="outline" className="flex-1 h-12" onClick={handleEmail}>
+                <Mail className="h-4 w-4 mr-2" /> Email Customer
+              </Button>
+            </div>
+
+            <Button
+              size="lg"
+              className="w-full h-14 text-base bg-emerald-600 hover:bg-emerald-700"
+              onClick={() => handleChangeStatus('job_report_pdf_sent')}
+            >
+              <CheckCircle2 className="h-5 w-5 mr-2" />
+              Approve &amp; Mark as Sent
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full h-12 border-amber-200 text-amber-800 hover:bg-amber-50"
+              onClick={() => setShowSendBackDialog(true)}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Request Changes
+            </Button>
+          </div>
+        );
+      }
+
+      case "job_report_pdf_sent": {
+        return (
+          <div className="space-y-3">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-start gap-2">
+                <Mail className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-emerald-900 text-sm">Job report marked as sent</p>
+                  <p className="text-xs text-emerald-800 mt-0.5">
+                    Ready to invoice the customer.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Button
+              className="w-full h-12"
+              onClick={() => navigate(`/admin/job-report/${lead.id}`)}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              View Job Report PDF
+            </Button>
+
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 h-12" onClick={handleCall}>
+                <Phone className="h-4 w-4 mr-2" /> Call Customer
+              </Button>
+              <Button variant="outline" className="flex-1 h-12" onClick={handleEmail}>
+                <Mail className="h-4 w-4 mr-2" /> Email Customer
+              </Button>
+            </div>
+
+            <Button
+              size="lg"
+              className="w-full h-14 text-base bg-blue-600 hover:bg-blue-700"
+              onClick={() => handleChangeStatus('invoicing_sent')}
+            >
+              <Receipt className="h-5 w-5 mr-2" />
+              Move to Invoicing
+            </Button>
+          </div>
+        );
+      }
 
       case "not_landed":
         return (
@@ -1097,12 +1395,24 @@ export default function LeadDetail() {
           </Card>
         )}
 
-        {/* Complete Inspection Data Display — shown for all post-inspection statuses */}
-        {POST_INSPECTION_STATUSES.includes(lead.status) && (
+        {/* Complete Inspection Data Display — always visible whenever an inspection exists */}
+        {inspection && (
           <div id="inspection-data" className="space-y-4">
-            <div className="flex items-center gap-2 pt-2">
-              <ClipboardList className="h-5 w-5 text-violet-600" />
-              <h2 className="text-lg font-bold text-slate-900">Inspection Data</h2>
+            <div className="flex items-center justify-between gap-2 pt-2">
+              <div className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-violet-600" />
+                <h2 className="text-lg font-bold text-slate-900">Inspection Data</h2>
+              </div>
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/admin/inspection/${lead.id}`)}
+                >
+                  <Edit className="h-4 w-4 mr-1.5" />
+                  Edit Inspection Data
+                </Button>
+              )}
             </div>
 
             {inspectionDisplayLoading ? (
@@ -1121,6 +1431,13 @@ export default function LeadDetail() {
                 </CardContent>
               </Card>
             )}
+
+            <InspectionReportHistory
+              inspectionId={inspection.id}
+              leadId={lead.id}
+              onRegenerate={handleRegeneratePDF}
+              isRegenerating={regeneratingPdf}
+            />
           </div>
         )}
 
@@ -1130,6 +1447,7 @@ export default function LeadDetail() {
             jobCompletion={jobCompletion}
             leadId={lead.id}
             isAdmin={hasRole('admin')}
+            onEdit={isAdmin ? setEditingSection : undefined}
           />
         )}
 
@@ -1280,6 +1598,54 @@ export default function LeadDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Send Back to Technician Dialog — pending_review flow */}
+      <Dialog
+        open={showSendBackDialog}
+        onOpenChange={(open) => {
+          setShowSendBackDialog(open);
+          if (!open) setSendBackNote('');
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send back to technician</DialogTitle>
+            <DialogDescription>
+              Leave a note explaining what the technician needs to revise. They'll see this in the activity timeline and the job will return to Scheduled.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Textarea
+              value={sendBackNote}
+              onChange={(e) => setSendBackNote(e.target.value)}
+              placeholder="e.g. Please add before photos for the kitchen area and re-check the equipment quantities."
+              rows={5}
+              className="resize-none"
+              autoFocus
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowSendBackDialog(false);
+                setSendBackNote('');
+              }}
+              disabled={isSendingBack}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendBackToTechnician}
+              disabled={isSendingBack || !sendBackNote.trim()}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {isSendingBack && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Send Back
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Change Status Dialog — uses Dialog (not AlertDialog) so click-outside and Esc close it */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
@@ -1357,6 +1723,19 @@ export default function LeadDetail() {
         propertySuburb={lead.property_address_suburb}
         onBooked={() => refetch()}
       />
+
+      {/* Job Completion Edit Sheet — admin inline section editing */}
+      {editingSection !== null && jobCompletion && (
+        <JobCompletionEditSheet
+          sectionIndex={editingSection as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10}
+          jobCompletion={jobCompletion}
+          leadId={lead.id}
+          isAdmin={isAdmin}
+          open={editingSection !== null}
+          onOpenChange={(open) => !open && setEditingSection(null)}
+          onSaved={refetchJobCompletion}
+        />
+      )}
 
       {/* Technician bottom nav — only shown when viewing as a technician */}
       {isTechnician && !isAdmin && <TechnicianBottomNav />}

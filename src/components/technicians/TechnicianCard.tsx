@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { TechnicianWithStats, formatRevenue, formatLastSeen } from '@/hooks/useTechnicianStats';
+import { Clock } from 'lucide-react';
 
 interface TechnicianCardProps {
   technician: TechnicianWithStats;
@@ -131,9 +132,7 @@ export function TechnicianCard({ technician }: TechnicianCardProps) {
 
       {/* Footer - Last Seen */}
       <div className="flex items-center gap-2 text-xs font-medium" style={{ color: '#617589' }}>
-        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
-          schedule
-        </span>
+        <Clock className="h-4 w-4" />
         <span>Last seen: {formatLastSeen(technician.lastSignInAt)}</span>
       </div>
     </div>

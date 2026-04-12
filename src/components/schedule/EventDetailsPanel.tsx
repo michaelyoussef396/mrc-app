@@ -11,7 +11,15 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { X } from 'lucide-react';
+import {
+  CalendarDays,
+  Clock,
+  Eye,
+  MapPin,
+  Play,
+  X,
+  XCircle,
+} from 'lucide-react';
 
 interface EventDetailsPanelProps {
   event: CalendarEvent | null;
@@ -139,11 +147,11 @@ export function EventDetailsPanel({ event, open, onClose }: EventDetailsPanelPro
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Date & Time</p>
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-lg text-slate-400">calendar_today</span>
+              <CalendarDays className="h-5 w-5 text-slate-400" />
               <p className="text-sm font-medium text-slate-900">{dateStr}</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-lg text-slate-400">schedule</span>
+              <Clock className="h-5 w-5 text-slate-400" />
               <p className="text-sm font-medium text-slate-900">
                 {startTime} - {endTime} ({durationLabel})
               </p>
@@ -155,7 +163,7 @@ export function EventDetailsPanel({ event, open, onClose }: EventDetailsPanelPro
             <div className="space-y-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Location</p>
               <div className="flex items-start gap-2">
-                <span className="material-symbols-outlined text-lg text-slate-400 mt-0.5">location_on</span>
+                <MapPin className="h-5 w-5 text-slate-400 mt-0.5" />
                 <p className="text-sm text-slate-900">
                   {event.address || `${event.suburb} ${event.postcode}`}
                 </p>
@@ -185,21 +193,21 @@ export function EventDetailsPanel({ event, open, onClose }: EventDetailsPanelPro
                   onClick={handleStartInspection}
                   className="w-full h-11 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                 >
-                  <span className="material-symbols-outlined text-lg">play_arrow</span>
+                  <Play className="h-5 w-5" />
                   Start Inspection
                 </button>
                 <button
                   onClick={handleViewLead}
                   className="w-full h-11 rounded-lg border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
                 >
-                  <span className="material-symbols-outlined text-lg">visibility</span>
+                  <Eye className="h-5 w-5" />
                   View Lead
                 </button>
                 <button
                   onClick={handleCancelBooking}
                   className="w-full h-11 rounded-lg border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
                 >
-                  <span className="material-symbols-outlined text-lg">cancel</span>
+                  <XCircle className="h-5 w-5" />
                   Cancel Booking
                 </button>
               </>
@@ -209,7 +217,7 @@ export function EventDetailsPanel({ event, open, onClose }: EventDetailsPanelPro
                 onClick={handleViewLead}
                 className="w-full h-11 rounded-lg border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
               >
-                <span className="material-symbols-outlined text-lg">visibility</span>
+                <Eye className="h-5 w-5" />
                 View Lead
               </button>
             )}

@@ -1,4 +1,4 @@
-import { Activity } from 'lucide-react';
+import { Activity, Clock } from 'lucide-react';
 import { useActivityTimeline } from '@/hooks/useActivityTimeline';
 import { ActivityTimeline } from '@/components/dashboard/ActivityTimeline';
 import AdminPageLayout from '@/components/admin/AdminPageLayout';
@@ -10,7 +10,7 @@ export default function Notifications() {
     <AdminPageLayout
       title="Recent Activity"
       subtitle="All activity across leads, emails, and notifications"
-      icon="history"
+      icon={Clock}
     >
       {/* Activity Feed */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6">

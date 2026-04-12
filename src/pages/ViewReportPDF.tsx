@@ -5,7 +5,8 @@
 // Pages 2+: toggle edit mode for overlay buttons
 
 import { useEffect, useState, useRef } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
 import type { Page1Data, VPData, OutdoorData, AreaRecord, SubfloorEditData, CostData } from '@/components/pdf/ReportPreviewHTML'
@@ -41,7 +42,8 @@ import {
   getPDFVersionHistory,
   updateFieldAndRegenerate
 } from '@/lib/api/pdfGeneration'
-import { sendEmail, sendSlackNotification, buildReportApprovedHtml } from '@/lib/api/notifications'
+import { sendEmail, sendSlackNotification, buildReportApprovedHtml, sendJobReportEmail } from '@/lib/api/notifications'
+import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
 import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { resizePhoto } from '@/lib/offline/photoResizer'
@@ -182,9 +184,11 @@ const INSPECTION_SELECT = `
 `
 
 export default function ViewReportPDF() {
-  const { inspectionId, id } = useParams<{ inspectionId?: string; id?: string }>()
-  const effectiveId = inspectionId || id
+  const { inspectionId, id, leadId } = useParams<{ inspectionId?: string; id?: string; leadId?: string }>()
+  const effectiveId = inspectionId || id || leadId
   const navigate = useNavigate()
+  const location = useLocation()
+  const reportType: 'inspection' | 'job' = location.pathname.startsWith('/admin/job-report') ? 'job' : 'inspection'
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [inspection, setInspection] = useState<Inspection | null>(null)
@@ -206,6 +210,21 @@ export default function ViewReportPDF() {
   const [sendingEmail, setSendingEmail] = useState(false)
 
   function prefillEmailAndOpenStage() {
+    if (reportType === 'job' && jobCompletion) {
+      const lead = jobCompletion.lead as { full_name?: string; property_address_street?: string; property_address_suburb?: string } | null
+      const addr = lead ? [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ') : ''
+      setEmailSubject(`Your Job Completion Report — ${jobCompletion.job_number || 'Mould & Restoration Co'}`)
+      setEmailBody(
+        `Hi ${lead?.full_name || 'there'},\n\n` +
+        `Great news — the remediation work at ${addr} has been completed` +
+        `${jobCompletion.job_number ? ` (Ref: ${jobCompletion.job_number})` : ''}.\n\n` +
+        `Please find the job completion report attached for your records.\n\n` +
+        `If you have any questions, please don't hesitate to get in touch.\n\n` +
+        `Kind regards,\nMould & Restoration Co.\n0433 880 403`
+      )
+      setStage('email-approval')
+      return
+    }
     const lead = inspection?.lead
     const addr = lead ? [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ') : ''
     setEmailSubject(`Your Inspection Report — ${inspection?.job_number || 'Mould & Restoration Co'}`)
@@ -293,6 +312,39 @@ export default function ViewReportPDF() {
     }
   }, [inspection, loading])
 
+  // Job completion data — only fetched when viewing a job report
+  const { data: jobCompletion, isLoading: jobCompletionLoading, refetch: refetchJobCompletion } = useQuery({
+    queryKey: ['job-completion-report', effectiveId],
+    queryFn: async () => {
+      if (!effectiveId) return null
+      const { data, error } = await supabase
+        .from('job_completions')
+        .select('*, lead:leads(id, full_name, email, property_address_street, property_address_suburb, property_address_state, property_address_postcode, status)')
+        .eq('lead_id', effectiveId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (error) console.error('Failed to fetch job completion:', error)
+      return data
+    },
+    enabled: reportType === 'job' && !!effectiveId,
+  })
+
+  // Job report version history
+  const { data: jobVersions = [] } = useQuery({
+    queryKey: ['job-report-versions', jobCompletion?.id],
+    queryFn: async () => {
+      if (!jobCompletion?.id) return []
+      const { data } = await supabase
+        .from('job_completion_pdf_versions')
+        .select('id, version_number, pdf_url, created_at, generated_by')
+        .eq('job_completion_id', jobCompletion.id)
+        .order('version_number', { ascending: false })
+      return data || []
+    },
+    enabled: reportType === 'job' && !!jobCompletion?.id,
+  })
+
   async function loadInspection() {
     if (!effectiveId) {
       toast.error('No inspection ID provided')
@@ -374,6 +426,21 @@ export default function ViewReportPDF() {
   }
 
   async function handleGeneratePDF() {
+    if (reportType === 'job' && jobCompletion) {
+      setGenerating(true)
+      try {
+        await generateJobReportPdf(jobCompletion.id)
+        toast.success('Job report regenerated')
+        refetchJobCompletion()
+      } catch (err) {
+        toast.error('Failed to regenerate job report')
+        console.error(err)
+      } finally {
+        setGenerating(false)
+      }
+      return
+    }
+
     if (!inspection?.id) return
 
     setGenerating(true)
@@ -397,6 +464,32 @@ export default function ViewReportPDF() {
   }
 
   async function handleApprove() {
+    if (reportType === 'job' && jobCompletion) {
+      setApproving(true)
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        await supabase.from('job_completions').update({
+          pdf_approved: true,
+          pdf_approved_at: new Date().toISOString(),
+          pdf_approved_by: user?.id,
+        }).eq('id', jobCompletion.id)
+        await supabase.from('activities').insert({
+          lead_id: jobCompletion.lead_id,
+          activity_type: 'status_change',
+          title: 'Job report approved',
+          description: 'Admin approved the job completion report',
+        })
+        toast.success('Job report approved')
+        refetchJobCompletion()
+      } catch (err) {
+        toast.error('Failed to approve')
+        console.error(err)
+      } finally {
+        setApproving(false)
+      }
+      return
+    }
+
     if (!inspection?.id) return
 
     setApproving(true)
@@ -426,6 +519,43 @@ export default function ViewReportPDF() {
   }
 
   async function handleSendEmail() {
+    if (reportType === 'job' && jobCompletion) {
+      setSendingEmail(true)
+      try {
+        const lead = jobCompletion.lead as { id: string; full_name: string; email?: string; property_address_street?: string; property_address_suburb?: string; property_address_state?: string; property_address_postcode?: string } | null
+        if (!lead?.email) {
+          toast.error('No customer email address')
+          return
+        }
+        const address = [lead.property_address_street, lead.property_address_suburb, lead.property_address_state, lead.property_address_postcode].filter(Boolean).join(', ')
+        await sendJobReportEmail({
+          leadId: lead.id,
+          customerEmail: lead.email,
+          customerName: lead.full_name || '',
+          propertyAddress: address,
+          jobNumber: jobCompletion.job_number || '',
+          completionDate: new Date(jobCompletion.completion_date).toLocaleDateString('en-AU'),
+          technicianName: jobCompletion.remediation_completed_by || '',
+          pdfUrl: jobCompletion.pdf_url || '',
+        })
+        await supabase.from('leads').update({ status: 'job_report_pdf_sent' }).eq('id', lead.id)
+        await supabase.from('activities').insert({
+          lead_id: lead.id,
+          activity_type: 'email_sent',
+          title: 'Job report sent to customer',
+          description: `Report emailed to ${lead.email}`,
+        })
+        toast.success('Job report sent to customer')
+        navigate(`/leads/${lead.id}`)
+      } catch (err) {
+        toast.error('Failed to send email')
+        console.error(err)
+      } finally {
+        setSendingEmail(false)
+      }
+      return
+    }
+
     if (!inspection?.id) return
 
     const lead = inspection.lead
@@ -540,6 +670,11 @@ export default function ViewReportPDF() {
   }
 
   async function handleDownload() {
+    if (reportType === 'job' && jobCompletion?.pdf_url) {
+      window.open(jobCompletion.pdf_url, '_blank')
+      return
+    }
+
     if (!inspection?.pdf_url) {
       toast.error('PDF not yet generated')
       return
@@ -624,12 +759,18 @@ export default function ViewReportPDF() {
   }
 
   async function handleShowVersions() {
-    if (!inspection?.id) return
-
     if (showVersions) {
       setShowVersions(false)
       return
     }
+
+    if (reportType === 'job') {
+      // Job versions are fetched via useQuery — just toggle visibility
+      setShowVersions(true)
+      return
+    }
+
+    if (!inspection?.id) return
 
     const history = await getPDFVersionHistory(inspection.id)
     setVersions(history)
@@ -1457,18 +1598,55 @@ export default function ViewReportPDF() {
 
   // --- Render ---
 
-  if (loading) {
+  const reportTitle = reportType === 'job' ? 'Job Completion Report' : 'Inspection Report'
+  const displayVersions = reportType === 'job' ? jobVersions : versions
+  const isPageLoading = reportType === 'job' ? jobCompletionLoading : loading
+
+  if (isPageLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
           <Loader2 className="h-16 w-16 animate-spin text-orange-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading inspection report...</p>
+          <p className="text-gray-600">Loading {reportTitle.toLowerCase()}...</p>
         </div>
       </div>
     )
   }
 
-  if (!inspection?.pdf_url) {
+  // Job report: show generate prompt if no PDF yet
+  if (reportType === 'job' && !jobCompletion?.pdf_url) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
+        <div className="text-center max-w-md">
+          <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">No Report Generated</h2>
+          <p className="text-gray-600 mb-6">
+            A job completion report has not been generated yet.
+          </p>
+          <div className="flex flex-col gap-3">
+            <Button
+              onClick={handleGeneratePDF}
+              disabled={generating}
+              size="lg"
+              className="h-14 min-h-[56px] bg-orange-600 hover:bg-orange-700 text-lg"
+            >
+              {generating ? (
+                <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Generating...</>
+              ) : (
+                'Generate Job Report'
+              )}
+            </Button>
+            <Button variant="outline" onClick={() => navigate(-1)} className="h-12 min-h-[48px]">
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              Go Back
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!inspection?.pdf_url && reportType === 'inspection') {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
         <div className="text-center max-w-md">
@@ -1501,11 +1679,13 @@ export default function ViewReportPDF() {
 
   // === EMAIL APPROVAL STAGE ===
   if (stage === 'email-approval') {
-    const lead = inspection.lead
+    const jobLead = reportType === 'job' ? jobCompletion?.lead as { full_name?: string; email?: string; property_address_street?: string; property_address_suburb?: string } | null : null
+    const lead = reportType === 'job' ? jobLead : inspection?.lead
     const customerEmail = lead?.email || ''
     const address = lead
       ? [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ')
       : ''
+    const emailJobNumber = reportType === 'job' ? jobCompletion?.job_number : inspection?.job_number
 
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -1522,7 +1702,7 @@ export default function ViewReportPDF() {
               <div>
                 <h1 className="text-lg font-semibold">Send Report Email</h1>
                 <p className="text-sm text-gray-600">
-                  {inspection.job_number} — {lead?.full_name}
+                  {emailJobNumber} — {lead?.full_name}
                 </p>
               </div>
             </div>
@@ -1580,14 +1760,14 @@ export default function ViewReportPDF() {
             {/* Report attachment preview */}
             <div className="bg-white rounded-lg border border-gray-200 p-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">PDF Attachment</label>
-              {inspection.pdf_blob_url ? (
+              {(reportType === 'job' ? jobCompletion?.pdf_url : inspection?.pdf_blob_url) ? (
                 <div className="flex items-center gap-3 p-3 bg-green-50 rounded-md border border-green-200">
                   <FileText className="h-8 w-8 text-green-600 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">
-                      MRC-{inspection.job_number || 'Report'}-Inspection-Report.pdf
+                      MRC-{emailJobNumber || 'Report'}-{reportType === 'job' ? 'Job-Report' : 'Inspection-Report'}.pdf
                     </p>
-                    <p className="text-xs text-green-600">Browser-quality PDF ready</p>
+                    <p className="text-xs text-green-600">{reportType === 'job' ? 'PDF ready' : 'Browser-quality PDF ready'}</p>
                   </div>
                   <Button
                     variant="outline" size="sm"
@@ -1662,19 +1842,27 @@ export default function ViewReportPDF() {
             </Button>
             <div className="hidden sm:block">
               <h1 className="text-lg font-semibold">
-                {inspection.job_number || 'Inspection Report'}
+                {reportType === 'job' ? (jobCompletion?.job_number || 'Job Completion Report') : (inspection?.job_number || 'Inspection Report')}
               </h1>
-              {inspection?.lead && (
-                <p className="text-sm text-gray-600">
-                  {inspection.lead.full_name} - {inspection.lead.property_address_suburb}
-                </p>
+              {reportType === 'job' ? (
+                jobCompletion?.lead && (
+                  <p className="text-sm text-gray-600">
+                    {(jobCompletion.lead as { full_name?: string; property_address_suburb?: string }).full_name} - {(jobCompletion.lead as { property_address_suburb?: string }).property_address_suburb}
+                  </p>
+                )
+              ) : (
+                inspection?.lead && (
+                  <p className="text-sm text-gray-600">
+                    {inspection.lead.full_name} - {inspection.lead.property_address_suburb}
+                  </p>
+                )
               )}
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="hidden sm:inline-flex items-center px-2 py-1 text-xs bg-gray-100 rounded">
-              v{inspection.pdf_version || 1}
+              v{reportType === 'job' ? (jobCompletion?.pdf_version || 1) : (inspection?.pdf_version || 1)}
             </span>
 
             {/* Mobile buttons */}
@@ -1683,7 +1871,7 @@ export default function ViewReportPDF() {
                 className="h-12 w-12 min-h-[48px] min-w-[48px]">
                 <Download className="h-5 w-5" />
               </Button>
-              {inspection.pdf_approved ? (
+              {(reportType === 'job' ? jobCompletion?.pdf_approved : inspection?.pdf_approved) ? (
                 <Button
                   size="icon" onClick={prefillEmailAndOpenStage}
                   className="h-12 w-12 min-h-[48px] min-w-[48px] bg-[#121D73] hover:bg-[#0f1860]"
@@ -1707,6 +1895,7 @@ export default function ViewReportPDF() {
                 <History className="h-4 w-4 mr-2" />
                 History
               </Button>
+              {reportType === 'inspection' && (
               <Button
                 variant={editMode ? 'default' : 'outline'}
                 onClick={() => setEditMode(!editMode)}
@@ -1718,6 +1907,7 @@ export default function ViewReportPDF() {
                   <><Edit className="h-4 w-4 mr-2" />Edit Mode</>
                 )}
               </Button>
+              )}
               <Button variant="outline" onClick={handleGeneratePDF} disabled={generating}>
                 {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 Regenerate
@@ -1726,7 +1916,7 @@ export default function ViewReportPDF() {
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
-              {inspection.pdf_approved ? (
+              {(reportType === 'job' ? jobCompletion?.pdf_approved : inspection?.pdf_approved) ? (
                 <>
                   <span className="inline-flex items-center px-3 py-1 text-sm bg-green-100 text-green-700 rounded-full font-medium">
                     <CheckCircle className="h-4 w-4 mr-1" />
@@ -1760,17 +1950,24 @@ export default function ViewReportPDF() {
       </header>
 
       {/* Version History Panel */}
-      {showVersions && versions.length > 0 && (
+      {showVersions && displayVersions.length > 0 && (
         <div className="bg-white border-b border-gray-200 px-4 py-3 z-30">
           <div className="max-w-6xl mx-auto">
             <h3 className="text-sm font-semibold mb-2">Version History</h3>
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {versions.map((v) => (
+              {displayVersions.map((v) => {
+                const currentPdfUrl = reportType === 'job' ? jobCompletion?.pdf_url : inspection?.pdf_url
+                const isActive = currentPdfUrl === v.pdf_url
+                return (
                 <button
                   key={v.id}
-                  onClick={() => setInspection(prev => prev ? { ...prev, pdf_url: v.pdf_url } : null)}
+                  onClick={() => {
+                    if (reportType === 'inspection') {
+                      setInspection(prev => prev ? { ...prev, pdf_url: v.pdf_url } : null)
+                    }
+                  }}
                   className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm border min-h-[48px] ${
-                    inspection.pdf_url === v.pdf_url
+                    isActive
                       ? 'bg-orange-100 border-orange-500'
                       : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                   }`}
@@ -1780,7 +1977,8 @@ export default function ViewReportPDF() {
                     {new Date(v.created_at).toLocaleDateString('en-AU')}
                   </div>
                 </button>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>
@@ -1823,8 +2021,8 @@ export default function ViewReportPDF() {
         </div>
       )}
 
-      {/* Edit Mode Indicator (Pages 2+) */}
-      {editMode && (
+      {/* Edit Mode Indicator (Pages 2+) — inspection only */}
+      {reportType === 'inspection' && editMode && (
         <div className="bg-orange-500 text-white text-center py-2 text-sm font-medium z-30 flex items-center justify-center gap-2">
           <Edit className="h-4 w-4" />
           Edit Mode Active - Click orange buttons on the report to edit fields
@@ -1833,33 +2031,55 @@ export default function ViewReportPDF() {
 
       {/* Main Content: Report Preview */}
       <div className="flex-1">
-        <ReportPreviewHTML
-          htmlUrl={inspection.pdf_url}
-          editMode={editMode}
-          onFieldClick={handleFieldClick}
-          onLoadSuccess={() => {}}
-          onLoadError={(error) => toast.error(error)}
-          page1Data={page1Data}
-          onPage1FieldSave={handlePage1FieldSave}
-          onPage1PhotoChange={handlePage1PhotoChange}
-          photoUploading={photoUploading}
-          vpData={vpData}
-          onVPFieldSave={handleVPFieldSave}
-          paContent={paContent}
-          onPASave={handlePASave}
-          demoContent={demoContent}
-          onDemoSave={handleDemoSave}
-          outdoorData={outdoorData}
-          onOutdoorFieldSave={handleOutdoorFieldSave}
-          subfloorData={subfloorEditData}
-          onSubfloorFieldSave={handleSubfloorFieldSave}
-          onSubfloorReadingSave={handleSubfloorReadingSave}
-          costData={costData}
-          onCostSave={handleCostSave}
-        />
+        {reportType === 'job' ? (
+          <div className="flex-1 bg-gray-50 flex flex-col items-center justify-start p-6 overflow-auto">
+            {jobCompletion?.pdf_url ? (
+              <iframe
+                src={jobCompletion.pdf_url}
+                title="Job Completion Report"
+                className="w-full border-0 bg-white shadow-lg rounded-lg"
+                style={{ minHeight: '1000px', maxWidth: '820px' }}
+              />
+            ) : (
+              <div className="text-center space-y-4 py-20">
+                <FileText className="h-16 w-16 text-gray-300 mx-auto" />
+                <p className="text-lg text-gray-500 font-medium">No report generated yet</p>
+                <Button size="lg" onClick={handleGeneratePDF} disabled={generating}>
+                  {generating ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : 'Generate Job Report'}
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <ReportPreviewHTML
+            htmlUrl={inspection!.pdf_url!}
+            editMode={editMode}
+            onFieldClick={handleFieldClick}
+            onLoadSuccess={() => {}}
+            onLoadError={(error) => toast.error(error)}
+            page1Data={page1Data}
+            onPage1FieldSave={handlePage1FieldSave}
+            onPage1PhotoChange={handlePage1PhotoChange}
+            photoUploading={photoUploading}
+            vpData={vpData}
+            onVPFieldSave={handleVPFieldSave}
+            paContent={paContent}
+            onPASave={handlePASave}
+            demoContent={demoContent}
+            onDemoSave={handleDemoSave}
+            outdoorData={outdoorData}
+            onOutdoorFieldSave={handleOutdoorFieldSave}
+            subfloorData={subfloorEditData}
+            onSubfloorFieldSave={handleSubfloorFieldSave}
+            onSubfloorReadingSave={handleSubfloorReadingSave}
+            costData={costData}
+            onCostSave={handleCostSave}
+          />
+        )}
       </div>
 
-      {/* Floating Edit Areas Button */}
+      {/* Floating Edit Areas Button — inspection only */}
+      {reportType === 'inspection' && (
       <button
         onClick={() => setAreaEditOpen(true)}
         className="fixed bottom-24 md:bottom-20 left-4 bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 z-50 min-h-[48px] transition-colors animate-pulse"
@@ -1869,9 +2089,10 @@ export default function ViewReportPDF() {
           {areasData.length > 0 ? `Edit Areas (${areasData.length})` : 'Add Areas'}
         </span>
       </button>
+      )}
 
-      {/* Floating Edit Subfloor Photos Button — only show if subfloor is required */}
-      {inspection.subfloor_required && subfloorData && (
+      {/* Floating Edit Subfloor Photos Button — only show if subfloor is required (inspection only) */}
+      {reportType === 'inspection' && inspection?.subfloor_required && subfloorData && (
         <button
           onClick={() => { setSubfloorEditOpen(true); loadSubfloorPhotos() }}
           className="fixed bottom-40 md:bottom-20 right-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 z-50 min-h-[48px] transition-colors animate-pulse"
@@ -2179,7 +2400,7 @@ export default function ViewReportPDF() {
       />
 
       {/* Approved Badge */}
-      {inspection.pdf_approved && (
+      {(reportType === 'job' ? jobCompletion?.pdf_approved : inspection?.pdf_approved) && (
         <div className="fixed bottom-24 md:bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 z-50">
           <CheckCircle className="h-5 w-5" />
           <span className="font-medium">Approved</span>

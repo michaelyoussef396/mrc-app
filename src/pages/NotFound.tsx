@@ -1,6 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import logoMRC from "@/assets/logoMRC.png";
+import {
+  ArrowLeft,
+  Home,
+  Mail,
+  Phone,
+  SearchX,
+} from 'lucide-react';
 
 const NotFound = () => {
   const navigate = useNavigate();
@@ -47,12 +54,7 @@ const NotFound = () => {
             className="w-20 h-20 rounded-full flex items-center justify-center"
             style={{ backgroundColor: "#e8e8ed" }}
           >
-            <span
-              className="material-symbols-outlined text-4xl"
-              style={{ color: "#86868b" }}
-            >
-              search_off
-            </span>
+            <SearchX className="h-10 w-10" style={{ color: "#86868b" }} />
           </div>
         </div>
 
@@ -88,7 +90,7 @@ const NotFound = () => {
             className="w-full h-14 rounded-xl font-semibold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98]"
             style={{ backgroundColor: "#007AFF" }}
           >
-            <span className="material-symbols-outlined text-xl">home</span>
+            <Home className="h-5 w-5" />
             <span>{getDashboardLabel()}</span>
           </button>
 
@@ -102,7 +104,7 @@ const NotFound = () => {
               border: "2px solid #007AFF"
             }}
           >
-            <span className="material-symbols-outlined text-xl">arrow_back</span>
+            <ArrowLeft className="h-5 w-5" />
             <span>Go Back</span>
           </button>
         </div>
@@ -126,12 +128,7 @@ const NotFound = () => {
               className="flex items-center justify-center gap-2 p-3 rounded-xl transition-all hover:opacity-80"
               style={{ backgroundColor: "#e8e8ed" }}
             >
-              <span
-                className="material-symbols-outlined text-lg"
-                style={{ color: "#007AFF" }}
-              >
-                phone
-              </span>
+              <Phone className="h-5 w-5" style={{ color: "#007AFF" }} />
               <span
                 className="text-sm font-medium"
                 style={{ color: "#1d1d1f" }}
@@ -146,12 +143,7 @@ const NotFound = () => {
               className="flex items-center justify-center gap-2 p-3 rounded-xl transition-all hover:opacity-80"
               style={{ backgroundColor: "#e8e8ed" }}
             >
-              <span
-                className="material-symbols-outlined text-lg"
-                style={{ color: "#007AFF" }}
-              >
-                mail
-              </span>
+              <Mail className="h-5 w-5" style={{ color: "#007AFF" }} />
               <span
                 className="text-sm font-medium"
                 style={{ color: "#1d1d1f" }}
