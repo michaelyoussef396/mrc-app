@@ -384,7 +384,7 @@ export default function LeadDetail() {
 
       await supabase.from('activities').insert({
         lead_id: lead.id,
-        activity_type: 'status_change',
+        activity_type: 'job_completion_sent_back',
         title: 'Job completion sent back to technician',
         description: sendBackNote.trim(),
       });

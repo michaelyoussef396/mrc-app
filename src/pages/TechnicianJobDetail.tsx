@@ -73,6 +73,7 @@ export default function TechnicianJobDetail() {
   const [lead, setLead] = useState<LeadData | null>(null);
   const [booking, setBooking] = useState<BookingData | null>(null);
   const [inspection, setInspection] = useState<InspectionData | null>(null);
+  const [jobCompletion, setJobCompletion] = useState<{ submitted_at: string | null } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Edit mode
@@ -133,6 +134,16 @@ export default function TechnicianJobDetail() {
         setInspection(inspectionData);
         setInspectionContext(inspectionData.id, id);
       }
+
+      const { data: jcData } = await supabase
+        .from('job_completions')
+        .select('submitted_at')
+        .eq('lead_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      setJobCompletion(jcData);
     } catch (err: unknown) {
       console.error('Error fetching job details:', err);
       toast({
@@ -796,7 +807,9 @@ export default function TechnicianJobDetail() {
                   className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
                   onClick={handleStartJobCompletion}
                 >
-                  {lead.status === 'job_scheduled' ? 'Start Job Completion' : 'View Job Completion'}
+                  {lead.status === 'job_scheduled'
+                    ? (jobCompletion?.submitted_at ? 'Revise Job Completion' : 'Start Job Completion')
+                    : 'View Job Completion'}
                 </Button>
               ) : inspection?.pdf_url ? (
                 <Button

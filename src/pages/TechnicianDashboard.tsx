@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTechnicianJobs, TechnicianJob } from '@/hooks/useTechnicianJobs';
 import { useTechnicianAlerts } from '@/hooks/useTechnicianAlerts';
+import { useRevisionJobs } from '@/hooks/useRevisionJobs';
 import {
   TechnicianHeader,
   NextJobCard,
@@ -11,6 +12,7 @@ import {
   TechnicianBottomNav,
   Job,
 } from '@/components/technician';
+import { AlertTriangle, ArrowRight, MapPin } from 'lucide-react';
 
 /** Map a TechnicianJob (from Supabase) to the Job shape the UI components expect. */
 function mapToJob(tj: TechnicianJob): Job {
@@ -32,6 +34,7 @@ export default function TechnicianDashboard() {
   const { user, profile } = useAuth();
   const { jobs: techJobs, isLoading, error, refetch } = useTechnicianJobs('today');
   const { unreadCount } = useTechnicianAlerts();
+  const { revisions } = useRevisionJobs();
 
   const userName = profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Technician';
 
@@ -131,6 +134,52 @@ export default function TechnicianDashboard() {
         hasUnread={unreadCount > 0}
         onNotificationClick={() => navigate('/technician/alerts')}
       />
+
+      {/* Revisions Needed */}
+      {revisions.length > 0 && (
+        <section className="px-4 pt-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <h2 className="text-base font-bold text-amber-900">
+              Revisions Needed
+            </h2>
+            <span className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-500 text-white text-xs font-semibold flex items-center justify-center">
+              {revisions.length}
+            </span>
+          </div>
+          {revisions.map((rev) => (
+            <div
+              key={rev.leadId}
+              className="bg-white rounded-xl border border-amber-200 p-4 shadow-sm space-y-3"
+            >
+              <div className="flex items-start justify-between">
+                <div className="space-y-1 min-w-0 flex-1">
+                  <h3 className="text-lg font-bold text-[#1d1d1f] leading-tight">{rev.customerName}</h3>
+                  <div className="flex items-center gap-1.5 text-sm text-[#86868b]">
+                    <MapPin className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{rev.address}{rev.suburb && `, ${rev.suburb}`}</span>
+                  </div>
+                </div>
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 flex-shrink-0">
+                  Revision
+                </span>
+              </div>
+              {rev.sendBackNote && (
+                <p className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
+                  {rev.sendBackNote}
+                </p>
+              )}
+              <button
+                onClick={() => navigate(`/technician/job/${rev.leadId}`)}
+                className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-amber-500 text-white text-sm font-bold active:scale-[0.98] transition-all"
+              >
+                Revise Job Completion
+                <ArrowRight className="h-5 w-5" />
+              </button>
+            </div>
+          ))}
+        </section>
+      )}
 
       {/* Main Content - Based on State */}
       {dashboardState === 'no_jobs' && (

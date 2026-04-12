@@ -101,6 +101,7 @@ export interface UseJobCompletionFormReturn {
   formData: JobCompletionFormData
   setFormData: React.Dispatch<React.SetStateAction<JobCompletionFormData>>
   jobCompletionId: string | null
+  submittedAt: string | null
   isLoading: boolean
   isSaving: boolean
   hasUnsavedChanges: boolean
@@ -125,6 +126,7 @@ export interface UseJobCompletionFormReturn {
 export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn {
   const [formData, setFormData] = useState<JobCompletionFormData>(DEFAULT_JOB_COMPLETION_FORM)
   const [jobCompletionId, setJobCompletionId] = useState<string | null>(null)
+  const [submittedAt, setSubmittedAt] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -166,6 +168,7 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
 
         if (existing) {
           setJobCompletionId(existing.id)
+          setSubmittedAt(existing.submitted_at)
           setFormData(rowToFormData(existing))
           return
         }
@@ -387,6 +390,7 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
     formData,
     setFormData,
     jobCompletionId,
+    submittedAt,
     isLoading,
     isSaving,
     hasUnsavedChanges,
