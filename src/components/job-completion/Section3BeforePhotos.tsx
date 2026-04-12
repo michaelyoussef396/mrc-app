@@ -23,9 +23,16 @@ interface PhotoWithUrl {
   storage_path: string;
   caption: string | null;
   area_id: string | null;
+  area_name: string | null;
   photo_type: string | null;
   job_completion_id: string | null;
   signed_url: string;
+}
+
+interface PhotoGroup {
+  key: string;
+  label: string;
+  photos: PhotoWithUrl[];
 }
 
 const MAX_SELECTED_BEFORE_PHOTOS = 10;
@@ -36,7 +43,6 @@ const SIGNED_URL_TTL_SECONDS = 3600;
  * signed URLs so the <img> tags can actually render them.
  */
 async function fetchInspectionPhotos(leadId: string): Promise<PhotoWithUrl[]> {
-  // Step 1: find the most recent inspection for this lead
   const { data: inspection, error: inspError } = await supabase
     .from('inspections')
     .select('id')
@@ -48,33 +54,93 @@ async function fetchInspectionPhotos(leadId: string): Promise<PhotoWithUrl[]> {
   if (inspError) throw inspError;
   if (!inspection) return [];
 
-  // Step 2: fetch ALL photos for that inspection (both unassigned and
-  // already-selected-for-this-job-completion)
   const { data: rows, error: photosError } = await supabase
     .from('photos')
-    .select('id, storage_path, caption, area_id, photo_type, job_completion_id')
+    .select(`
+      id, storage_path, caption, area_id, photo_type, job_completion_id,
+      inspection_areas ( area_name )
+    `)
     .eq('inspection_id', inspection.id)
     .order('order_index', { ascending: true });
 
   if (photosError) throw photosError;
   if (!rows || rows.length === 0) return [];
 
-  // Step 3: generate a signed URL for each one (parallel)
   const withUrls = await Promise.all(
     rows.map(async (row) => {
       try {
         const { data } = await supabase.storage
           .from('inspection-photos')
           .createSignedUrl(row.storage_path, SIGNED_URL_TTL_SECONDS);
-        return { ...row, signed_url: data?.signedUrl ?? '' } as PhotoWithUrl;
+
+        const areaData = row.inspection_areas as { area_name: string } | null;
+        return {
+          id: row.id,
+          storage_path: row.storage_path,
+          caption: row.caption,
+          area_id: row.area_id,
+          area_name: areaData?.area_name ?? null,
+          photo_type: row.photo_type,
+          job_completion_id: row.job_completion_id,
+          signed_url: data?.signedUrl ?? '',
+        } as PhotoWithUrl;
       } catch {
-        return { ...row, signed_url: '' } as PhotoWithUrl;
+        return {
+          ...row,
+          area_name: null,
+          signed_url: '',
+        } as PhotoWithUrl;
       }
     })
   );
 
-  // Return only the photos we could actually sign — a broken one is useless
   return withUrls.filter((p) => p.signed_url);
+}
+
+/**
+ * Group photos by type and area for organized display.
+ * Order: area photos (sub-grouped by area_name) → subfloor → outdoor → general
+ */
+function groupPhotos(photos: PhotoWithUrl[]): PhotoGroup[] {
+  const areaMap = new Map<string, PhotoWithUrl[]>();
+  const subfloor: PhotoWithUrl[] = [];
+  const outdoor: PhotoWithUrl[] = [];
+  const general: PhotoWithUrl[] = [];
+
+  for (const photo of photos) {
+    const type = photo.photo_type ?? 'general';
+
+    if (type === 'area' && photo.area_id) {
+      const key = photo.area_id;
+      if (!areaMap.has(key)) areaMap.set(key, []);
+      areaMap.get(key)!.push(photo);
+    } else if (type === 'subfloor') {
+      subfloor.push(photo);
+    } else if (type === 'outdoor') {
+      outdoor.push(photo);
+    } else {
+      general.push(photo);
+    }
+  }
+
+  const groups: PhotoGroup[] = [];
+
+  for (const [areaId, areaPhotos] of areaMap) {
+    const name = areaPhotos[0]?.area_name ?? 'Unknown Area';
+    groups.push({ key: `area-${areaId}`, label: name, photos: areaPhotos });
+  }
+
+  if (subfloor.length > 0) {
+    groups.push({ key: 'subfloor', label: 'Subfloor', photos: subfloor });
+  }
+  if (outdoor.length > 0) {
+    groups.push({ key: 'outdoor', label: 'Outdoor / External', photos: outdoor });
+  }
+  if (general.length > 0) {
+    groups.push({ key: 'general', label: 'General', photos: general });
+  }
+
+  return groups;
 }
 
 /**
@@ -104,12 +170,9 @@ export function Section3BeforePhotos({
     staleTime: 5 * 60_000,
   });
 
-  // Local selection state mirrors the DB. Starts from whichever photos
-  // already have job_completion_id == this jobCompletionId.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPersisting, setIsPersisting] = useState(false);
 
-  // Seed the selection set once photos arrive
   useEffect(() => {
     if (!jobCompletionId || photos.length === 0) return;
     const preSelected = new Set(
@@ -131,7 +194,6 @@ export function Section3BeforePhotos({
       return;
     }
 
-    // Optimistic update
     const next = new Set(selectedIds);
     if (isCurrentlySelected) {
       next.delete(photoId);
@@ -142,7 +204,6 @@ export function Section3BeforePhotos({
 
     setIsPersisting(true);
     try {
-      // Persist the selection to the photos table
       const { error: updateError } = await supabase
         .from('photos')
         .update(
@@ -154,25 +215,15 @@ export function Section3BeforePhotos({
 
       if (updateError) throw updateError;
     } catch (err) {
-      // Revert on failure
       console.error('[Section3BeforePhotos] Failed to update photo selection:', err);
       toast.error('Could not save photo selection');
-      setSelectedIds(selectedIds); // revert
+      setSelectedIds(selectedIds);
     } finally {
       setIsPersisting(false);
     }
   };
 
-  // Group photos by area for cleaner display
-  const photosByArea = useMemo(() => {
-    const grouped: Record<string, PhotoWithUrl[]> = {};
-    for (const photo of photos) {
-      const key = photo.area_id || 'general';
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(photo);
-    }
-    return grouped;
-  }, [photos]);
+  const photoGroups = useMemo(() => groupPhotos(photos), [photos]);
 
   return (
     <section aria-labelledby="before-photos-heading" className="space-y-5">
@@ -196,7 +247,6 @@ export function Section3BeforePhotos({
         )}
       </div>
 
-      {/* Loading */}
       {isLoading && (
         <div className="bg-white rounded-xl p-8 flex flex-col items-center gap-3">
           <Loader2 className="w-6 h-6 animate-spin text-[#007AFF]" />
@@ -204,7 +254,6 @@ export function Section3BeforePhotos({
         </div>
       )}
 
-      {/* Error */}
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           <p className="font-semibold">Could not load inspection photos</p>
@@ -219,7 +268,6 @@ export function Section3BeforePhotos({
         </div>
       )}
 
-      {/* Empty — no inspection photos */}
       {!isLoading && !error && photos.length === 0 && (
         <div className="bg-white rounded-xl p-8 flex flex-col items-center gap-3">
           <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
@@ -234,19 +282,18 @@ export function Section3BeforePhotos({
         </div>
       )}
 
-      {/* Photo grid grouped by area */}
       {!isLoading && !error && photos.length > 0 && (
         <div className="space-y-5">
-          {Object.entries(photosByArea).map(([areaKey, areaPhotos]) => (
-            <div key={areaKey} className="bg-white rounded-xl p-4">
+          {photoGroups.map((group) => (
+            <div key={group.key} className="bg-white rounded-xl p-4">
               <p className="text-sm font-semibold text-[#1d1d1f] mb-3">
-                {areaKey === 'general' ? 'General / Outdoor' : `Area photos`}
+                {group.label}
                 <span className="ml-2 text-xs font-normal text-[#86868b]">
-                  ({areaPhotos.length} {areaPhotos.length === 1 ? 'photo' : 'photos'})
+                  ({group.photos.length} {group.photos.length === 1 ? 'photo' : 'photos'})
                 </span>
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                {areaPhotos.map((photo) => {
+                {group.photos.map((photo) => {
                   const isSelected = selectedIds.has(photo.id);
                   return (
                     <button
@@ -287,7 +334,6 @@ export function Section3BeforePhotos({
         </div>
       )}
 
-      {/* Info footer — unused onChange prop silenced by referencing formData */}
       {formData.areasTreated.length === 0 && photos.length === 0 && !isLoading && (
         <p className="text-xs text-[#86868b] italic text-center">
           No areas or photos linked yet.
