@@ -270,6 +270,16 @@ Deno.serve(async (req) => {
     // 5c. Repeatable: paired before/after photo pages (3 pairs per page)
     html = expandPairedPhotoPages(html, beforePhotos, afterPhotos, getPhotoUrl)
 
+    // 5d. Dynamic contents page numbers
+    const pairCount = Math.max(beforePhotos.length, afterPhotos.length)
+    const treatedAreaPages = pairCount === 0 ? 1 : Math.ceil(pairCount / 3)
+    const demolitionPage = 3 + treatedAreaPages
+    const termsPage = demolitionPage + (jc.demolition_works ? 1 : 0)
+    const pad = (n: number) => n.toString().padStart(2, '0')
+
+    html = html.replaceAll('{{contents_demolition_page}}', pad(demolitionPage))
+    html = html.replaceAll('{{contents_terms_page}}', pad(termsPage))
+
     // ===== STEP 6: Store and return =====
     const newVersion = regenerate ? (jc.pdf_version || 0) + 1 : (jc.pdf_version || 0) + 1
 
