@@ -59,6 +59,7 @@ async function fetchInspectionPhotos(leadId: string): Promise<PhotoWithUrl[]> {
       .from('photos')
       .select('id, storage_path, caption, area_id, photo_type, job_completion_id')
       .eq('inspection_id', inspection.id)
+      .or('photo_category.is.null,photo_category.eq.before')
       .order('order_index', { ascending: true }),
     supabase
       .from('inspection_areas')
