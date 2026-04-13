@@ -292,6 +292,7 @@ export default function ViewReportPDF() {
   const [approving, setApproving] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [showVersions, setShowVersions] = useState(false)
+  const [jobPdfUrlOverride, setJobPdfUrlOverride] = useState<string | null>(null)
   const [versions, setVersions] = useState<PDFVersion[]>([])
 
   // PDF upload for email attachment
@@ -765,8 +766,46 @@ export default function ViewReportPDF() {
   }
 
   async function handleDownload() {
-    if (reportType === 'job' && jobCompletion?.pdf_url) {
-      window.open(jobCompletion.pdf_url, '_blank')
+    if (reportType === 'job') {
+      const pdfUrl = jobPdfUrlOverride || jobCompletion?.pdf_url
+      if (!pdfUrl) { toast.error('PDF not yet generated'); return }
+
+      toast.loading('Preparing PDF...', { id: 'download' })
+      try {
+        let html: string
+        const pathMatch = pdfUrl.match(/inspection-reports\/(.+)$/)
+        if (pathMatch) {
+          const { data, error } = await supabase.storage
+            .from('inspection-reports')
+            .download(pathMatch[1])
+          if (error || !data) throw new Error('Failed to download report')
+          html = await data.text()
+        } else {
+          const response = await fetch(pdfUrl)
+          if (!response.ok) throw new Error('Failed to fetch report')
+          html = await response.text()
+        }
+
+        const title = jobCompletion?.job_number || 'Job_Report'
+        const modifiedHtml = html.replace(
+          /<head>/i,
+          `<head><title>${title}</title>`
+        ) + '\n<script>window.onload=function(){setTimeout(function(){window.print()},600)}</script>'
+
+        const blob = new Blob([modifiedHtml], { type: 'text/html' })
+        const blobUrl = URL.createObjectURL(blob)
+        const printWindow = window.open(blobUrl, '_blank')
+        if (!printWindow) {
+          toast.error('Pop-up blocked — please allow pop-ups', { id: 'download' })
+          URL.revokeObjectURL(blobUrl)
+          return
+        }
+        toast.success('Print dialog opening — select "Save as PDF"', { id: 'download' })
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+      } catch (error) {
+        console.error('Job report download failed:', error)
+        toast.error('Failed to prepare PDF', { id: 'download' })
+      }
       return
     }
 
@@ -1709,7 +1748,7 @@ export default function ViewReportPDF() {
   }
 
   // Job report: show generate prompt if no PDF yet
-  if (reportType === 'job' && !jobCompletion?.pdf_url) {
+  if (reportType === 'job' && !jobPdfUrlOverride && !jobCompletion?.pdf_url) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
         <div className="text-center max-w-md">
@@ -1855,7 +1894,7 @@ export default function ViewReportPDF() {
             {/* Report attachment preview */}
             <div className="bg-white rounded-lg border border-gray-200 p-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">PDF Attachment</label>
-              {(reportType === 'job' ? jobCompletion?.pdf_url : inspection?.pdf_blob_url) ? (
+              {(reportType === 'job' ? (jobPdfUrlOverride || jobCompletion?.pdf_url) : inspection?.pdf_blob_url) ? (
                 <div className="flex items-center gap-3 p-3 bg-green-50 rounded-md border border-green-200">
                   <FileText className="h-8 w-8 text-green-600 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -2051,7 +2090,7 @@ export default function ViewReportPDF() {
             <h3 className="text-sm font-semibold mb-2">Version History</h3>
             <div className="flex gap-2 overflow-x-auto pb-2">
               {displayVersions.map((v) => {
-                const currentPdfUrl = reportType === 'job' ? jobCompletion?.pdf_url : inspection?.pdf_url
+                const currentPdfUrl = reportType === 'job' ? (jobPdfUrlOverride || jobCompletion?.pdf_url) : inspection?.pdf_url
                 const isActive = currentPdfUrl === v.pdf_url
                 return (
                 <button
@@ -2059,6 +2098,8 @@ export default function ViewReportPDF() {
                   onClick={() => {
                     if (reportType === 'inspection') {
                       setInspection(prev => prev ? { ...prev, pdf_url: v.pdf_url } : null)
+                    } else if (reportType === 'job') {
+                      setJobPdfUrlOverride(v.pdf_url)
                     }
                   }}
                   className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm border min-h-[48px] ${
@@ -2128,8 +2169,8 @@ export default function ViewReportPDF() {
       <div className="flex-1">
         {reportType === 'job' ? (
           <div className="flex-1 bg-gray-50 flex flex-col items-center justify-start p-6 overflow-auto">
-            {jobCompletion?.pdf_url ? (
-              <JobReportPreview htmlUrl={jobCompletion.pdf_url} />
+            {(jobPdfUrlOverride || jobCompletion?.pdf_url) ? (
+              <JobReportPreview htmlUrl={jobPdfUrlOverride || jobCompletion!.pdf_url!} />
             ) : (
               <div className="text-center space-y-4 py-20">
                 <FileText className="h-16 w-16 text-gray-300 mx-auto" />
