@@ -351,8 +351,10 @@ export default function ViewReportPDF() {
   const [jobPhotoPickerOpen, setJobPhotoPickerOpen] = useState(false)
   const [jobPhotoPickerCategory, setJobPhotoPickerCategory] = useState<'before' | 'after' | 'demolition'>('before')
   const [jobReplacingPhotoId, setJobReplacingPhotoId] = useState<string | null>(null)
-  const [jobPhotoPool, setJobPhotoPool] = useState<Array<{ id: string; storage_path: string; signed_url: string }>>([])
+  const [jobPhotoPool, setJobPhotoPool] = useState<Array<{ key: string; label: string; photos: Array<{ id: string; signed_url: string }> }>>([])
   const [jobPhotoPoolLoading, setJobPhotoPoolLoading] = useState(false)
+  const jobUploadRef = useRef<HTMLInputElement>(null)
+  const [jobPhotoUploading, setJobPhotoUploading] = useState(false)
 
   // Edit modal state (Pages 2+)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -662,43 +664,91 @@ export default function ViewReportPDF() {
     setJobPhotoPoolLoading(true)
 
     try {
-      if (category === 'before') {
-        const inspectionId = jobCompletion?.inspection_id
-        if (!inspectionId) return
-        const { data } = await supabase
+      const inspectionId = jobCompletion?.inspection_id
+      if (!inspectionId) { setJobPhotoPoolLoading(false); return }
+
+      const [photosResult, areasResult] = await Promise.all([
+        supabase
           .from('photos')
-          .select('id, storage_path')
+          .select('id, storage_path, photo_type, photo_category, area_id')
           .eq('inspection_id', inspectionId)
-          .or('photo_category.is.null,photo_category.eq.before')
-          .order('order_index', { ascending: true })
+          .order('order_index', { ascending: true }),
+        supabase
+          .from('inspection_areas')
+          .select('id, area_name')
+          .eq('inspection_id', inspectionId),
+      ])
 
-        const withUrls = await Promise.all((data || []).map(async (p) => {
-          const { data: urlData } = await supabase.storage
-            .from('inspection-photos')
-            .createSignedUrl(p.storage_path, 3600)
-          return { id: p.id, storage_path: p.storage_path, signed_url: urlData?.signedUrl || '' }
-        }))
-        setJobPhotoPool(withUrls.filter(p => p.signed_url))
-      } else {
-        const { data } = await supabase
-          .from('photos')
-          .select('id, storage_path')
-          .eq('job_completion_id', jobCompletion!.id)
-          .eq('photo_category', category)
-          .order('created_at', { ascending: true })
-
-        const withUrls = await Promise.all((data || []).map(async (p) => {
-          const { data: urlData } = await supabase.storage
-            .from('inspection-photos')
-            .createSignedUrl(p.storage_path, 3600)
-          return { id: p.id, storage_path: p.storage_path, signed_url: urlData?.signedUrl || '' }
-        }))
-        setJobPhotoPool(withUrls.filter(p => p.signed_url))
+      const areaNameMap = new Map<string, string>()
+      if (areasResult.data) {
+        for (const a of areasResult.data) areaNameMap.set(a.id, a.area_name)
       }
+
+      const withUrls = await Promise.all((photosResult.data || []).map(async (p) => {
+        const { data: urlData } = await supabase.storage
+          .from('inspection-photos')
+          .createSignedUrl(p.storage_path, 3600)
+        return { ...p, signed_url: urlData?.signedUrl || '' }
+      }))
+
+      const valid = withUrls.filter(p => p.signed_url)
+
+      const areaGroups = new Map<string, Array<{ id: string; signed_url: string }>>()
+      const subfloor: Array<{ id: string; signed_url: string }> = []
+      const outdoor: Array<{ id: string; signed_url: string }> = []
+      const general: Array<{ id: string; signed_url: string }> = []
+      const after: Array<{ id: string; signed_url: string }> = []
+      const demolition: Array<{ id: string; signed_url: string }> = []
+
+      for (const p of valid) {
+        if (p.photo_category === 'after') { after.push(p); continue }
+        if (p.photo_category === 'demolition') { demolition.push(p); continue }
+        const type = p.photo_type ?? 'general'
+        if (type === 'area' && p.area_id) {
+          if (!areaGroups.has(p.area_id)) areaGroups.set(p.area_id, [])
+          areaGroups.get(p.area_id)!.push(p)
+        } else if (type === 'subfloor') { subfloor.push(p) }
+        else if (type === 'outdoor') { outdoor.push(p) }
+        else { general.push(p) }
+      }
+
+      const groups: Array<{ key: string; label: string; photos: Array<{ id: string; signed_url: string }> }> = []
+      for (const [areaId, photos] of areaGroups) {
+        groups.push({ key: `area-${areaId}`, label: areaNameMap.get(areaId) ?? 'Area', photos })
+      }
+      if (subfloor.length > 0) groups.push({ key: 'subfloor', label: 'Subfloor', photos: subfloor })
+      if (outdoor.length > 0) groups.push({ key: 'outdoor', label: 'Outdoor / External', photos: outdoor })
+      if (general.length > 0) groups.push({ key: 'general', label: 'General', photos: general })
+      if (after.length > 0) groups.push({ key: 'after', label: 'After Photos', photos: after })
+      if (demolition.length > 0) groups.push({ key: 'demolition', label: 'Demolition Photos', photos: demolition })
+
+      setJobPhotoPool(groups)
     } catch {
       setJobPhotoPool([])
     } finally {
       setJobPhotoPoolLoading(false)
+    }
+  }
+
+  async function handleJobPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (jobUploadRef.current) jobUploadRef.current.value = ''
+    if (!file || !jobCompletion?.inspection_id) return
+
+    setJobPhotoUploading(true)
+    try {
+      const { uploadInspectionPhoto: upload } = await import('@/lib/utils/photoUpload')
+      const result = await upload(file, {
+        inspection_id: jobCompletion.inspection_id,
+        photo_type: 'general',
+      })
+      toast.success('Photo uploaded')
+      await handleJobPhotoSwap(result.photo_id)
+    } catch (err) {
+      console.error('Upload failed:', err)
+      toast.error('Failed to upload photo')
+    } finally {
+      setJobPhotoUploading(false)
     }
   }
 
@@ -2511,43 +2561,68 @@ export default function ViewReportPDF() {
 
       {/* Job Photo Picker Dialog */}
       <Dialog open={jobPhotoPickerOpen} onOpenChange={setJobPhotoPickerOpen}>
-        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Select Replacement Photo</DialogTitle>
             <DialogDescription>
-              Pick a photo to replace the current {jobPhotoPickerCategory} photo.
+              Pick any photo or upload a new one to replace the current {jobPhotoPickerCategory} photo.
             </DialogDescription>
           </DialogHeader>
+
+          <input ref={jobUploadRef} type="file" accept="image/*" className="hidden" onChange={handleJobPhotoUpload} />
+
+          <Button
+            variant="outline"
+            onClick={() => jobUploadRef.current?.click()}
+            disabled={jobPhotoUploading}
+            className="w-full h-12 mb-3"
+          >
+            {jobPhotoUploading ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</>
+            ) : (
+              <><Upload className="h-4 w-4 mr-2" />Upload New Photo</>
+            )}
+          </Button>
+
           {jobPhotoPoolLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
             </div>
           ) : jobPhotoPool.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-6">No available photos found.</p>
+            <p className="text-sm text-gray-500 text-center py-6">No photos found for this lead.</p>
           ) : (
-            <div className="grid grid-cols-3 gap-2">
-              {jobPhotoPool.map(p => {
-                const isCurrent = p.id === jobReplacingPhotoId
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => !isCurrent && handleJobPhotoSwap(p.id)}
-                    disabled={isCurrent}
-                    className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
-                      isCurrent
-                        ? 'border-orange-500 ring-2 ring-orange-300 opacity-60'
-                        : 'border-gray-200 hover:border-orange-500'
-                    }`}
-                  >
-                    <img src={p.signed_url} alt="" loading="lazy" className="w-full h-full object-cover" />
-                    {isCurrent && (
-                      <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
-                        <Check className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-                  </button>
-                )
-              })}
+            <div className="space-y-4">
+              {jobPhotoPool.map(group => (
+                <div key={group.key}>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                    {group.label} ({group.photos.length})
+                  </h4>
+                  <div className="grid grid-cols-4 gap-2">
+                    {group.photos.map(p => {
+                      const isCurrent = p.id === jobReplacingPhotoId
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => !isCurrent && handleJobPhotoSwap(p.id)}
+                          disabled={isCurrent}
+                          className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
+                            isCurrent
+                              ? 'border-orange-500 ring-2 ring-orange-300 opacity-60'
+                              : 'border-gray-200 hover:border-orange-500'
+                          }`}
+                        >
+                          <img src={p.signed_url} alt="" loading="lazy" className="w-full h-full object-cover" />
+                          {isCurrent && (
+                            <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
+                              <Check className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </DialogContent>
