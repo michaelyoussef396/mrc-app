@@ -347,6 +347,13 @@ export default function ViewReportPDF() {
   const [jobEditValue, setJobEditValue] = useState('')
   const [jobEditSaving, setJobEditSaving] = useState(false)
 
+  // Job report photo editing
+  const [jobPhotoPickerOpen, setJobPhotoPickerOpen] = useState(false)
+  const [jobPhotoPickerCategory, setJobPhotoPickerCategory] = useState<'before' | 'after' | 'demolition'>('before')
+  const [jobReplacingPhotoId, setJobReplacingPhotoId] = useState<string | null>(null)
+  const [jobPhotoPool, setJobPhotoPool] = useState<Array<{ id: string; storage_path: string; signed_url: string }>>([])
+  const [jobPhotoPoolLoading, setJobPhotoPoolLoading] = useState(false)
+
   // Edit modal state (Pages 2+)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingField, setEditingField] = useState<{
@@ -451,6 +458,35 @@ export default function ViewReportPDF() {
       return data || []
     },
     enabled: reportType === 'job' && !!jobCompletion?.id,
+  })
+
+  // Job report photos for edit panel
+  const { data: jobPhotos = { before: [] as Array<{ id: string; signed_url: string }>, after: [] as Array<{ id: string; signed_url: string }>, demolition: [] as Array<{ id: string; signed_url: string }> }, refetch: refetchJobPhotos } = useQuery({
+    queryKey: ['job-report-photos', jobCompletion?.id, editMode],
+    queryFn: async () => {
+      if (!jobCompletion?.id) return { before: [], after: [], demolition: [] }
+      const { data } = await supabase
+        .from('photos')
+        .select('id, storage_path, photo_category')
+        .eq('job_completion_id', jobCompletion.id)
+        .in('photo_category', ['before', 'after', 'demolition'])
+        .order('created_at', { ascending: true })
+
+      const withUrls = await Promise.all((data || []).map(async (p) => {
+        const { data: urlData } = await supabase.storage
+          .from('inspection-photos')
+          .createSignedUrl(p.storage_path, 3600)
+        return { id: p.id, photo_category: p.photo_category, signed_url: urlData?.signedUrl || '' }
+      }))
+
+      const valid = withUrls.filter(p => p.signed_url)
+      return {
+        before: valid.filter(p => p.photo_category === 'before'),
+        after: valid.filter(p => p.photo_category === 'after'),
+        demolition: valid.filter(p => p.photo_category === 'demolition'),
+      }
+    },
+    enabled: reportType === 'job' && !!jobCompletion?.id && editMode,
   })
 
   async function loadInspection() {
@@ -616,6 +652,85 @@ export default function ViewReportPDF() {
       console.error(err)
     } finally {
       setJobEditSaving(false)
+    }
+  }
+
+  async function openJobPhotoPicker(replacingId: string, category: 'before' | 'after' | 'demolition') {
+    setJobReplacingPhotoId(replacingId)
+    setJobPhotoPickerCategory(category)
+    setJobPhotoPickerOpen(true)
+    setJobPhotoPoolLoading(true)
+
+    try {
+      if (category === 'before') {
+        const inspectionId = jobCompletion?.inspection_id
+        if (!inspectionId) return
+        const { data } = await supabase
+          .from('photos')
+          .select('id, storage_path')
+          .eq('inspection_id', inspectionId)
+          .or('photo_category.is.null,photo_category.eq.before')
+          .order('order_index', { ascending: true })
+
+        const withUrls = await Promise.all((data || []).map(async (p) => {
+          const { data: urlData } = await supabase.storage
+            .from('inspection-photos')
+            .createSignedUrl(p.storage_path, 3600)
+          return { id: p.id, storage_path: p.storage_path, signed_url: urlData?.signedUrl || '' }
+        }))
+        setJobPhotoPool(withUrls.filter(p => p.signed_url))
+      } else {
+        const { data } = await supabase
+          .from('photos')
+          .select('id, storage_path')
+          .eq('job_completion_id', jobCompletion!.id)
+          .eq('photo_category', category)
+          .order('created_at', { ascending: true })
+
+        const withUrls = await Promise.all((data || []).map(async (p) => {
+          const { data: urlData } = await supabase.storage
+            .from('inspection-photos')
+            .createSignedUrl(p.storage_path, 3600)
+          return { id: p.id, storage_path: p.storage_path, signed_url: urlData?.signedUrl || '' }
+        }))
+        setJobPhotoPool(withUrls.filter(p => p.signed_url))
+      }
+    } catch {
+      setJobPhotoPool([])
+    } finally {
+      setJobPhotoPoolLoading(false)
+    }
+  }
+
+  async function handleJobPhotoSwap(newPhotoId: string) {
+    if (!jobReplacingPhotoId || !jobCompletion?.id) return
+    setJobPhotoPickerOpen(false)
+
+    try {
+      if (jobPhotoPickerCategory === 'before') {
+        await supabase.from('photos')
+          .update({ job_completion_id: null, photo_category: null })
+          .eq('id', jobReplacingPhotoId)
+        await supabase.from('photos')
+          .update({ job_completion_id: jobCompletion.id, photo_category: 'before' })
+          .eq('id', newPhotoId)
+      } else {
+        await supabase.from('photos')
+          .update({ job_completion_id: null, photo_category: null })
+          .eq('id', jobReplacingPhotoId)
+        await supabase.from('photos')
+          .update({ job_completion_id: jobCompletion.id, photo_category: jobPhotoPickerCategory })
+          .eq('id', newPhotoId)
+      }
+
+      toast.success('Photo swapped')
+      setJobReplacingPhotoId(null)
+      setJobPdfUrlOverride(null)
+      refetchJobPhotos()
+      await handleGeneratePDF()
+    } catch (err) {
+      console.error('Photo swap failed:', err)
+      toast.error('Failed to swap photo')
     }
   }
 
@@ -2316,6 +2431,32 @@ export default function ViewReportPDF() {
               </button>
             ))}
           </div>
+
+          {/* Photo sections */}
+          {([
+            { key: 'before' as const, label: 'Before Photos', photos: jobPhotos.before },
+            { key: 'after' as const, label: 'After Photos', photos: jobPhotos.after },
+            { key: 'demolition' as const, label: 'Demolition Photos', photos: jobPhotos.demolition },
+          ]).map(section => (
+            section.photos.length > 0 && (
+              <div key={section.key} className="p-3 border-t border-gray-200">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                  {section.label} ({section.photos.length})
+                </h4>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {section.photos.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => openJobPhotoPicker(p.id, section.key)}
+                      className="aspect-square rounded-md overflow-hidden border border-gray-200 hover:border-orange-400 transition-colors"
+                    >
+                      <img src={p.signed_url} alt="" loading="lazy" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          ))}
         </div>
       )}
 
@@ -2365,6 +2506,50 @@ export default function ViewReportPDF() {
               Save & Regenerate
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Job Photo Picker Dialog */}
+      <Dialog open={jobPhotoPickerOpen} onOpenChange={setJobPhotoPickerOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select Replacement Photo</DialogTitle>
+            <DialogDescription>
+              Pick a photo to replace the current {jobPhotoPickerCategory} photo.
+            </DialogDescription>
+          </DialogHeader>
+          {jobPhotoPoolLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+            </div>
+          ) : jobPhotoPool.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-6">No available photos found.</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {jobPhotoPool.map(p => {
+                const isCurrent = p.id === jobReplacingPhotoId
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => !isCurrent && handleJobPhotoSwap(p.id)}
+                    disabled={isCurrent}
+                    className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
+                      isCurrent
+                        ? 'border-orange-500 ring-2 ring-orange-300 opacity-60'
+                        : 'border-gray-200 hover:border-orange-500'
+                    }`}
+                  >
+                    <img src={p.signed_url} alt="" loading="lazy" className="w-full h-full object-cover" />
+                    {isCurrent && (
+                      <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
