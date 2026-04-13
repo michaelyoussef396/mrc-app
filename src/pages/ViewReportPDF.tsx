@@ -335,6 +335,18 @@ export default function ViewReportPDF() {
     setStage('email-approval')
   }
 
+  // Job report field editing
+  const [jobEditOpen, setJobEditOpen] = useState(false)
+  const [jobEditField, setJobEditField] = useState<{
+    column: string
+    label: string
+    type: 'text' | 'textarea' | 'date' | 'select'
+    currentValue: string
+    options?: string[]
+  } | null>(null)
+  const [jobEditValue, setJobEditValue] = useState('')
+  const [jobEditSaving, setJobEditSaving] = useState(false)
+
   // Edit modal state (Pages 2+)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editingField, setEditingField] = useState<{
@@ -556,6 +568,54 @@ export default function ViewReportPDF() {
       toast.error('Failed to generate report', { id: 'pdf-gen' })
     } finally {
       setGenerating(false)
+    }
+  }
+
+  const JOB_EDITABLE_FIELDS = [
+    { column: 'requested_by', label: 'Requested By', type: 'text' as const },
+    { column: 'attention_to', label: 'Attention To', type: 'text' as const },
+    { column: 'completion_date', label: 'Completion Date', type: 'date' as const },
+    { column: 'premises_type', label: 'Premises Type', type: 'select' as const, options: ['residential', 'commercial'] },
+    { column: 'additional_notes', label: 'Additional Notes', type: 'textarea' as const },
+    { column: 'scope_what_changed', label: 'What Changed', type: 'textarea' as const },
+    { column: 'scope_why_changed', label: 'Why Changed', type: 'textarea' as const },
+    { column: 'scope_extra_work', label: 'Extra Work', type: 'textarea' as const },
+    { column: 'scope_reduced', label: 'Scope Reduced', type: 'textarea' as const },
+    { column: 'demolition_justification', label: 'Demolition Justification', type: 'textarea' as const },
+    { column: 'demolition_removal_notes', label: 'Demolition Removal Notes', type: 'textarea' as const },
+  ]
+
+  function getJobFieldValue(column: string): string {
+    if (!jobCompletion) return ''
+    const val = (jobCompletion as Record<string, unknown>)[column]
+    return val != null ? String(val) : ''
+  }
+
+  function openJobFieldEdit(column: string, label: string, type: 'text' | 'textarea' | 'date' | 'select', currentValue: string, options?: string[]) {
+    setJobEditField({ column, label, type, currentValue, options })
+    setJobEditValue(currentValue)
+    setJobEditOpen(true)
+  }
+
+  async function handleJobFieldSave() {
+    if (!jobCompletion?.id || !jobEditField) return
+    setJobEditSaving(true)
+    try {
+      await supabase
+        .from('job_completions')
+        .update({ [jobEditField.column]: jobEditValue || null })
+        .eq('id', jobCompletion.id)
+
+      toast.success(`${jobEditField.label} updated`)
+      setJobEditOpen(false)
+      setJobEditField(null)
+      setJobPdfUrlOverride(null)
+      await handleGeneratePDF()
+    } catch (err) {
+      toast.error('Failed to update field')
+      console.error(err)
+    } finally {
+      setJobEditSaving(false)
     }
   }
 
@@ -2029,7 +2089,6 @@ export default function ViewReportPDF() {
                 <History className="h-4 w-4 mr-2" />
                 History
               </Button>
-              {reportType === 'inspection' && (
               <Button
                 variant={editMode ? 'default' : 'outline'}
                 onClick={() => setEditMode(!editMode)}
@@ -2041,7 +2100,6 @@ export default function ViewReportPDF() {
                   <><Edit className="h-4 w-4 mr-2" />Edit Mode</>
                 )}
               </Button>
-              )}
               <Button variant="outline" onClick={handleGeneratePDF} disabled={generating}>
                 {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 Regenerate
@@ -2157,11 +2215,13 @@ export default function ViewReportPDF() {
         </div>
       )}
 
-      {/* Edit Mode Indicator (Pages 2+) — inspection only */}
-      {reportType === 'inspection' && editMode && (
+      {/* Edit Mode Indicator */}
+      {editMode && (
         <div className="bg-orange-500 text-white text-center py-2 text-sm font-medium z-30 flex items-center justify-center gap-2">
           <Edit className="h-4 w-4" />
-          Edit Mode Active - Click orange buttons on the report to edit fields
+          {reportType === 'job'
+            ? 'Edit Mode Active — Use the field panel to edit report data'
+            : 'Edit Mode Active — Click orange buttons on the report to edit fields'}
         </div>
       )}
 
@@ -2232,6 +2292,81 @@ export default function ViewReportPDF() {
           <span className="font-medium text-sm">Subfloor Photos</span>
         </button>
       )}
+
+      {/* Job Report Edit Panel */}
+      {reportType === 'job' && editMode && (
+        <div className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 bg-white border border-orange-200 rounded-xl shadow-lg z-50 max-h-[60vh] overflow-y-auto">
+          <div className="p-3 border-b border-orange-100 bg-orange-50 rounded-t-xl">
+            <h3 className="font-semibold text-orange-900 text-sm">Edit Job Report Fields</h3>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {JOB_EDITABLE_FIELDS.map(f => (
+              <button
+                key={f.column}
+                onClick={() => openJobFieldEdit(f.column, f.label, f.type, getJobFieldValue(f.column), f.options)}
+                className="w-full text-left px-4 py-3 hover:bg-orange-50 flex justify-between items-center min-h-[48px]"
+              >
+                <div className="min-w-0 flex-1 mr-3">
+                  <span className="text-sm font-medium text-gray-900">{f.label}</span>
+                  {getJobFieldValue(f.column) && (
+                    <p className="text-xs text-gray-500 truncate">{getJobFieldValue(f.column)}</p>
+                  )}
+                </div>
+                <Edit className="h-4 w-4 text-orange-500 flex-shrink-0" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Job Report Edit Dialog */}
+      <Dialog open={jobEditOpen} onOpenChange={setJobEditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit {jobEditField?.label}</DialogTitle>
+            <DialogDescription>Update this field and regenerate the report.</DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            {jobEditField?.type === 'textarea' ? (
+              <Textarea
+                value={jobEditValue}
+                onChange={e => setJobEditValue(e.target.value)}
+                rows={4}
+                className="text-[15px]"
+              />
+            ) : jobEditField?.type === 'date' ? (
+              <Input
+                type="date"
+                value={jobEditValue}
+                onChange={e => setJobEditValue(e.target.value)}
+              />
+            ) : jobEditField?.type === 'select' ? (
+              <select
+                value={jobEditValue}
+                onChange={e => setJobEditValue(e.target.value)}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select...</option>
+                {jobEditField.options?.map(o => (
+                  <option key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>
+                ))}
+              </select>
+            ) : (
+              <Input
+                value={jobEditValue}
+                onChange={e => setJobEditValue(e.target.value)}
+              />
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setJobEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleJobFieldSave} disabled={jobEditSaving} className="bg-orange-600 hover:bg-orange-700">
+              {jobEditSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Save & Regenerate
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Area Edit Dialog */}
       <Dialog open={areaEditOpen} onOpenChange={setAreaEditOpen}>
