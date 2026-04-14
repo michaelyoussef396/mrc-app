@@ -39,3 +39,6 @@ service-account.json
 
 # Playwright MCP logs
 .playwright-mcp/
+
+# Design asset templates (PSDs, layer dumps, previews — too large for repo)
+job report templates/
