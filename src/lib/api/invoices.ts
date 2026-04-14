@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client'
 import { captureBusinessError, addBusinessBreadcrumb } from '@/lib/sentry'
 import { GST_RATE, MAX_DISCOUNT, EQUIPMENT_RATES } from '@/lib/calculations/pricing'
+import { notifyInvoiceSent, notifyPaymentReceived } from '@/lib/api/notifications'
 
 // ============================================================
 // TYPES
@@ -249,14 +250,26 @@ export async function updateInvoice(
 }
 
 export async function markInvoiceSent(invoiceId: string): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('invoices')
     .update({ status: 'sent', sent_at: new Date().toISOString() })
     .eq('id', invoiceId)
+    .select('lead_id, customer_name, invoice_number, total_amount')
+    .single()
 
   if (error) {
     captureBusinessError('Failed to mark invoice sent', { invoiceId, error: error.message })
     throw new Error(`Failed to mark sent: ${error.message}`)
+  }
+
+  // Fire-and-forget Slack alert
+  if (data?.lead_id) {
+    notifyInvoiceSent({
+      leadId: data.lead_id,
+      leadName: data.customer_name,
+      invoiceNumber: data.invoice_number,
+      totalAmount: Number(data.total_amount),
+    }).catch(err => console.error('Slack notify failed (non-fatal):', err))
   }
 }
 
@@ -266,7 +279,7 @@ export async function markInvoicePaid(
   paymentReference?: string,
 ): Promise<void> {
   const now = new Date()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('invoices')
     .update({
       status: 'paid',
@@ -276,10 +289,29 @@ export async function markInvoicePaid(
       paid_at: now.toISOString(),
     })
     .eq('id', invoiceId)
+    .select('lead_id, customer_name, invoice_number, total_amount')
+    .single()
 
   if (error) {
     captureBusinessError('Failed to mark invoice paid', { invoiceId, error: error.message })
     throw new Error(`Failed to mark paid: ${error.message}`)
+  }
+
+  // Fire-and-forget Slack alert + transition lead to 'paid'
+  if (data?.lead_id) {
+    notifyPaymentReceived({
+      leadId: data.lead_id,
+      leadName: data.customer_name,
+      invoiceNumber: data.invoice_number,
+      totalAmount: Number(data.total_amount),
+      paymentMethod,
+    }).catch(err => console.error('Slack notify failed (non-fatal):', err))
+
+    // Transition lead status
+    supabase.from('leads').update({ status: 'paid' }).eq('id', data.lead_id)
+      .then(({ error: err }) => {
+        if (err) console.error('Lead status update failed:', err)
+      })
   }
 }
 
