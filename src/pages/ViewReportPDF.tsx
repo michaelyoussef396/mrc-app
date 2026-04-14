@@ -303,12 +303,14 @@ export default function ViewReportPDF() {
   const [stage, setStage] = useState<'report' | 'email-approval'>('report')
   const [emailSubject, setEmailSubject] = useState('')
   const [emailBody, setEmailBody] = useState('')
+  const [emailRecipient, setEmailRecipient] = useState('')
   const [sendingEmail, setSendingEmail] = useState(false)
 
   function prefillEmailAndOpenStage() {
     if (reportType === 'job' && jobCompletion) {
-      const lead = jobCompletion.lead as { full_name?: string; property_address_street?: string; property_address_suburb?: string } | null
+      const lead = jobCompletion.lead as { full_name?: string; email?: string; property_address_street?: string; property_address_suburb?: string } | null
       const addr = lead ? [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ') : ''
+      setEmailRecipient(lead?.email || '')
       setEmailSubject(`Your Job Completion Report — ${jobCompletion.job_number || 'Mould & Restoration Co'}`)
       setEmailBody(
         `Hi ${lead?.full_name || 'there'},\n\n` +
@@ -323,6 +325,7 @@ export default function ViewReportPDF() {
     }
     const lead = inspection?.lead
     const addr = lead ? [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ') : ''
+    setEmailRecipient(lead?.email || '')
     setEmailSubject(`Your Inspection Report — ${inspection?.job_number || 'Mould & Restoration Co'}`)
     setEmailBody(
       `Hi ${lead?.full_name || 'there'},\n\n` +
@@ -800,8 +803,9 @@ export default function ViewReportPDF() {
           title: 'Job report approved',
           description: 'Admin approved the job completion report',
         })
-        toast.success('Job report approved')
-        refetchJobCompletion()
+        toast.success('Job report approved — review email before sending')
+        await refetchJobCompletion()
+        prefillEmailAndOpenStage()
       } catch (err) {
         toast.error('Failed to approve')
         console.error(err)
@@ -842,8 +846,13 @@ export default function ViewReportPDF() {
   async function handleSendEmail() {
     if (reportType === 'job' && jobCompletion) {
       const lead = jobCompletion.lead as { id: string; full_name: string; email?: string; property_address_street?: string; property_address_suburb?: string; property_address_state?: string; property_address_postcode?: string } | null
-      if (!lead?.email) {
-        toast.error('No customer email address')
+      if (!lead) {
+        toast.error('Lead not found')
+        return
+      }
+      const recipient = emailRecipient.trim()
+      if (!recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+        toast.error('Please enter a valid recipient email')
         return
       }
       if (!jobCompletion.pdf_url) {
@@ -929,7 +938,7 @@ export default function ViewReportPDF() {
 
         // 4. Send email with PDF attachment
         await sendEmail({
-          to: lead.email,
+          to: recipient,
           subject: emailSubject,
           html: emailHtml,
           leadId: lead.id,
@@ -955,14 +964,15 @@ export default function ViewReportPDF() {
           lead_id: lead.id,
           activity_type: 'email_sent',
           title: 'Job report sent to customer',
-          description: `Report emailed to ${lead.email} with PDF attached`,
+          description: `Report emailed to ${recipient} with PDF attached`,
         })
 
-        toast.success(`Email sent to ${lead.email} with PDF attached!`, { id: 'send-email' })
+        toast.success(`Email sent to ${recipient} with PDF attached!`, { id: 'send-email' })
         navigate(`/leads/${lead.id}`)
       } catch (err) {
         console.error('Job report send error:', err)
-        toast.error('Failed to send email', { id: 'send-email' })
+        const msg = err instanceof Error ? err.message : 'Failed to send email'
+        toast.error(msg, { id: 'send-email' })
       } finally {
         setSendingEmail(false)
       }
@@ -972,8 +982,13 @@ export default function ViewReportPDF() {
     if (!inspection?.id) return
 
     const lead = inspection.lead
-    if (!lead?.email) {
-      toast.error('No customer email address found')
+    if (!lead) {
+      toast.error('Lead not found')
+      return
+    }
+    const recipient = emailRecipient.trim()
+    if (!recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+      toast.error('Please enter a valid recipient email')
       return
     }
 
@@ -1043,7 +1058,7 @@ export default function ViewReportPDF() {
 
       // 6. Send email with PDF attachment
       await sendEmail({
-        to: lead.email,
+        to: recipient,
         subject: emailSubject,
         html: emailHtml,
         leadId: lead.id,
@@ -1070,13 +1085,14 @@ export default function ViewReportPDF() {
         .update({ status: 'closed' })
         .eq('id', lead.id)
 
-      toast.success(`Email sent to ${lead.email} with PDF attached!`, { id: 'send-email' })
+      toast.success(`Email sent to ${recipient} with PDF attached!`, { id: 'send-email' })
 
       // 9. Redirect to Lead View
       navigate(`/leads/${lead.id}`)
     } catch (error) {
       console.error('Send email error:', error)
-      toast.error('Failed to send email', { id: 'send-email' })
+      const msg = error instanceof Error ? error.message : 'Failed to send email'
+      toast.error(msg, { id: 'send-email' })
     } finally {
       setSendingEmail(false)
     }
@@ -2132,7 +2148,6 @@ export default function ViewReportPDF() {
   if (stage === 'email-approval') {
     const jobLead = reportType === 'job' ? jobCompletion?.lead as { full_name?: string; email?: string; property_address_street?: string; property_address_suburb?: string } | null : null
     const lead = reportType === 'job' ? jobLead : inspection?.lead
-    const customerEmail = lead?.email || ''
     const address = lead
       ? [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ')
       : ''
@@ -2177,12 +2192,19 @@ export default function ViewReportPDF() {
             <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
-                <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-md border border-gray-200 min-h-[48px]">
-                  <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                  <span className="text-sm">
-                    {customerEmail || <span className="text-red-500">No email address on file</span>}
-                  </span>
+                <div className="relative">
+                  <Mail className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Input
+                    type="email"
+                    value={emailRecipient}
+                    onChange={(e) => setEmailRecipient(e.target.value)}
+                    className="min-h-[48px] text-sm pl-9"
+                    placeholder="customer@example.com"
+                  />
                 </div>
+                {!emailRecipient && (
+                  <p className="text-xs text-red-500 mt-1">Recipient email is required</p>
+                )}
               </div>
 
               {/* Subject */}
@@ -2254,7 +2276,7 @@ export default function ViewReportPDF() {
             <div className="flex flex-col gap-3 pb-8">
               <Button
                 onClick={handleSendEmail}
-                disabled={sendingEmail || !customerEmail}
+                disabled={sendingEmail || !emailRecipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRecipient)}
                 className="h-14 min-h-[56px] bg-[#121D73] hover:bg-[#0f1860] text-lg font-semibold"
               >
                 {sendingEmail ? (
