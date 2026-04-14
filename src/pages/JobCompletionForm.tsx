@@ -126,20 +126,88 @@ export default function JobCompletionForm() {
   }
 
   const handleComplete = async () => {
-    // Validate required fields
-    if (!formData.swmsCompleted) {
-      toast.error('SWMS must be completed before submitting')
-      setCurrentSection(2)
-      return
+    // Comprehensive per-section validation
+    type SectionError = { section: number; message: string }
+    const errors: SectionError[] = []
+
+    // Section 2: Summary
+    if (!formData.swmsCompleted) errors.push({ section: 2, message: 'SWMS must be completed' })
+    if (!formData.premisesType) errors.push({ section: 2, message: 'Premises type is required' })
+    if (!formData.completionDate) errors.push({ section: 2, message: 'Completion date is required' })
+    if (!formData.areasTreated || formData.areasTreated.length === 0) {
+      errors.push({ section: 2, message: 'At least one treated area is required' })
     }
-    if (!formData.premisesType) {
-      toast.error('Premises type is required')
-      setCurrentSection(2)
-      return
+
+    // Section 5: Treatment — at least one method
+    const treatmentFields = [
+      formData.methodHepaVacuuming, formData.methodSurfaceMouldRemediation, formData.methodUlvFoggingProperty,
+      formData.methodUlvFoggingSubfloor, formData.methodSubfloorRemediation, formData.methodAfdInstallation,
+      formData.methodDryingEquipment, formData.methodContainmentPrv, formData.methodMaterialDemolition,
+      formData.methodCavityTreatment, formData.methodDebrisRemoval,
+    ]
+    if (!treatmentFields.some(Boolean)) {
+      errors.push({ section: 5, message: 'At least one treatment method is required' })
     }
-    if (!formData.completionDate) {
-      toast.error('Completion date is required')
-      setCurrentSection(2)
+
+    // Section 4: Demolition — if toggled, require justification + removal notes + 4 photos
+    if (formData.demolitionWorks) {
+      if (!formData.demolitionJustification?.trim()) {
+        errors.push({ section: 4, message: 'Demolition justification is required when demolition is enabled' })
+      }
+      if (!formData.demolitionRemovalNotes?.trim()) {
+        errors.push({ section: 4, message: 'Removal notes are required when demolition is enabled' })
+      }
+      // Photo counts checked via DB query
+      if (jobCompletionId) {
+        const { count: demoCount } = await supabase
+          .from('photos')
+          .select('id', { count: 'exact', head: true })
+          .eq('job_completion_id', jobCompletionId)
+          .eq('photo_category', 'demolition')
+        if ((demoCount ?? 0) < 4) {
+          errors.push({ section: 4, message: `Demolition requires exactly 4 photos (${demoCount ?? 0}/4 uploaded)` })
+        }
+      }
+    }
+
+    // Section 3/4: Before + After photos parity
+    if (jobCompletionId) {
+      const [{ count: beforeCount }, { count: afterCount }] = await Promise.all([
+        supabase.from('photos').select('id', { count: 'exact', head: true })
+          .eq('job_completion_id', jobCompletionId).eq('photo_category', 'before'),
+        supabase.from('photos').select('id', { count: 'exact', head: true })
+          .eq('job_completion_id', jobCompletionId).eq('photo_category', 'after'),
+      ])
+      if ((beforeCount ?? 0) < 1) {
+        errors.push({ section: 3, message: 'At least one before photo must be selected' })
+      }
+      if ((afterCount ?? 0) < 1) {
+        errors.push({ section: 4, message: 'At least one after photo must be uploaded' })
+      }
+      if ((beforeCount ?? 0) > 0 && (afterCount ?? 0) > 0 && afterCount !== beforeCount) {
+        errors.push({ section: 4, message: `After photo count (${afterCount}) must match before photo count (${beforeCount})` })
+      }
+    }
+
+    // Section 8: Variations — if scope changed, require what + why
+    if (formData.scopeChanged) {
+      if (!formData.scopeWhatChanged?.trim()) {
+        errors.push({ section: 8, message: 'What changed is required when scope changed' })
+      }
+      if (!formData.scopeWhyChanged?.trim()) {
+        errors.push({ section: 8, message: 'Why changed is required when scope changed' })
+      }
+    }
+
+    if (errors.length > 0) {
+      const firstError = errors[0]
+      const summary = errors.slice(0, 3).map(e => `• Section ${e.section}: ${e.message}`).join('\n')
+      const extra = errors.length > 3 ? `\n...and ${errors.length - 3} more` : ''
+      toast.error('Cannot submit — please fix the following:', {
+        description: summary + extra,
+        duration: 8000,
+      })
+      setCurrentSection(firstError.section)
       return
     }
 
