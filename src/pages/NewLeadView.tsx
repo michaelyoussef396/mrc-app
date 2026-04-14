@@ -40,6 +40,7 @@ const NewLeadView = () => {
         .from('leads')
         .select('*')
         .eq('id', id)
+        .is('archived_at', null)
         .single();
 
       if (error) throw error;

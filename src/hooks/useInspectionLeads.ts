@@ -68,6 +68,7 @@ export function useInspectionLeads() {
           updated_at
         `)
         .eq('status', 'inspection_waiting')
+        .is('archived_at', null)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -152,7 +153,8 @@ export function useInspectionLeadsCount() {
       const { count, error } = await supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'inspection_waiting');
+        .eq('status', 'inspection_waiting')
+        .is('archived_at', null);
 
       if (error) throw error;
       return count || 0;

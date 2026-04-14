@@ -2541,6 +2541,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           `
           )
           .eq('id', leadId)
+          .is('archived_at', null)
           .single();
 
         if (leadError) throw leadError;

@@ -46,6 +46,7 @@ export function useLeadsNeedsAttention(): NeedsAttentionResult {
         .select('id, full_name, property_address_street, lead_number, status, updated_at, job_completions!inner(submitted_at, request_review)')
         .eq('status', 'pending_review')
         .eq('job_completions.request_review', true)
+        .is('archived_at', null)
         .order('updated_at', { ascending: false });
 
       if (fetchError) {

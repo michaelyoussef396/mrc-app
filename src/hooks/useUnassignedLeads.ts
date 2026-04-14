@@ -38,6 +38,7 @@ export function useUnassignedLeads(): UnassignedLeadsResult {
         .from('leads')
         .select('id, full_name, property_address_suburb, status, assigned_to, created_at, phone, email', { count: 'exact' })
         .or('status.in.(new_lead,hipages_lead),assigned_to.is.null')
+        .is('archived_at', null)
         .order('created_at', { ascending: false })
         .limit(10);
 

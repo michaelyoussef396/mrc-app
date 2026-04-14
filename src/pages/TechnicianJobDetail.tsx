@@ -107,6 +107,7 @@ export default function TechnicianJobDetail() {
         .from('leads')
         .select('*')
         .eq('id', id)
+        .is('archived_at', null)
         .single();
 
       if (leadError) throw leadError;

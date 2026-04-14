@@ -73,7 +73,8 @@ export function useLeadSearch(query: string): SearchResult {
              property_address_postcode, status, lead_source,
              created_at, notes, issue_description`,
             { count: 'exact' }
-          );
+          )
+          .is('archived_at', null);
 
         for (const word of searchWords) {
           const escaped = escapeIlike(word);

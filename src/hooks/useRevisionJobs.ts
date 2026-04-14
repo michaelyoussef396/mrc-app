@@ -42,6 +42,7 @@ export function useRevisionJobs() {
         .eq('assigned_to', user.id)
         .eq('job_completions.status', 'draft')
         .not('job_completions.submitted_at', 'is', null)
+        .is('archived_at', null)
 
       if (error || cancelled) {
         if (error) console.error('[useRevisionJobs] Query error:', error)

@@ -70,6 +70,7 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
           created_at
         `, { count: 'exact' })
         .or('and(status.in.(new_lead,hipages_lead),assigned_to.is.null),status.eq.job_waiting')
+        .is('archived_at', null)
         .order('created_at', { ascending: false });
 
       if (fetchError) {

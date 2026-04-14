@@ -207,7 +207,8 @@ async function fetchTechnicianDetail(technicianId: string): Promise<TechnicianDe
       .from('leads')
       .select('status, created_at')
       .eq('assigned_to', technicianId)
-      .gte('created_at', thirtyDaysAgo.toISOString());
+      .gte('created_at', thirtyDaysAgo.toISOString())
+      .is('archived_at', null);
 
     if (leadsError) {
       console.warn('[useTechnicianDetail] Leads fetch error:', leadsError);
