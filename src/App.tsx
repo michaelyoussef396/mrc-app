@@ -47,7 +47,7 @@ const TechnicianInspectionForm = lazy(() => import("./pages/TechnicianInspection
 const TechnicianJobDetail = lazy(() => import("./pages/TechnicianJobDetail"));
 const JobCompletionForm = lazy(() => import("./pages/JobCompletionForm"));
 const InspectionAIReview = lazy(() => import("./pages/InspectionAIReview"));
-const AdminInvoiceHelper = lazy(() => import("./pages/AdminInvoiceHelper"));
+// AdminInvoiceHelper kept on disk but route removed — payment tracking simplified to LeadDetail card
 // ViewJobReportPDF deleted — unified into ViewReportPDF with reportType detection
 
 // Loading fallback component
@@ -422,22 +422,6 @@ const AppContent = () => {
                   <RoleProtectedRoute allowedRoles={["admin"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <ViewReportPDF />
-                    </Suspense>
-                  </RoleProtectedRoute>
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Admin Invoice Helper */}
-            <Route
-              path="/admin/invoice/:leadId"
-              element={
-                <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["admin"]}>
-                    <Suspense fallback={<GlobalLoader />}>
-                      <PageErrorBoundary name="admin-invoice-helper">
-                        <AdminInvoiceHelper />
-                      </PageErrorBoundary>
                     </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>
