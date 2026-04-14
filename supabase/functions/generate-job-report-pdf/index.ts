@@ -171,11 +171,12 @@ Deno.serve(async (req) => {
 
     console.log(`Photos: ${beforePhotos.length} before, ${afterPhotos.length} after, ${demolitionPhotos.length} demolition`)
 
-    // ===== STEP 3: Generate signed URLs for photos =====
-    const photoSignedUrls = new Map<string, string>()
+    // ===== STEP 3: Download photos and embed as base64 data URIs =====
+    // Self-contained reports never expire — no more 1-hour signed URL TTL.
+    const photoDataUris = new Map<string, string>()
     const uniquePaths = [...new Set(allPhotos.map(p => p.storage_path).filter(Boolean))]
 
-    const BATCH_SIZE = 10
+    const BATCH_SIZE = 6
     for (let i = 0; i < uniquePaths.length; i += BATCH_SIZE) {
       const batch = uniquePaths.slice(i, i + BATCH_SIZE)
       const results = await Promise.all(
@@ -183,28 +184,41 @@ Deno.serve(async (req) => {
           try {
             const { data, error } = await supabase.storage
               .from('inspection-photos')
-              .createSignedUrl(storagePath, 3600)
-            if (data?.signedUrl && !error) {
-              return { path: storagePath, url: data.signedUrl }
+              .download(storagePath)
+            if (error || !data) {
+              console.error(`Failed to download ${storagePath}:`, error)
+              return null
             }
-            console.error(`Failed signed URL for ${storagePath}:`, error)
-            return null
+
+            const buf = await data.arrayBuffer()
+            const bytes = new Uint8Array(buf)
+            let binary = ''
+            const chunkSize = 0x8000
+            for (let j = 0; j < bytes.length; j += chunkSize) {
+              binary += String.fromCharCode.apply(
+                null,
+                Array.from(bytes.subarray(j, j + chunkSize)),
+              )
+            }
+            const base64 = btoa(binary)
+            const mime = data.type || 'image/jpeg'
+            return { path: storagePath, uri: `data:${mime};base64,${base64}` }
           } catch (err) {
-            console.error(`Error signed URL for ${storagePath}:`, err)
+            console.error(`Error embedding ${storagePath}:`, err)
             return null
           }
         }),
       )
       for (const result of results) {
-        if (result) photoSignedUrls.set(result.path, result.url)
+        if (result) photoDataUris.set(result.path, result.uri)
       }
     }
 
-    console.log(`Generated ${photoSignedUrls.size} signed URLs`)
+    console.log(`Embedded ${photoDataUris.size} photos as base64`)
 
     function getPhotoUrl(photo: { storage_path: string } | undefined): string {
       if (!photo) return EMPTY_PHOTO
-      return photoSignedUrls.get(photo.storage_path) || EMPTY_PHOTO
+      return photoDataUris.get(photo.storage_path) || EMPTY_PHOTO
     }
 
     // ===== STEP 4: Fetch template =====
