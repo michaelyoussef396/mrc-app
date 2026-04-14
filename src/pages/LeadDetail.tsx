@@ -66,6 +66,7 @@ import { BookJobSheet } from "@/components/leads/BookJobSheet";
 import { JobBookingDetails } from "@/components/leads/JobBookingDetails";
 import { JobCompletionSummary } from "@/components/leads/JobCompletionSummary";
 import { JobCompletionEditSheet } from "@/components/leads/JobCompletionEditSheet";
+import { InvoicePaymentCard } from "@/components/leads/InvoicePaymentCard";
 import { TechnicianBottomNav } from "@/components/technician";
 import { useAuth } from "@/contexts/AuthContext";
 import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
@@ -1455,110 +1456,9 @@ export default function LeadDetail() {
           />
         )}
 
-        {/* Invoice Helper */}
-        {lead && ['job_report_pdf_sent', 'invoicing_sent', 'paid', 'google_review', 'finished'].includes(lead.status) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <Receipt className="h-5 w-5 text-purple-600" />
-              <h3 className="font-semibold text-[#1d1d1f]">Invoice</h3>
-            </div>
-
-            {lead.status === 'job_report_pdf_sent' && (
-              <Button
-                className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white"
-                onClick={async () => {
-                  const { error } = await supabase
-                    .from('leads')
-                    .update({ status: 'invoicing_sent' })
-                    .eq('id', lead.id);
-                  if (!error) {
-                    toast.success('Invoice marked as sent');
-                    await supabase.from('activities').insert({
-                      lead_id: lead.id,
-                      activity_type: 'invoice_sent',
-                      title: 'Invoice Sent',
-                      description: 'Invoice marked as sent to customer',
-                    });
-                    refetch();
-                  }
-                }}
-              >
-                Mark Invoice Sent
-              </Button>
-            )}
-
-            {lead.status === 'invoicing_sent' && (
-              <Button
-                className="w-full h-12 bg-green-600 hover:bg-green-700 text-white"
-                onClick={async () => {
-                  const { error } = await supabase
-                    .from('leads')
-                    .update({ status: 'paid' })
-                    .eq('id', lead.id);
-                  if (!error) {
-                    toast.success('Payment recorded');
-                    await supabase.from('activities').insert({
-                      lead_id: lead.id,
-                      activity_type: 'payment_received',
-                      title: 'Payment Received',
-                      description: 'Customer payment recorded',
-                    });
-                    refetch();
-                  }
-                }}
-              >
-                Mark as Paid
-              </Button>
-            )}
-
-            {lead.status === 'paid' && (
-              <Button
-                className="w-full h-12 bg-yellow-500 hover:bg-yellow-600 text-white"
-                onClick={async () => {
-                  const { error } = await supabase
-                    .from('leads')
-                    .update({ status: 'google_review' })
-                    .eq('id', lead.id);
-                  if (!error) {
-                    toast.success('Review request sent');
-                    await supabase.from('activities').insert({
-                      lead_id: lead.id,
-                      activity_type: 'review_requested',
-                      title: 'Google Review Requested',
-                      description: 'Review request sent to customer',
-                    });
-                    refetch();
-                  }
-                }}
-              >
-                Send Review Request
-              </Button>
-            )}
-
-            {lead.status === 'google_review' && (
-              <Button
-                className="w-full h-12 bg-gray-800 hover:bg-gray-900 text-white"
-                onClick={async () => {
-                  const { error } = await supabase
-                    .from('leads')
-                    .update({ status: 'finished' })
-                    .eq('id', lead.id);
-                  if (!error) {
-                    toast.success('Lead marked as finished');
-                    await supabase.from('activities').insert({
-                      lead_id: lead.id,
-                      activity_type: 'lead_finished',
-                      title: 'Lead Finished',
-                      description: 'Lead workflow completed',
-                    });
-                    refetch();
-                  }
-                }}
-              >
-                Close Lead
-              </Button>
-            )}
-          </div>
+        {/* Invoice & Payment */}
+        {lead && ['job_completed', 'job_report_pdf_sent', 'invoicing_sent', 'paid', 'google_review', 'finished'].includes(lead.status) && (
+          <InvoicePaymentCard leadId={lead.id} leadStatus={lead.status} onRefresh={refetch} />
         )}
 
         {/* Activity Log */}

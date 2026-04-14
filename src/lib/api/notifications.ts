@@ -64,7 +64,14 @@ interface SendSlackLeadUpdatedParams {
   changedFields: string;
 }
 
-type SendSlackNotificationParams = SendSlackNewLeadParams | SendSlackGenericParams | SendSlackStatusChangedParams | SendSlackLeadUpdatedParams;
+interface SendSlackCustomParams {
+  event: 'custom';
+  leadId?: string;
+  leadName?: string;
+  message: string;
+}
+
+type SendSlackNotificationParams = SendSlackNewLeadParams | SendSlackGenericParams | SendSlackStatusChangedParams | SendSlackLeadUpdatedParams | SendSlackCustomParams;
 
 // ============================================================================
 // EMAIL TEMPLATE
@@ -516,5 +523,104 @@ export async function sendSlackNotification(params: SendSlackNotificationParams)
 
   } catch (err) {
     console.error('[Notifications] Slack notification error:', err);
+  }
+}
+
+// ============================================================================
+// GOOGLE REVIEW EMAIL
+// ============================================================================
+
+export interface GoogleReviewEmailParams {
+  customerName: string;
+  jobNumber: string;
+}
+
+export function buildGoogleReviewEmailHtml(params: GoogleReviewEmailParams): string {
+  return wrapInBrandedTemplate(`
+    <h2>Thank You — Would You Leave Us a Review?</h2>
+    <p>Dear ${params.customerName},</p>
+    <p>Thank you for trusting Mould &amp; Restoration Co with your remediation work (${params.jobNumber}). We hope you're thrilled with the result.</p>
+    <p>Your feedback means the world to small businesses like ours. If you have 30 seconds, a quick Google review would genuinely make our day:</p>
+    <p style="margin-top:24px;text-align:center;">
+      <a href="https://g.page/r/CSmcatb7uSq9EBM/review" class="cta-button">Leave a Google Review</a>
+    </p>
+    <p>If anything's not quite right, please reply to this email or call us on <strong>1800 954 117</strong> — we'll make it right.</p>
+    <p>Thanks again,<br>The MRC Team</p>
+  `);
+}
+
+export async function sendGoogleReviewEmail(params: {
+  leadId: string;
+  customerEmail: string;
+  customerName: string;
+  jobNumber: string;
+}): Promise<void> {
+  const html = buildGoogleReviewEmailHtml({ customerName: params.customerName, jobNumber: params.jobNumber });
+  await sendEmail({
+    to: params.customerEmail,
+    subject: `Thank you from Mould & Restoration Co`,
+    html,
+    leadId: params.leadId,
+    templateName: 'google_review_request',
+  });
+}
+
+// ============================================================================
+// INVOICE SLACK HELPERS
+// ============================================================================
+
+export async function notifyInvoiceSent(params: {
+  leadId: string;
+  leadName: string;
+  invoiceNumber: string;
+  totalAmount: number;
+}): Promise<void> {
+  try {
+    await sendSlackNotification({
+      event: 'custom',
+      leadId: params.leadId,
+      leadName: params.leadName,
+      message: `💰 Invoice ${params.invoiceNumber} sent to ${params.leadName} — $${params.totalAmount.toFixed(2)}`,
+    });
+  } catch (err) {
+    console.error('[Notifications] notifyInvoiceSent failed:', err);
+  }
+}
+
+export async function notifyPaymentReceived(params: {
+  leadId: string;
+  leadName: string;
+  invoiceNumber: string;
+  totalAmount: number;
+  paymentMethod: string;
+}): Promise<void> {
+  try {
+    await sendSlackNotification({
+      event: 'custom',
+      leadId: params.leadId,
+      leadName: params.leadName,
+      message: `✅ Payment received for ${params.invoiceNumber} from ${params.leadName} — $${params.totalAmount.toFixed(2)} via ${params.paymentMethod}`,
+    });
+  } catch (err) {
+    console.error('[Notifications] notifyPaymentReceived failed:', err);
+  }
+}
+
+export async function notifyInvoiceOverdue(params: {
+  leadId: string;
+  leadName: string;
+  invoiceNumber: string;
+  totalAmount: number;
+  daysOverdue: number;
+}): Promise<void> {
+  try {
+    await sendSlackNotification({
+      event: 'custom',
+      leadId: params.leadId,
+      leadName: params.leadName,
+      message: `⏰ Invoice ${params.invoiceNumber} for ${params.leadName} is ${params.daysOverdue} days overdue — $${params.totalAmount.toFixed(2)}`,
+    });
+  } catch (err) {
+    console.error('[Notifications] notifyInvoiceOverdue failed:', err);
   }
 }
