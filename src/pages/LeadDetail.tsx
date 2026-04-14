@@ -151,6 +151,7 @@ export default function LeadDetail() {
         .from("leads")
         .select("*")
         .eq("id", id)
+        .is("archived_at", null)
         .single();
 
       if (error) throw error;
@@ -415,15 +416,18 @@ export default function LeadDetail() {
   };
 
   const handleDelete = async () => {
-    const { error } = await supabase.from("leads").delete().eq("id", lead.id);
+    const { error } = await supabase
+      .from("leads")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", lead.id);
 
     if (error) {
-      captureBusinessError("Failed to delete lead", { leadId: lead.id, error: error.message });
-      toast.error("Failed to delete lead");
+      captureBusinessError("Failed to archive lead", { leadId: lead.id, error: error.message });
+      toast.error("Failed to archive lead");
       return;
     }
 
-    toast.success("Lead deleted");
+    toast.success("Lead archived");
     navigate("/admin/leads");
   };
 
@@ -442,15 +446,15 @@ export default function LeadDetail() {
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+              <AlertDialogTitle>Archive Lead?</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to permanently delete this lead? This action cannot be undone.
+                Are you sure you want to archive this lead? It will be hidden from the app but can be restored later by an admin.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-                Delete
+                Archive
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -1067,7 +1071,7 @@ export default function LeadDetail() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-red-600">
                           <Trash2 className="h-4 w-4 mr-3" />
-                          Delete Lead
+                          Archive Lead
                         </DropdownMenuItem>
                       </>
                     )}
@@ -1580,10 +1584,9 @@ export default function LeadDetail() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+            <AlertDialogTitle>Archive Lead?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete this lead? This action cannot be
-              undone.
+              Are you sure you want to archive this lead? It will be hidden from the app but can be restored later by an admin.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1592,7 +1595,7 @@ export default function LeadDetail() {
               onClick={handleDelete}
               className="bg-red-600 hover:bg-red-700"
             >
-              Delete
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

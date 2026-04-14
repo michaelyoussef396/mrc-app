@@ -121,6 +121,7 @@ export default function InspectionAIReview() {
         .from('leads')
         .select('id, full_name, email, phone, property_address_street, property_address_suburb, property_address_state, property_address_postcode, issue_description, internal_notes')
         .eq('id', leadId)
+        .is('archived_at', null)
         .single();
 
       if (leadError) throw leadError;

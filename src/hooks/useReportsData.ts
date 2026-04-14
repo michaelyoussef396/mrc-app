@@ -120,7 +120,8 @@ export function useReportsData(period: TimePeriod = 'month'): ReportsData {
         .from('leads')
         .select('id, status, lead_source, created_at, quoted_amount')
         .gte('created_at', startISO)
-        .lte('created_at', endISO);
+        .lte('created_at', endISO)
+        .is('archived_at', null);
 
       if (error) throw error;
       return data || [];

@@ -204,7 +204,8 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
       .from('leads')
       .select('assigned_to')
       .in('assigned_to', techIds)
-      .not('status', 'in', '("closed","not_landed")');
+      .not('status', 'in', '("closed","not_landed")')
+      .is('archived_at', null);
 
     if (assignedLeadsError) {
       console.warn('[useTechnicianStats] Assigned leads fetch error:', assignedLeadsError);

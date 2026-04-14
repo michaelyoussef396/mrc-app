@@ -68,14 +68,16 @@ export function useAdminDashboardStats(): DashboardStats {
           .from('leads')
           .select('*', { count: 'exact', head: true })
           .is('assigned_to', null)
-          .in('status', ['new_lead', 'hipages_lead']),
+          .in('status', ['new_lead', 'hipages_lead'])
+          .is('archived_at', null),
 
         // 3. Completed This Week - leads that moved to completed status this week
         supabase
           .from('leads')
           .select('*', { count: 'exact', head: true })
           .in('status', ['job_completed', 'paid', 'finished', 'invoicing_sent'])
-          .gte('updated_at', startOfWeekISO),
+          .gte('updated_at', startOfWeekISO)
+          .is('archived_at', null),
 
         // 4. Revenue This Week - sum of total_inc_gst from inspections created this week
         supabase
