@@ -841,36 +841,128 @@ export default function ViewReportPDF() {
 
   async function handleSendEmail() {
     if (reportType === 'job' && jobCompletion) {
+      const lead = jobCompletion.lead as { id: string; full_name: string; email?: string; property_address_street?: string; property_address_suburb?: string; property_address_state?: string; property_address_postcode?: string } | null
+      if (!lead?.email) {
+        toast.error('No customer email address')
+        return
+      }
+      if (!jobCompletion.pdf_url) {
+        toast.error('No job report available')
+        return
+      }
+
       setSendingEmail(true)
+      toast.loading('Converting report to PDF...', { id: 'send-email' })
+
       try {
-        const lead = jobCompletion.lead as { id: string; full_name: string; email?: string; property_address_street?: string; property_address_suburb?: string; property_address_state?: string; property_address_postcode?: string } | null
-        if (!lead?.email) {
-          toast.error('No customer email address')
-          return
-        }
         const address = [lead.property_address_street, lead.property_address_suburb, lead.property_address_state, lead.property_address_postcode].filter(Boolean).join(', ')
-        await sendJobReportEmail({
+
+        // 1. Get PDF content as base64 (match inspection pattern)
+        let base64Content: string
+
+        const jobBlobUrl = (jobCompletion as { pdf_blob_url?: string | null }).pdf_blob_url
+        if (jobBlobUrl) {
+          // Use stored browser-rendered PDF if available
+          toast.loading('Preparing PDF attachment...', { id: 'send-email' })
+          const { data: pdfData, error: pdfError } = await supabase.storage
+            .from('report-pdfs')
+            .download(jobBlobUrl)
+          if (pdfError || !pdfData) throw new Error('Failed to download stored PDF')
+          const arrayBuffer = await pdfData.arrayBuffer()
+          base64Content = btoa(
+            new Uint8Array(arrayBuffer).reduce((s, b) => s + String.fromCharCode(b), '')
+          )
+        } else {
+          // Fallback: fetch HTML from storage and convert client-side
+          toast.loading('Generating PDF from report HTML...', { id: 'send-email' })
+          let htmlContent: string
+          const pathMatch = jobCompletion.pdf_url.match(/inspection-reports\/(.+)$/)
+          if (pathMatch) {
+            const { data, error } = await supabase.storage
+              .from('inspection-reports')
+              .download(pathMatch[1])
+            if (error || !data) throw new Error('Failed to download report file')
+            htmlContent = await data.text()
+          } else {
+            const response = await fetch(jobCompletion.pdf_url)
+            if (!response.ok) throw new Error('Failed to fetch report file')
+            htmlContent = await response.text()
+          }
+          const { convertHtmlToPdf } = await import('@/lib/utils/htmlToPdf')
+          const pdfBlob = await convertHtmlToPdf(htmlContent)
+          base64Content = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve((reader.result as string).split(',')[1])
+            reader.onerror = reject
+            reader.readAsDataURL(pdfBlob)
+          })
+        }
+
+        // 2. Build email HTML from editable body + MRC branding
+        toast.loading('Sending email...', { id: 'send-email' })
+        const bodyParagraphs = emailBody.trim()
+          .split(/\n\n+/)
+          .map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
+          .join('\n')
+        const emailHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head><meta charset="utf-8"><style>
+            body{font-family:Arial,sans-serif;color:#1d1d1f;max-width:600px;margin:0 auto;padding:20px;line-height:1.6;}
+            .header{background:#121D73;color:#fff;padding:24px;text-align:center;border-radius:8px 8px 0 0;}
+            .header h1{margin:0;font-size:22px;}
+            .body{background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 8px 8px;}
+            .footer{text-align:center;padding:16px;color:#666;font-size:12px;}
+          </style></head>
+          <body>
+            <div class="header"><h1>Mould &amp; Restoration Co.</h1></div>
+            <div class="body">${bodyParagraphs}</div>
+            <div class="footer">
+              Mould &amp; Restoration Co. · 1800 954 117 · mouldandrestoration.com.au
+            </div>
+          </body>
+          </html>`
+
+        // 3. Filename
+        const jobNumber = jobCompletion.job_number || 'Report'
+        const filename = `MRC-${jobNumber}-Job-Report.pdf`
+
+        // 4. Send email with PDF attachment
+        await sendEmail({
+          to: lead.email,
+          subject: emailSubject,
+          html: emailHtml,
           leadId: lead.id,
-          customerEmail: lead.email,
-          customerName: lead.full_name || '',
-          propertyAddress: address,
-          jobNumber: jobCompletion.job_number || '',
-          completionDate: new Date(jobCompletion.completion_date).toLocaleDateString('en-AU'),
-          technicianName: jobCompletion.remediation_completed_by || '',
-          pdfUrl: jobCompletion.pdf_url || '',
+          templateName: 'job_report_sent',
+          attachments: [{
+            filename,
+            content: base64Content,
+            content_type: 'application/pdf',
+          }],
         })
+
+        // 5. Slack notification
+        sendSlackNotification({
+          event: 'report_approved',
+          leadId: lead.id,
+          leadName: lead.full_name,
+          propertyAddress: address,
+        })
+
+        // 6. Update lead status + activity log
         await supabase.from('leads').update({ status: 'job_report_pdf_sent' }).eq('id', lead.id)
         await supabase.from('activities').insert({
           lead_id: lead.id,
           activity_type: 'email_sent',
           title: 'Job report sent to customer',
-          description: `Report emailed to ${lead.email}`,
+          description: `Report emailed to ${lead.email} with PDF attached`,
         })
-        toast.success('Job report sent to customer')
+
+        toast.success(`Email sent to ${lead.email} with PDF attached!`, { id: 'send-email' })
         navigate(`/leads/${lead.id}`)
       } catch (err) {
-        toast.error('Failed to send email')
-        console.error(err)
+        console.error('Job report send error:', err)
+        toast.error('Failed to send email', { id: 'send-email' })
       } finally {
         setSendingEmail(false)
       }
