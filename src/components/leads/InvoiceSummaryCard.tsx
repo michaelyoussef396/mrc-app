@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
 import { ClipboardCopy, FileText, Loader2, Send } from 'lucide-react'
 
 import { supabase } from '@/integrations/supabase/client'
@@ -65,6 +66,7 @@ function buildClipboardText(d: SummaryData): string {
 }
 
 export function InvoiceSummaryCard({ leadId, onRefresh }: Props) {
+  const queryClient = useQueryClient()
   const [data, setData] = useState<SummaryData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -155,6 +157,9 @@ export function InvoiceSummaryCard({ leadId, onRefresh }: Props) {
 
       // 2. Mark sent (also transitions lead.status → invoicing_sent)
       await markInvoiceSent(inserted.id)
+
+      // 3. Invalidate React Query caches — refresh invoice + lead views
+      await queryClient.invalidateQueries({ queryKey: ['invoice-by-lead', leadId] })
 
       toast.success(`Tracker created for ${formatCurrency(total)} · due ${formatDateAU(dueDate)}`)
       onRefresh()
