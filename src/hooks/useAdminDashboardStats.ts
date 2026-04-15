@@ -6,6 +6,9 @@ interface DashboardStats {
   leadsToAssign: number;
   completedThisWeek: number;
   revenueThisWeek: number;
+  pendingReviews: number;
+  overdueInvoicesCount: number;
+  overdueInvoicesTotal: number;
   isLoading: boolean;
   error: string | null;
 }
@@ -25,6 +28,9 @@ export function useAdminDashboardStats(): DashboardStats {
     leadsToAssign: 0,
     completedThisWeek: 0,
     revenueThisWeek: 0,
+    pendingReviews: 0,
+    overdueInvoicesCount: 0,
+    overdueInvoicesTotal: 0,
     isLoading: true,
     error: null,
   });
@@ -56,6 +62,8 @@ export function useAdminDashboardStats(): DashboardStats {
         leadsToAssignResult,
         completedThisWeekResult,
         revenueResult,
+        pendingReviewsResult,
+        overdueInvoicesResult,
       ] = await Promise.all([
         // 1. Today's Jobs - count inspections scheduled for today
         supabase
@@ -85,6 +93,19 @@ export function useAdminDashboardStats(): DashboardStats {
           .select('total_inc_gst')
           .gte('created_at', startOfWeekISO)
           .not('total_inc_gst', 'is', null),
+
+        // 5. Pending Reviews - leads flagged by techs for admin review
+        supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending_review')
+          .is('archived_at', null),
+
+        // 6. Overdue Invoices - count + sum of total_amount
+        supabase
+          .from('invoices')
+          .select('total_amount')
+          .eq('status', 'overdue'),
       ]);
 
       // Check for errors
@@ -104,6 +125,14 @@ export function useAdminDashboardStats(): DashboardStats {
         console.error('[Dashboard Stats] Revenue error:', revenueResult.error);
         throw revenueResult.error;
       }
+      if (pendingReviewsResult.error) {
+        console.error('[Dashboard Stats] Pending reviews error:', pendingReviewsResult.error);
+        throw pendingReviewsResult.error;
+      }
+      if (overdueInvoicesResult.error) {
+        console.error('[Dashboard Stats] Overdue invoices error:', overdueInvoicesResult.error);
+        throw overdueInvoicesResult.error;
+      }
 
       // Calculate total revenue
       const totalRevenue = revenueResult.data?.reduce((sum, inspection) => {
@@ -111,11 +140,21 @@ export function useAdminDashboardStats(): DashboardStats {
         return sum + (typeof amount === 'number' ? amount : 0);
       }, 0) || 0;
 
+      // Calculate overdue invoice totals
+      const overdueData = overdueInvoicesResult.data || [];
+      const overdueTotal = overdueData.reduce((sum, inv) => {
+        const amount = inv.total_amount;
+        return sum + (typeof amount === 'number' ? amount : 0);
+      }, 0);
+
       const newStats = {
         todaysJobs: todaysJobsResult.count || 0,
         leadsToAssign: leadsToAssignResult.count || 0,
         completedThisWeek: completedThisWeekResult.count || 0,
         revenueThisWeek: totalRevenue,
+        pendingReviews: pendingReviewsResult.count || 0,
+        overdueInvoicesCount: overdueData.length,
+        overdueInvoicesTotal: overdueTotal,
         isLoading: false,
         error: null,
       };

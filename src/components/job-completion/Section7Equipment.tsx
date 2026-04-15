@@ -6,7 +6,7 @@ import type { JobCompletionFormData } from '@/types/jobCompletion';
 const EQUIPMENT_RATES = {
   dehumidifier: 132, // $132/day
   airMover: 46,      // $46/day
-  afd: 75,           // $75/day (placeholder — confirm rate with Michael)
+  afd: 75,           // $75/day
   rcd: 5,            // $5/day
 } as const;
 
