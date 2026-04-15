@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft, Plus, Trash2, Save, Send, Loader2 } from 'lucide-react'
 
-import { supabase } from '@/integrations/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -19,13 +18,6 @@ import {
   type InvoiceRow,
 } from '@/lib/api/invoices'
 import { formatCurrency, MAX_DISCOUNT } from '@/lib/calculations/pricing'
-import { sendInvoiceEmail } from '@/lib/api/notifications'
-
-function formatDateAU(iso: string): string {
-  if (!iso) return ''
-  const d = new Date(iso + (iso.length === 10 ? 'T00:00:00' : ''))
-  return d.toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
 
 export default function AdminInvoiceHelper() {
   const { leadId } = useParams<{ leadId: string }>()
@@ -176,8 +168,8 @@ export default function AdminInvoiceHelper() {
 
   async function handleSendInvoice() {
     if (!leadId) return
-    if (!customerName.trim() || !customerEmail.trim()) {
-      toast.error('Customer name and email are required to send')
+    if (!customerName.trim()) {
+      toast.error('Customer name is required')
       return
     }
     if (!dueDate) {
@@ -185,7 +177,7 @@ export default function AdminInvoiceHelper() {
       return
     }
     if (lineItems.length === 0) {
-      toast.error('Add at least one line item before sending')
+      toast.error('Add at least one line item before marking as sent')
       return
     }
 
@@ -220,35 +212,7 @@ export default function AdminInvoiceHelper() {
 
       await markInvoiceSent(invoice.id)
 
-      // Fire-and-forget email
-      try {
-        await sendInvoiceEmail({
-          leadId,
-          customerEmail,
-          emailParams: {
-            customerName,
-            propertyAddress: propertyAddress || '',
-            invoiceNumber: invoice.invoice_number,
-            invoiceDate: formatDateAU(invoice.invoice_date),
-            dueDate: formatDateAU(invoice.due_date),
-            lineItems: lineItems,
-            subtotal: totals.subtotal,
-            discountAmount: totals.discount_amount,
-            subtotalAfterDiscount: totals.subtotal_after_discount,
-            gstAmount: totals.gst_amount,
-            totalAmount: totals.total_amount,
-            notes: notes || undefined,
-          },
-        })
-      } catch (emailErr) {
-        console.error('Invoice email failed (non-fatal):', emailErr)
-        toast.warning('Invoice saved but email failed to send')
-      }
-
-      // Transition lead status to invoicing_sent
-      await supabase.from('leads').update({ status: 'invoicing_sent' }).eq('id', leadId)
-
-      toast.success('Invoice sent to customer')
+      toast.success('Invoice marked as sent')
       navigate(`/leads/${leadId}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to send invoice')
@@ -289,7 +253,7 @@ export default function AdminInvoiceHelper() {
             </Button>
             <Button onClick={handleSendInvoice} disabled={saving || sending || isSent} className="bg-[#121D73] hover:bg-[#0f1860]">
               {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-              {isSent ? 'Already Sent' : 'Send Invoice'}
+              {isSent ? 'Already Sent' : 'Mark as Sent'}
             </Button>
           </div>
         </div>
