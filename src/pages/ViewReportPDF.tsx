@@ -958,14 +958,22 @@ export default function ViewReportPDF() {
           propertyAddress: address,
         })
 
-        // 6. Update lead status + activity log
-        await supabase.from('leads').update({ status: 'job_report_pdf_sent' }).eq('id', lead.id)
-        await supabase.from('activities').insert({
+        // 6. Update lead status + activity log (surface errors — do not swallow)
+        const { error: statusErr } = await supabase
+          .from('leads')
+          .update({ status: 'job_report_pdf_sent' })
+          .eq('id', lead.id)
+        if (statusErr) {
+          console.error('Lead status update failed:', statusErr)
+          toast.error(`Email sent but status update failed: ${statusErr.message}`, { id: 'send-email' })
+        }
+        const { error: activityErr } = await supabase.from('activities').insert({
           lead_id: lead.id,
           activity_type: 'email_sent',
           title: 'Job report sent to customer',
           description: `Report emailed to ${recipient} with PDF attached`,
         })
+        if (activityErr) console.error('Activity log failed:', activityErr)
 
         toast.success(`Email sent to ${recipient} with PDF attached!`, { id: 'send-email' })
         navigate(`/leads/${lead.id}`)
