@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import { captureBusinessError, addBusinessBreadcrumb } from '@/lib/sentry'
+import type { Tables } from '@/integrations/supabase/types'
 
 export interface InspectionData {
   lead_id: string
@@ -555,7 +556,7 @@ export async function fetchCompleteInspectionData(
   const rawPhotos = photosResult.data || []
 
   // 4. Load subfloor readings if subfloor exists
-  let subfloorReadings: any[] = []
+  let subfloorReadings: Tables<'subfloor_readings'>[] = []
   if (subfloorData) {
     const { data } = await supabase
       .from('subfloor_readings')
