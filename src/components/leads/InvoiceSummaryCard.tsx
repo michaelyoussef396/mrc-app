@@ -1,18 +1,12 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { ClipboardCopy, FileText, Loader2, Save, Send } from 'lucide-react'
+import { ClipboardCopy, FileText, Loader2, Send } from 'lucide-react'
 
 import { supabase } from '@/integrations/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  autoPopulateFromLead, calculateInvoiceTotals,
+  autoPopulateFromLead, calculateInvoiceTotals, markInvoiceSent,
   type CreateInvoiceInput, type InvoiceLineItem, type InvoiceTotals,
 } from '@/lib/api/invoices'
 import { formatCurrency } from '@/lib/calculations/pricing'
@@ -33,6 +27,12 @@ function formatDateAU(iso: string | null | undefined): string {
   if (!iso) return '—'
   const d = new Date(iso.length === 10 ? iso + 'T00:00:00' : iso)
   return d.toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function defaultDueDate(days = 14): string {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return d.toISOString().split('T')[0]
 }
 
 function buildClipboardText(d: SummaryData): string {
@@ -68,12 +68,7 @@ export function InvoiceSummaryCard({ leadId, onRefresh }: Props) {
   const [data, setData] = useState<SummaryData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [createOpen, setCreateOpen] = useState(false)
-  const [amount, setAmount] = useState(0)
-  const [dueDate, setDueDate] = useState('')
-  const [reference, setReference] = useState('')
-  const [notes, setNotes] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [starting, setStarting] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -86,7 +81,6 @@ export function InvoiceSummaryCard({ leadId, onRefresh }: Props) {
           populated.line_items ?? [],
           populated.discount_percentage ?? 0,
         )
-        // Job number + completion date from latest job_completion
         const { data: jc } = await supabase
           .from('job_completions')
           .select('job_number, completion_date')
@@ -112,19 +106,6 @@ export function InvoiceSummaryCard({ leadId, onRefresh }: Props) {
     return () => { cancelled = true }
   }, [leadId])
 
-  function openCreateDialog() {
-    if (!data) return
-    setAmount(data.totals.total_amount)
-    setDueDate(data.populated.due_date || (() => {
-      const d = new Date()
-      d.setDate(d.getDate() + 14)
-      return d.toISOString().split('T')[0]
-    })())
-    setReference('')
-    setNotes('')
-    setCreateOpen(true)
-  }
-
   async function handleCopySummary() {
     if (!data) return
     try {
@@ -135,20 +116,20 @@ export function InvoiceSummaryCard({ leadId, onRefresh }: Props) {
     }
   }
 
-  async function handleCreateTracker() {
+  async function handleStartTracking() {
     if (!data) return
-    if (amount <= 0) {
-      toast.error('Invoice amount must be greater than 0')
+    if (data.totals.total_amount <= 0) {
+      toast.error('Invoice total must be greater than 0')
       return
     }
-    if (!dueDate) {
-      toast.error('Due date is required')
-      return
-    }
-    setSaving(true)
+    const p = data.populated
+    const dueDate = p.due_date || defaultDueDate(14)
+    const total = data.totals.total_amount
+
+    setStarting(true)
     try {
-      const p = data.populated
-      const { error: insertErr } = await supabase
+      // 1. Insert invoice (draft)
+      const { data: inserted, error: insertErr } = await supabase
         .from('invoices')
         .insert({
           lead_id: leadId,
@@ -158,26 +139,29 @@ export function InvoiceSummaryCard({ leadId, onRefresh }: Props) {
           customer_phone: p.customer_phone ?? null,
           property_address: p.property_address ?? null,
           line_items: [],
-          subtotal: amount,
+          subtotal: total,
           discount_percentage: 0,
           discount_amount: 0,
-          subtotal_after_discount: amount,
+          subtotal_after_discount: total,
           equipment_subtotal: 0,
           gst_amount: 0,
-          total_amount: amount,
+          total_amount: total,
           due_date: dueDate,
-          payment_reference: reference || null,
-          notes: notes || null,
           status: 'draft',
         })
-      if (insertErr) throw insertErr
-      toast.success('Invoice tracker created — mark as sent when ready')
-      setCreateOpen(false)
+        .select('id')
+        .single()
+      if (insertErr || !inserted) throw insertErr ?? new Error('Insert returned no id')
+
+      // 2. Mark sent (also transitions lead.status → invoicing_sent)
+      await markInvoiceSent(inserted.id)
+
+      toast.success(`Tracker created for ${formatCurrency(total)} · due ${formatDateAU(dueDate)}`)
       onRefresh()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create tracker')
+      toast.error(err instanceof Error ? err.message : 'Failed to start tracking')
     } finally {
-      setSaving(false)
+      setStarting(false)
     }
   }
 
@@ -207,174 +191,131 @@ export function InvoiceSummaryCard({ leadId, onRefresh }: Props) {
   const t = data.totals
   const servicesSubtotal = t.subtotal - t.equipment_subtotal
   const discountPct = p.discount_percentage ?? 0
+  const dueDateStr = p.due_date || defaultDueDate(14)
 
   return (
-    <>
-      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-purple-600" />
-              <h3 className="font-semibold">Invoice Summary</h3>
-            </div>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Copy these figures into your external invoice (Xero, etc.)
-            </p>
+    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-purple-600" />
+            <h3 className="font-semibold">Invoice Summary</h3>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-10 flex-shrink-0"
-            onClick={handleCopySummary}
-          >
-            <ClipboardCopy className="h-4 w-4 mr-1" />
-            Copy
-          </Button>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Copy these figures into your external invoice (Xero, etc.)
+          </p>
         </div>
-
-        {/* Customer */}
-        <div className="rounded-lg bg-gray-50 p-3 space-y-1 text-sm">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Customer</p>
-          <p className="font-medium">{p.customer_name}</p>
-          {p.customer_email && <p className="text-gray-600 break-all">{p.customer_email}</p>}
-          {p.customer_phone && <p className="text-gray-600">{p.customer_phone}</p>}
-          {p.property_address && <p className="text-gray-600">{p.property_address}</p>}
-        </div>
-
-        {/* Job */}
-        {(data.jobNumber || data.completionDate) && (
-          <div className="rounded-lg bg-gray-50 p-3 space-y-1 text-sm">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Job</p>
-            {data.jobNumber && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Job number</span>
-                <span className="font-mono text-xs">{data.jobNumber}</span>
-              </div>
-            )}
-            {data.completionDate && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Completed</span>
-                <span>{formatDateAU(data.completionDate)}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Line items */}
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Line Items</p>
-          {(p.line_items ?? []).length === 0 ? (
-            <p className="text-sm text-amber-700">No line items — check inspection/job completion data.</p>
-          ) : (
-            <ul className="space-y-1.5">
-              {(p.line_items ?? []).map((li: InvoiceLineItem, i) => (
-                <li key={i} className="flex items-start justify-between gap-2 text-sm">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-gray-800">{li.description}</p>
-                    {li.is_equipment && (
-                      <Badge variant="outline" className="mt-0.5 text-[10px] px-1.5 py-0 border-blue-200 text-blue-700 bg-blue-50">
-                        Equipment
-                      </Badge>
-                    )}
-                  </div>
-                  <span className="font-medium tabular-nums whitespace-nowrap">
-                    {formatCurrency(li.total)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Totals */}
-        <div className="rounded-lg border border-gray-200 p-3 space-y-1 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Services subtotal</span>
-            <span className="tabular-nums">{formatCurrency(servicesSubtotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Equipment subtotal</span>
-            <span className="tabular-nums">{formatCurrency(t.equipment_subtotal)}</span>
-          </div>
-          {t.discount_amount > 0 && (
-            <div className="flex justify-between text-emerald-700">
-              <span>Discount ({discountPct}% on services)</span>
-              <span className="tabular-nums">-{formatCurrency(t.discount_amount)}</span>
-            </div>
-          )}
-          <div className="flex justify-between border-t border-gray-200 pt-1">
-            <span className="text-gray-600">Subtotal ex GST</span>
-            <span className="tabular-nums">{formatCurrency(t.subtotal_after_discount)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">GST 10%</span>
-            <span className="tabular-nums">{formatCurrency(t.gst_amount)}</span>
-          </div>
-          <div className="flex justify-between border-t border-gray-300 pt-1.5 mt-1">
-            <span className="font-semibold">Total inc GST</span>
-            <span className="font-bold text-base tabular-nums">{formatCurrency(t.total_amount)}</span>
-          </div>
-        </div>
-
         <Button
-          className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white"
-          onClick={openCreateDialog}
+          variant="outline"
+          size="sm"
+          className="h-10 flex-shrink-0"
+          onClick={handleCopySummary}
         >
-          <Send className="h-4 w-4 mr-2" />
-          I've sent the invoice — start tracking
+          <ClipboardCopy className="h-4 w-4 mr-1" />
+          Copy
         </Button>
       </div>
 
-      {/* Create tracker dialog (prefilled from summary) */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Start Payment Tracking</DialogTitle>
-            <DialogDescription>
-              Enter the actual invoice amount you sent externally. Defaults prefilled from the summary.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <Label>Invoice Amount (AUD, inc. GST)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min={0}
-                value={amount || ''}
-                onChange={e => setAmount(Number(e.target.value) || 0)}
-              />
+      {/* Customer */}
+      <div className="rounded-lg bg-gray-50 p-3 space-y-1 text-sm">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Customer</p>
+        <p className="font-medium">{p.customer_name}</p>
+        {p.customer_email && <p className="text-gray-600 break-all">{p.customer_email}</p>}
+        {p.customer_phone && <p className="text-gray-600">{p.customer_phone}</p>}
+        {p.property_address && <p className="text-gray-600">{p.property_address}</p>}
+      </div>
+
+      {/* Job */}
+      {(data.jobNumber || data.completionDate) && (
+        <div className="rounded-lg bg-gray-50 p-3 space-y-1 text-sm">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Job</p>
+          {data.jobNumber && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Job number</span>
+              <span className="font-mono text-xs">{data.jobNumber}</span>
             </div>
-            <div>
-              <Label>Due Date</Label>
-              <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+          )}
+          {data.completionDate && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Completed</span>
+              <span>{formatDateAU(data.completionDate)}</span>
             </div>
-            <div>
-              <Label>External invoice reference (optional)</Label>
-              <Input
-                value={reference}
-                onChange={e => setReference(e.target.value)}
-                placeholder="e.g. Xero invoice number"
-              />
-            </div>
-            <div>
-              <Label>Notes (optional)</Label>
-              <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
-            </div>
+          )}
+        </div>
+      )}
+
+      {/* Line items */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Line Items</p>
+        {(p.line_items ?? []).length === 0 ? (
+          <p className="text-sm text-amber-700">No line items — check inspection/job completion data.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {(p.line_items ?? []).map((li: InvoiceLineItem, i) => (
+              <li key={i} className="flex items-start justify-between gap-2 text-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="text-gray-800">{li.description}</p>
+                  {li.is_equipment && (
+                    <Badge variant="outline" className="mt-0.5 text-[10px] px-1.5 py-0 border-blue-200 text-blue-700 bg-blue-50">
+                      Equipment
+                    </Badge>
+                  )}
+                </div>
+                <span className="font-medium tabular-nums whitespace-nowrap">
+                  {formatCurrency(li.total)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Totals */}
+      <div className="rounded-lg border border-gray-200 p-3 space-y-1 text-sm">
+        <div className="flex justify-between">
+          <span className="text-gray-600">Services subtotal</span>
+          <span className="tabular-nums">{formatCurrency(servicesSubtotal)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Equipment subtotal</span>
+          <span className="tabular-nums">{formatCurrency(t.equipment_subtotal)}</span>
+        </div>
+        {t.discount_amount > 0 && (
+          <div className="flex justify-between text-emerald-700">
+            <span>Discount ({discountPct}% on services)</span>
+            <span className="tabular-nums">-{formatCurrency(t.discount_amount)}</span>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button
-              onClick={handleCreateTracker}
-              disabled={saving}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-              Create Tracker
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+        )}
+        <div className="flex justify-between border-t border-gray-200 pt-1">
+          <span className="text-gray-600">Subtotal ex GST</span>
+          <span className="tabular-nums">{formatCurrency(t.subtotal_after_discount)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">GST 10%</span>
+          <span className="tabular-nums">{formatCurrency(t.gst_amount)}</span>
+        </div>
+        <div className="flex justify-between border-t border-gray-300 pt-1.5 mt-1">
+          <span className="font-semibold">Total inc GST</span>
+          <span className="font-bold text-base tabular-nums">{formatCurrency(t.total_amount)}</span>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Button
+          className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white"
+          onClick={handleStartTracking}
+          disabled={starting || t.total_amount <= 0}
+        >
+          {starting ? (
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creating tracker…</>
+          ) : (
+            <><Send className="h-4 w-4 mr-2" />I've sent the invoice — start tracking</>
+          )}
+        </Button>
+        <p className="text-xs text-gray-500 text-center">
+          Creates a {formatCurrency(t.total_amount)} tracker due {formatDateAU(dueDateStr)}. You can edit after.
+        </p>
+      </div>
+    </div>
   )
 }
