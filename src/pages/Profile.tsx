@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -30,7 +30,41 @@ interface ProfileData {
   phone: string;
   joinDate: string;
   avatar: string;
+  avatarUrl: string | null;
   startingAddress: AddressValue | null;
+}
+
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+const AVATAR_SIZE = 200;
+
+async function resizeAvatarToJpeg(file: File): Promise<Blob> {
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Image load failed'));
+      img.src = url;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = AVATAR_SIZE;
+    canvas.height = AVATAR_SIZE;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas context unavailable');
+    const side = Math.min(img.width, img.height);
+    const sx = (img.width - side) / 2;
+    const sy = (img.height - side) / 2;
+    ctx.drawImage(img, sx, sy, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'))),
+        'image/jpeg',
+        0.9
+      );
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 // Role badge configuration
@@ -76,6 +110,8 @@ export default function Profile() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   // User profile data
   const [profileData, setProfileData] = useState<ProfileData>({
@@ -85,6 +121,7 @@ export default function Profile() {
     phone: '',
     joinDate: '',
     avatar: '',
+    avatarUrl: null,
     startingAddress: null,
   });
 
@@ -157,6 +194,7 @@ export default function Profile() {
           phone,
           joinDate,
           avatar: initials,
+          avatarUrl: meta.avatar_url || null,
           startingAddress,
         };
 
@@ -259,6 +297,63 @@ export default function Profile() {
     }
   };
 
+  const handleAvatarClick = () => {
+    if (isUploadingAvatar) return;
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    if (file.size > MAX_AVATAR_BYTES) {
+      toast({
+        variant: 'destructive',
+        title: 'Image too large',
+        description: 'Please choose an image under 5MB.',
+      });
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw authError ?? new Error('Not authenticated');
+
+      const blob = await resizeAvatarToJpeg(file);
+      const path = `${user.id}/avatar-${Date.now()}.jpg`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('profile-photos')
+        .upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('profile-photos').getPublicUrl(path);
+      // Bust CDN cache so the new image shows immediately
+      const cacheBustedUrl = `${publicUrl}?v=${Date.now()}`;
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { avatar_url: publicUrl },
+      });
+      if (updateError) throw updateError;
+
+      setProfileData((prev) => ({ ...prev, avatarUrl: cacheBustedUrl }));
+      setEditData((prev) => ({ ...prev, avatarUrl: cacheBustedUrl }));
+
+      toast({ title: 'Photo updated', description: 'Your profile photo has been saved.' });
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Upload failed',
+        description: error instanceof Error ? error.message : 'Could not update photo.',
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   const handleSignOut = async () => {
     setIsSigningOut(true);
     try {
@@ -311,11 +406,36 @@ export default function Profile() {
           {/* Avatar Section with Role Badge */}
           <div className="flex flex-col items-center px-6 py-10 bg-gradient-to-br from-blue-900 to-blue-800 relative">
             <div className="relative mb-4">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white text-4xl font-bold flex items-center justify-center border-4 border-white/20 shadow-xl">
-                {profileData.avatar}
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white text-4xl font-bold flex items-center justify-center border-4 border-white/20 shadow-xl overflow-hidden">
+                {profileData.avatarUrl ? (
+                  <img
+                    src={profileData.avatarUrl}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  profileData.avatar
+                )}
               </div>
-              <button className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-white border-3 border-blue-900 text-blue-900 flex items-center justify-center cursor-pointer transition-all hover:scale-110 hover:shadow-lg">
-                <Camera size={18} strokeWidth={2} />
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
+              <button
+                type="button"
+                onClick={handleAvatarClick}
+                disabled={isUploadingAvatar}
+                aria-label="Change profile photo"
+                className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-white border-3 border-blue-900 text-blue-900 flex items-center justify-center cursor-pointer transition-all hover:scale-110 hover:shadow-lg disabled:opacity-60 disabled:cursor-wait"
+              >
+                {isUploadingAvatar ? (
+                  <Loader2 size={18} strokeWidth={2} className="animate-spin" />
+                ) : (
+                  <Camera size={18} strokeWidth={2} />
+                )}
               </button>
             </div>
             <div className="text-center">
