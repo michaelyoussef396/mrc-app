@@ -860,10 +860,10 @@ export default function LeadDetail() {
             <Button
               size="lg"
               className="w-full h-14 text-base bg-emerald-600 hover:bg-emerald-700"
-              onClick={() => handleChangeStatus('job_report_pdf_sent')}
+              onClick={() => navigate(`/admin/job-report/${lead.id}`)}
             >
               <CheckCircle2 className="h-5 w-5 mr-2" />
-              Approve &amp; Mark as Sent
+              Review &amp; Send Job Report
             </Button>
 
             <Button
