@@ -1453,13 +1453,8 @@ export default function LeadDetail() {
           />
         )}
 
-        {/* Invoice Summary (reference only — after report sent, before tracker created) */}
-        {lead && <InvoiceSummarySection leadId={lead.id} leadStatus={lead.status} onRefresh={refetch} />}
-
-        {/* Invoice & Payment */}
-        {lead && ['job_completed', 'job_report_pdf_sent', 'invoicing_sent', 'paid', 'google_review', 'finished'].includes(lead.status) && (
-          <InvoicePaymentCard leadId={lead.id} leadStatus={lead.status} onRefresh={refetch} />
-        )}
+        {/* Invoice / Payment — one card at a time (summary → tracker) */}
+        {lead && <InvoiceSection lead={lead} onRefresh={refetch} />}
 
         {/* Google Review CTA — show once paid, hide after review requested */}
         {lead && lead.status === 'paid' && (
@@ -1652,16 +1647,24 @@ export default function LeadDetail() {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Invoice Summary — read-only reference, shown once report is sent
-// and no invoice tracker exists yet.
+// Invoice Section — single gated renderer:
+//  - no invoice + status=job_report_pdf_sent → Summary card
+//  - invoice exists → Payment tracker card (with timeline)
+//  - otherwise → nothing
 // ──────────────────────────────────────────────────────────────
-function InvoiceSummarySection({
-  leadId, leadStatus, onRefresh,
-}: { leadId: string; leadStatus: string; onRefresh: () => void }) {
-  const { invoice, isLoading } = usePaymentTracking(leadId);
-  const shouldShow = leadStatus === 'job_report_pdf_sent' && !isLoading && !invoice;
-  if (!shouldShow) return null;
-  return <InvoiceSummaryCard leadId={leadId} onRefresh={onRefresh} />;
+const INVOICE_ELIGIBLE: LeadStatus[] = [
+  'job_completed', 'job_report_pdf_sent', 'invoicing_sent', 'paid', 'google_review', 'finished',
+];
+
+function InvoiceSection({
+  lead, onRefresh,
+}: { lead: { id: string; status: LeadStatus }; onRefresh: () => void }) {
+  const { invoice, isLoading } = usePaymentTracking(lead.id);
+  if (isLoading) return null;
+  if (!INVOICE_ELIGIBLE.includes(lead.status)) return null;
+  if (invoice) return <InvoicePaymentCard leadId={lead.id} leadStatus={lead.status} onRefresh={onRefresh} />;
+  if (lead.status === 'job_report_pdf_sent') return <InvoiceSummaryCard leadId={lead.id} onRefresh={onRefresh} />;
+  return null;
 }
 
 // ──────────────────────────────────────────────────────────────
