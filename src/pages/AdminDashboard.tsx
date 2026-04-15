@@ -15,12 +15,14 @@ import { getTechnicianColor } from '@/hooks/useTechnicians';
 import { NeedsAttentionList } from '@/components/admin/NeedsAttentionList';
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowRight,
   Calendar,
   CalendarCheck,
   CalendarDays,
   CheckCircle2,
   ClipboardCheck,
+  ClipboardList,
   DollarSign,
   FileText,
   UserPlus,
@@ -68,6 +70,9 @@ export default function AdminDashboard() {
     leadsToAssign,
     completedThisWeek,
     revenueThisWeek,
+    pendingReviews,
+    overdueInvoicesCount,
+    overdueInvoicesTotal,
     isLoading: statsLoading,
   } = useAdminDashboardStats();
 
@@ -125,8 +130,8 @@ export default function AdminDashboard() {
         {/* Needs Attention - leads flagged by technicians for admin review */}
         <NeedsAttentionList />
 
-        {/* Stats Row - Responsive grid: 1 col mobile, 2 cols tablet, 4 cols desktop */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8 mt-6 lg:mt-8">
+        {/* Stats Row - Responsive grid: 1 col mobile, 2 cols tablet, 3 cols desktop */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6 lg:mb-8 mt-6 lg:mt-8">
           <StatsCard
             title="Today's Jobs"
             value={statsLoading ? '...' : todaysJobs}
@@ -157,6 +162,54 @@ export default function AdminDashboard() {
             iconBg="bg-green-50"
             iconColor="text-[#34C759]"
           />
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate('/admin/leads?status=pending_review')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/admin/leads?status=pending_review');
+              }
+            }}
+            className="cursor-pointer hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] rounded-2xl"
+          >
+            <StatsCard
+              title="Pending Reviews"
+              value={statsLoading ? '...' : pendingReviews}
+              change={pendingReviews > 0 ? 'Awaiting admin' : undefined}
+              icon={ClipboardList}
+              iconBg={pendingReviews > 0 ? 'bg-amber-50' : 'bg-gray-100'}
+              iconColor={pendingReviews > 0 ? 'text-[#FF9500]' : 'text-[#86868b]'}
+              trend={pendingReviews > 0 ? 'neutral' : undefined}
+            />
+          </div>
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate('/admin/leads?status=invoicing_sent')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/admin/leads?status=invoicing_sent');
+              }
+            }}
+            className="cursor-pointer hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF3B30] rounded-2xl"
+          >
+            <StatsCard
+              title="Overdue Invoices"
+              value={
+                statsLoading
+                  ? '...'
+                  : overdueInvoicesCount > 0
+                    ? `${overdueInvoicesCount} · ${formatCurrency(overdueInvoicesTotal)}`
+                    : 0
+              }
+              icon={AlertTriangle}
+              iconBg={overdueInvoicesCount > 0 ? 'bg-red-50' : 'bg-gray-100'}
+              iconColor={overdueInvoicesCount > 0 ? 'text-[#FF3B30]' : 'text-[#86868b]'}
+            />
+          </div>
         </div>
 
         {/* Two Column Layout - Stack on mobile/tablet, side by side on desktop */}

@@ -1461,6 +1461,16 @@ export default function LeadDetail() {
           <GoogleReviewSection lead={lead} onRefresh={refetch} />
         )}
 
+        {/* Awaiting review — admin can close the lead */}
+        {lead && lead.status === 'google_review' && (
+          <FinishLeadSection lead={lead} onRefresh={refetch} />
+        )}
+
+        {/* Terminal — lead complete banner */}
+        {lead && lead.status === 'finished' && (
+          <LeadCompleteBanner lead={lead} />
+        )}
+
         {/* Activity Log */}
         <Card>
           <CardHeader className="pb-2">
@@ -1737,6 +1747,109 @@ function GoogleReviewSection({
       {!lead.email && (
         <p className="text-xs text-gray-400">No email address on this lead.</p>
       )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Finish Lead — visible when status === 'google_review'
+// One button: flip lead to 'finished'.
+// ──────────────────────────────────────────────────────────────
+function FinishLeadSection({
+  lead, onRefresh,
+}: { lead: { id: string }; onRefresh: () => void }) {
+  const [finishing, setFinishing] = useState(false);
+
+  async function handleFinish() {
+    setFinishing(true);
+    try {
+      const { error: statusErr } = await supabase
+        .from('leads').update({ status: 'finished' }).eq('id', lead.id);
+      if (statusErr) throw statusErr;
+
+      await supabase.from('activities').insert({
+        lead_id: lead.id,
+        activity_type: 'status_changed',
+        title: 'Lead marked as finished',
+        description: 'Admin closed the lead after review request.',
+      });
+
+      toast.success('Lead marked as finished');
+      onRefresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to mark as finished');
+    } finally {
+      setFinishing(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
+      <div className="flex items-center gap-2">
+        <Star className="h-5 w-5 text-amber-500" />
+        <h3 className="font-semibold">Review request sent</h3>
+      </div>
+      <p className="text-sm text-gray-600">
+        Awaiting customer action. Once you're done with this lead, close it out.
+      </p>
+      <Button
+        className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white"
+        onClick={handleFinish}
+        disabled={finishing}
+      >
+        {finishing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+        Mark as Finished
+      </Button>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Lead Complete Banner — terminal state, no actions.
+// ──────────────────────────────────────────────────────────────
+function LeadCompleteBanner({
+  lead,
+}: { lead: { id: string; full_name: string; property_address_street?: string | null; property_address_suburb?: string | null } }) {
+  const { invoice } = usePaymentTracking(lead.id);
+  const address = [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ');
+
+  return (
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 space-y-3">
+      <div className="flex items-center gap-2">
+        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+        <h3 className="font-semibold text-emerald-900">Lead Complete</h3>
+      </div>
+      <div className="rounded-lg bg-white border border-emerald-100 p-3 space-y-1.5 text-sm">
+        <div className="flex justify-between gap-2">
+          <span className="text-gray-500">Customer</span>
+          <span className="font-medium text-right">{lead.full_name}</span>
+        </div>
+        {address && (
+          <div className="flex justify-between gap-2">
+            <span className="text-gray-500">Property</span>
+            <span className="text-right text-gray-800">{address}</span>
+          </div>
+        )}
+        {invoice?.total_amount != null && (
+          <div className="flex justify-between gap-2">
+            <span className="text-gray-500">Total paid</span>
+            <span className="font-semibold text-emerald-700 tabular-nums">
+              {formatCurrency(Number(invoice.total_amount))}
+            </span>
+          </div>
+        )}
+        {invoice?.payment_date && (
+          <div className="flex justify-between gap-2">
+            <span className="text-gray-500">Paid on</span>
+            <span className="text-gray-800">
+              {new Date(invoice.payment_date + 'T00:00:00').toLocaleDateString('en-AU', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+              })}
+            </span>
+          </div>
+        )}
+      </div>
+      <p className="text-xs text-emerald-700">No further action required.</p>
     </div>
   );
 }
