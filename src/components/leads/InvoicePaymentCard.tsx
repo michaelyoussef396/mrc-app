@@ -35,6 +35,84 @@ function defaultDueDate(): string {
   return d.toISOString().split('T')[0]
 }
 
+interface Milestone {
+  day: number
+  label: string
+  detail: string
+  severity: 'neutral' | 'amber' | 'red'
+}
+
+const TERMS_MILESTONES: Milestone[] = [
+  { day: 0, label: 'Invoice sent', detail: 'Payment window begins', severity: 'neutral' },
+  { day: 14, label: 'Payment due', detail: '14 days from invoice', severity: 'amber' },
+  { day: 15, label: 'Overdue', detail: 'Warranty suspended · $65 admin fee · interest accrues', severity: 'red' },
+  { day: 22, label: 'Second reminder', detail: '$65 admin fee applied', severity: 'red' },
+  { day: 29, label: 'Final notice', detail: '$65 admin fee applied', severity: 'red' },
+  { day: 30, label: 'Warranty void', detail: '25% interest applied to outstanding balance', severity: 'red' },
+  { day: 43, label: 'Ongoing fee', detail: '$65 admin fee (every 14 days)', severity: 'red' },
+  { day: 60, label: 'Credit default listing', detail: 'Eligible to report to credit agency', severity: 'red' },
+]
+
+function OverdueTimeline({ sentAt, status }: { sentAt: string | null; status: string }) {
+  if (!sentAt) return null
+  const daysSince = Math.floor((Date.now() - new Date(sentAt).getTime()) / 86_400_000)
+  const currentIdx = TERMS_MILESTONES.reduce(
+    (acc, m, i) => (daysSince >= m.day ? i : acc),
+    0,
+  )
+  const isOverdue = daysSince >= 15
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment Timeline</p>
+        <Badge
+          className={
+            isOverdue
+              ? 'bg-red-100 text-red-700 border-red-200 font-semibold'
+              : daysSince >= 11
+                ? 'bg-amber-100 text-amber-800 border-amber-200 font-semibold'
+                : 'bg-emerald-100 text-emerald-700 border-emerald-200 font-semibold'
+          }
+        >
+          Day {daysSince} · {status === 'paid' ? 'Paid' : isOverdue ? 'Overdue' : 'In window'}
+        </Badge>
+      </div>
+      <ol className="space-y-1">
+        {TERMS_MILESTONES.map((m, i) => {
+          const isCurrent = i === currentIdx
+          const isPast = i < currentIdx
+          const colorByState =
+            isCurrent && m.severity === 'red' ? 'border-red-500 bg-red-50'
+            : isCurrent && m.severity === 'amber' ? 'border-amber-500 bg-amber-50'
+            : isCurrent ? 'border-emerald-500 bg-emerald-50'
+            : isPast ? 'border-gray-300 bg-white opacity-60'
+            : 'border-gray-200 bg-white opacity-80'
+          const textByState =
+            isCurrent && m.severity === 'red' ? 'text-red-700'
+            : isCurrent && m.severity === 'amber' ? 'text-amber-800'
+            : isCurrent ? 'text-emerald-700'
+            : 'text-gray-700'
+          return (
+            <li
+              key={m.day}
+              className={`flex items-start gap-2 rounded border-l-2 pl-2 py-1 ${colorByState}`}
+            >
+              <span className={`text-xs font-mono tabular-nums w-10 flex-shrink-0 ${textByState} font-semibold`}>
+                D{m.day}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className={`text-xs font-medium ${textByState}`}>{m.label}</p>
+                <p className="text-[11px] text-gray-500 leading-tight">{m.detail}</p>
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+    </div>
+  )
+}
+
 function statusBadge(status: string, isOverdue: boolean) {
   if (status === 'paid') {
     return <Badge className="bg-green-100 text-green-700 border-green-200 font-semibold"><CheckCircle2 className="h-3 w-3 mr-1" />Paid</Badge>
@@ -378,6 +456,8 @@ export function InvoicePaymentCard({ leadId, leadStatus, onRefresh }: Props) {
             <div className="pt-1 text-xs text-gray-500">Notes: {invoice.notes}</div>
           )}
         </div>
+
+        {isSent && <OverdueTimeline sentAt={invoice.sent_at} status={badgeStatus} />}
 
         <div className="grid grid-cols-2 gap-2">
           <Button variant="outline" className="h-11" onClick={() => setEditOpen(true)}>
