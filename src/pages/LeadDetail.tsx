@@ -57,7 +57,7 @@ import {
   ClipboardList,
   StickyNote,
   ClipboardCheck,
-  Receipt,
+  Star,
 } from "lucide-react";
 import { NewLeadView } from "@/components/leads/NewLeadView";
 import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
@@ -67,6 +67,8 @@ import { JobBookingDetails } from "@/components/leads/JobBookingDetails";
 import { JobCompletionSummary } from "@/components/leads/JobCompletionSummary";
 import { JobCompletionEditSheet } from "@/components/leads/JobCompletionEditSheet";
 import { InvoicePaymentCard } from "@/components/leads/InvoicePaymentCard";
+import { InvoiceSummaryCard } from "@/components/leads/InvoiceSummaryCard";
+import { usePaymentTracking } from "@/hooks/usePaymentTracking";
 import { TechnicianBottomNav } from "@/components/technician";
 import { useAuth } from "@/contexts/AuthContext";
 import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
@@ -77,7 +79,7 @@ import { getJobCompletionByLeadId } from "@/lib/api/jobCompletions";
 import { generateJobReportPdf } from "@/lib/api/jobReportPdf";
 import type { JobCompletionRow } from "@/types/jobCompletion";
 import { STATUS_FLOW, LeadStatus } from "@/lib/statusFlow";
-import { sendSlackNotification } from "@/lib/api/notifications";
+import { sendSlackNotification, sendGoogleReviewEmail } from "@/lib/api/notifications";
 import { useActivityTimeline } from "@/hooks/useActivityTimeline";
 import { captureBusinessError } from "@/lib/sentry";
 import { ActivityTimeline } from "@/components/dashboard/ActivityTimeline";
@@ -910,14 +912,9 @@ export default function LeadDetail() {
               </Button>
             </div>
 
-            <Button
-              size="lg"
-              className="w-full h-14 text-base bg-blue-600 hover:bg-blue-700"
-              onClick={() => handleChangeStatus('invoicing_sent')}
-            >
-              <Receipt className="h-5 w-5 mr-2" />
-              Move to Invoicing
-            </Button>
+            <p className="text-xs text-gray-500 text-center">
+              Scroll down to see the invoice summary and start payment tracking.
+            </p>
           </div>
         );
       }
@@ -1456,9 +1453,17 @@ export default function LeadDetail() {
           />
         )}
 
+        {/* Invoice Summary (reference only — after report sent, before tracker created) */}
+        {lead && <InvoiceSummarySection leadId={lead.id} leadStatus={lead.status} onRefresh={refetch} />}
+
         {/* Invoice & Payment */}
         {lead && ['job_completed', 'job_report_pdf_sent', 'invoicing_sent', 'paid', 'google_review', 'finished'].includes(lead.status) && (
           <InvoicePaymentCard leadId={lead.id} leadStatus={lead.status} onRefresh={refetch} />
+        )}
+
+        {/* Google Review CTA — show once paid, hide after review requested */}
+        {lead && lead.status === 'paid' && (
+          <GoogleReviewSection lead={lead} onRefresh={refetch} />
         )}
 
         {/* Activity Log */}
@@ -1642,6 +1647,93 @@ export default function LeadDetail() {
 
       {/* Technician bottom nav — only shown when viewing as a technician */}
       {isTechnician && !isAdmin && <TechnicianBottomNav />}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Invoice Summary — read-only reference, shown once report is sent
+// and no invoice tracker exists yet.
+// ──────────────────────────────────────────────────────────────
+function InvoiceSummarySection({
+  leadId, leadStatus, onRefresh,
+}: { leadId: string; leadStatus: string; onRefresh: () => void }) {
+  const { invoice, isLoading } = usePaymentTracking(leadId);
+  const shouldShow = leadStatus === 'job_report_pdf_sent' && !isLoading && !invoice;
+  if (!shouldShow) return null;
+  return <InvoiceSummaryCard leadId={leadId} onRefresh={onRefresh} />;
+}
+
+// ──────────────────────────────────────────────────────────────
+// Google Review CTA — visible only in 'paid' state.
+// ──────────────────────────────────────────────────────────────
+function GoogleReviewSection({
+  lead, onRefresh,
+}: { lead: { id: string; full_name: string; email: string | null; status: string }; onRefresh: () => void }) {
+  const [sending, setSending] = useState(false);
+
+  async function handleSend() {
+    if (!lead.email) {
+      toast.error('No customer email on file');
+      return;
+    }
+    setSending(true);
+    try {
+      const { data: jc } = await supabase
+        .from('job_completions')
+        .select('job_number')
+        .eq('lead_id', lead.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      await sendGoogleReviewEmail({
+        leadId: lead.id,
+        customerEmail: lead.email,
+        customerName: lead.full_name,
+        jobNumber: jc?.job_number ?? 'MRC',
+      });
+
+      const { error: statusErr } = await supabase
+        .from('leads').update({ status: 'google_review' }).eq('id', lead.id);
+      if (statusErr) throw statusErr;
+
+      await supabase.from('activities').insert({
+        lead_id: lead.id,
+        activity_type: 'email_sent',
+        title: 'Google review email sent',
+        description: `Requested a Google review from ${lead.email}`,
+      });
+
+      toast.success('Review request sent to customer');
+      onRefresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to send review email');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
+      <div className="flex items-center gap-2">
+        <Star className="h-5 w-5 text-amber-500" />
+        <h3 className="font-semibold">Request Google Review</h3>
+      </div>
+      <p className="text-sm text-gray-600">
+        Payment received. Send a branded email asking the customer to leave a Google review.
+      </p>
+      <Button
+        className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-white"
+        onClick={handleSend}
+        disabled={sending || !lead.email}
+      >
+        {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Star className="h-4 w-4 mr-2" />}
+        Send Google Review Request
+      </Button>
+      {!lead.email && (
+        <p className="text-xs text-gray-400">No email address on this lead.</p>
+      )}
     </div>
   );
 }

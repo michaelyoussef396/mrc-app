@@ -262,8 +262,17 @@ export async function markInvoiceSent(invoiceId: string): Promise<void> {
     throw new Error(`Failed to mark sent: ${error.message}`)
   }
 
-  // Fire-and-forget Slack alert
   if (data?.lead_id) {
+    // Transition lead status (await so caller sees new status after refetch)
+    const { error: statusErr } = await supabase
+      .from('leads')
+      .update({ status: 'invoicing_sent' })
+      .eq('id', data.lead_id)
+    if (statusErr) {
+      console.error('Lead status update failed:', statusErr)
+    }
+
+    // Fire-and-forget Slack alert
     notifyInvoiceSent({
       leadId: data.lead_id,
       leadName: data.customer_name,
