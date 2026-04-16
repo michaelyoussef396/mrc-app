@@ -7,15 +7,10 @@ test.describe('Inspection flow — admin views', () => {
     await loginAsAdmin(page);
   });
 
-  test('schedule page loads without error boundary', async ({ page }) => {
+  test('schedule page loads with content', async ({ page }) => {
     await page.goto('/admin/schedule');
-    // Known issue: schedule page may hit error boundary on first load.
-    // Test passes if it either renders schedule content OR shows error boundary.
-    const hasError = await page.getByText(/something went wrong/i).count();
-    if (hasError) {
-      test.fail(true, 'APP BUG: /admin/schedule hits error boundary — investigate runtime error');
-    }
-    await expect(page.locator('body')).toBeVisible();
+    await expect(page.getByText(/MRC Schedule/i).first()).toBeVisible();
+    await expect(page.getByText(/something went wrong/i)).toHaveCount(0);
   });
 
   test('view inspection report PDF route loads', async ({ page }) => {
