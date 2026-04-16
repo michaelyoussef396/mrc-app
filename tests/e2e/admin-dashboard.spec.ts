@@ -21,9 +21,10 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('Pending Reviews card navigates to filtered leads', async ({ page }) => {
-    const card = page.getByText(/pending reviews/i).first();
-    await card.click();
-    await expect(page).toHaveURL(/status=pending_review/);
+    // Wait for stats to load (the label appears after data fetch)
+    await expect(page.getByText(/pending reviews/i).first()).toBeVisible({ timeout: 20_000 });
+    await page.getByText(/pending reviews/i).first().click();
+    await expect(page).toHaveURL(/status=pending_review/, { timeout: 10_000 });
   });
 
   test('Overdue Invoices card navigates to filtered leads', async ({ page }) => {
