@@ -550,7 +550,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (preferredDate) preferredDate = normaliseDate(preferredDate)
+    if (preferredDate) {
+      preferredDate = normaliseDate(preferredDate)
+      if (!DATE_ISO_RE.test(preferredDate)) preferredDate = ''
+    }
 
     console.log('Parsed fields:', { fullName, phone, email, street, suburb, preferredDate, preferredTime, issueDescription })
 
