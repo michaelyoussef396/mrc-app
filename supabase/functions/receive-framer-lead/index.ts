@@ -291,7 +291,7 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
           <td class="sig-details-cell">
             <p class="sig-company">Mould and Restoration Co.</p>
             <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
-            <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
+            <p>Email: <a href="mailto:admin@mrcsystem.com">admin@mrcsystem.com</a></p>
             <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
             <p>Business Hours: Monday to Sunday: 7:00 AM – 7:00 PM</p>
           </td>
@@ -317,7 +317,7 @@ async function sendFailureEmail(rawPayload: string, errorMsg: string): Promise<v
   try {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
     if (!RESEND_API_KEY) return
-    const adminEmail = Deno.env.get('ADMIN_FALLBACK_EMAIL') || 'admin@mouldandrestoration.com.au'
+    const adminEmail = Deno.env.get('ADMIN_FALLBACK_EMAIL') || 'admin@mrcsystem.com'
     const ts = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' })
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -332,7 +332,7 @@ async function sendFailureEmail(rawPayload: string, errorMsg: string): Promise<v
 <h3>Raw Payload</h3>
 <pre style="background:#f5f5f5;padding:12px;border-radius:4px;overflow:auto;font-size:13px;">${rawPayload.substring(0, 5000)}</pre>
 <p><strong>Action required:</strong> Manually create this lead in <a href="https://www.mrcsystem.com/admin/leads">the admin dashboard</a>.</p>`,
-        reply_to: 'admin@mouldandrestoration.com.au',
+        reply_to: 'admin@mrcsystem.com',
       }),
     })
   } catch (err) {
@@ -681,7 +681,7 @@ Deno.serve(async (req) => {
             to: [email],
             subject: 'Thank you for your enquiry - Mould & Restoration Co',
             html,
-            reply_to: 'admin@mouldandrestoration.com.au',
+            reply_to: 'admin@mrcsystem.com',
           }),
         })
         if (!res.ok) { console.error('Resend error:', await res.json()) }

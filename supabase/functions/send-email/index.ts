@@ -186,7 +186,7 @@ Deno.serve(async (req) => {
       to: [to],
       subject,
       html,
-      reply_to: replyTo || 'admin@mouldandrestoration.com.au',
+      reply_to: replyTo || 'admin@mrcsystem.com',
       attachments: attachments || [],
     }, RESEND_API_KEY)
 

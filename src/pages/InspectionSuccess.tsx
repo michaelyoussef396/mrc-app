@@ -177,8 +177,8 @@ const InspectionSuccess = () => {
               </p>
               <p className="font-semibold text-gray-900 flex items-center gap-2">
                 <span>✉️</span>
-                <a href="mailto:admin@mouldandrestoration.com.au" className="text-blue-600 hover:text-blue-700 hover:underline transition">
-                  admin@mouldandrestoration.com.au
+                <a href="mailto:admin@mrcsystem.com" className="text-blue-600 hover:text-blue-700 hover:underline transition">
+                  admin@mrcsystem.com
                 </a>
               </p>
               <p className="text-sm text-gray-600 mt-2">
@@ -223,7 +223,7 @@ const InspectionSuccess = () => {
             <p>
               📞 <a href="tel:1800954117" className="text-blue-600 hover:text-blue-700 hover:underline">1800 954 117</a>
               {' | '}
-              ✉️ <a href="mailto:admin@mouldandrestoration.com.au" className="text-blue-600 hover:text-blue-700 hover:underline">admin@mouldandrestoration.com.au</a>
+              ✉️ <a href="mailto:admin@mrcsystem.com" className="text-blue-600 hover:text-blue-700 hover:underline">admin@mrcsystem.com</a>
             </p>
           </div>
         </div>
