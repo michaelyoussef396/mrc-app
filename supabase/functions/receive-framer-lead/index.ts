@@ -394,7 +394,7 @@ Deno.serve(async (req) => {
   // --- Health check (GET) ---
   if (req.method === 'GET') {
     return new Response(
-      JSON.stringify({ status: 'ok', timestamp: new Date().toISOString(), version: 17 }),
+      JSON.stringify({ status: 'ok', timestamp: new Date().toISOString(), version: 18 }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
@@ -439,7 +439,7 @@ Deno.serve(async (req) => {
     }).select('id').single()
     submissionId = sub?.id ?? null
   } catch (err) {
-    console.error('webhook_submissions insert failed (continuing):', err)
+    console.error('CRITICAL: webhook_submissions insert failed. Raw payload:', rawBody.substring(0, 2000), 'Error:', err)
   }
 
   // Helper to update submission status
@@ -452,7 +452,12 @@ Deno.serve(async (req) => {
 
   // --- Body size check ---
   if (rawBody.length > MAX_BODY_SIZE) {
-    await updateSubmission('failed', { error_message: 'Body too large: ' + rawBody.length })
+    const sizeMsg = 'Body too large: ' + rawBody.length + ' bytes'
+    await updateSubmission('failed', { error_message: sizeMsg })
+    await Promise.allSettled([
+      sendFailureEmail(rawBody.substring(0, 5000), sizeMsg),
+      sendFailureSlack(rawBody.substring(0, 500), sizeMsg),
+    ])
     return new Response(
       JSON.stringify({ error: 'Request body too large' }),
       { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -461,9 +466,12 @@ Deno.serve(async (req) => {
 
   // --- Rate limit check (AFTER logging raw payload) ---
   if (isRateLimited(clientIp)) {
+    const rlMsg = `Rate limit exceeded for IP ${clientIp}`
     await updateSubmission('rate_limited')
-    // Notify admin — rate limit may indicate abuse or a lead surge
-    sendFailureSlack(rawBody, `Rate limit exceeded for IP ${clientIp}`).catch(() => {})
+    await Promise.allSettled([
+      sendFailureEmail(rawBody, rlMsg),
+      sendFailureSlack(rawBody, rlMsg),
+    ])
     return new Response(
       JSON.stringify({ error: 'Too many submissions. Please try again later.' }),
       { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },

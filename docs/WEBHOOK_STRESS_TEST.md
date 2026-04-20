@@ -1,169 +1,265 @@
-# Webhook Stress Test Results
+# Webhook Stress Test — 100/100 Zero Silent Data Loss
 
 **Date:** 20/04/2026
-**Function:** receive-framer-lead v17
+**Function:** receive-framer-lead v18
 **Endpoint:** `https://ecyivrxjpsmjmexqatym.supabase.co/functions/v1/receive-framer-lead`
-**Total scenarios:** 100
-**Vulnerabilities found:** 3 (all fixed)
-**Data loss:** Zero
+**Result:** 100/100 PASS — zero silent data loss across all scenarios
 
-## Scenarios 1-20: Core Attack Vectors
+## Pass Criteria
 
-| # | Scenario | Status | Result |
-|---|---|---|---|
-| 1 | Empty POST body | 400 | Failed validation, logged, admin notified |
-| 2 | Invalid JSON `{bad json` | 500 | Top-level catch, logged, admin notified |
-| 3 | 100KB+ payload | 413 | Body too large, logged |
-| 4 | SQL injection in fields | 200 | Lead created safely (parameterised queries) |
-| 5 | XSS `<script>` tags | 200 | Tags stripped by `stripHtml()`, stored as `alert(1)` |
-| 6 | Unicode/emoji in fields | 200 | Preserved correctly |
-| 7 | 100K character name | 413 | Body too large |
-| 8 | Wrong Content-Type (XML) | 400 | Parsed as form-urlencoded fallback, validation failed |
-| 9 | Empty JSON `{}` | 400 | Validation failed, logged, admin notified |
-| 10 | Only one field | 400 | Missing required fields, logged, admin notified |
-| 11 | Duplicate email+phone | 200 | Dedup — status=duplicate, linked to existing lead_id |
-| 12 | Rate limit (6th request) | 429 | status=rate_limited, Slack alert fired |
-| 13 | Invalid date "not a date" | 200 | Date cleared to null, lead created (FIXED in v16) |
-| 14 | Invalid time "25:99 PM" | 200 | Stored as-is (non-critical, no DB type constraint) |
-| 15 | Invalid email format | 400 | Zod validation caught, logged, admin notified |
-| 16 | Null required fields | 400 | Validation failed |
-| 17 | Extra unknown fields | 200 | Extras silently ignored, lead created |
-| 18 | Nested JSON objects | 400 | `toStr()` extracted first element, validation failed |
-| 19 | Binary/non-UTF8 | Caught | Handled by JSON parse or URL decode fallback |
-| 20 | DB failure (all retries) | 500 | 3 retries with backoff, then failed + email + Slack |
+**PASS** = admin can recover the submission data via at least ONE of:
+1. Lead created in `leads` table
+2. Raw payload in `webhook_submissions` table
+3. Admin email notification with raw payload
+4. Admin Slack alert with raw payload
+5. Supabase Edge Function console logs
 
-## Scenarios 21-40: Edge Cases & Encoding
+**FAIL** = data disappeared with zero trace across all 5 channels.
 
-| # | Scenario | Status | Result |
-|---|---|---|---|
-| 21 | Whitespace-only name `"   "` | 400 | `trim()` empties it, validation fails on min(1) |
-| 22 | Empty strings `""` for all | 400 | Validation fails |
-| 23 | Arabic/RTL text | 200 | Stored correctly |
-| 24 | CJK characters in name | 200 | Stored correctly |
-| 25 | +61 phone format | 200 | Accepted (PHONE_RE allows `+`) |
-| 26 | Phone with spaces `0400 333 222` | 200 | Accepted |
-| 27 | UPPERCASE suburb `MELBOURNE` | 200 | Stored as-is |
-| 28 | Email with +tag | 200 | Accepted by Zod email validator |
-| 29 | Null byte `\0` in string | 200 | Null bytes stripped by `stripHtml()` (FIXED in v17) |
-| 30 | Control chars (tab, newline) | 200 | Stored with control chars (non-harmful) |
-| 31 | X-Forwarded-For spoofing | 200 | Accepted — rate limit based on spoofed IP (Supabase infra adds real IP) |
-| 32 | Invalid leap year 29/02/2025 | 200 | `isValidCalendarDate()` clears it, lead created with null date (FIXED in v17) |
-| 33 | Replay — same payload twice | 200 | Second returns 200 with "already received" (dedup) |
-| 34 | Replay — verified | 200 | webhook_submissions status=duplicate |
-| 35 | CORS from `evil.com` origin | 200 | Accepted (CORS `*` — public endpoint) |
-| 36 | Empty User-Agent | 200 | No UA check, accepted |
-| 37 | URL-encoded form data | 200 | Parsed correctly via URLSearchParams |
-| 38 | 4999-char message (under limit) | 200 | Accepted |
-| 39 | 5001-char message (over limit) | 400 | Zod max(5000) caught, admin notified |
-| 40 | 200-char name (at limit) | 200 | Accepted |
+## Defence Architecture
 
-## Scenarios 41-60: Types, Dates, Methods
+```
+Framer Form POST
+        |
+        v
+[1] Raw payload → webhook_submissions (BEFORE any processing)
+        |
+        v
+[2] Body size check (>50KB → 413 + email + Slack)
+        |
+        v
+[3] Rate limit check (>5/hr → 429 + email + Slack)
+        |
+        v
+[4] Parse body (JSON / form-data / URL-encoded / fallback)
+        |
+        v
+[5] Smart field extraction (30+ field name aliases)
+        |
+        v
+[6] Zod validation (fail → 400 + email + Slack)
+        |
+        v
+[7] Duplicate check (email+phone in 24h → 200 idempotent)
+        |
+        v
+[8] Insert lead with retry (3x, exponential backoff)
+        |
+   success → status=processed, lead_id linked
+   failure → status=failed + email + Slack (both channels)
+        |
+        v
+[9] Fire-and-forget: Slack alert + customer confirmation email
+```
 
-| # | Scenario | Status | Result |
-|---|---|---|---|
-| 41 | 201-char name (over limit) | 400 | Zod max(200) caught |
-| 42 | Array value for Name | 200 | `toStr()` extracts first element |
-| 43 | Numeric name `12345` | 200 | `toStr()` converts to string "12345" |
-| 44 | Boolean phone `true` | 400 | `toStr()` → "true", fails phone min(8) |
-| 45 | Far future date 01/01/2099 | 200 | Valid calendar date, accepted |
-| 46 | Past date 01/01/2020 | 200 | No past-date rejection (not a business rule) |
-| 47 | Midnight 12:00 AM | 200 | Accepted |
-| 48 | Noon 12:00 PM | 200 | Accepted |
-| 49 | Alias `full_name` (snake_case) | 200 | Field alias matched |
-| 50 | Alias `Your Name` | 200 | Field alias matched |
-| 51 | Alias `NAME` (all caps) | 200 | Case-insensitive match |
-| 52 | Alias `Property Address` | 200 | Field alias matched |
-| 53 | Backslash in message | 200 | Stored correctly |
-| 54 | Quotes in message | 200 | Stored correctly |
-| 55 | Ampersand `&` in message | 200 | Stored correctly |
-| 56 | PUT method | 405 | Rejected |
-| 57 | PATCH method | 405 | Rejected |
-| 58 | DELETE method | 405 | Rejected |
-| 59 | Concurrent request 1/3 | 200 | No race condition |
-| 60 | Concurrent request 2/3 | 200 | Each gets own submission ID |
+Every POST is logged to `webhook_submissions` at step [1] — before any processing. Even if every subsequent step crashes, the raw payload is preserved.
 
-## Scenarios 61-80: Formats, Concurrency, Content Types
+## Notification Matrix
 
-| # | Scenario | Status | Result |
-|---|---|---|---|
-| 61 | Concurrent request 3/3 | 200 | All 3 processed independently |
-| 62 | Invalid email with `]` char | 400 | Zod email validation caught |
-| 63 | Email with +tag+sorting | 200 | Valid, accepted |
-| 64 | JSON string in extra field | 200 | Stored as string, not double-parsed |
-| 65 | Linebreak in name | 200 | Stored with linebreak |
-| 66 | BOM character | 200 | Handled by JSON parser |
-| 67 | Landline `(03) 9876 5432` | 200 | PHONE_RE accepts brackets and spaces |
-| 68 | 1800 number | 200 | Accepted (10 digits) |
-| 69 | International phone +1 | 200 | Accepted |
-| 70 | 24-hour time `14:30` | 200 | TIME_RE accepts |
-| 71 | Time with seconds `09:30:00 AM` | 200 | TIME_RE accepts |
-| 72 | Invalid date 31/04/2026 | 200 | `isValidCalendarDate()` clears, lead created (v17 fix) |
-| 73 | Invalid date 00/00/2026 | 200 | Same — cleared to null |
-| 74 | Invalid date 13/13/2026 | 200 | Same — cleared to null |
-| 75 | Valid leap year 29/02/2028 | 200 | Valid calendar date, accepted |
-| 76 | 1KB payload (normal) | 200 | Accepted |
-| 77 | Content-Type `text/plain` | 200 | JSON fallback parser handles it |
-| 78 | No Content-Type header | 200 | Fallback: try JSON, then URL-encoded |
-| 79 | Unknown field names (Framer change) | 200 | `getField()` failed, smart detection found fields by content pattern |
-| 80 | Conflicting date fields | 200 | First match wins (`Date` found before `preferred_date`) |
+| Scenario | Lead | DB Log | Email | Slack | Console |
+|---|---|---|---|---|---|
+| Valid submission | Yes | processed | N/A | New Lead alert | Yes |
+| Duplicate | No | duplicate | N/A | N/A | Yes |
+| Validation fail | No | failed | Yes | Yes | Yes |
+| DB insert fail | No | failed | Yes | Yes | Yes |
+| Body too large | No | failed | Yes | Yes | Yes |
+| Rate limited | No | rate_limited | Yes | Yes | Yes |
+| Parse crash | No | failed | Yes | Yes | Yes |
+| Top-level error | No | failed | Yes | Yes | Yes |
+| GET/OPTIONS/405 | N/A | N/A | N/A | N/A | N/A |
 
-## Scenarios 81-100: Special Characters, Headers, Real-World
+**v18 fixes:** Body-too-large and rate-limited now fire BOTH email + Slack (previously had gaps).
 
-| # | Scenario | Status | Result |
-|---|---|---|---|
-| 81 | Emoji-only name | 200 | Stored correctly |
-| 82 | Tab in name | 200 | Stored with tab |
-| 83 | Multiple spaces in name | 200 | Stored as-is |
-| 84 | Leading space in field key | 200 | Matched via case-insensitive lookup |
-| 85 | URL-encoded `%20` in suburb | 200 | Stored as literal `%20` (JSON payload, not URL-decoded) |
-| 86 | HTML entities `&gt; &amp;` | 200 | Stored as-is (not entity-decoded — correct for JSON) |
-| 87 | Semicolons in message | 200 | Stored correctly |
-| 88 | Pipe characters in message | 200 | Stored correctly |
-| 89 | JSON string embedded in message | 200 | Stored as string, not parsed |
-| 90 | URL in message | 200 | Stored correctly |
-| 91 | Apostrophe in name (O'Brien) | 200 | Stored correctly |
-| 92 | Hyphenated name (Mary-Jane) | 200 | Stored correctly |
-| 93 | Very short name (Jr.) | 200 | 3 chars, passes min(1) |
-| 94 | Trailing comma in phone | 200 | Stored as-is (Zod allows comma within 20-char limit) |
-| 95 | Wrong Content-Length header | 400 | Supabase infra truncated body, validation failed, logged |
-| 96 | HTML Accept header | 200 | Accept header ignored, JSON response returned |
-| 97 | Explicit charset=utf-8 | 200 | Content-Type parsed correctly |
-| 98 | Negative phone prefix | 200 | PHONE_RE allows `-` (it's in the character class) |
-| 99 | Full valid submission (all fields) | 200 | All 8 fields saved correctly |
-| 100 | Minimal valid (3 required only) | 200 | Name + Phone + Email sufficient |
+## 100 Test Scenarios
 
-## Vulnerabilities Found & Fixed
+### Core Attacks (1-10)
 
-### 1. Null byte crash (Test 29) — FIXED in v17
-**Cause:** `\0` bytes in JSON strings passed through `stripHtml()` to the DB, causing a Postgres text encoding error.
-**Fix:** Added `.replace(/\0/g, '')` to `stripHtml()`.
+| # | Scenario | HTTP | Logged | Notified | Pass |
+|---|---|---|---|---|---|
+| 1 | Empty POST body | 500 | Yes (failed) | Email+Slack | PASS |
+| 2 | Invalid JSON `{bad` | 500 | Yes (failed) | Email+Slack | PASS |
+| 3 | Valid lead submission | 200 | Yes (processed) | N/A | PASS |
+| 4 | Empty JSON `{}` | 400 | Yes (failed) | Email+Slack | PASS |
+| 5 | Only email field | 400 | Yes (failed) | Email+Slack | PASS |
+| 6 | XSS `<b>bold</b>` | 200 | Yes (processed) | Tags stripped | PASS |
+| 7 | Unicode characters | 200 | Yes (processed) | Preserved | PASS |
+| 8 | Wrong Content-Type XML | 400 | Yes (failed) | Email+Slack | PASS |
+| 9 | Null required fields | 400 | Yes (failed) | Email+Slack | PASS |
+| 10 | Whitespace-only name | 400 | Yes (failed) | Email+Slack | PASS |
 
-### 2. Invalid calendar date crash (Tests 32, 72-74) — FIXED in v17
-**Cause:** Dates like "29/02/2025" or "31/04/2026" passed the DD/MM/YYYY regex, normalised to ISO format, but crashed the Postgres DATE column because they're not real calendar dates. All 3 retry attempts wasted.
-**Fix:** Added `isValidCalendarDate()` — creates a `Date` object and verifies `toISOString()` matches the input. Invalid dates return empty string, so the lead is still created with `inspection_scheduled_date = null`.
+### Dates & Validation (11-20)
 
-### 3. Invalid date format crash (Test 13) — FIXED in v16
-**Cause:** "not a date" passed Zod (it's a valid string) but crashed the INSERT.
-**Fix:** After `normaliseDate()`, verify result matches `YYYY-MM-DD` regex. Non-matching values cleared.
+| # | Scenario | HTTP | Logged | Result | Pass |
+|---|---|---|---|---|---|
+| 11 | Duplicate (same email+phone) | 200 | Yes (duplicate) | Dedup, lead_id linked | PASS |
+| 12 | Invalid date "not-a-date" | 200 | Yes (processed) | Date cleared to null | PASS |
+| 13 | Invalid email format | 400 | Yes (failed) | Zod caught | PASS |
+| 14 | Extra unknown fields | 200 | Yes (processed) | Extras ignored | PASS |
+| 15 | Nested JSON objects | 200 | Yes (processed) | toStr extracts first | PASS |
+| 16 | Invalid leap year 29/02/2025 | 200 | Yes (processed) | Date cleared to null | PASS |
+| 17 | Valid leap year 29/02/2028 | 200 | Yes (processed) | Date accepted | PASS |
+| 18 | Invalid date 31/04/2026 | 200 | Yes (processed) | Date cleared to null | PASS |
+| 19 | Far future 01/01/2099 | 200 | Yes (processed) | Accepted | PASS |
+| 20 | Past date 01/01/2020 | 200 | Yes (processed) | Accepted | PASS |
 
-## Fallback Layer Verification
+### Phone Formats & Type Coercion (21-30)
 
-| Layer | Tested By | Confirmed Working |
+| # | Scenario | HTTP | Result | Pass |
+|---|---|---|---|---|
+| 21 | +61 international format | 200 | Accepted | PASS |
+| 22 | Phone with spaces | 200 | Accepted | PASS |
+| 23 | Landline (03) format | 200 | Accepted | PASS |
+| 24 | 1800 number | 200 | Accepted | PASS |
+| 25 | Email with +tag | 200 | Accepted | PASS |
+| 26 | Array value for Name | 200 | First element extracted | PASS |
+| 27 | Numeric name 12345 | 200 | Coerced to string | PASS |
+| 28 | Boolean phone true | 400 | "true" fails min(8) | PASS |
+| 29 | Alias full_name/phone_number | 200 | Matched | PASS |
+| 30 | Alias Your Name/Mobile | 200 | Matched | PASS |
+
+### Field Aliases & Special Characters (31-40)
+
+| # | Scenario | HTTP | Result | Pass |
+|---|---|---|---|---|
+| 31 | ALL CAPS field names | 200 | Case-insensitive match | PASS |
+| 32 | Contact Number alias | 200 | Matched | PASS |
+| 33 | Property Address alias | 200 | Matched | PASS |
+| 34 | Backslash in message | 200 | Stored correctly | PASS |
+| 35 | Ampersand & in message | 200 | Stored correctly | PASS |
+| 36 | Quotes in message | 200 | Stored correctly | PASS |
+| 37 | PUT method | 405 | Rejected (N/A) | PASS |
+| 38 | PATCH method | 405 | Rejected (N/A) | PASS |
+| 39 | DELETE method | 405 | Rejected (N/A) | PASS |
+| 40 | Semicolons in message | 200 | Stored correctly | PASS |
+
+### Content Types & Headers (41-50)
+
+| # | Scenario | HTTP | Result | Pass |
+|---|---|---|---|---|
+| 41 | URL-encoded form data | 200 | Parsed correctly | PASS |
+| 42 | Content-Type text/plain | 200 | JSON fallback | PASS |
+| 43 | No Content-Type header | 200 | Fallback parsing | PASS |
+| 44 | Explicit charset=utf-8 | 200 | Accepted | PASS |
+| 45 | Evil Origin header | 200 | CORS * (public) | PASS |
+| 46 | Empty User-Agent | 200 | No UA check | PASS |
+| 47 | X-Forwarded-For spoofing | 200 | Rate limit per IP | PASS |
+| 48 | HTML Accept header | 200 | JSON response | PASS |
+| 49 | 24-hour time 14:30 | 200 | Accepted | PASS |
+| 50 | 12-hour time 9:00 AM | 200 | Accepted | PASS |
+
+### Times & Concurrency (51-60)
+
+| # | Scenario | HTTP | Result | Pass |
+|---|---|---|---|---|
+| 51 | Time with seconds | 200 | Accepted | PASS |
+| 52 | Midnight 12:00 AM | 200 | Accepted | PASS |
+| 53 | Noon 12:00 PM | 200 | Accepted | PASS |
+| 54-56 | 3 concurrent requests | 200x3 | All processed independently | PASS |
+| 57 | Apostrophe name O'Brien | 200 | Stored correctly | PASS |
+| 58 | Hyphenated Mary-Jane | 200 | Stored correctly | PASS |
+| 59 | Short name Jr. | 200 | Passes min(1) | PASS |
+| 60 | Body too large (100KB+) | 413 | Email+Slack fired (v18 fix) | PASS |
+
+### Special Characters & International (61-70)
+
+| # | Scenario | HTTP | Result | Pass |
+|---|---|---|---|---|
+| 61 | Pipe characters | 200 | Stored correctly | PASS |
+| 62 | JSON string in message | 200 | Not double-parsed | PASS |
+| 63 | URL in message | 200 | Stored correctly | PASS |
+| 64 | Linebreak in message | 200 | Stored with newline | PASS |
+| 65 | Tab in message | 200 | Stored with tab | PASS |
+| 66 | HTML entities &gt; | 200 | Stored as-is | PASS |
+| 67 | Multiple spaces in name | 200 | Stored as-is | PASS |
+| 68 | Emoji in name | 200 | Preserved | PASS |
+| 69 | CJK characters | 200 | Preserved | PASS |
+| 70 | Arabic text | 200 | Preserved | PASS |
+
+### Limits & Edge Formats (71-80)
+
+| # | Scenario | HTTP | Result | Pass |
+|---|---|---|---|---|
+| 71 | 4999-char message (under) | 200 | Accepted | PASS |
+| 72 | 5001-char message (over) | 400 | Zod max(5000) | PASS |
+| 73 | 200-char name (at limit) | 200 | Accepted | PASS |
+| 74 | 201-char name (over) | 400 | Zod max(200) | PASS |
+| 75 | Email u.n+tag@example.com | 200 | Valid | PASS |
+| 76 | Double JSON in field | 200 | Stored as string | PASS |
+| 77 | International phone +1 | 200 | Accepted | PASS |
+| 78 | Negative phone prefix | 200 | PHONE_RE allows - | PASS |
+| 79 | Trailing comma in phone | 200 | Within 20 chars | PASS |
+| 80 | Invalid date 00/00/2026 | 200 | Cleared to null | PASS |
+
+### Spoofing, Encoding, XSS Variants (81-90)
+
+| # | Scenario | HTTP | Result | Pass |
+|---|---|---|---|---|
+| 81 | Invalid date 13/13/2026 | 200 | Cleared to null | PASS |
+| 82 | Control chars tab/newline | 200 | Stored | PASS |
+| 83 | URL-encoded %20 in suburb | 200 | Stored literal | PASS |
+| 84 | Referer spoofing | 200 | Ignored | PASS |
+| 85 | Bot User-Agent Googlebot | 200 | No UA filtering | PASS |
+| 86 | Homoglyph characters | 200 | Stored as-is | PASS |
+| 87 | Zero-width characters | 200 | Stored as-is | PASS |
+| 88 | Query param in body | 200 | Parsed from body | PASS |
+| 89 | Spaces in field keys | 200 | Matched via normaliser | PASS |
+| 90 | Full valid (all 8 fields) | 200 | All fields saved | PASS |
+
+### Final Edge Cases (91-100)
+
+| # | Scenario | HTTP | Result | Pass |
+|---|---|---|---|---|
+| 91 | Minimal valid (3 fields) | 200 | Sufficient | PASS |
+| 92 | Conflicting date fields | 200 | First match wins | PASS |
+| 93 | XSS img onerror | 200 | Tags stripped | PASS |
+| 94 | CSS injection style tag | 200 | Tags stripped | PASS |
+| 95 | SVG onload | 200 | Tags stripped | PASS |
+| 96 | Multiline name | 200 | Stored with newline | PASS |
+| 97 | Unicode normalisation | 200 | Stored as-is | PASS |
+| 98 | RTL override chars | 200 | Stored as-is | PASS |
+| 99 | Short timeout (3s max) | 200 | Completed in time | PASS |
+| 100 | GET health check | 200 | `{"status":"ok","version":18}` | PASS |
+
+## Vulnerabilities Found & Fixed (Cumulative)
+
+| Version | Bug | Fix |
 |---|---|---|
-| webhook_submissions raw log | All 100 scenarios | Yes — every POST logged before processing |
-| 3x retry with backoff | Test 20 (simulated), Tests 72-74 (pre-fix) | Yes |
-| Email fallback on failure | Tests 1,2,9,10,15,16,18,39,41 | Yes — admin email sent |
-| Slack fallback on failure | Same tests + Test 12 (rate limit) | Yes — Slack alert sent |
-| Rate limit logging | Test 12 | Yes — status=rate_limited |
-| Duplicate detection | Tests 11, 33-34 | Yes — status=duplicate, lead_id linked |
-| Health check (GET) | Verified at v17 | Yes — `{"status":"ok","version":17}` |
-| Dashboard KPI | Admin Dashboard | Yes — Failed Webhooks card shows count > 0 |
+| v16 | Invalid date strings crash DB INSERT | Clear non-ISO dates after normalisation |
+| v17 | Null bytes crash Postgres text encoding | stripHtml() strips `\0` |
+| v17 | Invalid calendar dates (29/02/2025) crash DB | isValidCalendarDate() verifies Date roundtrip |
+| v18 | Body-too-large (413) had no admin notification | Added email + Slack to 413 path |
+| v18 | Rate-limited (429) had no admin email | Added email to 429 path (was Slack-only) |
+| v18 | webhook_submissions failure had minimal logging | Enhanced console.error with raw payload dump |
 
-## Zero Data Loss Confirmed
+## Recovery Procedures for Admin
 
-Across all 100 scenarios, no submission was ever silently dropped. Every incoming POST was either:
-1. Logged to `webhook_submissions` with raw payload preserved, OR
-2. Rate-limited with status tracked + Slack notification, OR
-3. Rejected by body size check with status logged
+### If a lead appears in webhook_submissions but NOT in leads:
 
-Admin is notified via email + Slack for every failure. The raw payload in `webhook_submissions` is sacred and can always be used to manually create a lead.
+1. Go to Supabase Dashboard → Table Editor → `webhook_submissions`
+2. Filter: `status = 'failed'`
+3. Open the row → `raw_payload` column has the full submission
+4. Copy the customer's Name, Phone, Email from the payload
+5. Go to MRC Admin → Leads → + New Lead → paste the details
+6. Update the `webhook_submissions` row status to `'manually_recovered'`
+
+### If webhook_submissions is also empty (Supabase outage):
+
+1. Check Supabase Dashboard → Edge Functions → Logs → `receive-framer-lead`
+2. Search for `CRITICAL: webhook_submissions insert failed. Raw payload:` in logs
+3. The raw payload is in the log entry — extract and manually create the lead
+
+### If admin email was received:
+
+1. The email subject is "LEAD CAPTURE FAILURE — Manual Follow-up Required"
+2. The email body contains the full raw payload + error message
+3. Create the lead manually from the payload data
+
+## Unrecoverable Scenarios (theoretical)
+
+These scenarios would result in true data loss — none are practically exploitable:
+
+1. **Supabase Edge Functions completely down** → Framer gets a connection error, form shows an error to the customer. The customer would retry or call 1800 954 117.
+2. **Both Supabase DB AND Edge Function logs down simultaneously** → Infrastructure-level outage. Framer still shows error to customer.
+3. **Framer itself drops the request before it reaches our endpoint** → Out of our control. Framer's own reliability is the bottleneck here.
+
+In all three cases, the customer sees an error and can call the business directly.
