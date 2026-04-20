@@ -28,7 +28,7 @@ function isRateLimited(ip: string): boolean {
 
 function stripHtml(str: string): string {
   if (typeof str !== 'string') return String(str || '')
-  return str.replace(/<[^>]*>/g, '').trim()
+  return str.replace(/<[^>]*>/g, '').replace(/\0/g, '').trim()
 }
 
 /** Safely convert any value (string, array, etc.) to a trimmed string */
@@ -73,14 +73,20 @@ const ParsedLeadSchema = z.object({
   issueDescription: z.string().max(5000).optional(),
 })
 
-/** Convert DD/MM/YYYY → YYYY-MM-DD. Passes through YYYY-MM-DD unchanged. */
 function normaliseDate(val: string): string {
-  if (DATE_ISO_RE.test(val)) return val
+  if (DATE_ISO_RE.test(val)) return isValidCalendarDate(val) ? val : ''
   if (DATE_AU_RE.test(val)) {
     const parts = val.split('/')
-    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
+    const iso = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
+    return isValidCalendarDate(iso) ? iso : ''
   }
-  return val
+  return ''
+}
+
+function isValidCalendarDate(iso: string): boolean {
+  const d = new Date(iso + 'T00:00:00')
+  if (isNaN(d.getTime())) return false
+  return d.toISOString().startsWith(iso)
 }
 
 const MAX_BODY_SIZE = 50_000
@@ -388,7 +394,7 @@ Deno.serve(async (req) => {
   // --- Health check (GET) ---
   if (req.method === 'GET') {
     return new Response(
-      JSON.stringify({ status: 'ok', timestamp: new Date().toISOString(), version: 15 }),
+      JSON.stringify({ status: 'ok', timestamp: new Date().toISOString(), version: 17 }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
