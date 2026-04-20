@@ -47,6 +47,7 @@ import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
 import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { resizePhoto } from '@/lib/offline/photoResizer'
+import { formatDateAU } from '@/lib/dateUtils'
 import {
   Dialog,
   DialogContent,
@@ -2455,7 +2456,7 @@ export default function ViewReportPDF() {
                 >
                   <div className="font-medium">v{v.version_number}</div>
                   <div className="text-xs text-gray-500">
-                    {new Date(v.created_at).toLocaleDateString('en-AU')}
+                    {formatDateAU(v.created_at)}
                   </div>
                 </button>
                 )

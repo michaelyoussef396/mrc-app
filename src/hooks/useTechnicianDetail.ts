@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getInitials, getTechnicianColor, formatRevenue, formatLastSeen } from './useTechnicianStats';
+import { formatTimeAU } from '@/lib/dateUtils';
 
 // ============================================================================
 // TYPES
@@ -76,11 +77,7 @@ export function formatJobDateTime(date: Date): string {
   const isToday = date.toDateString() === now.toDateString();
   const isTomorrow = date.toDateString() === tomorrow.toDateString();
 
-  const time = date.toLocaleTimeString('en-AU', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
+  const time = formatTimeAU(date);
 
   if (isToday) return `Today, ${time}`;
   if (isTomorrow) return `Tomorrow, ${time}`;

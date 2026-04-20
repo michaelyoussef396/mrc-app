@@ -16,6 +16,7 @@ import {
   Globe, ExternalLink, StickyNote, CheckCircle2,
   Edit, X, Save, RefreshCw, Navigation,
 } from 'lucide-react';
+import { formatWeekdayDateAU, formatTimeAU } from '@/lib/dateUtils';
 
 // ============================================================================
 // TYPES
@@ -289,15 +290,11 @@ export default function TechnicianJobDetail() {
     : '';
 
   const createdDate = lead?.created_at
-    ? new Date(lead.created_at).toLocaleDateString('en-AU', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-      })
+    ? formatWeekdayDateAU(lead.created_at)
     : '-';
 
   const createdTime = lead?.created_at
-    ? new Date(lead.created_at).toLocaleTimeString('en-AU', {
-        hour: '2-digit', minute: '2-digit', timeZone: 'Australia/Melbourne',
-      })
+    ? formatTimeAU(lead.created_at)
     : '-';
 
   const elapsedText = lead?.created_at
@@ -313,9 +310,7 @@ export default function TechnicianJobDetail() {
   const isScheduled = lead?.status === 'inspection_waiting';
 
   const scheduledDateDisplay = lead?.inspection_scheduled_date
-    ? new Date(lead.inspection_scheduled_date + 'T00:00:00').toLocaleDateString('en-AU', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-      })
+    ? formatWeekdayDateAU(lead.inspection_scheduled_date)
     : null;
 
   const scheduledTimeDisplay = lead?.scheduled_time

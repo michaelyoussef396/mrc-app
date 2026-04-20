@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/dialog';
 
 // Components
+import { formatDateTimeAU } from '@/lib/dateUtils';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import PipelineTabs from '@/components/leads/PipelineTabs';
 import LeadCard, { type TransformedLead } from '@/components/leads/LeadCard';
@@ -1175,11 +1176,7 @@ const LeadsManagement = () => {
                         <p className="text-xs text-slate-500 mt-0.5">{activity.description}</p>
                       )}
                       <p className="text-xs text-slate-400 mt-1">
-                        {new Date(activity.created_at).toLocaleDateString('en-AU', {
-                          day: 'numeric', month: 'short', year: 'numeric',
-                          hour: '2-digit', minute: '2-digit',
-                          timeZone: 'Australia/Melbourne',
-                        })}
+                        {formatDateTimeAU(activity.created_at)}
                       </p>
                     </div>
                   </div>

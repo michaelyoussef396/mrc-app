@@ -1,3 +1,5 @@
+import { formatDateAU } from '@/lib/dateUtils';
+
 // Utility functions for lead management
 
 /**
@@ -77,7 +79,7 @@ export function formatTimeAgo(date: Date | string): string {
   } else if (diffDays < 7) {
     return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
   } else {
-    return past.toLocaleDateString('en-AU');
+    return formatDateAU(past);
   }
 }
 

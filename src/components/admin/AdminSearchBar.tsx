@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLeadSearch, SearchLead } from '@/hooks/useLeadSearch';
 import { ChevronRight, Search, X } from 'lucide-react';
+import { formatShortDateAU } from '@/lib/dateUtils';
 
 interface AdminSearchBarProps {
   /** Optional: Compact mode for mobile */
@@ -275,12 +276,7 @@ export default function AdminSearchBar({ compact = false, onClose }: AdminSearch
 
                     {/* Date */}
                     <div className="text-xs flex-shrink-0" style={{ color: '#86868b' }}>
-                      {lead.created_at
-                        ? new Date(lead.created_at).toLocaleDateString('en-AU', {
-                            day: 'numeric',
-                            month: 'short',
-                          })
-                        : ''}
+                      {formatShortDateAU(lead.created_at)}
                     </div>
 
                     {/* Chevron */}

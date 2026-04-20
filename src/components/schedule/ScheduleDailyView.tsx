@@ -1,6 +1,7 @@
 import { CalendarEvent, getEventsForDate, isToday } from '@/hooks/useScheduleCalendar';
 import { getEventStyles, getDurationLabel } from './scheduleUtils';
 import { CalendarCheck, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { formatTimeAU } from '@/lib/dateUtils';
 
 interface ScheduleDailyViewProps {
   selectedDate: Date;
@@ -74,13 +75,7 @@ function DailyEventCard({ event, onClick }: { event: CalendarEvent; onClick: () 
   const duration = getDurationLabel(event);
   const location = [event.suburb, event.postcode].filter(Boolean).join(' ');
 
-  const startTime = event.startDatetime
-    .toLocaleTimeString('en-AU', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    })
-    .toLowerCase();
+  const startTime = formatTimeAU(event.startDatetime).toLowerCase();
 
   return (
     <button

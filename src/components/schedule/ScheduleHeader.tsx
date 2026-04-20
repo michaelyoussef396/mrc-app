@@ -1,4 +1,5 @@
 import { formatWeekRange, getWeekStart } from '@/hooks/useScheduleCalendar';
+import { formatWeekdayDateAU } from '@/lib/dateUtils';
 import {
   CalendarX2,
   Check,
@@ -64,12 +65,7 @@ export function ScheduleHeader({
     if (onDayChange) onDayChange(new Date());
   };
 
-  const formatSelectedDay = (date: Date): string =>
-    date.toLocaleDateString('en-AU', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    });
+  const formatSelectedDay = (date: Date): string => formatWeekdayDateAU(date);
 
   // Desktop: week navigation
   const handlePreviousWeek = () => {

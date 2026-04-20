@@ -11,6 +11,7 @@ import {
   type CreateInvoiceInput, type InvoiceLineItem, type InvoiceTotals,
 } from '@/lib/api/invoices'
 import { formatCurrency } from '@/lib/calculations/pricing'
+import { formatDateAU } from '@/lib/dateUtils'
 
 interface Props {
   leadId: string
@@ -22,12 +23,6 @@ interface SummaryData {
   totals: InvoiceTotals
   jobNumber: string | null
   completionDate: string | null
-}
-
-function formatDateAU(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const d = new Date(iso.length === 10 ? iso + 'T00:00:00' : iso)
-  return d.toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function defaultDueDate(days = 14): string {
