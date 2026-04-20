@@ -8,22 +8,18 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-// Simple in-memory rate limiter: IP → { count, resetTime }
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 const RATE_LIMIT = 5
-const RATE_WINDOW_MS = 60 * 60 * 1000 // 1 hour
+const RATE_WINDOW_MS = 60 * 60 * 1000
 
-function isRateLimited(ip: string): boolean {
-  const now = Date.now()
-  const entry = rateLimitMap.get(ip)
-
-  if (!entry || now > entry.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_WINDOW_MS })
-    return false
-  }
-
-  entry.count++
-  return entry.count > RATE_LIMIT
+// deno-lint-ignore no-explicit-any
+async function isRateLimited(supabase: any, ip: string): Promise<boolean> {
+  const oneHourAgo = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
+  const { count } = await supabase
+    .from('webhook_submissions')
+    .select('*', { count: 'exact', head: true })
+    .eq('ip_address', ip)
+    .gte('created_at', oneHourAgo)
+  return (count ?? 0) >= RATE_LIMIT
 }
 
 function stripHtml(str: string): string {
@@ -465,7 +461,7 @@ Deno.serve(async (req) => {
   }
 
   // --- Rate limit check (AFTER logging raw payload) ---
-  if (isRateLimited(clientIp)) {
+  if (await isRateLimited(supabase, clientIp)) {
     const rlMsg = `Rate limit exceeded for IP ${clientIp}`
     await updateSubmission('rate_limited')
     await Promise.allSettled([

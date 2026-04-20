@@ -53,18 +53,32 @@ export async function generateInspectionPDF(
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
     const functionUrl = `${supabaseUrl}/functions/v1/generate-inspection-pdf`
 
-    const response = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        inspectionId,
-        regenerate: options.regenerate || false,
-        returnHtml: options.returnHtml || false,
-      }),
-    })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 90_000)
+    let response: Response
+    try {
+      response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          inspectionId,
+          regenerate: options.regenerate || false,
+          returnHtml: options.returnHtml || false,
+        }),
+        signal: controller.signal,
+      })
+    } catch (err) {
+      clearTimeout(timeout)
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        captureBusinessError('PDF generation timeout', { inspectionId })
+        return { success: false, error: 'PDF generation timed out. Please try again.' }
+      }
+      throw err
+    }
+    clearTimeout(timeout)
 
     if (!response.ok) {
       const errorBody = await response.text()

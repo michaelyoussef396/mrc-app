@@ -287,6 +287,9 @@ export async function markInvoicePaid(
   paymentMethod: PaymentMethod,
   paymentReference?: string,
 ): Promise<void> {
+  const current = await getInvoiceById(invoiceId)
+  if (current.status === 'paid') return
+
   const now = new Date()
   const { data, error } = await supabase
     .from('invoices')
