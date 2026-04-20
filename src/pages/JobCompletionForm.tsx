@@ -17,6 +17,7 @@ import { AlertTriangle, ArrowRight, CheckCircle2, ChevronLeft, Loader2, Save } f
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
+import { formatDateAU } from '@/lib/dateUtils'
 
 const TOTAL_SECTIONS = 10
 
@@ -303,7 +304,7 @@ export default function JobCompletionForm() {
                 {sendBackActivity.description}
               </p>
               <p className="text-xs text-amber-500 mt-1">
-                {new Date(sendBackActivity.created_at).toLocaleDateString('en-AU')}
+                {formatDateAU(sendBackActivity.created_at)}
               </p>
             </div>
           </div>

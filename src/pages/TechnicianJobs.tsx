@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { TechnicianBottomNav } from '@/components/technician';
 import { useTechnicianJobs, TabFilter, TechnicianJob } from '@/hooks/useTechnicianJobs';
 import { useRevisionJobs, RevisionJob } from '@/hooks/useRevisionJobs';
+import { formatWeekdayDateAU, formatShortDateAU } from '@/lib/dateUtils';
 import {
   AlertCircle,
   AlertTriangle,
@@ -74,19 +75,11 @@ function formatDateHeader(dateStr: string): string {
     return 'Tomorrow';
   }
 
-  return date.toLocaleDateString('en-AU', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  return formatWeekdayDateAU(date);
 }
 
 function formatShortDate(dateStr: string): string {
-  const date = new Date(dateStr + 'T00:00:00');
-  return date.toLocaleDateString('en-AU', {
-    month: 'short',
-    day: 'numeric',
-  });
+  return formatShortDateAU(dateStr);
 }
 
 function getJobTypeIcon(eventType: string, className: string = "h-3.5 w-3.5"): ReactNode {

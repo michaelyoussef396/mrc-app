@@ -20,7 +20,9 @@ import {
   Sparkles,
   Wrench,
   XCircle,
-} from 'lucide-react';/**
+} from 'lucide-react';
+import { formatDateAU, formatShortDateAU } from '@/lib/dateUtils';
+/**
  * LeadCard Component
  * Status-specific card for the lead pipeline with action buttons
  */
@@ -131,12 +133,7 @@ function getInitials(name: string): string {
 }
 
 function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-AU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDateAU(dateString);
 }
 
 function formatPhone(phone: string): string {
@@ -175,7 +172,7 @@ export default function LeadCard({
   let statusLabel = statusLabels[lead.status] || lead.status;
   if (lead.status === 'inspection_waiting' && lead.inspection_scheduled_date) {
     const date = new Date(lead.inspection_scheduled_date + 'T00:00:00');
-    const dateStr = date.toLocaleDateString('en-AU', { month: 'short', day: 'numeric' });
+    const dateStr = formatShortDateAU(date);
     if (lead.scheduled_time) {
       const [h, m] = lead.scheduled_time.split(':').map(Number);
       const period = h >= 12 ? 'PM' : 'AM';

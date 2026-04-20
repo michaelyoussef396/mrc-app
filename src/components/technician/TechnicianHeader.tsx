@@ -1,5 +1,8 @@
 
-import { Bell } from 'lucide-react';interface TechnicianHeaderProps {
+import { Bell } from 'lucide-react';
+import { formatWeekdayDateAU } from '@/lib/dateUtils';
+
+interface TechnicianHeaderProps {
   userName: string;
   subtitle?: string;
   showNotification?: boolean;
@@ -22,16 +25,7 @@ export default function TechnicianHeader({
     return 'Good evening';
   };
 
-  // Format date in Australian format
-  const formatDate = () => {
-    const options: Intl.DateTimeFormatOptions = {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    };
-    return new Date().toLocaleDateString('en-AU', options);
-  };
+  const formatDate = () => formatWeekdayDateAU(new Date());
 
   // Get first initial for avatar
   const initial = userName.charAt(0).toUpperCase();

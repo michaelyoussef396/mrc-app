@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { X, Plus } from 'lucide-react';
 
 import type { JobCompletionFormData, PremisesType } from '@/types/jobCompletion';
+import { formatDateAU } from '@/lib/dateUtils';
 
 interface SectionProps {
   formData: JobCompletionFormData;
@@ -86,12 +87,7 @@ export function Section2Summary({ formData, onChange, isReadOnly = false }: Sect
     }
   }
 
-  // Format ISO date to DD/MM/YYYY for display in the date input's label
-  function formatDateDisplay(isoDate: string): string {
-    if (!isoDate) return '';
-    const [year, month, day] = isoDate.split('-');
-    return `${day}/${month}/${year}`;
-  }
+  const formatDateDisplay = (isoDate: string): string => formatDateAU(isoDate);
 
   return (
     <section aria-labelledby="summary-heading" className="space-y-5">

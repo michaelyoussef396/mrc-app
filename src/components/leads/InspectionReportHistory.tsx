@@ -10,6 +10,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { formatDateTimeAU } from '@/lib/dateUtils';
 
 interface InspectionReportHistoryProps {
   inspectionId: string;
@@ -36,16 +37,7 @@ interface EmailLogRow {
 }
 
 function formatDateTime(iso: string | null): string {
-  if (!iso) return '—';
-  return new Intl.DateTimeFormat('en-AU', {
-    timeZone: 'Australia/Melbourne',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(new Date(iso));
+  return formatDateTimeAU(iso) || '—';
 }
 
 async function fetchPdfVersions(inspectionId: string): Promise<PdfVersionRow[]> {

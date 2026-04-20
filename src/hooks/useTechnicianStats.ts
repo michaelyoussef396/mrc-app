@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { formatShortDateAU } from '@/lib/dateUtils';
 
 // ============================================================================
 // TYPES
@@ -87,7 +88,7 @@ export function formatLastSeen(date: string | null): string {
   if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
 
   // For older dates, show the actual date
-  return then.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+  return formatShortDateAU(then);
 }
 
 // ============================================================================

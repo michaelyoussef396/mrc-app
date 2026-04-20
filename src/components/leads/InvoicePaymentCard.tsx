@@ -16,17 +16,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { usePaymentTracking } from '@/hooks/usePaymentTracking'
 import { voidInvoice, markInvoiceSent, type PaymentMethod } from '@/lib/api/invoices'
 import { formatCurrency } from '@/lib/calculations/pricing'
+import { formatDateAU } from '@/lib/dateUtils'
 
 interface Props {
   leadId: string
   leadStatus: string
   onRefresh: () => void
-}
-
-function formatDateAU(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const d = new Date(iso + (iso.length === 10 ? 'T00:00:00' : ''))
-  return d.toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function defaultDueDate(): string {

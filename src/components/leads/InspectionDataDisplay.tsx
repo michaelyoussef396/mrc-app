@@ -27,15 +27,13 @@ import type {
   PhotoWithUrl,
   MoistureReadingData,
 } from '@/lib/api/inspections';
+import { formatDateAU } from '@/lib/dateUtils';
 
 // ============================================================================
 // FORMATTERS
 // ============================================================================
 
-const fmtDate = (v: string | null) => {
-  if (!v) return '—';
-  return new Date(v).toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
+const fmtDate = (v: string | null) => formatDateAU(v) || '—';
 const fmtNum = (v: number | null | undefined, unit = '') => (v != null ? `${v}${unit}` : '—');
 const fmtBool = (v: boolean | null | undefined) => (v ? 'Yes' : 'No');
 const fmtMins = (v: number | null | undefined) => {

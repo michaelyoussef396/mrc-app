@@ -10,6 +10,7 @@ import {
 import { TIME_SLOTS } from '@/lib/bookingService';
 import { getEventStyles, getDurationLabel } from './scheduleUtils';
 import { CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { formatTimeAU } from '@/lib/dateUtils';
 
 // ============================================================================
 // TYPES
@@ -175,11 +176,7 @@ export function ScheduleCalendar({
                           className="text-[11px] font-bold"
                           style={{ color: styles.text }}
                         >
-                          {event.startDatetime.toLocaleTimeString('en-AU', {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            hour12: true,
-                          }).toLowerCase()}
+                          {formatTimeAU(event.startDatetime).toLowerCase()}
                           <span className="font-medium opacity-75 ml-0.5">({duration})</span>
                         </span>
                         <div className="flex items-center gap-1 flex-shrink-0">

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/accordion';
 
 import { JobCompletionRow } from '@/types/jobCompletion';
+import { formatDateAU } from '@/lib/dateUtils';
 
 // 1-hour TTL for signed photo URLs — long enough to outlive the page session
 const SIGNED_URL_TTL_SECONDS = 3600;
@@ -232,9 +233,7 @@ export function JobCompletionSummary({
     jobCompletion.remediation_completed_by ??
     '—';
 
-  const completionDateDisplay = jobCompletion.completion_date
-    ? new Date(jobCompletion.completion_date).toLocaleDateString('en-AU')
-    : '—';
+  const completionDateDisplay = formatDateAU(jobCompletion.completion_date) || '—';
 
   const treatmentMethods: Array<{
     field: keyof JobCompletionRow;

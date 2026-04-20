@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatDateAU } from '@/lib/dateUtils';
 import { useToast } from '@/hooks/use-toast';
 import { AddressAutocomplete, type AddressValue } from '@/components/booking';
 
@@ -174,14 +175,7 @@ export default function Profile() {
           lng: meta.starting_address.lng,
         } : null;
 
-        // Format the join date
-        const joinDate = user.created_at
-          ? new Date(user.created_at).toLocaleDateString('en-AU', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            })
-          : '';
+        const joinDate = formatDateAU(user.created_at);
 
         // Get initials for avatar
         const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() ||

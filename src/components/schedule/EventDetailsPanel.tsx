@@ -20,6 +20,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
+import { formatTimeAU, formatWeekdayDateAU } from '@/lib/dateUtils';
 
 interface EventDetailsPanelProps {
   event: CalendarEvent | null;
@@ -33,22 +34,9 @@ export function EventDetailsPanel({ event, open, onClose }: EventDetailsPanelPro
 
   if (!event) return null;
 
-  const startTime = event.startDatetime.toLocaleTimeString('en-AU', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-  const endTime = event.endDatetime.toLocaleTimeString('en-AU', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-  const dateStr = event.startDatetime.toLocaleDateString('en-AU', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const startTime = formatTimeAU(event.startDatetime);
+  const endTime = formatTimeAU(event.endDatetime);
+  const dateStr = formatWeekdayDateAU(event.startDatetime);
 
   const durationMs = event.endDatetime.getTime() - event.startDatetime.getTime();
   const durationHours = Math.max(durationMs / (1000 * 60 * 60), 0);

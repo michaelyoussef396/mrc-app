@@ -1,5 +1,6 @@
 import type { CalendarEvent } from '@/hooks/useScheduleCalendar';
 import { CalendarX2 } from 'lucide-react';
+import { formatDateAU, formatTimeAU } from '@/lib/dateUtils';
 
 // ============================================================================
 // TYPES
@@ -54,17 +55,8 @@ export function CancelledBookingsList({ events, isLoading, onEventClick }: Cance
       </p>
 
       {events.map((event) => {
-        const dateStr = event.startDatetime.toLocaleDateString('en-AU', {
-          weekday: 'short',
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-        });
-        const timeStr = event.startDatetime.toLocaleTimeString('en-AU', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true,
-        });
+        const dateStr = formatDateAU(event.startDatetime);
+        const timeStr = formatTimeAU(event.startDatetime);
 
         return (
           <button

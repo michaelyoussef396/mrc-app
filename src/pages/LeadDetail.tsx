@@ -84,6 +84,7 @@ import { useActivityTimeline } from "@/hooks/useActivityTimeline";
 import { captureBusinessError } from "@/lib/sentry";
 import { ActivityTimeline } from "@/components/dashboard/ActivityTimeline";
 import { toast } from "sonner";
+import { formatDateAU, formatDateTimeAU } from "@/lib/dateUtils";
 
 // Australian currency formatter
 const formatCurrency = (value: number | null | undefined) => {
@@ -96,14 +97,9 @@ const formatCurrency = (value: number | null | undefined) => {
   }).format(value);
 };
 
-// Australian date formatter
 const formatDate = (dateString: string | null | undefined) => {
   if (!dateString) return "-";
-  return new Date(dateString).toLocaleDateString("en-AU", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  return formatDateAU(dateString) || "-";
 };
 
 // Time formatter
@@ -610,7 +606,7 @@ export default function LeadDetail() {
                     {inspection.pdf_approved_at && (
                       <>
                         <div className="text-gray-500">Approved</div>
-                        <div>{new Date(inspection.pdf_approved_at).toLocaleString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                        <div>{formatDateTimeAU(inspection.pdf_approved_at)}</div>
                       </>
                     )}
                     {inspection.pdf_url && (
@@ -728,9 +724,7 @@ export default function LeadDetail() {
 
       case "pending_review": {
         const submittedAt = jobCompletion?.submitted_at
-          ? new Date(jobCompletion.submitted_at).toLocaleDateString('en-AU', {
-              day: 'numeric', month: 'long', year: 'numeric',
-            })
+          ? formatDateAU(jobCompletion.submitted_at)
           : null;
         const submittedBy =
           completedByProfile?.full_name ??
@@ -794,9 +788,7 @@ export default function LeadDetail() {
 
       case "job_completed": {
         const submittedAt = jobCompletion?.submitted_at
-          ? new Date(jobCompletion.submitted_at).toLocaleDateString('en-AU', {
-              day: 'numeric', month: 'long', year: 'numeric',
-            })
+          ? formatDateAU(jobCompletion.submitted_at)
           : null;
         const submittedBy =
           completedByProfile?.full_name ??
@@ -1842,9 +1834,7 @@ function LeadCompleteBanner({
           <div className="flex justify-between gap-2">
             <span className="text-gray-500">Paid on</span>
             <span className="text-gray-800">
-              {new Date(invoice.payment_date + 'T00:00:00').toLocaleDateString('en-AU', {
-                day: '2-digit', month: '2-digit', year: 'numeric',
-              })}
+              {formatDateAU(invoice.payment_date)}
             </span>
           </div>
         )}

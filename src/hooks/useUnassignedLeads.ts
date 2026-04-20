@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { formatShortDateAU } from '@/lib/dateUtils';
 
 interface UnassignedLead {
   id: string;
@@ -139,6 +140,6 @@ function getTimeAgo(dateString: string): string {
   } else if (diffDays < 7) {
     return `${diffDays}d ago`;
   } else {
-    return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+    return formatShortDateAU(date);
   }
 }

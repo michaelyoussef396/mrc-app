@@ -15,6 +15,7 @@ import {
   PencilLine,
 } from 'lucide-react';
 import type { TimelineEvent, FieldEditMetadata } from '@/hooks/useActivityTimeline';
+import { formatDateTimeAU } from '@/lib/dateUtils';
 
 // Icon component lookup
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -231,10 +232,7 @@ export function ActivityTimeline({
               )}
               <p className="text-xs text-gray-400 flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {new Date(event.timestamp).toLocaleString('en-AU', {
-                  dateStyle: 'medium',
-                  timeStyle: 'short',
-                })}
+                {formatDateTimeAU(event.timestamp)}
                 {event.actorName && (
                   <span className="text-gray-500"> — {event.actorName}</span>
                 )}

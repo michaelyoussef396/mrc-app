@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { QueryClient } from '@tanstack/react-query';
 import { sendEmail, sendSlackNotification, buildBookingConfirmationHtml } from '@/lib/api/notifications';
 import { captureBusinessError, addBusinessBreadcrumb } from '@/lib/sentry';
+import { formatMediumDateAU } from '@/lib/dateUtils';
 
 // ============================================================================
 // TYPES
@@ -233,12 +234,7 @@ export async function bookInspection(
  * Format date from YYYY-MM-DD to "15 Jan 2024"
  */
 export function formatDateForDisplay(dateStr: string): string {
-  const date = new Date(dateStr + 'T00:00:00');
-  return date.toLocaleDateString('en-AU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatMediumDateAU(dateStr);
 }
 
 /**

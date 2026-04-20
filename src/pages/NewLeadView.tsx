@@ -8,6 +8,7 @@ import {
   X, User, Home, ChevronRight, Navigation, Loader2, Users
 } from 'lucide-react'
 import { BookInspectionModal } from '@/components/leads/BookInspectionModal'
+import { formatShortDateAU, formatDateAU, formatDateTimeAU, formatWeekdayDateAU } from '@/lib/dateUtils'
 
 interface TriageResult {
   technician_id: string
@@ -174,7 +175,7 @@ const NewLeadView = () => {
               <div className="status-meta">
                 <div className="meta-item">
                   <Clock size={14} strokeWidth={2} />
-                  <span>Received {new Date(lead.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}</span>
+                  <span>Received {formatShortDateAU(lead.created_at)}</span>
                 </div>
                 <div className="meta-item">
                   <Globe size={14} strokeWidth={2} />
@@ -299,14 +300,7 @@ const NewLeadView = () => {
                   <span className="info-label">Submitted</span>
                   <span className="info-value">
                     <Clock size={16} strokeWidth={2} />
-                    {new Date(lead.created_at).toLocaleDateString('en-AU', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
+                    {formatDateTimeAU(lead.created_at)}
                   </span>
                 </div>
               </div>
@@ -331,11 +325,7 @@ const NewLeadView = () => {
                 <div className="info-item">
                   <span className="info-label">Date Created</span>
                   <span className="info-value">
-                    {new Date(lead.created_at).toLocaleDateString('en-AU', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric'
-                    })}
+                    {formatDateAU(lead.created_at)}
                   </span>
                 </div>
                 <div className="info-item">
@@ -518,12 +508,7 @@ const NewLeadView = () => {
                     <span className="info-label">Date</span>
                     <span className="info-value">
                       <Calendar size={16} strokeWidth={2} />
-                      {new Date(lead.inspection_scheduled_date).toLocaleDateString('en-AU', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                      })}
+                      {formatWeekdayDateAU(lead.inspection_scheduled_date)}
                     </span>
                   </div>
                   {lead.scheduled_time && (

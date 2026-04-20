@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useLeadsNeedsAttention } from '@/hooks/useLeadsNeedsAttention';
 import { CheckCircle2 } from 'lucide-react';
+import { formatDateAU } from '@/lib/dateUtils';
 
 /**
  * NeedsAttentionList
@@ -80,9 +81,7 @@ export function NeedsAttentionList() {
               </div>
               <div className="flex-shrink-0 text-right">
                 <p className="text-xs" style={{ color: '#86868b' }}>
-                  {lead.submittedAt
-                    ? new Date(lead.submittedAt).toLocaleDateString('en-AU')
-                    : '—'}
+                  {formatDateAU(lead.submittedAt) || '—'}
                 </p>
               </div>
             </div>
