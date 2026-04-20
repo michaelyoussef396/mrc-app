@@ -15,6 +15,7 @@ import { getTechnicianColor } from '@/hooks/useTechnicians';
 import { NeedsAttentionList } from '@/components/admin/NeedsAttentionList';
 import {
   AlertCircle,
+  AlertOctagon,
   AlertTriangle,
   ArrowRight,
   Calendar,
@@ -73,6 +74,7 @@ export default function AdminDashboard() {
     pendingReviews,
     overdueInvoicesCount,
     overdueInvoicesTotal,
+    failedWebhooks,
     isLoading: statsLoading,
   } = useAdminDashboardStats();
 
@@ -210,6 +212,24 @@ export default function AdminDashboard() {
               iconColor={overdueInvoicesCount > 0 ? 'text-[#FF3B30]' : 'text-[#86868b]'}
             />
           </div>
+          {failedWebhooks > 0 && (
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate('/admin/leads')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/admin/leads'); } }}
+              className="cursor-pointer hover:opacity-95 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF3B30] rounded-2xl"
+            >
+              <StatsCard
+                title="Failed Webhooks"
+                value={statsLoading ? '...' : failedWebhooks}
+                change="Check webhook_submissions table"
+                icon={AlertOctagon}
+                iconBg="bg-red-50"
+                iconColor="text-[#FF3B30]"
+              />
+            </div>
+          )}
         </div>
 
         {/* Two Column Layout - Stack on mobile/tablet, side by side on desktop */}

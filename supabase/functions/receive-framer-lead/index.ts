@@ -304,19 +304,94 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
 }
 
 // ---------------------------------------------------------------------------
+// Failure notification helpers
+// ---------------------------------------------------------------------------
+
+async function sendFailureEmail(rawPayload: string, errorMsg: string): Promise<void> {
+  try {
+    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+    if (!RESEND_API_KEY) return
+    const adminEmail = Deno.env.get('ADMIN_FALLBACK_EMAIL') || 'admin@mouldandrestoration.com.au'
+    const ts = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' })
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'MRC System Alerts <noreply@mrcsystem.com>',
+        to: [adminEmail],
+        subject: 'LEAD CAPTURE FAILURE — Manual Follow-up Required',
+        html: `<h2 style="color:#c00;">Lead Capture Failed</h2>
+<p><strong>Time:</strong> ${ts}</p>
+<p><strong>Error:</strong> ${errorMsg}</p>
+<h3>Raw Payload</h3>
+<pre style="background:#f5f5f5;padding:12px;border-radius:4px;overflow:auto;font-size:13px;">${rawPayload.substring(0, 5000)}</pre>
+<p><strong>Action required:</strong> Manually create this lead in <a href="https://www.mrcsystem.com/admin/leads">the admin dashboard</a>.</p>`,
+        reply_to: 'admin@mouldandrestoration.com.au',
+      }),
+    })
+  } catch (err) {
+    console.error('Failure email send failed:', err)
+  }
+}
+
+async function sendFailureSlack(rawPayload: string, errorMsg: string): Promise<void> {
+  try {
+    const SLACK_WEBHOOK_URL = Deno.env.get('SLACK_WEBHOOK_URL')
+    if (!SLACK_WEBHOOK_URL) return
+    const ts = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' })
+    let preview = rawPayload.substring(0, 500)
+    try { preview = JSON.stringify(JSON.parse(rawPayload), null, 2).substring(0, 500) } catch { /* keep raw */ }
+    await fetch(SLACK_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        blocks: [
+          { type: 'header', text: { type: 'plain_text', text: '\u{1F6A8} LEAD CAPTURE FAILURE', emoji: true } },
+          { type: 'section', text: { type: 'mrkdwn', text: `*Error:* ${errorMsg}\n*Time:* ${ts}` } },
+          { type: 'section', text: { type: 'mrkdwn', text: `*Raw payload:*\n\`\`\`${preview}\`\`\`` } },
+          { type: 'section', text: { type: 'mrkdwn', text: ':point_right: <https://www.mrcsystem.com/admin/leads|Open Admin Dashboard> to manually create this lead.' } },
+          { type: 'divider' },
+        ],
+      }),
+    })
+  } catch (err) {
+    console.error('Failure Slack send failed:', err)
+  }
+}
+
+async function insertLeadWithRetry(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  // deno-lint-ignore no-explicit-any
+  leadRow: Record<string, any>,
+  maxRetries = 3,
+// deno-lint-ignore no-explicit-any
+): Promise<{ data: any; error: any }> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const result = await supabase.from('leads').insert(leadRow).select('id').single()
+    if (!result.error) return result
+    console.error(`Lead insert attempt ${attempt}/${maxRetries} failed:`, result.error.message)
+    if (attempt < maxRetries) {
+      await new Promise(r => setTimeout(r, 500 * Math.pow(3, attempt - 1)))
+    } else {
+      return result
+    }
+  }
+  return { data: null, error: { message: 'All retries exhausted' } }
+}
+
+// ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
 
 Deno.serve(async (req) => {
-  // Log every request immediately
-  console.log('=== INCOMING REQUEST ===')
-  console.log('Method:', req.method)
-  console.log('URL:', req.url)
-
-  // Log all headers
-  const headers: Record<string, string> = {}
-  req.headers.forEach((value, key) => { headers[key] = value })
-  console.log('Headers:', JSON.stringify(headers))
+  // --- Health check (GET) ---
+  if (req.method === 'GET') {
+    return new Response(
+      JSON.stringify({ status: 'ok', timestamp: new Date().toISOString(), version: 15 }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    )
+  }
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -325,103 +400,108 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    )
+  }
+
+  // --- Supabase client (service role) — needed throughout ---
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const supabase = createClient(supabaseUrl, supabaseKey)
+
+  // --- Read raw body FIRST ---
+  const rawBody = await req.text()
+  const reqHeaders: Record<string, string> = {}
+  req.headers.forEach((v, k) => { reqHeaders[k] = v })
+  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || req.headers.get('cf-connecting-ip')
+    || 'unknown'
+
+  console.log('=== INCOMING REQUEST ===', req.method, rawBody.length, 'bytes from', clientIp)
+
+  // --- LAYER 1: Log raw submission to webhook_submissions BEFORE any processing ---
+  let submissionId: string | null = null
+  try {
+    let payloadJson: unknown = rawBody
+    try { payloadJson = JSON.parse(rawBody) } catch { /* store as string */ }
+    const { data: sub } = await supabase.from('webhook_submissions').insert({
+      source: 'framer',
+      raw_payload: payloadJson,
+      headers: reqHeaders,
+      ip_address: clientIp,
+      status: 'received',
+    }).select('id').single()
+    submissionId = sub?.id ?? null
+  } catch (err) {
+    console.error('webhook_submissions insert failed (continuing):', err)
+  }
+
+  // Helper to update submission status
+  async function updateSubmission(status: string, extra: Record<string, unknown> = {}) {
+    if (!submissionId) return
+    try {
+      await supabase.from('webhook_submissions').update({ status, ...extra }).eq('id', submissionId)
+    } catch { /* non-fatal */ }
+  }
+
+  // --- Body size check ---
+  if (rawBody.length > MAX_BODY_SIZE) {
+    await updateSubmission('failed', { error_message: 'Body too large: ' + rawBody.length })
+    return new Response(
+      JSON.stringify({ error: 'Request body too large' }),
+      { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    )
+  }
+
+  // --- Rate limit check (AFTER logging raw payload) ---
+  if (isRateLimited(clientIp)) {
+    await updateSubmission('rate_limited')
+    // Notify admin — rate limit may indicate abuse or a lead surge
+    sendFailureSlack(rawBody, `Rate limit exceeded for IP ${clientIp}`).catch(() => {})
+    return new Response(
+      JSON.stringify({ error: 'Too many submissions. Please try again later.' }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
 
   try {
-    // Rate limiting
-    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-      || req.headers.get('cf-connecting-ip')
-      || 'unknown'
-
-    if (isRateLimited(clientIp)) {
-      return new Response(
-        JSON.stringify({ error: 'Too many submissions. Please try again later.' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Always read raw body first for logging
+    // --- Parse body ---
     const contentType = req.headers.get('content-type') || ''
     // deno-lint-ignore no-explicit-any
     let body: Record<string, any> = {}
 
-    console.log('Content-Type:', contentType)
-
-    // Clone request to read body twice if needed
-    const rawBody = await req.text()
-    console.log('Raw body (first 1000 chars):', rawBody.substring(0, 1000))
-    console.log('Raw body length:', rawBody.length)
-
-    // Body size check — reject oversized payloads
-    if (rawBody.length > MAX_BODY_SIZE) {
-      return new Response(
-        JSON.stringify({ error: 'Request body too large' }),
-        { status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
     if (contentType.includes('multipart/form-data')) {
-      // Re-parse as FormData from raw text - need a new Request
-      const newReq = new Request(req.url, {
-        method: 'POST',
-        headers: req.headers,
-        body: rawBody,
-      })
+      const newReq = new Request(req.url, { method: 'POST', headers: req.headers, body: rawBody })
       const formData = await newReq.formData()
       for (const [key, value] of formData.entries()) {
-        if (typeof value === 'string') {
-          body[key] = value
-        }
+        if (typeof value === 'string') body[key] = value
       }
     } else if (contentType.includes('application/json')) {
       body = JSON.parse(rawBody)
     } else if (contentType.includes('application/x-www-form-urlencoded')) {
       const params = new URLSearchParams(rawBody)
-      for (const [key, value] of params.entries()) {
-        body[key] = value
-      }
+      for (const [key, value] of params.entries()) body[key] = value
     } else {
-      // Try JSON first, fall back to form-urlencoded
-      try {
-        body = JSON.parse(rawBody)
-      } catch (_e) {
+      try { body = JSON.parse(rawBody) } catch {
         const params = new URLSearchParams(rawBody)
-        for (const [key, value] of params.entries()) {
-          body[key] = value
-        }
+        for (const [key, value] of params.entries()) body[key] = value
       }
     }
 
-    console.log('Parsed body keys:', Object.keys(body))
-    console.log('Parsed body:', JSON.stringify(body).substring(0, 500))
-
-    // -----------------------------------------------------------------------
-    // Smart field extraction — handles Framer's quirky payload structure
-    // Framer may bundle multiple fields into arrays and misname fields.
-    // Strategy: try named fields first, then scan ALL values for content type.
-    // -----------------------------------------------------------------------
-
-    /** Safely get a field by multiple possible names (handles arrays) */
+    // --- Smart field extraction (unchanged) ---
     const getField = (keys: string[]): string => {
       for (const key of keys) {
         if (body[key] !== undefined && body[key] !== null) return stripHtml(toStr(body[key]))
         const lower = key.toLowerCase()
         for (const [k, v] of Object.entries(body)) {
-          if (k.toLowerCase() === lower || k.toLowerCase().replace(/[\s-]/g, '_') === lower) {
-            return stripHtml(toStr(v))
-          }
+          if (k.toLowerCase() === lower || k.toLowerCase().replace(/[\s-]/g, '_') === lower) return stripHtml(toStr(v))
         }
       }
       return ''
     }
 
-    // Collect ALL values (flattened from arrays) for smart detection
     const allValues = flattenValues(body)
-    console.log('All flattened values:', allValues)
 
-    // Try named fields first
     let fullName = getField(['full_name', 'fullName', 'Full Name', 'name', 'Name', 'your_name', 'Your Name'])
     let phone = getField(['phone', 'Phone', 'phone_number', 'Phone Number', 'mobile', 'Mobile', 'contact', 'Contact Number', 'contact_number'])
     let email = getField(['email', 'Email', 'email_address', 'Email Address', 'your_email', 'Your Email'])
@@ -431,44 +511,24 @@ Deno.serve(async (req) => {
     let preferredTime = getField(['preferred_time', 'Preferred Time', 'time', 'Time', 'preferredTime', 'inspection_time', 'Inspection Time', 'booking_time'])
     let issueDescription = getField(['issue_description', 'Issue Description', 'issueDescription', 'message', 'Message', 'description', 'Description', 'issue', 'Issue', 'your_message', 'Your Message', 'comments', 'Comments', 'notes', 'Notes', 'details', 'Details'])
 
-    // Smart detection: scan ALL values to find misplaced content
-    // This handles Framer bundling email into the phone array, dates into email field, etc.
     const usedValues = new Set([fullName, phone, email, street, suburb, preferredDate, preferredTime, issueDescription].filter(Boolean))
 
     for (const val of allValues) {
-      if (usedValues.has(val)) continue // already assigned
-
-      if (!email && EMAIL_RE.test(val)) {
-        email = val
-        usedValues.add(val)
-      } else if (!phone && PHONE_RE.test(val)) {
-        phone = val
-        usedValues.add(val)
-      } else if (!preferredDate && DATE_RE(val)) {
-        preferredDate = val
-        usedValues.add(val)
-      } else if (!preferredTime && TIME_RE.test(val)) {
-        preferredTime = val
-        usedValues.add(val)
-      }
+      if (usedValues.has(val)) continue
+      if (!email && EMAIL_RE.test(val)) { email = val; usedValues.add(val) }
+      else if (!phone && PHONE_RE.test(val)) { phone = val; usedValues.add(val) }
+      else if (!preferredDate && DATE_RE(val)) { preferredDate = val; usedValues.add(val) }
+      else if (!preferredTime && TIME_RE.test(val)) { preferredTime = val; usedValues.add(val) }
     }
 
-    // If email field got a date value (Framer misconfiguration), clear it and use detected email
     if (email && DATE_RE(email)) {
       if (!preferredDate) preferredDate = email
       email = ''
-      // Re-scan for actual email
       for (const val of allValues) {
-        if (!usedValues.has(val) && EMAIL_RE.test(val)) {
-          email = val
-          usedValues.add(val)
-          break
-        }
+        if (!usedValues.has(val) && EMAIL_RE.test(val)) { email = val; usedValues.add(val); break }
       }
     }
 
-    // If phone field got an array, Framer may have bundled email+suburb into it
-    // The phone array pattern: [phone, email, suburb]
     const rawPhone = body['phone'] || body['Phone']
     if (Array.isArray(rawPhone)) {
       for (const item of rawPhone) {
@@ -476,31 +536,25 @@ Deno.serve(async (req) => {
         if (!s) continue
         if (!email && EMAIL_RE.test(s)) { email = s; usedValues.add(s) }
         else if (!phone && PHONE_RE.test(s)) { phone = s; usedValues.add(s) }
-        else if (!suburb && !PHONE_RE.test(s) && !EMAIL_RE.test(s) && !DATE_RE(s) && !TIME_RE.test(s)) {
-          // Remaining non-pattern value in phone array is likely suburb
-          suburb = s; usedValues.add(s)
-        }
+        else if (!suburb && !PHONE_RE.test(s) && !EMAIL_RE.test(s) && !DATE_RE(s) && !TIME_RE.test(s)) { suburb = s; usedValues.add(s) }
       }
     }
 
-    // If subject field is an array, Framer may have bundled time+street into it
     const rawSubject = body['subject'] || body['Subject']
     if (Array.isArray(rawSubject)) {
       for (const item of rawSubject) {
         const s = String(item).trim()
         if (!s) continue
         if (!preferredTime && TIME_RE.test(s)) { preferredTime = s; usedValues.add(s) }
-        else if (!street && !TIME_RE.test(s) && !DATE_RE(s) && !EMAIL_RE.test(s) && !PHONE_RE.test(s)) {
-          street = s; usedValues.add(s)
-        }
+        else if (!street && !TIME_RE.test(s) && !DATE_RE(s) && !EMAIL_RE.test(s) && !PHONE_RE.test(s)) { street = s; usedValues.add(s) }
       }
     }
 
-    // Normalise date from DD/MM/YYYY → YYYY-MM-DD if needed
     if (preferredDate) preferredDate = normaliseDate(preferredDate)
 
-    console.log('Final parsed fields:', { fullName, phone, email, street, suburb, preferredDate, preferredTime, issueDescription })
+    console.log('Parsed fields:', { fullName, phone, email, street, suburb, preferredDate, preferredTime, issueDescription })
 
+    // --- Validate ---
     const parsedLead = ParsedLeadSchema.safeParse({
       fullName: fullName || undefined,
       phone: phone || undefined,
@@ -513,39 +567,35 @@ Deno.serve(async (req) => {
     })
 
     if (!parsedLead.success) {
+      const errMsg = 'Validation failed: ' + JSON.stringify(parsedLead.error.flatten().fieldErrors)
+      await updateSubmission('failed', { error_message: errMsg })
+      await Promise.allSettled([
+        sendFailureEmail(rawBody, errMsg),
+        sendFailureSlack(rawBody, errMsg),
+      ])
       return new Response(
         JSON.stringify({ error: 'Invalid lead data', details: parsedLead.error.flatten() }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
 
-    // Supabase client (service role for insert + duplicate check)
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseKey)
-
-    // Duplicate check: same email + phone in last 24 hours
+    // --- Duplicate check ---
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data: existing } = await supabase
-      .from('leads')
-      .select('id')
-      .eq('email', email)
-      .eq('phone', phone)
-      .gte('created_at', twentyFourHoursAgo)
-      .limit(1)
+      .from('leads').select('id').eq('email', email).eq('phone', phone)
+      .gte('created_at', twentyFourHoursAgo).limit(1)
 
     if (existing && existing.length > 0) {
+      await updateSubmission('duplicate', { lead_id: existing[0].id })
       return new Response(
         JSON.stringify({ success: true, message: 'Lead already received. Our team will be in touch.' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
 
-    // Insert lead
-    const { error: insertError } = await supabase.from('leads').insert({
-      full_name: fullName,
-      email,
-      phone,
+    // --- Insert lead with retry (3 attempts, exponential backoff) ---
+    const leadRow = {
+      full_name: fullName, email, phone,
       property_address_street: street,
       property_address_suburb: suburb,
       property_address_state: 'VIC',
@@ -555,65 +605,60 @@ Deno.serve(async (req) => {
       issue_description: issueDescription || null,
       lead_source: 'website_form',
       status: 'new_lead',
-    })
+    }
+
+    const { data: leadData, error: insertError } = await insertLeadWithRetry(supabase, leadRow)
 
     if (insertError) {
-      console.error('Lead insert error:', insertError)
+      const errMsg = `Lead insert failed after 3 retries: ${insertError.message}`
+      console.error(errMsg)
+      await updateSubmission('failed', { error_message: errMsg, retry_count: 3 })
+      await Promise.allSettled([
+        sendFailureEmail(rawBody, errMsg),
+        sendFailureSlack(rawBody, errMsg),
+      ])
       return new Response(
         JSON.stringify({ error: 'Failed to save lead. Please call us at 1800 954 117.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
 
+    // --- Success: update submission ---
+    await updateSubmission('processed', {
+      lead_id: leadData?.id ?? null,
+      processed_at: new Date().toISOString(),
+    })
+
     const lead: FramerLeadPayload = {
-      full_name: fullName,
-      phone,
-      email,
-      street,
-      suburb,
+      full_name: fullName, phone, email, street, suburb,
       preferred_date: preferredDate || undefined,
       preferred_time: preferredTime || undefined,
       issue_description: issueDescription || undefined,
     }
-
     const createdAt = new Date().toISOString()
 
-    // Fire-and-forget: Slack notification + confirmation email (run in parallel)
+    // --- Fire-and-forget: Slack + confirmation email ---
     const slackPromise = (async () => {
       try {
         const SLACK_WEBHOOK_URL = Deno.env.get('SLACK_WEBHOOK_URL')
-        if (!SLACK_WEBHOOK_URL) {
-          console.warn('SLACK_WEBHOOK_URL not configured, skipping notification')
-          return
-        }
-        const slackPayload = buildSlackBlocks(lead, createdAt)
+        if (!SLACK_WEBHOOK_URL) return
         const res = await fetch(SLACK_WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(slackPayload),
+          body: JSON.stringify(buildSlackBlocks(lead, createdAt)),
         })
-        if (!res.ok) {
-          console.error('Slack error:', await res.text())
-        }
-      } catch (err) {
-        console.error('Slack notification failed:', err)
-      }
+        if (!res.ok) console.error('Slack error:', await res.text())
+      } catch (err) { console.error('Slack notification failed:', err) }
     })()
 
     const emailPromise = (async () => {
       try {
         const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-        if (!RESEND_API_KEY) {
-          console.warn('RESEND_API_KEY not configured, skipping confirmation email')
-          return
-        }
+        if (!RESEND_API_KEY) return
         const html = buildConfirmationEmailHtml(lead)
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             from: 'Mould & Restoration Co <noreply@mrcsystem.com>',
             to: [email],
@@ -622,39 +667,38 @@ Deno.serve(async (req) => {
             reply_to: 'admin@mouldandrestoration.com.au',
           }),
         })
-        if (!res.ok) {
-          const errData = await res.json()
-          console.error('Resend email error:', errData)
-        } else {
-          // Log to email_logs
+        if (!res.ok) { console.error('Resend error:', await res.json()) }
+        else {
           const emailData = await res.json()
           await supabase.from('email_logs').insert({
             recipient_email: email,
             subject: 'Thank you for your enquiry - Mould & Restoration Co',
             template_name: 'framer_lead_confirmation',
-            status: 'sent',
-            provider: 'resend',
+            status: 'sent', provider: 'resend',
             provider_message_id: emailData?.id || null,
             sent_at: new Date().toISOString(),
           })
         }
-      } catch (err) {
-        console.error('Confirmation email failed:', err)
-      }
+      } catch (err) { console.error('Confirmation email failed:', err) }
     })()
 
-    // Wait for both but don't fail the request if either errors
     await Promise.allSettled([slackPromise, emailPromise])
 
     return new Response(
       JSON.stringify({ success: true, message: 'Lead received' }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (error) {
-    console.error('receive-framer-lead error:', error)
+    const errMsg = error instanceof Error ? error.message : String(error)
+    console.error('receive-framer-lead top-level error:', errMsg)
+    await updateSubmission('failed', { error_message: errMsg })
+    await Promise.allSettled([
+      sendFailureEmail(rawBody, errMsg),
+      sendFailureSlack(rawBody, errMsg),
+    ])
     return new Response(
       JSON.stringify({ error: 'An unexpected error occurred. Please call us at 1800 954 117.' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
 })

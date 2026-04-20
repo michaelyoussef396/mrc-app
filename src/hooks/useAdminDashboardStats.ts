@@ -9,6 +9,7 @@ interface DashboardStats {
   pendingReviews: number;
   overdueInvoicesCount: number;
   overdueInvoicesTotal: number;
+  failedWebhooks: number;
   isLoading: boolean;
   error: string | null;
 }
@@ -31,6 +32,7 @@ export function useAdminDashboardStats(): DashboardStats {
     pendingReviews: 0,
     overdueInvoicesCount: 0,
     overdueInvoicesTotal: 0,
+    failedWebhooks: 0,
     isLoading: true,
     error: null,
   });
@@ -57,6 +59,10 @@ export function useAdminDashboardStats(): DashboardStats {
 
 
       // Run all queries in parallel for better performance
+      const sevenDaysAgo = new Date(melbourneNow);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const sevenDaysAgoISO = sevenDaysAgo.toISOString();
+
       const [
         todaysJobsResult,
         leadsToAssignResult,
@@ -64,6 +70,7 @@ export function useAdminDashboardStats(): DashboardStats {
         revenueResult,
         pendingReviewsResult,
         overdueInvoicesResult,
+        failedWebhooksResult,
       ] = await Promise.all([
         // 1. Today's Jobs - count inspections scheduled for today
         supabase
@@ -106,6 +113,13 @@ export function useAdminDashboardStats(): DashboardStats {
           .from('invoices')
           .select('total_amount')
           .eq('status', 'overdue'),
+
+        // 7. Failed Webhooks - submissions that failed in last 7 days
+        supabase
+          .from('webhook_submissions')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'failed')
+          .gte('created_at', sevenDaysAgoISO),
       ]);
 
       // Check for errors
@@ -133,6 +147,10 @@ export function useAdminDashboardStats(): DashboardStats {
         console.error('[Dashboard Stats] Overdue invoices error:', overdueInvoicesResult.error);
         throw overdueInvoicesResult.error;
       }
+      // failedWebhooksResult errors are non-fatal (table may not exist yet)
+      if (failedWebhooksResult.error) {
+        console.warn('[Dashboard Stats] Failed webhooks query error:', failedWebhooksResult.error);
+      }
 
       // Calculate total revenue
       const totalRevenue = revenueResult.data?.reduce((sum, inspection) => {
@@ -155,6 +173,7 @@ export function useAdminDashboardStats(): DashboardStats {
         pendingReviews: pendingReviewsResult.count || 0,
         overdueInvoicesCount: overdueData.length,
         overdueInvoicesTotal: overdueTotal,
+        failedWebhooks: failedWebhooksResult.count || 0,
         isLoading: false,
         error: null,
       };
