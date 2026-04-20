@@ -57,8 +57,10 @@ function flattenValues(obj: Record<string, unknown>): string[] {
 // Content detection patterns
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_RE = /^[\d\s()+-]{8,15}$/
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-const TIME_RE = /^\d{1,2}:\d{2}(:\d{2})?$/
+const DATE_ISO_RE = /^\d{4}-\d{2}-\d{2}$/
+const DATE_AU_RE = /^\d{1,2}\/\d{1,2}\/\d{4}$/
+const DATE_RE = (val: string) => DATE_ISO_RE.test(val) || DATE_AU_RE.test(val)
+const TIME_RE = /^\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM|am|pm)?$/
 
 const ParsedLeadSchema = z.object({
   fullName: z.string().min(1).max(200),
@@ -70,6 +72,16 @@ const ParsedLeadSchema = z.object({
   preferredTime: z.string().max(20).optional(),
   issueDescription: z.string().max(5000).optional(),
 })
+
+/** Convert DD/MM/YYYY → YYYY-MM-DD. Passes through YYYY-MM-DD unchanged. */
+function normaliseDate(val: string): string {
+  if (DATE_ISO_RE.test(val)) return val
+  if (DATE_AU_RE.test(val)) {
+    const parts = val.split('/')
+    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`
+  }
+  return val
+}
 
 const MAX_BODY_SIZE = 50_000
 
@@ -410,14 +422,14 @@ Deno.serve(async (req) => {
     console.log('All flattened values:', allValues)
 
     // Try named fields first
-    let fullName = getField(['full_name', 'fullName', 'Full Name', 'name', 'Name'])
-    let phone = getField(['phone', 'Phone', 'phone_number', 'Phone Number', 'mobile', 'Mobile'])
-    let email = getField(['email', 'Email', 'email_address', 'Email Address'])
-    let street = getField(['street', 'Street', 'street_address', 'Street Address', 'address', 'Address'])
-    let suburb = getField(['suburb', 'Suburb', 'city', 'City', 'location', 'Location'])
-    let preferredDate = getField(['preferred_date', 'Preferred Date', 'date', 'Date', 'preferredDate'])
-    let preferredTime = getField(['preferred_time', 'Preferred Time', 'time', 'Time', 'preferredTime'])
-    let issueDescription = getField(['issue_description', 'Issue Description', 'issueDescription', 'message', 'Message', 'description', 'Description', 'issue', 'Issue'])
+    let fullName = getField(['full_name', 'fullName', 'Full Name', 'name', 'Name', 'your_name', 'Your Name'])
+    let phone = getField(['phone', 'Phone', 'phone_number', 'Phone Number', 'mobile', 'Mobile', 'contact', 'Contact Number', 'contact_number'])
+    let email = getField(['email', 'Email', 'email_address', 'Email Address', 'your_email', 'Your Email'])
+    let street = getField(['street', 'Street', 'street_address', 'Street Address', 'address', 'Address', 'number_and_address', 'number and address', 'Number and Address', 'property_address', 'Property Address', 'address_line_1'])
+    let suburb = getField(['suburb', 'Suburb', 'city', 'City', 'location', 'Location', 'town', 'Town'])
+    let preferredDate = getField(['preferred_date', 'Preferred Date', 'date', 'Date', 'preferredDate', 'inspection_date', 'Inspection Date', 'booking_date'])
+    let preferredTime = getField(['preferred_time', 'Preferred Time', 'time', 'Time', 'preferredTime', 'inspection_time', 'Inspection Time', 'booking_time'])
+    let issueDescription = getField(['issue_description', 'Issue Description', 'issueDescription', 'message', 'Message', 'description', 'Description', 'issue', 'Issue', 'your_message', 'Your Message', 'comments', 'Comments', 'notes', 'Notes', 'details', 'Details'])
 
     // Smart detection: scan ALL values to find misplaced content
     // This handles Framer bundling email into the phone array, dates into email field, etc.
@@ -432,7 +444,7 @@ Deno.serve(async (req) => {
       } else if (!phone && PHONE_RE.test(val)) {
         phone = val
         usedValues.add(val)
-      } else if (!preferredDate && DATE_RE.test(val)) {
+      } else if (!preferredDate && DATE_RE(val)) {
         preferredDate = val
         usedValues.add(val)
       } else if (!preferredTime && TIME_RE.test(val)) {
@@ -442,7 +454,7 @@ Deno.serve(async (req) => {
     }
 
     // If email field got a date value (Framer misconfiguration), clear it and use detected email
-    if (email && DATE_RE.test(email)) {
+    if (email && DATE_RE(email)) {
       if (!preferredDate) preferredDate = email
       email = ''
       // Re-scan for actual email
@@ -464,7 +476,7 @@ Deno.serve(async (req) => {
         if (!s) continue
         if (!email && EMAIL_RE.test(s)) { email = s; usedValues.add(s) }
         else if (!phone && PHONE_RE.test(s)) { phone = s; usedValues.add(s) }
-        else if (!suburb && !PHONE_RE.test(s) && !EMAIL_RE.test(s) && !DATE_RE.test(s) && !TIME_RE.test(s)) {
+        else if (!suburb && !PHONE_RE.test(s) && !EMAIL_RE.test(s) && !DATE_RE(s) && !TIME_RE.test(s)) {
           // Remaining non-pattern value in phone array is likely suburb
           suburb = s; usedValues.add(s)
         }
@@ -478,11 +490,14 @@ Deno.serve(async (req) => {
         const s = String(item).trim()
         if (!s) continue
         if (!preferredTime && TIME_RE.test(s)) { preferredTime = s; usedValues.add(s) }
-        else if (!street && !TIME_RE.test(s) && !DATE_RE.test(s) && !EMAIL_RE.test(s) && !PHONE_RE.test(s)) {
+        else if (!street && !TIME_RE.test(s) && !DATE_RE(s) && !EMAIL_RE.test(s) && !PHONE_RE.test(s)) {
           street = s; usedValues.add(s)
         }
       }
     }
+
+    // Normalise date from DD/MM/YYYY → YYYY-MM-DD if needed
+    if (preferredDate) preferredDate = normaliseDate(preferredDate)
 
     console.log('Final parsed fields:', { fullName, phone, email, street, suburb, preferredDate, preferredTime, issueDescription })
 
@@ -538,7 +553,7 @@ Deno.serve(async (req) => {
       inspection_scheduled_date: preferredDate || null,
       scheduled_time: preferredTime || null,
       issue_description: issueDescription || null,
-      lead_source: 'website',
+      lead_source: 'website_form',
       status: 'new_lead',
     })
 

@@ -15,27 +15,35 @@ POST https://ecyivrxjpsmjmexqatym.supabase.co/functions/v1/receive-framer-lead
 - **Rate limit:** 5 submissions per hour per IP → returns `429` when exceeded
 - **Duplicate protection:** same `email` + `phone` within 24h returns `200` idempotently (no duplicate lead created)
 
-## Request body
+## Field mapping
 
-Required:
+The function accepts many field name variations. Framer sends fields named after the input label, so all of these work:
 
-| Field | Type | Notes |
+### Required fields
+
+| Framer label | Also accepted as | DB column |
 |---|---|---|
-| `fullName` | string | 1–200 chars |
-| `phone` | string | 8–20 chars |
-| `email` | string | must be valid email, max 254 chars |
+| Name | `fullName`, `full_name`, `Full Name`, `name`, `Your Name` | `full_name` |
+| Phone | `phone`, `Phone Number`, `mobile`, `contact`, `Contact Number` | `phone` |
+| Email | `email`, `Email Address`, `Your Email` | `email` |
 
-Optional:
+### Optional fields
 
-| Field | Type | Notes |
-|---|---|---|
-| `street` | string | max 500 |
-| `suburb` | string | max 100 |
-| `preferredDate` | string | ideally `YYYY-MM-DD` |
-| `preferredTime` | string | ideally `HH:MM` or `HH:MM:SS` |
-| `issueDescription` | string | max 5000 |
+| Framer label | Also accepted as | DB column | Format |
+|---|---|---|---|
+| Date | `preferred_date`, `Preferred Date`, `date`, `Inspection Date` | `inspection_scheduled_date` | DD/MM/YYYY or YYYY-MM-DD (auto-detected) |
+| Time | `preferred_time`, `Preferred Time`, `time`, `Inspection Time` | `scheduled_time` | "9:00 AM" or "14:00" |
+| number and address | `street`, `Street Address`, `address`, `Property Address` | `property_address_street` | Free text |
+| Suburb | `suburb`, `city`, `location`, `town` | `property_address_suburb` | Free text |
+| Your Message | `message`, `Message`, `description`, `issue_description`, `comments`, `notes`, `details` | `issue_description` | Free text, max 5000 chars |
 
-The function also smart-detects misplaced fields (e.g. when Framer bundles the email into the phone array), so alternate casings like `full_name`, `Full Name`, `name` will also be matched — but stick to the canonical names above.
+### Auto-set fields
+
+| DB column | Value |
+|---|---|
+| `lead_source` | `website_form` |
+| `status` | `new_lead` |
+| `property_address_state` | `VIC` |
 
 ## Successful response
 
@@ -43,7 +51,7 @@ The function also smart-detects misplaced fields (e.g. when Framer bundles the e
 { "success": true, "message": "Lead received" }
 ```
 
-Status `200`. The customer receives a confirmation email, `#leads` Slack channel gets an alert, and the lead appears in `/admin/leads` with `status = 'new_lead'` and `lead_source = 'website'`.
+Status `200`. The customer receives a confirmation email, `#leads` Slack channel gets an alert, and the lead appears in `/admin/leads` with `status = 'new_lead'` and `lead_source = 'website_form'`.
 
 ## Error responses
 
@@ -63,34 +71,35 @@ Run from your laptop:
 curl -X POST https://ecyivrxjpsmjmexqatym.supabase.co/functions/v1/receive-framer-lead \
   -H 'Content-Type: application/json' \
   -d '{
-    "fullName": "Webhook Test",
-    "phone": "0400000000",
-    "email": "test+webhook@mouldandrestoration.com.au",
-    "street": "1 Test Street",
-    "suburb": "Melbourne",
-    "preferredDate": "2026-05-01",
-    "preferredTime": "10:00",
-    "issueDescription": "curl smoke test from docs/FRAMER_WEBHOOK.md"
+    "Name": "Webhook Test",
+    "Phone": "0400000000",
+    "Email": "test+webhook@mouldandrestoration.com.au",
+    "number and address": "1 Test Street",
+    "Suburb": "Melbourne",
+    "Date": "15/05/2026",
+    "Time": "10:00 AM",
+    "Your Message": "curl smoke test from docs/FRAMER_WEBHOOK.md"
   }'
 ```
 
 Expect `200 { "success": true, "message": "Lead received" }`. Then verify:
 
 1. Lead appears in `/admin/leads` with the above details.
-2. `#leads` Slack channel receives the "🏠 New Lead Received" alert.
+2. `#leads` Slack channel receives the "New Lead Received" alert.
 3. The `test+webhook@…` inbox receives the confirmation email.
 
 ## Framer setup
 
-1. Open the form component in Framer.
-2. Set the submission target / webhook URL to:
+1. Open the contact form page in Framer.
+2. Select the form component.
+3. In the form settings, set **Action** to **Webhook**.
+4. Paste the webhook URL:
    ```
    https://ecyivrxjpsmjmexqatym.supabase.co/functions/v1/receive-framer-lead
    ```
-3. Set request method to `POST`.
-4. Map each form field to the canonical JSON key above (`fullName`, `phone`, `email`, `street`, `suburb`, `preferredDate`, `preferredTime`, `issueDescription`).
-5. Send JSON (`Content-Type: application/json`) if Framer supports it; otherwise `application/x-www-form-urlencoded` works too.
-6. Publish the site and run one real submission end-to-end to confirm.
+5. Set method to `POST`.
+6. Form fields will be sent using their label names (e.g. "Name", "Phone", "Email", "Date", "Time", "number and address", "Suburb", "Your Message") — the Edge Function handles all these variations automatically.
+7. Publish the site and submit one real test to confirm the lead appears in the system.
 
 ## Secrets this function relies on
 
