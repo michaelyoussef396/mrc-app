@@ -8,10 +8,6 @@
     "steps": [
       {
         "type": "action",
-        "description": "Navigate to public lead capture website form at /request-inspection"
-      },
-      {
-        "type": "action",
         "description": "Fill in all mandatory fields with valid Australian-standard data (phone, postcode, ABN, date)"
       },
       {

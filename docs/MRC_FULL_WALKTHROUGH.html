@@ -773,17 +773,6 @@ flowchart TD
           path writes.
         </p>
 
-        <h3>1.1b Archaeology — <code>/request-inspection</code></h3>
-        <p>
-          <span class="pill note">i NOTE</span> An older React route at
-          <code>/request-inspection</code> (<code>src/pages/RequestInspection.tsx</code>)
-          exists with its own 8-field Zod schema and direct database insert via
-          <code>createPublicLead()</code>. Pre-dates the Framer integration. Grep across
-          <code>src/</code> finds zero navigation links — the route is reachable only by
-          typing the URL directly. Tracked as P2 in <a href="#backlog">Section 11</a> for
-          removal.
-        </p>
-
         <h3>1.2 What happens when a Framer submission arrives</h3>
         <p>
           <span class="pill built">✓ BUILT</span> The Edge Function processes every webhook in
@@ -2255,8 +2244,8 @@ flowchart TD
       <section id="screens">
         <h2><span class="num">7.</span>The Complete Screen Inventory</h2>
         <p>
-          Every route registered in <code>src/App.tsx</code>. <strong>33 routes total</strong>
-          (verified by <code>grep -c 'path="' src/App.tsx</code>): six public, twenty-six
+          Every route registered in <code>src/App.tsx</code>. <strong>31 routes total</strong>
+          (verified by <code>grep -c 'path="' src/App.tsx</code>): four public, twenty-six
           protected, one catch-all.
         </p>
 
@@ -2275,8 +2264,6 @@ flowchart TD
               <tr><td><code>/forgot-password</code></td><td>ForgotPassword</td><td>Public</td><td>Request password reset</td></tr>
               <tr><td><code>/check-email</code></td><td>CheckEmail</td><td>Public</td><td>Confirmation that reset email was sent</td></tr>
               <tr><td><code>/reset-password</code></td><td>ResetPassword</td><td>Public</td><td>Set new password (token in URL)</td></tr>
-              <tr><td><code>/request-inspection</code></td><td>RequestInspection</td><td>Public</td><td><span class="pill note">i ORPHAN</span> Pre-Framer customer enquiry form. Reachable only by direct URL — zero nav links across <code>src/</code>. See <a href="#customer">1.1b</a>.</td></tr>
-              <tr><td><code>/request-inspection/success</code></td><td>InspectionSuccess</td><td>Public</td><td><span class="pill note">i ORPHAN</span> Success page reached only after submitting the orphan form above.</td></tr>
               <tr><td><code>/admin</code></td><td>AdminDashboard</td><td>Admin</td><td>KPIs + today's schedule + activity feed</td></tr>
               <tr><td><code>/admin/schedule</code></td><td>AdminSchedule</td><td>Admin</td><td>Week/day calendar of bookings</td></tr>
               <tr><td><code>/admin/technicians</code></td><td>AdminTechnicians</td><td>Admin</td><td>Roster + per-tech stats</td></tr>
@@ -2375,7 +2362,7 @@ flowchart TD
                 <td>HTTP POST</td>
                 <td>Sends a transactional email via Resend. Validates payload with Zod, logs to <code>email_logs</code>, retries 3× with exponential backoff (1 s → 2 s → 4 s), skips retry on 4xx except 429.</td>
                 <td>Rate-limited at 10 requests/min per IP (<code>send-email/index.ts:13–14</code>); fire-and-forget from caller (errors swallowed at caller).</td>
-                <td>Frontend (e.g. <code>RequestInspection.tsx:102</code>), other Edge Functions (<code>receive-framer-lead</code>, <code>send-inspection-reminder</code>).</td>
+                <td>Frontend admin email composer (Inspection Report Editor at <code>ViewReportPDF.tsx</code>; Lead List composer at <code>LeadsManagement.tsx</code>); other Edge Functions (<code>receive-framer-lead</code> calls Resend directly, not via <code>send-email</code>; <code>send-inspection-reminder</code> uses this dispatcher).</td>
               </tr>
               <tr>
                 <td><code>send-inspection-reminder</code></td>
@@ -3072,14 +3059,6 @@ CASCADE;</pre>
             developers via <code>src/lib/offline/SyncManager.ts</code> but the failure / retry /
             give-up boundary isn't explicit. <em>Fix:</em> add inline JSDoc and surface a
             tech-facing UI for stuck items.</li>
-          <li><strong>Orphan route <code>/request-inspection</code></strong> — pre-Framer
-            customer enquiry form. Reachable only by direct URL; grep across <code>src/</code>
-            finds zero navigation links. See <a href="#customer">Section 1.1b</a> and
-            <a href="#screens">Section 7</a>. <em>Fix:</em> remove the route from
-            <code>src/App.tsx</code>, delete <code>src/pages/RequestInspection.tsx</code> and
-            <code>src/pages/InspectionSuccess.tsx</code>, drop the
-            <code>createPublicLead()</code> helper in <code>src/lib/api/public-leads.ts</code>
-            if no other caller exists.</li>
           <li><strong>Customer-preferred date and time written to
             <code>inspection_scheduled_date</code> as if confirmed.</strong> The Framer form
             captures the customer's preferred date and time. The Edge Function

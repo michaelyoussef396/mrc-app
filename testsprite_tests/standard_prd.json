@@ -80,7 +80,6 @@
         "name": "Lead Capture & Management",
         "description": "Website form for lead capture with HiPages integration, automated email responses, and 12-stage pipeline management",
         "routes": [
-          "/request-inspection",
           "/leads",
           "/lead/:id"
         ]

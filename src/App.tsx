@@ -35,8 +35,6 @@ const Profile = lazy(() => import("./pages/Profile"));
 const Settings = lazy(() => import("./pages/Settings"));
 const LeadDetail = lazy(() => import("./pages/LeadDetail"));
 const Reports = lazy(() => import("./pages/Reports"));
-const RequestInspection = lazy(() => import("./pages/RequestInspection"));
-const InspectionSuccess = lazy(() => import("./pages/InspectionSuccess"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const ViewReportPDF = lazy(() => import("./pages/ViewReportPDF"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -85,8 +83,6 @@ const AppContent = () => {
             <Route path="/" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/check-email" element={<CheckEmail />} />
-            <Route path="/request-inspection" element={<RequestInspection />} />
-            <Route path="/request-inspection/success" element={<InspectionSuccess />} />
             <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* Admin Dashboard (standalone layout - no AppLayout) */}

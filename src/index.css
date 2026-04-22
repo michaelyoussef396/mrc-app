@@ -16295,15 +16295,6 @@ a.contact-value:hover {
 }
 
 /* ============================================
-   REQUEST INSPECTION PAGE
-   ============================================ */
-
-.request-inspection-page {
-  min-height: 100vh;
-  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
-}
-
-/* ============================================
    HEADER
    ============================================ */
 
