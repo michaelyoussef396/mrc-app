@@ -640,8 +640,7 @@
 
         <h3>P0 backlog (must close before real use)</h3>
         <ul class="checklist">
-          <li><span class="box">⬜</span> Wire customer invoice email — add <code>buildInvoiceEmailHtml()</code> in <code>src/lib/api/notifications.ts</code> and call it from the invoice send button. Currently the office must email each invoice manually outside the app. (See <a href="#backlog">Section 11</a>.)</li>
-          <li><span class="box">⬜</span> Provision a dev Supabase project. Stop running migrations against the production database. Wire Vercel preview deploys to the dev project. (See <a href="#backlog">Section 11</a>.)</li>
+          <li><span class="box">⬜</span> Set up a separate test copy of the database. Right now, any database change the developer makes is applied directly to the live system that holds real customer data — there's no safety net. Creating a second "practice" database means changes can be tested there first before they touch real customers. One evening of setup work. (See <a href="#backlog">Section 11</a>.)</li>
         </ul>
 
         <h3>Operational readiness</h3>
@@ -2988,13 +2987,6 @@ flowchart TD
 
         <h3><span class="pill priority p0">P0</span> Revenue-blocking or safety-critical</h3>
         <ul>
-          <li><strong>Customer invoice email is not wired</strong> — the invoice creation flow
-            updates <code>invoices.status='sent'</code> and posts a Slack alert, but no email
-            reaches the customer. Operational impact: the entire overdue chain in
-            <a href="#customer">Section 1.6</a> assumes the customer was notified of the bill;
-            in current practice the office must email each invoice manually outside the app.
-            <em>Fix:</em> add a <code>buildInvoiceEmailHtml()</code> builder in
-            <code>src/lib/api/notifications.ts</code> and call it from the invoice "Send" action.</li>
           <li><strong>No development Supabase project</strong> — every migration, every Edge
             Function deploy, every schema experiment runs against the production database.
             Operational impact: any mistake risks customer data; there is no rollback rehearsal.
