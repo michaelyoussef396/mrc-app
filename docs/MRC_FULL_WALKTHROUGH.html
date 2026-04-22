@@ -229,6 +229,26 @@
       color: var(--gold);
     }
 
+    ul.checklist {
+      list-style: none;
+      padding-left: 0;
+      margin: 0 0 18px;
+    }
+    ul.checklist li {
+      padding-left: 0;
+      margin-bottom: 10px;
+      line-height: 1.55;
+      font-size: 14.5px;
+    }
+    ul.checklist li::marker { content: ''; }
+    ul.checklist .box {
+      display: inline-block;
+      margin-right: 8px;
+      color: var(--gold);
+      font-size: 16px;
+      vertical-align: -1px;
+    }
+
     code, .mono {
       font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 0.88em;
@@ -459,6 +479,7 @@
       <ul>
         <li><a href="#how-to-read">How to read this</a></li>
         <li><a href="#day-one">Day One</a></li>
+        <li><a href="#before-real-use">Before Real Use</a></li>
       </ul>
       <h4>Journeys</h4>
       <ul>
@@ -560,6 +581,87 @@
             booking, every payment, every overdue milestone posts to the team Slack channel. If
             something happened in the app and it didn't appear in Slack, it didn't really happen
             — start your investigation there.</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           BEFORE REAL USE
+           ============================================================ -->
+      <section id="before-real-use">
+        <h2><span class="num">★★</span>Before Real Use — pre-launch checklist</h2>
+        <p>
+          Action items that must be ticked off before MRC switches off the test setup and routes
+          real customer traffic through this system. Each line is operational, not aspirational.
+          The groups are roughly sequenced by dependency — work top-down for safety.
+        </p>
+
+        <h3>Domain &amp; Framer cutover</h3>
+        <ul class="checklist">
+          <li><span class="box">⬜</span> Switch the Framer webhook source from the test site (<code>fluid-members-390105.framer.app/contact</code>) to the real production Framer site.</li>
+          <li><span class="box">⬜</span> Apply the Framer field rename (<a href="#">docs/FRAMER_FIELD_MAPPING.md</a>) on the <strong>real</strong> Framer site too — not just the test site.</li>
+          <li><span class="box">⬜</span> Verify the real Framer form has all 9 fields named correctly: <code>full_name</code>, <code>phone</code>, <code>email</code>, <code>street</code>, <code>suburb</code>, <code>postcode</code>, <code>preferred_date</code>, <code>preferred_time</code>, <code>issue_description</code>.</li>
+          <li><span class="box">⬜</span> Confirm the real site's webhook destination is set to <code>https://ecyivrxjpsmjmexqatym.supabase.co/functions/v1/receive-framer-lead</code>.</li>
+          <li><span class="box">⬜</span> Confirm the real form's Fallback email is set to <code>admin@mrcsystem.com</code> (or the admin inbox actually monitored).</li>
+          <li><span class="box">⬜</span> Submit one live test lead through the real Framer site post-switch and verify it lands in <code>webhook_submissions</code> as <code>status='processed'</code> with a flat payload.</li>
+        </ul>
+
+        <h3>Email domain</h3>
+        <ul class="checklist">
+          <li><span class="box">⬜</span> Set up DNS records (SPF, DKIM, DMARC) for <code>mouldandrestoration.com.au</code> on the actual DNS provider.</li>
+          <li><span class="box">⬜</span> Verify the domain in the Resend dashboard.</li>
+          <li><span class="box">⬜</span> Update <code>send-email</code>, <code>send-inspection-reminder</code>, <code>receive-framer-lead</code> Edge Functions to send <em>from</em> <code>noreply@mouldandrestoration.com.au</code> (currently <code>noreply@mrcsystem.com</code>).</li>
+          <li><span class="box">⬜</span> Update reply-to across all email infrastructure to <code>admin@mouldandrestoration.com.au</code>.</li>
+          <li><span class="box">⬜</span> Redeploy the three Edge Functions after the change.</li>
+          <li><span class="box">⬜</span> Send one test email end-to-end (booking confirmation or inspection report) and verify it arrives, reply-to is correct, and the SPF/DKIM/DMARC headers pass.</li>
+        </ul>
+
+        <h3>Account &amp; billing ownership transfer</h3>
+        <ul class="checklist">
+          <li><span class="box">⬜</span> Supabase project — transfer ownership to the business account.</li>
+          <li><span class="box">⬜</span> Vercel project — transfer ownership to the business account.</li>
+          <li><span class="box">⬜</span> Resend account — transfer to the business account (or move the verified domain to it).</li>
+          <li><span class="box">⬜</span> Sentry organization — transfer to the business account.</li>
+          <li><span class="box">⬜</span> Slack workspace — transfer to the business account, or add the business as a workspace admin.</li>
+          <li><span class="box">⬜</span> Framer project — transfer to the business account.</li>
+          <li><span class="box">⬜</span> OpenRouter / Gemini — create API keys under the business account; swap the new keys into Edge Function env vars (<code>OPENROUTER_API_KEY</code>) and revoke the old personal keys.</li>
+          <li><span class="box">⬜</span> Google Maps — create the API key under the business Google Cloud account; swap into Edge Function env vars (<code>GOOGLE_MAPS_API_KEY</code>) and revoke the old key.</li>
+        </ul>
+
+        <h3>Data migration (ServiceM8 → MRC)</h3>
+        <ul class="checklist">
+          <li><span class="box">⬜</span> Export leads, contacts, jobs, and invoices from ServiceM8.</li>
+          <li><span class="box">⬜</span> Write a one-time migration script mapping ServiceM8 fields to the MRC schema (<code>leads</code>, <code>inspections</code>, <code>job_completions</code>, <code>invoices</code>).</li>
+          <li><span class="box">⬜</span> Run the migration against a dev/staging Supabase project — <strong>not</strong> production.</li>
+          <li><span class="box">⬜</span> Verify all migrated leads render correctly in the admin UI (contact info, addresses, status, dates).</li>
+          <li><span class="box">⬜</span> Handle duplicates between ServiceM8 data and any existing rows already in MRC (use the new <code>is_possible_duplicate</code> + <code>possible_duplicate_of</code> flag pattern, or a simpler email+phone match).</li>
+          <li><span class="box">⬜</span> Backfill the 8 historical empty-postcode rows — manual admin lookup (phone the customer, or Google the suburb's canonical postcode).</li>
+          <li><span class="box">⬜</span> Once verified on dev, run the migration against the production Supabase project.</li>
+          <li><span class="box">⬜</span> Archive or revoke ServiceM8 read-only access once parity is confirmed.</li>
+        </ul>
+
+        <h3>P0 backlog (must close before real use)</h3>
+        <ul class="checklist">
+          <li><span class="box">⬜</span> Wire customer invoice email — add <code>buildInvoiceEmailHtml()</code> in <code>src/lib/api/notifications.ts</code> and call it from the invoice send button. Currently the office must email each invoice manually outside the app. (See <a href="#backlog">Section 11</a>.)</li>
+          <li><span class="box">⬜</span> Provision a dev Supabase project. Stop running migrations against the production database. Wire Vercel preview deploys to the dev project. (See <a href="#backlog">Section 11</a>.)</li>
+        </ul>
+
+        <h3>Operational readiness</h3>
+        <ul class="checklist">
+          <li><span class="box">⬜</span> Confirm Glen and Clayton have tested their respective flows end-to-end on real devices (their actual phones, not a desktop browser).</li>
+          <li><span class="box">⬜</span> Confirm Michael (admin) has tested the full lead → finished cycle on production with a real test customer.</li>
+          <li><span class="box">⬜</span> Confirm the Slack <code>#leads</code> channel is live, the team is in it, and notifications are not muted.</li>
+          <li><span class="box">⬜</span> Confirm the overdue-invoice cron is running on schedule (<code>0 23 * * *</code> UTC = 09:00 AEST). Verify by checking the most recent run in Supabase logs.</li>
+          <li><span class="box">⬜</span> Confirm the <code>webhook_submissions</code> table is being monitored — any row with <code>status='failed'</code> in the last 7 days surfaces on the Admin Dashboard "Failed Webhooks" KPI.</li>
+          <li><span class="box">⬜</span> Define a rollback plan. If real use breaks, how is it reverted? Is ServiceM8 still available as a fallback? How fast can the team go back to it?</li>
+        </ul>
+
+        <h3>Post-launch monitoring (first 7 days)</h3>
+        <ul class="checklist">
+          <li><span class="box">⬜</span> Watch the Sentry error rate for the first 72 hours. Spike means investigate immediately.</li>
+          <li><span class="box">⬜</span> Watch Slack <code>#leads</code> for missed or dropped leads — every webhook submission should produce both a Slack alert and a row in the database.</li>
+          <li><span class="box">⬜</span> Watch the Resend dashboard for bounce rate. Anything above 2–3% needs attention.</li>
+          <li><span class="box">⬜</span> Check the <code>webhook_submissions</code> status distribution daily for the first week. Mostly <code>'processed'</code>; the occasional <code>'rate_limited'</code> is fine; <code>'failed'</code> rows need investigation.</li>
+          <li><span class="box">⬜</span> Log every issue Glen, Clayton, or Michael hits, and triage fast — week-one issues set the team's confidence in the platform.</li>
         </ul>
       </section>
 
