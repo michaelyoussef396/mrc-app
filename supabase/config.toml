@@ -1,1 +1,6 @@
 project_id = "ecyivrxjpsmjmexqatym"
+
+# Public webhook receiver for Framer marketing-site lead form.
+# Framer posts unauthenticated requests, so JWT verification must be disabled.
+[functions.receive-framer-lead]
+verify_jwt = false

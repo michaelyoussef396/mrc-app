@@ -53,6 +53,7 @@ function flattenValues(obj: Record<string, unknown>): string[] {
 // Content detection patterns
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_RE = /^[\d\s()+-]{8,15}$/
+const POSTCODE_RE = /^3\d{3}$/
 const DATE_ISO_RE = /^\d{4}-\d{2}-\d{2}$/
 const DATE_AU_RE = /^\d{1,2}\/\d{1,2}\/\d{4}$/
 const DATE_RE = (val: string) => DATE_ISO_RE.test(val) || DATE_AU_RE.test(val)
@@ -64,6 +65,7 @@ const ParsedLeadSchema = z.object({
   email: z.string().email().max(254),
   street: z.string().max(500).optional(),
   suburb: z.string().max(100).optional(),
+  postcode: z.string().regex(POSTCODE_RE, 'Postcode must be a 4-digit Melbourne postcode (3000-3999)'),
   preferredDate: z.string().max(30).optional(),
   preferredTime: z.string().max(20).optional(),
   issueDescription: z.string().max(5000).optional(),
@@ -93,6 +95,7 @@ interface FramerLeadPayload {
   email: string
   street: string
   suburb: string
+  postcode: string
   preferred_date?: string
   preferred_time?: string
   issue_description?: string
@@ -517,16 +520,18 @@ Deno.serve(async (req) => {
     let email = getField(['email', 'Email', 'email_address', 'Email Address', 'your_email', 'Your Email'])
     let street = getField(['street', 'Street', 'street_address', 'Street Address', 'address', 'Address', 'number_and_address', 'number and address', 'Number and Address', 'property_address', 'Property Address', 'address_line_1'])
     let suburb = getField(['suburb', 'Suburb', 'city', 'City', 'location', 'Location', 'town', 'Town'])
+    let postcode = getField(['postcode', 'Postcode', 'post_code', 'Post Code', 'postal_code', 'Postal Code', 'zip', 'Zip', 'zipcode', 'Zip Code'])
     let preferredDate = getField(['preferred_date', 'Preferred Date', 'date', 'Date', 'preferredDate', 'inspection_date', 'Inspection Date', 'booking_date'])
     let preferredTime = getField(['preferred_time', 'Preferred Time', 'time', 'Time', 'preferredTime', 'inspection_time', 'Inspection Time', 'booking_time'])
     let issueDescription = getField(['issue_description', 'Issue Description', 'issueDescription', 'message', 'Message', 'description', 'Description', 'issue', 'Issue', 'your_message', 'Your Message', 'comments', 'Comments', 'notes', 'Notes', 'details', 'Details'])
 
-    const usedValues = new Set([fullName, phone, email, street, suburb, preferredDate, preferredTime, issueDescription].filter(Boolean))
+    const usedValues = new Set([fullName, phone, email, street, suburb, postcode, preferredDate, preferredTime, issueDescription].filter(Boolean))
 
     for (const val of allValues) {
       if (usedValues.has(val)) continue
       if (!email && EMAIL_RE.test(val)) { email = val; usedValues.add(val) }
       else if (!phone && PHONE_RE.test(val)) { phone = val; usedValues.add(val) }
+      else if (!postcode && POSTCODE_RE.test(val)) { postcode = val; usedValues.add(val) }
       else if (!preferredDate && DATE_RE(val)) { preferredDate = val; usedValues.add(val) }
       else if (!preferredTime && TIME_RE.test(val)) { preferredTime = val; usedValues.add(val) }
     }
@@ -546,7 +551,8 @@ Deno.serve(async (req) => {
         if (!s) continue
         if (!email && EMAIL_RE.test(s)) { email = s; usedValues.add(s) }
         else if (!phone && PHONE_RE.test(s)) { phone = s; usedValues.add(s) }
-        else if (!suburb && !PHONE_RE.test(s) && !EMAIL_RE.test(s) && !DATE_RE(s) && !TIME_RE.test(s)) { suburb = s; usedValues.add(s) }
+        else if (!postcode && POSTCODE_RE.test(s)) { postcode = s; usedValues.add(s) }
+        else if (!suburb && !PHONE_RE.test(s) && !EMAIL_RE.test(s) && !DATE_RE(s) && !TIME_RE.test(s) && !POSTCODE_RE.test(s)) { suburb = s; usedValues.add(s) }
       }
     }
 
@@ -560,12 +566,22 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Bundled-format fallback: older payloads sent suburb as "Southbank VIC 3006".
+    // Extract postcode from suburb if it ends with a 4-digit Melbourne postcode.
+    if (suburb && !postcode) {
+      const match = suburb.match(/\b(3\d{3})\b/)
+      if (match) {
+        postcode = match[1]
+        suburb = suburb.replace(/\s*(VIC\s+)?3\d{3}\s*$/i, '').trim()
+      }
+    }
+
     if (preferredDate) {
       preferredDate = normaliseDate(preferredDate)
       if (!DATE_ISO_RE.test(preferredDate)) preferredDate = ''
     }
 
-    console.log('Parsed fields:', { fullName, phone, email, street, suburb, preferredDate, preferredTime, issueDescription })
+    console.log('Parsed fields:', { fullName, phone, email, street, suburb, postcode, preferredDate, preferredTime, issueDescription })
 
     // --- Validate ---
     const parsedLead = ParsedLeadSchema.safeParse({
@@ -574,6 +590,7 @@ Deno.serve(async (req) => {
       email: email || undefined,
       street: street || undefined,
       suburb: suburb || undefined,
+      postcode: postcode || undefined,
       preferredDate: preferredDate || undefined,
       preferredTime: preferredTime || undefined,
       issueDescription: issueDescription || undefined,
@@ -612,11 +629,11 @@ Deno.serve(async (req) => {
       property_address_street: street,
       property_address_suburb: suburb,
       property_address_state: 'VIC',
-      property_address_postcode: '',
+      property_address_postcode: postcode,
       inspection_scheduled_date: preferredDate || null,
       scheduled_time: preferredTime || null,
       issue_description: issueDescription || null,
-      lead_source: 'website_form',
+      lead_source: 'website',
       status: 'new_lead',
     }
 
@@ -643,7 +660,7 @@ Deno.serve(async (req) => {
     })
 
     const lead: FramerLeadPayload = {
-      full_name: fullName, phone, email, street, suburb,
+      full_name: fullName, phone, email, street, suburb, postcode,
       preferred_date: preferredDate || undefined,
       preferred_time: preferredTime || undefined,
       issue_description: issueDescription || undefined,
