@@ -1716,16 +1716,14 @@ flowchart TD
         </p>
 
         <h3>3.7 Invoice generation</h3>
-        <div class="callout danger">
+        <div class="callout info">
           <p>
-            <strong>P0 GAP — customer invoice email is not wired.</strong> The invoice creation
-            flow updates <code>invoices.status</code> to <code>sent</code> and posts a Slack
-            alert to the team channel, but no email goes to the customer. Grep
-            <code>src/lib/api/notifications.ts</code> — there is no <code>buildInvoiceEmailHtml</code>
-            function and no caller path that emails a customer when an invoice is marked sent.
-            The entire overdue chain in <a href="#customer">Section 1.6</a> assumes the customer
-            received an invoice; in current practice they only receive one if an admin emails
-            it manually outside the app. Tracked as P0 in <a href="#backlog">Section 11</a>.
+            <strong>Customer invoice email is sent manually, by design.</strong> The
+            <strong>Invoice Summary card</strong> on the lead detail page gives the admin
+            everything they need — line items, totals, GST, payment terms — to paste straight
+            into their own email client and send to the customer. The invoice record is fully
+            managed inside the app; the dispatch step is intentionally manual so the admin can
+            personalise the message and use their preferred email tooling.
           </p>
         </div>
         <p>
@@ -1942,7 +1940,7 @@ flowchart TD
                 <td>Invoice sent</td>
                 <td>All admins (Slack)</td>
                 <td>Slack only</td>
-                <td>💰 Invoice INV-2026-NNNN sent to &lt;name&gt; — $X<br/><em>Customer email not currently automated</em></td>
+                <td>💰 Invoice INV-2026-NNNN sent to &lt;name&gt; — $X<br/><em>By design — admin sends manually using the Invoice Summary card data.</em></td>
               </tr>
               <tr>
                 <td>Payment received (Mark Paid)</td>
@@ -1995,12 +1993,12 @@ flowchart TD
           <li><span class="pill deliberate">DELIBERATE</span> No customer-facing push or in-app messaging — customers never log in.</li>
           <li><span class="pill deliberate">DELIBERATE</span> No automated overdue communication to the customer — the office wants the human conversation when chasing money. See <a href="#customer">1.6</a>.</li>
           <li><span class="pill deliberate">DELIBERATE</span> No per-technician Slack DM — Slack is for the office channel; per-tech messaging would fragment the team's shared awareness.</li>
+          <li><span class="pill deliberate">DELIBERATE</span> No automated customer invoice email. By design, the admin copies the Invoice Summary card data into their own email client and sends the invoice manually. Slack alert fires internally.</li>
         </ul>
         <h4>Accidentally silent (genuine gaps)</h4>
         <ul>
           <li><span class="pill notbuilt">✗ NOT BUILT</span> No technician notification (email, push, anything) when a job is assigned or reassigned. Tech learns by opening the app. <a href="#backlog">Section 11, P1</a>.</li>
           <li><span class="pill notbuilt">✗ NOT BUILT</span> No technician notification when an inspection is sent back for revision. Same channel gap. <a href="#backlog">Section 11, P1</a>.</li>
-          <li><span class="pill notbuilt">✗ NOT BUILT</span> No automated customer email when an invoice is generated and sent. The Slack alert fires; nothing reaches the customer. <a href="#backlog">Section 11, P0</a>.</li>
           <li><span class="pill notbuilt">✗ NOT BUILT</span> No bounce / delivery confirmation loop. The <code>email_logs</code> table has columns for bounce status but no Resend webhook listener writes them. <a href="#backlog">Section 11, P1</a>.</li>
         </ul>
       </section>
