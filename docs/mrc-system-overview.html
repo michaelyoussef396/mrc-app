@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="A non-technical overview of the Mould & Restoration Co. operations system — what it does, who uses it, and how the parts fit together." />
+  <title>MRC System Overview</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+  />
+
+  <style>
+    :root {
+      --bg: #FAFAF8;
+      --surface: #FFFFFF;
+      --ink: #1F2937;
+      --ink-muted: #6B7280;
+      --navy: #121D73;
+      --navy-soft: rgba(18, 29, 115, 0.08);
+      --gold: #C8A968;
+      --hairline: rgba(200, 169, 104, 0.45);
+      --content-max: 860px;
+      --radius: 10px;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-size: clamp(16px, 1.6vw, 17px);
+      line-height: 1.65;
+      font-weight: 400;
+      text-rendering: optimizeLegibility;
+    }
+
+    .page {
+      max-width: var(--content-max);
+      margin: 0 auto;
+      padding: clamp(28px, 5vw, 56px) clamp(20px, 5vw, 48px) 80px;
+    }
+
+    header.masthead {
+      border-bottom: 1px solid var(--hairline);
+      padding-bottom: 28px;
+      margin-bottom: 48px;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin: 0 0 12px;
+    }
+
+    h1 {
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: clamp(28px, 5.5vw, 42px);
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      color: var(--navy);
+      margin: 0 0 14px;
+    }
+
+    .lede {
+      font-size: clamp(17px, 2vw, 19px);
+      color: var(--ink-muted);
+      margin: 0;
+      max-width: 60ch;
+      line-height: 1.55;
+    }
+
+    h2 {
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: clamp(22px, 3.4vw, 28px);
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+      color: var(--navy);
+      margin: 64px 0 18px;
+      padding-top: 24px;
+      border-top: 1px solid var(--hairline);
+    }
+
+    h2 .num {
+      display: inline-block;
+      color: var(--gold);
+      font-weight: 600;
+      margin-right: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    h3 {
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 17px;
+      color: var(--navy);
+      margin: 28px 0 6px;
+    }
+
+    p {
+      margin: 0 0 16px;
+    }
+
+    section p:last-child {
+      margin-bottom: 0;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 16px;
+    }
+
+    ul li {
+      position: relative;
+      padding-left: 22px;
+      margin-bottom: 12px;
+    }
+
+    ul li::before {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 0.7em;
+      width: 6px;
+      height: 6px;
+      background: var(--gold);
+      border-radius: 50%;
+    }
+
+    ul li strong {
+      color: var(--navy);
+      font-weight: 600;
+    }
+
+    .role-card,
+    .object-row {
+      background: var(--surface);
+      border: 1px solid rgba(31, 41, 55, 0.06);
+      border-left: 3px solid var(--gold);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      margin-bottom: 12px;
+    }
+
+    .role-card h3,
+    .object-row h3 {
+      margin-top: 0;
+      margin-bottom: 4px;
+    }
+
+    .role-card p,
+    .object-row p {
+      margin-bottom: 0;
+      color: var(--ink);
+    }
+
+    figure.diagram {
+      margin: 28px 0 12px;
+      padding: 24px 18px;
+      background: var(--surface);
+      border: 1px solid rgba(31, 41, 55, 0.06);
+      border-radius: var(--radius);
+      overflow-x: auto;
+    }
+
+    figure.diagram pre.mermaid {
+      margin: 0;
+      background: transparent;
+      font-family: inherit;
+      text-align: center;
+    }
+
+    figure.diagram figcaption {
+      margin-top: 16px;
+      font-size: 14px;
+      color: var(--ink-muted);
+      font-style: italic;
+      text-align: center;
+      line-height: 1.55;
+    }
+
+    .screens-list li {
+      padding-left: 0;
+      margin-bottom: 14px;
+    }
+
+    .screens-list li::before {
+      display: none;
+    }
+
+    .screens-list li strong {
+      display: inline-block;
+      min-width: 0;
+    }
+
+    .screens-list li strong::after {
+      content: ' — ';
+      color: var(--ink-muted);
+      font-weight: 400;
+    }
+
+    footer.colophon {
+      margin-top: 80px;
+      padding-top: 24px;
+      border-top: 1px solid var(--hairline);
+      font-size: 13px;
+      color: var(--ink-muted);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    footer.colophon .brand {
+      font-weight: 600;
+      color: var(--navy);
+      letter-spacing: 0.02em;
+    }
+
+    @media (max-width: 520px) {
+      .role-card,
+      .object-row {
+        padding: 16px 18px;
+      }
+
+      figure.diagram {
+        padding: 16px 8px;
+      }
+    }
+
+    @media print {
+      body {
+        background: #FFFFFF;
+      }
+      .page {
+        padding: 24px;
+        max-width: none;
+      }
+      figure.diagram {
+        background: #FFFFFF;
+        border-color: #DDDDDD;
+        page-break-inside: avoid;
+      }
+      h2 {
+        page-break-after: avoid;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="masthead">
+      <p class="eyebrow">System Overview</p>
+      <h1>Mould &amp; Restoration Co. — How the Operations System Works</h1>
+      <p class="lede">
+        A five-minute, plain-English tour of the platform that runs every MRC job — from a customer's
+        first website enquiry to the final paid invoice. Written for operations, finance, and partners.
+      </p>
+    </header>
+
+    <section id="what-it-is">
+      <h2><span class="num">1.</span>What MRC Is</h2>
+      <p>
+        Mould &amp; Restoration Co. is a Melbourne mould inspection and remediation business.
+      </p>
+      <p>
+        The MRC App is the single system that runs every job from the customer's first website enquiry
+        through to the final paid invoice — booking the visit, capturing what the technician finds on-site,
+        sending the inspection report, performing the remediation work, billing the customer, and tracking
+        payment.
+      </p>
+      <p>
+        It is built mobile-first so technicians can use it on a phone in the field, and it works offline
+        at job sites with no signal — syncing automatically once they're back in coverage.
+      </p>
+    </section>
+
+    <section id="who-uses-it">
+      <h2><span class="num">2.</span>Who Uses It</h2>
+      <p>
+        Three groups interact with the system. Two of them log in; the third never does.
+      </p>
+
+      <div class="role-card">
+        <h3>An Admin (office team)</h3>
+        <p>
+          can see every customer and every job in the pipeline. They book inspections, assign technicians,
+          review and approve reports before they leave the building, send invoices, and track who has paid.
+          This is the only role that touches money or sends communication to customers.
+        </p>
+      </div>
+
+      <div class="role-card">
+        <h3>A Field Technician</h3>
+        <p>
+          can see only the jobs assigned to them. They fill out the inspection form on-site, take photos,
+          and later fill out a job completion form once remediation work is finished. They cannot view
+          other technicians' jobs, the invoicing area, or the broader admin dashboards.
+        </p>
+      </div>
+
+      <div class="role-card">
+        <h3>A Customer</h3>
+        <p>
+          submits the initial enquiry through the public website form. They never log in. Every piece of
+          communication they receive — booking confirmation, inspection report, job report, invoice,
+          review request — arrives by email.
+        </p>
+      </div>
+    </section>
+
+    <section id="lifecycle">
+      <h2><span class="num">3.</span>The Job Lifecycle</h2>
+      <p>
+        Each customer file moves through eight business stages. The label under each stage shows who is
+        responsible for moving it forward.
+      </p>
+
+      <figure class="diagram">
+        <pre class="mermaid">
+flowchart TD
+  A["1. Customer submits enquiry<br/><i>Customer</i>"]
+  B["2. Inspection booked<br/><i>Admin</i>"]
+  C["3. Inspection on-site<br/><i>Technician</i>"]
+  D["4. Inspection report drafted, reviewed, emailed<br/><i>Admin</i>"]
+  E["5. Remediation job scheduled<br/><i>Admin</i>"]
+  F["6. Job completed on-site<br/><i>Technician</i>"]
+  G["7. Job report reviewed and emailed<br/><i>Admin</i>"]
+  H["8. Invoice sent &rarr; paid &rarr; review request &rarr; closed<br/><i>Admin</i>"]
+  A --> B --> C --> D --> E --> F --> G --> H
+        </pre>
+        <figcaption>
+          Internally the system tracks sixteen finer-grained statuses to support pipeline reporting; the
+          eight stages above are the customer-visible milestones.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section id="objects">
+      <h2><span class="num">4.</span>Core Business Objects</h2>
+      <p>
+        Beneath the surface, the system organises everything around nine business objects. These are the
+        things you'd recognise from a paper-based operation — customers, jobs, photos, invoices —
+        translated into a structured digital record.
+      </p>
+
+      <div class="object-row">
+        <h3>Customer</h3>
+        <p>
+          A person or business who has asked for our help. Holds contact details, the property address,
+          who is assigned, and the current pipeline status.
+        </p>
+      </div>
+
+      <div class="object-row">
+        <h3>Inspection</h3>
+        <p>
+          The first site visit. Records what the technician found (mould locations, moisture readings,
+          climate data, photos), the recommended treatment, and the price quote.
+        </p>
+      </div>
+
+      <div class="object-row">
+        <h3>Area</h3>
+        <p>
+          One room within an inspection (e.g. main bathroom, ensuite, laundry). Each area has its own
+          observations, moisture readings, and photo set.
+        </p>
+      </div>
+
+      <div class="object-row">
+        <h3>Booking</h3>
+        <p>
+          A specific appointment in the calendar. Holds the date, time, technician assigned, and the
+          travel time from the previous job.
+        </p>
+      </div>
+
+      <div class="object-row">
+        <h3>Job Report</h3>
+        <p>
+          The record of what was actually done during the remediation work. Lists treatment methods,
+          chemicals applied, equipment deployed, and any scope changes from the original quote.
+        </p>
+      </div>
+
+      <div class="object-row">
+        <h3>Invoice</h3>
+        <p>
+          The bill sent to the customer. Tracks line items, GST, discount (capped at 13%), payment status
+          (draft, sent, paid, overdue), and payment method.
+        </p>
+      </div>
+
+      <div class="object-row">
+        <h3>Photo</h3>
+        <p>
+          A piece of visual evidence. Tagged as before, after, or general, and attached to the relevant
+          area or job report.
+        </p>
+      </div>
+
+      <div class="object-row">
+        <h3>Technician</h3>
+        <p>
+          A staff member who does the field work. Has a profile, a calendar of assigned bookings, and a
+          private view of their own jobs.
+        </p>
+      </div>
+
+      <div class="object-row">
+        <h3>Activity</h3>
+        <p>
+          A single event in the timeline of a customer's file (e.g. "inspection booked for 22 April",
+          "report approved by admin", "payment received"). Activities make up the audit trail visible on
+          every customer record.
+        </p>
+      </div>
+
+      <figure class="diagram">
+        <pre class="mermaid">
+erDiagram
+  CUSTOMER ||--o{ INSPECTION : "requests"
+  CUSTOMER ||--o{ BOOKING : "scheduled for"
+  CUSTOMER ||--o{ ACTIVITY : "has timeline of"
+  INSPECTION ||--|{ AREA : "covers"
+  AREA ||--o{ PHOTO : "documented by"
+  BOOKING }o--|| TECHNICIAN : "assigned to"
+  INSPECTION ||--o| JOB_REPORT : "leads to"
+  JOB_REPORT ||--o{ PHOTO : "evidenced by"
+  JOB_REPORT ||--o| INVOICE : "billed via"
+        </pre>
+        <figcaption>
+          How the objects relate. Read the connectors as "one Customer can have many Inspections", "each
+          Booking is assigned to one Technician", and so on.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section id="how-connected">
+      <h2><span class="num">5.</span>How the Parts Connect</h2>
+      <p>
+        The MRC App is a website hosted in the cloud. Everything a user sees and clicks runs in their
+        browser. The database, login, and file storage live on a managed backend service. Four outside
+        services are called only when needed — when an email is sent, when a team notification fires,
+        when travel time needs estimating, and when an inspection summary is drafted by AI.
+      </p>
+
+      <figure class="diagram">
+        <pre class="mermaid">
+flowchart TD
+  subgraph Devices ["Devices"]
+    direction LR
+    T["Technician's phone"]
+    AD["Admin's laptop"]
+    CB["Customer's web browser"]
+  end
+
+  APP["MRC App<br/>(the website itself)"]
+
+  subgraph Backend ["MRC Backend"]
+    direction LR
+    AUTH["Login &amp; Permissions"]
+    DB["Customer &amp; Job Database"]
+    FILES["Photos &amp; PDFs storage"]
+  end
+
+  subgraph External ["Outside Services"]
+    direction LR
+    EMAIL["Email Service<br/>(reports &amp; invoices)"]
+    SLACK["Team Chat<br/>(internal notifications)"]
+    MAPS["Maps Service<br/>(travel time)"]
+    AI["AI Writer<br/>(inspection summaries)"]
+  end
+
+  T --> APP
+  AD --> APP
+  CB --> APP
+  APP --> AUTH
+  APP --> DB
+  APP --> FILES
+  APP --> EMAIL
+  APP --> SLACK
+  APP --> MAPS
+  APP --> AI
+        </pre>
+        <figcaption>
+          Devices talk to one website. The website talks to a managed backend for storage and login, and
+          reaches out to specialised services only when a particular task needs them.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section id="screens">
+      <h2><span class="num">6.</span>Key Screens</h2>
+      <p>
+        The system is built around about a dozen primary screens. These are the ones an operations
+        manager would want to know exist.
+      </p>
+
+      <ul class="screens-list">
+        <li>
+          <strong>Admin Dashboard</strong>Today's snapshot — jobs scheduled, leads to assign, completed
+          this week, revenue this week, and any reports awaiting review.
+        </li>
+        <li>
+          <strong>Lead List</strong>The pipeline view of every customer, filterable by stage and
+          searchable.
+        </li>
+        <li>
+          <strong>Customer Detail</strong>The most-used admin screen — contact, property, inspection
+          findings, quote, booking, job report, invoice, payment status, and the full activity timeline
+          on one page.
+        </li>
+        <li>
+          <strong>Schedule</strong>A week-or-day calendar of every technician's bookings, with
+          drag-to-reassign.
+        </li>
+        <li>
+          <strong>Reports &amp; Analytics</strong>Conversion rate, average revenue per job, completion
+          time, and breakdown by lead source.
+        </li>
+        <li>
+          <strong>Inspection Report Editor</strong>Where admin reviews the draft inspection PDF, edits
+          any field inline, and sends it to the customer.
+        </li>
+        <li>
+          <strong>Job Report Editor</strong>The same screen pattern for the post-remediation report.
+        </li>
+        <li>
+          <strong>Technician Dashboard</strong>Today's jobs, with a "next job" card showing address and
+          travel time from the technician's current location.
+        </li>
+        <li>
+          <strong>My Jobs</strong>A technician's full assigned-job list, grouped by today, this week,
+          upcoming, and completed.
+        </li>
+        <li>
+          <strong>Inspection Form</strong>The mobile form a technician fills out on-site —
+          multi-section, auto-saves every few seconds, and works offline.
+        </li>
+        <li>
+          <strong>Job Completion Form</strong>The mobile form a technician fills out after the
+          remediation work is finished — captures methods, chemicals, equipment used, and before/after
+          photos.
+        </li>
+        <li>
+          <strong>Public Request Form</strong>The website page where prospective customers submit their
+          initial enquiry. The only screen accessible without logging in.
+        </li>
+      </ul>
+    </section>
+
+    <footer class="colophon">
+      <span class="brand">Mould &amp; Restoration Co.</span>
+      <span>Last generated: 2026-04-22</span>
+    </footer>
+  </main>
+
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      securityLevel: 'loose',
+      fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+      themeVariables: {
+        primaryColor: '#FFFFFF',
+        primaryTextColor: '#1F2937',
+        primaryBorderColor: '#121D73',
+        lineColor: '#6B7280',
+        secondaryColor: '#F5F5F0',
+        tertiaryColor: '#FAFAF8',
+        background: '#FFFFFF',
+        mainBkg: '#FFFFFF',
+        secondaryBkg: '#F5F5F0',
+        nodeBorder: '#121D73',
+        clusterBkg: '#FAFAF8',
+        clusterBorder: '#C8A968',
+        titleColor: '#121D73',
+        edgeLabelBackground: '#FAFAF8',
+        fontSize: '15px'
+      },
+      flowchart: {
+        curve: 'basis',
+        padding: 16,
+        nodeSpacing: 36,
+        rankSpacing: 44
+      },
+      er: {
+        diagramPadding: 16,
+        layoutDirection: 'TB',
+        minEntityWidth: 110,
+        minEntityHeight: 50,
+        entityPadding: 12,
+        useMaxWidth: true
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,3193 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="A code-grounded, no-sugar-coating tour of the Mould & Restoration Co. operations system, written for business-technical readers." />
+  <title>MRC Full Walkthrough</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+  />
+
+  <style>
+    :root {
+      --bg: #FAFAF8;
+      --surface: #FFFFFF;
+      --surface-alt: #F5F5F0;
+      --ink: #1F2937;
+      --ink-soft: #374151;
+      --ink-muted: #6B7280;
+      --navy: #121D73;
+      --navy-soft: rgba(18, 29, 115, 0.08);
+      --gold: #C8A968;
+      --gold-soft: rgba(200, 169, 104, 0.12);
+      --hairline: rgba(200, 169, 104, 0.45);
+      --border: rgba(31, 41, 55, 0.08);
+      --green: #15803D;
+      --green-soft: rgba(21, 128, 61, 0.08);
+      --amber: #B45309;
+      --amber-soft: rgba(180, 83, 9, 0.08);
+      --red: #B91C1C;
+      --red-soft: rgba(185, 28, 28, 0.08);
+      --content-max: 960px;
+      --radius: 10px;
+    }
+
+    *,
+    *::before,
+    *::after { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-text-size-adjust: 100%;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-size: clamp(15.5px, 1.55vw, 16.5px);
+      line-height: 1.65;
+      font-weight: 400;
+      text-rendering: optimizeLegibility;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    @media (min-width: 1024px) {
+      .layout {
+        grid-template-columns: 240px 1fr;
+        gap: 48px;
+      }
+    }
+
+    aside.toc {
+      display: none;
+    }
+
+    @media (min-width: 1024px) {
+      aside.toc {
+        display: block;
+        position: sticky;
+        top: 24px;
+        align-self: start;
+        max-height: calc(100vh - 48px);
+        overflow-y: auto;
+        padding: 32px 0 32px 28px;
+        font-size: 13.5px;
+        line-height: 1.5;
+      }
+    }
+
+    aside.toc h4 {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin: 0 0 8px;
+    }
+
+    aside.toc ul {
+      list-style: none;
+      padding: 0 0 0 6px;
+      margin: 0 0 22px;
+      border-left: 1px solid var(--hairline);
+    }
+
+    aside.toc li {
+      margin: 0;
+      padding: 0;
+    }
+
+    aside.toc a {
+      display: block;
+      padding: 4px 10px;
+      color: var(--ink-soft);
+      text-decoration: none;
+      border-radius: 4px;
+      transition: background 120ms ease, color 120ms ease;
+    }
+
+    aside.toc a:hover {
+      background: var(--gold-soft);
+      color: var(--navy);
+    }
+
+    main.page {
+      padding: clamp(24px, 4vw, 48px) clamp(20px, 4vw, 40px) 80px;
+      max-width: var(--content-max);
+    }
+
+    header.masthead {
+      border-bottom: 1px solid var(--hairline);
+      padding-bottom: 28px;
+      margin-bottom: 36px;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin: 0 0 12px;
+    }
+
+    h1 {
+      font-weight: 700;
+      font-size: clamp(28px, 5vw, 40px);
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      color: var(--navy);
+      margin: 0 0 14px;
+    }
+
+    .lede {
+      font-size: clamp(16px, 1.8vw, 18px);
+      color: var(--ink-muted);
+      margin: 0;
+      max-width: 64ch;
+      line-height: 1.55;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      margin-top: 18px;
+      font-size: 13px;
+      color: var(--ink-muted);
+    }
+
+    .meta strong {
+      color: var(--navy);
+      font-weight: 600;
+    }
+
+    h2 {
+      font-weight: 600;
+      font-size: clamp(22px, 3.2vw, 28px);
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+      color: var(--navy);
+      margin: 56px 0 16px;
+      padding-top: 28px;
+      border-top: 2px solid var(--gold);
+      scroll-margin-top: 24px;
+    }
+
+    h2 .num {
+      display: inline-block;
+      color: var(--gold);
+      font-weight: 600;
+      margin-right: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    h3 {
+      font-weight: 600;
+      font-size: clamp(18px, 2.2vw, 20px);
+      color: var(--navy);
+      margin: 36px 0 8px;
+      scroll-margin-top: 24px;
+    }
+
+    h4 {
+      font-weight: 600;
+      font-size: 16px;
+      color: var(--navy);
+      margin: 22px 0 6px;
+    }
+
+    p { margin: 0 0 14px; }
+
+    section p:last-child { margin-bottom: 0; }
+
+    ul, ol {
+      padding-left: 22px;
+      margin: 0 0 14px;
+    }
+
+    ul li, ol li {
+      margin-bottom: 6px;
+    }
+
+    ul li::marker {
+      color: var(--gold);
+    }
+
+    code, .mono {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.88em;
+      background: var(--surface-alt);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: var(--ink-soft);
+    }
+
+    .pill {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 2px 8px;
+      border-radius: 999px;
+      vertical-align: 2px;
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+    .pill.built { background: var(--green-soft); color: var(--green); }
+    .pill.partial { background: var(--amber-soft); color: var(--amber); }
+    .pill.notbuilt { background: var(--red-soft); color: var(--red); }
+    .pill.note { background: var(--navy-soft); color: var(--navy); }
+    .pill.deliberate {
+      background: rgba(31, 41, 55, 0.05);
+      color: #374151;
+      border: 1.5px dashed #6B7280;
+      padding: 1px 8px 1px 6px;
+    }
+    .pill.deliberate::before {
+      content: '⊖\00a0';
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    .pill.priority {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      letter-spacing: 0;
+    }
+    .pill.p0 { background: var(--red-soft); color: var(--red); }
+    .pill.p1 { background: var(--amber-soft); color: var(--amber); }
+    .pill.p2 { background: var(--navy-soft); color: var(--navy); }
+    .pill.p3 { background: var(--surface-alt); color: var(--ink-muted); }
+    .dev-tag {
+      display: inline-block;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      padding: 2px 6px;
+      background: var(--navy);
+      color: #FFFFFF;
+      border-radius: 3px;
+      margin-left: 8px;
+      vertical-align: 4px;
+    }
+
+    .callout {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--gold);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin: 16px 0;
+    }
+    .callout.warn { border-left-color: var(--amber); background: var(--amber-soft); }
+    .callout.danger { border-left-color: var(--red); background: var(--red-soft); }
+    .callout.info { border-left-color: var(--navy); background: var(--navy-soft); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout strong { color: var(--navy); }
+
+    figure.diagram {
+      margin: 22px 0 8px;
+      padding: 22px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+    }
+    figure.diagram pre.mermaid {
+      margin: 0;
+      background: transparent;
+      font-family: inherit;
+      text-align: center;
+    }
+    figure.diagram figcaption {
+      margin-top: 14px;
+      font-size: 13.5px;
+      color: var(--ink-muted);
+      font-style: italic;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    details.section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin: 16px 0 24px;
+      overflow: hidden;
+    }
+    details.section[open] { border-color: var(--hairline); }
+    details.section > summary {
+      cursor: pointer;
+      padding: 18px 22px;
+      font-weight: 600;
+      font-size: 16px;
+      color: var(--navy);
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      user-select: none;
+      min-height: 44px;
+    }
+    details.section > summary::-webkit-details-marker { display: none; }
+    details.section > summary::before {
+      content: '▸';
+      display: inline-block;
+      color: var(--gold);
+      font-size: 12px;
+      transition: transform 160ms ease;
+      width: 12px;
+    }
+    details.section[open] > summary::before {
+      transform: rotate(90deg);
+    }
+    details.section > .body {
+      padding: 4px 22px 22px;
+      border-top: 1px solid var(--border);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 14px 0 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th {
+      text-align: left;
+      padding: 12px 14px;
+      background: var(--surface-alt);
+      color: var(--navy);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      line-height: 1.45;
+    }
+    tr:last-child td { border-bottom: none; }
+    td.tick { color: var(--green); font-weight: 600; text-align: center; }
+    td.cross { color: var(--red); font-weight: 600; text-align: center; }
+    td.cond { color: var(--amber); font-weight: 500; }
+    td.center { text-align: center; }
+
+    .field-list {
+      margin: 8px 0 14px;
+      padding-left: 18px;
+    }
+    .field-list li {
+      margin-bottom: 4px;
+      font-size: 14.5px;
+    }
+    .field-list code { font-size: 12.5px; }
+    .field-list .req { color: var(--red); font-weight: 600; font-size: 11px; margin-left: 4px; }
+    .field-list .opt { color: var(--ink-muted); font-size: 11px; margin-left: 4px; }
+
+    footer.colophon {
+      margin-top: 64px;
+      padding-top: 24px;
+      border-top: 1px solid var(--hairline);
+      font-size: 13px;
+      color: var(--ink-muted);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    footer.colophon .brand {
+      font-weight: 600;
+      color: var(--navy);
+    }
+
+    @media (max-width: 520px) {
+      h2 { font-size: 22px; margin-top: 40px; }
+      h3 { font-size: 17px; }
+      .callout, details.section > .body { padding-left: 14px; padding-right: 14px; }
+      th, td { padding: 10px 10px; font-size: 13px; }
+      figure.diagram { padding: 14px 6px; }
+    }
+
+    @media print {
+      body { background: #FFFFFF; }
+      aside.toc { display: none; }
+      main.page { padding: 24px; max-width: none; }
+      details.section { border: 1px solid #DDD; }
+      /* Force every collapsible section open in print, regardless of [open] state */
+      details.section > .body { display: block !important; }
+      details.section > summary { cursor: default; }
+      details.section > summary::before { display: none; }
+      figure.diagram, .callout, .table-wrap { page-break-inside: avoid; }
+      h2, h3 { page-break-after: avoid; }
+      a { color: var(--ink); text-decoration: none; }
+      pre { white-space: pre-wrap; word-break: break-word; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+      html { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="toc" aria-label="Table of contents">
+      <h4>Start here</h4>
+      <ul>
+        <li><a href="#how-to-read">How to read this</a></li>
+        <li><a href="#day-one">Day One</a></li>
+      </ul>
+      <h4>Journeys</h4>
+      <ul>
+        <li><a href="#customer">1. Customer</a></li>
+        <li><a href="#technician">2. Technician</a></li>
+        <li><a href="#admin">3. Admin</a></li>
+      </ul>
+      <h4>Cross-cutting</h4>
+      <ul>
+        <li><a href="#notification-map">4. Notification Map</a></li>
+        <li><a href="#failures">5. When Things Go Wrong</a></li>
+        <li><a href="#permissions">6. Permission Matrix</a></li>
+        <li><a href="#screens">7. Screen Inventory</a></li>
+      </ul>
+      <h4>Reference</h4>
+      <ul>
+        <li><a href="#edge-functions">8. Edge Functions</a></li>
+        <li><a href="#database">9. Database Shape</a></li>
+        <li><a href="#integrations">10. Integrations</a></li>
+        <li><a href="#backlog">11. Known Issues &amp; Backlog</a></li>
+        <li><a href="#glossary">12. Glossary</a></li>
+      </ul>
+    </aside>
+
+    <main class="page">
+      <header class="masthead">
+        <p class="eyebrow">Full Walkthrough</p>
+        <h1>The MRC Operations System — Every Path, Every Button, Every Edge Case</h1>
+        <p class="lede">
+          A ground-truth tour of the MRC operations system — what's built, what's deliberately
+          not, and what's still a gap. Three role journeys, four cross-cutting references, five
+          appendices. Written so three different readers (admin, co-owner, auditor) find what
+          they need without context-switching.
+        </p>
+        <div class="meta">
+          <span><strong>Built for:</strong> a new admin on Monday morning · a co-owner setting
+            priorities · an auditor or acquirer verifying operational maturity</span>
+          <span><strong>Companion to:</strong> <code>docs/mrc-system-overview.html</code> (executive
+            summary)</span>
+        </div>
+      </header>
+
+      <section id="how-to-read">
+        <h2><span class="num">0.</span>How to read this</h2>
+        <p>The document has three parts.</p>
+        <p>
+          <strong>Journeys (1–3).</strong> How each role — customer, technician, admin — moves
+          through the system, in the order things happen.
+        </p>
+        <p>
+          <strong>Cross-cutting references (4–7).</strong> What touches every journey:
+          notifications, failure modes, permissions, and the full list of screens.
+        </p>
+        <p>
+          <strong>Appendices (8–12).</strong> Reference material for Edge Functions, the
+          database, integrations, known issues, and a glossary.
+        </p>
+        <p>Status tags:</p>
+        <ul>
+          <li><span class="pill built">✓ BUILT</span> — implemented and working in production.</li>
+          <li><span class="pill partial">⚠ PARTIAL</span> — scaffolding exists; key pieces missing or stubbed.</li>
+          <li><span class="pill notbuilt">✗ NOT BUILT</span> — planned or assumed but not implemented.</li>
+          <li><span class="pill deliberate">DELIBERATE</span> — intentionally not built. Examples: customer cancel button (retention phone call is the product), self-service portal (not yet planned), SMS sending (cost / compliance), refunds (handled outside the system).</li>
+          <li><span class="pill note">i NOTE</span> — non-obvious behaviour or archaeology.</li>
+        </ul>
+        <p>
+          Sections marked <span class="dev-tag">DEV</span> are denser — Edge Functions, database
+          schema. Skim them safely if you're not technical.
+        </p>
+        <p>
+          Every file path is real. Every quoted string was read out of the code at the cited
+          line.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           DAY ONE
+           ============================================================ -->
+      <section id="day-one">
+        <h2><span class="num">★</span>Day One — the four things that matter most</h2>
+        <p>
+          If you're new to the business or to the system, internalise these four before anything
+          else. They explain ninety percent of the surprises a new admin will hit in their
+          first week.
+        </p>
+        <ul>
+          <li><strong>Phone calls fill every gap the app leaves.</strong> The app does not handle
+            cancellation, dispute, payment chasing, or out-of-hours communication. When a customer
+            wants to change something, they ring the office. The app records the result of that
+            call after the fact.</li>
+          <li><strong>Technicians learn about new jobs by opening the app.</strong> There is no
+            push notification, no SMS, no email when a job is assigned. If you assign a tech to a
+            job, you also need to text or call them — the app will not.</li>
+          <li><strong>The 13% discount cap is enforced at the database.</strong> It is not a UI
+            convention. The <code>invoices</code> table has a CHECK constraint that refuses any
+            value above 13%. There is no override. Any pricing exception above 13% requires a code
+            and database change.</li>
+          <li><strong>Slack is the system's nervous system.</strong> Every status change, every
+            booking, every payment, every overdue milestone posts to the team Slack channel. If
+            something happened in the app and it didn't appear in Slack, it didn't really happen
+            — start your investigation there.</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           JOURNEY 1: CUSTOMER
+           ============================================================ -->
+      <section id="customer">
+        <h2><span class="num">1.</span>Journey 1 — The Customer</h2>
+        <p>
+          The customer never logs in. Their entire relationship with MRC happens through a single
+          public form, a series of emails, and (mostly) phone calls. Below is every touchpoint they
+          experience in order, with notes on what is genuinely automated vs handled by an admin
+          behind the scenes.
+        </p>
+
+        <figure class="diagram">
+          <pre class="mermaid">
+flowchart TD
+  A["Customer lands on website"]
+  B["Submits public request form<br/>(8 fields, AU-format validation)"]
+  C["Sees instant confirmation page<br/>+ reference number"]
+  D{"Lead created<br/>in database"}
+  E["Receives confirmation email<br/>(noreply@mrcsystem.com)"]
+  F["Phone call from admin<br/><i>OUTSIDE the system</i>"]
+  G["Receives Booking Confirmation email<br/>+ Inspection Reminder 2 days prior"]
+  H["Technician arrives on-site"]
+  I["Receives Inspection Report email<br/>with PDF attached"]
+  J["Phone call to discuss quote<br/><i>OUTSIDE the system — no in-app accept</i>"]
+  K["Receives Job Booking Confirmation"]
+  L["Technician completes remediation"]
+  M["Receives Job Completion Report email<br/>with PDF attached"]
+  N["Receives invoice<br/><i>currently sent manually by admin</i>"]
+  O["Pays via bank transfer / card / cash<br/><i>OUTSIDE the system — no payment processor</i>"]
+  P["Admin marks invoice paid"]
+  Q["Receives Google Review request email"]
+  R["Optionally clicks through to Google review"]
+  A --> B --> C
+  B --> D --> E
+  E --> F --> G --> H --> I
+  I --> J --> K --> L --> M
+  M --> N --> O --> P --> Q --> R
+          </pre>
+          <figcaption>
+            Customer journey. The app is the office's tool, not a customer self-service portal —
+            that will be planned moving forward, once real usage data tells us what customers
+            actually need.
+          </figcaption>
+        </figure>
+
+        <h3>1.1 The public request form</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> The public intake is the Framer marketing
+          site's "Request Inspection" form. It posts to the <code>receive-framer-lead</code>
+          Edge Function (<code>supabase/functions/receive-framer-lead/index.ts</code>);
+          see <a href="#edge-functions">Section 8</a> for the function summary and
+          <a href="#integrations">Section 10.8</a> for the Framer integration overall.
+        </p>
+
+        <p>What the form captures:</p>
+        <ul class="field-list">
+          <li><strong>Full Name</strong><span class="req">required</span> — minimum 1 character.</li>
+          <li><strong>Phone Number</strong><span class="req">required</span> — minimum 8 digits.</li>
+          <li><strong>Email</strong><span class="req">required</span> — standard email validation.</li>
+          <li><strong>Street Address</strong><span class="req">required</span></li>
+          <li><strong>Suburb</strong><span class="req">required</span></li>
+          <li><strong>Postcode</strong><span class="req">required</span> — Melbourne range, validated 3000–3999, written to <code>property_address_postcode</code>.</li>
+          <li><strong>Preferred Date of Booking</strong><span class="opt">optional</span> — free-form date string, normalised to ISO.</li>
+          <li><strong>Preferred Time of Booking</strong><span class="opt">optional</span></li>
+          <li><strong>Issue Description</strong><span class="opt">optional</span> — textarea.</li>
+        </ul>
+
+        <p>
+          Validation runs against a Zod schema in the Edge Function
+          (<code>receive-framer-lead/index.ts:61-70</code>). The function smart-parses the
+          incoming payload — it accepts JSON, multipart form-data, and url-encoded bodies, and
+          falls back to regex-based content detection (email / phone / date / time patterns) for
+          any field whose name doesn't match the expected keys
+          (<code>:501-561</code>). This makes the function robust against Framer field-name
+          changes.
+        </p>
+
+        <div class="callout warn">
+          <p>
+            <strong>Customer-preferred date and time are not confirmed bookings.</strong> The
+            Preferred Date and Preferred Time inputs land in the
+            <code>inspection_scheduled_date</code> and <code>scheduled_time</code> columns on
+            the leads table — the same columns that hold real, admin-confirmed bookings. The
+            Admin Dashboard "Today's Jobs" KPI and the Schedule view treat them identically.
+            Admin must reconfirm before treating any of these as actual appointments. Tracked
+            as P2 in <a href="#backlog">Section 11</a>.
+          </p>
+        </div>
+
+        <h3>1.1a Admin manual entry</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> When a customer phones the office, or a lead
+          arrives from hipages or another non-website channel, an admin enters it manually via
+          the "New Lead" button on the Admin Dashboard or the Leads Management screen. Source:
+          <code>src/components/leads/CreateNewLeadModal.tsx</code>.
+        </p>
+        <p>
+          The modal differs from the Framer form in three ways. It uses Google Maps autocomplete
+          for the address and captures latitude/longitude
+          (<code>CreateNewLeadModal.tsx:4</code> imports
+          <code>useAddressAutocomplete</code>), which then drives the
+          <code>property_zone</code> calculation via
+          <code>calculatePropertyZone(lat, lng)</code>. It offers a date picker plus 30-minute
+          time slots from 7 AM to 6 PM (<code>:82-91</code>). And it lets the admin pick a
+          free-text <code>lead_source</code> from a dropdown
+          (<code>leadSourceOptions</code>) rather than the channel-specific value the Framer
+          path writes.
+        </p>
+
+        <h3>1.1b Archaeology — <code>/request-inspection</code></h3>
+        <p>
+          <span class="pill note">i NOTE</span> An older React route at
+          <code>/request-inspection</code> (<code>src/pages/RequestInspection.tsx</code>)
+          exists with its own 8-field Zod schema and direct database insert via
+          <code>createPublicLead()</code>. Pre-dates the Framer integration. Grep across
+          <code>src/</code> finds zero navigation links — the route is reachable only by
+          typing the URL directly. Tracked as P2 in <a href="#backlog">Section 11</a> for
+          removal.
+        </p>
+
+        <h3>1.2 What happens when a Framer submission arrives</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> The Edge Function processes every webhook in
+          this exact sequence:
+        </p>
+        <ol>
+          <li><strong>Raw body logged.</strong> Before any parsing, the raw payload is written
+            to the <code>webhook_submissions</code> table with status <code>'received'</code>
+            (<code>:429-435</code>). This is the audit-survives-everything log: even if the
+            function later fails, the raw payload is preserved for manual recovery.</li>
+          <li><strong>Body size + rate-limit checks.</strong> Bodies over 50 KB are rejected
+            (413). IPs that have submitted more than 5 times in the last hour are rejected
+            (429). Both update <code>webhook_submissions.status</code> to <code>'failed'</code>
+            or <code>'rate_limited'</code> respectively (<code>:11-12, 450-475</code>) and fire
+            admin alert email + Slack.</li>
+          <li><strong>Body parsed.</strong> Supports JSON, multipart form-data, and url-encoded
+            content types (<code>:483-499</code>).</li>
+          <li><strong>Smart field extraction.</strong> Tries known field-name aliases first
+            (e.g. accepts both <code>full_name</code> and <code>"Full Name"</code>); then falls
+            back to regex content detection on remaining values (email pattern, phone pattern,
+            date pattern, time pattern) for any unmatched fields. Robust against Framer field
+            renames (<code>:501-561</code>).</li>
+          <li><strong>Zod validation.</strong> Failure inserts a <code>'failed'</code>
+            <code>webhook_submissions</code> row, fires admin alert email + Slack, returns 400
+            (<code>:582-593</code>).</li>
+          <li><strong>Duplicate check.</strong> Same email + phone within the last 24 hours
+            returns 200 with "Lead already received" message and updates the submission status
+            to <code>'duplicate'</code> (<code>:595-607</code>).</li>
+          <li><strong>Insert with retry.</strong> Three attempts, exponential backoff
+            (500 ms → 1500 ms → 4500 ms). Three failures triggers admin alert email + Slack
+            and returns 500 (<code>:364-383, 623-637</code>).</li>
+          <li><strong>Fire-and-forget notifications.</strong> On success: Slack Block Kit
+            message to the team channel ("🏠 New Lead Received"), confirmation email to the
+            customer (branded MRC template, sent via Resend directly — does not go through the
+            <code>send-email</code> Edge Function), <code>email_logs</code> row inserted with
+            template name <code>'framer_lead_confirmation'</code>
+            (<code>:653-698</code>).</li>
+        </ol>
+        <p>
+          The submission-status column on <code>webhook_submissions</code> feeds the "Failed
+          Webhooks" KPI on the Admin Dashboard. Any row with status <code>'failed'</code> in
+          the last 7 days surfaces there.
+        </p>
+
+        <h3>1.3 Every email the customer receives</h3>
+        <p>
+          All emails are sent from <code>noreply@mrcsystem.com</code> with reply-to
+          <code>admin@mrcsystem.com</code> (recently switched in commit <code>cf2b3d8</code>).
+          Templates live in <code>src/lib/api/notifications.ts</code> and share a branded wrapper
+          (navy header, gold accents, signature block with phone, email, hours, and Google review
+          link).
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Email</th>
+                <th>Trigger</th>
+                <th>Attachment</th>
+                <th>Action expected</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td><strong>Enquiry confirmation</strong></td>
+                <td>Form submitted</td>
+                <td>None</td>
+                <td>None — wait for callback</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td><strong>Booking Confirmation</strong></td>
+                <td>Admin schedules inspection</td>
+                <td>None</td>
+                <td>Ensure property access; reschedule by phone</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td><strong>Inspection Reminder</strong></td>
+                <td>Cron, ~2 days before booking</td>
+                <td>None</td>
+                <td>Confirm access; reschedule by phone</td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td><strong>Inspection Report</strong></td>
+                <td>Admin sends from email-approval screen (after approving the draft)</td>
+                <td>PDF attached (inspection report PDF)</td>
+                <td>Read; phone to discuss quote</td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td><strong>Job Booking Confirmation</strong></td>
+                <td>Admin schedules remediation job</td>
+                <td>None</td>
+                <td>Ensure access; reschedule by phone</td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td><strong>Job Completion Report</strong></td>
+                <td>Admin sends from email-approval screen (after approving the draft)</td>
+                <td>PDF attached (job completion report with before/after photos + warranty)</td>
+                <td>Read; reply with any issues</td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td><strong>Google Review Request</strong></td>
+                <td>Admin clicks "Send Google Review" after payment</td>
+                <td>None</td>
+                <td><strong>Click the Google review link</strong> (only clickable CTA in any customer email)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          Subject lines and body text are built dynamically per template — see functions
+          <code>buildBookingConfirmationHtml()</code>, <code>buildInspectionReminderHtml()</code>,
+          <code>buildReportApprovedHtml()</code>, <code>buildJobBookingConfirmationHtml()</code>,
+          <code>buildJobReportEmailHtml()</code>, <code>buildGoogleReviewEmailHtml()</code> in
+          <code>src/lib/api/notifications.ts</code>.
+        </p>
+
+        <h3>1.4 How the customer accepts a quote</h3>
+        <p>
+          <span class="pill notbuilt">✗ NOT BUILT</span> They don't, in the system. There is no
+          "Accept Quote" button in the inspection report email. There is no customer-facing booking
+          page. Acceptance happens by <strong>phone or reply email</strong>, and the admin then
+          books the job manually.
+        </p>
+        <p>
+          Archaeology: a table called <code>client_booking_tokens</code> exists in the database
+          (created in migration <code>20251028135212</code>) — built in anticipation of a
+          tokenised customer booking portal. The endpoint, token issuance, and customer-facing
+          page were never implemented. The table has been dead weight since it was created
+          in migration <code>20251028135212</code>.
+        </p>
+
+        <h3>1.5 How the customer pays the invoice</h3>
+        <p>
+          <span class="pill partial">⚠ PARTIAL</span> The system supports five payment method
+          labels in code, but there is <strong>zero payment-processor integration</strong>. Grep
+          for "stripe", "square", or "paypal" returns no matches. The customer pays
+          <em>outside</em> the app:
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Method (in code)</th>
+                <th>What actually happens</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><code>bank_transfer</code></td><td>Customer transfers to MRC's bank account using details from the invoice. No automated reconciliation.</td></tr>
+              <tr><td><code>cash</code></td><td>Handed over in person.</td></tr>
+              <tr><td><code>visa</code> / <code>mastercard</code></td><td>Card payments are taken via an external terminal, not in-app.</td></tr>
+              <tr><td><code>cheque</code></td><td>Mailed to MRC.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          Once the money lands, an admin opens the customer record, clicks <strong>Mark as
+          Paid</strong>, picks the method from a dropdown, enters the payment date and an optional
+          reference. The invoice status moves to <code>paid</code>. The constraint
+          <code>payment_method IN ('cash','visa','mastercard','bank_transfer','cheque')</code> is
+          enforced both in the UI dropdown
+          (<code>src/components/leads/InvoicePaymentCard.tsx</code> lines 551–557) and at the
+          database level (<code>supabase/migrations/20260414000004_create_invoices_table.sql</code>
+          line 32).
+        </p>
+
+        <h3>1.6 What happens if the customer ignores everything</h3>
+        <figure class="diagram">
+          <pre class="mermaid">
+flowchart TD
+  A["Invoice sent<br/>(status: sent)"]
+  B{"Past due_date?"}
+  C["Status flips to overdue<br/>Slack alert to team"]
+  D{"Day milestone hit?"}
+  E15["Day 15: First reminder<br/>$65 late fee applies (manual)"]
+  E22["Day 22: Second reminder"]
+  E29["Day 29: Final notice — warranty at risk"]
+  E30["Day 30: WARRANTY VOID"]
+  E60["Day 60: CREDIT DEFAULT WARNING — escalate"]
+  F["No automatic email to customer.<br/>Admin must phone or write."]
+  A --> B
+  B -- "no" --> A
+  B -- "yes" --> C --> D
+  D --> E15 --> F
+  D --> E22 --> F
+  D --> E29 --> F
+  D --> E30 --> F
+  D --> E60 --> F
+          </pre>
+          <figcaption>
+            Overdue handling. The cron runs daily at 23:00 UTC (9 AM AEST). Source:
+            <code>supabase/functions/check-overdue-invoices/index.ts</code> lines 21–28.
+          </figcaption>
+        </figure>
+
+        <p>
+          <span class="pill built">✓ BUILT</span> Everything in the diagram is real. The
+          milestone messages are pulled directly from the source:
+        </p>
+        <ul>
+          <li><strong>Day 15</strong> — "First reminder — $65 late fee applies (admin to charge manually)"</li>
+          <li><strong>Day 22</strong> — "Second reminder — payment still outstanding"</li>
+          <li><strong>Day 29</strong> — "Final notice — warranty at risk"</li>
+          <li><strong>Day 30</strong> — "WARRANTY VOID — 30 days overdue"</li>
+          <li><strong>Day 60</strong> — "CREDIT DEFAULT WARNING — 60+ days overdue, escalate"</li>
+        </ul>
+        <div class="callout danger">
+          <p>
+            <strong>The customer never receives an automated overdue communication of any kind.</strong>
+            The entire milestone chain — Day 15, 22, 29, 30, 60 — is admin-facing Slack only. There
+            is no overdue email, no SMS, no automated reminder. A human admin reads Slack and
+            decides whether to phone, write, or escalate. If the admin doesn't act, nothing
+            happens. The same statement applies in <a href="#admin">Section 3.9</a> from the
+            admin's perspective.
+          </p>
+        </div>
+
+        <h3>1.7 Cancelling, disputing, or contacting MRC outside email</h3>
+        <p>
+          <span class="pill deliberate">DELIBERATE</span> No customer-facing cancel button,
+          dispute form, ticket system, or contact page. The retention conversation that happens
+          when a customer rings to cancel is treated as a business asset — pulling it into the
+          app would short-circuit the recovery opportunity. Customers cancel and dispute by
+          phoning 1800 954 117 or emailing admin@mrcsystem.com.
+        </p>
+        <p>
+          The admin-side process — what to do once the call ends — is in
+          <a href="#failures">Section 5.4</a>.
+        </p>
+
+        <h3>1.8 The Google review request</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> Manually triggered. When an invoice is marked
+          paid, a "Send Google Review" button appears on the customer record
+          (<code>src/pages/LeadDetail.tsx:1675</code>, GoogleReviewSection function). The admin
+          clicks it; the customer receives a "Thank you" email with a single CTA button pointing
+          to <code>https://g.page/r/CSmcatb7uSq9EBM/review</code>. The lead status advances to
+          <code>google_review</code>.
+        </p>
+        <p>
+          There is no automated scheduling — if the admin doesn't click the button, the email
+          never sends.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           JOURNEY 2: TECHNICIAN
+           ============================================================ -->
+      <section id="technician">
+        <h2><span class="num">2.</span>Journey 2 — The Field Technician</h2>
+        <p>
+          The technician's week is mobile-first. They open the app on a phone, see today's jobs,
+          drive to a property, fill out a long inspection form (or job-completion form, depending
+          on the visit type), take photos, hit submit, and move on. Below is everything they touch
+          and everything they're blocked from touching.
+        </p>
+
+        <figure class="diagram">
+          <pre class="mermaid">
+flowchart TD
+  A["Tech opens app Monday morning"]
+  B["Lands on Technician Dashboard<br/>Sees Next Job card + today's list"]
+  C["Notices Revisions banner if admin sent any inspection back"]
+  D["Taps 'Get Directions' → Google Maps"]
+  E["Arrives on-site<br/>Taps 'Start Inspection'"]
+  F["Fills out 9-section inspection form<br/>Auto-saves to local storage every 30s"]
+  G{"Online?"}
+  H["Submit succeeds → status auto-advances"]
+  I["Photos queued in IndexedDB<br/>Upload retried on reconnect"]
+  J["Drives to next job"]
+  K["Later: Job Completion form<br/>(10 sections, before/after photos)"]
+  L{"Tech ticks 'Request Review'?"}
+  M["Lead status → pending_review<br/>(admin must approve)"]
+  N["Lead status → job_completed<br/>(report ready for admin)"]
+  A --> B --> C --> D --> E --> F --> G
+  G -- "yes" --> H
+  G -- "no" --> I --> J
+  H --> J
+  J --> K --> L
+  L -- "yes" --> M
+  L -- "no" --> N
+          </pre>
+          <figcaption>
+            Technician day. The "Request Review" toggle in Section 9 of the job-completion form is
+            the only way a technician escalates a job to admin attention.
+          </figcaption>
+        </figure>
+
+        <h3>2.1 Screens the technician CAN reach</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> Eight routes total:
+        </p>
+        <ul>
+          <li><code>/technician</code> — Dashboard. Today's Next Job card, remaining jobs list, revision alerts.</li>
+          <li><code>/technician/jobs</code> — My Jobs (tabs: Today / This Week / This Month / Upcoming / Completed / Revisions).</li>
+          <li><code>/technician/job/:id</code> — Customer record (reuses the admin LeadDetail page in role-aware mode).</li>
+          <li><code>/technician/inspection</code> — Inspection form.</li>
+          <li><code>/technician/job-completion/:leadId</code> — Job Completion form.</li>
+          <li><code>/technician/alerts</code> — In-app alerts.</li>
+          <li><code>/technician/profile</code> — Profile.</li>
+          <li><code>/technician/settings</code>, <code>/technician/help</code> — Settings &amp; help.</li>
+        </ul>
+
+        <h3>2.2 Screens the technician CANNOT reach</h3>
+        <p>
+          Enforced by <code>RoleProtectedRoute</code> wrappers in <code>src/App.tsx</code> and
+          backed by row-level security in the database. If a technician types an admin URL into
+          their browser, they get bounced.
+        </p>
+        <ul>
+          <li>Admin Dashboard, Lead List, Schedule, Technicians, Reports, Settings.</li>
+          <li>The Inspection AI Review queue (<code>/admin/inspection-ai-review/:leadId</code>) — admin-only.</li>
+          <li>Inspection Report Editor and Job Report Editor — admin-only.</li>
+          <li>Other technicians' jobs and customer records. <strong>Why:</strong> the database
+            policy <code>tech_select_assigned_leads</code> only returns rows where
+            <code>assigned_to = auth.uid()</code>. Even if the UI accidentally rendered another
+            tech's lead, the query would return nothing.</li>
+          <li>Email logs, invoices, audit logs — all admin-only.</li>
+        </ul>
+
+        <h3>2.3 How a technician finds out about a new job</h3>
+        <p>
+          <span class="pill partial">⚠ PARTIAL</span> <strong>In-app only.</strong> When the admin
+          assigns a booking, an activity row is inserted; the technician's Alerts page surfaces it
+          on next refresh. The breakdown:
+        </p>
+        <ul>
+          <li><span class="pill deliberate">DELIBERATE</span> No SMS — cost and compliance decision (the system has no Twilio / MessageBird wiring).</li>
+          <li><span class="pill deliberate">DELIBERATE</span> No Slack mention to the individual tech — Slack is for the office channel, not per-technician DMs.</li>
+          <li><span class="pill notbuilt">✗ NOT BUILT</span> No push notification — would require a service worker push subscription. Not yet implemented; sits as a P3 item in <a href="#backlog">Section 11</a>.</li>
+          <li><span class="pill notbuilt">✗ NOT BUILT</span> No email to the technician on assignment. This is a real gap — sits as a P1 item in <a href="#backlog">Section 11</a>.</li>
+        </ul>
+        <p>
+          In practice, the technician learns about new assignments by opening the app — or by the
+          office admin sending a text or calling them outside the system. The same channel-gap
+          pattern applies to send-backs: when admin returns an inspection for revision, the tech
+          sees it on next refresh, no notification fires.
+        </p>
+
+        <h3>2.4 The Inspection Form — section by section</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> Source:
+          <code>src/pages/TechnicianInspectionForm.tsx</code>. Validation in
+          <code>src/lib/schemas/inspectionSchema.ts</code> lines 13–39. Nine sections, hundreds of
+          fields. Below is the structure with required-vs-optional flags.
+        </p>
+
+        <details class="section" open>
+          <summary>Section 1 — Basic Information</summary>
+          <div class="body">
+            <ul class="field-list">
+              <li><strong>Job Number</strong><span class="opt">read-only</span> — auto-generated <code>MRC-YYYY-####</code>.</li>
+              <li><strong>Triage</strong><span class="opt">optional</span> — textarea for notes about the job.</li>
+              <li><strong>Address</strong><span class="opt">editable</span> — pre-filled from the lead.</li>
+              <li><strong>Inspector</strong><span class="opt">read-only</span> — current user.</li>
+              <li><strong>Requested By</strong><span class="opt">optional</span> — text.</li>
+              <li><strong>Attention To</strong><span class="opt">optional</span> — text.</li>
+              <li><strong>Inspection Date</strong><span class="req">required</span> — blocks submission if empty.</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Section 2 — Property Details</summary>
+          <div class="body">
+            <ul class="field-list">
+              <li><strong>Property Occupation</strong><span class="req">required</span> — Tenanted / Vacant / Owner Occupied / Tenants Vacating.</li>
+              <li><strong>Dwelling Type</strong><span class="req">required</span> — House / Units / Apartment / Duplex / Townhouse / Commercial / Construction / Industrial.</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Section 3 — Areas inspected (repeatable, at least one required)</summary>
+          <div class="body">
+            <p>One block per room. Add and remove with buttons. The form requires at least one area to submit.</p>
+            <ul class="field-list">
+              <li><strong>Area name</strong><span class="req">required</span> — text (e.g. "Main bedroom").</li>
+              <li><strong>Mould description</strong><span class="opt">optional</span> — textarea.</li>
+              <li><strong>Mould visible locations</strong><span class="opt">optional</span> — multi-select: Ceiling, Cornice, Windows, Walls, Skirting, Flooring, Wardrobe, Cupboard, Contents, Grout/silicone, "No mould visible".</li>
+              <li><strong>Climate readings</strong> — Temperature (°C), Humidity (%), Dew Point (auto-calculated).</li>
+              <li><strong>Moisture Readings</strong> — defaults to 2, can add more. Each has a location label, a percentage, and an optional photo.</li>
+              <li><strong>Room view photos</strong><span class="opt">optional</span> — unlimited.</li>
+              <li><strong>Infrared section</strong><span class="opt">optional toggle</span> — when on: IR photo, natural-light reference photo, and checkboxes (No Active Water Intrusion / Active Infiltration / Past Ingress / Condensation / Missing Insulation).</li>
+              <li><strong>Job time</strong> — labour hours estimated for this area without demolition.</li>
+              <li><strong>Demolition toggle</strong> — when on: demolition time (hours) + description.</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Section 4 — Subfloor (optional, toggled on)</summary>
+          <div class="body">
+            <ul class="field-list">
+              <li>Subfloor required toggle — controls visibility of the rest.</li>
+              <li>Observation (textarea), Landscape (Flat Block / Sloping Block).</li>
+              <li>Comments (textarea).</li>
+              <li>Subfloor moisture readings (repeatable).</li>
+              <li>Subfloor photos — up to 20 max.</li>
+              <li>Sanitation toggle.</li>
+              <li>Treatment time (hours).</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Section 5 — Outdoor &amp; Parking</summary>
+          <div class="body">
+            <ul class="field-list">
+              <li>Temperature (°C), Humidity (%), Dew Point (auto-calculated).</li>
+              <li>Outdoor comments (textarea).</li>
+              <li>Direction photos (toggle).</li>
+              <li>Parking option — Driveway / Street / Permit / Paid / None.</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Section 6 — Waste Disposal</summary>
+          <div class="body">
+            <ul class="field-list">
+              <li>Waste disposal required toggle.</li>
+              <li>Size — Small / Medium / Large / Extra Large.</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Section 7 — Work Procedure (validation-critical)</summary>
+          <div class="body">
+            <ul class="field-list">
+              <li><strong>Treatment methods</strong><span class="req">at least one required</span> — multi-select. Submit is blocked otherwise (schema line 29).</li>
+              <li><strong>Recommended dehumidifier</strong> — Small / Medium / Large.</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Section 8 — Job Summary</summary>
+          <div class="body">
+            <ul class="field-list">
+              <li>Additional equipment comments (textarea).</li>
+              <li>Cause of mould (textarea).</li>
+              <li>Additional info for technician (textarea).</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Section 9 — Cost Estimate (validation-critical)</summary>
+          <div class="body">
+            <ul class="field-list">
+              <li>Labour hours: no-demolition, demolition, subfloor.</li>
+              <li>Equipment quantities: commercial dehumidifiers, air movers, RCD boxes, equipment days.</li>
+              <li><strong>Manual price override toggle</strong>. When on, the technician enters a manual total inc. GST.</li>
+              <li><strong>Discount %</strong> — capped at 13% by the pricing helper and (separately) by the database constraint on the invoices table.</li>
+              <li>Estimated cost (auto-calculated, read-only).</li>
+            </ul>
+            <p class="callout info">
+              <strong>Validation rule:</strong> Submit is blocked unless either (a) manual override
+              is on, or (b) at least some labour hours have been entered. See
+              <code>inspectionSchema.ts:29–37</code>.
+            </p>
+          </div>
+        </details>
+
+        <h3>2.5 What blocks submission</h3>
+        <p>
+          The Zod schema enforces three hard requirements:
+        </p>
+        <ol>
+          <li><strong>Inspection Date</strong> must be set.</li>
+          <li>At least <strong>one area</strong> must be present.</li>
+          <li>At least <strong>one treatment method</strong> must be selected.</li>
+          <li>At least <strong>some labour hours</strong> OR manual price override.</li>
+        </ol>
+        <p>
+          Photos are not required to submit. Moisture readings are not strictly required. If the
+          technician misses required fields, errors highlight inline and the form scrolls to the
+          first failing field.
+        </p>
+
+        <h3>2.6 Offline behaviour</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> The system is built for spotty signal at job
+          sites.
+        </p>
+
+        <figure class="diagram">
+          <pre class="mermaid">
+flowchart TD
+  A["Tech types in form"]
+  B["Auto-save every 30 seconds<br/>to IndexedDB (Dexie)"]
+  C["Tech takes a photo"]
+  D["Photo resized in browser<br/>added to photoQueue table"]
+  E{"Online?"}
+  F["Sync triggered immediately"]
+  G["Sync waits.<br/>OfflineBanner shows 'X changes pending'"]
+  H["Reconnects → SyncManager.syncAll()"]
+  I["1. Push form text → get remote inspection_id"]
+  J["2. Push photos linked to that inspection_id"]
+  K{"Photo upload fails?"}
+  L["Photo marked status='error' in queue.<br/>Surfaced in OfflineBanner."]
+  M["Photo synced. Removed from queue."]
+  A --> B
+  C --> D
+  B --> E
+  D --> E
+  E -- "yes" --> F
+  E -- "no" --> G --> H
+  F --> I --> J --> K
+  H --> I
+  K -- "yes" --> L
+  K -- "no" --> M
+          </pre>
+          <figcaption>
+            Offline sync. Source: <code>src/lib/offline/SyncManager.ts</code>,
+            <code>src/lib/offline/db.ts</code>, <code>src/components/OfflineBanner.tsx</code>.
+          </figcaption>
+        </figure>
+
+        <ul>
+          <li><strong>Auto-save interval</strong> — 30 seconds (constant in <code>useJobCompletionForm.ts</code>).</li>
+          <li><strong>What survives offline</strong> — all form text (drafts in IndexedDB <code>inspectionDrafts</code> table) and photos (queued in <code>photoQueue</code> table after browser-side resize).</li>
+          <li><strong>What the technician sees</strong> — an amber <code>OfflineBanner</code> at the top: "You're offline. X change(s) pending." Dismissible with X.</li>
+          <li><strong>What a failed sync looks like</strong> — the photo is marked <code>status='error'</code> with the error message. Banner surfaces the count. Retry is implicit on the next online cycle.</li>
+        </ul>
+        <div class="callout warn">
+          <p>
+            <strong>Caveat:</strong> mutations (writes) in React Query are configured with
+            <code>retry: false</code>. So if the tech is briefly online but the request fails for
+            another reason (e.g. RLS rejection, timeout), they get an immediate error toast — no
+            background retry.
+          </p>
+        </div>
+
+        <h3>2.7 Editing a submitted inspection</h3>
+        <p>
+          <span class="pill partial">⚠ PARTIAL</span>
+        </p>
+        <ul>
+          <li><strong>Admin</strong> can always edit, via the route <code>/admin/inspection/:leadId</code>
+            which loads the same form component with <code>adminMode={true}</code>. On unmount, the
+            form diffs every changed field and writes a single "field edit" entry to the activity
+            log.</li>
+          <li><strong>Technician</strong> editing a previously-submitted inspection is not
+            explicitly blocked at the form level, but is gated by lead status — once the lead has
+            moved past the inspection stage, the form route is no longer reachable from any
+            technician-facing button. There is no formal "lock window" timer.</li>
+          <li>The "send back" path: if admin disagrees with a submitted inspection, they can
+            change the lead status back to <code>inspection_waiting</code>; the technician then
+            sees a Revisions banner on their dashboard and can re-open the form. (See <a href="#failures">When Things Go Wrong</a>.)</li>
+        </ul>
+
+        <h3>2.8 The Job Completion Form — 10 sections</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> Source:
+          <code>src/pages/JobCompletionForm.tsx</code>. Filled out after the remediation work is
+          done. Same offline/auto-save behaviour as the inspection form.
+        </p>
+
+        <ol>
+          <li><strong>Office Info</strong> — Job number (auto), address snapshot, requested-by, attention-to.</li>
+          <li><strong>Summary</strong> — SWMS completed toggle <span class="req">required</span>, premises type <span class="req">required</span>, completed-by, completion date <span class="req">required</span>, areas treated <span class="req">at least one</span>.</li>
+          <li><strong>Before Photos</strong> — selected from the inspection's existing photos; at least one required.</li>
+          <li><strong>After Photos</strong> — must match the before count; if demolition was done, exactly 4 demolition photos required.</li>
+          <li><strong>Treatment Methods</strong> — 11 toggles (HEPA vacuuming, surface mould remediation, ULV fogging property, ULV fogging subfloor, subfloor remediation, AFD installation, drying equipment, containment & PRV, material demolition, cavity treatment, debris removal). At least one required.</li>
+          <li><strong>Chemical Toggles</strong> — 5 (air filtration, water-based, sodium hypochlorite, HEPA vacuumed, sanitised premises).</li>
+          <li><strong>Equipment Used</strong> — actual quantities × days vs. quoted. Optional but informs invoicing.</li>
+          <li><strong>Variations</strong> — Scope Changed toggle. When on, "What changed" and "Why changed" become required; "Extra work" and "Scope reduced" optional.</li>
+          <li><strong>Job Notes</strong> — <strong>Request Review toggle</strong> (the escalation lever). Damages/staining toggles + details. Additional notes.</li>
+          <li><strong>Office Notes</strong> — admin-only. The component receives <code>isAdmin={isAdmin}</code> and hides the section if false.</li>
+        </ol>
+
+        <div class="callout info">
+          <p>
+            <strong>What "Request Review" actually does:</strong>
+            <code>src/lib/api/jobCompletions.ts</code> line 245 picks the next lead status based
+            on the toggle: <code>const nextLeadStatus = jc.request_review ? 'pending_review' : 'job_completed'</code>.
+            That's it. No additional notification fires; the lead just stops in the
+            <code>pending_review</code> bucket awaiting admin attention.
+          </p>
+        </div>
+
+        <h3>2.9 Edge cases the technician hits in real life</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Situation</th>
+                <th>Status</th>
+                <th>What the system actually offers</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Customer not home</td>
+                <td><span class="pill notbuilt">✗</span></td>
+                <td>No dedicated field or status. Tech writes a free-text note and phones the office.</td>
+              </tr>
+              <tr>
+                <td>No access to a particular room</td>
+                <td><span class="pill notbuilt">✗</span></td>
+                <td>No "skip area" flag. Tech omits the area from the inspection or writes a note in the area's mould-description textarea.</td>
+              </tr>
+              <tr>
+                <td>Scope change discovered mid-job</td>
+                <td><span class="pill partial">⚠</span></td>
+                <td>Section 8 of the job-completion form captures it after the fact (what/why/extra/reduced). No <em>during-job</em> reschedule mechanism.</td>
+              </tr>
+              <tr>
+                <td>Running late</td>
+                <td><span class="pill notbuilt">✗</span></td>
+                <td>No reschedule UI for the technician. Admin must reassign manually.</td>
+              </tr>
+              <tr>
+                <td>Emergency reassignment</td>
+                <td><span class="pill partial">⚠</span></td>
+                <td>Admin can reassign a booking to another tech in the schedule view. The reassigned tech sees the update on their next dashboard refresh — no push, no SMS.</td>
+              </tr>
+              <tr>
+                <td>Job sent back by admin</td>
+                <td><span class="pill built">✓</span></td>
+                <td>The tech's dashboard shows a "Revisions" amber banner with the admin's send-back note and a "Revise Job Completion" button.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           JOURNEY 3: ADMIN
+           ============================================================ -->
+      <section id="admin">
+        <h2><span class="num">3.</span>Journey 3 — The Admin</h2>
+        <p>
+          The admin is the control tower. Almost every status transition is something an admin
+          either triggers directly or rubber-stamps before it advances. They live mostly in two
+          screens: the dashboard for the morning sweep, and the customer record (Lead Detail) for
+          everything else.
+        </p>
+
+        <figure class="diagram">
+          <pre class="mermaid">
+flowchart TD
+  A["Open Admin Dashboard"]
+  B["Triage 7 KPIs<br/>(jobs, unassigned, completed,<br/>revenue, reviews, overdue, webhooks)"]
+  C["Review unassigned leads → assign technician"]
+  D["Open Lead List → filter by status"]
+  E["Open Customer record<br/>(LeadDetail)"]
+  F["Edit customer/property/notes inline"]
+  G["Book inspection or job<br/>(modal w/ travel-time check)"]
+  H["Review inspection in AI Review queue<br/>edit fields → Approve or Send Back"]
+  I["Generate invoice<br/>auto-populated from inspection + completion"]
+  J["Send invoice (manual)"]
+  K["Mark invoice paid<br/>(method, date, reference)"]
+  L["Send Google Review request"]
+  A --> B --> C
+  C --> D --> E
+  E --> F
+  E --> G
+  E --> H
+  E --> I --> J --> K --> L
+          </pre>
+          <figcaption>
+            Admin paths through the system. The dashboard is the daily entry point; the customer
+            record is where the work actually happens.
+          </figcaption>
+        </figure>
+
+        <h3>3.1 Morning dashboard walkthrough</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> Source: <code>src/pages/AdminDashboard.tsx</code>,
+          stats hook <code>src/hooks/useAdminDashboardStats.ts</code>.
+        </p>
+        <p>
+          Seven widgets, each a SQL query against Supabase, refreshed via React Query.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Widget</th>
+                <th>Number shown</th>
+                <th>Where it comes from</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Today's Jobs</td>
+                <td>Count of inspections scheduled for today (Melbourne TZ)</td>
+                <td><code>inspections</code> filtered by <code>inspection_date = today</code></td>
+              </tr>
+              <tr>
+                <td>Leads to Assign</td>
+                <td>Count of unassigned active leads</td>
+                <td><code>leads</code> WHERE <code>assigned_to IS NULL</code> AND status in <code>('new_lead','hipages_lead')</code> AND not archived</td>
+              </tr>
+              <tr>
+                <td>Completed This Week</td>
+                <td>Count of jobs completed Mon–Sun</td>
+                <td><code>leads</code> WHERE status in <code>('job_completed','paid','finished','invoicing_sent')</code> AND <code>updated_at &gt;= startOfWeek</code></td>
+              </tr>
+              <tr>
+                <td>Revenue This Week</td>
+                <td>Sum of <code>total_inc_gst</code></td>
+                <td>Sum of <code>inspections.total_inc_gst</code> for inspections created this week</td>
+              </tr>
+              <tr>
+                <td>Pending Reviews</td>
+                <td>Count of leads waiting for admin review</td>
+                <td><code>leads</code> WHERE <code>status='pending_review'</code> AND not archived</td>
+              </tr>
+              <tr>
+                <td>Overdue Invoices</td>
+                <td>Count + total $ owed</td>
+                <td><code>invoices</code> WHERE <code>status='overdue'</code>; click navigates to filtered Lead List</td>
+              </tr>
+              <tr>
+                <td>Failed Webhooks</td>
+                <td>Count over last 7 days</td>
+                <td><code>webhook_submissions</code> WHERE <code>status='failed'</code> AND created in last 7 days</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          Below the KPI cards: today's schedule (table on desktop, cards on mobile), recent activity
+          timeline (unified feed of activities + email logs + notifications), an unassigned leads
+          sidebar, the team workload bar chart, and four quick-action buttons (New Lead, Approve
+          Reports, Calendar, Reports).
+        </p>
+
+        <h3>3.2 The Lead List — every filter, every action</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> Source: <code>src/pages/LeadsManagement.tsx</code>.
+        </p>
+        <ul>
+          <li><strong>Pipeline tabs</strong> — one per status (15+ tabs), with count badges.</li>
+          <li><strong>Search</strong> — searches across name, property address, suburb, email, phone (line 430–439).</li>
+          <li><strong>Sort</strong> — Newest / Oldest / Value (high / low) / Name (line 442–457).</li>
+          <li><strong>View toggle</strong> — Cards (3-column desktop grid) or List (single column).</li>
+          <li><strong>Card content</strong> — name, email, phone, address, lead number, status badge, assigned tech avatar, estimated value, dates.</li>
+        </ul>
+        <p>
+          Per-card quick actions: <strong>View Details</strong>, <strong>Schedule</strong>,
+          <strong>Start Inspection</strong> (techs only), <strong>View PDF</strong>,
+          <strong>Approve</strong>, <strong>Send Email</strong> (opens composer with PDF
+          attachment workflow), <strong>Archive</strong> (soft delete sets <code>archived_at</code>
+          — see migration <code>20260414000002</code>), <strong>Reactivate</strong>,
+          <strong>Review AI</strong>, <strong>Book Job</strong>, <strong>Not Proceeding</strong>
+          (opens a "remove lead" modal with reason picker — too expensive, went with competitor,
+          no response, etc.).
+        </p>
+
+        <h3>3.3 Customer Detail (Lead Detail) — every card and button</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> Source: <code>src/pages/LeadDetail.tsx</code>.
+          The single most-used admin screen; everything about a customer in one scroll.
+        </p>
+        <p>
+          Components stacked top-to-bottom:
+        </p>
+        <ul>
+          <li><strong>Lead header</strong> — name, status badge, assigned technician, key dates.</li>
+          <li><strong>NewLeadView</strong> — editable contact info (name, email, phone).</li>
+          <li><strong>Property card</strong> — editable street/suburb/state/postcode.</li>
+          <li><strong>Issue / Notes</strong> — editable textarea.</li>
+          <li><strong>InspectionDataDisplay</strong> — full breakdown of the inspection form responses (areas, moisture, climate, equipment recommendations, cost calculation).</li>
+          <li><strong>InspectionReportHistory</strong> — list of generated PDF versions; can re-download or re-open.</li>
+          <li><strong>BookInspectionModal / BookJobSheet</strong> — opens via action buttons.</li>
+          <li><strong>JobBookingDetails</strong> — when a job is scheduled, shows technician, date, hours, travel time.</li>
+          <li><strong>JobCompletionSummary</strong> — when the job is completed, shows what was done; admin can open <strong>JobCompletionEditSheet</strong> to edit.</li>
+          <li><strong>InvoiceSummaryCard</strong> — line items, discount, GST, total.</li>
+          <li><strong>InvoicePaymentCard</strong> — generate invoice, edit before sending, mark paid (with payment method dropdown, date, reference), payment timeline showing where the customer is in the overdue milestone schedule.</li>
+          <li><strong>ActivityTimeline</strong> — every event for this customer (status changes, emails sent, bookings, completions, payments, edits).</li>
+        </ul>
+        <p>
+          Action buttons swap based on status: e.g. <strong>Book Inspection</strong> appears on
+          <code>new_lead</code>; <strong>Approve Report</strong> on
+          <code>approve_inspection_report</code>; <strong>Book Job</strong> on
+          <code>job_waiting</code>; <strong>Generate Job Report PDF</strong> on
+          <code>job_completed</code>; <strong>Mark Paid</strong> on
+          <code>invoicing_sent</code>; <strong>Send Google Review</strong> on
+          <code>paid</code>.
+        </p>
+
+        <h3>3.4 Booking an inspection or job</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> Source:
+          <code>src/components/leads/BookInspectionModal.tsx</code> and
+          <code>BookJobSheet.tsx</code>.
+        </p>
+        <p>
+          The admin opens the modal from a status-driven button. Inputs:
+        </p>
+        <ul>
+          <li><strong>Technician dropdown</strong> — fetched via the <code>manage-users</code> Edge Function, filtered to technician role.</li>
+          <li><strong>Date picker</strong> — backed by <code>useBookingValidation</code> which calls <code>getRecommendedDates()</code> with the technician ID, destination address/suburb, and a duration (60 min for inspections, 480 min for jobs).</li>
+          <li><strong>Time slots</strong> — 8 AM to 4 PM in 1-hour increments. Selecting a slot triggers <code>checkAvailability()</code> which calls the <code>calculate-travel-time</code> Edge Function (Google Maps Distance Matrix) to verify there's enough buffer between the previous job and this one.</li>
+          <li><strong>Manual start address</strong> — admin can override the technician's default starting point to recompute travel time.</li>
+        </ul>
+        <p>
+          On save: <code>checkBookingConflict()</code> runs first; if a conflict exists, a toast
+          error fires and the booking aborts. If clear, a row is inserted into
+          <code>calendar_bookings</code>, the lead is updated (<code>status='inspection_waiting'</code>,
+          <code>inspection_scheduled_date</code>, <code>scheduled_time</code>,
+          <code>assigned_to</code>), an activity log entry is created, and the customer +
+          team are notified (booking confirmation email + Slack post).
+        </p>
+
+        <h3>3.5 The Inspection AI Review queue</h3>
+        <figure class="diagram">
+          <pre class="mermaid">
+flowchart TD
+  A["Tech submits inspection"]
+  B["Status: ai_summary"]
+  C["Backend generates AI narrative<br/>(generate-inspection-summary Edge Fn)"]
+  D["Status: pending_review"]
+  E["Admin opens /admin/inspection-ai-review/:leadId"]
+  F{"Looks right?"}
+  G["Edit fields inline<br/>(corrections to mould extent, treatment, narrative)"]
+  H["Approve → status: approved<br/>PDF generated, email queued"]
+  I["Send back → status: inspection_waiting<br/>Tech sees Revisions banner"]
+  A --> B --> C --> D --> E --> F
+  F -- "yes, send to customer" --> H
+  F -- "needs corrections" --> G --> H
+  F -- "wrong, redo" --> I
+          </pre>
+          <figcaption>
+            Inspection review loop. The tech is <strong>not auto-notified</strong> when admin
+            sends back — they see it on their next dashboard refresh as a revisions banner.
+          </figcaption>
+        </figure>
+
+        <p>
+          <span class="pill built">✓ BUILT</span> Source:
+          <code>src/pages/InspectionAIReview.tsx</code> for the AI Review queue, and
+          <code>src/pages/ViewReportPDF.tsx</code> for the unified report viewer that handles
+          both inspection and job-completion approvals. Admin can edit any field of the
+          inspection inline before approving — corrections are tracked in the activity log via
+          the form's diff-on-unmount mechanism. After approval, the screen transitions to a
+          "Send Report Email" stage (<code>ViewReportPDF.tsx:2156–2310</code>) where admin
+          reviews the prepared email, edits the recipient/subject/body if needed, and clicks
+          <strong>Send Email to Customer</strong> to dispatch the PDF as an attachment. The
+          same pattern applies to job-completion reports.
+        </p>
+
+        <h3>3.6 Quote-setting, the 13% discount cap, GST</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> Source:
+          <code>src/lib/calculations/pricing.ts</code> lines 14–41.
+        </p>
+        <p>
+          Tier-based labour rates with linear interpolation:
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Labour type</th><th>2-hour minimum</th><th>8-hour day rate</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Non-demolition</td><td>$612.00</td><td>$1216.99</td></tr>
+              <tr><td>Demolition</td><td>$711.90</td><td>$1798.90</td></tr>
+              <tr><td>Subfloor</td><td>$900.00</td><td>$2334.69</td></tr>
+              <tr><td>Construction (future use)</td><td>$661.96</td><td>$1507.95</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          Equipment daily rates (never discounted): Dehumidifier $132/day, Air Mover $46/day, RCD
+          $5/day.
+        </p>
+
+        <p>
+          Volume discount tiers, applied to <em>labour only</em>:
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Total labour hours</th><th>Discount</th><th>Days assumed</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>0–8</td><td>0%</td><td>1</td></tr>
+              <tr><td>9–16</td><td>7.5%</td><td>2</td></tr>
+              <tr><td>17–24</td><td>10.25%</td><td>3</td></tr>
+              <tr><td>25–32</td><td>11.5%</td><td>4</td></tr>
+              <tr><td>33+</td><td>13%</td><td>5+</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout info">
+          <p>
+            <strong>The 13% cap is enforced in two places by design:</strong>
+          </p>
+          <ol>
+            <li>The pricing helper exports <code>MAX_DISCOUNT = 0.13</code>.</li>
+            <li>The invoices table has a database-level <code>CHECK</code> constraint:
+              <code>discount_percentage &gt;= 0 AND discount_percentage &lt;= 13</code>
+              (<code>supabase/migrations/20260414000004_create_invoices_table.sql:46</code>).
+              Even if a future bug bypassed the UI, the database refuses the write.</li>
+          </ol>
+          <p>
+            GST is a flat 10% applied to (discounted labour + un-discounted equipment).
+          </p>
+        </div>
+
+        <p>
+          Pricing is entered on Section 9 of the inspection form. The admin can override anything
+          before sending the invoice (line items are JSONB and freely editable). There is
+          <strong>no formal exception-approval workflow</strong> for going above 13% — the
+          database simply refuses.
+        </p>
+
+        <h3>3.7 Invoice generation</h3>
+        <div class="callout danger">
+          <p>
+            <strong>P0 GAP — customer invoice email is not wired.</strong> The invoice creation
+            flow updates <code>invoices.status</code> to <code>sent</code> and posts a Slack
+            alert to the team channel, but no email goes to the customer. Grep
+            <code>src/lib/api/notifications.ts</code> — there is no <code>buildInvoiceEmailHtml</code>
+            function and no caller path that emails a customer when an invoice is marked sent.
+            The entire overdue chain in <a href="#customer">Section 1.6</a> assumes the customer
+            received an invoice; in current practice they only receive one if an admin emails
+            it manually outside the app. Tracked as P0 in <a href="#backlog">Section 11</a>.
+          </p>
+        </div>
+        <p>
+          <span class="pill built">✓ BUILT</span> Sources: <code>src/lib/api/invoices.ts</code>,
+          <code>src/components/leads/InvoicePaymentCard.tsx</code>. The invoice record itself is
+          fully managed inside the app; only the customer-facing email is missing.
+        </p>
+        <ul>
+          <li><strong>Invoice number</strong> — auto-generated by a Postgres sequence
+            (<code>invoice_number_seq</code>), formatted as <code>INV-YYYY-####</code>. Trigger
+            <code>set_invoice_number</code> applies on insert. Hardened against race conditions in
+            migration <code>20260421000001</code>.</li>
+          <li><strong>Auto-populate</strong> — <code>buildInvoiceFromLead()</code> pulls customer
+            details from the lead, line items from the most recent inspection (labour + equipment),
+            actual equipment usage from the most recent job completion, applies the discount.</li>
+          <li><strong>What admin can edit before sending</strong> — every line item, the discount
+            percentage (capped at 13%), the customer email, the property address, the due date
+            (default +14 days), and free-text notes.</li>
+          <li><strong>Sending</strong> — moves status from <code>draft</code> → <code>sent</code>
+            and records <code>sent_at</code>. <span class="pill partial">⚠</span> Customer-facing
+            email send for invoices is <strong>not currently wired</strong> in the notifications
+            module — the Slack alert fires, but the customer does not receive an automated invoice
+            email. In practice the admin emails the invoice externally.</li>
+        </ul>
+
+        <h3>3.8 Marking an invoice paid</h3>
+        <p>
+          The "Mark as Paid" button opens a dialog with a date picker (defaults today), the
+          payment method dropdown (Bank Transfer / Cash / Visa / Mastercard / Cheque), and an
+          optional payment reference. On submit, the invoice updates
+          (<code>payment_method</code>, <code>payment_date</code>, <code>payment_reference</code>,
+          <code>status='paid'</code>, <code>paid_at</code>), the lead status moves to
+          <code>paid</code>, and a Slack notification fires (fire-and-forget).
+        </p>
+
+        <h3>3.9 Overdue handling</h3>
+        <p>
+          Already covered in <a href="#customer">Journey 1, section 1.6</a>. From the admin's
+          perspective: a daily 9 AM AEST cron updates statuses and posts to Slack at the 15 / 22
+          / 29 / 30 / 60 day milestones. There is <strong>no automated chase email</strong> — the
+          admin reads Slack and phones the customer.
+        </p>
+        <p>
+          As stated in <a href="#customer">1.6</a>, no part of this milestone chain produces an
+          automated customer-facing message. Every escalation past the Slack alert is a manual
+          phone call or email from an admin.
+        </p>
+
+        <h3>3.10 Reports &amp; Analytics</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> Source: <code>src/pages/Reports.tsx</code>.
+        </p>
+        <p>
+          Period filter: Day / Week / Month / Quarter / Year. KPI cards: Total Leads, Conversion
+          Rate, Avg Response Time, Total Revenue. Charts: Timeline (lead volume over time), Status
+          Breakdown (pie), Lead Sources (pie). A "Quick Insights" panel shows top lead source,
+          most common status, and an overall pipeline-health rating (≥30% conversion = healthy,
+          ≥15% = average, &lt;15% = needs attention).
+        </p>
+        <div class="callout info">
+          <p>
+            <strong>Note on Avg Response Time:</strong> the metric is computed dynamically in
+            <code>src/hooks/useReportsData.ts:177–195</code>, not hardcoded. It averages the
+            hours between each lead's <code>created_at</code> and the earliest
+            <code>calendar_bookings.created_at</code> tied to that lead, then rounds to a whole
+            hour. If no leads in the period have any booking yet, the metric returns 0. The proxy
+            (booking creation, not first contact) is good enough today; an earlier draft of this
+            doc described it as a hardcoded "24 hrs" placeholder, which was wrong.
+          </p>
+        </div>
+
+        <h3>3.11 Admin-only actions and what's logged</h3>
+        <ul>
+          <li><strong>Soft delete a lead</strong> — sets <code>archived_at</code>; queries filter
+            on <code>archived_at IS NULL</code>. No hard delete is exposed.
+            (<span class="pill built">✓</span>)</li>
+          <li><strong>Void invoice</strong> — the API function <code>voidInvoice()</code> exists
+            in <code>src/lib/api/invoices.ts</code>; status moves to <code>void</code>. Whether
+            there's a UI button on every invoice is partially exposed — confirm in the lead
+            detail. (<span class="pill partial">⚠</span> API present, UI surface limited)</li>
+          <li><strong>Reassign technician mid-job</strong> — open the booking via the schedule or
+            customer record, pick a different technician, save. Conflicts checked. The new tech
+            sees the job on next dashboard refresh; the old tech loses visibility. No automatic
+            notification to either party. (<span class="pill built">✓</span>)</li>
+          <li><strong>Refunds</strong> — no refund logic, no refund button, nothing. Refunds
+            happen entirely outside the system and would be reflected as a manual adjustment to
+            the invoice. (<span class="pill notbuilt">✗</span>)</li>
+          <li><strong>Audit logging</strong> — split across two migrations. Migration
+            <code>20260311000001_add_audit_triggers.sql</code> adds INSERT, UPDATE, and DELETE
+            triggers to four tables: <code>leads</code>, <code>inspections</code>,
+            <code>inspection_areas</code>, <code>user_roles</code>. Migration
+            <code>20260414000004_create_invoices_table.sql:71–75</code> adds INSERT and UPDATE
+            triggers to <code>invoices</code> separately (no DELETE — invoices are voided via
+            status, never hard-deleted). All triggers feed
+            <code>audit_log_trigger(action_text)</code>, a SECURITY DEFINER function that writes
+            to <code>audit_logs</code>. The audit log itself is tamper-resistant:
+            <code>prevent_audit_log_delete()</code> and <code>prevent_audit_log_update()</code>
+            triggers raise an exception on any attempt to modify a row.
+            (<span class="pill built">✓</span> data captured;
+            <span class="pill notbuilt">✗</span> no admin UI for browsing — queryable by
+            developers via Supabase Studio only.)</li>
+        </ul>
+
+        <h3>3.12 Schedule and Technicians screens</h3>
+        <ul>
+          <li><strong>Schedule</strong> (<code>src/pages/AdminSchedule.tsx</code>) — week/day
+            calendar of every booking. Filters by technician and event type. Displays travel time
+            between consecutive jobs. Right sidebar shows unscheduled leads queue, an event
+            details panel for the selected booking, and a cancelled-bookings history.</li>
+          <li><strong>Technicians</strong> (<code>src/pages/AdminTechnicians.tsx</code>) — grid of
+            technician cards. Each shows initials avatar (one of 6 rotating colours), name, role
+            badge, weekly inspection count, monthly revenue, upcoming-jobs count, and last sign-in
+            relative time. Stats hook: <code>useTechnicianStats</code>.</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           CROSS-CUTTING: NOTIFICATION MAP
+           ============================================================ -->
+      <section id="notification-map">
+        <h2><span class="num">4.</span>The Notification Map</h2>
+        <p>
+          Every event that fires a notification in the system, mapped to who hears about it and
+          how. Push notifications are <strong>not implemented</strong> anywhere; channels are
+          email, Slack, and the in-app activity feed. The send-email Edge Function rate-limits at
+          <strong>10 emails per minute per IP</strong>
+          (<code>supabase/functions/send-email/index.ts:11–14</code>).
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Trigger event</th>
+                <th>Who is notified</th>
+                <th>How</th>
+                <th>Example message</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Public lead form submitted</td>
+                <td>Customer + all admins</td>
+                <td>Email + Slack</td>
+                <td>"Inspection Request Received — Mould &amp; Restoration Co."<br/>Slack: 🏠 New Lead Received</td>
+              </tr>
+              <tr>
+                <td>Admin creates a lead manually</td>
+                <td>All admins (Slack)</td>
+                <td>Slack only</td>
+                <td>"New lead created — ACTION REQUIRED: CALL LEAD"</td>
+              </tr>
+              <tr>
+                <td>Inspection booked</td>
+                <td>Customer + all admins</td>
+                <td>Email + Slack</td>
+                <td>"Booking Confirmed" with date/time/tech<br/>Slack: Inspection Booked</td>
+              </tr>
+              <tr>
+                <td>Inspection reminder (~2 days prior)</td>
+                <td>Customer</td>
+                <td>Email (cron)</td>
+                <td>"Inspection Reminder — 2 days away"</td>
+              </tr>
+              <tr>
+                <td>Technician submits inspection form</td>
+                <td>All admins</td>
+                <td>Slack + activity feed</td>
+                <td>"Inspection Report Ready for Approval"</td>
+              </tr>
+              <tr>
+                <td>AI summary generated</td>
+                <td>All admins</td>
+                <td>Activity feed only</td>
+                <td>"AI summary generated for inspection"</td>
+              </tr>
+              <tr>
+                <td>Admin approves inspection report</td>
+                <td>Customer + all admins</td>
+                <td>Email + Slack</td>
+                <td>"Your Inspection Report is Ready"<br/>Slack: Report Approved &amp; Sent</td>
+              </tr>
+              <tr>
+                <td>Job booked</td>
+                <td>Customer + all admins</td>
+                <td>Email + Slack</td>
+                <td>"Job Booking Confirmed" with dates/tech/hours</td>
+              </tr>
+              <tr>
+                <td>Job completion submitted</td>
+                <td>All admins</td>
+                <td>Slack + activity feed</td>
+                <td>"Job completion submitted by &lt;tech&gt;"</td>
+              </tr>
+              <tr>
+                <td>Job report approved &amp; sent</td>
+                <td>Customer</td>
+                <td>Email</td>
+                <td>"Job Completion Report — &lt;jobNumber&gt;" with PDF attached (filename <code>MRC-JOB-{jobNumber}-Job-Report.pdf</code>)</td>
+              </tr>
+              <tr>
+                <td>Lead status changed (any)</td>
+                <td>All admins</td>
+                <td>Slack + activity feed</td>
+                <td>🔄 Lead Status Changed: old → new</td>
+              </tr>
+              <tr>
+                <td>Lead details edited</td>
+                <td>All admins</td>
+                <td>Slack + activity feed</td>
+                <td>"Lead Details Updated — &lt;name&gt;" (which fields changed)</td>
+              </tr>
+              <tr>
+                <td>Invoice sent</td>
+                <td>All admins (Slack)</td>
+                <td>Slack only</td>
+                <td>💰 Invoice INV-2026-NNNN sent to &lt;name&gt; — $X<br/><em>Customer email not currently automated</em></td>
+              </tr>
+              <tr>
+                <td>Payment received (Mark Paid)</td>
+                <td>All admins</td>
+                <td>Slack + activity feed</td>
+                <td>✅ Payment received for INV-2026-NNNN — $X via &lt;method&gt;</td>
+              </tr>
+              <tr>
+                <td>Invoice flips to overdue</td>
+                <td>All admins</td>
+                <td>Slack + activity feed</td>
+                <td>⏰ Invoice INV-2026-NNNN is X day(s) overdue — $X</td>
+              </tr>
+              <tr>
+                <td>Overdue milestone (15/22/29/30/60 days)</td>
+                <td>All admins</td>
+                <td>Slack + activity feed</td>
+                <td>🚨 e.g. "First reminder — $65 late fee applies (admin to charge manually)"</td>
+              </tr>
+              <tr>
+                <td>Google review request (manual button)</td>
+                <td>Customer</td>
+                <td>Email</td>
+                <td>"Thank You — Would You Leave Us a Review?" with Google link</td>
+              </tr>
+              <tr>
+                <td>Tech assigned a new job</td>
+                <td>Assigned technician</td>
+                <td>In-app only (next refresh)</td>
+                <td>Alert appears in <code>/technician/alerts</code> — no push, no email, no SMS</td>
+              </tr>
+              <tr>
+                <td>Webhook submission failed</td>
+                <td>Audit only</td>
+                <td>Database row</td>
+                <td>Surfaced on Admin Dashboard "Failed Webhooks" widget</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>4.1 What we don't notify (and why)</h3>
+        <p>
+          The following channels and events are silent — by intention, or by absence. Distinguish
+          carefully:
+        </p>
+        <h4>Deliberately silent</h4>
+        <ul>
+          <li><span class="pill deliberate">DELIBERATE</span> No SMS to anyone, ever — no Twilio, no MessageBird, no aggregator. Cost and AU compliance considerations.</li>
+          <li><span class="pill deliberate">DELIBERATE</span> No customer-facing push or in-app messaging — customers never log in.</li>
+          <li><span class="pill deliberate">DELIBERATE</span> No automated overdue communication to the customer — the office wants the human conversation when chasing money. See <a href="#customer">1.6</a>.</li>
+          <li><span class="pill deliberate">DELIBERATE</span> No per-technician Slack DM — Slack is for the office channel; per-tech messaging would fragment the team's shared awareness.</li>
+        </ul>
+        <h4>Accidentally silent (genuine gaps)</h4>
+        <ul>
+          <li><span class="pill notbuilt">✗ NOT BUILT</span> No technician notification (email, push, anything) when a job is assigned or reassigned. Tech learns by opening the app. <a href="#backlog">Section 11, P1</a>.</li>
+          <li><span class="pill notbuilt">✗ NOT BUILT</span> No technician notification when an inspection is sent back for revision. Same channel gap. <a href="#backlog">Section 11, P1</a>.</li>
+          <li><span class="pill notbuilt">✗ NOT BUILT</span> No automated customer email when an invoice is generated and sent. The Slack alert fires; nothing reaches the customer. <a href="#backlog">Section 11, P0</a>.</li>
+          <li><span class="pill notbuilt">✗ NOT BUILT</span> No bounce / delivery confirmation loop. The <code>email_logs</code> table has columns for bounce status but no Resend webhook listener writes them. <a href="#backlog">Section 11, P1</a>.</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           CROSS-CUTTING: FAILURES
+           ============================================================ -->
+      <section id="failures">
+        <h2><span class="num">5.</span>What Happens When Things Go Wrong</h2>
+        <p>
+          Real failure modes. For each: what the system does on its own, what a human has to do.
+          Where something is missing, it's flagged loudly.
+        </p>
+
+        <h3>5.1 An email bounces</h3>
+        <p>
+          <span class="pill partial">⚠ PARTIAL</span> The <code>email_logs</code> table has
+          status enum values for <code>bounced</code>, <code>soft_bounce</code>,
+          <code>spam</code>, etc. — the <em>schema is ready</em>. But there is currently
+          <strong>no Resend webhook listener</strong> implemented to flip those statuses
+          automatically. In practice: the send call succeeds (status <code>sent</code>) and the
+          system is unaware if Resend later marks it bounced. An admin would discover the bounce
+          only by:
+        </p>
+        <ul>
+          <li>Looking at the Resend dashboard directly, or</li>
+          <li>Phoning the customer who never replied.</li>
+        </ul>
+        <p>
+          <strong>Human required:</strong> manually correct the customer's email in the lead and
+          re-send the affected message via the lead detail email composer.
+        </p>
+
+        <h3>5.2 A customer disputes an invoice</h3>
+        <p>
+          <span class="pill notbuilt">✗ NOT BUILT</span> No formal dispute workflow. The customer
+          phones or emails. The admin can:
+        </p>
+        <ul>
+          <li>Edit the invoice (line items, total) if status ≠ <code>paid</code>.</li>
+          <li>Mark it <code>void</code> via the API.</li>
+          <li>Add a note to the activity log explaining the dispute.</li>
+        </ul>
+        <p>
+          There is no structured dispute reason, no comment thread, and no timer/SLA. The dispute
+          history exists only as free-text activity entries. Risk: tribal knowledge, no
+          consistency between admins.
+        </p>
+
+        <h3>5.3 Admin disagrees with a submitted inspection</h3>
+        <p>
+          <span class="pill partial">⚠ PARTIAL</span> Two paths:
+        </p>
+        <ol>
+          <li><strong>Edit in place</strong> — admin opens the inspection in adminMode, corrects
+            fields, approves. Changes are diff-logged to the activity timeline.</li>
+          <li><strong>Send back</strong> — change the lead status to
+            <code>inspection_waiting</code>. The technician sees a Revisions banner on their
+            dashboard with the admin's note next time they open the app.</li>
+        </ol>
+        <div class="callout warn">
+          <p>
+            <strong>Communication gap:</strong> there is no push, email, or SMS to the technician
+            when their work is sent back. The Revisions banner only appears the next time the
+            technician opens the app — often hours later. Admins follow up by phone or text
+            outside the app to close the loop.
+          </p>
+        </div>
+
+        <h3>5.4 A customer wants to cancel after booking</h3>
+        <p>
+          <span class="pill notbuilt">✗ NOT BUILT</span> No customer-facing cancel button. The
+          flow is:
+        </p>
+        <ol>
+          <li>Customer phones MRC.</li>
+          <li>Admin opens the schedule, finds the booking, changes its status.</li>
+          <li>Admin manually emails a cancellation confirmation (or doesn't).</li>
+          <li>Admin manually pings the technician (Slack, phone, text — outside the app).</li>
+        </ol>
+        <p>
+          No structured cancellation reason is captured. The activity log records the status
+          change but not the why.
+        </p>
+
+        <h3>5.5 Payment doesn't arrive</h3>
+        <p>
+          <span class="pill built">✓ BUILT (with caveats)</span> The cron flips the invoice to
+          <code>overdue</code> the day after the due date. Slack alerts fire on a schedule (Day
+          15, 22, 29, 30, 60). There is no automated chase email to the customer; admin must
+          phone or write manually. If the customer never pays, the invoice sits as
+          <code>overdue</code> indefinitely. Escalation past 60 days is a manual,
+          outside-the-system process (likely debt collection).
+        </p>
+
+        <h3>5.6 Photo upload fails mid-sync</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> The photo's row in the IndexedDB
+          <code>photoQueue</code> table is updated to <code>status='error'</code> with the error
+          message. The OfflineBanner displays the count of pending + errored items. The technician
+          can:
+        </p>
+        <ul>
+          <li>Wait for the next online cycle — sync retries automatically.</li>
+          <li>Move to better signal and the sync will pick up.</li>
+          <li>If the photo is permanently broken (corrupt, too large, quota exceeded), the only
+            mitigation is to delete it from the queue (limited UI exposure today) and re-shoot.</li>
+        </ul>
+
+        <h3>5.7 The app throws an error at runtime</h3>
+        <p>
+          <span class="pill built">✓ BUILT</span> Two layers of error boundary:
+        </p>
+        <ul>
+          <li><strong>Global ErrorBoundary</strong> — catches anything that escapes the page
+            level. Shows a full-page fallback with "Refresh Page" and "Go to Dashboard" buttons.
+            No technical detail exposed to the user.</li>
+          <li><strong>PageErrorBoundary</strong> — wraps high-risk pages (Inspection AI Review,
+            Inspection Form, Job Completion Form, Admin Inspection Form, Lead Detail). Renders an
+            inline error in just that section with "Try Again" and "Go Back" buttons; the rest of
+            the app keeps working.</li>
+        </ul>
+        <p>
+          Errors are forwarded to <strong>Sentry</strong> with user role + URL context.
+          Breadcrumbs of recent actions are attached. There is no in-app "Report this error"
+          link; users don't know the error has been logged.
+        </p>
+
+        <h3>5.8 Database connection lost mid-request</h3>
+        <p>
+          React Query is configured with retry: 2 for reads (exponential backoff up to 10 s) and
+          retry: false for writes. So a read failure briefly retries, but a write failure surfaces
+          to the user as an immediate toast error with no background retry. The OfflineBanner
+          appears when <code>navigator.onLine</code> goes false. On reconnect, the SyncManager
+          drains the IndexedDB queue.
+        </p>
+
+        <h3>5.9 Live UI buttons that go nowhere</h3>
+        <p>
+          <span class="pill partial">⚠ MISLEADING UI</span> The "SMS" action button on the Lead
+          Detail page (<code>src/pages/LeadDetail.tsx:477</code>) is wired to a handler called
+          <code>handleSMS()</code> that has no implementation — clicking does nothing. Visible to
+          admins, no error toast, no console message. Tracked as P1 in <a href="#backlog">Section
+          11</a>; the fix is either wire it to a Twilio path (which would change the
+          <span class="pill deliberate">DELIBERATE</span> SMS decision) or remove the button.
+          Until then, train new admins to use phone or email and ignore the SMS button.
+        </p>
+
+        <h3>5.10 No dev environment to test changes against</h3>
+        <div class="callout danger">
+          <p>
+            <strong>P0 INFRASTRUCTURE GAP.</strong> There is one Supabase project,
+            <code>ecyivrxjpsmjmexqatym</code>, and it is production. Every migration, every Edge
+            Function deploy, every schema experiment runs against the live database that customer
+            data sits in. There is no preview, no staging, no rollback rehearsal. Mitigations
+            today: migrations are reviewed manually before deployment; destructive operations
+            require explicit approval per <code>CLAUDE.md</code>. Until a dev project is
+            provisioned, every schema change carries the risk of a production-data incident
+            with no rehearsal. Tracked as P0 in <a href="#backlog">Section 11</a>.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           CROSS-CUTTING: PERMISSION MATRIX
+           ============================================================ -->
+      <section id="permissions">
+        <h2><span class="num">6.</span>The Permission Matrix</h2>
+        <p>
+          What each role can and cannot do. Every "yes" or "conditional" is enforced at two layers:
+          the React route guard (<code>RoleProtectedRoute</code>) and the database row-level
+          security policy. The database is the source of truth — even if the UI ever leaks a
+          button, the database refuses the operation.
+        </p>
+        <p>
+          The conditional rule pattern that appears throughout: "only rows where
+          <code>assigned_to = auth.uid()</code> for leads, or where the parent lead's
+          <code>assigned_to = auth.uid()</code> for child rows like inspections, areas, photos."
+          Translation: <strong>technicians see only their own assigned work, full stop</strong>.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="min-width: 280px">Action</th>
+                <th>Admin</th>
+                <th>Technician</th>
+                <th>Customer (public)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Submit the public lead form</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td></tr>
+              <tr><td>Log into the app</td><td class="tick">✓</td><td class="tick">✓</td><td class="cross">✗</td></tr>
+              <tr><td>View the Admin Dashboard</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>View the Technician Dashboard</td><td class="cross">✗</td><td class="tick">✓</td><td class="cross">✗</td></tr>
+              <tr><td>View any lead in the system</td><td class="tick">✓</td><td class="cond">Only if <code>assigned_to = self</code></td><td class="cross">✗</td></tr>
+              <tr><td>Edit lead contact info</td><td class="tick">✓</td><td class="cond">Limited to <code>notes</code> on assigned leads</td><td class="cross">✗</td></tr>
+              <tr><td>Edit lead property address</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>Assign a technician to a lead</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>Change lead status</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>View an inspection</td><td class="tick">✓</td><td class="cond">Only on assigned leads</td><td class="cross">✗</td></tr>
+              <tr><td>Submit an inspection form</td><td class="tick">✓ (adminMode)</td><td class="tick">✓</td><td class="cross">✗</td></tr>
+              <tr><td>Edit a submitted inspection</td><td class="tick">✓</td><td class="cond">Until lead moves past inspection stage</td><td class="cross">✗</td></tr>
+              <tr><td>Approve an inspection report</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>View AI-generated summary</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>Generate a PDF report</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>Upload an inspection photo</td><td class="tick">✓</td><td class="cond">Only on own inspections</td><td class="cross">✗</td></tr>
+              <tr><td>Delete an inspection photo</td><td class="tick">✓</td><td class="cond">Only on own inspections</td><td class="cross">✗</td></tr>
+              <tr><td>Submit a job completion form</td><td class="tick">✓ (adminMode)</td><td class="tick">✓</td><td class="cross">✗</td></tr>
+              <tr><td>View the Office Notes (Section 10)</td><td class="tick">✓</td><td class="cross">✗ (component hidden)</td><td class="cross">✗</td></tr>
+              <tr><td>View the schedule (full week)</td><td class="tick">✓</td><td class="cond">Only own bookings</td><td class="cross">✗</td></tr>
+              <tr><td>Create / edit / cancel a booking</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>Generate an invoice</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>Mark an invoice paid</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>Void an invoice</td><td class="cond">⚠ API exposed, UI surface limited (see <a href="#admin">3.11</a>)</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>View email logs</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>View audit logs</td><td class="tick">✓ (DB only — no UI)</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>View all technicians + their stats</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>Manage user roles</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>Soft-delete (archive) a lead</td><td class="tick">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>Hard-delete anything</td><td class="cross">✗ (no UI for this)</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+              <tr><td>Edit own profile / change password</td><td class="tick">✓</td><td class="tick">✓</td><td class="cross">✗</td></tr>
+              <tr><td>Manage trusted devices</td><td class="tick">✓</td><td class="tick">✓</td><td class="cross">✗</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          Implementation notes:
+        </p>
+        <ul>
+          <li><strong>Frontend</strong> — <code>RoleProtectedRoute</code> in
+            <code>src/components/RoleProtectedRoute.tsx</code> wraps every protected route. Role
+            membership is fetched from the <code>user_roles</code> → <code>roles</code> tables and
+            cached in the <code>AuthContext</code>.</li>
+          <li><strong>Database</strong> — RLS policies enforce the same rules at the row level.
+            Key migrations:
+            <code>20251111000001_enable_rls_on_leads.sql</code>,
+            <code>20251111000002_enable_rls_on_inspections.sql</code>,
+            <code>20260414000003_harden_photos_rls.sql</code>,
+            <code>20260414000005_harden_leads_inspections_rls.sql</code>,
+            <code>20260318000001_fix_remaining_rls_security_issues.sql</code>.</li>
+          <li><strong>Public form insert</strong> — the policy <code>allow_public_insert_leads</code>
+            is intentionally open (anonymous insert allowed), which is what makes the website form
+            work without login. Rate limiting on the receiving Edge Function is the primary abuse
+            mitigation.</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           CROSS-CUTTING: SCREEN INVENTORY
+           ============================================================ -->
+      <section id="screens">
+        <h2><span class="num">7.</span>The Complete Screen Inventory</h2>
+        <p>
+          Every route registered in <code>src/App.tsx</code>. <strong>33 routes total</strong>
+          (verified by <code>grep -c 'path="' src/App.tsx</code>): six public, twenty-six
+          protected, one catch-all.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Path</th>
+                <th>Component</th>
+                <th>Access</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/</code></td><td>Login</td><td>Public</td><td>Email/password login</td></tr>
+              <tr><td><code>/forgot-password</code></td><td>ForgotPassword</td><td>Public</td><td>Request password reset</td></tr>
+              <tr><td><code>/check-email</code></td><td>CheckEmail</td><td>Public</td><td>Confirmation that reset email was sent</td></tr>
+              <tr><td><code>/reset-password</code></td><td>ResetPassword</td><td>Public</td><td>Set new password (token in URL)</td></tr>
+              <tr><td><code>/request-inspection</code></td><td>RequestInspection</td><td>Public</td><td><span class="pill note">i ORPHAN</span> Pre-Framer customer enquiry form. Reachable only by direct URL — zero nav links across <code>src/</code>. See <a href="#customer">1.1b</a>.</td></tr>
+              <tr><td><code>/request-inspection/success</code></td><td>InspectionSuccess</td><td>Public</td><td><span class="pill note">i ORPHAN</span> Success page reached only after submitting the orphan form above.</td></tr>
+              <tr><td><code>/admin</code></td><td>AdminDashboard</td><td>Admin</td><td>KPIs + today's schedule + activity feed</td></tr>
+              <tr><td><code>/admin/schedule</code></td><td>AdminSchedule</td><td>Admin</td><td>Week/day calendar of bookings</td></tr>
+              <tr><td><code>/admin/technicians</code></td><td>AdminTechnicians</td><td>Admin</td><td>Roster + per-tech stats</td></tr>
+              <tr><td><code>/admin/technicians/:id</code></td><td>AdminTechnicianDetail</td><td>Admin</td><td>Single tech profile + bookings</td></tr>
+              <tr><td><code>/admin/leads</code></td><td>LeadsManagement</td><td>Admin</td><td>Pipeline + search + bulk actions</td></tr>
+              <tr><td><code>/admin/inspection-ai-review/:leadId</code></td><td>InspectionAIReview</td><td>Admin</td><td>Review + edit AI-drafted inspection content</td></tr>
+              <tr><td><code>/admin/inspection/:leadId</code></td><td>TechnicianInspectionForm (adminMode)</td><td>Admin</td><td>Admin edits inspection in same form as tech</td></tr>
+              <tr>
+                <td><code>/inspection/:inspectionId/report</code><br/><code>/admin/job-report/:leadId</code><br/><code>/report/:id</code></td>
+                <td>ViewReportPDF<sup>†</sup></td>
+                <td>Admin</td>
+                <td>Unified PDF viewer; the route detects whether to render an inspection or job report from the URL params</td>
+              </tr>
+              <tr><td><code>/admin/reports</code></td><td>Reports</td><td>Admin</td><td>Analytics dashboard</td></tr>
+              <tr><td><code>/admin/activity</code></td><td>Notifications</td><td>Admin</td><td>System-wide recent activity</td></tr>
+              <tr><td><code>/admin/settings</code></td><td>Settings</td><td>Admin</td><td>Admin preferences (shared component)</td></tr>
+              <tr><td><code>/admin/help</code></td><td>HelpSupport</td><td>Admin</td><td>Help &amp; documentation (shared)</td></tr>
+              <tr><td><code>/admin/profile</code></td><td>Profile</td><td>Admin</td><td>Edit admin profile (shared)</td></tr>
+              <tr><td><code>/lead/new/:id</code></td><td>NewLeadView</td><td>Admin</td><td>Initial lead intake view</td></tr>
+              <tr><td><code>/leads/:id</code></td><td>LeadDetail</td><td>Admin</td><td>Customer record (most-used screen)</td></tr>
+              <tr><td><code>/technician</code></td><td>TechnicianDashboard</td><td>Technician</td><td>Today's jobs + revisions banner</td></tr>
+              <tr><td><code>/technician/jobs</code></td><td>TechnicianJobs</td><td>Technician</td><td>My Jobs grouped by date</td></tr>
+              <tr><td><code>/technician/job/:id</code></td><td>LeadDetail (role-aware)</td><td>Technician</td><td>Customer record (limited UI)</td></tr>
+              <tr><td><code>/technician/inspection</code></td><td>TechnicianInspectionForm</td><td>Technician</td><td>9-section inspection form</td></tr>
+              <tr><td><code>/technician/job-completion/:leadId</code></td><td>JobCompletionForm</td><td>Technician</td><td>10-section completion form</td></tr>
+              <tr><td><code>/technician/alerts</code></td><td>TechnicianAlerts</td><td>Technician</td><td>In-app alerts feed</td></tr>
+              <tr><td><code>/technician/profile</code></td><td>Profile</td><td>Technician</td><td>Edit profile (shared)</td></tr>
+              <tr><td><code>/technician/settings</code></td><td>Settings</td><td>Technician</td><td>Tech preferences (shared)</td></tr>
+              <tr><td><code>/technician/help</code></td><td>HelpSupport</td><td>Technician</td><td>Help &amp; docs (shared)</td></tr>
+              <tr><td><code>*</code></td><td>NotFound</td><td>All</td><td>404 page</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Archaeology — files on disk that aren't routed</h3>
+        <ul>
+          <li><span class="pill note">i NOTE</span> <code>src/pages/AdminInvoiceHelper.tsx</code>
+            — kept on disk; the route was removed when payment tracking was simplified to a card
+            inside LeadDetail. Comment in <code>src/App.tsx:50</code> documents the decision. The
+            file is dead code; safe to delete in a cleanup pass.</li>
+          <li><span class="pill note">i NOTE</span> <code>src/pages/ViewJobReportPDF.tsx</code> —
+            previously existed; deleted and unified into <code>ViewReportPDF.tsx</code>, which
+            now detects whether to render an inspection report or a job report based on the URL.
+            Comment in <code>src/App.tsx:51</code>.</li>
+        </ul>
+
+        <h3>Notes on shared components across roles</h3>
+        <ul>
+          <li><code>LeadDetail</code> — same component for both <code>/leads/:id</code> (admin)
+            and <code>/technician/job/:id</code> (technician). Conditional rendering hides
+            admin-only buttons when <code>currentRole !== 'admin'</code>.</li>
+          <li><code>Profile</code>, <code>Settings</code>, <code>HelpSupport</code> — single
+            implementations reused at admin and technician routes.</li>
+          <li><code>TechnicianInspectionForm</code> — used at both
+            <code>/technician/inspection</code> (tech, default mode) and
+            <code>/admin/inspection/:leadId</code> (admin, with <code>adminMode</code> prop).</li>
+          <li><code>ViewReportPDF</code> — three URL entry points (consolidated row above):
+            <code>/inspection/:inspectionId/report</code> for inspection reports,
+            <code>/admin/job-report/:leadId</code> for job reports, and <code>/report/:id</code>
+            as the generic viewer used by email-link entry points. The component detects which
+            report type to render from the URL params.</li>
+        </ul>
+        <p style="font-size: 13px; color: var(--ink-muted); margin-top: 12px;">
+          <sup>†</sup> Three URL entry points, one component. Documented as a single row to avoid
+          implying three independent screens.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 8: EDGE FUNCTIONS
+           ============================================================ -->
+      <section id="edge-functions">
+        <h2><span class="num">8.</span>The Edge Functions <span class="dev-tag">DEV</span></h2>
+        <p>
+          Twelve Supabase Edge Functions live in <code>supabase/functions/</code>. Each runs on
+          Deno, deploys via <code>npx supabase functions deploy &lt;name&gt; --project-ref ecyivrxjpsmjmexqatym</code>,
+          and reads its secrets from the Supabase project's environment. The table below catalogues
+          every function, what triggers it, what it does, how it behaves on failure, and who calls
+          it.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Trigger</th>
+                <th>Purpose</th>
+                <th>Failure mode</th>
+                <th>Caller</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>send-email</code></td>
+                <td>HTTP POST</td>
+                <td>Sends a transactional email via Resend. Validates payload with Zod, logs to <code>email_logs</code>, retries 3× with exponential backoff (1 s → 2 s → 4 s), skips retry on 4xx except 429.</td>
+                <td>Rate-limited at 10 requests/min per IP (<code>send-email/index.ts:13–14</code>); fire-and-forget from caller (errors swallowed at caller).</td>
+                <td>Frontend (e.g. <code>RequestInspection.tsx:102</code>), other Edge Functions (<code>receive-framer-lead</code>, <code>send-inspection-reminder</code>).</td>
+              </tr>
+              <tr>
+                <td><code>send-inspection-reminder</code></td>
+                <td>pg_cron <code>0 * * * *</code> (hourly)</td>
+                <td>Queries upcoming inspections and emails reminders ~2 days before each booking; updates <code>calendar_bookings.reminder_sent</code> to true.</td>
+                <td>Per-email failures logged but do not block the cron run; whole run errors surface only in Supabase function logs.</td>
+                <td>Cron only.</td>
+              </tr>
+              <tr>
+                <td><code>send-slack-notification</code></td>
+                <td>HTTP POST</td>
+                <td>Posts a Slack Block Kit message to the configured webhook. Used for every status change, booking, payment, and overdue milestone.</td>
+                <td>Fire-and-forget; failures land in function logs only. In-memory rate limit 10/min per IP.</td>
+                <td>Frontend on every status change; other Edge Functions (<code>check-overdue-invoices</code>, <code>receive-framer-lead</code>).</td>
+              </tr>
+              <tr>
+                <td><code>generate-inspection-pdf</code></td>
+                <td>HTTP POST</td>
+                <td>Fetches an inspection + areas + photos, fills the HTML template stored in the <code>pdf-templates</code> bucket, returns a populated HTML URL or raw HTML for client-side PDF rendering.</td>
+                <td>Returns 404 if inspection not found. Service-role read bypasses RLS.</td>
+                <td>Admin UI on the Inspection Report Editor.</td>
+              </tr>
+              <tr>
+                <td><code>generate-job-report-pdf</code></td>
+                <td>HTTP POST</td>
+                <td>Same pattern as the inspection PDF, for job-completion reports. Downloads photos, embeds as base64 (no signed-URL TTL), populates the job-report HTML template.</td>
+                <td>Returns 404 if the job completion record is not found. Template <code>pdf-templates/job-report-template.html</code> is confirmed present in storage (verified by working production sends).</td>
+                <td>Admin UI when an admin opens or regenerates a job report.</td>
+              </tr>
+              <tr>
+                <td><code>generate-inspection-summary</code></td>
+                <td>HTTP POST</td>
+                <td>Calls OpenRouter (Gemini family) to draft AI inspection narrative — "What we found", "Treatment plan", "Detailed analysis". Three-model fallback chain.</td>
+                <td>If all three models fail, returns 500 with the last error message; admin sees an error toast and can retry.</td>
+                <td>Admin UI on the AI Review page.</td>
+              </tr>
+              <tr>
+                <td><code>calculate-travel-time</code></td>
+                <td>HTTP POST</td>
+                <td>Calls Google Maps Distance Matrix API for technician-to-property travel time. Used for booking conflict checks and recommended-date suggestions.</td>
+                <td>If Google Maps is unreachable, the booking modal shows a warning and the admin can override; the database also has a fallback <code>calculate_travel_time()</code> SQL function backed by the <code>suburb_zones</code> 4×4 zone matrix.</td>
+                <td>Admin UI from <code>BookInspectionModal.tsx</code> and <code>BookJobSheet.tsx</code>.</td>
+              </tr>
+              <tr>
+                <td><code>receive-framer-lead</code></td>
+                <td>HTTP POST (webhook from Framer)</td>
+                <td>Public webhook receiver. Smart-extracts name/email/phone/address from arbitrary form payloads using regex heuristics, creates a lead, sends a confirmation email, posts a Slack alert. Logs to <code>webhook_submissions</code>.</td>
+                <td>Rate-limited 5 submissions/hour per IP. On parse failure, still inserts a <code>webhook_submissions</code> row with status <code>failed</code> for admin review (surfaces on the dashboard "Failed Webhooks" widget).</td>
+                <td>External — the public Framer site posts to this endpoint.</td>
+              </tr>
+              <tr>
+                <td><code>manage-users</code></td>
+                <td>HTTP POST</td>
+                <td>Admin CRUD on users + role assignment via Supabase Auth admin API. Wraps service-role calls.</td>
+                <td>Returns standard 4xx for permission/validation errors.</td>
+                <td>Admin UI from the Technicians page and lead-assignment dropdowns.</td>
+              </tr>
+              <tr>
+                <td><code>seed-admin</code></td>
+                <td>HTTP POST</td>
+                <td>One-shot setup function that creates the initial admin account. Not used post-launch.</td>
+                <td>Returns 409 if an admin already exists.</td>
+                <td>Manual call by a developer during initial provisioning. <span class="pill note">i NOTE</span> safe to delete in a future cleanup pass.</td>
+              </tr>
+              <tr>
+                <td><code>export-inspection-context</code></td>
+                <td>HTTP POST</td>
+                <td>Exports a complete inspection record (lead + areas + photos + readings) as JSON. Used for AI prompt refinement and debugging.</td>
+                <td>Returns 404 if inspection not found.</td>
+                <td>Admin tooling, infrequently. Not exposed in primary UI.</td>
+              </tr>
+              <tr>
+                <td><code>check-overdue-invoices</code></td>
+                <td>pg_cron <code>0 23 * * *</code> (daily 23:00 UTC = 9 AM AEST)</td>
+                <td>Marks invoices overdue once <code>due_date &lt; today</code>, posts a Slack alert with milestone text on Days 15, 22, 29, 30, 60. Inserts an activity row per change.</td>
+                <td>Per-invoice errors collected and reported in the run summary; the cron itself swallows them so one bad row doesn't poison the whole run.</td>
+                <td>Cron only.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          <strong>Environment variables consumed across the 12 functions:</strong>
+          <code>SUPABASE_URL</code>, <code>SUPABASE_SERVICE_ROLE_KEY</code> (universal),
+          <code>RESEND_API_KEY</code> (send-email), <code>SLACK_WEBHOOK_URL</code> (send-slack-notification, check-overdue-invoices, receive-framer-lead),
+          <code>OPENROUTER_API_KEY</code> (generate-inspection-summary),
+          <code>GOOGLE_MAPS_API_KEY</code> (calculate-travel-time). All set via Supabase project
+          secrets, not committed to the repo.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 9: DATABASE SHAPE
+           ============================================================ -->
+      <section id="database">
+        <h2><span class="num">9.</span>The Database Shape <span class="dev-tag">DEV</span></h2>
+        <p>
+          One Supabase Postgres project (<code>ecyivrxjpsmjmexqatym</code>) holds everything. RLS
+          is enabled on every business table; the canonical pattern is "admin sees all rows; tech
+          sees only rows tied to a lead where <code>assigned_to = auth.uid()</code>". This section
+          inventories the live tables, the SQL helpers and triggers that enforce business rules,
+          the storage buckets, and the realtime subscriptions.
+        </p>
+
+        <h3>9.1 Tables</h3>
+        <p>
+          Active business tables first, then system / supporting tables, then dead tables that
+          exist in the schema but are not referenced by any code in <code>src/</code>.
+          <strong>Scale</strong> is qualitative: <em>tiny</em> (≤10 rows), <em>small</em> (tens),
+          <em>growing</em> (unbounded operational data). <strong>RLS</strong> shows whether
+          policies are present and the dominant rule.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Table</th>
+                <th>Purpose</th>
+                <th>Scale</th>
+                <th>RLS</th>
+                <th>Migration</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>leads</code></td>
+                <td>Lead pipeline records — contact, property, status, assignment</td>
+                <td>Growing</td>
+                <td>Admin all; tech only assigned</td>
+                <td>20251028135212</td>
+                <td>Soft-delete via <code>archived_at</code> (20260414000002). Public INSERT allowed for the website form.</td>
+              </tr>
+              <tr>
+                <td><code>inspections</code></td>
+                <td>Site visit records — findings, climate, pricing, AI summary</td>
+                <td>Growing</td>
+                <td>Admin all; tech via parent lead</td>
+                <td>20251028135212</td>
+                <td>Largest schema (~95 columns). Hardened in 20260414000005.</td>
+              </tr>
+              <tr>
+                <td><code>inspection_areas</code></td>
+                <td>Per-room observations within an inspection</td>
+                <td>Growing</td>
+                <td>Inherits via inspection</td>
+                <td>20251028135212</td>
+                <td>Audit triggers in 20260311000001.</td>
+              </tr>
+              <tr>
+                <td><code>moisture_readings</code></td>
+                <td>Per-area moisture % readings</td>
+                <td>Growing</td>
+                <td>Inherits via area</td>
+                <td>20251028135212</td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td><code>subfloor_data</code></td>
+                <td>Optional subfloor inspection block</td>
+                <td>Growing</td>
+                <td>Inherits via inspection</td>
+                <td>20251028135212</td>
+                <td>1:1 with inspection. FK fix in 20251120000001.</td>
+              </tr>
+              <tr>
+                <td><code>subfloor_readings</code></td>
+                <td>Per-subfloor moisture readings</td>
+                <td>Growing</td>
+                <td>Inherits via subfloor</td>
+                <td>20251028135212</td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td><code>photos</code></td>
+                <td>All field photos (inspection + job completion)</td>
+                <td>Growing</td>
+                <td>Tech can act on own; admin all (20260414000003)</td>
+                <td>20251028135212</td>
+                <td><code>photo_category</code> column added later for before/after/demolition tagging.</td>
+              </tr>
+              <tr>
+                <td><code>calendar_bookings</code></td>
+                <td>Scheduled appointments — inspection or job</td>
+                <td>Growing</td>
+                <td>Admin all; tech own bookings</td>
+                <td>renamed in 20251111000016 (was <code>calendar_events</code>)</td>
+                <td>Realtime enabled in 20260209100000. A handful of older comments and type definitions still reference the pre-rename name.</td>
+              </tr>
+              <tr>
+                <td><code>job_completions</code></td>
+                <td>Phase 2 — what was actually done on remediation</td>
+                <td>Growing</td>
+                <td>Admin all; tech own</td>
+                <td>created via Studio (no migration in repo)</td>
+                <td>FK target of <code>invoices.job_completion_id</code>. Code path in <code>src/lib/api/jobCompletions.ts</code>.</td>
+              </tr>
+              <tr>
+                <td><code>invoices</code></td>
+                <td>Billing — line items (JSONB), discount cap, payment tracking</td>
+                <td>Growing</td>
+                <td>Admin only</td>
+                <td>20260414000004</td>
+                <td>13% discount CHECK, payment_method CHECK with 5 values, INSERT/UPDATE audit triggers (no DELETE).</td>
+              </tr>
+              <tr>
+                <td><code>profiles</code></td>
+                <td>Lightweight user extension (display name, onboarding flag)</td>
+                <td>Small</td>
+                <td>Authenticated read</td>
+                <td>20260209000000</td>
+                <td>Real auth lives in <code>auth.users</code>.</td>
+              </tr>
+              <tr>
+                <td><code>user_roles</code></td>
+                <td>Role grants per user</td>
+                <td>Small</td>
+                <td>Admin manages</td>
+                <td>20251028135212</td>
+                <td>Audit triggers in 20260311000001.</td>
+              </tr>
+              <tr>
+                <td><code>roles</code></td>
+                <td>Role definitions</td>
+                <td>Tiny</td>
+                <td>Public read</td>
+                <td>20251028135212</td>
+                <td>Three rows: admin, technician, manager (manager unused).</td>
+              </tr>
+              <tr>
+                <td><code>activities</code></td>
+                <td>Human-readable per-lead event timeline</td>
+                <td>Growing</td>
+                <td>Inherits via lead</td>
+                <td>20251028135212</td>
+                <td>Populated by <code>trigger_lead_activity()</code> on lead INSERT/UPDATE (20251112000020).</td>
+              </tr>
+              <tr>
+                <td><code>audit_logs</code></td>
+                <td>Immutable change history (old/new values)</td>
+                <td>Growing</td>
+                <td>Admin only; UPDATE/DELETE blocked by triggers</td>
+                <td>20260308000001</td>
+                <td>Tamper-resistant by design. No admin UI for browsing.</td>
+              </tr>
+              <tr>
+                <td><code>error_logs</code></td>
+                <td>Application-side errors</td>
+                <td>Growing</td>
+                <td>Restricted to <code>auth.uid() = user_id</code> (20260318000001)</td>
+                <td>20260308000001</td>
+                <td>Sentry is the primary error sink; this table is a secondary record.</td>
+              </tr>
+              <tr>
+                <td><code>email_logs</code></td>
+                <td>Outbound email delivery records</td>
+                <td>Growing</td>
+                <td>Admin only; service role write (20251111000008)</td>
+                <td>20251111000008</td>
+                <td>Status enum includes <code>bounced</code>/<code>soft_bounce</code>/<code>spam</code> but no Resend webhook listener writes those — Section 5.1.</td>
+              </tr>
+              <tr>
+                <td><code>notifications</code></td>
+                <td>In-app notification bell</td>
+                <td>Growing</td>
+                <td>Per-user</td>
+                <td>20251029103512</td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td><code>login_activity</code></td>
+                <td>Login attempts (success/fail, device, location)</td>
+                <td>Growing</td>
+                <td>Anon insert only for failed (20260318000001)</td>
+                <td>20260125000001</td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td><code>user_devices</code></td>
+                <td>Trusted device fingerprints</td>
+                <td>Small</td>
+                <td>Per-user</td>
+                <td>20260125000001</td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td><code>user_sessions</code></td>
+                <td>Active session tracking</td>
+                <td>Growing</td>
+                <td>Admin can force-logout</td>
+                <td>20260125000001</td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td><code>suspicious_activity</code></td>
+                <td>Auto-flagged security events</td>
+                <td>Small</td>
+                <td>Admin only; insert restricted (20260318000001)</td>
+                <td>20260125000001</td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td><code>webhook_submissions</code></td>
+                <td>Audit trail for incoming webhooks (Framer)</td>
+                <td>Growing</td>
+                <td>Public INSERT; admin read</td>
+                <td>20260421000000</td>
+                <td>Feeds the "Failed Webhooks" KPI on the admin dashboard. <code>retry_count</code> column tracks reprocessing attempts.</td>
+              </tr>
+              <tr>
+                <td><code>suburb_zones</code></td>
+                <td>4-tier zone matrix for travel-time calc</td>
+                <td>Small</td>
+                <td>Public read</td>
+                <td>20251111000004 (seeded 20251111000005)</td>
+                <td>Backs the SQL <code>calculate_travel_time()</code> fallback when Google Maps is unavailable.</td>
+              </tr>
+              <tr>
+                <td><code>app_settings</code></td>
+                <td>Generic key-value config</td>
+                <td>Tiny</td>
+                <td>Hardened in 20260405000001</td>
+                <td>20251111000012</td>
+                <td>Used by inspection-number sequence; otherwise minimal.</td>
+              </tr>
+              <tr>
+                <td colspan="6" style="background: var(--surface-alt); padding-top: 16px; padding-bottom: 6px; font-weight: 600; color: var(--ink-muted);">Dead tables — exist in the schema, no references in <code>src/</code></td>
+              </tr>
+              <tr>
+                <td><code>sms_logs</code></td>
+                <td>SMS audit trail</td>
+                <td>Empty</td>
+                <td>—</td>
+                <td>20251111000009</td>
+                <td>SMS is <span class="pill deliberate">DELIBERATE</span> not built. Drop candidate.</td>
+              </tr>
+              <tr>
+                <td><code>offline_queue</code></td>
+                <td>Server-side offline queue</td>
+                <td>Empty</td>
+                <td>—</td>
+                <td>20251111000010</td>
+                <td>Superseded by client-side Dexie. Drop candidate.</td>
+              </tr>
+              <tr>
+                <td><code>pdf_versions</code></td>
+                <td>Generated PDF version snapshots</td>
+                <td>Empty</td>
+                <td>—</td>
+                <td>20241221000000</td>
+                <td>Table created; no INSERT statements anywhere. Drop or wire up.</td>
+              </tr>
+              <tr>
+                <td><code>editable_fields</code></td>
+                <td>Inline-editable field metadata</td>
+                <td>Empty</td>
+                <td>—</td>
+                <td>20241221000000</td>
+                <td>No CRUD anywhere. Drop candidate.</td>
+              </tr>
+              <tr>
+                <td><code>equipment</code>, <code>operating_hours</code>, <code>pricing_settings</code></td>
+                <td>Config-table scaffolding</td>
+                <td>Empty</td>
+                <td>—</td>
+                <td>20251028135212</td>
+                <td>Created in the early schema, never wired. Drop candidates.</td>
+              </tr>
+              <tr>
+                <td><code>password_reset_tokens</code>, <code>booking_tokens</code>, <code>client_booking_tokens</code></td>
+                <td>Legacy token tables</td>
+                <td>Empty</td>
+                <td>—</td>
+                <td>20251028135212, 20251029103512</td>
+                <td>Replaced by Supabase Auth (password reset) and never built (booking tokens). Drop candidates.</td>
+              </tr>
+              <tr>
+                <td><code>company_settings</code></td>
+                <td>Company-wide settings</td>
+                <td>Empty</td>
+                <td>—</td>
+                <td>20251028133857</td>
+                <td>Created, never written. Drop candidate.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          The generated TypeScript types in <code>src/integrations/supabase/types.ts</code> are
+          stale: they predate the <code>invoices</code>, <code>job_completions</code>, and
+          <code>webhook_submissions</code> tables. The application typechecks against the runtime
+          shape (errors only show at integration boundaries) but a regenerate is overdue —
+          tracked in <a href="#backlog">Section 11</a>.
+        </p>
+
+        <h3>9.2 Functions and triggers</h3>
+        <p>
+          The following SQL functions and triggers enforce business rules at the database layer.
+          They are the reason certain bugs are impossible: even if the UI is bypassed, the
+          database refuses.
+        </p>
+        <ul>
+          <li><code>is_admin()</code> and <code>is_admin(uuid)</code> — RLS helper used by every
+            admin policy. Defined in <code>20260109000003_fix_is_admin_function.sql</code>
+            (replaced an earlier version that queried a since-dropped <code>users</code> table).</li>
+          <li><code>generate_invoice_number()</code> + trigger <code>set_invoice_number</code> —
+            auto-formats <code>INV-YYYY-NNNN</code> on INSERT. Sequence
+            <code>invoice_number_seq</code> backs the counter. Hardened in
+            <code>20260421000001_harden_generate_invoice_number.sql</code> with an explicit
+            <code>search_path</code>.</li>
+          <li><code>generate_inspection_number()</code> — formats <code>INS-YYYYMMDD-XXX</code>
+            with a daily reset (20251111000011, race-fix in 20251111000012).</li>
+          <li><code>generate_lead_number()</code> + trigger <code>add_lead_number</code> —
+            auto-numbers leads (20251112000003).</li>
+          <li><code>trigger_lead_activity()</code> + trigger <code>add_lead_activity</code> —
+            writes a row to <code>activities</code> on every lead INSERT/UPDATE
+            (20251112000020). This is why the activity timeline on Lead Detail is always
+            in sync.</li>
+          <li><code>check_booking_conflicts()</code> and <code>has_travel_time_conflict()</code>
+            — used by the booking modal before INSERT to prevent double-booking and to enforce
+            the 15-minute buffer plus calculated travel time between consecutive jobs
+            (20251111000011).</li>
+          <li><code>calculate_travel_time()</code> + <code>get_zone_by_suburb()</code> — the SQL
+            fallback for the Google Maps Distance Matrix call, backed by the
+            <code>suburb_zones</code> 4×4 matrix (20251111000006).</li>
+          <li><code>audit_log_trigger(action_text)</code> — SECURITY DEFINER function that writes
+            old/new values to <code>audit_logs</code>. Triggered on
+            <code>leads</code>, <code>inspections</code>, <code>inspection_areas</code>,
+            <code>user_roles</code> (all of INSERT/UPDATE/DELETE, migration 20260311000001) and
+            on <code>invoices</code> (INSERT/UPDATE only, migration 20260414000004).</li>
+          <li><code>prevent_audit_log_delete()</code> + <code>prevent_audit_log_update()</code>
+            — raise an exception on any attempt to modify <code>audit_logs</code> rows. The audit
+            log is append-only by enforcement, not convention.</li>
+          <li><code>update_updated_at_column()</code> — generic touch trigger on most tables.</li>
+        </ul>
+
+        <h3>9.3 Storage buckets</h3>
+        <ul>
+          <li><code>inspection-photos</code> — every field photo (inspection or job completion).
+            Filename pattern is <code>&lt;lead_id&gt;/&lt;photo_id&gt;.jpg</code>. RLS scoped so
+            techs can read only their assigned leads' photos.</li>
+          <li><code>pdf-templates</code> — HTML template files used by the two PDF generators.
+            Both templates confirmed present: <code>inspection-report-template.html</code> and
+            <code>job-report-template.html</code> (the latter verified by working production
+            sends).</li>
+          <li><code>profile-photos</code> — user avatars (added in
+            <code>20260415000000_profile_photos_bucket.sql</code>). Public read for display.
+            Per-user write via RLS scoped to user folder.</li>
+        </ul>
+
+        <h3>9.4 Realtime subscriptions</h3>
+        <p>
+          Three frontend hooks subscribe to Supabase realtime channels. This is what keeps the
+          schedule and dashboards live without polling:
+        </p>
+        <ul>
+          <li><code>src/hooks/useInspectionLeads.ts</code> — subscribes to <code>inspections</code> changes.</li>
+          <li><code>src/hooks/useTechnicianJobs.ts</code> — subscribes to <code>calendar_bookings</code> changes (realtime explicitly enabled in <code>20260209100000_enable_realtime_calendar_bookings.sql</code>).</li>
+          <li><code>src/hooks/useNotifications.ts</code> — subscribes to <code>activities</code> updates so the activity feed refreshes live.</li>
+        </ul>
+
+        <h3>9.5 PWA / Service Worker</h3>
+        <p>
+          <code>vite.config.ts</code> registers <code>vite-plugin-pwa</code>. Workbox runtime
+          caching: Google Fonts CacheFirst (1 year); Supabase REST NetworkFirst (1 hour);
+          Supabase Auth, Storage, and Functions are NetworkOnly (never cached). Manifest:
+          <code>name="MRC Field"</code>, <code>start_url="/technician"</code>, maskable icons at
+          192×192 and 512×512. The service worker is what makes the app installable as a
+          home-screen app and what supports the offline path documented in
+          <a href="#technician">Section 2.6</a>.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 10: INTEGRATIONS
+           ============================================================ -->
+      <section id="integrations">
+        <h2><span class="num">10.</span>The Integrations</h2>
+        <p>
+          Eight external services touch the system. For each: what it's used for, where the
+          credentials live, what breaks if the service goes down, and who notices.
+        </p>
+
+        <h3>10.1 Supabase</h3>
+        <p>
+          The platform layer. Provides the Postgres database, authentication, file storage, Edge
+          Functions runtime, and realtime subscriptions. One project:
+          <code>ecyivrxjpsmjmexqatym</code>. Credentials: <code>SUPABASE_URL</code> and
+          <code>SUPABASE_SERVICE_ROLE_KEY</code> in Edge Function secrets;
+          <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> in Vercel
+          frontend environment. <strong>If Supabase goes down:</strong> the entire app is dark.
+          Login fails, every query fails, the offline banner appears for online users. Technicians
+          on the road can still fill out forms (data queues to IndexedDB) but sync is blocked
+          until Supabase recovers. Sentry catches the failures; the team notices via the activity
+          dashboards going stale.
+        </p>
+
+        <h3>10.2 Resend</h3>
+        <p>
+          Outbound transactional email. All branded customer emails — booking confirmations,
+          report deliveries, Google review requests — go through Resend via the
+          <code>send-email</code> Edge Function. Sender domain is <code>mrcsystem.com</code> as
+          of commit <code>cf2b3d8</code>; the planned switch to <code>mouldandrestoration.com.au</code>
+          is tracked in <a href="#backlog">Section 11</a>. Credentials:
+          <code>RESEND_API_KEY</code> in Edge Function secrets. <strong>If Resend goes down:</strong>
+          customer emails fail silently (caller does fire-and-forget). The
+          <code>email_logs</code> table records the failure but no admin is paged. Technicians and
+          admins notice only when a customer complains about not receiving a report. Bounces are
+          a separate failure mode: see <a href="#failures">Section 5.1</a>.
+        </p>
+
+        <h3>10.3 Slack</h3>
+        <p>
+          Office team notifications. Every status change, every booking, every payment, every
+          overdue milestone posts to a single configured webhook channel via the
+          <code>send-slack-notification</code> Edge Function (Block Kit format). Credentials:
+          <code>SLACK_WEBHOOK_URL</code> in Edge Function secrets. <strong>If Slack goes down or
+          the webhook URL becomes invalid:</strong> Slack posts fail silently. The team loses
+          situational awareness — new leads don't pop up in chat, payments aren't visible — and
+          will only notice when someone checks the admin dashboard expecting recent activity. The
+          system itself continues to operate normally; only the team's nervous-system feed is
+          interrupted.
+        </p>
+
+        <h3>10.4 Google Maps</h3>
+        <p>
+          Distance Matrix API for travel-time calculation between technician locations and job
+          sites. Used by <code>calculate-travel-time</code> Edge Function and consumed by the
+          booking modals to suggest available dates and detect travel-buffer conflicts.
+          Credentials: <code>GOOGLE_MAPS_API_KEY</code> in Edge Function secrets.
+          <strong>If Google Maps is unreachable:</strong> the booking modal shows a warning and
+          the admin can override; the database has a fallback <code>calculate_travel_time()</code>
+          SQL function backed by the <code>suburb_zones</code> 4×4 zone matrix
+          (CBD / Inner / Middle / Outer). Bookings still work; travel-time accuracy degrades.
+          The admin notices through inaccurate travel estimates on the schedule view.
+        </p>
+
+        <h3>10.5 OpenRouter (Gemini)</h3>
+        <p>
+          AI inspection summary generation. Called by
+          <code>generate-inspection-summary</code> with a 3-model fallback chain (primary, then
+          two backups) so a single model going offline doesn't break the feature. Credentials:
+          <code>OPENROUTER_API_KEY</code> in Edge Function secrets. <strong>If OpenRouter is
+          completely down or all three models fail:</strong> the AI Review screen shows an error;
+          the admin can retry or write the summary by hand. The lead doesn't progress until the
+          summary exists. The admin notices immediately.
+        </p>
+
+        <h3>10.6 Sentry</h3>
+        <p>
+          Application-side error tracking and performance monitoring. Wraps the React tree
+          (<code>src/components/ErrorBoundary.tsx</code>, <code>PageErrorBoundary</code>),
+          captures uncaught exceptions with breadcrumbs and user role context, and attaches
+          replay snapshots. Configured via <code>VITE_SENTRY_DSN</code> at runtime;
+          source-map upload uses build-time variables. <strong>If Sentry is down:</strong> the
+          app continues working; the team simply loses the error feed. Errors still bubble up to
+          the user via error boundaries. New issues won't be visible in the Sentry dashboard
+          until it recovers.
+        </p>
+
+        <h3>10.7 Vercel</h3>
+        <p>
+          Hosting and CDN. Auto-deploys the React app from the <code>main</code> branch to
+          preview URLs and from the <code>production</code> branch to the live URL. Enforces
+          security headers (CSP, X-Frame-Options, Referrer-Policy). Frontend environment
+          variables (<code>VITE_*</code>) are managed in the Vercel project settings.
+          <strong>If Vercel goes down:</strong> the app is unreachable for everyone. Edge
+          Functions and the database remain online (separate Supabase infrastructure) but no UI
+          can reach them. The team notices instantly — nobody can log in.
+        </p>
+
+        <h3>10.8 Framer</h3>
+        <p>
+          The public marketing/booking website. Submits new leads to the
+          <code>receive-framer-lead</code> Edge Function as webhook POST. The Edge Function
+          smart-extracts fields and creates a lead. Credentials: none on the MRC side — Framer
+          calls a public endpoint (rate-limited 5/hr/IP). <strong>If Framer goes down:</strong>
+          the website is offline; nobody can submit a new request. Existing leads, the admin app,
+          and the technician app are unaffected. Marketing notices first.
+        </p>
+
+        <h3>10.9 hipages — not an integration</h3>
+        <p>
+          <code>hipages_lead</code> appears in the lead status enum, suggesting integration. It
+          is not. There is no API call, no webhook handler, no scheduled poll. "Hipages" is a
+          manual flag an admin sets when a lead originated from hipages.com.au. Documented here
+          because new readers reasonably assume otherwise.
+        </p>
+      </section>
+
+      <!-- ============================================================
+           SECTION 11: KNOWN ISSUES & BACKLOG
+           ============================================================ -->
+      <section id="backlog">
+        <h2><span class="num">11.</span>Known Issues &amp; Backlog</h2>
+        <p>
+          A candid list of what is broken, missing, or technical debt — prioritised by operational
+          impact. P0 items affect revenue or safety and should be addressed before the next
+          handover. P1 items create friction operators must work around. P2 items are tech debt
+          worth cleaning. P3 items are nice-to-haves or
+          <span class="pill deliberate">DELIBERATE</span> business decisions documented for the
+          record.
+        </p>
+
+        <h3><span class="pill priority p0">P0</span> Revenue-blocking or safety-critical</h3>
+        <ul>
+          <li><strong>Customer invoice email is not wired</strong> — the invoice creation flow
+            updates <code>invoices.status='sent'</code> and posts a Slack alert, but no email
+            reaches the customer. Operational impact: the entire overdue chain in
+            <a href="#customer">Section 1.6</a> assumes the customer was notified of the bill;
+            in current practice the office must email each invoice manually outside the app.
+            <em>Fix:</em> add a <code>buildInvoiceEmailHtml()</code> builder in
+            <code>src/lib/api/notifications.ts</code> and call it from the invoice "Send" action.</li>
+          <li><strong>No development Supabase project</strong> — every migration, every Edge
+            Function deploy, every schema experiment runs against the production database.
+            Operational impact: any mistake risks customer data; there is no rollback rehearsal.
+            <em>Fix:</em> provision a second Supabase project, run all migrations against it, and
+            point Vercel preview deployments at it via Preview environment variables.</li>
+        </ul>
+
+        <h3><span class="pill priority p1">P1</span> Operational friction</h3>
+        <ul>
+          <li><strong>SMS button on Lead Detail is wired to an empty stub</strong> —
+            <code>src/pages/LeadDetail.tsx:477</code> defines <code>handleSMS()</code> but the
+            function body is empty. The button is visible to admins; clicking does nothing.
+            Operational impact: misleading UI; new admins waste time wondering why "SMS" doesn't
+            work. <em>Fix:</em> either implement the SMS path (which would change the
+            <span class="pill deliberate">DELIBERATE</span> SMS decision and require Twilio
+            integration), or remove the button. Recommend remove.</li>
+          <li><strong>Email sender domain is <code>mrcsystem.com</code>, not
+            <code>mouldandrestoration.com.au</code></strong> — customers see mixed branding
+            (website is <code>.au</code>, emails come from <code>.com</code>). Listed in
+            <code>docs/TODO.md</code> as a weekend task. <em>Fix:</em> configure DNS (SPF, DKIM,
+            DMARC) for the .au domain in Resend; flip the default <code>from</code> in
+            <code>supabase/functions/send-email/index.ts:185</code>.</li>
+          <li><strong>Resend bounce webhook listener is not built</strong> — the
+            <code>email_logs</code> status enum has values for <code>bounced</code>,
+            <code>soft_bounce</code>, and <code>spam</code>, but nothing writes them. Operational
+            impact: the team is unaware when an email never reached the customer until the
+            customer calls in. <em>Fix:</em> add an Edge Function that receives Resend webhook
+            events and updates <code>email_logs</code> by <code>provider_message_id</code>.</li>
+          <li><strong>Technician is never push-notified for any lifecycle event</strong> — same
+            channel-gap pattern in two visible places:
+            <ul>
+              <li><em>Job assignment</em> — when admin assigns or reassigns a booking, the tech
+                learns by opening the app. See <a href="#technician">Section 2.3</a>.</li>
+              <li><em>Send-back</em> — when admin returns an inspection for revision, the tech
+                sees a Revisions banner only on next refresh. Rework can sit unaddressed for
+                hours.</li>
+            </ul>
+            Operational impact: assignments and reworks rely on the office texting or phoning
+            the tech outside the app. <em>Fix:</em> a single Edge Function that emails the
+            technician on relevant <code>activities</code> table inserts (assignment,
+            reassignment, status revert). One ship, both gaps closed.</li>
+          <li><strong>Audit log has no admin UI</strong> — <code>audit_logs</code> is populated
+            faithfully but only queryable through Supabase Studio. Operational impact: an admin
+            investigating "who changed this?" has to find a developer.
+            <em>Fix:</em> a simple read-only audit log viewer page filtered by lead or by user.</li>
+        </ul>
+
+        <h3><span class="pill priority p2">P2</span> Tech debt</h3>
+        <ul>
+          <li><strong>Orphan file:</strong> <code>src/pages/AdminInvoiceHelper.tsx</code> exists
+            on disk but has no route. The route was removed when payment tracking was simplified
+            into a card on Lead Detail. <em>Fix:</em> delete the file.</li>
+          <li><strong>Dead tables to drop:</strong> <code>sms_logs</code>,
+            <code>offline_queue</code>, <code>pdf_versions</code>, <code>editable_fields</code>,
+            <code>equipment</code>, <code>operating_hours</code>, <code>pricing_settings</code>,
+            <code>password_reset_tokens</code>, <code>booking_tokens</code>,
+            <code>client_booking_tokens</code>, <code>company_settings</code>. None have any
+            <code>from('&lt;name&gt;')</code> caller in <code>src/</code>. See
+            <a href="#database">Section 9.1</a> for context. <em>Ship-ready migration:</em>
+            <pre style="background: var(--surface-alt); padding: 14px 16px; border-radius: var(--radius); overflow-x: auto; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; line-height: 1.5; margin: 10px 0 0; color: var(--ink);">-- supabase/migrations/YYYYMMDDHHMMSS_drop_dead_tables.sql
+DROP TABLE IF EXISTS
+  sms_logs,
+  offline_queue,
+  pdf_versions,
+  editable_fields,
+  equipment,
+  operating_hours,
+  pricing_settings,
+  password_reset_tokens,
+  booking_tokens,
+  client_booking_tokens,
+  company_settings
+CASCADE;</pre>
+          </li>
+          <li><strong>Stale generated types:</strong>
+            <code>src/integrations/supabase/types.ts</code> predates the
+            <code>invoices</code>, <code>job_completions</code>, and
+            <code>webhook_submissions</code> tables. <em>Fix:</em> regenerate via
+            <code>npx supabase gen types typescript --project-id ecyivrxjpsmjmexqatym</code>.</li>
+          <li><strong>Naming inconsistency:</strong> <code>inspections.inspector_id</code> versus
+            <code>calendar_bookings.technician_id</code> — same concept, two names.
+            <em>Fix:</em> rename column in a future migration; risky because of view dependencies,
+            so deferring is acceptable.</li>
+          <li><strong>Photo sync queue retry behaviour is undocumented</strong> — visible to
+            developers via <code>src/lib/offline/SyncManager.ts</code> but the failure / retry /
+            give-up boundary isn't explicit. <em>Fix:</em> add inline JSDoc and surface a
+            tech-facing UI for stuck items.</li>
+          <li><strong>Orphan route <code>/request-inspection</code></strong> — pre-Framer
+            customer enquiry form. Reachable only by direct URL; grep across <code>src/</code>
+            finds zero navigation links. See <a href="#customer">Section 1.1b</a> and
+            <a href="#screens">Section 7</a>. <em>Fix:</em> remove the route from
+            <code>src/App.tsx</code>, delete <code>src/pages/RequestInspection.tsx</code> and
+            <code>src/pages/InspectionSuccess.tsx</code>, drop the
+            <code>createPublicLead()</code> helper in <code>src/lib/api/public-leads.ts</code>
+            if no other caller exists.</li>
+          <li><strong>Customer-preferred date and time written to
+            <code>inspection_scheduled_date</code> as if confirmed.</strong> The Framer form
+            captures the customer's preferred date and time. The Edge Function
+            (<code>receive-framer-lead/index.ts:616-617</code>) writes these into
+            <code>inspection_scheduled_date</code> and <code>scheduled_time</code> on the leads
+            table — the same columns used for real, admin-confirmed bookings. Operational
+            impact: the Admin Dashboard "Today's Jobs" KPI and the Schedule view surface
+            customer preferences as if they were real appointments; reports that filter by
+            inspection date include preference data; there is no way to distinguish "customer
+            wishes Monday 2 pm" from "technician actually booked Monday 2 pm".
+            <em>Fix:</em> add <code>customer_preferred_date</code> and
+            <code>customer_preferred_time</code> columns to the leads table; update
+            <code>receive-framer-lead</code> to write there instead; leave
+            <code>inspection_scheduled_date</code> null until admin books formally via
+            <code>BookInspectionModal</code>; admin UI surfaces the preference in the Book
+            Inspection flow as a starting suggestion, not a real slot.</li>
+        </ul>
+
+        <h3><span class="pill priority p3">P3</span> Nice-to-have</h3>
+        <p>
+          Real but non-urgent gaps. These are work to do eventually, not decisions already made.
+        </p>
+        <ul>
+          <li><strong>Push notifications for technician assignments</strong> — would require a
+            service worker push subscription and Firebase or equivalent. Not blocking; the
+            technician-notification email fix (P1 above) closes the operational gap with less
+            infrastructure.</li>
+          <li><strong>Realtime collaboration on inspection edit</strong> — if two admins open
+            the same inspection at once, last-write-wins. Not yet a real conflict at current
+            user counts.</li>
+        </ul>
+
+        <h3><span class="pill deliberate">DELIBERATE</span> Out of scope by decision</h3>
+        <p>
+          Listed for the record so they don't reappear as backlog items. Each is a business
+          decision that can be revisited — but until revisited, treat them as designed-out, not
+          missing.
+        </p>
+        <ul>
+          <li><strong>Customer self-service portal</strong> (cancel / dispute / view invoice) —
+            Not yet planned. Today's volume doesn't justify it; the retention conversation
+            when a customer phones is the more valuable business signal.</li>
+          <li><strong>Stripe / payment processor integration</strong> — current invoice volume
+            is reconciled manually. The five payment methods (cash / visa / mastercard /
+            bank_transfer / cheque) are recorded by an admin clicking "Mark as Paid". Adding a
+            processor brings PCI compliance scope.</li>
+          <li><strong>Refund handling</strong> — handled outside the system. Refunds happen
+            rarely enough that the audit trail in email and bank statements is sufficient.</li>
+          <li><strong>SMS sending</strong> — covered in <a href="#notification-map">Section
+            4.1</a>. Cost and AU compliance considerations.</li>
+          <li><strong>Customer-facing cancel / dispute UI</strong> — covered in
+            <a href="#customer">Section 1.7</a>. Preserves the recovery phone call.</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           SECTION 12: GLOSSARY
+           ============================================================ -->
+      <section id="glossary">
+        <h2><span class="num">12.</span>The Glossary</h2>
+        <p>
+          Terms that appear throughout the doc and the codebase, with one-or-two-sentence
+          definitions and the canonical place each lives in code.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="min-width: 180px">Term</th>
+                <th>Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Lead</strong></td>
+                <td>A person who's submitted (or had submitted on their behalf) a request for an inspection. The unit of work for the entire pipeline; a single <code>leads</code> row carries through from first enquiry to final paid invoice. "Customer" is a synonym used in customer-facing copy; the data lives in the same row.</td>
+              </tr>
+              <tr>
+                <td><strong>Inspection</strong></td>
+                <td>The first site visit. A technician documents mould findings, takes photos, captures climate readings, and quotes a price. Stored in the <code>inspections</code> table, one row per visit (typically one per lead).</td>
+              </tr>
+              <tr>
+                <td><strong>Job</strong></td>
+                <td>The remediation work itself, performed after the inspection report is approved by the customer. Bookings carrying <code>event_type='job'</code> in <code>calendar_bookings</code>; the work performed is captured in the Job Completion form.</td>
+              </tr>
+              <tr>
+                <td><strong>Job Completion</strong></td>
+                <td>The post-job documentation form (10 sections — see <a href="#technician">Section 2.8</a>). Generates the Job Completion Report PDF. Lives in the <code>job_completions</code> table.</td>
+              </tr>
+              <tr>
+                <td><strong>AI Summary</strong></td>
+                <td>The LLM-generated narrative that becomes the body of the inspection report ("What we found", "Treatment plan", "Detailed analysis"). Built by the <code>generate-inspection-summary</code> Edge Function via OpenRouter (Gemini family).</td>
+              </tr>
+              <tr>
+                <td><strong>AI Review</strong></td>
+                <td>The admin screen where the AI Summary is reviewed and edited before approval. URL: <code>/admin/inspection-ai-review/:leadId</code>. Source: <code>src/pages/InspectionAIReview.tsx</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Send-back</strong></td>
+                <td>When admin returns a submitted inspection to the technician for changes. Implemented as a status change to <code>inspection_waiting</code>; the technician's dashboard surfaces a "Revisions" banner. Distinct from "Revision" (a new PDF version).</td>
+              </tr>
+              <tr>
+                <td><strong>Revision</strong></td>
+                <td>A new version of a generated PDF. The <code>pdf_versions</code> table is intended to track these but is currently unused — see <a href="#backlog">Section 11</a>.</td>
+              </tr>
+              <tr>
+                <td><strong>Archived</strong></td>
+                <td>A soft-deleted lead. <code>leads.archived_at</code> is set to a timestamp; queries filter on <code>archived_at IS NULL</code>. Reversible by an admin via the lead list. Distinct from "Voided" (invoice) and "Cancelled" (booking).</td>
+              </tr>
+              <tr>
+                <td><strong>Voided</strong></td>
+                <td>A cancelled invoice. <code>invoices.status='void'</code>. The API exists; UI exposure is limited (see <a href="#admin">Section 3.11</a>).</td>
+              </tr>
+              <tr>
+                <td><strong>Cancelled</strong></td>
+                <td>A cancelled <code>calendar_bookings</code> appointment. Different concept from a voided invoice or an archived lead.</td>
+              </tr>
+              <tr>
+                <td><strong>Closed / Finished / Not Landed</strong></td>
+                <td>Three terminal lead statuses. <code>closed</code> and <code>finished</code> both mean "successfully completed" (legacy and newer name respectively, both still in the enum); <code>not_landed</code> means the lead was lost (customer chose a competitor, didn't proceed, etc.).</td>
+              </tr>
+              <tr>
+                <td><strong>Activity Log</strong></td>
+                <td>The human-readable per-lead event timeline. Visible on the Lead Detail page. Stored in the <code>activities</code> table; populated by trigger and by application calls.</td>
+              </tr>
+              <tr>
+                <td><strong>Audit Log</strong></td>
+                <td>The immutable database change history (old + new values, acting user). Stored in <code>audit_logs</code>, populated by triggers, tamper-resistant by enforcement (no UPDATE or DELETE allowed). No admin UI; queryable only by developers via Supabase Studio.</td>
+              </tr>
+              <tr>
+                <td><strong>Email Log</strong></td>
+                <td>Outbound email delivery records. Stored in <code>email_logs</code>; tracks send attempts and Resend's reported status. Bounce / spam status fields exist but are not currently populated (no Resend webhook listener).</td>
+              </tr>
+              <tr>
+                <td><strong>Booking</strong></td>
+                <td>The user-facing term for a scheduled appointment (inspection or job). Stored in <code>calendar_bookings</code>, which was renamed from <code>calendar_events</code> in migration <code>20251111000016</code>. A handful of older comments still reference the old name.</td>
+              </tr>
+              <tr>
+                <td><strong>Technician / Inspector</strong></td>
+                <td>Same person. The role is named <code>technician</code> in the <code>roles</code> table; the column <code>inspections.inspector_id</code> is a legacy of older naming. The user-facing label is "Technician" everywhere in the UI.</td>
+              </tr>
+              <tr>
+                <td><strong>Admin</strong></td>
+                <td>The privileged role with access to the full pipeline, finance, and user management. <code>roles.name='admin'</code>. A third role, <code>manager</code>, is defined in the table but currently unused.</td>
+              </tr>
+              <tr>
+                <td><strong>Hipages</strong></td>
+                <td>A lead source — the third-party trade-services marketplace. <strong>Not</strong> an integration. The <code>hipages_lead</code> status in the lead enum is set manually by an admin when entering a lead that came in via hipages.com.au.</td>
+              </tr>
+              <tr>
+                <td><strong>Profile</strong></td>
+                <td>A user's display data — name, onboarding flag, optional avatar. Stored in the <code>profiles</code> table. Distinct from the credentials, which live in Supabase-managed <code>auth.users</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer class="colophon">
+        <span class="brand">Mould &amp; Restoration Co. — Full Walkthrough</span>
+        <span>Last generated: 2026-04-22</span>
+      </footer>
+    </main>
+  </div>
+
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      securityLevel: 'loose',
+      fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+      themeVariables: {
+        primaryColor: '#FFFFFF',
+        primaryTextColor: '#1F2937',
+        primaryBorderColor: '#121D73',
+        lineColor: '#6B7280',
+        secondaryColor: '#F5F5F0',
+        tertiaryColor: '#FAFAF8',
+        background: '#FFFFFF',
+        mainBkg: '#FFFFFF',
+        secondaryBkg: '#F5F5F0',
+        nodeBorder: '#121D73',
+        clusterBkg: '#FAFAF8',
+        clusterBorder: '#C8A968',
+        titleColor: '#121D73',
+        edgeLabelBackground: '#FAFAF8',
+        fontSize: '14px'
+      },
+      flowchart: {
+        curve: 'basis',
+        padding: 14,
+        nodeSpacing: 32,
+        rankSpacing: 38,
+        useMaxWidth: true
+      }
+    });
+  </script>
+</body>
+</html>
