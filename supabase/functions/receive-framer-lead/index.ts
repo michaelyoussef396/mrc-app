@@ -294,7 +294,7 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
           <td class="sig-details-cell">
             <p class="sig-company">Mould and Restoration Co.</p>
             <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
-            <p>Email: <a href="mailto:admin@mrcsystem.com">admin@mrcsystem.com</a></p>
+            <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
             <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
             <p>Business Hours: Monday to Sunday: 7:00 AM – 7:00 PM</p>
           </td>
