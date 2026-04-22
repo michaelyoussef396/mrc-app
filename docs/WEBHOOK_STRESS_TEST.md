@@ -40,7 +40,7 @@ Framer Form POST
 [6] Zod validation (fail → 400 + email + Slack)
         |
         v
-[7] Duplicate check (email+phone in 24h → 200 idempotent)
+[7] Duplicate detection (flag set on new lead, never rejected)
         |
         v
 [8] Insert lead with retry (3x, exponential backoff)
@@ -59,7 +59,7 @@ Every POST is logged to `webhook_submissions` at step [1] — before any process
 | Scenario | Lead | DB Log | Email | Slack | Console |
 |---|---|---|---|---|---|
 | Valid submission | Yes | processed | N/A | New Lead alert | Yes |
-| Duplicate | No | duplicate | N/A | N/A | Yes |
+| Possible duplicate | Yes (flagged) | processed | N/A | "🔁 Possible repeat" alert | Yes |
 | Validation fail | No | failed | Yes | Yes | Yes |
 | DB insert fail | No | failed | Yes | Yes | Yes |
 | Body too large | No | failed | Yes | Yes | Yes |
@@ -91,7 +91,7 @@ Every POST is logged to `webhook_submissions` at step [1] — before any process
 
 | # | Scenario | HTTP | Logged | Result | Pass |
 |---|---|---|---|---|---|
-| 11 | Duplicate (same email+phone) | 200 | Yes (duplicate) | Dedup, lead_id linked | PASS |
+| 11 | Possible duplicate (same email+phone within 24h) | 200 | Yes (processed) | New lead created with `is_possible_duplicate=true`, `possible_duplicate_of=<earlier_lead_id>`; Slack alert prefixed "🔁 Possible repeat —" | PASS |
 | 12 | Invalid date "not-a-date" | 200 | Yes (processed) | Date cleared to null | PASS |
 | 13 | Invalid email format | 400 | Yes (failed) | Zod caught | PASS |
 | 14 | Extra unknown fields | 200 | Yes (processed) | Extras ignored | PASS |

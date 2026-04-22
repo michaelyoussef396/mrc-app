@@ -13,7 +13,7 @@ POST https://ecyivrxjpsmjmexqatym.supabase.co/functions/v1/receive-framer-lead
 - **Content-Type:** `application/json` (recommended). Also accepts `multipart/form-data` and `application/x-www-form-urlencoded`.
 - **CORS:** `*` with `POST, OPTIONS`
 - **Rate limit:** 5 submissions per hour per IP → returns `429` when exceeded
-- **Duplicate protection:** same `email` + `phone` within 24h returns `200` idempotently (no duplicate lead created)
+- **Duplicate handling:** every valid submission creates a lead. If the same `email` + `phone` were seen on another lead within the last 24h, the new lead is captured with `is_possible_duplicate = true` and `possible_duplicate_of = <earlier_lead_id>` for admin review — never silently dropped.
 
 ## Field mapping
 
@@ -41,7 +41,7 @@ The function accepts many field name variations. Framer sends fields named after
 
 | DB column | Value |
 |---|---|
-| `lead_source` | `website_form` |
+| `lead_source` | `website` |
 | `status` | `new_lead` |
 | `property_address_state` | `VIC` |
 
@@ -51,7 +51,7 @@ The function accepts many field name variations. Framer sends fields named after
 { "success": true, "message": "Lead received" }
 ```
 
-Status `200`. The customer receives a confirmation email, `#leads` Slack channel gets an alert, and the lead appears in `/admin/leads` with `status = 'new_lead'` and `lead_source = 'website_form'`.
+Status `200`. The customer receives a confirmation email, `#leads` Slack channel gets an alert (prefixed "🔁 Possible repeat —" if the new lead matched an existing email+phone within 24h), and the lead appears in `/admin/leads` with `status = 'new_lead'` and `lead_source = 'website'`. Duplicates appear with an amber "Possible duplicate of MRC-XXXX-XXXX" badge on the lead detail screen.
 
 ## Error responses
 

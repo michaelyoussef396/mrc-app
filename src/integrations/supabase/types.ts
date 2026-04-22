@@ -799,6 +799,7 @@ export type Database = {
           internal_notes: string | null
           invoice_amount: number | null
           invoice_sent_date: string | null
+          is_possible_duplicate: boolean | null
           issue_description: string | null
           job_completed_date: string | null
           job_scheduled_date: string | null
@@ -808,6 +809,7 @@ export type Database = {
           notes: string | null
           payment_received_date: string | null
           phone: string
+          possible_duplicate_of: string | null
           property_address_postcode: string
           property_address_state: string | null
           property_address_street: string
@@ -841,6 +843,7 @@ export type Database = {
           internal_notes?: string | null
           invoice_amount?: number | null
           invoice_sent_date?: string | null
+          is_possible_duplicate?: boolean | null
           issue_description?: string | null
           job_completed_date?: string | null
           job_scheduled_date?: string | null
@@ -850,6 +853,7 @@ export type Database = {
           notes?: string | null
           payment_received_date?: string | null
           phone: string
+          possible_duplicate_of?: string | null
           property_address_postcode: string
           property_address_state?: string | null
           property_address_street: string
@@ -883,6 +887,7 @@ export type Database = {
           internal_notes?: string | null
           invoice_amount?: number | null
           invoice_sent_date?: string | null
+          is_possible_duplicate?: boolean | null
           issue_description?: string | null
           job_completed_date?: string | null
           job_scheduled_date?: string | null
@@ -892,6 +897,7 @@ export type Database = {
           notes?: string | null
           payment_received_date?: string | null
           phone?: string
+          possible_duplicate_of?: string | null
           property_address_postcode?: string
           property_address_state?: string | null
           property_address_street?: string

@@ -105,7 +105,7 @@ interface FramerLeadPayload {
 // Slack block kit – reuses exact format from send-slack-notification
 // ---------------------------------------------------------------------------
 
-function buildSlackBlocks(lead: FramerLeadPayload, createdAt: string) {
+function buildSlackBlocks(lead: FramerLeadPayload, createdAt: string, isPossibleDuplicate = false) {
   const timestamp = new Date(createdAt).toLocaleString('en-AU', {
     timeZone: 'Australia/Melbourne',
     day: '2-digit',
@@ -124,11 +124,15 @@ function buildSlackBlocks(lead: FramerLeadPayload, createdAt: string) {
 
   const formattedTime = lead.preferred_time || 'N/A'
 
+  const headerText = isPossibleDuplicate
+    ? '🔁 Possible repeat — 🏠 New Lead Received'
+    : '🏠 New Lead Received'
+
   return {
     blocks: [
       {
         type: 'header',
-        text: { type: 'plain_text', text: '🏠 New Lead Received', emoji: true },
+        text: { type: 'plain_text', text: headerText, emoji: true },
       },
       {
         type: 'section',
@@ -609,19 +613,18 @@ Deno.serve(async (req) => {
       )
     }
 
-    // --- Duplicate check ---
+    // --- Duplicate detection (flag-only, never reject) ---
+    // Same email+phone within 24h flags the new lead as a possible repeat;
+    // the new lead is still inserted. Admin reviews and decides what to do.
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data: existing } = await supabase
       .from('leads').select('id').eq('email', email).eq('phone', phone)
-      .gte('created_at', twentyFourHoursAgo).limit(1)
+      .gte('created_at', twentyFourHoursAgo)
+      .order('created_at', { ascending: false })
+      .limit(1)
 
-    if (existing && existing.length > 0) {
-      await updateSubmission('duplicate', { lead_id: existing[0].id })
-      return new Response(
-        JSON.stringify({ success: true, message: 'Lead already received. Our team will be in touch.' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
-    }
+    const possibleDuplicateOf: string | null = existing && existing.length > 0 ? existing[0].id : null
+    const isPossibleDuplicate = possibleDuplicateOf !== null
 
     // --- Insert lead with retry (3 attempts, exponential backoff) ---
     const leadRow = {
@@ -635,6 +638,8 @@ Deno.serve(async (req) => {
       issue_description: issueDescription || null,
       lead_source: 'website',
       status: 'new_lead',
+      is_possible_duplicate: isPossibleDuplicate,
+      possible_duplicate_of: possibleDuplicateOf,
     }
 
     const { data: leadData, error: insertError } = await insertLeadWithRetry(supabase, leadRow)
@@ -675,7 +680,7 @@ Deno.serve(async (req) => {
         const res = await fetch(SLACK_WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(buildSlackBlocks(lead, createdAt)),
+          body: JSON.stringify(buildSlackBlocks(lead, createdAt, isPossibleDuplicate)),
         })
         if (!res.ok) console.error('Slack error:', await res.text())
       } catch (err) { console.error('Slack notification failed:', err) }

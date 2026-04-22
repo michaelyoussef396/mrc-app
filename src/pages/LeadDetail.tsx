@@ -193,6 +193,22 @@ export default function LeadDetail() {
     },
   });
 
+  // Fetch the original lead's lead_number when this lead is flagged as a possible duplicate
+  const { data: duplicateOriginal } = useQuery({
+    queryKey: ["lead-duplicate-original", lead?.possible_duplicate_of],
+    queryFn: async () => {
+      if (!lead?.possible_duplicate_of) return null;
+      const { data, error } = await supabase
+        .from("leads")
+        .select("id, lead_number")
+        .eq("id", lead.possible_duplicate_of)
+        .single();
+      if (error) return null;
+      return data;
+    },
+    enabled: !!lead?.is_possible_duplicate && !!lead?.possible_duplicate_of,
+  });
+
   // Fetch technician profile for assigned_to name
   const { data: techProfile } = useQuery({
     queryKey: ["profile", lead?.assigned_to],
@@ -965,17 +981,33 @@ export default function LeadDetail() {
               </div>
               <div className="min-w-0">
                 <h1 className="font-semibold text-base truncate">{lead.full_name}</h1>
-                <Badge
-                  variant="secondary"
-                  className="text-xs"
-                  style={{
-                    backgroundColor: `${statusConfig?.color}20`,
-                    color: statusConfig?.color,
-                    borderColor: statusConfig?.color,
-                  }}
-                >
-                  {statusConfig?.shortTitle}
-                </Badge>
+                <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                  <Badge
+                    variant="secondary"
+                    className="text-xs"
+                    style={{
+                      backgroundColor: `${statusConfig?.color}20`,
+                      color: statusConfig?.color,
+                      borderColor: statusConfig?.color,
+                    }}
+                  >
+                    {statusConfig?.shortTitle}
+                  </Badge>
+                  {isAdmin && lead.is_possible_duplicate && lead.possible_duplicate_of && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/leads/${lead.possible_duplicate_of}`)}
+                      className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      title="Click to view the earlier matching lead"
+                    >
+                      <span>🔁</span>
+                      <span>
+                        Possible duplicate of{" "}
+                        {duplicateOriginal?.lead_number ?? "earlier lead"}
+                      </span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
