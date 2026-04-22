@@ -42,7 +42,7 @@ import {
   getPDFVersionHistory,
   updateFieldAndRegenerate
 } from '@/lib/api/pdfGeneration'
-import { sendEmail, sendSlackNotification, buildReportApprovedHtml, sendJobReportEmail } from '@/lib/api/notifications'
+import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
 import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
@@ -908,30 +908,19 @@ export default function ViewReportPDF() {
           })
         }
 
-        // 2. Build email HTML from editable body + MRC branding
+        // 2. Build email HTML via the canonical branded builder.
+        // customMessage threads the admin's edited body into the branded shell
+        // (header + details box + CTA + signature + disclaimer all preserved).
         toast.loading('Sending email...', { id: 'send-email' })
-        const bodyParagraphs = emailBody.trim()
-          .split(/\n\n+/)
-          .map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
-          .join('\n')
-        const emailHtml = `
-          <!DOCTYPE html>
-          <html>
-          <head><meta charset="utf-8"><style>
-            body{font-family:Arial,sans-serif;color:#1d1d1f;max-width:600px;margin:0 auto;padding:20px;line-height:1.6;}
-            .header{background:#121D73;color:#fff;padding:24px;text-align:center;border-radius:8px 8px 0 0;}
-            .header h1{margin:0;font-size:22px;}
-            .body{background:#fff;padding:24px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 8px 8px;}
-            .footer{text-align:center;padding:16px;color:#666;font-size:12px;}
-          </style></head>
-          <body>
-            <div class="header"><h1>Mould &amp; Restoration Co.</h1></div>
-            <div class="body">${bodyParagraphs}</div>
-            <div class="footer">
-              Mould &amp; Restoration Co. · 1800 954 117 · mouldandrestoration.com.au
-            </div>
-          </body>
-          </html>`
+        const completionDate = formatDateAU(jobCompletion.completion_date as string | null | undefined) || ''
+        const emailHtml = buildJobReportEmailHtml({
+          customerName: lead.full_name,
+          propertyAddress: address,
+          jobNumber: jobCompletion.job_number || '',
+          completionDate,
+          pdfUrl: jobCompletion.pdf_url,
+          customMessage: emailBody.trim() || undefined,
+        })
 
         // 3. Filename
         const jobNumber = jobCompletion.job_number || 'Report'

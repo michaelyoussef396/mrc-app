@@ -331,19 +331,28 @@ export function buildJobReportEmailHtml(params: {
   propertyAddress: string;
   jobNumber: string;
   completionDate: string;
-  technicianName: string;
+  technicianName?: string;
   pdfUrl: string;
+  customMessage?: string;
 }): string {
+  // When admin provides a customMessage, replace the default "Dear / Please find…" prose
+  // while preserving the branded shell, details box, CTA, and disclaimer.
+  const customMessageHtml = params.customMessage
+    ? params.customMessage.split('\n').filter(l => l.trim()).map(l => `<p>${l}</p>`).join('\n    ')
+    : '';
+
   return wrapInBrandedTemplate(`
     <h2>Job Completion Report</h2>
+    ${customMessageHtml || `
     <p>Dear ${params.customerName},</p>
     <p>Please find your job completion report for the remediation work carried out at:</p>
+    `}
     <div class="details-box">
       <table>
         <tr><td>Property</td><td>${params.propertyAddress}</td></tr>
         <tr><td>Job Number</td><td>${params.jobNumber}</td></tr>
         <tr><td>Completion Date</td><td>${params.completionDate}</td></tr>
-        <tr><td>Technician</td><td>${params.technicianName}</td></tr>
+        ${params.technicianName ? `<tr><td>Technician</td><td>${params.technicianName}</td></tr>` : ''}
       </table>
     </div>
     <p style="margin-top:24px;">
