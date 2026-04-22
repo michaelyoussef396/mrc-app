@@ -531,42 +531,60 @@ Deno.serve(async (req) => {
 
     const usedValues = new Set([fullName, phone, email, street, suburb, postcode, preferredDate, preferredTime, issueDescription].filter(Boolean))
 
+    // Track each smart-extraction fallback that fires. Logged at the end so
+    // any Framer field-naming drift surfaces in Supabase function logs (and
+    // Sentry, if the function is wired into it later) before it causes data
+    // issues. Clean payloads — where every field has its own top-level key —
+    // produce zero events. See docs/FRAMER_FIELD_MAPPING.md.
+    const recoveryEvents: string[] = []
+
     for (const val of allValues) {
       if (usedValues.has(val)) continue
-      if (!email && EMAIL_RE.test(val)) { email = val; usedValues.add(val) }
-      else if (!phone && PHONE_RE.test(val)) { phone = val; usedValues.add(val) }
-      else if (!postcode && POSTCODE_RE.test(val)) { postcode = val; usedValues.add(val) }
-      else if (!preferredDate && DATE_RE(val)) { preferredDate = val; usedValues.add(val) }
-      else if (!preferredTime && TIME_RE.test(val)) { preferredTime = val; usedValues.add(val) }
+      if (!email && EMAIL_RE.test(val)) { email = val; usedValues.add(val); recoveryEvents.push('generic-content-match: email') }
+      else if (!phone && PHONE_RE.test(val)) { phone = val; usedValues.add(val); recoveryEvents.push('generic-content-match: phone') }
+      else if (!postcode && POSTCODE_RE.test(val)) { postcode = val; usedValues.add(val); recoveryEvents.push('generic-content-match: postcode') }
+      else if (!preferredDate && DATE_RE(val)) { preferredDate = val; usedValues.add(val); recoveryEvents.push('generic-content-match: preferred_date') }
+      else if (!preferredTime && TIME_RE.test(val)) { preferredTime = val; usedValues.add(val); recoveryEvents.push('generic-content-match: preferred_time') }
     }
 
     if (email && DATE_RE(email)) {
       if (!preferredDate) preferredDate = email
       email = ''
+      recoveryEvents.push('email-field-held-date: swapped to preferred_date')
       for (const val of allValues) {
-        if (!usedValues.has(val) && EMAIL_RE.test(val)) { email = val; usedValues.add(val); break }
+        if (!usedValues.has(val) && EMAIL_RE.test(val)) {
+          email = val; usedValues.add(val)
+          recoveryEvents.push('email-rescued-from-other-field')
+          break
+        }
       }
     }
 
     const rawPhone = body['phone'] || body['Phone']
     if (Array.isArray(rawPhone)) {
+      recoveryEvents.push(`phone-field-arrived-as-array: ${rawPhone.length} items`)
       for (const item of rawPhone) {
         const s = String(item).trim()
         if (!s) continue
-        if (!email && EMAIL_RE.test(s)) { email = s; usedValues.add(s) }
-        else if (!phone && PHONE_RE.test(s)) { phone = s; usedValues.add(s) }
-        else if (!postcode && POSTCODE_RE.test(s)) { postcode = s; usedValues.add(s) }
-        else if (!suburb && !PHONE_RE.test(s) && !EMAIL_RE.test(s) && !DATE_RE(s) && !TIME_RE.test(s) && !POSTCODE_RE.test(s)) { suburb = s; usedValues.add(s) }
+        if (!email && EMAIL_RE.test(s)) { email = s; usedValues.add(s); recoveryEvents.push('phone-array-recovered: email') }
+        else if (!phone && PHONE_RE.test(s)) { phone = s; usedValues.add(s); recoveryEvents.push('phone-array-recovered: phone') }
+        else if (!postcode && POSTCODE_RE.test(s)) { postcode = s; usedValues.add(s); recoveryEvents.push('phone-array-recovered: postcode') }
+        else if (!suburb && !PHONE_RE.test(s) && !EMAIL_RE.test(s) && !DATE_RE(s) && !TIME_RE.test(s) && !POSTCODE_RE.test(s)) {
+          suburb = s; usedValues.add(s); recoveryEvents.push('phone-array-recovered: suburb')
+        }
       }
     }
 
     const rawSubject = body['subject'] || body['Subject']
     if (Array.isArray(rawSubject)) {
+      recoveryEvents.push(`subject-field-arrived-as-array: ${rawSubject.length} items`)
       for (const item of rawSubject) {
         const s = String(item).trim()
         if (!s) continue
-        if (!preferredTime && TIME_RE.test(s)) { preferredTime = s; usedValues.add(s) }
-        else if (!street && !TIME_RE.test(s) && !DATE_RE(s) && !EMAIL_RE.test(s) && !PHONE_RE.test(s)) { street = s; usedValues.add(s) }
+        if (!preferredTime && TIME_RE.test(s)) { preferredTime = s; usedValues.add(s); recoveryEvents.push('subject-array-recovered: preferred_time') }
+        else if (!street && !TIME_RE.test(s) && !DATE_RE(s) && !EMAIL_RE.test(s) && !PHONE_RE.test(s)) {
+          street = s; usedValues.add(s); recoveryEvents.push('subject-array-recovered: street')
+        }
       }
     }
 
@@ -577,7 +595,12 @@ Deno.serve(async (req) => {
       if (match) {
         postcode = match[1]
         suburb = suburb.replace(/\s*(VIC\s+)?3\d{3}\s*$/i, '').trim()
+        recoveryEvents.push('bundled-suburb-postcode-extracted')
       }
+    }
+
+    if (recoveryEvents.length > 0) {
+      console.warn(`[smart-extraction] fallback triggered: ${recoveryEvents.join('; ')} — see docs/FRAMER_FIELD_MAPPING.md`)
     }
 
     if (preferredDate) {
