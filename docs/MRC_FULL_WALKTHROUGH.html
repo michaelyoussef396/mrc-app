@@ -229,52 +229,38 @@
       color: var(--gold);
     }
 
-    details.email-preview {
+    .email-preview {
       margin: 12px 0;
       border: 1px solid var(--border);
       border-radius: var(--radius);
       background: var(--surface);
       overflow: hidden;
     }
-    details.email-preview > summary {
+    .email-preview > h4 {
+      margin: 0;
       padding: 12px 16px;
-      cursor: pointer;
       font-weight: 600;
+      font-size: 15px;
       color: var(--navy);
-      user-select: none;
-      list-style: none;
-    }
-    details.email-preview > summary::-webkit-details-marker { display: none; }
-    details.email-preview > summary::before {
-      content: '▸';
-      display: inline-block;
-      margin-right: 8px;
-      color: var(--gold);
-      font-size: 12px;
-      transition: transform 160ms ease;
-    }
-    details.email-preview[open] > summary::before {
-      transform: rotate(90deg);
-    }
-    details.email-preview[open] > summary {
+      border: 0;
       border-bottom: 1px solid var(--border);
+      scroll-margin-top: 24px;
     }
-    details.email-preview .preview-meta {
+    .email-preview .preview-meta {
       padding: 12px 16px;
       background: var(--surface-alt);
       font-size: 13px;
       color: var(--ink-soft);
       border-bottom: 1px solid var(--border);
     }
-    details.email-preview .preview-meta p {
+    .email-preview .preview-meta p {
       margin: 4px 0;
       line-height: 1.5;
     }
-    details.email-preview .email-preview-reference {
+    .email-preview .email-preview-reference {
       padding: 12px 16px;
       font-style: italic;
       color: var(--ink-soft);
-      border-top: 1px solid var(--border);
     }
 
     ul.checklist {
@@ -391,42 +377,29 @@
       line-height: 1.5;
     }
 
-    details.section {
+    .section {
       background: var(--surface);
-      border: 1px solid var(--border);
+      border: 1px solid var(--hairline);
       border-radius: var(--radius);
       margin: 16px 0 24px;
       overflow: hidden;
     }
-    details.section[open] { border-color: var(--hairline); }
-    details.section > summary {
-      cursor: pointer;
+    .section > h4 {
+      margin: 0;
       padding: 18px 22px;
       font-weight: 600;
       font-size: 16px;
       color: var(--navy);
-      list-style: none;
+      border: 0;
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       gap: 10px;
-      user-select: none;
       min-height: 44px;
+      scroll-margin-top: 24px;
     }
-    details.section > summary::-webkit-details-marker { display: none; }
-    details.section > summary::before {
-      content: '▸';
-      display: inline-block;
-      color: var(--gold);
-      font-size: 12px;
-      transition: transform 160ms ease;
-      width: 12px;
-    }
-    details.section[open] > summary::before {
-      transform: rotate(90deg);
-    }
-    details.section > .body {
-      padding: 4px 22px 22px;
-      border-top: 1px solid var(--border);
+    .section > .body {
+      padding: 14px 22px 22px;
     }
 
     .table-wrap {
@@ -494,7 +467,7 @@
     @media (max-width: 520px) {
       h2 { font-size: 22px; margin-top: 40px; }
       h3 { font-size: 17px; }
-      .callout, details.section > .body { padding-left: 14px; padding-right: 14px; }
+      .callout, .section > .body { padding-left: 14px; padding-right: 14px; }
       th, td { padding: 10px 10px; font-size: 13px; }
       figure.diagram { padding: 14px 6px; }
     }
@@ -509,20 +482,8 @@
       /* On-screen-only chrome */
       aside.toc { display: none; }
 
-      /* Force every <details> open regardless of [open] state. Generic
-         selector so it covers both details.section (has .body wrapper) and
-         details.email-preview (has .preview-meta + <img> as siblings). */
-      details > *:not(summary) { display: block !important; }
-      details > summary { list-style: none; cursor: default; }
-      details > summary::-webkit-details-marker { display: none; }
-      details.section > summary::before,
-      details.email-preview > summary::before {
-        content: "▸ ";
-        transform: none;
-      }
-
-      details.section,
-      details.email-preview { border: 1px solid #DDD; }
+      .section,
+      .email-preview { border: 1px solid #DDD; }
 
       /* Preserve meaningful colour — without these, Chromium strips
          backgrounds when "Background graphics" is off in the print dialog. */
@@ -549,8 +510,8 @@
       figure.diagram,
       .callout,
       .table-wrap,
-      details.email-preview,
-      details.section { page-break-inside: avoid; }
+      .email-preview,
+      .section { page-break-inside: avoid; }
       tr, thead, tbody { page-break-inside: avoid; }
 
       /* Link annotation — show external URLs inline; hide internal anchors. */
@@ -1021,8 +982,8 @@ flowchart TD
           and source file) is the authoritative reference for what builds each email.
         </p>
 
-        <details id="email-preview-1" class="email-preview">
-          <summary>#1 — <strong>Enquiry confirmation</strong></summary>
+        <div id="email-preview-1" class="email-preview">
+          <h4>#1 — <strong>Enquiry confirmation</strong></h4>
           <div class="preview-meta">
             <p><strong>Subject:</strong> Thank you for your enquiry - Mould &amp; Restoration Co</p>
             <p><strong>From:</strong> <code>noreply@mrcsystem.com</code> · <strong>Reply-to:</strong> <code>admin@mrcsystem.com</code> · <strong>Template name:</strong> <code>framer_lead_confirmation</code></p>
@@ -1031,10 +992,10 @@ flowchart TD
           <div class="email-preview-reference">
             <p><strong>Preview:</strong> Real email screenshot stored in the MRC Google Drive, alongside this document.</p>
           </div>
-        </details>
+        </div>
 
-        <details id="email-preview-2" class="email-preview">
-          <summary>#2 — <strong>Booking Confirmation</strong></summary>
+        <div id="email-preview-2" class="email-preview">
+          <h4>#2 — <strong>Booking Confirmation</strong></h4>
           <div class="preview-meta">
             <p><strong>Subject:</strong> Booking Confirmed — 15/05/2026 at 10:00 AM</p>
             <p><strong>From:</strong> <code>noreply@mrcsystem.com</code> · <strong>Reply-to:</strong> <code>admin@mrcsystem.com</code> · <strong>Template name:</strong> <code>booking_confirmation</code></p>
@@ -1043,10 +1004,10 @@ flowchart TD
           <div class="email-preview-reference">
             <p><strong>Preview:</strong> Real email screenshot stored in the MRC Google Drive, alongside this document.</p>
           </div>
-        </details>
+        </div>
 
-        <details id="email-preview-3" class="email-preview">
-          <summary>#3 — <strong>Inspection Reminder</strong></summary>
+        <div id="email-preview-3" class="email-preview">
+          <h4>#3 — <strong>Inspection Reminder</strong></h4>
           <div class="preview-meta">
             <p><strong>Subject:</strong> Inspection Reminder — 2 days away</p>
             <p><strong>From:</strong> <code>noreply@mrcsystem.com</code> · <strong>Reply-to:</strong> <code>admin@mrcsystem.com</code> · <strong>Template name:</strong> <code>inspection_reminder</code></p>
@@ -1055,10 +1016,10 @@ flowchart TD
           <div class="email-preview-reference">
             <p><strong>Preview:</strong> Real email screenshot stored in the MRC Google Drive, alongside this document.</p>
           </div>
-        </details>
+        </div>
 
-        <details id="email-preview-4" class="email-preview">
-          <summary>#4 — <strong>Inspection Report (approved)</strong></summary>
+        <div id="email-preview-4" class="email-preview">
+          <h4>#4 — <strong>Inspection Report (approved)</strong></h4>
           <div class="preview-meta">
             <p><strong>Subject:</strong> Your Inspection Report is Ready — MRC-2026-0138</p>
             <p><strong>From:</strong> <code>noreply@mrcsystem.com</code> · <strong>Reply-to:</strong> <code>admin@mrcsystem.com</code> · <strong>Template name:</strong> <code>report-approved</code> · <strong>Attachment:</strong> inspection report PDF</p>
@@ -1067,10 +1028,10 @@ flowchart TD
           <div class="email-preview-reference">
             <p><strong>Preview:</strong> Real email screenshot stored in the MRC Google Drive, alongside this document.</p>
           </div>
-        </details>
+        </div>
 
-        <details id="email-preview-5" class="email-preview">
-          <summary>#5 — <strong>Job Booking Confirmation</strong></summary>
+        <div id="email-preview-5" class="email-preview">
+          <h4>#5 — <strong>Job Booking Confirmation</strong></h4>
           <div class="preview-meta">
             <p><strong>Subject:</strong> Job Booking Confirmed — MRC-2026-0138</p>
             <p><strong>From:</strong> <code>noreply@mrcsystem.com</code> · <strong>Reply-to:</strong> <code>admin@mrcsystem.com</code> · <strong>Template name:</strong> <code>job_booking_confirmation</code></p>
@@ -1079,10 +1040,10 @@ flowchart TD
           <div class="email-preview-reference">
             <p><strong>Preview:</strong> Real email screenshot stored in the MRC Google Drive, alongside this document.</p>
           </div>
-        </details>
+        </div>
 
-        <details id="email-preview-6" class="email-preview">
-          <summary>#6 — <strong>Job Completion Report</strong></summary>
+        <div id="email-preview-6" class="email-preview">
+          <h4>#6 — <strong>Job Completion Report</strong></h4>
           <div class="preview-meta">
             <p><strong>Subject:</strong> Job Completion Report — JOB-2026-0042</p>
             <p><strong>From:</strong> <code>noreply@mrcsystem.com</code> · <strong>Reply-to:</strong> <code>admin@mrcsystem.com</code> · <strong>Template name:</strong> <code>job_report_sent</code> · <strong>Attachment:</strong> job completion report PDF (filename <code>MRC-JOB-{jobNumber}-Job-Report.pdf</code>)</p>
@@ -1091,10 +1052,10 @@ flowchart TD
           <div class="email-preview-reference">
             <p><strong>Preview:</strong> Real email screenshot stored in the MRC Google Drive, alongside this document.</p>
           </div>
-        </details>
+        </div>
 
-        <details id="email-preview-7" class="email-preview">
-          <summary>#7 — <strong>Google Review Request</strong></summary>
+        <div id="email-preview-7" class="email-preview">
+          <h4>#7 — <strong>Google Review Request</strong></h4>
           <div class="preview-meta">
             <p><strong>Subject:</strong> Thank you from Mould &amp; Restoration Co</p>
             <p><strong>From:</strong> <code>noreply@mrcsystem.com</code> · <strong>Reply-to:</strong> <code>admin@mrcsystem.com</code> · <strong>Template name:</strong> <code>google_review_request</code></p>
@@ -1103,7 +1064,7 @@ flowchart TD
           <div class="email-preview-reference">
             <p><strong>Preview:</strong> Real email screenshot stored in the MRC Google Drive, alongside this document.</p>
           </div>
-        </details>
+        </div>
 
         <p>
           Subject lines and body text are built dynamically per template — see functions
@@ -1376,8 +1337,8 @@ flowchart TD
           fields. Below is the structure with required-vs-optional flags.
         </p>
 
-        <details class="section" open>
-          <summary>Section 1 — Basic Information</summary>
+        <div class="section">
+          <h4>Section 1 — Basic Information</h4>
           <div class="body">
             <ul class="field-list">
               <li><strong>Job Number</strong><span class="opt">read-only</span> — auto-generated <code>MRC-YYYY-####</code>.</li>
@@ -1389,20 +1350,20 @@ flowchart TD
               <li><strong>Inspection Date</strong><span class="req">required</span> — blocks submission if empty.</li>
             </ul>
           </div>
-        </details>
+        </div>
 
-        <details class="section">
-          <summary>Section 2 — Property Details</summary>
+        <div class="section">
+          <h4>Section 2 — Property Details</h4>
           <div class="body">
             <ul class="field-list">
               <li><strong>Property Occupation</strong><span class="req">required</span> — Tenanted / Vacant / Owner Occupied / Tenants Vacating.</li>
               <li><strong>Dwelling Type</strong><span class="req">required</span> — House / Units / Apartment / Duplex / Townhouse / Commercial / Construction / Industrial.</li>
             </ul>
           </div>
-        </details>
+        </div>
 
-        <details class="section">
-          <summary>Section 3 — Areas inspected (repeatable, at least one required)</summary>
+        <div class="section">
+          <h4>Section 3 — Areas inspected (repeatable, at least one required)</h4>
           <div class="body">
             <p>One block per room. Add and remove with buttons. The form requires at least one area to submit.</p>
             <ul class="field-list">
@@ -1417,10 +1378,10 @@ flowchart TD
               <li><strong>Demolition toggle</strong> — when on: demolition time (hours) + description.</li>
             </ul>
           </div>
-        </details>
+        </div>
 
-        <details class="section">
-          <summary>Section 4 — Subfloor (optional, toggled on)</summary>
+        <div class="section">
+          <h4>Section 4 — Subfloor (optional, toggled on)</h4>
           <div class="body">
             <ul class="field-list">
               <li>Subfloor required toggle — controls visibility of the rest.</li>
@@ -1432,10 +1393,10 @@ flowchart TD
               <li>Treatment time (hours).</li>
             </ul>
           </div>
-        </details>
+        </div>
 
-        <details class="section">
-          <summary>Section 5 — Outdoor &amp; Parking</summary>
+        <div class="section">
+          <h4>Section 5 — Outdoor &amp; Parking</h4>
           <div class="body">
             <ul class="field-list">
               <li>Temperature (°C), Humidity (%), Dew Point (auto-calculated).</li>
@@ -1444,30 +1405,30 @@ flowchart TD
               <li>Parking option — Driveway / Street / Permit / Paid / None.</li>
             </ul>
           </div>
-        </details>
+        </div>
 
-        <details class="section">
-          <summary>Section 6 — Waste Disposal</summary>
+        <div class="section">
+          <h4>Section 6 — Waste Disposal</h4>
           <div class="body">
             <ul class="field-list">
               <li>Waste disposal required toggle.</li>
               <li>Size — Small / Medium / Large / Extra Large.</li>
             </ul>
           </div>
-        </details>
+        </div>
 
-        <details class="section">
-          <summary>Section 7 — Work Procedure (validation-critical)</summary>
+        <div class="section">
+          <h4>Section 7 — Work Procedure (validation-critical)</h4>
           <div class="body">
             <ul class="field-list">
               <li><strong>Treatment methods</strong><span class="req">at least one required</span> — multi-select. Submit is blocked otherwise (schema line 29).</li>
               <li><strong>Recommended dehumidifier</strong> — Small / Medium / Large.</li>
             </ul>
           </div>
-        </details>
+        </div>
 
-        <details class="section">
-          <summary>Section 8 — Job Summary</summary>
+        <div class="section">
+          <h4>Section 8 — Job Summary</h4>
           <div class="body">
             <ul class="field-list">
               <li>Additional equipment comments (textarea).</li>
@@ -1475,10 +1436,10 @@ flowchart TD
               <li>Additional info for technician (textarea).</li>
             </ul>
           </div>
-        </details>
+        </div>
 
-        <details class="section">
-          <summary>Section 9 — Cost Estimate (validation-critical)</summary>
+        <div class="section">
+          <h4>Section 9 — Cost Estimate (validation-critical)</h4>
           <div class="body">
             <ul class="field-list">
               <li>Labour hours: no-demolition, demolition, subfloor.</li>
@@ -1493,7 +1454,7 @@ flowchart TD
               <code>inspectionSchema.ts:29–37</code>.
             </p>
           </div>
-        </details>
+        </div>
 
         <h3>2.5 What blocks submission</h3>
         <p>
