@@ -693,8 +693,8 @@ function generateValuePropositionPages(
     }
 
     const pageComment = isContinuation
-      ? `<!-- Page 4${String.fromCharCode(97 + i)}: Value Proposition -->`
-      : `<!-- Page 4: Value Proposition -->`
+      ? `<!-- Page 2${String.fromCharCode(97 + i)}: Value Proposition -->`
+      : `<!-- Page 2: Value Proposition -->`
 
     pagesHtml.push(`${pageComment}
     <div class="report-page page-break">
@@ -712,8 +712,8 @@ function generateValuePropositionPages(
 
 // Replace the static VP page in the template with dynamically generated multi-page VP
 function handleValuePropositionOverflow(html: string, whatWeFoundHtml: string, whatWeWillDoHtml: string): string {
-  // Find the VP page block: between "Page 4: Value Proposition" and "Page 5: Areas Inspected"
-  const vpPageRegex = /<!-- Page 4: Value Proposition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 5)/
+  // Find the VP page block: between "Page 2: Value Proposition" and "Page 3: Areas Inspected"
+  const vpPageRegex = /<!-- Page 2: Value Proposition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 3)/
   const match = html.match(vpPageRegex)
 
   if (!match) {
@@ -909,7 +909,7 @@ function generateNavyBoxSectionPages(contentHtml: string, config: SectionConfig)
 
 // Handle PROBLEM ANALYSIS & RECOMMENDATIONS overflow
 function handleProblemAnalysisOverflow(html: string, problemContentHtml: string): string {
-  const regex = /<!-- Page 8: Problem Analysis[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 9)/
+  const regex = /<!-- Page 6: Problem Analysis[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 7)/
   const match = html.match(regex)
 
   if (!match) return html
@@ -918,7 +918,7 @@ function handleProblemAnalysisOverflow(html: string, problemContentHtml: string)
   const logoUrl = logoMatch ? logoMatch[1] : `${ASSET_BASE}/assets/logos/logo-mrc.png`
 
   const config: SectionConfig = {
-    pageComment: '<!-- Page 8: Problem Analysis & Recommendations -->',
+    pageComment: '<!-- Page 6: Problem Analysis & Recommendations -->',
     titleHtml: `<!-- PROBLEM title -->
             <div style="width: 400px; left: 41px; top: 25px; position: absolute; color: #000000; font-size: 56px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">PROBLEM</div>
             <div style="width: 650px; left: 40px; top: 85px; position: absolute; color: #121D73; font-size: 23px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">ANALYSIS &amp; RECOMMENDATIONS</div>`,
@@ -1055,7 +1055,7 @@ function rebuildProblemAnalysisMarkdown(sections: Record<string, string>): strin
 // We duplicate it once per inspected area
 function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, photos: Photo[] | undefined): string {
   // Find the Area page block: between "Page 5: Areas Inspected" comment and "Page 6:" comment
-  const areaPageRegex = /(<!-- Page 5: Areas Inspected[\s\S]*?<\/div>\s*<\/div>)\s*(?=\s*<!-- Page 6)/
+  const areaPageRegex = /(<!-- Page 3: Areas Inspected[\s\S]*?<\/div>\s*<\/div>)\s*(?=\s*<!-- Page 4)/
   const match = html.match(areaPageRegex)
 
   if (!match) {
@@ -1161,7 +1161,7 @@ function handleSubfloorPage(
   subfloorReadings: SubfloorReading[],
   subfloorPhotos: Photo[]
 ): string {
-  const subfloorPageRegex = /\s*<!-- Page 7: Subfloor[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 8)/
+  const subfloorPageRegex = /\s*<!-- Page 5: Subfloor[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 6)/
 
   if (!inspection.subfloor_required || !subfloorData) {
     return html.replace(subfloorPageRegex, '\n\n')
@@ -1270,7 +1270,7 @@ function handleSubfloorPage(
             <div style="width: 290px; left: 484px; top: ${tp.bodyTop}px; position: absolute; color: #FFFFFF; font-size: 13px; font-family: 'Galvji'; font-weight: 400; line-height: 20px; letter-spacing: 0.5px; z-index: 10; white-space: pre-wrap;">${tp.body}</div>`
     ).join('')
 
-    pagesHtml.push(`<!-- Page 7: Subfloor${isFirstPage ? '' : ' (continued)'} -->
+    pagesHtml.push(`<!-- Page 5: Subfloor${isFirstPage ? '' : ' (continued)'} -->
     <div class="report-page page-break">
         <div style="width: 794px; height: 1123px; position: relative; background: #FFFFFF; overflow: hidden">
             <img src="${bgUrl}" style="width: 794px; height: 1123px; left: 0; top: 0; position: absolute; display: block; object-fit: cover; z-index: 0;" alt="" />
@@ -1750,21 +1750,17 @@ Deno.serve(async (req) => {
     const templateHtml = await templateResponse.text()
     console.log(`Template fetched: ${(templateHtml.length / 1024).toFixed(1)} KB`)
 
-    // Validate template has all required comment markers for regex-based section replacement
+    // Validate template has all required comment markers for regex-based section replacement.
+    // Markers must match the current template structure
+    // (pdf-templates/inspection-report-template-final.html in Supabase Storage).
     const requiredMarkers = [
-      '<!-- Page 2: Table of Contents',
-      '<!-- Page 3: Our Services',
-      '<!-- Page 4: Value Proposition',
-      '<!-- Page 5: Areas Inspected',
-<<<<<<< HEAD
-      '<!-- Page 6',
-=======
-      '<!-- Page 6: Outdoor Environment',
->>>>>>> fe7e2ba (fix: PDF report pages rendering as blank white space)
-      '<!-- Page 7: Subfloor',
-      '<!-- Page 8: Problem Analysis',
-      '<!-- Page 9: Demolition',
-      '<!-- Page 10',
+      '<!-- Page 1: Cover',
+      '<!-- Page 2: Value Proposition',
+      '<!-- Page 3: Areas Inspected',
+      '<!-- Page 4: Outdoor Environment',
+      '<!-- Page 5: Subfloor',
+      '<!-- Page 6: Problem Analysis',
+      '<!-- Page 7: Visual Mould Cleaning',
     ]
     const missingMarkers = requiredMarkers.filter(marker => !templateHtml.includes(marker))
     if (missingMarkers.length > 0) {
