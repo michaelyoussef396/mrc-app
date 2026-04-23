@@ -672,18 +672,75 @@
     }
 
     @media print {
+      /* A4 paper with generous margins for auditor print-outs. */
+      @page { size: A4; margin: 1.5cm 2cm; }
+
       body { background: #FFFFFF; }
+      main.page { padding: 0; max-width: none; }
+
+      /* On-screen-only chrome */
       aside.toc { display: none; }
-      main.page { padding: 24px; max-width: none; }
-      details.section { border: 1px solid #DDD; }
-      /* Force every collapsible section open in print, regardless of [open] state */
-      details.section > .body { display: block !important; }
-      details.section > summary { cursor: default; }
-      details.section > summary::before { display: none; }
-      figure.diagram, .callout, .table-wrap { page-break-inside: avoid; }
-      h2, h3 { page-break-after: avoid; }
-      a { color: var(--ink); text-decoration: none; }
+
+      /* Force every <details> open regardless of [open] state. Generic
+         selector so it covers both details.section (has .body wrapper) and
+         details.email-preview (has .preview-meta + <img> as siblings). */
+      details > *:not(summary) { display: block !important; }
+      details > summary { list-style: none; cursor: default; }
+      details > summary::-webkit-details-marker { display: none; }
+      details.section > summary::before,
+      details.email-preview > summary::before {
+        content: "▸ ";
+        transform: none;
+      }
+
+      details.section,
+      details.email-preview { border: 1px solid #DDD; }
+
+      /* Preserve meaningful colour — without these, Chromium strips
+         backgrounds when "Background graphics" is off in the print dialog. */
+      .pill,
+      .pill.deliberate::before,
+      .callout,
+      figure.diagram,
+      th {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      /* Email-preview screenshots cap at page width and never break. */
+      .email-preview-screenshot {
+        max-width: 100%;
+        height: auto;
+        page-break-inside: avoid;
+      }
+
+      /* Page breaks */
+      main.page > section { page-break-before: always; }
+      main.page > section:first-of-type { page-break-before: auto; }
+      h2, h3, h4 { page-break-after: avoid; }
+      figure.diagram,
+      .callout,
+      .table-wrap,
+      details.email-preview,
+      details.section { page-break-inside: avoid; }
+      tr, thead, tbody { page-break-inside: avoid; }
+
+      /* Link annotation — show external URLs inline; hide internal anchors. */
+      a[href] { color: var(--ink); text-decoration: underline; }
+      a[href^="http"]::after,
+      a[href^="mailto:"]::after,
+      a[href^="tel:"]::after {
+        content: " (" attr(href) ")";
+        font-size: 11px;
+        color: #666;
+        word-break: break-all;
+      }
+      a[href^="#"]::after { content: ""; }
+
       pre { white-space: pre-wrap; word-break: break-word; }
+
+      /* Keep mermaid SVGs within the page */
+      figure.diagram svg { max-width: 100% !important; height: auto !important; }
     }
 
     @media (prefers-reduced-motion: reduce) {
