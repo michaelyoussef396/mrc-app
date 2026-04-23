@@ -18,12 +18,6 @@ try {
   const page = await browser.newPage();
   await page.goto(pathToFileURL(HTML_PATH).toString(), { waitUntil: 'networkidle0' });
 
-  // Belt-and-braces. Print CSS already reveals <details> children, but
-  // setting [open] keeps DOM state consistent for anything else that reads it.
-  await page.evaluate(() => {
-    document.querySelectorAll('details').forEach((d) => d.setAttribute('open', ''));
-  });
-
   // Wait for Mermaid to finish. It sets [data-processed] on each source block
   // once the SVG is inserted.
   await page.waitForFunction(
