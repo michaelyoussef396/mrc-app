@@ -270,183 +270,11 @@
       margin: 4px 0;
       line-height: 1.5;
     }
-    /* Inline email preview — all rules scoped under .email-preview-body so the email's
-       generic class names (.wrapper, .container, .header, .body, .footer …) cannot
-       affect the parent walkthrough page. Mirrors wrapInBrandedTemplate() in
-       src/lib/api/notifications.ts. */
-    details.email-preview .email-preview-body {
-      margin: 0;
-      padding: 0;
-      background: #f4f4f5;
-      font-family: Arial, Helvetica, sans-serif;
-      color: #333;
-      line-height: 1.6;
-    }
-    /* Defensive resets — neutralise parent-doc global rules on h2 (gold border-top +
-       padding-top) and td (border-bottom + padding) so they don't leak into the
-       email body. More-specific email rules below re-apply intended values. */
-    details.email-preview .email-preview-body h1,
-    details.email-preview .email-preview-body h2,
-    details.email-preview .email-preview-body h3,
-    details.email-preview .email-preview-body h4 {
-      border: 0;
-      padding: 0;
-      scroll-margin-top: 0;
-    }
-    details.email-preview .email-preview-body td,
-    details.email-preview .email-preview-body th {
-      border: 0;
-      padding: 0;
-    }
-    details.email-preview .email-preview-body .wrapper {
-      width: 100%;
-      background: #f4f4f5;
-      padding: 24px 0;
-    }
-    details.email-preview .email-preview-body .container {
-      max-width: 600px;
-      margin: 0 auto;
-      background: #ffffff;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-    details.email-preview .email-preview-body .header {
-      background: #121D73;
-      padding: 28px 24px;
-      text-align: center;
-    }
-    details.email-preview .email-preview-body .header h1 {
-      margin: 0;
-      color: #ffffff;
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: 0.3px;
-    }
-    details.email-preview .email-preview-body .header p {
-      margin: 4px 0 0;
-      color: rgba(255,255,255,0.7);
-      font-size: 13px;
-    }
-    details.email-preview .email-preview-body .body {
-      padding: 32px 24px;
-    }
-    details.email-preview .email-preview-body .body h2 {
-      margin: 0 0 16px;
-      color: #121D73;
-      font-size: 20px;
-    }
-    details.email-preview .email-preview-body .body p {
-      margin: 0 0 14px;
-      font-size: 15px;
-      color: #333;
-    }
-    details.email-preview .email-preview-body .details-box {
-      background: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 8px;
-      padding: 20px;
-      margin: 20px 0;
-    }
-    details.email-preview .email-preview-body .details-box table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    details.email-preview .email-preview-body .details-box td {
-      padding: 6px 0;
-      font-size: 14px;
-      vertical-align: top;
-    }
-    details.email-preview .email-preview-body .details-box td:first-child {
-      font-weight: 600;
-      color: #555;
-      width: 120px;
-      white-space: nowrap;
-      padding-right: 12px;
-    }
-    details.email-preview .email-preview-body .details-box td:last-child {
-      color: #1d1d1f;
-    }
-    details.email-preview .email-preview-body .cta-button {
-      display: inline-block;
-      background: #121D73;
-      color: #ffffff !important;
-      padding: 14px 32px;
-      border-radius: 6px;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 15px;
-      margin: 8px 0;
-    }
-    details.email-preview .email-preview-body .signature {
-      padding: 24px 24px 16px;
-      border-top: 1px solid #e9ecef;
-      background: #f8f9fa;
-    }
-    details.email-preview .email-preview-body .sign-off {
-      font-size: 15px;
-      color: #333;
-      font-weight: 600;
-      margin: 0 0 16px;
-      line-height: 1.5;
-    }
-    details.email-preview .email-preview-body .sig-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    details.email-preview .email-preview-body .sig-logo-cell {
-      width: 130px;
-      vertical-align: top;
-      padding-right: 16px;
-    }
-    details.email-preview .email-preview-body .sig-details-cell {
-      vertical-align: top;
-    }
-    details.email-preview .email-preview-body .sig-company {
-      font-weight: 700;
-      color: #121D73;
-      font-size: 15px;
-      margin: 0 0 4px;
-    }
-    details.email-preview .email-preview-body .sig-details-cell p {
-      margin: 0 0 2px;
-      font-size: 13px;
-      color: #555;
-    }
-    details.email-preview .email-preview-body .sig-details-cell a {
-      color: #121D73;
-      text-decoration: none;
-    }
-    details.email-preview .email-preview-body .sig-inquiries {
-      font-size: 13px;
-      color: #666;
-      margin: 14px 0 6px;
-    }
-    details.email-preview .email-preview-body .sig-review {
-      font-size: 13px;
-      margin: 14px 0 0;
-    }
-    details.email-preview .email-preview-body .sig-review a {
-      color: #121D73;
-      font-weight: 600;
-      text-decoration: none;
-    }
-    details.email-preview .email-preview-body .footer {
-      background: #f8f9fa;
-      padding: 0 24px 24px;
-      text-align: center;
-    }
-    details.email-preview .email-preview-body .footer p {
-      margin: 0;
-      font-size: 11px;
-      color: #999;
-      line-height: 1.5;
-    }
-    @media only screen and (max-width: 620px) {
-      details.email-preview .email-preview-body .container { margin: 0 12px !important; }
-      details.email-preview .email-preview-body .body { padding: 24px 16px !important; }
-      details.email-preview .email-preview-body .header { padding: 24px 16px !important; }
-      details.email-preview .email-preview-body .details-box { padding: 16px !important; }
+    details.email-preview .email-preview-reference {
+      padding: 12px 16px;
+      font-style: italic;
+      color: var(--ink-soft);
+      border-top: 1px solid var(--border);
     }
 
     ul.checklist {
@@ -1188,12 +1016,9 @@ flowchart TD
 
         <h4>Preview gallery</h4>
         <p>
-          Click any row to expand the rendered email exactly as the customer sees it.
-          Each preview is inline HTML — no iframe, no JavaScript — with email styles
-          scoped under <code>.email-preview-body</code> so they cannot leak into this
-          walkthrough page. Placeholders used: Customer = "Jane Smith",
-          Address = "35 Wellington Street, Mernda", Preferred date = "15/05/2026",
-          Preferred time = "10:00 AM", Lead # = "MRC-2026-0138", Job # = "JOB-2026-0042".
+          Real email screenshots for each of these 7 templates are in the MRC Google
+          Drive. The preview metadata below (subject, sender, reply-to, template name,
+          and source file) is the authoritative reference for what builds each email.
         </p>
 
         <details id="email-preview-1" class="email-preview">
@@ -1203,57 +1028,8 @@ flowchart TD
             <p><strong>From:</strong> <code>noreply@mrcsystem.com</code> · <strong>Reply-to:</strong> <code>admin@mrcsystem.com</code> · <strong>Template name:</strong> <code>framer_lead_confirmation</code></p>
             <p><strong>Builder:</strong> <code>supabase/functions/receive-framer-lead/index.ts:204</code></p>
           </div>
-          <div class="email-preview-body">
-            <div class="wrapper">
-              <div class="container">
-                <div class="header">
-                  <h1>Mould &amp; Restoration Co.</h1>
-                  <p>Professional Mould Remediation</p>
-                </div>
-                <div class="body">
-                  <h2>Thank You for Your Enquiry</h2>
-                  <p>Hi Jane Smith,</p>
-                  <p>Thank you for reaching out to Mould &amp; Restoration Co. We have received your enquiry and a member of our team will be in touch shortly to confirm your booking.</p>
-                  <div class="details-box">
-                    <table>
-                      <tr><td>Name</td><td>Jane Smith</td></tr>
-                      <tr><td>Address</td><td>35 Wellington Street, Mernda</td></tr>
-                      <tr><td>Preferred Date</td><td>15/05/2026</td></tr>
-                      <tr><td>Preferred Time</td><td>10:00 AM</td></tr>
-                    </table>
-                  </div>
-                  <p><strong>What happens next?</strong></p>
-                  <ol style="margin:16px 0;padding-left:20px;font-size:14px;color:#333;">
-                    <li style="padding:4px 0;">Our team will call you to confirm the inspection date and time</li>
-                    <li style="padding:4px 0;">A technician will arrive at the scheduled time for a thorough mould inspection (max 1 hour)</li>
-                    <li style="padding:4px 0;">You'll receive a detailed inspection report with recommendations</li>
-                  </ol>
-                  <p>If you need to get in touch before then, please call us on <a href="tel:1800954117" style="color:#121D73; font-weight:600;">1800 954 117</a>.</p>
-                </div>
-                <div class="signature">
-                  <p class="sign-off">Best Regards,<br>The MRC Team &ndash; Mould &amp; Restoration Experts</p>
-                  <table class="sig-table" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td class="sig-logo-cell">
-                        <img src="https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
-                      </td>
-                      <td class="sig-details-cell">
-                        <p class="sig-company">Mould and Restoration Co.</p>
-                        <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
-                        <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
-                        <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
-                        <p>Business Hours: Monday to Sunday: 7:00 AM &ndash; 7:00 PM</p>
-                      </td>
-                    </tr>
-                  </table>
-                  <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
-                  <p class="sig-review">Write a Review: <a href="https://g.page/r/CSmcatb7uSq9EBM/review">Leave us a Google Review</a></p>
-                </div>
-                <div class="footer">
-                  <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it.</p>
-                </div>
-              </div>
-            </div>
+          <div class="email-preview-reference">
+            <p><strong>Preview:</strong> Real email screenshot stored in the MRC Google Drive, alongside this document.</p>
           </div>
         </details>
 
@@ -1264,54 +1040,8 @@ flowchart TD
             <p><strong>From:</strong> <code>noreply@mrcsystem.com</code> · <strong>Reply-to:</strong> <code>admin@mrcsystem.com</code> · <strong>Template name:</strong> <code>booking_confirmation</code></p>
             <p><strong>Builder:</strong> <code>src/lib/api/notifications.ts:185</code></p>
           </div>
-          <div class="email-preview-body">
-            <div class="wrapper">
-              <div class="container">
-                <div class="header">
-                  <h1>Mould &amp; Restoration Co.</h1>
-                  <p>Professional Mould Remediation</p>
-                </div>
-                <div class="body">
-                  <h2>Booking Confirmed</h2>
-                  <p>Hi Jane Smith,</p>
-                  <p>Your mould inspection has been confirmed. Here are the details:</p>
-                  <div class="details-box">
-                    <table>
-                      <tr><td>Date</td><td>15/05/2026</td></tr>
-                      <tr><td>Time</td><td>10:00 AM</td></tr>
-                      <tr><td>Address</td><td>35 Wellington Street, Mernda</td></tr>
-                      <tr><td>Technician</td><td>Glen Reid</td></tr>
-                    </table>
-                  </div>
-                  <p><strong>What to expect:</strong></p>
-                  <p>Our technician will arrive at the scheduled time to conduct a thorough mould inspection of your property. The inspection takes a maximum of 1 hour.</p>
-                  <p>Please ensure access to all areas of the property, including any subfloor or roof spaces if applicable.</p>
-                  <p style="margin-top:24px;">Need to reschedule? Call us on <a href="tel:1800954117" style="color:#121D73; font-weight:600;">1800 954 117</a></p>
-                </div>
-                <div class="signature">
-                  <p class="sign-off">Best Regards,<br>The MRC Team &ndash; Mould &amp; Restoration Experts</p>
-                  <table class="sig-table" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td class="sig-logo-cell">
-                        <img src="https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
-                      </td>
-                      <td class="sig-details-cell">
-                        <p class="sig-company">Mould and Restoration Co.</p>
-                        <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
-                        <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
-                        <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
-                        <p>Business Hours: Monday to Sunday: 7:00 AM &ndash; 7:00 PM</p>
-                      </td>
-                    </tr>
-                  </table>
-                  <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
-                  <p class="sig-review">Write a Review: <a href="https://g.page/r/CSmcatb7uSq9EBM/review">Leave us a Google Review</a></p>
-                </div>
-                <div class="footer">
-                  <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it.</p>
-                </div>
-              </div>
-            </div>
+          <div class="email-preview-reference">
+            <p><strong>Preview:</strong> Real email screenshot stored in the MRC Google Drive, alongside this document.</p>
           </div>
         </details>
 
@@ -1322,56 +1052,8 @@ flowchart TD
             <p><strong>From:</strong> <code>noreply@mrcsystem.com</code> · <strong>Reply-to:</strong> <code>admin@mrcsystem.com</code> · <strong>Template name:</strong> <code>inspection_reminder</code></p>
             <p><strong>Builder:</strong> <code>supabase/functions/send-inspection-reminder/index.ts:92</code> (cron-deployed)</p>
           </div>
-          <div class="email-preview-body">
-            <div class="wrapper">
-              <div class="container">
-                <div class="header">
-                  <h1>Mould &amp; Restoration Co.</h1>
-                  <p>Professional Mould Remediation</p>
-                </div>
-                <div class="body">
-                  <h2>Inspection Reminder</h2>
-                  <p>Hi Jane Smith,</p>
-                  <p>This is a friendly reminder that your mould inspection is coming up in <strong>2 days</strong>.</p>
-                  <div class="details-box">
-                    <table>
-                      <tr><td>Date</td><td>15/05/2026</td></tr>
-                      <tr><td>Time</td><td>10:00 AM</td></tr>
-                      <tr><td>Address</td><td>35 Wellington Street, Mernda</td></tr>
-                    </table>
-                  </div>
-                  <p><strong>Please ensure:</strong></p>
-                  <ul style="margin:16px 0;padding:0;list-style:none;">
-                    <li style="padding:6px 0;font-size:14px;color:#333;"><span style="color:#16a34a;font-weight:700;margin-right:6px;">&#10003;</span>Access is available to all areas of the property</li>
-                    <li style="padding:6px 0;font-size:14px;color:#333;"><span style="color:#16a34a;font-weight:700;margin-right:6px;">&#10003;</span>Pets are secured or kept away from work areas</li>
-                    <li style="padding:6px 0;font-size:14px;color:#333;"><span style="color:#16a34a;font-weight:700;margin-right:6px;">&#10003;</span>Someone is home or access arrangements are made</li>
-                  </ul>
-                  <p style="margin-top:24px;">Need to reschedule? Call us on <a href="tel:1800954117" style="color:#121D73; font-weight:600;">1800 954 117</a></p>
-                </div>
-                <div class="signature">
-                  <p class="sign-off">Best Regards,<br>The MRC Team &ndash; Mould &amp; Restoration Experts</p>
-                  <table class="sig-table" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td class="sig-logo-cell">
-                        <img src="https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
-                      </td>
-                      <td class="sig-details-cell">
-                        <p class="sig-company">Mould and Restoration Co.</p>
-                        <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
-                        <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
-                        <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
-                        <p>Business Hours: Monday to Sunday: 7:00 AM &ndash; 7:00 PM</p>
-                      </td>
-                    </tr>
-                  </table>
-                  <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
-                  <p class="sig-review">Write a Review: <a href="https://g.page/r/CSmcatb7uSq9EBM/review">Leave us a Google Review</a></p>
-                </div>
-                <div class="footer">
-                  <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it.</p>
-                </div>
-              </div>
-            </div>
+          <div class="email-preview-reference">
+            <p><strong>Preview:</strong> Real email screenshot stored in the MRC Google Drive, alongside this document.</p>
           </div>
         </details>
 
@@ -1382,54 +1064,8 @@ flowchart TD
             <p><strong>From:</strong> <code>noreply@mrcsystem.com</code> · <strong>Reply-to:</strong> <code>admin@mrcsystem.com</code> · <strong>Template name:</strong> <code>report-approved</code> · <strong>Attachment:</strong> inspection report PDF</p>
             <p><strong>Builder:</strong> <code>src/lib/api/notifications.ts:205</code></p>
           </div>
-          <div class="email-preview-body">
-            <div class="wrapper">
-              <div class="container">
-                <div class="header">
-                  <h1>Mould &amp; Restoration Co.</h1>
-                  <p>Professional Mould Remediation</p>
-                </div>
-                <div class="body">
-                  <h2>Your Inspection Report is Ready</h2>
-                  <p>Hi Jane Smith,</p>
-                  <p>Great news — your mould inspection report for <strong>35 Wellington Street, Mernda</strong> has been completed and approved (Ref: MRC-2026-0138).</p>
-                  <p>Our team has thoroughly reviewed the findings and the report is now ready for you.</p>
-                  <div class="details-box">
-                    <table>
-                      <tr><td>Property</td><td>35 Wellington Street, Mernda</td></tr>
-                      <tr><td>Reference</td><td>MRC-2026-0138</td></tr>
-                      <tr><td>Status</td><td style="color:#16a34a; font-weight:600;">Approved &amp; Ready</td></tr>
-                    </table>
-                  </div>
-                  <p>If you have any questions about the report or would like to discuss remediation options, please don't hesitate to get in touch.</p>
-                  <p style="margin-top:24px;">
-                    <a href="tel:1800954117" class="cta-button">Call Us to Discuss</a>
-                  </p>
-                </div>
-                <div class="signature">
-                  <p class="sign-off">Best Regards,<br>The MRC Team &ndash; Mould &amp; Restoration Experts</p>
-                  <table class="sig-table" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td class="sig-logo-cell">
-                        <img src="https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
-                      </td>
-                      <td class="sig-details-cell">
-                        <p class="sig-company">Mould and Restoration Co.</p>
-                        <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
-                        <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
-                        <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
-                        <p>Business Hours: Monday to Sunday: 7:00 AM &ndash; 7:00 PM</p>
-                      </td>
-                    </tr>
-                  </table>
-                  <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
-                  <p class="sig-review">Write a Review: <a href="https://g.page/r/CSmcatb7uSq9EBM/review">Leave us a Google Review</a></p>
-                </div>
-                <div class="footer">
-                  <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it.</p>
-                </div>
-              </div>
-            </div>
+          <div class="email-preview-reference">
+            <p><strong>Preview:</strong> Real email screenshot stored in the MRC Google Drive, alongside this document.</p>
           </div>
         </details>
 
@@ -1440,55 +1076,8 @@ flowchart TD
             <p><strong>From:</strong> <code>noreply@mrcsystem.com</code> · <strong>Reply-to:</strong> <code>admin@mrcsystem.com</code> · <strong>Template name:</strong> <code>job_booking_confirmation</code></p>
             <p><strong>Builder:</strong> <code>src/lib/api/notifications.ts:252</code></p>
           </div>
-          <div class="email-preview-body">
-            <div class="wrapper">
-              <div class="container">
-                <div class="header">
-                  <h1>Mould &amp; Restoration Co.</h1>
-                  <p>Professional Mould Remediation</p>
-                </div>
-                <div class="body">
-                  <h2>Job Booking Confirmed</h2>
-                  <p>Hi Jane Smith,</p>
-                  <p>Great news — your mould remediation job at <strong>35 Wellington Street, Mernda</strong> has been confirmed and scheduled.</p>
-                  <div class="details-box">
-                    <table>
-                      <tr><td>Reference</td><td>MRC-2026-0138</td></tr>
-                      <tr><td>Dates</td><td>Tue 19 May &ndash; Thu 21 May 2026</td></tr>
-                      <tr><td>Start Time</td><td>8:00 AM daily</td></tr>
-                      <tr><td>Duration</td><td>3 days (24 hours)</td></tr>
-                      <tr><td>Technician</td><td>Glen Reid</td></tr>
-                      <tr><td>Address</td><td>35 Wellington Street, Mernda</td></tr>
-                    </table>
-                  </div>
-                  <p><strong>What to expect:</strong></p>
-                  <p>Our technician will arrive at 8:00 AM on Tue 19 May to begin work. Please ensure access to all affected areas of the property for the duration of the job.</p>
-                  <p>If you need to reschedule, please call us on <a href="tel:0433553199" style="color:#121D73; font-weight:600;">0433 553 199</a> as soon as possible.</p>
-                </div>
-                <div class="signature">
-                  <p class="sign-off">Best Regards,<br>The MRC Team &ndash; Mould &amp; Restoration Experts</p>
-                  <table class="sig-table" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td class="sig-logo-cell">
-                        <img src="https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
-                      </td>
-                      <td class="sig-details-cell">
-                        <p class="sig-company">Mould and Restoration Co.</p>
-                        <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
-                        <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
-                        <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
-                        <p>Business Hours: Monday to Sunday: 7:00 AM &ndash; 7:00 PM</p>
-                      </td>
-                    </tr>
-                  </table>
-                  <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
-                  <p class="sig-review">Write a Review: <a href="https://g.page/r/CSmcatb7uSq9EBM/review">Leave us a Google Review</a></p>
-                </div>
-                <div class="footer">
-                  <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it.</p>
-                </div>
-              </div>
-            </div>
+          <div class="email-preview-reference">
+            <p><strong>Preview:</strong> Real email screenshot stored in the MRC Google Drive, alongside this document.</p>
           </div>
         </details>
 
@@ -1499,54 +1088,8 @@ flowchart TD
             <p><strong>From:</strong> <code>noreply@mrcsystem.com</code> · <strong>Reply-to:</strong> <code>admin@mrcsystem.com</code> · <strong>Template name:</strong> <code>job_report_sent</code> · <strong>Attachment:</strong> job completion report PDF (filename <code>MRC-JOB-{jobNumber}-Job-Report.pdf</code>)</p>
             <p><strong>Builder:</strong> <code>src/lib/api/notifications.ts:329</code></p>
           </div>
-          <div class="email-preview-body">
-            <div class="wrapper">
-              <div class="container">
-                <div class="header">
-                  <h1>Mould &amp; Restoration Co.</h1>
-                  <p>Professional Mould Remediation</p>
-                </div>
-                <div class="body">
-                  <h2>Job Completion Report</h2>
-                  <p>Dear Jane Smith,</p>
-                  <p>Please find your job completion report for the remediation work carried out at:</p>
-                  <div class="details-box">
-                    <table>
-                      <tr><td>Property</td><td>35 Wellington Street, Mernda</td></tr>
-                      <tr><td>Job Number</td><td>JOB-2026-0042</td></tr>
-                      <tr><td>Completion Date</td><td>21/05/2026</td></tr>
-                      <tr><td>Technician</td><td>Glen Reid</td></tr>
-                    </table>
-                  </div>
-                  <p style="margin-top:24px;">
-                    <a href="#" class="cta-button">View Job Report</a>
-                  </p>
-                  <p>This report includes before and after photos, treatment methods used, and our warranty conditions. If you have any questions, contact us at <strong>1800 954 117</strong> or reply to this email.</p>
-                </div>
-                <div class="signature">
-                  <p class="sign-off">Best Regards,<br>The MRC Team &ndash; Mould &amp; Restoration Experts</p>
-                  <table class="sig-table" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td class="sig-logo-cell">
-                        <img src="https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
-                      </td>
-                      <td class="sig-details-cell">
-                        <p class="sig-company">Mould and Restoration Co.</p>
-                        <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
-                        <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
-                        <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
-                        <p>Business Hours: Monday to Sunday: 7:00 AM &ndash; 7:00 PM</p>
-                      </td>
-                    </tr>
-                  </table>
-                  <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
-                  <p class="sig-review">Write a Review: <a href="https://g.page/r/CSmcatb7uSq9EBM/review">Leave us a Google Review</a></p>
-                </div>
-                <div class="footer">
-                  <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it.</p>
-                </div>
-              </div>
-            </div>
+          <div class="email-preview-reference">
+            <p><strong>Preview:</strong> Real email screenshot stored in the MRC Google Drive, alongside this document.</p>
           </div>
         </details>
 
@@ -1557,48 +1100,8 @@ flowchart TD
             <p><strong>From:</strong> <code>noreply@mrcsystem.com</code> · <strong>Reply-to:</strong> <code>admin@mrcsystem.com</code> · <strong>Template name:</strong> <code>google_review_request</code></p>
             <p><strong>Builder:</strong> <code>src/lib/api/notifications.ts:411</code></p>
           </div>
-          <div class="email-preview-body">
-            <div class="wrapper">
-              <div class="container">
-                <div class="header">
-                  <h1>Mould &amp; Restoration Co.</h1>
-                  <p>Professional Mould Remediation</p>
-                </div>
-                <div class="body">
-                  <h2>Thank You — Would You Leave Us a Review?</h2>
-                  <p>Dear Jane Smith,</p>
-                  <p>Thank you for trusting Mould &amp; Restoration Co with your remediation work (JOB-2026-0042). We hope you're thrilled with the result.</p>
-                  <p>Your feedback means the world to small businesses like ours. If you have 30 seconds, a quick Google review would genuinely make our day:</p>
-                  <p style="margin-top:24px;text-align:center;">
-                    <a href="https://g.page/r/CSmcatb7uSq9EBM/review" class="cta-button">Leave a Google Review</a>
-                  </p>
-                  <p>If anything's not quite right, please reply to this email or call us on <strong>1800 954 117</strong> — we'll make it right.</p>
-                  <p>Thanks again,<br>The MRC Team</p>
-                </div>
-                <div class="signature">
-                  <p class="sign-off">Best Regards,<br>The MRC Team &ndash; Mould &amp; Restoration Experts</p>
-                  <table class="sig-table" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td class="sig-logo-cell">
-                        <img src="https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
-                      </td>
-                      <td class="sig-details-cell">
-                        <p class="sig-company">Mould and Restoration Co.</p>
-                        <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
-                        <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
-                        <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
-                        <p>Business Hours: Monday to Sunday: 7:00 AM &ndash; 7:00 PM</p>
-                      </td>
-                    </tr>
-                  </table>
-                  <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
-                  <p class="sig-review">Write a Review: <a href="https://g.page/r/CSmcatb7uSq9EBM/review">Leave us a Google Review</a></p>
-                </div>
-                <div class="footer">
-                  <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it.</p>
-                </div>
-              </div>
-            </div>
+          <div class="email-preview-reference">
+            <p><strong>Preview:</strong> Real email screenshot stored in the MRC Google Drive, alongside this document.</p>
           </div>
         </details>
 
