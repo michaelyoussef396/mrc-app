@@ -796,14 +796,6 @@ flowchart TD
           <li><strong>Preferred Time of Booking</strong><span class="req">required</span></li>
           <li><strong>Issue Description</strong><span class="req">required</span> — textarea.</li>
         </ul>
-        <p style="font-size: 13.5px; color: var(--ink-muted); font-style: italic; margin-top: -8px;">
-          Action for Michael: confirm in the Framer form editor that these three inputs have
-          Required = Yes. If not, flip them on and republish. The
-          <code>receive-framer-lead</code> Zod schema
-          (<code>supabase/functions/receive-framer-lead/index.ts:61-72</code>) currently marks
-          them optional; a future commit may want to tighten the schema too.
-        </p>
-
         <p>
           Validation runs against a Zod schema in the Edge Function
           (<code>receive-framer-lead/index.ts:61-70</code>). The function smart-parses the
@@ -871,9 +863,15 @@ flowchart TD
           <li><strong>Zod validation.</strong> Failure inserts a <code>'failed'</code>
             <code>webhook_submissions</code> row, fires admin alert email + Slack, returns 400
             (<code>:582-593</code>).</li>
-          <li><strong>Duplicate check.</strong> Same email + phone within the last 24 hours
-            returns 200 with "Lead already received" message and updates the submission status
-            to <code>'duplicate'</code> (<code>:595-607</code>).</li>
+          <li><strong>Duplicate check — flag, do not drop.</strong> Same email + phone within
+            the last 24 hours flags the new lead as a possible repeat:
+            <code>is_possible_duplicate=true</code> and
+            <code>possible_duplicate_of={original_lead_id}</code>
+            (migration <code>20260422000002</code>). The lead is still created and progresses
+            through the pipeline normally — nothing is dropped. The Slack notification is
+            prefixed with "🔁 Possible repeat" and the Lead Detail page shows an amber
+            duplicate badge to admin. Policy was changed from silent-drop to capture-and-flag
+            so legitimate returning customers aren't lost.</li>
           <li><strong>Insert with retry.</strong> Three attempts, exponential backoff
             (500 ms → 1500 ms → 4500 ms). Three failures triggers admin alert email + Slack
             and returns 500 (<code>:364-383, 623-637</code>).</li>
@@ -1085,8 +1083,7 @@ flowchart TD
           Archaeology: a table called <code>client_booking_tokens</code> exists in the database
           (created in migration <code>20251028135212</code>) — built in anticipation of a
           tokenised customer booking portal. The endpoint, token issuance, and customer-facing
-          page were never implemented. The table has been dead weight since it was created
-          in migration <code>20251028135212</code>.
+          page were never implemented. The table has been dead weight since it was created.
         </p>
 
         <h3>1.5 How the customer pays the invoice</h3>
@@ -1938,10 +1935,11 @@ flowchart TD
             percentage (capped at 13%), the customer email, the property address, the due date
             (default +14 days), and free-text notes.</li>
           <li><strong>Sending</strong> — moves status from <code>draft</code> → <code>sent</code>
-            and records <code>sent_at</code>. <span class="pill partial">⚠</span> Customer-facing
-            email send for invoices is <strong>not currently wired</strong> in the notifications
-            module — the Slack alert fires, but the customer does not receive an automated invoice
-            email. In practice the admin emails the invoice externally.</li>
+            and records <code>sent_at</code>. <span class="pill deliberate">DELIBERATE</span>
+            Customer-facing invoice email is sent manually by admin from their own email client,
+            using the Invoice Summary card data as the source. The Slack alert fires internally
+            when admin clicks Send. No automated customer invoice email is planned — admin
+            personalises the dispatch.</li>
         </ul>
 
         <h3>3.8 Marking an invoice paid</h3>
@@ -2188,6 +2186,18 @@ flowchart TD
           <li><span class="pill deliberate">DELIBERATE</span> No customer-facing push or in-app messaging — customers never log in.</li>
           <li><span class="pill deliberate">DELIBERATE</span> No automated overdue communication to the customer — the office wants the human conversation when chasing money. See <a href="#customer">1.6</a>.</li>
           <li><span class="pill deliberate">DELIBERATE</span> No per-technician Slack DM — Slack is for the office channel; per-tech messaging would fragment the team's shared awareness.</li>
+        </ul>
+        <div class="callout info">
+          <p>
+            <strong>Open idea — not yet planned.</strong> A technician-only Slack channel
+            (or per-tech DM) could notify Glen or Clayton directly when a new job is
+            assigned to them, a job is sent back for revision, or a booking slot
+            changes. The current setup posts everything to the office channel, which
+            works when the office is watching but doesn't route by technician. Worth
+            discussing before launch — low-effort to wire up if the team wants it.
+          </p>
+        </div>
+        <ul>
           <li><span class="pill deliberate">DELIBERATE</span> No automated customer invoice email. By design, the admin copies the Invoice Summary card data into their own email client and sends the invoice manually. Slack alert fires internally.</li>
         </ul>
         <h4>Accidentally silent (genuine gaps)</h4>
@@ -2281,7 +2291,7 @@ flowchart TD
 
         <h3>5.5 Payment doesn't arrive</h3>
         <p>
-          <span class="pill built">✓ BUILT (with caveats)</span> The cron flips the invoice to
+          <span class="pill partial">⚠ PARTIAL</span> The cron flips the invoice to
           <code>overdue</code> the day after the due date. Slack alerts fire on a schedule (Day
           15, 22, 29, 30, 60). There is no automated chase email to the customer; admin must
           phone or write manually. If the customer never pays, the invoice sits as
@@ -3426,7 +3436,6 @@ CASCADE;</pre>
 
       <footer class="colophon">
         <span class="brand">Mould &amp; Restoration Co. — Full Walkthrough</span>
-        <span>Last generated: 2026-04-22</span>
       </footer>
     </main>
   </div>
