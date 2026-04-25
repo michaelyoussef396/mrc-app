@@ -909,6 +909,7 @@ function generateNavyBoxSectionPages(contentHtml: string, config: SectionConfig)
 
 // Handle PROBLEM ANALYSIS & RECOMMENDATIONS overflow
 function handleProblemAnalysisOverflow(html: string, problemContentHtml: string): string {
+  // Lookahead Page 7 = Demolition (was Cleaning before page-order restructure)
   const regex = /<!-- Page 6: Problem Analysis[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 7)/
   const match = html.match(regex)
 
@@ -933,7 +934,7 @@ function handleProblemAnalysisOverflow(html: string, problemContentHtml: string)
 
 // Handle DEMOLITION section overflow
 function handleDemolitionOverflow(html: string, demolitionContentHtml: string): string {
-  const regex = /<!-- Page 9: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 10)/
+  const regex = /<!-- Page 7: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 8)/
   const match = html.match(regex)
 
   if (!match) return html
@@ -942,7 +943,7 @@ function handleDemolitionOverflow(html: string, demolitionContentHtml: string): 
   const logoUrl = logoMatch ? logoMatch[1] : `${ASSET_BASE}/assets/logos/logo-mrc.png`
 
   const config: SectionConfig = {
-    pageComment: '<!-- Page 9: Demolition Page -->',
+    pageComment: '<!-- Page 7: Demolition Page -->',
     titleHtml: `<!-- DEMOLITION title -->
             <div style="width: 600px; left: 41px; top: 25px; position: absolute; color: #000000; font-size: 56px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">DEMOLITION</div>`,
     contentTop: 145,
@@ -1417,6 +1418,11 @@ function generateReportHtml(
     problemMarkdown = rebuildProblemAnalysisMarkdown(overrideSections)
   }
   const problemContentHtml = markdownToHtml(problemMarkdown) || defaultAnalysis
+  // IMPORTANT: handleProblemAnalysisOverflow MUST run before the demolition
+  // strip below. Its lookahead regex `(?=\s*<!-- Page 7)` anchors on the
+  // Demolition placeholder block, which the strip may delete. Reordering
+  // these calls will silently break Problem Analysis pagination on
+  // non-demolition inspections.
   html = handleProblemAnalysisOverflow(html, problemContentHtml)
 
   // Reparse sections after overrides for template placeholder compat
@@ -1435,17 +1441,17 @@ function generateReportHtml(
   html = html.replace(/\{\{timeline_text\}\}/g, stripMarkdown(problemSections.timeline_text) || '')
   html = html.replace(/\{\{problem_analysis_content\}\}/g, '') // Already handled by overflow
 
-  // ===== PAGE 9: DEMOLITION (conditional + multi-page overflow) =====
+  // ===== PAGE 7: DEMOLITION (conditional + multi-page overflow) =====
   const hasDemolition = demolitionAreas.length > 0 || !!inspection.demolition_content?.trim()
   if (hasDemolition) {
     html = handleDemolitionOverflow(html, demolitionContent)
   } else {
     // Remove demolition page entirely when no areas require it
-    const demolitionRemoveRegex = /\s*<!-- Page 9: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 10)/
+    const demolitionRemoveRegex = /\s*<!-- Page 7: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 8)/
     html = html.replace(demolitionRemoveRegex, '\n\n')
   }
 
-  // ===== PAGE 10: VISUAL MOULD CLEANING ESTIMATE =====
+  // ===== PAGE 8: VISUAL MOULD CLEANING ESTIMATE =====
   // Use pre-computed option_selected if available, fall back to algorithmic derivation
   const hasSubfloor = inspection.subfloor_required && subfloorData != null
   const optionSelected = inspection.option_selected
@@ -1760,7 +1766,8 @@ Deno.serve(async (req) => {
       '<!-- Page 4: Outdoor Environment',
       '<!-- Page 5: Subfloor',
       '<!-- Page 6: Problem Analysis',
-      '<!-- Page 7: Visual Mould Cleaning',
+      '<!-- Page 7: Demolition',
+      '<!-- Page 8: Visual Mould Cleaning',
     ]
     const missingMarkers = requiredMarkers.filter(marker => !templateHtml.includes(marker))
     if (missingMarkers.length > 0) {
