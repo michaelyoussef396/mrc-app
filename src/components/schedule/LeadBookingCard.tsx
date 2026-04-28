@@ -9,6 +9,17 @@ import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps
 import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
 import { useLeadUpdate } from '@/hooks/useLeadUpdate';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   AlertCircle,
   AlertTriangle,
@@ -79,6 +90,11 @@ export function LeadBookingCard({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { getRecommendedDates, checkAvailability } = useBookingValidation();
+  const { profile, user } = useAuth();
+  // Author attribution chain — applied at every internal_notes write site.
+  // 'Unknown user' should never trigger in practice (every authenticated
+  // session has at minimum an email); kept as defensive final fallback.
+  const authorName = profile?.full_name?.trim() || user?.email || 'Unknown user';
 
   // Address validation state
   const [addressConfirmed, setAddressConfirmed] = useState(false);
@@ -101,6 +117,7 @@ export function LeadBookingCard({
   const [selectedTechnician, setSelectedTechnician] = useState<string>('');
   const [internalNotes, setInternalNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [noEmailDialogOpen, setNoEmailDialogOpen] = useState(false);
 
   // Lead info edit state
   const { updateLead, isUpdating: isLeadSaving } = useLeadUpdate(lead.id);
@@ -345,7 +362,7 @@ export function LeadBookingCard({
     return TIME_SLOTS;
   };
 
-  const handleBookInspection = async (e: React.MouseEvent) => {
+  const handleBookInspection = (e: React.MouseEvent) => {
     e.stopPropagation();
 
     if (!selectedDate || !selectedTime || !selectedTechnician) {
@@ -353,6 +370,18 @@ export function LeadBookingCard({
       return;
     }
 
+    // No email on file → show confirmation dialog before proceeding.
+    // Booking can still go ahead, but admin acknowledges no confirmation
+    // email will reach the customer.
+    if (!lead.email || !lead.email.trim()) {
+      setNoEmailDialogOpen(true);
+      return;
+    }
+
+    void performBooking();
+  };
+
+  const performBooking = async () => {
     setIsSubmitting(true);
 
     try {
@@ -365,6 +394,7 @@ export function LeadBookingCard({
           inspectionTime: selectedTime,
           technicianId: selectedTechnician,
           internalNotes: internalNotes || undefined,
+          authorName,
           technicianName: technicians.find(t => t.id === selectedTechnician)?.name,
           durationMinutes,
         },
@@ -1339,6 +1369,34 @@ export function LeadBookingCard({
           </div>
         </div>
       )}
+
+      {/* No-email confirmation dialog — surfaces when admin clicks Book on a
+          lead with no email on file. Booking can still proceed; admin
+          acknowledges no confirmation email will reach the customer. */}
+      <AlertDialog open={noEmailDialogOpen} onOpenChange={setNoEmailDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>No email on file</AlertDialogTitle>
+            <AlertDialogDescription>
+              {lead.fullName} has no email address on the lead record. The
+              booking will be created and the technician scheduled, but the
+              customer will not receive a confirmation email. A skip record is
+              written to the email log for audit.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setNoEmailDialogOpen(false);
+                void performBooking();
+              }}
+            >
+              Confirm anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

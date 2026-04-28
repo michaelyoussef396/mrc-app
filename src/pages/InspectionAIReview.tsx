@@ -431,7 +431,7 @@ export default function InspectionAIReview() {
                     {lead?.internal_notes && (
                       <div>
                         <p className="text-xs text-slate-400 mb-1">Internal Notes</p>
-                        <p className="text-sm text-slate-700">{lead.internal_notes}</p>
+                        <p className="text-sm text-slate-700 whitespace-pre-line">{lead.internal_notes}</p>
                       </div>
                     )}
 

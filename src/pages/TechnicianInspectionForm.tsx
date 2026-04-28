@@ -441,7 +441,7 @@ function CustomerInfoCard({ lead, booking, isExpanded, onToggle }: CustomerInfoC
               </div>
               <div className="flex-1">
                 <p className="text-xs text-[#86868b] mb-0.5">Internal Notes</p>
-                <p className="font-medium text-[#1d1d1f] text-sm">{lead.internal_notes}</p>
+                <p className="font-medium text-[#1d1d1f] text-sm whitespace-pre-line">{lead.internal_notes}</p>
               </div>
             </div>
           )}

@@ -1332,18 +1332,10 @@ export default function LeadDetail() {
                 </span>
               </div>
 
-              {/* Booking Notes - inside the scheduled section */}
-              {booking?.description && (
-                <div className="pt-2 border-t border-green-200">
-                  <span className="text-sm text-green-700 uppercase tracking-wide font-medium">Notes from Booking Call</span>
-                  <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap flex items-start gap-2">
-                      <MessageSquare className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                      {booking.description}
-                    </p>
-                  </div>
-                </div>
-              )}
+              {/* Booking-call notes are no longer surfaced here. They flow
+                  into the unified Internal Notes log below as a (booking call)
+                  entry. calendar_bookings.description is still written for
+                  per-booking calendar UI (EventDetailsPanel). */}
 
               <Button variant="outline" className="w-full h-12 border-green-300 text-green-700 hover:bg-green-100" onClick={() => navigate(`/admin/schedule?lead=${lead.id}`)}>
                 <Calendar className="h-4 w-4 mr-2" />
