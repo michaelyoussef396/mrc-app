@@ -59,7 +59,6 @@ import {
   ClipboardCheck,
   Star,
 } from "lucide-react";
-import { NewLeadView } from "@/components/leads/NewLeadView";
 import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
 import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
 import { BookJobSheet } from "@/components/leads/BookJobSheet";
@@ -319,7 +318,6 @@ export default function LeadDetail() {
     );
   }
 
-  // Shared handlers (needed by NewLeadView and the main view)
   const handleChangeStatus = async (status: LeadStatus) => {
     const currentConfig = STATUS_FLOW[lead.status as LeadStatus];
     const { error } = await supabase
@@ -446,38 +444,6 @@ export default function LeadDetail() {
     navigate("/admin/leads");
   };
 
-  // Render dedicated view for new leads and inspection_waiting
-  if (lead.status === "new_lead" || lead.status === "inspection_waiting") {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <NewLeadView
-          lead={lead}
-          onStatusChange={handleChangeStatus}
-          onRefetch={() => refetch()}
-          technicianName={techProfile?.full_name || undefined}
-        />
-
-        {/* Reuse existing delete + status dialogs */}
-        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Archive Lead?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to archive this lead? It will be hidden from the app but can be restored later by an admin.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-                Archive
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-    );
-  }
-
   const statusConfig = STATUS_FLOW[lead.status as LeadStatus];
   const fullAddress = `${lead.property_address_street}, ${lead.property_address_suburb} ${lead.property_address_state} ${lead.property_address_postcode}`;
 
@@ -536,6 +502,18 @@ export default function LeadDetail() {
   // Render primary CTA based on status
   const renderPrimaryCTA = () => {
     switch (lead.status as LeadStatus) {
+      case "new_lead":
+        return (
+          <Button
+            size="lg"
+            className="w-full h-14 text-base"
+            onClick={() => setShowRescheduleModal(true)}
+          >
+            <Calendar className="h-5 w-5 mr-2" />
+            Schedule Inspection
+          </Button>
+        );
+
       case "inspection_waiting":
         return (
           <Button
@@ -1134,6 +1112,39 @@ export default function LeadDetail() {
           <CardContent className="pt-4">{renderPrimaryCTA()}</CardContent>
         </Card>
 
+        {/* Customer's Preferred Time — only on new_lead with a captured preference */}
+        {lead.status === "new_lead" && lead.customer_preferred_date && (
+          <Card className="border-l-4 border-l-blue-500 border-blue-200 bg-blue-50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wide flex items-center gap-2 text-blue-800">
+                <Calendar className="h-4 w-4" />
+                Customer's Preferred Time
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-blue-700">Date</span>
+                <span className="text-sm font-medium text-blue-900 flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  {formatDate(lead.customer_preferred_date)}
+                </span>
+              </div>
+              {lead.customer_preferred_time && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-blue-700">Time</span>
+                  <span className="text-sm font-medium text-blue-900 flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    {formatTime(lead.customer_preferred_time)}
+                  </span>
+                </div>
+              )}
+              <p className="text-xs italic text-blue-700/80 pt-1">
+                Not yet confirmed — call to schedule
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Contact Information */}
         <Card>
           <CardHeader className="pb-2">
@@ -1644,6 +1655,8 @@ export default function LeadDetail() {
         customerName={lead.full_name}
         propertyAddress={`${lead.property_address_street}, ${lead.property_address_suburb}`}
         propertySuburb={lead.property_address_suburb}
+        customerPreferredDate={lead.status === 'new_lead' ? lead.customer_preferred_date : null}
+        customerPreferredTime={lead.status === 'new_lead' ? lead.customer_preferred_time : null}
       />
 
       {/* Book Job Sheet — slide-out drawer from right */}

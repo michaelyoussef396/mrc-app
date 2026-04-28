@@ -30,7 +30,6 @@ const AdminTechnicians = lazy(() => import("./pages/AdminTechnicians"));
 const AdminTechnicianDetail = lazy(() => import("./pages/AdminTechnicianDetail"));
 
 const LeadsManagement = lazy(() => import("./pages/LeadsManagement"));
-const NewLeadView = lazy(() => import("./pages/NewLeadView"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Settings = lazy(() => import("./pages/Settings"));
 const LeadDetail = lazy(() => import("./pages/LeadDetail"));
@@ -376,20 +375,6 @@ const AppContent = () => {
                   <RoleProtectedRoute allowedRoles={["admin"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <Profile />
-                    </Suspense>
-                  </RoleProtectedRoute>
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Standalone admin routes (previously inside AppLayout) */}
-            <Route
-              path="/lead/new/:id"
-              element={
-                <ProtectedRoute>
-                  <RoleProtectedRoute allowedRoles={["admin"]}>
-                    <Suspense fallback={<GlobalLoader />}>
-                      <NewLeadView />
                     </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>
