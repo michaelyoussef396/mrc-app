@@ -253,6 +253,7 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
   .details-box td { padding: 6px 0; font-size: 14px; vertical-align: top; }
   .details-box td:first-child { font-weight: 600; color: #555; width: 120px; white-space: nowrap; padding-right: 12px; }
   .details-box td:last-child { color: #1d1d1f; }
+  .cta-button { display: inline-block; background: #121D73; color: #ffffff !important; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 15px; margin: 8px 0; }
   .signature { padding: 24px 24px 16px; border-top: 1px solid #e9ecef; background: #f8f9fa; }
   .sign-off { font-size: 15px; color: #333; font-weight: 600; margin: 0 0 16px; line-height: 1.5; }
   .sig-table { width: 100%; border-collapse: collapse; }
@@ -650,14 +651,17 @@ Deno.serve(async (req) => {
     const isPossibleDuplicate = possibleDuplicateOf !== null
 
     // --- Insert lead with retry (3 attempts, exponential backoff) ---
+    // Customer-preferred date/time goes to customer_preferred_* columns.
+    // inspection_scheduled_date and scheduled_time are populated only by BookInspectionModal
+    // when admin formally schedules. See migration 20260428174022_add_customer_preferred_columns.sql.
     const leadRow = {
       full_name: fullName, email, phone,
       property_address_street: street,
       property_address_suburb: suburb,
       property_address_state: 'VIC',
       property_address_postcode: postcode,
-      inspection_scheduled_date: preferredDate || null,
-      scheduled_time: preferredTime || null,
+      customer_preferred_date: preferredDate || null,
+      customer_preferred_time: preferredTime || null,
       issue_description: issueDescription || null,
       lead_source: 'website',
       status: 'new_lead',
