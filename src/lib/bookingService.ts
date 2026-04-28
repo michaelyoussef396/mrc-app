@@ -3,6 +3,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { sendEmail, sendSlackNotification, buildBookingConfirmationHtml } from '@/lib/api/notifications';
 import { captureBusinessError, addBusinessBreadcrumb } from '@/lib/sentry';
 import { formatMediumDateAU } from '@/lib/dateUtils';
+import { appendInternalNote } from '@/lib/utils/internalNotes';
 
 // ============================================================================
 // TYPES
@@ -16,6 +17,10 @@ export interface BookInspectionParams {
   inspectionTime: string;      // HH:MM (24hr)
   technicianId: string;
   internalNotes?: string;
+  /** Display name of the admin doing the booking. Stamped on the
+   *  internal_notes log entry alongside the (booking call) attribution.
+   *  Caller resolves via profile.full_name → user.email → 'Unknown user'. */
+  authorName?: string;
   technicianName?: string;
   durationMinutes?: number;    // Default 60
 }
@@ -69,8 +74,8 @@ export async function checkBookingConflict(
 }
 
 /**
- * Book an inspection - creates calendar booking, updates lead, logs activity
- * Extracted from BookInspectionModal for reuse across the app
+ * Book an inspection - creates calendar booking, updates lead, logs activity.
+ * Used by LeadBookingCard in the Schedule sidebar.
  */
 export async function bookInspection(
   params: BookInspectionParams,
@@ -84,6 +89,7 @@ export async function bookInspection(
     inspectionTime,
     technicianId,
     internalNotes,
+    authorName,
     technicianName,
     durationMinutes = 60,
   } = params;
@@ -133,16 +139,34 @@ export async function bookInspection(
     }
 
 
-    // 2. Update lead with booking info
+    // 2. Update lead with booking info.
+    // internal_notes is APPEND-ONLY here — fetch the current log, prepend the new
+    // (booking call) entry. If no booking-time note was supplied, the column is
+    // not touched at all (existing log preserved).
+    const leadUpdate: Record<string, unknown> = {
+      status: 'inspection_waiting',
+      inspection_scheduled_date: inspectionDate,
+      scheduled_time: inspectionTime,
+      assigned_to: technicianId,
+    };
+
+    if (internalNotes && internalNotes.trim()) {
+      const { data: currentLead } = await supabase
+        .from('leads')
+        .select('internal_notes')
+        .eq('id', leadId)
+        .single();
+
+      leadUpdate.internal_notes = appendInternalNote(
+        currentLead?.internal_notes ?? null,
+        internalNotes,
+        { authorName: authorName || 'Unknown user', context: 'booking call' },
+      );
+    }
+
     const { error: leadError } = await supabase
       .from('leads')
-      .update({
-        status: 'inspection_waiting',
-        inspection_scheduled_date: inspectionDate,
-        scheduled_time: inspectionTime,
-        assigned_to: technicianId,
-        internal_notes: internalNotes || null,
-      })
+      .update(leadUpdate)
       .eq('id', leadId);
 
     if (leadError) {
@@ -185,28 +209,20 @@ export async function bookInspection(
       bookingDate: `${displayDate} at ${displayTime}`,
     });
 
-    // Email booking confirmation to customer
-    supabase
-      .from('leads')
-      .select('email')
-      .eq('id', leadId)
-      .single()
-      .then(({ data: leadData }) => {
-        if (leadData?.email) {
-          sendEmail({
-            to: leadData.email,
-            subject: `Inspection Booking Confirmed — ${displayDate}`,
-            html: buildBookingConfirmationHtml({
-              customerName,
-              date: displayDate,
-              time: displayTime,
-              address: propertyAddress,
-            }),
-            leadId,
-            templateName: 'booking-confirmation',
-          });
-        }
-      });
+    // Email booking confirmation to customer (async, non-blocking).
+    // The booking is already committed; email failures must not roll it back,
+    // but they MUST surface — past behaviour swallowed errors silently and
+    // skipped null-email leads with no record. Now: every booking emits a
+    // signal — sent (email_logs row from Edge Function), failed (Sentry +
+    // email_logs row from Edge Function), or skipped (email_logs row written
+    // here so admins always have a paper trail).
+    void sendBookingConfirmationEmail({
+      leadId,
+      customerName,
+      displayDate,
+      displayTime,
+      propertyAddress,
+    });
 
     return {
       success: true,
@@ -229,6 +245,72 @@ export async function bookInspection(
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+interface SendBookingConfirmationParams {
+  leadId: string;
+  customerName: string;
+  displayDate: string;
+  displayTime: string;
+  propertyAddress: string;
+}
+
+/**
+ * Resolve the lead's email and dispatch the booking confirmation. Errors
+ * surface to Sentry; null-email leads write a 'failed' row to email_logs so
+ * admins always have a delivery record (skip + reason).
+ *
+ * Called as fire-and-forget from bookInspection() — the booking is already
+ * committed, the email path must not roll it back, but it must not fail
+ * silently either (the floating .then() pattern that came before).
+ */
+async function sendBookingConfirmationEmail(
+  params: SendBookingConfirmationParams,
+): Promise<void> {
+  const { leadId, customerName, displayDate, displayTime, propertyAddress } = params;
+  try {
+    const { data: leadData, error: fetchError } = await supabase
+      .from('leads')
+      .select('email')
+      .eq('id', leadId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    if (!leadData?.email) {
+      // Lead has no email on file — record the skip so the absence is auditable.
+      addBusinessBreadcrumb('Booking email skipped — no email on file', { leadId });
+      await supabase.from('email_logs').insert({
+        recipient_email: null,
+        subject: `Inspection Booking Confirmed — ${displayDate}`,
+        template_name: 'booking-confirmation',
+        status: 'failed',
+        provider: 'resend',
+        error_message: 'No email address on file',
+        lead_id: leadId,
+        sent_at: new Date().toISOString(),
+      });
+      return;
+    }
+
+    await sendEmail({
+      to: leadData.email,
+      subject: `Inspection Booking Confirmed — ${displayDate}`,
+      html: buildBookingConfirmationHtml({
+        customerName,
+        date: displayDate,
+        time: displayTime,
+        address: propertyAddress,
+      }),
+      leadId,
+      templateName: 'booking-confirmation',
+    });
+  } catch (error) {
+    captureBusinessError('Booking confirmation email failed', {
+      leadId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
 
 /**
  * Format date from YYYY-MM-DD to "15 Jan 2024"

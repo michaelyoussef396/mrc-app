@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLeadsToSchedule } from '@/hooks/useLeadsToSchedule';
 import LeadBookingCard from './LeadBookingCard';
 import { BookJobSheet } from '@/components/leads/BookJobSheet';
@@ -16,15 +16,26 @@ interface Technician {
 
 interface LeadsQueueProps {
   technicians: Technician[];
+  /** Lead id to auto-expand on mount (from /admin/schedule?lead={id}). */
+  initialExpandedLeadId?: string | null;
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function LeadsQueue({ technicians }: LeadsQueueProps) {
+export function LeadsQueue({ technicians, initialExpandedLeadId }: LeadsQueueProps) {
   const { leads, totalCount, isLoading, error, refetch } = useLeadsToSchedule();
-  const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
+  const [expandedLeadId, setExpandedLeadId] = useState<string | null>(initialExpandedLeadId ?? null);
+
+  // When ?lead={id} is set, auto-expand once the matching lead lands in the result set.
+  // We also re-run if the URL param changes (admin navigates between deep-link URLs).
+  useEffect(() => {
+    if (!initialExpandedLeadId) return;
+    if (leads.some((l) => l.id === initialExpandedLeadId)) {
+      setExpandedLeadId(initialExpandedLeadId);
+    }
+  }, [initialExpandedLeadId, leads]);
   const [bookJobLead, setBookJobLead] = useState<{
     id: string;
     leadNumber: string;

@@ -9,6 +9,17 @@ import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps
 import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
 import { useLeadUpdate } from '@/hooks/useLeadUpdate';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   AlertCircle,
   AlertTriangle,
@@ -79,6 +90,11 @@ export function LeadBookingCard({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { getRecommendedDates, checkAvailability } = useBookingValidation();
+  const { profile, user } = useAuth();
+  // Author attribution chain — applied at every internal_notes write site.
+  // 'Unknown user' should never trigger in practice (every authenticated
+  // session has at minimum an email); kept as defensive final fallback.
+  const authorName = profile?.full_name?.trim() || user?.email || 'Unknown user';
 
   // Address validation state
   const [addressConfirmed, setAddressConfirmed] = useState(false);
@@ -101,6 +117,7 @@ export function LeadBookingCard({
   const [selectedTechnician, setSelectedTechnician] = useState<string>('');
   const [internalNotes, setInternalNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [noEmailDialogOpen, setNoEmailDialogOpen] = useState(false);
 
   // Lead info edit state
   const { updateLead, isUpdating: isLeadSaving } = useLeadUpdate(lead.id);
@@ -345,7 +362,7 @@ export function LeadBookingCard({
     return TIME_SLOTS;
   };
 
-  const handleBookInspection = async (e: React.MouseEvent) => {
+  const handleBookInspection = (e: React.MouseEvent) => {
     e.stopPropagation();
 
     if (!selectedDate || !selectedTime || !selectedTechnician) {
@@ -353,6 +370,18 @@ export function LeadBookingCard({
       return;
     }
 
+    // No email on file → show confirmation dialog before proceeding.
+    // Booking can still go ahead, but admin acknowledges no confirmation
+    // email will reach the customer.
+    if (!lead.email || !lead.email.trim()) {
+      setNoEmailDialogOpen(true);
+      return;
+    }
+
+    void performBooking();
+  };
+
+  const performBooking = async () => {
     setIsSubmitting(true);
 
     try {
@@ -365,6 +394,7 @@ export function LeadBookingCard({
           inspectionTime: selectedTime,
           technicianId: selectedTechnician,
           internalNotes: internalNotes || undefined,
+          authorName,
           technicianName: technicians.find(t => t.id === selectedTechnician)?.name,
           durationMinutes,
         },
@@ -467,6 +497,72 @@ export function LeadBookingCard({
           className="p-4 space-y-4"
           style={{ backgroundColor: '#fafafa' }}
         >
+          {/* Customer's Preferred Time — only when lead has a captured preference.
+              Mirrors the same card on Lead Detail; admin still picks the actual booking. */}
+          {lead.preferredDate && (
+            <div
+              className="p-3 rounded-lg space-y-2"
+              style={{
+                backgroundColor: 'rgba(0, 122, 255, 0.06)',
+                border: '1px solid rgba(0, 122, 255, 0.2)',
+                borderLeft: '4px solid #007AFF',
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" style={{ color: '#007AFF' }} />
+                <label
+                  className="text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: '#007AFF' }}
+                >
+                  Customer's Preferred Time
+                </label>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm" style={{ color: '#1d1d1f' }}>Date</span>
+                <span className="text-sm font-medium flex items-center gap-1.5" style={{ color: '#1d1d1f' }}>
+                  <Calendar className="h-3.5 w-3.5" />
+                  {new Date(lead.preferredDate + 'T00:00').toLocaleDateString('en-AU', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                  })}
+                </span>
+              </div>
+              {lead.preferredTime && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm" style={{ color: '#1d1d1f' }}>Time</span>
+                  <span className="text-sm font-medium flex items-center gap-1.5" style={{ color: '#1d1d1f' }}>
+                    <Clock className="h-3.5 w-3.5" />
+                    {formatTimeForDisplay(lead.preferredTime)}
+                  </span>
+                </div>
+              )}
+              <p className="text-xs italic pt-1" style={{ color: 'rgba(0, 122, 255, 0.85)' }}>
+                Not yet confirmed — call to schedule
+              </p>
+            </div>
+          )}
+
+          {/* Internal Notes (existing column) — admin-only context, separate from the
+              booking-time textarea further down which captures notes for THIS booking. */}
+          {lead.internalNotes && (
+            <div
+              className="p-3 rounded-lg space-y-1.5"
+              style={{ backgroundColor: '#fff8e6', border: '1px solid #f0d98a' }}
+            >
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4" style={{ color: '#8a6d00' }} />
+                <label
+                  className="text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: '#8a6d00' }}
+                >
+                  Internal Notes
+                </label>
+              </div>
+              <p className="text-sm whitespace-pre-line leading-relaxed" style={{ color: '#1d1d1f' }}>
+                {lead.internalNotes}
+              </p>
+            </div>
+          )}
+
           {/* STEP 1: Address Validation */}
           <div
             className="p-3 rounded-lg space-y-3"
@@ -1273,6 +1369,34 @@ export function LeadBookingCard({
           </div>
         </div>
       )}
+
+      {/* No-email confirmation dialog — surfaces when admin clicks Book on a
+          lead with no email on file. Booking can still proceed; admin
+          acknowledges no confirmation email will reach the customer. */}
+      <AlertDialog open={noEmailDialogOpen} onOpenChange={setNoEmailDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>No email on file</AlertDialogTitle>
+            <AlertDialogDescription>
+              {lead.fullName} has no email address on the lead record. The
+              booking will be created and the technician scheduled, but the
+              customer will not receive a confirmation email. A skip record is
+              written to the email log for audit.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setNoEmailDialogOpen(false);
+                void performBooking();
+              }}
+            >
+              Confirm anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
