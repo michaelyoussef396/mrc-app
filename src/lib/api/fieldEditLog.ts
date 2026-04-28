@@ -7,8 +7,9 @@ export type FieldChange = {
   new: string | number | boolean | null;
 };
 
+// Lead-level edits log via useLeadUpdate (lead_updated activity).
+// This module is for entity-scoped edits (inspection, bookings, job completion).
 export type FieldEditEntityType =
-  | 'lead'
   | 'inspection'
   | 'inspection_booking'
   | 'job_booking'

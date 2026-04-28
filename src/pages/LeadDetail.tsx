@@ -59,8 +59,16 @@ import {
   ClipboardCheck,
   Star,
 } from "lucide-react";
-import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
+import { InlineEditField } from "@/components/leads/InlineEditField";
+import { InlineEditAddress, type AddressFields } from "@/components/leads/InlineEditAddress";
 import { BookJobSheet } from "@/components/leads/BookJobSheet";
+import { useLeadUpdate } from "@/hooks/useLeadUpdate";
+import {
+  formatPhoneNumber,
+  leadSourceOptions,
+  propertyTypeOptions,
+  urgencyOptions,
+} from "@/lib/leadUtils";
 import { JobBookingDetails } from "@/components/leads/JobBookingDetails";
 import { JobCompletionSummary } from "@/components/leads/JobCompletionSummary";
 import { JobCompletionEditSheet } from "@/components/leads/JobCompletionEditSheet";
@@ -126,10 +134,10 @@ export default function LeadDetail() {
   const isAdmin = hasRole('admin');
   const isTechnician = hasRole('technician');
   const navigate = useNavigate();
+  const { updateLead } = useLeadUpdate(id || '');
   const [regeneratingPdf, setRegeneratingPdf] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
-  const [showEditSheet, setShowEditSheet] = useState(false);
   const [showBookJobModal, setShowBookJobModal] = useState(false);
   const [newStatus, setNewStatus] = useState<LeadStatus | null>(null);
   const [showSendBackDialog, setShowSendBackDialog] = useState(false);
@@ -315,6 +323,26 @@ export default function LeadDetail() {
       </div>
     );
   }
+
+  // ── Inline-edit save helpers ──────────────────────────────────────────
+  // saveField commits a single column → useLeadUpdate fires one
+  // "Lead Details Updated — Updated: <field>" activity row + Slack ping.
+  // saveAddress commits the four address columns + lat/lng atomically.
+  const saveField = async (
+    column: string,
+    nextValue: string | null,
+  ): Promise<boolean> => {
+    return await updateLead(
+      { [column]: nextValue } as Parameters<typeof updateLead>[0],
+      lead as unknown as Record<string, unknown>,
+    );
+  };
+  const saveAddress = async (next: AddressFields): Promise<boolean> => {
+    return await updateLead(
+      next as Parameters<typeof updateLead>[0],
+      lead as unknown as Record<string, unknown>,
+    );
+  };
 
   const handleChangeStatus = async (status: LeadStatus) => {
     const currentConfig = STATUS_FLOW[lead.status as LeadStatus];
@@ -991,12 +1019,6 @@ export default function LeadDetail() {
             <div className="flex items-center gap-2 flex-shrink-0">
               {/* Desktop action buttons (hidden on mobile) */}
               <div className="hidden md:flex items-center gap-2">
-                {isAdmin && (
-                  <Button variant="outline" size="sm" onClick={() => setShowEditSheet(true)} className="h-9">
-                    <Edit className="h-4 w-4 mr-1.5" />
-                    Edit
-                  </Button>
-                )}
                 <Button variant="outline" size="sm" onClick={handleCall} className="h-9">
                   <Phone className="h-4 w-4 mr-1.5" />
                   Call
@@ -1034,15 +1056,6 @@ export default function LeadDetail() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
-                    {isAdmin && (
-                      <>
-                        <DropdownMenuItem onClick={() => setShowEditSheet(true)}>
-                          <Edit className="h-4 w-4 mr-3" />
-                          Edit Lead
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                      </>
-                    )}
                     <DropdownMenuItem onClick={handleCall}>
                       <Phone className="h-4 w-4 mr-3" />
                       Call
@@ -1151,27 +1164,60 @@ export default function LeadDetail() {
               Contact Information
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">Phone</span>
-              <a
-                href={`tel:${lead.phone}`}
-                className="text-sm font-medium text-blue-600 hover:underline flex items-center gap-1"
-              >
-                <Phone className="h-3 w-3" />
-                {lead.phone}
-              </a>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">Email</span>
-              <a
-                href={`mailto:${lead.email}`}
-                className="text-sm font-medium text-blue-600 hover:underline flex items-center gap-1 truncate max-w-[200px]"
-              >
-                <Mail className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">{lead.email}</span>
-              </a>
-            </div>
+          <CardContent className="space-y-1">
+            <InlineEditField
+              label="Name"
+              value={lead.full_name}
+              variant="text"
+              placeholder="Customer name"
+              emptyLabel="Add name"
+              readOnly={!isAdmin}
+              validate={(v) => (!v ? "Name is required" : null)}
+              onSave={(v) => saveField("full_name", v)}
+            />
+            <InlineEditField
+              label="Phone"
+              value={lead.phone}
+              variant="phone"
+              placeholder="0412 345 678"
+              emptyLabel="Add phone"
+              readOnly={!isAdmin}
+              formatOnChange={formatPhoneNumber}
+              renderReadOnly={(v) => (
+                <a
+                  href={`tel:${v}`}
+                  className="text-blue-600 hover:underline flex items-center gap-1"
+                >
+                  <Phone className="h-3 w-3" />
+                  {v}
+                </a>
+              )}
+              onSave={(v) => saveField("phone", v || null)}
+            />
+            <InlineEditField
+              label="Email"
+              value={lead.email}
+              variant="email"
+              placeholder="customer@example.com"
+              emptyLabel="Add email"
+              readOnly={!isAdmin}
+              validate={(v) => {
+                if (!v) return null;
+                return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
+                  ? null
+                  : "Invalid email address";
+              }}
+              renderReadOnly={(v) => (
+                <a
+                  href={`mailto:${v}`}
+                  className="text-blue-600 hover:underline flex items-center gap-1 truncate max-w-[220px]"
+                >
+                  <Mail className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">{v}</span>
+                </a>
+              )}
+              onSave={(v) => saveField("email", v || null)}
+            />
           </CardContent>
         </Card>
 
@@ -1184,20 +1230,43 @@ export default function LeadDetail() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div>
-              <p className="text-sm text-gray-500">Address</p>
-              <p className="font-medium">{lead.property_address_street}</p>
-              <p className="text-sm text-gray-600">
-                {lead.property_address_suburb} {lead.property_address_state}{" "}
-                {lead.property_address_postcode}
-              </p>
-            </div>
-            {lead.property_type && (
-              <div>
-                <p className="text-sm text-gray-500">Property Type</p>
-                <p className="font-medium">{lead.property_type}</p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm text-gray-500">Address</p>
+                <p className="font-medium">{lead.property_address_street}</p>
+                <p className="text-sm text-gray-600">
+                  {lead.property_address_suburb} {lead.property_address_state}{" "}
+                  {lead.property_address_postcode}
+                </p>
               </div>
-            )}
+              {isAdmin && (
+                <InlineEditAddress
+                  current={{
+                    property_address_street: lead.property_address_street,
+                    property_address_suburb: lead.property_address_suburb,
+                    property_address_state: lead.property_address_state,
+                    property_address_postcode: lead.property_address_postcode,
+                    property_lat: lead.property_lat ?? null,
+                    property_lng: lead.property_lng ?? null,
+                  }}
+                  onSave={saveAddress}
+                />
+              )}
+            </div>
+            <InlineEditField
+              label="Property Type"
+              value={lead.property_type}
+              variant="select"
+              selectOptions={propertyTypeOptions}
+              placeholder="Select property type"
+              emptyLabel="Set property type"
+              readOnly={!isAdmin}
+              renderReadOnly={(v) => {
+                const opt = propertyTypeOptions.find((o) => o.value === v);
+                return opt?.label ?? v;
+              }}
+              onSave={(v) => saveField("property_type", v || null)}
+            />
             <Button variant="outline" className="w-full h-12" onClick={handleDirections}>
               <Navigation className="h-4 w-4 mr-2" />
               View on Google Maps
@@ -1205,22 +1274,30 @@ export default function LeadDetail() {
           </CardContent>
         </Card>
 
-        {/* Issue Description */}
-        {lead.issue_description && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                Issue Description
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                {lead.issue_description}
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        {/* Issue Description — always visible so admin can add when missing */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Issue Description
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <InlineEditField
+              label=""
+              value={lead.issue_description}
+              variant="textarea"
+              placeholder="Describe the mould issue, affected areas, visible symptoms, etc."
+              emptyLabel="Add issue description"
+              maxLength={1000}
+              readOnly={!isAdmin}
+              renderReadOnly={(v) => (
+                <span className="whitespace-pre-wrap">{v}</span>
+              )}
+              onSave={(v) => saveField("issue_description", v || null)}
+            />
+          </CardContent>
+        </Card>
 
         {/* Lead Details */}
         <Card>
@@ -1230,27 +1307,63 @@ export default function LeadDetail() {
               Lead Details
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">Source</span>
-              <span className="text-sm font-medium">{lead.lead_source || "Not specified"}</span>
-            </div>
-            <div className="flex items-center justify-between">
+          <CardContent className="space-y-1">
+            <InlineEditField
+              label="Source"
+              value={lead.lead_source}
+              variant="select"
+              selectOptions={leadSourceOptions}
+              placeholder="Select source"
+              emptyLabel="Set source"
+              readOnly={!isAdmin}
+              renderReadOnly={(v) => {
+                const opt = leadSourceOptions.find((o) => o.value === v);
+                const label = opt?.label ?? v;
+                if (v === "Other" && lead.lead_source_other) {
+                  return `Other: ${lead.lead_source_other}`;
+                }
+                return label;
+              }}
+              onSave={(v) => saveField("lead_source", v || null)}
+            />
+            {/* Conditional sub-row for the Other-source free text */}
+            {lead.lead_source === "Other" && (
+              <InlineEditField
+                label="Other source"
+                value={lead.lead_source_other}
+                variant="text"
+                placeholder="e.g. friend referral"
+                emptyLabel="Specify other source"
+                readOnly={!isAdmin}
+                onSave={(v) => saveField("lead_source_other", v || null)}
+              />
+            )}
+            <InlineEditField
+              label="Urgency"
+              value={lead.urgency}
+              variant="select"
+              selectOptions={urgencyOptions}
+              placeholder="Select urgency"
+              emptyLabel="Set urgency"
+              readOnly={!isAdmin}
+              renderReadOnly={(v) => {
+                const opt = urgencyOptions.find((o) => o.value === v);
+                return (
+                  <Badge variant="secondary" className="capitalize">
+                    {opt?.label ?? v}
+                  </Badge>
+                );
+              }}
+              onSave={(v) => saveField("urgency", v || null)}
+            />
+            <div className="flex items-center justify-between py-2.5">
               <span className="text-sm text-gray-500">Date Created</span>
               <span className="text-sm font-medium">{formatDate(lead.created_at)}</span>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between py-2.5">
               <span className="text-sm text-gray-500">Lead ID</span>
               <span className="text-xs font-mono text-gray-500">{lead.lead_number || lead.id.substring(0, 8)}</span>
             </div>
-            {lead.urgency && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Urgency</span>
-                <Badge variant="secondary" className="capitalize">
-                  {lead.urgency}
-                </Badge>
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -1345,31 +1458,42 @@ export default function LeadDetail() {
           </Card>
         )}
 
-        {/* Customer Requests & Access Instructions — shown when either exists */}
-        {(lead.special_requests || lead.access_instructions) && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Customer Requests
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {lead.access_instructions && (
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Access Instructions</p>
-                  <p className="text-sm text-foreground whitespace-pre-line">{lead.access_instructions}</p>
-                </div>
+        {/* Customer Requests & Access Instructions — always visible so admin
+            can add when missing. Empty-state CTA renders via InlineEditField. */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Customer Requests
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            <InlineEditField
+              label="Access"
+              value={lead.access_instructions}
+              variant="textarea"
+              placeholder="e.g. Gate code 1234, enter via back door..."
+              emptyLabel="Add access instructions"
+              readOnly={!isAdmin}
+              renderReadOnly={(v) => (
+                <span className="whitespace-pre-line">{v}</span>
               )}
-              {lead.special_requests && (
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Special Requests</p>
-                  <p className="text-sm text-foreground whitespace-pre-line">{lead.special_requests}</p>
-                </div>
+              onSave={(v) => saveField("access_instructions", v || null)}
+            />
+            <InlineEditField
+              label="Special"
+              value={lead.special_requests}
+              variant="textarea"
+              placeholder="Any special requirements..."
+              emptyLabel="Add special requests"
+              readOnly={!isAdmin}
+              renderReadOnly={(v) => (
+                <span className="whitespace-pre-line">{v}</span>
               )}
-            </CardContent>
-          </Card>
-        )}
+              onSave={(v) => saveField("special_requests", v || null)}
+            />
+          </CardContent>
+        </Card>
 
         {/* Internal Notes - shown when present */}
         {lead.internal_notes && (
@@ -1632,9 +1756,6 @@ export default function LeadDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Edit Lead Sheet */}
-      <EditLeadSheet lead={lead} open={showEditSheet} onOpenChange={setShowEditSheet} />
 
       {/* Book Job Sheet — slide-out drawer from right */}
       <BookJobSheet
