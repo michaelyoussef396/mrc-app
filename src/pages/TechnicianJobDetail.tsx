@@ -6,7 +6,6 @@ import { useToast } from '@/hooks/use-toast';
 import { TechnicianBottomNav } from '@/components/technician';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BookInspectionModal } from '@/components/leads/BookInspectionModal';
 import { useLeadUpdate } from '@/hooks/useLeadUpdate';
 import { leadSourceOptions } from '@/lib/leadUtils';
 import { AddressAutocomplete, type AddressValue } from '@/components/booking/AddressAutocomplete';
@@ -14,7 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 import {
   ArrowLeft, Phone, Mail, MapPin, Calendar, Clock,
   Globe, ExternalLink, StickyNote, CheckCircle2,
-  Edit, X, Save, RefreshCw, Navigation,
+  Edit, X, Save, Navigation,
 } from 'lucide-react';
 import { formatWeekdayDateAU, formatTimeAU } from '@/lib/dateUtils';
 
@@ -79,7 +78,6 @@ export default function TechnicianJobDetail() {
 
   // Edit mode
   const [isEditing, setIsEditing] = useState(false);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
   // Standalone notes save
   const [notesValue, setNotesValue] = useState('');
@@ -247,10 +245,6 @@ export default function TechnicianJobDetail() {
     const success = await updateLead(payload, original);
     if (success) fetchJobData();
     setIsSavingNotes(false);
-  };
-
-  const handleBookingSuccess = () => {
-    fetchJobData();
   };
 
   const handleStartInspection = () => {
@@ -734,16 +728,6 @@ export default function TechnicianJobDetail() {
                   </div>
                 </div>
               )}
-              <div className="pt-4 border-t">
-                <Button
-                  variant="outline"
-                  className="w-full h-12 border-orange-200 text-orange-700 hover:bg-orange-50"
-                  onClick={() => setShowScheduleModal(true)}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Reschedule Inspection
-                </Button>
-              </div>
             </div>
           </div>
         )}
@@ -781,16 +765,6 @@ export default function TechnicianJobDetail() {
               >
                 <Edit className="h-5 w-5" />
               </Button>
-              {isScheduled && (
-                <Button
-                  variant="outline"
-                  className="h-12 border-slate-300 text-slate-600"
-                  onClick={() => setShowScheduleModal(true)}
-                >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Reschedule
-                </Button>
-              )}
               {lead.status === 'job_waiting' ? (
                 <Button
                   className="flex-1 h-12 bg-slate-300 text-slate-600 cursor-not-allowed"
@@ -833,20 +807,6 @@ export default function TechnicianJobDetail() {
           )}
         </div>
       </div>
-
-      {/* ───── Book Inspection Modal ───── */}
-      <BookInspectionModal
-        open={showScheduleModal}
-        onOpenChange={(open) => {
-          setShowScheduleModal(open);
-          if (!open) handleBookingSuccess();
-        }}
-        leadId={lead.id}
-        leadNumber={lead.lead_number || ''}
-        customerName={lead.full_name || 'Unknown'}
-        propertyAddress={fullAddress}
-        propertySuburb={lead.property_address_suburb || ''}
-      />
 
       {/* Bottom Nav */}
       <TechnicianBottomNav />

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import { ScheduleHeader, ScheduleCalendar, ScheduleDailyView, LeadsQueue, EventDetailsPanel, CancelledBookingsList } from '@/components/schedule';
@@ -20,6 +21,10 @@ import {
 
 export default function AdminSchedule() {
   const { user, profile } = useAuth();
+  const [searchParams] = useSearchParams();
+  // Deep-link target — when /admin/schedule?lead={id} is opened from Lead Detail or
+  // Lead Management, expand the matching card in LeadsQueue and pop the mobile sheet.
+  const deepLinkLeadId = searchParams.get('lead');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [selectedTechnician, setSelectedTechnician] = useState<string | null>(null);
@@ -28,6 +33,11 @@ export default function AdminSchedule() {
   const [mobileQueueOpen, setMobileQueueOpen] = useState(false);
   const [showCancelled, setShowCancelled] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
+
+  // On mobile, auto-open the Leads Queue sheet when arriving with ?lead= in the URL
+  useEffect(() => {
+    if (deepLinkLeadId) setMobileQueueOpen(true);
+  }, [deepLinkLeadId]);
 
   // Fetch technicians using the shared hook
   const { data: technicians = [], isLoading: techniciansLoading, error: techniciansError } = useTechnicians();
@@ -216,7 +226,7 @@ export default function AdminSchedule() {
 
           {/* Leads Queue Panel (Right 30%) - Fixed position, internal scroll */}
           <aside className="hidden lg:flex lg:w-[30%] flex-col min-h-0">
-            <LeadsQueue technicians={technicians} />
+            <LeadsQueue technicians={technicians} initialExpandedLeadId={deepLinkLeadId} />
           </aside>
         </div>
 
@@ -232,7 +242,7 @@ export default function AdminSchedule() {
               </button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl">
-              <LeadsQueue technicians={technicians} />
+              <LeadsQueue technicians={technicians} initialExpandedLeadId={deepLinkLeadId} />
             </SheetContent>
           </Sheet>
         </div>

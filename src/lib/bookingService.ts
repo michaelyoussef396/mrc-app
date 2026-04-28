@@ -69,8 +69,8 @@ export async function checkBookingConflict(
 }
 
 /**
- * Book an inspection - creates calendar booking, updates lead, logs activity
- * Extracted from BookInspectionModal for reuse across the app
+ * Book an inspection - creates calendar booking, updates lead, logs activity.
+ * Used by LeadBookingCard in the Schedule sidebar.
  */
 export async function bookInspection(
   params: BookInspectionParams,

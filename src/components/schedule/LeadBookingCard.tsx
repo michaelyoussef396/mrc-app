@@ -467,6 +467,72 @@ export function LeadBookingCard({
           className="p-4 space-y-4"
           style={{ backgroundColor: '#fafafa' }}
         >
+          {/* Customer's Preferred Time — only when lead has a captured preference.
+              Mirrors the same card on Lead Detail; admin still picks the actual booking. */}
+          {lead.preferredDate && (
+            <div
+              className="p-3 rounded-lg space-y-2"
+              style={{
+                backgroundColor: 'rgba(0, 122, 255, 0.06)',
+                border: '1px solid rgba(0, 122, 255, 0.2)',
+                borderLeft: '4px solid #007AFF',
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" style={{ color: '#007AFF' }} />
+                <label
+                  className="text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: '#007AFF' }}
+                >
+                  Customer's Preferred Time
+                </label>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm" style={{ color: '#1d1d1f' }}>Date</span>
+                <span className="text-sm font-medium flex items-center gap-1.5" style={{ color: '#1d1d1f' }}>
+                  <Calendar className="h-3.5 w-3.5" />
+                  {new Date(lead.preferredDate + 'T00:00').toLocaleDateString('en-AU', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                  })}
+                </span>
+              </div>
+              {lead.preferredTime && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm" style={{ color: '#1d1d1f' }}>Time</span>
+                  <span className="text-sm font-medium flex items-center gap-1.5" style={{ color: '#1d1d1f' }}>
+                    <Clock className="h-3.5 w-3.5" />
+                    {formatTimeForDisplay(lead.preferredTime)}
+                  </span>
+                </div>
+              )}
+              <p className="text-xs italic pt-1" style={{ color: 'rgba(0, 122, 255, 0.85)' }}>
+                Not yet confirmed — call to schedule
+              </p>
+            </div>
+          )}
+
+          {/* Internal Notes (existing column) — admin-only context, separate from the
+              booking-time textarea further down which captures notes for THIS booking. */}
+          {lead.internalNotes && (
+            <div
+              className="p-3 rounded-lg space-y-1.5"
+              style={{ backgroundColor: '#fff8e6', border: '1px solid #f0d98a' }}
+            >
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4" style={{ color: '#8a6d00' }} />
+                <label
+                  className="text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: '#8a6d00' }}
+                >
+                  Internal Notes
+                </label>
+              </div>
+              <p className="text-sm whitespace-pre-line leading-relaxed" style={{ color: '#1d1d1f' }}>
+                {lead.internalNotes}
+              </p>
+            </div>
+          )}
+
           {/* STEP 1: Address Validation */}
           <div
             className="p-3 rounded-lg space-y-3"

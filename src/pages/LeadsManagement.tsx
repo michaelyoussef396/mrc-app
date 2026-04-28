@@ -477,8 +477,8 @@ const LeadsManagement = () => {
   };
 
   const handleSchedule = (id: string | number) => {
-    // Navigate to admin schedule page
-    navigate('/admin/schedule');
+    // Deep-link the lead so LeadsQueue auto-expands the matching card.
+    navigate(`/admin/schedule?lead=${id}`);
   };
 
   const handleStartInspection = (id: string | number) => {

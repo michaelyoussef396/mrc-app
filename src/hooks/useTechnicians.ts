@@ -67,7 +67,7 @@ async function fetchTechnicians(): Promise<Technician[]> {
       throw new Error('Not authenticated');
     }
 
-    // Step 2: Fetch all users from edge function (same as BookInspectionModal)
+    // Step 2: Fetch all users from edge function (matches LeadBookingCard's user query)
     const response = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`,
       {
