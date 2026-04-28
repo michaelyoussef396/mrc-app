@@ -704,8 +704,8 @@ flowchart TD
           <li><strong>Street Address</strong><span class="req">required</span></li>
           <li><strong>Suburb</strong><span class="req">required</span></li>
           <li><strong>Postcode</strong><span class="req">required</span> — Melbourne range, validated 3000–3999, written to <code>property_address_postcode</code>.</li>
-          <li><strong>Preferred Date of Booking</strong><span class="req">required</span> — free-form date string, normalised to ISO.</li>
-          <li><strong>Preferred Time of Booking</strong><span class="req">required</span></li>
+          <li><strong>Preferred Date of Booking</strong><span class="req">required</span> — free-form date string, normalised to ISO. Lands in <code>customer_preferred_date</code>.</li>
+          <li><strong>Preferred Time of Booking</strong><span class="req">required</span> — lands in <code>customer_preferred_time</code>.</li>
           <li><strong>Issue Description</strong><span class="req">required</span> — textarea.</li>
         </ul>
         <p>
@@ -718,15 +718,17 @@ flowchart TD
           changes.
         </p>
 
-        <div class="callout warn">
+        <div class="callout">
           <p>
-            <strong>Customer-preferred date and time are not confirmed bookings.</strong> The
-            Preferred Date and Preferred Time inputs land in the
-            <code>inspection_scheduled_date</code> and <code>scheduled_time</code> columns on
-            the leads table — the same columns that hold real, admin-confirmed bookings. The
-            Admin Dashboard "Today's Jobs" KPI and the Schedule view treat them identically.
-            Admin must reconfirm before treating any of these as actual appointments. Tracked
-            as P2 in <a href="#backlog">Section 11</a>.
+            <strong>Customer preference vs admin booking are now distinct columns.</strong>
+            Customer-supplied preferred date/time write to <code>customer_preferred_date</code>
+            and <code>customer_preferred_time</code> — read-only, preserved forever as the
+            customer's original ask. Admin-confirmed booking date/time write to
+            <code>inspection_scheduled_date</code> and <code>scheduled_time</code> when the lead
+            is booked through <a href="#admin-schedule">/admin/schedule</a>. The Schedule sidebar
+            pre-fills the booking inputs from the customer's preference; admin can keep, change,
+            or pick an entirely different slot. Both records survive — neither overwrites the
+            other.
           </p>
         </div>
 
@@ -1659,57 +1661,114 @@ flowchart TD
         <h3>3.3 Customer Detail (Lead Detail) — every card and button</h3>
         <p>
           <span class="pill built">✓ BUILT</span> Source: <code>src/pages/LeadDetail.tsx</code>.
-          The single most-used admin screen; everything about a customer in one scroll.
+          The single most-used admin screen; everything about a customer in one scroll. One
+          consolidated render tree — every status from <code>new_lead</code> through
+          <code>finished</code> uses the same cards with status-conditional sections.
+        </p>
+        <p>
+          Every editable field uses the <strong>inline-edit pattern</strong>: a pencil icon
+          (read mode) → input + Save (✓) + Cancel (✗) buttons (edit mode). Enter saves on
+          single-line inputs; Escape cancels. Touch targets are 48×48 on mobile. The shared
+          component lives at <code>src/components/leads/InlineEditField.tsx</code>; the
+          property-address sheet is <code>src/components/leads/InlineEditAddress.tsx</code>.
+          There is no separate Edit Lead modal — the legacy <code>EditLeadSheet</code> was
+          deleted in the inline-edit refactor.
         </p>
         <p>
           Components stacked top-to-bottom:
         </p>
         <ul>
-          <li><strong>Lead header</strong> — name, status badge, assigned technician, key dates.</li>
-          <li><strong>NewLeadView</strong> — editable contact info (name, email, phone).</li>
-          <li><strong>Property card</strong> — editable street/suburb/state/postcode.</li>
-          <li><strong>Issue / Notes</strong> — editable textarea.</li>
+          <li><strong>Lead header</strong> — name, status badge, assigned technician, key dates. Possible-duplicate badge appears inline when <code>is_possible_duplicate</code> is set.</li>
+          <li><strong>Status card + Primary CTA</strong> — current status + the next action button, e.g. <strong>Schedule Inspection</strong> on <code>new_lead</code> (routes to <code>/admin/schedule?lead={id}</code>, no modal).</li>
+          <li><strong>Customer's Preferred Time card</strong> — renders only when status is <code>new_lead</code> AND <code>customer_preferred_date</code> is populated. Read-only display of the customer's original ask, with the disclaimer "Not yet confirmed — call to schedule".</li>
+          <li><strong>Contact Information</strong> — inline-edit Name / Phone (with <code>tel:</code> link in read mode) / Email (with <code>mailto:</code> link).</li>
+          <li><strong>Property Information</strong> — full address rendered top-to-bottom; pencil opens <code>InlineEditAddress</code> mini-sheet (Google Places autocomplete, atomic save of street + suburb + state + postcode + lat/lng + zone). Property type is its own inline-edit select. "View on Google Maps" button preserved.</li>
+          <li><strong>Issue Description</strong> — inline-edit textarea with 1000-char counter; always-visible card with empty-state CTA.</li>
+          <li><strong>Lead Details</strong> — inline-edit Source select (sectioned dropdown). When source is "Other", a sub-row "Other source" appears for the free-text <code>lead_source_other</code>; the read-mode display reads "Other: {text}". Urgency is its own inline-edit select; renders as a Badge in read mode. Date Created and Lead ID stay read-only.</li>
+          <li><strong>Pipeline Timeline</strong> — milestone timestamps when set: booked_at, inspection_completed_date, job_completed_date, invoice_sent_date, invoice_amount, payment_received_date.</li>
+          <li><strong>Inspection Scheduled card</strong> (status ≥ <code>inspection_waiting</code>) — date + time of the admin-confirmed booking, plus a "Reschedule Inspection" button that routes to <code>/admin/schedule?lead={id}</code>. The "Notes from Booking Call" surface that used to live inside this card is gone — booking-call text now flows into the unified Internal Notes log below as a <code>(booking call)</code> entry.</li>
+          <li><strong>Customer Requests</strong> — always-visible card with inline-edit textareas for access_instructions and special_requests, each with empty-state CTAs.</li>
+          <li><strong>Internal Notes</strong> — append-only log. Read-only history block shows every entry with timestamp + author attribution; the inline-edit "Add internal note" input below appends a new dated entry on save. Three writers funnel through <code>appendInternalNote</code>: the Schedule sidebar booking save (with <code>(booking call)</code> attribution), the Lead Detail "Add internal note" input here, and the Technician Job Detail notes pane. Format: <code>[DD/MM/YYYY at h:mm am/pm] note text — author name (optional context)</code>, separated by <code>---</code>, newest first.</li>
           <li><strong>InspectionDataDisplay</strong> — full breakdown of the inspection form responses (areas, moisture, climate, equipment recommendations, cost calculation).</li>
           <li><strong>InspectionReportHistory</strong> — list of generated PDF versions; can re-download or re-open.</li>
-          <li><strong>BookInspectionModal / BookJobSheet</strong> — opens via action buttons.</li>
+          <li><strong>BookJobSheet</strong> — slide-out drawer for booking the remediation job (separate from the inspection booking which lives at <code>/admin/schedule</code>).</li>
           <li><strong>JobBookingDetails</strong> — when a job is scheduled, shows technician, date, hours, travel time.</li>
           <li><strong>JobCompletionSummary</strong> — when the job is completed, shows what was done; admin can open <strong>JobCompletionEditSheet</strong> to edit.</li>
           <li><strong>InvoiceSummaryCard</strong> — line items, discount, GST, total.</li>
           <li><strong>InvoicePaymentCard</strong> — generate invoice, edit before sending, mark paid (with payment method dropdown, date, reference), payment timeline showing where the customer is in the overdue milestone schedule.</li>
-          <li><strong>ActivityTimeline</strong> — every event for this customer (status changes, emails sent, bookings, completions, payments, edits).</li>
+          <li><strong>ActivityTimeline</strong> — every event for this customer (status changes, emails sent, bookings, completions, payments, edits). Every inline-edit save fires a single <code>lead_updated</code> activity row with the changed field name, via <code>useLeadUpdate</code>.</li>
         </ul>
         <p>
-          Action buttons swap based on status: e.g. <strong>Book Inspection</strong> appears on
-          <code>new_lead</code>; <strong>Approve Report</strong> on
-          <code>approve_inspection_report</code>; <strong>Book Job</strong> on
-          <code>job_waiting</code>; <strong>Generate Job Report PDF</strong> on
-          <code>job_completed</code>; <strong>Mark Paid</strong> on
-          <code>invoicing_sent</code>; <strong>Send Google Review</strong> on
-          <code>paid</code>.
+          Action buttons swap based on status: <strong>Schedule Inspection</strong> on
+          <code>new_lead</code> (routes to <code>/admin/schedule?lead={id}</code>);
+          <strong>Approve Report</strong> on <code>approve_inspection_report</code>;
+          <strong>Book Job</strong> on <code>job_waiting</code>;
+          <strong>Generate Job Report PDF</strong> on <code>job_completed</code>;
+          <strong>Mark Paid</strong> on <code>invoicing_sent</code>;
+          <strong>Send Google Review</strong> on <code>paid</code>.
         </p>
 
-        <h3>3.4 Booking an inspection or job</h3>
+        <h3 id="admin-schedule">3.4 Booking an inspection (Schedule page sidebar)</h3>
         <p>
           <span class="pill built">✓ BUILT</span> Source:
-          <code>src/components/leads/BookInspectionModal.tsx</code> and
-          <code>BookJobSheet.tsx</code>.
+          <code>src/pages/AdminSchedule.tsx</code>,
+          <code>src/components/schedule/LeadsQueue.tsx</code>,
+          <code>src/components/schedule/LeadBookingCard.tsx</code>. Job bookings are
+          separate — see <code>BookJobSheet</code> referenced from Lead Detail.
         </p>
         <p>
-          The admin opens the modal from a status-driven button. Inputs:
+          The Schedule page (<code>/admin/schedule</code>) is the canonical inspection-booking
+          UI. The right-hand "To Schedule" sidebar (<code>LeadsQueue</code>) lists every lead
+          in <code>new_lead</code> / <code>hipages_lead</code> with no technician assigned, plus
+          job-stage leads in <code>job_waiting</code>. The legacy <code>BookInspectionModal</code>
+          and the orphan <code>LeadsToBook</code> component were both deleted in the
+          consolidation.
+        </p>
+        <p>
+          Two entry points deep-link into a specific lead via the <code>?lead={id}</code>
+          query string:
         </p>
         <ul>
-          <li><strong>Technician dropdown</strong> — fetched via the <code>manage-users</code> Edge Function, filtered to technician role.</li>
-          <li><strong>Date picker</strong> — backed by <code>useBookingValidation</code> which calls <code>getRecommendedDates()</code> with the technician ID, destination address/suburb, and a duration (60 min for inspections, 480 min for jobs).</li>
-          <li><strong>Time slots</strong> — 8 AM to 4 PM in 1-hour increments. Selecting a slot triggers <code>checkAvailability()</code> which calls the <code>calculate-travel-time</code> Edge Function (Google Maps Distance Matrix) to verify there's enough buffer between the previous job and this one.</li>
-          <li><strong>Manual start address</strong> — admin can override the technician's default starting point to recompute travel time.</li>
+          <li><strong>Lead Detail</strong> — the "Schedule Inspection" CTA on <code>new_lead</code> and the "Reschedule Inspection" button on <code>inspection_waiting</code> both navigate to <code>/admin/schedule?lead={lead.id}</code>.</li>
+          <li><strong>Lead Management</strong> — the per-card "Schedule" button does the same.</li>
+        </ul>
+        <p>
+          On arrival, <code>AdminSchedule</code> reads the query param via
+          <code>useSearchParams</code>, passes it to <code>LeadsQueue</code> as
+          <code>initialExpandedLeadId</code>, and on mobile auto-opens the FAB sheet so the
+          card is immediately visible.
+        </p>
+        <p>
+          Each <code>LeadBookingCard</code> in the sidebar shows, in expanded mode:
+        </p>
+        <ul>
+          <li><strong>Customer's Preferred Time card</strong> — when <code>customer_preferred_date</code> is populated, mirroring the Lead Detail card with the "Not yet confirmed — call to schedule" disclaimer. The hook (<code>useLeadsToSchedule</code>) reads the <code>customer_preferred_*</code> columns directly — never the dual-purpose <code>inspection_scheduled_date</code> / <code>scheduled_time</code>.</li>
+          <li><strong>Internal Notes log</strong> — read-only display of the existing <code>lead.internal_notes</code> log, separate from the booking-call textarea further down. Whitespace-pre-line so the structured Stage-B.5 entries render correctly.</li>
+          <li><strong>Step 1 — Address Validation</strong> — Google Places autocomplete; "Address is correct" or "Update Address" CTAs. Saves street/suburb/postcode/lat/lng + recomputed <code>property_zone</code> in one transaction.</li>
+          <li><strong>Lead Info quick-edit</strong> — name, phone, email, brief description, lead source.</li>
+          <li><strong>Step 2 — Scheduling</strong> (gated until address confirmed) — duration (default 60 min), technician select (button grid), recommended-days top-3 cards from <code>useBookingValidation.getRecommendedDates()</code>, manual date picker, time-slot select, live travel-time panel via <code>checkAvailability()</code>, "Internal Notes (Optional)" textarea for the booking-call note. Date/time inputs pre-fill from <code>customer_preferred_*</code> when present.</li>
         </ul>
         <p>
           On save: <code>checkBookingConflict()</code> runs first; if a conflict exists, a toast
           error fires and the booking aborts. If clear, a row is inserted into
-          <code>calendar_bookings</code>, the lead is updated (<code>status='inspection_waiting'</code>,
+          <code>calendar_bookings</code> (with <code>description = booking-call note</code> for
+          per-booking calendar UI), the lead is updated (<code>status='inspection_waiting'</code>,
           <code>inspection_scheduled_date</code>, <code>scheduled_time</code>,
-          <code>assigned_to</code>), an activity log entry is created, and the customer +
-          team are notified (booking confirmation email + Slack post).
+          <code>assigned_to</code>) — and the booking-call note is <strong>appended</strong> to
+          <code>lead.internal_notes</code> via the <code>appendInternalNote</code> helper with
+          <code>(booking call)</code> attribution. <code>customer_preferred_*</code> is never
+          written from the booking flow; it stays preserved as the customer's original ask.
+          An activity log entry is created, and the customer + team are notified.
+        </p>
+        <p>
+          <strong>No-email guard.</strong> If the lead's <code>email</code> column is null/empty,
+          the Book Inspection button opens an <code>AlertDialog</code> warning the admin that
+          no booking-confirmation email will be sent. Admin can Cancel or Confirm Anyway. On
+          Confirm Anyway the booking proceeds and a row is written to
+          <code>email_logs</code> with <code>status='failed'</code>,
+          <code>error_message='No email address on file'</code> so the absence is auditable.
+          The <code>sendBookingConfirmationEmail</code> path replaced the legacy floating
+          <code>.then()</code> that previously swallowed errors silently.
         </p>
 
         <h3>3.5 The Inspection AI Review queue</h3>
@@ -2410,8 +2469,7 @@ flowchart TD
               <tr><td><code>/admin/settings</code></td><td>Settings</td><td>Admin</td><td>Admin preferences (shared component)</td></tr>
               <tr><td><code>/admin/help</code></td><td>HelpSupport</td><td>Admin</td><td>Help &amp; documentation (shared)</td></tr>
               <tr><td><code>/admin/profile</code></td><td>Profile</td><td>Admin</td><td>Edit admin profile (shared)</td></tr>
-              <tr><td><code>/lead/new/:id</code></td><td>NewLeadView</td><td>Admin</td><td>Initial lead intake view</td></tr>
-              <tr><td><code>/leads/:id</code></td><td>LeadDetail</td><td>Admin</td><td>Customer record (most-used screen)</td></tr>
+              <tr><td><code>/leads/:id</code></td><td>LeadDetail</td><td>Admin</td><td>Customer record (most-used screen). Inline-edit on every field — no separate Edit Lead modal.</td></tr>
               <tr><td><code>/technician</code></td><td>TechnicianDashboard</td><td>Technician</td><td>Today's jobs + revisions banner</td></tr>
               <tr><td><code>/technician/jobs</code></td><td>TechnicianJobs</td><td>Technician</td><td>My Jobs grouped by date</td></tr>
               <tr><td><code>/technician/job/:id</code></td><td>LeadDetail (role-aware)</td><td>Technician</td><td>Customer record (limited UI)</td></tr>
@@ -2532,7 +2590,7 @@ flowchart TD
                 <td>HTTP POST</td>
                 <td>Calls Google Maps Distance Matrix API for technician-to-property travel time. Used for booking conflict checks and recommended-date suggestions.</td>
                 <td>If Google Maps is unreachable, the booking modal shows a warning and the admin can override; the database also has a fallback <code>calculate_travel_time()</code> SQL function backed by the <code>suburb_zones</code> 4×4 zone matrix.</td>
-                <td>Admin UI from <code>BookInspectionModal.tsx</code> and <code>BookJobSheet.tsx</code>.</td>
+                <td>Admin UI from <code>LeadBookingCard.tsx</code> (Schedule sidebar) and <code>BookJobSheet.tsx</code>.</td>
               </tr>
               <tr>
                 <td><code>receive-framer-lead</code></td>
@@ -2624,7 +2682,7 @@ flowchart TD
                 <td>Growing</td>
                 <td>Admin all; tech only assigned</td>
                 <td>20251028135212</td>
-                <td>Soft-delete via <code>archived_at</code> (20260414000002). Public INSERT allowed for the website form.</td>
+                <td>Soft-delete via <code>archived_at</code> (20260414000002). Public INSERT allowed for the website form. <code>customer_preferred_date</code> + <code>customer_preferred_time</code> columns added in <code>20260428174022</code> hold the customer's original ask, distinct from the admin-confirmed <code>inspection_scheduled_date</code> / <code>scheduled_time</code> pair. <code>internal_notes</code> uses an append-only log format — entries shaped as <code>[DD/MM/YYYY at h:mm am/pm] note — author (optional context)</code>, separated by <code>---</code>, newest first; written via <code>appendInternalNote</code> helper from three sites (Schedule sidebar booking save, Lead Detail inline-edit, Technician Job Detail). The <code>notes</code> column (separate from <code>internal_notes</code>) is retained but no longer written by any active code path — pending future schema cleanup.</td>
               </tr>
               <tr>
                 <td><code>inspections</code></td>
@@ -3187,22 +3245,32 @@ CASCADE;</pre>
             developers via <code>src/lib/offline/SyncManager.ts</code> but the failure / retry /
             give-up boundary isn't explicit. <em>Fix:</em> add inline JSDoc and surface a
             tech-facing UI for stuck items.</li>
-          <li><strong>Customer-preferred date and time written to
-            <code>inspection_scheduled_date</code> as if confirmed.</strong> The Framer form
-            captures the customer's preferred date and time. The Edge Function
-            (<code>receive-framer-lead/index.ts:616-617</code>) writes these into
-            <code>inspection_scheduled_date</code> and <code>scheduled_time</code> on the leads
-            table — the same columns used for real, admin-confirmed bookings. Operational
-            impact: the Admin Dashboard "Today's Jobs" KPI and the Schedule view surface
-            customer preferences as if they were real appointments; reports that filter by
-            inspection date include preference data; there is no way to distinguish "customer
-            wishes Monday 2 pm" from "technician actually booked Monday 2 pm".
-            <em>Fix:</em> add <code>customer_preferred_date</code> and
-            <code>customer_preferred_time</code> columns to the leads table; update
-            <code>receive-framer-lead</code> to write there instead; leave
-            <code>inspection_scheduled_date</code> null until admin books formally via
-            <code>BookInspectionModal</code>; admin UI surfaces the preference in the Book
-            Inspection flow as a starting suggestion, not a real slot.</li>
+          <li><strong>Missing <code>audit_logs</code> trigger on <code>leads.UPDATE</code>.</strong>
+            The audit triggers documented in <a href="#database">Section 9.2</a> capture
+            <code>lead_created</code> reliably (20 rows in production), but no
+            <code>lead_updated</code> / <code>update_lead</code> action exists anywhere in
+            <code>audit_logs</code>. Field-level changes to <code>leads</code> rows go silent at
+            the DB level. Operational impact: future data-loss diagnoses cannot rely on the audit
+            trail; we proved this when the historical <code>internal_notes</code> overwrite (see
+            below) could not be reconstructed from any source. <em>Fix:</em> a migration adding a
+            BEFORE UPDATE row trigger that writes a row to <code>audit_logs</code> with
+            <code>action = 'lead_updated'</code>, <code>entity_type = 'lead'</code>,
+            <code>entity_id = NEW.id</code>, and <code>metadata = { changed_fields: [...], old: {...}, new: {...} }</code>
+            for any column whose value changed. Backfill is not possible — trigger only protects
+            future writes. Documented in <code>docs/internal-notes-loss-diagnosis.md</code>.</li>
+          <li><strong>Historical <code>internal_notes</code> data loss (Feb–Mar 2026).</strong>
+            Five leads booked through the legacy <code>bookingService.bookInspection()</code>
+            had their <code>internal_notes</code> column unconditionally overwritten by the
+            booking-call textarea contents. Lead <code>MRC-2026-0004</code> is the forensically
+            confirmed case (booked 2026-02-19, prior notes destroyed). Four other leads
+            (<code>MRC-2026-0001</code>, <code>0002</code>, <code>0003</code>, <code>0006</code>)
+            are flagged by the same query but only one (<code>0004</code>) has
+            <code>updated_at</code> evidence of loss. The bug was fixed in Stage B.5 (commit
+            <code>4a82379</code>, 2026-04-28) by funnelling all <code>internal_notes</code>
+            writes through <code>appendInternalNote</code>. Recovery is impossible — see the P2
+            audit trigger above for why. Operational mitigation: optionally call back the
+            affected customers for fresh context. See
+            <code>docs/internal-notes-loss-diagnosis.md</code> for the full forensics.</li>
         </ul>
 
         <h3><span class="pill priority p3">P3</span> Nice-to-have</h3>
@@ -3217,6 +3285,19 @@ CASCADE;</pre>
           <li><strong>Realtime collaboration on inspection edit</strong> — if two admins open
             the same inspection at once, last-write-wins. Not yet a real conflict at current
             user counts.</li>
+          <li><strong>Slack notification chattiness on inline-edit.</strong> Every inline-edit
+            save fires a <code>lead_updated</code> Slack notification via
+            <code>useLeadUpdate</code>. Pre-refactor, the modal saved a batch of fields and fired
+            one Slack message; post-refactor, an admin editing 5 fields generates 5 messages.
+            Operational impact: noisier <code>#leads</code> channel. <em>Fix when Glen / Clayton
+            complain:</em> add a per-lead 5-second debounce in <code>useLeadUpdate</code> that
+            batches the Slack message ("Updated: phone, email, lead source"). Optional; defer
+            until the noise is genuinely a problem.</li>
+          <li><strong>Drop the unused <code>leads.notes</code> column.</strong> Separate from
+            <code>internal_notes</code>; was a "general notes" field, retained for legacy data
+            tolerance but no active code path writes it. <em>Fix:</em> a future migration
+            <code>ALTER TABLE leads DROP COLUMN notes;</code> after a manual scan confirms no
+            production rows still hold meaningful values worth preserving elsewhere.</li>
         </ul>
 
         <h3><span class="pill deliberate">DELIBERATE</span> Out of scope by decision</h3>
@@ -3310,8 +3391,16 @@ CASCADE;</pre>
                 <td>Three terminal lead statuses. <code>closed</code> and <code>finished</code> both mean "successfully completed" (legacy and newer name respectively, both still in the enum); <code>not_landed</code> means the lead was lost (customer chose a competitor, didn't proceed, etc.).</td>
               </tr>
               <tr>
+                <td><strong>Customer preference vs Booking</strong></td>
+                <td>Two distinct lifecycles preserved on every lead. <em>Customer preference</em> = the date/time the customer asked for on the Framer form, written to <code>customer_preferred_date</code> / <code>customer_preferred_time</code> by <code>receive-framer-lead</code>. Read-only, preserved forever. <em>Booking</em> = the date/time admin actually scheduled, written to <code>inspection_scheduled_date</code> / <code>scheduled_time</code> when the lead is booked via <code>/admin/schedule</code>. Both records survive — neither overwrites the other.</td>
+              </tr>
+              <tr>
+                <td><strong>Internal Notes log</strong></td>
+                <td>The append-only audit trail on <code>leads.internal_notes</code>. Every entry is shaped <code>[DD/MM/YYYY at h:mm am/pm] note text — author name (optional context)</code>, separated by <code>---</code>, newest first. Three writers funnel through <code>appendInternalNote</code> (<code>src/lib/utils/internalNotes.ts</code>): the Schedule sidebar booking save (with <code>(booking call)</code> attribution), the Lead Detail inline-edit "Add internal note" input, and the Technician Job Detail notes pane. Existing pre-Stage-B.5 plain-text values stay verbatim at the bottom of the log on first append (legacy entry, no migration).</td>
+              </tr>
+              <tr>
                 <td><strong>Activity Log</strong></td>
-                <td>The human-readable per-lead event timeline. Visible on the Lead Detail page. Stored in the <code>activities</code> table; populated by trigger and by application calls.</td>
+                <td>The human-readable per-lead event timeline. Visible on the Lead Detail page. Stored in the <code>activities</code> table; populated by trigger and by application calls. Every inline-edit save fires one <code>lead_updated</code> row via <code>useLeadUpdate</code>.</td>
               </tr>
               <tr>
                 <td><strong>Audit Log</strong></td>
