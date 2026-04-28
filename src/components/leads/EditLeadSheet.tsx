@@ -37,12 +37,17 @@ import {
 } from "@/lib/leadUtils";
 import { useLeadUpdate } from "@/hooks/useLeadUpdate";
 import { logFieldEdits, diffRows } from "@/lib/api/fieldEditLog";
+import { appendInternalNote } from "@/lib/utils/internalNotes";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Database } from "@/integrations/supabase/types";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 
 // DB column → human label for the field_edit activity log.
 // Only fields actually editable in this sheet are listed.
+// internal_notes is intentionally absent — it is append-only via the
+// dedicated "Add internal note" input (logged separately as a note_added
+// activity) so a normal field-edit diff would mis-represent the change.
 const LEAD_FIELD_MAP: Partial<Record<keyof Lead, string>> = {
   full_name: "Name",
   phone: "Phone",
@@ -56,7 +61,6 @@ const LEAD_FIELD_MAP: Partial<Record<keyof Lead, string>> = {
   lead_source_other: "Lead Source (Other)",
   urgency: "Urgency",
   issue_description: "Issue Description",
-  internal_notes: "Internal Notes",
   notes: "General Notes",
   access_instructions: "Access Instructions",
   special_requests: "Special Requests",
@@ -75,7 +79,9 @@ const editFormSchema = z.object({
   lead_source_other: z.string().optional(),
   urgency: z.string().optional(),
   issue_description: z.string().max(1000).optional(),
-  internal_notes: z.string().optional(),
+  // append-only: this is a NEW entry to add to the internal_notes log,
+  // not the entire field. Empty string = no change to the existing log.
+  add_internal_note: z.string().optional(),
   notes: z.string().optional(),
   access_instructions: z.string().optional(),
   special_requests: z.string().optional(),
@@ -91,6 +97,8 @@ interface EditLeadSheetProps {
 
 export function EditLeadSheet({ lead, open, onOpenChange }: EditLeadSheetProps) {
   const { updateLead, isUpdating } = useLeadUpdate(lead.id);
+  const { profile, user } = useAuth();
+  const authorName = profile?.full_name?.trim() || user?.email || "Unknown user";
   const initialLeadRef = useRef<Lead | null>(null);
 
   const form = useForm<EditFormValues>({
@@ -111,10 +119,23 @@ export function EditLeadSheet({ lead, open, onOpenChange }: EditLeadSheetProps) 
   const watchLeadSource = form.watch("lead_source");
 
   const onSubmit = async (values: EditFormValues) => {
-    // Build payload — convert empty strings to null for optional fields
+    // Pull the synthetic add_internal_note out of the form values — it's
+    // never written to the leads row directly. If non-empty, it gets
+    // appended to lead.internal_notes via the helper.
+    const { add_internal_note, ...directFields } = values;
+
     const payload: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(values)) {
+    for (const [key, value] of Object.entries(directFields)) {
       payload[key] = value === "" ? null : value;
+    }
+
+    const trimmedNote = add_internal_note?.trim() ?? "";
+    if (trimmedNote) {
+      payload.internal_notes = appendInternalNote(
+        lead.internal_notes ?? null,
+        trimmedNote,
+        { authorName },
+      );
     }
 
     const success = await updateLead(
@@ -127,6 +148,17 @@ export function EditLeadSheet({ lead, open, onOpenChange }: EditLeadSheetProps) 
         payload,
         LEAD_FIELD_MAP as Partial<Record<string, string>>,
       );
+      // The internal_notes column is excluded from LEAD_FIELD_MAP so it
+      // does not surface as a "field overwrite" in the activity log; the
+      // append is recorded as a dedicated entry that captures only the new
+      // text rather than misrepresenting it as a column-wide diff.
+      if (trimmedNote) {
+        changes.push({
+          field: "Internal Note Added",
+          old: null,
+          new: trimmedNote,
+        });
+      }
       await logFieldEdits({
         leadId: lead.id,
         entityType: "lead",
@@ -415,23 +447,44 @@ export function EditLeadSheet({ lead, open, onOpenChange }: EditLeadSheetProps) 
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold border-b pb-2">Notes</h3>
 
-                <FormField
-                  control={form.control}
-                  name="internal_notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Internal Notes</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Internal team notes..."
-                          className="min-h-[80px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                {/* Internal Notes — append-only log. Existing entries shown
+                    read-only above; the textarea adds a new dated entry. */}
+                <div className="space-y-2">
+                  <FormLabel>Internal Notes</FormLabel>
+                  {lead.internal_notes ? (
+                    <div className="rounded-md border bg-slate-50 p-3 max-h-48 overflow-y-auto">
+                      <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">
+                        {lead.internal_notes}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-md border border-dashed bg-slate-50/50 p-3">
+                      <p className="text-sm italic text-muted-foreground">
+                        No internal notes yet.
+                      </p>
+                    </div>
                   )}
-                />
+
+                  <FormField
+                    control={form.control}
+                    name="add_internal_note"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-normal text-muted-foreground">
+                          Add internal note
+                        </FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="New entry — saved with timestamp and your name..."
+                            className="min-h-[80px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={form.control}
@@ -526,7 +579,7 @@ function getDefaults(lead: Lead): EditFormValues {
     lead_source_other: lead.lead_source_other ?? "",
     urgency: lead.urgency ?? "",
     issue_description: lead.issue_description ?? "",
-    internal_notes: lead.internal_notes ?? "",
+    add_internal_note: "",
     notes: lead.notes ?? "",
     access_instructions: lead.access_instructions ?? "",
     special_requests: lead.special_requests ?? "",

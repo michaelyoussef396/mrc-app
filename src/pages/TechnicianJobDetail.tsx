@@ -7,6 +7,8 @@ import { TechnicianBottomNav } from '@/components/technician';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLeadUpdate } from '@/hooks/useLeadUpdate';
+import { useAuth } from '@/contexts/AuthContext';
+import { appendInternalNote } from '@/lib/utils/internalNotes';
 import { leadSourceOptions } from '@/lib/leadUtils';
 import { AddressAutocomplete, type AddressValue } from '@/components/booking/AddressAutocomplete';
 import { formatDistanceToNow } from 'date-fns';
@@ -94,6 +96,8 @@ export default function TechnicianJobDetail() {
   });
 
   const { updateLead, isUpdating } = useLeadUpdate(id || '');
+  const { profile, user } = useAuth();
+  const authorName = profile?.full_name?.trim() || user?.email || 'Unknown user';
 
   // ── Data Fetching ──
 
@@ -162,12 +166,13 @@ export default function TechnicianJobDetail() {
     return () => clearInspectionContext();
   }, [id]);
 
-  // Sync edit state when lead loads/changes
+  // Sync edit state when lead loads/changes. notesValue is an input for a
+  // NEW append entry, NOT a mirror of lead.internal_notes — it stays empty
+  // when the lead loads and is cleared after each successful save.
   useEffect(() => {
     if (!lead) return;
-    setNotesValue(lead.internal_notes || '');
     resetEditState();
-  }, [lead?.id, lead?.internal_notes]);
+  }, [lead?.id]);
 
   // ── Helpers ──
 
@@ -238,12 +243,20 @@ export default function TechnicianJobDetail() {
 
   const handleSaveNotes = async () => {
     if (!lead) return;
-    if (notesValue === (lead.internal_notes || '')) return;
+    const trimmed = notesValue.trim();
+    if (!trimmed) return;
     setIsSavingNotes(true);
     const original = { internal_notes: lead.internal_notes };
-    const payload = { internal_notes: notesValue || null };
+    const payload = {
+      internal_notes: appendInternalNote(lead.internal_notes ?? null, trimmed, {
+        authorName,
+      }),
+    };
     const success = await updateLead(payload, original);
-    if (success) fetchJobData();
+    if (success) {
+      setNotesValue('');
+      fetchJobData();
+    }
     setIsSavingNotes(false);
   };
 
@@ -660,7 +673,7 @@ export default function TechnicianJobDetail() {
           </div>
         </div>
 
-        {/* ── Internal Notes Card (always editable) ── */}
+        {/* ── Internal Notes Card (append-only log) ── */}
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
           <div className="px-5 py-3 border-b bg-slate-50/50">
             <div className="flex items-center justify-between">
@@ -670,7 +683,7 @@ export default function TechnicianJobDetail() {
                   Internal Notes
                 </span>
               </div>
-              {notesValue !== (lead.internal_notes || '') && (
+              {notesValue.trim() !== '' && (
                 <Button
                   size="sm"
                   className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
@@ -678,19 +691,40 @@ export default function TechnicianJobDetail() {
                   disabled={isSavingNotes}
                 >
                   <Save className="h-3 w-3 mr-1.5" />
-                  {isSavingNotes ? 'Saving...' : 'Save Notes'}
+                  {isSavingNotes ? 'Saving...' : 'Add Note'}
                 </Button>
               )}
             </div>
           </div>
-          <div className="p-5">
-            <textarea
-              value={notesValue}
-              onChange={(e) => setNotesValue(e.target.value)}
-              rows={4}
-              placeholder="Add internal notes..."
-              className="w-full p-4 rounded-lg text-sm border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none leading-relaxed"
-            />
+          <div className="p-5 space-y-4">
+            {/* Existing log — read-only history */}
+            {lead.internal_notes ? (
+              <div className="rounded-md border bg-slate-50 p-3 max-h-64 overflow-y-auto">
+                <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">
+                  {lead.internal_notes}
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-md border border-dashed bg-slate-50/50 p-3">
+                <p className="text-sm italic text-muted-foreground">
+                  No internal notes yet.
+                </p>
+              </div>
+            )}
+
+            {/* Add note — appends a new dated entry */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-normal text-muted-foreground">
+                Add internal note
+              </label>
+              <textarea
+                value={notesValue}
+                onChange={(e) => setNotesValue(e.target.value)}
+                rows={4}
+                placeholder="New entry — saved with timestamp and your name..."
+                className="w-full p-4 rounded-lg text-sm border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none leading-relaxed"
+              />
+            </div>
           </div>
         </div>
 
