@@ -313,6 +313,45 @@ export type Database = {
           },
         ]
       }
+      error_logs: {
+        Row: {
+          context: Json | null
+          created_at: string | null
+          error_type: string
+          id: string
+          message: string
+          resolved: boolean | null
+          severity: string | null
+          source: string | null
+          stack_trace: string | null
+          user_id: string | null
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string | null
+          error_type: string
+          id?: string
+          message: string
+          resolved?: boolean | null
+          severity?: string | null
+          source?: string | null
+          stack_trace?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string | null
+          error_type?: string
+          id?: string
+          message?: string
+          resolved?: boolean | null
+          severity?: string | null
+          source?: string | null
+          stack_trace?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       inspection_areas: {
         Row: {
           area_name: string
@@ -783,6 +822,374 @@ export type Database = {
           },
         ]
       }
+      invoices: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          discount_amount: number | null
+          discount_percentage: number | null
+          due_date: string
+          equipment_subtotal: number | null
+          gst_amount: number
+          id: string
+          invoice_date: string
+          invoice_number: string
+          job_completion_id: string | null
+          lead_id: string | null
+          line_items: Json
+          notes: string | null
+          paid_at: string | null
+          payment_date: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          property_address: string | null
+          sent_at: string | null
+          status: string
+          subtotal: number
+          subtotal_after_discount: number
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          due_date: string
+          equipment_subtotal?: number | null
+          gst_amount?: number
+          id?: string
+          invoice_date?: string
+          invoice_number: string
+          job_completion_id?: string | null
+          lead_id?: string | null
+          line_items?: Json
+          notes?: string | null
+          paid_at?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          property_address?: string | null
+          sent_at?: string | null
+          status?: string
+          subtotal?: number
+          subtotal_after_discount?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          due_date?: string
+          equipment_subtotal?: number | null
+          gst_amount?: number
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          job_completion_id?: string | null
+          lead_id?: string | null
+          line_items?: Json
+          notes?: string | null
+          paid_at?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          property_address?: string | null
+          sent_at?: string | null
+          status?: string
+          subtotal?: number
+          subtotal_after_discount?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_job_completion_id_fkey"
+            columns: ["job_completion_id"]
+            isOneToOne: false
+            referencedRelation: "job_completions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_completion_pdf_versions: {
+        Row: {
+          created_at: string
+          generated_by: string | null
+          id: string
+          job_completion_id: string
+          pdf_url: string
+          version_number: number
+        }
+        Insert: {
+          created_at?: string
+          generated_by?: string | null
+          id?: string
+          job_completion_id: string
+          pdf_url: string
+          version_number?: number
+        }
+        Update: {
+          created_at?: string
+          generated_by?: string | null
+          id?: string
+          job_completion_id?: string
+          pdf_url?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_completion_pdf_versions_job_completion_id_fkey"
+            columns: ["job_completion_id"]
+            isOneToOne: false
+            referencedRelation: "job_completions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_completions: {
+        Row: {
+          actual_afd_days: number
+          actual_afd_qty: number
+          actual_air_mover_days: number
+          actual_air_mover_qty: number
+          actual_dehumidifier_days: number
+          actual_dehumidifier_qty: number
+          actual_rcd_days: number
+          actual_rcd_qty: number
+          additional_notes: string | null
+          address_snapshot: string | null
+          areas_treated: string[] | null
+          attention_to: string | null
+          chemical_air_filtration: boolean
+          chemical_hepa_vacuumed: boolean
+          chemical_sanitised_premises: boolean
+          chemical_sodium_hypochlorite: boolean
+          chemical_water_based: boolean
+          completed_by: string
+          completion_date: string
+          created_at: string
+          damages_details: string | null
+          damages_present: boolean
+          demolition_justification: string | null
+          demolition_removal_notes: string | null
+          demolition_works: boolean
+          followup_required: boolean
+          id: string
+          inspection_id: string | null
+          job_number: string | null
+          lead_id: string
+          method_afd_installation: boolean
+          method_cavity_treatment: boolean
+          method_containment_prv: boolean
+          method_debris_removal: boolean
+          method_drying_equipment: boolean
+          method_hepa_vacuuming: boolean
+          method_material_demolition: boolean
+          method_subfloor_remediation: boolean
+          method_surface_mould_remediation: boolean
+          method_ulv_fogging_property: boolean
+          method_ulv_fogging_subfloor: boolean
+          office_notes: string | null
+          pdf_approved: boolean
+          pdf_approved_at: string | null
+          pdf_approved_by: string | null
+          pdf_generated_at: string | null
+          pdf_url: string | null
+          pdf_version: number
+          premises_type: string | null
+          quoted_air_mover_qty: number
+          quoted_dehumidifier_qty: number
+          quoted_equipment_days: number
+          quoted_rcd_qty: number
+          remediation_completed_by: string | null
+          request_review: boolean
+          requested_by: string | null
+          scope_changed: boolean
+          scope_extra_work: string | null
+          scope_reduced: string | null
+          scope_what_changed: string | null
+          scope_why_changed: string | null
+          staining_details: string | null
+          staining_present: boolean
+          status: string
+          submitted_at: string | null
+          swms_completed: boolean
+          updated_at: string
+        }
+        Insert: {
+          actual_afd_days?: number
+          actual_afd_qty?: number
+          actual_air_mover_days?: number
+          actual_air_mover_qty?: number
+          actual_dehumidifier_days?: number
+          actual_dehumidifier_qty?: number
+          actual_rcd_days?: number
+          actual_rcd_qty?: number
+          additional_notes?: string | null
+          address_snapshot?: string | null
+          areas_treated?: string[] | null
+          attention_to?: string | null
+          chemical_air_filtration?: boolean
+          chemical_hepa_vacuumed?: boolean
+          chemical_sanitised_premises?: boolean
+          chemical_sodium_hypochlorite?: boolean
+          chemical_water_based?: boolean
+          completed_by: string
+          completion_date?: string
+          created_at?: string
+          damages_details?: string | null
+          damages_present?: boolean
+          demolition_justification?: string | null
+          demolition_removal_notes?: string | null
+          demolition_works?: boolean
+          followup_required?: boolean
+          id?: string
+          inspection_id?: string | null
+          job_number?: string | null
+          lead_id: string
+          method_afd_installation?: boolean
+          method_cavity_treatment?: boolean
+          method_containment_prv?: boolean
+          method_debris_removal?: boolean
+          method_drying_equipment?: boolean
+          method_hepa_vacuuming?: boolean
+          method_material_demolition?: boolean
+          method_subfloor_remediation?: boolean
+          method_surface_mould_remediation?: boolean
+          method_ulv_fogging_property?: boolean
+          method_ulv_fogging_subfloor?: boolean
+          office_notes?: string | null
+          pdf_approved?: boolean
+          pdf_approved_at?: string | null
+          pdf_approved_by?: string | null
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
+          pdf_version?: number
+          premises_type?: string | null
+          quoted_air_mover_qty?: number
+          quoted_dehumidifier_qty?: number
+          quoted_equipment_days?: number
+          quoted_rcd_qty?: number
+          remediation_completed_by?: string | null
+          request_review?: boolean
+          requested_by?: string | null
+          scope_changed?: boolean
+          scope_extra_work?: string | null
+          scope_reduced?: string | null
+          scope_what_changed?: string | null
+          scope_why_changed?: string | null
+          staining_details?: string | null
+          staining_present?: boolean
+          status?: string
+          submitted_at?: string | null
+          swms_completed?: boolean
+          updated_at?: string
+        }
+        Update: {
+          actual_afd_days?: number
+          actual_afd_qty?: number
+          actual_air_mover_days?: number
+          actual_air_mover_qty?: number
+          actual_dehumidifier_days?: number
+          actual_dehumidifier_qty?: number
+          actual_rcd_days?: number
+          actual_rcd_qty?: number
+          additional_notes?: string | null
+          address_snapshot?: string | null
+          areas_treated?: string[] | null
+          attention_to?: string | null
+          chemical_air_filtration?: boolean
+          chemical_hepa_vacuumed?: boolean
+          chemical_sanitised_premises?: boolean
+          chemical_sodium_hypochlorite?: boolean
+          chemical_water_based?: boolean
+          completed_by?: string
+          completion_date?: string
+          created_at?: string
+          damages_details?: string | null
+          damages_present?: boolean
+          demolition_justification?: string | null
+          demolition_removal_notes?: string | null
+          demolition_works?: boolean
+          followup_required?: boolean
+          id?: string
+          inspection_id?: string | null
+          job_number?: string | null
+          lead_id?: string
+          method_afd_installation?: boolean
+          method_cavity_treatment?: boolean
+          method_containment_prv?: boolean
+          method_debris_removal?: boolean
+          method_drying_equipment?: boolean
+          method_hepa_vacuuming?: boolean
+          method_material_demolition?: boolean
+          method_subfloor_remediation?: boolean
+          method_surface_mould_remediation?: boolean
+          method_ulv_fogging_property?: boolean
+          method_ulv_fogging_subfloor?: boolean
+          office_notes?: string | null
+          pdf_approved?: boolean
+          pdf_approved_at?: string | null
+          pdf_approved_by?: string | null
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
+          pdf_version?: number
+          premises_type?: string | null
+          quoted_air_mover_qty?: number
+          quoted_dehumidifier_qty?: number
+          quoted_equipment_days?: number
+          quoted_rcd_qty?: number
+          remediation_completed_by?: string | null
+          request_review?: boolean
+          requested_by?: string | null
+          scope_changed?: boolean
+          scope_extra_work?: string | null
+          scope_reduced?: string | null
+          scope_what_changed?: string | null
+          scope_why_changed?: string | null
+          staining_details?: string | null
+          staining_present?: boolean
+          status?: string
+          submitted_at?: string | null
+          swms_completed?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_completions_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_completions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           access_instructions: string | null
@@ -791,6 +1198,8 @@ export type Database = {
           booked_at: string | null
           created_at: string | null
           created_by: string | null
+          customer_preferred_date: string | null
+          customer_preferred_time: string | null
           email: string
           full_name: string
           id: string
@@ -835,6 +1244,8 @@ export type Database = {
           booked_at?: string | null
           created_at?: string | null
           created_by?: string | null
+          customer_preferred_date?: string | null
+          customer_preferred_time?: string | null
           email: string
           full_name: string
           id?: string
@@ -879,6 +1290,8 @@ export type Database = {
           booked_at?: string | null
           created_at?: string | null
           created_by?: string | null
+          customer_preferred_date?: string | null
+          customer_preferred_time?: string | null
           email?: string
           full_name?: string
           id?: string
@@ -913,6 +1326,149 @@ export type Database = {
           search_text?: string | null
           special_requests?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
+          updated_at?: string | null
+          urgency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_possible_duplicate_of_fkey"
+            columns: ["possible_duplicate_of"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads_backup_20260428: {
+        Row: {
+          access_instructions: string | null
+          archived_at: string | null
+          assigned_to: string | null
+          booked_at: string | null
+          created_at: string | null
+          created_by: string | null
+          email: string | null
+          full_name: string | null
+          id: string | null
+          inspection_completed_date: string | null
+          inspection_scheduled_date: string | null
+          internal_notes: string | null
+          invoice_amount: number | null
+          invoice_sent_date: string | null
+          is_possible_duplicate: boolean | null
+          issue_description: string | null
+          job_completed_date: string | null
+          job_scheduled_date: string | null
+          lead_number: string | null
+          lead_source: string | null
+          lead_source_other: string | null
+          notes: string | null
+          payment_received_date: string | null
+          phone: string | null
+          possible_duplicate_of: string | null
+          property_address_postcode: string | null
+          property_address_state: string | null
+          property_address_street: string | null
+          property_address_suburb: string | null
+          property_lat: number | null
+          property_lng: number | null
+          property_type: string | null
+          property_zone: number | null
+          quoted_amount: number | null
+          report_pdf_url: string | null
+          scheduled_dates: string[] | null
+          scheduled_time: string | null
+          search_text: string | null
+          special_requests: string | null
+          status: Database["public"]["Enums"]["lead_status"] | null
+          updated_at: string | null
+          urgency: string | null
+        }
+        Insert: {
+          access_instructions?: string | null
+          archived_at?: string | null
+          assigned_to?: string | null
+          booked_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string | null
+          inspection_completed_date?: string | null
+          inspection_scheduled_date?: string | null
+          internal_notes?: string | null
+          invoice_amount?: number | null
+          invoice_sent_date?: string | null
+          is_possible_duplicate?: boolean | null
+          issue_description?: string | null
+          job_completed_date?: string | null
+          job_scheduled_date?: string | null
+          lead_number?: string | null
+          lead_source?: string | null
+          lead_source_other?: string | null
+          notes?: string | null
+          payment_received_date?: string | null
+          phone?: string | null
+          possible_duplicate_of?: string | null
+          property_address_postcode?: string | null
+          property_address_state?: string | null
+          property_address_street?: string | null
+          property_address_suburb?: string | null
+          property_lat?: number | null
+          property_lng?: number | null
+          property_type?: string | null
+          property_zone?: number | null
+          quoted_amount?: number | null
+          report_pdf_url?: string | null
+          scheduled_dates?: string[] | null
+          scheduled_time?: string | null
+          search_text?: string | null
+          special_requests?: string | null
+          status?: Database["public"]["Enums"]["lead_status"] | null
+          updated_at?: string | null
+          urgency?: string | null
+        }
+        Update: {
+          access_instructions?: string | null
+          archived_at?: string | null
+          assigned_to?: string | null
+          booked_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string | null
+          inspection_completed_date?: string | null
+          inspection_scheduled_date?: string | null
+          internal_notes?: string | null
+          invoice_amount?: number | null
+          invoice_sent_date?: string | null
+          is_possible_duplicate?: boolean | null
+          issue_description?: string | null
+          job_completed_date?: string | null
+          job_scheduled_date?: string | null
+          lead_number?: string | null
+          lead_source?: string | null
+          lead_source_other?: string | null
+          notes?: string | null
+          payment_received_date?: string | null
+          phone?: string | null
+          possible_duplicate_of?: string | null
+          property_address_postcode?: string | null
+          property_address_state?: string | null
+          property_address_street?: string | null
+          property_address_suburb?: string | null
+          property_lat?: number | null
+          property_lng?: number | null
+          property_type?: string | null
+          property_zone?: number | null
+          quoted_amount?: number | null
+          report_pdf_url?: string | null
+          scheduled_dates?: string[] | null
+          scheduled_time?: string | null
+          search_text?: string | null
+          special_requests?: string | null
+          status?: Database["public"]["Enums"]["lead_status"] | null
           updated_at?: string | null
           urgency?: string | null
         }
@@ -1135,9 +1691,11 @@ export type Database = {
           file_size: number | null
           id: string
           inspection_id: string | null
+          job_completion_id: string | null
           mime_type: string | null
           moisture_reading_id: string | null
           order_index: number | null
+          photo_category: string | null
           photo_type: string
           storage_path: string
           subfloor_id: string | null
@@ -1151,9 +1709,11 @@ export type Database = {
           file_size?: number | null
           id?: string
           inspection_id?: string | null
+          job_completion_id?: string | null
           mime_type?: string | null
           moisture_reading_id?: string | null
           order_index?: number | null
+          photo_category?: string | null
           photo_type: string
           storage_path: string
           subfloor_id?: string | null
@@ -1167,9 +1727,11 @@ export type Database = {
           file_size?: number | null
           id?: string
           inspection_id?: string | null
+          job_completion_id?: string | null
           mime_type?: string | null
           moisture_reading_id?: string | null
           order_index?: number | null
+          photo_category?: string | null
           photo_type?: string
           storage_path?: string
           subfloor_id?: string | null
@@ -1188,6 +1750,13 @@ export type Database = {
             columns: ["inspection_id"]
             isOneToOne: false
             referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photos_job_completion_id_fkey"
+            columns: ["job_completion_id"]
+            isOneToOne: false
+            referencedRelation: "job_completions"
             referencedColumns: ["id"]
           },
           {
@@ -1275,6 +1844,7 @@ export type Database = {
           inspection_id: string
           landscape: Database["public"]["Enums"]["subfloor_landscape"] | null
           observations: string | null
+          racking_required: boolean | null
           sanitation_required: boolean | null
           treatment_time_minutes: number | null
           updated_at: string | null
@@ -1287,6 +1857,7 @@ export type Database = {
           inspection_id: string
           landscape?: Database["public"]["Enums"]["subfloor_landscape"] | null
           observations?: string | null
+          racking_required?: boolean | null
           sanitation_required?: boolean | null
           treatment_time_minutes?: number | null
           updated_at?: string | null
@@ -1299,6 +1870,7 @@ export type Database = {
           inspection_id?: string
           landscape?: Database["public"]["Enums"]["subfloor_landscape"] | null
           observations?: string | null
+          racking_required?: boolean | null
           sanitation_required?: boolean | null
           treatment_time_minutes?: number | null
           updated_at?: string | null
@@ -1531,6 +2103,56 @@ export type Database = {
           },
         ]
       }
+      webhook_submissions: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          headers: Json | null
+          id: string
+          ip_address: string | null
+          lead_id: string | null
+          processed_at: string | null
+          raw_payload: Json
+          retry_count: number
+          source: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          headers?: Json | null
+          id?: string
+          ip_address?: string | null
+          lead_id?: string | null
+          processed_at?: string | null
+          raw_payload: Json
+          retry_count?: number
+          source?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          headers?: Json | null
+          id?: string
+          ip_address?: string | null
+          lead_id?: string | null
+          processed_at?: string | null
+          raw_payload?: Json
+          retry_count?: number
+          source?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1559,8 +2181,6 @@ export type Database = {
       is_admin:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       booking_status:
@@ -1591,7 +2211,9 @@ export type Database = {
         | "inspection_completed"
         | "inspection_report_pdf_completed"
         | "job_waiting"
+        | "job_scheduled"
         | "job_completed"
+        | "pending_review"
         | "job_report_pdf_sent"
         | "invoicing_sent"
         | "paid"
@@ -1767,7 +2389,9 @@ export const Constants = {
         "inspection_completed",
         "inspection_report_pdf_completed",
         "job_waiting",
+        "job_scheduled",
         "job_completed",
+        "pending_review",
         "job_report_pdf_sent",
         "invoicing_sent",
         "paid",
@@ -1791,4 +2415,3 @@ export const Constants = {
     },
   },
 } as const
-
