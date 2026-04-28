@@ -21,8 +21,9 @@ export interface LeadToSchedule {
   issueDescription: string | null;  // Notes from enquiry
   leadSource: string | null;        // Lead source channel
   propertyAddress: string;          // Full address for booking
-  preferredDate: string | null;     // Customer's preferred inspection date
-  preferredTime: string | null;     // Customer's preferred inspection time
+  preferredDate: string | null;     // Customer's preferred inspection date (customer_preferred_date)
+  preferredTime: string | null;     // Customer's preferred inspection time (customer_preferred_time)
+  internalNotes: string | null;     // Existing lead.internal_notes (admin-only)
   createdAt: string;
   timeAgo: string;
   scheduleType: ScheduleType;       // 'inspection' for new leads, 'job' for job_waiting
@@ -65,8 +66,9 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
           property_type,
           issue_description,
           lead_source,
-          inspection_scheduled_date,
-          scheduled_time,
+          customer_preferred_date,
+          customer_preferred_time,
+          internal_notes,
           created_at
         `, { count: 'exact' })
         .or('and(status.in.(new_lead,hipages_lead),assigned_to.is.null),status.eq.job_waiting')
@@ -103,8 +105,9 @@ export function useLeadsToSchedule(): UseLeadsToScheduleResult {
           issueDescription: lead.issue_description,
           leadSource: lead.lead_source || null,
           propertyAddress: fullAddress,
-          preferredDate: lead.inspection_scheduled_date || null,
-          preferredTime: lead.scheduled_time || null,
+          preferredDate: lead.customer_preferred_date || null,
+          preferredTime: lead.customer_preferred_time || null,
+          internalNotes: lead.internal_notes || null,
           createdAt: lead.created_at,
           timeAgo: getTimeAgo(lead.created_at),
           scheduleType: lead.status === 'job_waiting' ? 'job' : 'inspection',

@@ -60,7 +60,6 @@ import {
   Star,
 } from "lucide-react";
 import { EditLeadSheet } from "@/components/leads/EditLeadSheet";
-import { BookInspectionModal } from "@/components/leads/BookInspectionModal";
 import { BookJobSheet } from "@/components/leads/BookJobSheet";
 import { JobBookingDetails } from "@/components/leads/JobBookingDetails";
 import { JobCompletionSummary } from "@/components/leads/JobCompletionSummary";
@@ -131,7 +130,6 @@ export default function LeadDetail() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showEditSheet, setShowEditSheet] = useState(false);
-  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [showBookJobModal, setShowBookJobModal] = useState(false);
   const [newStatus, setNewStatus] = useState<LeadStatus | null>(null);
   const [showSendBackDialog, setShowSendBackDialog] = useState(false);
@@ -507,7 +505,7 @@ export default function LeadDetail() {
           <Button
             size="lg"
             className="w-full h-14 text-base"
-            onClick={() => setShowRescheduleModal(true)}
+            onClick={() => navigate(`/admin/schedule?lead=${lead.id}`)}
           >
             <Calendar className="h-5 w-5 mr-2" />
             Schedule Inspection
@@ -1347,7 +1345,7 @@ export default function LeadDetail() {
                 </div>
               )}
 
-              <Button variant="outline" className="w-full h-12 border-green-300 text-green-700 hover:bg-green-100" onClick={() => setShowRescheduleModal(true)}>
+              <Button variant="outline" className="w-full h-12 border-green-300 text-green-700 hover:bg-green-100" onClick={() => navigate(`/admin/schedule?lead=${lead.id}`)}>
                 <Calendar className="h-4 w-4 mr-2" />
                 Reschedule Inspection
               </Button>
@@ -1645,19 +1643,6 @@ export default function LeadDetail() {
 
       {/* Edit Lead Sheet */}
       <EditLeadSheet lead={lead} open={showEditSheet} onOpenChange={setShowEditSheet} />
-
-      {/* Reschedule Inspection Modal */}
-      <BookInspectionModal
-        open={showRescheduleModal}
-        onOpenChange={setShowRescheduleModal}
-        leadId={lead.id}
-        leadNumber={lead.lead_number || ''}
-        customerName={lead.full_name}
-        propertyAddress={`${lead.property_address_street}, ${lead.property_address_suburb}`}
-        propertySuburb={lead.property_address_suburb}
-        customerPreferredDate={lead.status === 'new_lead' ? lead.customer_preferred_date : null}
-        customerPreferredTime={lead.status === 'new_lead' ? lead.customer_preferred_time : null}
-      />
 
       {/* Book Job Sheet — slide-out drawer from right */}
       <BookJobSheet
