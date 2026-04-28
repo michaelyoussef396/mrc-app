@@ -26,6 +26,13 @@ interface BookInspectionModalProps {
   propertySuburb?: string;
   /** Type of booking — 'inspection' (default) or 'job' for remediation work */
   bookingType?: 'inspection' | 'job';
+  /** Customer-supplied preferred date (YYYY-MM-DD). When provided, pre-fills
+   * the date input as a starting suggestion. Admin can override. The save path
+   * still writes the chosen value to inspection_scheduled_date — customer_preferred_*
+   * is preserved untouched after backfill. */
+  customerPreferredDate?: string | null;
+  /** Customer-supplied preferred time (HH:mm). Pre-fills the time slot. */
+  customerPreferredTime?: string | null;
 }
 
 interface UserType {
@@ -81,6 +88,8 @@ export function BookInspectionModal({
   propertyAddress,
   propertySuburb,
   bookingType = 'inspection',
+  customerPreferredDate,
+  customerPreferredTime,
 }: BookInspectionModalProps) {
   const isJob = bookingType === 'job';
   const bookingLabel = isJob ? 'Job' : 'Inspection';
@@ -127,6 +136,20 @@ export function BookInspectionModal({
       setHasMissingAddressWarning(false);
     }
   }, [open]);
+
+  // Pre-fill date/time from the customer's captured preference when the modal
+  // opens. Admin can override; the actual booking save still writes to
+  // inspection_scheduled_date / scheduled_time. customer_preferred_* is read-only here.
+  useEffect(() => {
+    if (open && customerPreferredDate) {
+      setFormData(prev => ({
+        ...prev,
+        inspectionDate: customerPreferredDate,
+        inspectionTime: customerPreferredTime || "",
+      }));
+      setShowManualDatePicker(true);
+    }
+  }, [open, customerPreferredDate, customerPreferredTime]);
 
   // Fetch recommendations when technician is selected
   useEffect(() => {
@@ -491,6 +514,11 @@ export function BookInspectionModal({
                   </button>
                 ) : (
                   <div className="space-y-2">
+                    {customerPreferredDate && (
+                      <p className="text-xs italic text-muted-foreground">
+                        Pre-filled from customer's preferred time
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       {recommendations.length > 0 ? 'Or pick any date:' : 'Select a date:'}
                     </p>
