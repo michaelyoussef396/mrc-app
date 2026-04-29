@@ -58,6 +58,7 @@ import {
   StickyNote,
   ClipboardCheck,
   Star,
+  Save,
 } from "lucide-react";
 import { InlineEditField } from "@/components/leads/InlineEditField";
 import { InlineEditAddress, type AddressFields } from "@/components/leads/InlineEditAddress";
@@ -84,13 +85,14 @@ import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/
 import { getJobCompletionByLeadId } from "@/lib/api/jobCompletions";
 import { generateJobReportPdf } from "@/lib/api/jobReportPdf";
 import type { JobCompletionRow } from "@/types/jobCompletion";
-import { STATUS_FLOW, LeadStatus } from "@/lib/statusFlow";
+import { STATUS_FLOW, ALL_STATUSES, LeadStatus } from "@/lib/statusFlow";
 import { sendSlackNotification, sendGoogleReviewEmail } from "@/lib/api/notifications";
 import { useActivityTimeline } from "@/hooks/useActivityTimeline";
 import { captureBusinessError } from "@/lib/sentry";
 import { ActivityTimeline } from "@/components/dashboard/ActivityTimeline";
 import { toast } from "sonner";
 import { formatDateAU, formatDateTimeAU } from "@/lib/dateUtils";
+import { appendInternalNote, parseInternalNotesLog } from "@/lib/utils/internalNotes";
 
 // Australian currency formatter
 const formatCurrency = (value: number | null | undefined) => {
@@ -130,7 +132,7 @@ const getInitials = (name: string | null | undefined) => {
 
 export default function LeadDetail() {
   const { id } = useParams<{ id: string }>();
-  const { hasRole } = useAuth();
+  const { hasRole, profile, user } = useAuth();
   const isAdmin = hasRole('admin');
   const isTechnician = hasRole('technician');
   const navigate = useNavigate();
@@ -146,6 +148,8 @@ export default function LeadDetail() {
   const [isApproving, setIsApproving] = useState(false);
   const [editingSection, setEditingSection] = useState<number | null>(null);
   const [generatingJobPdf, setGeneratingJobPdf] = useState(false);
+  const [notesValue, setNotesValue] = useState("");
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
 
   // Fetch lead data
   const { data: lead, isLoading, refetch } = useQuery({
@@ -344,11 +348,79 @@ export default function LeadDetail() {
     );
   };
 
+  // Append a new internal-notes entry with timestamp + author attribution.
+  // Uses the shared appendInternalNote helper so the same on-disk format
+  // works for both admin (Lead Detail) and technician (Job Detail) writers.
+  const handleSaveNote = async () => {
+    const trimmed = notesValue.trim();
+    if (!trimmed) return;
+    setIsSavingNotes(true);
+    const authorName = profile?.full_name?.trim() || user?.email || "Unknown user";
+    const original = { internal_notes: lead.internal_notes };
+    const payload = {
+      internal_notes: appendInternalNote(lead.internal_notes ?? null, trimmed, { authorName }),
+    };
+    const success = await updateLead(
+      payload as Parameters<typeof updateLead>[0],
+      original,
+    );
+    if (success) {
+      setNotesValue("");
+      refetch();
+    }
+    setIsSavingNotes(false);
+  };
+
+  const handleCancelNote = () => setNotesValue("");
+
   const handleChangeStatus = async (status: LeadStatus) => {
     const currentConfig = STATUS_FLOW[lead.status as LeadStatus];
+    const oldRank = ALL_STATUSES.indexOf(lead.status as LeadStatus);
+    const newRank = ALL_STATUSES.indexOf(status);
+    const isReversion = newRank >= 0 && oldRank >= 0 && newRank < oldRank;
+
+    // On reversion, clear stage-keyed forward-state columns so the lead returns
+    // to a coherent state. Customer preference fields (customer_preferred_*) are
+    // never cleared — they belong to the customer, not the workflow.
+    const updates: Record<string, unknown> = { status };
+    const clearedFields: string[] = [];
+
+    if (isReversion) {
+      if (newRank < 1) {
+        for (const f of ['assigned_to', 'inspection_scheduled_date', 'scheduled_time', 'scheduled_dates', 'booked_at']) {
+          updates[f] = null;
+          clearedFields.push(f);
+        }
+      }
+      if (newRank < 2) {
+        for (const f of ['inspection_completed_date', 'report_pdf_url']) {
+          updates[f] = null;
+          clearedFields.push(f);
+        }
+      }
+      if (newRank < 6) {
+        updates.job_scheduled_date = null;
+        clearedFields.push('job_scheduled_date');
+      }
+      if (newRank < 7) {
+        updates.job_completed_date = null;
+        clearedFields.push('job_completed_date');
+      }
+      if (newRank < 10) {
+        for (const f of ['invoice_amount', 'invoice_sent_date']) {
+          updates[f] = null;
+          clearedFields.push(f);
+        }
+      }
+      if (newRank < 11) {
+        updates.payment_received_date = null;
+        clearedFields.push('payment_received_date');
+      }
+    }
+
     const { error } = await supabase
       .from("leads")
-      .update({ status })
+      .update(updates)
       .eq("id", lead.id);
 
     if (error) {
@@ -357,12 +429,50 @@ export default function LeadDetail() {
       return;
     }
 
-    await supabase.from("activities").insert({
+    // On rank<1 reversion, cancel only ACTIVE bookings (scheduled, in_progress).
+    // Terminal bookings (completed, cancelled, rescheduled) are immutable history.
+    // NOTE: preserved query runs BEFORE the update so it captures rows that were
+    // already terminal — without this ordering the freshly-cancelled rows would
+    // bleed into preserved_booking_ids.
+    let cancelledBookingIds: string[] = [];
+    let preservedBookingIds: string[] = [];
+    if (isReversion && newRank < 1) {
+      const { data: preservedRows } = await supabase
+        .from('calendar_bookings')
+        .select('id')
+        .eq('lead_id', lead.id)
+        .in('status', ['completed', 'cancelled', 'rescheduled']);
+      preservedBookingIds = (preservedRows ?? []).map((b) => b.id);
+
+      const { data: cancelledRows } = await supabase
+        .from('calendar_bookings')
+        .update({ status: 'cancelled' })
+        .eq('lead_id', lead.id)
+        .in('status', ['scheduled', 'in_progress'])
+        .select('id');
+      cancelledBookingIds = (cancelledRows ?? []).map((b) => b.id);
+    }
+
+    // Activity log — clean copy in description, full forensic detail in metadata.
+    const description = isReversion
+      ? `Lead moved from ${currentConfig.shortTitle} to ${STATUS_FLOW[status].shortTitle} (reverted)`
+      : `Lead moved from ${currentConfig.shortTitle} to ${STATUS_FLOW[status].shortTitle}`;
+
+    const activityRow: Record<string, unknown> = {
       lead_id: lead.id,
-      activity_type: "status_change",
+      activity_type: 'status_change',
       title: `Status changed to ${STATUS_FLOW[status].shortTitle}`,
-      description: `Lead moved from ${currentConfig.shortTitle} to ${STATUS_FLOW[status].shortTitle}`,
-    });
+      description,
+    };
+    if (isReversion) {
+      activityRow.metadata = {
+        reverted: true,
+        cleared_fields: clearedFields,
+        cancelled_booking_ids: cancelledBookingIds,
+        preserved_booking_ids: preservedBookingIds,
+      };
+    }
+    await supabase.from('activities').insert(activityRow);
 
     const fullAddr = [lead.property_address_street, lead.property_address_suburb, lead.property_address_state, lead.property_address_postcode].filter(Boolean).join(', ');
     sendSlackNotification({
@@ -1418,7 +1528,9 @@ export default function LeadDetail() {
         )}
 
         {/* Inspection Scheduled - with booking notes inside */}
-        {lead.inspection_scheduled_date && (
+        {/* Defensive guard: hide when status==='new_lead' so a stale forward-state row */}
+        {/* (e.g. from a pre-fix non-atomic revert) doesn't show a phantom green card. */}
+        {lead.inspection_scheduled_date && lead.status !== 'new_lead' && (
           <Card className="border-l-4 border-l-green-500 border-green-200 bg-green-50">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -1495,24 +1607,95 @@ export default function LeadDetail() {
           </CardContent>
         </Card>
 
-        {/* Internal Notes - shown when present */}
-        {lead.internal_notes && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <StickyNote className="h-4 w-4" />
-                Internal Notes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="p-3 bg-slate-50 rounded-lg border">
-                <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">
-                  {lead.internal_notes}
-                </p>
+        {/* Internal Notes — append-only log + add entry input */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <StickyNote className="h-4 w-4" />
+              Internal Notes
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(() => {
+              const noteEntries = parseInternalNotesLog(lead.internal_notes);
+              return noteEntries.length > 0 ? (
+                <div className="space-y-2 max-h-96 overflow-y-auto" aria-label="Internal notes log">
+                  {noteEntries.map((entry, i) => (
+                    <div key={i} className="rounded-md border bg-slate-50 p-3">
+                      {entry.isLegacy ? (
+                        <div className="space-y-1">
+                          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                            Legacy entry
+                          </span>
+                          <p className="text-sm whitespace-pre-line leading-relaxed text-foreground">
+                            {entry.body}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                            <span className="font-medium">
+                              {entry.author}
+                              {entry.context ? ` (${entry.context})` : ""}
+                            </span>
+                            <span>{entry.timestamp}</span>
+                          </div>
+                          <p className="text-sm whitespace-pre-line leading-relaxed text-foreground">
+                            {entry.body}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-md border border-dashed bg-slate-50/50 p-3">
+                  <p className="text-sm italic text-muted-foreground">No internal notes yet.</p>
+                </div>
+              );
+            })()}
+
+            {isAdmin && (
+              <div className="space-y-1.5 pt-1">
+                <label className="text-xs font-normal text-muted-foreground" htmlFor="add-internal-note">
+                  Add internal note
+                </label>
+                <Textarea
+                  id="add-internal-note"
+                  value={notesValue}
+                  onChange={(e) => setNotesValue(e.target.value)}
+                  rows={3}
+                  placeholder="New entry — saved with timestamp and your name…"
+                />
+                {notesValue.trim() !== "" && (
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      onClick={handleSaveNote}
+                      disabled={isSavingNotes}
+                      className="h-12 flex-1 sm:flex-none"
+                    >
+                      {isSavingNotes ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
+                      {isSavingNotes ? "Saving…" : "Add Note"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCancelNote}
+                      disabled={isSavingNotes}
+                      className="h-12 flex-1 sm:flex-none"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
+          </CardContent>
+        </Card>
 
         {/* Quote/Cost Estimate - if available */}
         {inspection?.total_inc_gst > 0 && (
