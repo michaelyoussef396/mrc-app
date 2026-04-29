@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLeadUpdate } from '@/hooks/useLeadUpdate';
 import { useAuth } from '@/contexts/AuthContext';
-import { appendInternalNote } from '@/lib/utils/internalNotes';
+import { appendInternalNote, parseInternalNotesLog } from '@/lib/utils/internalNotes';
 import { leadSourceOptions } from '@/lib/leadUtils';
 import { AddressAutocomplete, type AddressValue } from '@/components/booking/AddressAutocomplete';
 import { formatDistanceToNow } from 'date-fns';
@@ -697,20 +697,47 @@ export default function TechnicianJobDetail() {
             </div>
           </div>
           <div className="p-5 space-y-4">
-            {/* Existing log — read-only history */}
-            {lead.internal_notes ? (
-              <div className="rounded-md border bg-slate-50 p-3 max-h-64 overflow-y-auto">
-                <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">
-                  {lead.internal_notes}
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-md border border-dashed bg-slate-50/50 p-3">
-                <p className="text-sm italic text-muted-foreground">
-                  No internal notes yet.
-                </p>
-              </div>
-            )}
+            {/* Existing log — each entry rendered as its own block, newest on top */}
+            {(() => {
+              const noteEntries = parseInternalNotesLog(lead.internal_notes);
+              return noteEntries.length > 0 ? (
+                <div className="space-y-2 max-h-64 overflow-y-auto" aria-label="Internal notes log">
+                  {noteEntries.map((entry, i) => (
+                    <div key={i} className="rounded-md border bg-slate-50 p-3">
+                      {entry.isLegacy ? (
+                        <div className="space-y-1">
+                          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                            Legacy entry
+                          </span>
+                          <p className="text-sm whitespace-pre-line leading-relaxed text-foreground">
+                            {entry.body}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                            <span className="font-medium">
+                              {entry.author}
+                              {entry.context ? ` (${entry.context})` : ''}
+                            </span>
+                            <span>{entry.timestamp}</span>
+                          </div>
+                          <p className="text-sm whitespace-pre-line leading-relaxed text-foreground">
+                            {entry.body}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-md border border-dashed bg-slate-50/50 p-3">
+                  <p className="text-sm italic text-muted-foreground">
+                    No internal notes yet.
+                  </p>
+                </div>
+              );
+            })()}
 
             {/* Add note — appends a new dated entry */}
             <div className="space-y-1.5">

@@ -158,6 +158,7 @@ export function useScheduleCalendar({
           lead:leads (
             id,
             full_name,
+            status,
             property_address_suburb,
             property_address_postcode
           )
@@ -220,8 +221,16 @@ export function useScheduleCalendar({
         }
       }
 
+      // Defensive guard: skip zombie bookings whose lead has been reverted to
+      // `new_lead`. Atomic-revert in handleChangeStatus cancels the booking row
+      // so this filter is belt-and-braces for any historical row that escaped
+      // (or any future revert path that misses the cancellation step).
+      const safeData = (data || []).filter((booking: any) => {
+        return !booking.lead || booking.lead.status !== 'new_lead';
+      });
+
       // Transform to CalendarEvent format
-      const transformedEvents: CalendarEvent[] = (data || []).map((booking: any) => {
+      const transformedEvents: CalendarEvent[] = safeData.map((booking: any) => {
         const lead = booking.lead;
         const techName = technicianMap[booking.assigned_to] || 'Unassigned';
         const techColor = getTechnicianColorByName(techName);
