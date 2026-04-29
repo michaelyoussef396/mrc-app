@@ -7,7 +7,12 @@ import { toast } from 'sonner';
 // TYPES
 // ============================================================================
 
-export type JobStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+// Narrowed to match what the query actually returns post-Stage-1 filtering.
+// The full booking_status enum is scheduled | in_progress | completed | cancelled
+// | rescheduled, but the .in('status', ['scheduled', 'in_progress']) predicate
+// in the query rules out the other three. Stage 2 will clean up downstream tab
+// branches that compare against 'completed' / 'cancelled'.
+export type JobStatus = 'scheduled' | 'in_progress';
 export type TabFilter = 'today' | 'this_week' | 'this_month' | 'upcoming' | 'completed';
 
 export interface TechnicianJob {
@@ -132,7 +137,22 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
 
     try {
 
-      // Fetch all bookings for this technician (with optional lead data)
+      // Fetch active bookings for this technician, restricted to leads in
+      // technician-actionable workflow stages. !inner forces an INNER join so
+      // PostgREST applies the lead.status filter and drops lead-less bookings
+      // (out-of-workflow standalone calendar entries).
+      //
+      // Booking-status predicate: only ACTIVE work — scheduled/in_progress.
+      //   - 'completed' is terminal history, not actionable
+      //   - 'cancelled' was already excluded
+      //   - 'rescheduled' is a tombstone marker on a moved booking; the new
+      //     booking is created as 'scheduled', so the rescheduled row is also
+      //     terminal history.
+      //
+      // Lead-status predicate: technician-actionable stages only.
+      //   - 'inspection_waiting' — tech does the inspection
+      //   - 'job_scheduled' — tech does the remediation job
+      //   - 'pending_review' — tech-side revisions surface here once Phase 2 ships
       const { data, error: fetchError } = await supabase
         .from('calendar_bookings')
         .select(`
@@ -146,7 +166,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
           travel_time_minutes,
           lead_id,
           inspection_id,
-          lead:leads (
+          lead:leads!inner (
             id,
             full_name,
             phone,
@@ -161,7 +181,8 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
           )
         `)
         .eq('assigned_to', user.id)
-        .neq('status', 'cancelled')
+        .in('status', ['scheduled', 'in_progress'])
+        .in('lead.status', ['inspection_waiting', 'job_scheduled', 'pending_review'])
         .order('start_datetime', { ascending: true });
 
       if (fetchError) {
