@@ -2,18 +2,14 @@ import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TechnicianBottomNav } from '@/components/technician';
 import { useTechnicianJobs, TabFilter, TechnicianJob } from '@/hooks/useTechnicianJobs';
-import { useRevisionJobs, RevisionJob } from '@/hooks/useRevisionJobs';
-import { formatWeekdayDateAU, formatShortDateAU } from '@/lib/dateUtils';
+import { formatWeekdayDateAU } from '@/lib/dateUtils';
 import {
   AlertCircle,
-  AlertTriangle,
   ArrowRight,
   CalendarDays,
-  CheckCircle2,
   Eye,
   HardHat,
   Loader2,
-  MapPin,
   Navigation,
   Phone,
   Play,
@@ -25,20 +21,14 @@ import {
 // TYPES & CONSTANTS
 // ============================================================================
 
-type JobTab = 'revisions' | TabFilter;
+type JobTab = TabFilter;
 
-interface TabConfig {
-  id: JobTab;
-  label: string;
-}
-
-const TABS: TabConfig[] = [
-  { id: 'revisions', label: 'Revisions' },
+const TABS: { id: JobTab; label: string }[] = [
   { id: 'today', label: 'Today' },
   { id: 'this_week', label: 'This Week' },
-  { id: 'this_month', label: 'This Month' },
-  { id: 'upcoming', label: 'Upcoming' },
-  { id: 'completed', label: 'Completed' },
+  { id: 'overdue', label: 'Overdue' },
+  { id: 'pending_review', label: 'Pending Review' },
+  { id: 'all', label: 'All' },
 ];
 
 // ============================================================================
@@ -76,10 +66,6 @@ function formatDateHeader(dateStr: string): string {
   }
 
   return formatWeekdayDateAU(date);
-}
-
-function formatShortDate(dateStr: string): string {
-  return formatShortDateAU(dateStr);
 }
 
 function getJobTypeIcon(eventType: string, className: string = "h-3.5 w-3.5"): ReactNode {
@@ -125,21 +111,19 @@ function JobsHeader({
   activeTab: JobTab;
   onTabChange: (tab: JobTab) => void;
   counts: {
-    revisions: number;
     today: number;
     thisWeek: number;
-    thisMonth: number;
-    upcoming: number;
-    completed: number;
+    overdue: number;
+    pendingReview: number;
+    all: number;
   };
 }) {
   const countByTab: Record<JobTab, number> = {
-    revisions: counts.revisions,
     today: counts.today,
     this_week: counts.thisWeek,
-    this_month: counts.thisMonth,
-    upcoming: counts.upcoming,
-    completed: counts.completed,
+    overdue: counts.overdue,
+    pending_review: counts.pendingReview,
+    all: counts.all,
   };
 
   return (
@@ -161,23 +145,18 @@ function JobsHeader({
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`flex items-center gap-2 px-5 py-3 text-sm rounded-full whitespace-nowrap flex-shrink-0 transition-colors ${isActive
-                    ? tab.id === 'revisions'
-                      ? 'bg-amber-500 text-white font-semibold'
-                      : 'bg-[#007AFF] text-white font-semibold'
+                className={`flex items-center gap-2 px-5 py-3 text-sm rounded-full whitespace-nowrap flex-shrink-0 transition-colors ${
+                  isActive
+                    ? 'bg-[#007AFF] text-white font-semibold'
                     : 'bg-white border border-gray-200 text-[#86868b] hover:bg-gray-50'
-                  }`}
+                }`}
                 style={{ minHeight: '48px' }}
               >
                 <span>{tab.label}</span>
                 {showCount && (
                   <span
                     className={`min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold flex items-center justify-center ${
-                      isActive
-                        ? 'bg-white/25 text-white'
-                        : tab.id === 'revisions'
-                          ? 'bg-amber-500 text-white'
-                          : 'bg-[#007AFF] text-white'
+                      isActive ? 'bg-white/25 text-white' : 'bg-[#007AFF] text-white'
                     }`}
                   >
                     {count}
@@ -195,14 +174,12 @@ function JobsHeader({
 // Active Job Card Component (for scheduled/in_progress jobs)
 function ActiveJobCard({
   job,
-  isToday,
   onCall,
   onDirections,
   onStartJob,
   onViewDetails,
 }: {
   job: TechnicianJob;
-  isToday: boolean;
   onCall: () => void;
   onDirections: () => void;
   onStartJob: () => void;
@@ -304,53 +281,6 @@ function ActiveJobCard({
   );
 }
 
-// Completed Job Card Component (different layout per design)
-function CompletedJobCard({ job, onViewLead }: { job: TechnicianJob; onViewLead: () => void }) {
-  return (
-    <article className="flex flex-col gap-3 rounded-xl bg-white p-4 shadow-sm border border-gray-100">
-      {/* Top Row - Status & Date */}
-      <div className="flex items-start justify-between">
-        <span className="inline-flex items-center rounded-full bg-[rgba(52,199,89,0.1)] px-2.5 py-1 text-xs font-semibold text-[#34C759]">
-          <span className="mr-1 h-1.5 w-1.5 rounded-full bg-[#34C759]" />
-          Completed
-        </span>
-        <span className="text-xs font-medium text-[#86868b]">{formatShortDate(job.date)}</span>
-      </div>
-
-      {/* Client Info */}
-      <div className="space-y-1">
-        <h3 className="text-lg font-bold leading-tight text-[#1d1d1f]">{job.clientName}</h3>
-        <div className="flex items-center gap-1.5 text-sm text-[#86868b]">
-          <MapPin className="h-[18px] w-[18px]" />
-          <span>
-            {job.address}
-            {job.suburb && `, ${job.suburb}`}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5 text-sm text-[#86868b]">
-          {getJobTypeIcon(job.eventType, "h-[18px] w-[18px]")}
-          <span>{getJobTypeLabel(job.eventType)}</span>
-        </div>
-      </div>
-
-      {/* Completion Time */}
-      <div className="flex items-center gap-2 border-t border-gray-100 pt-3">
-        <CheckCircle2 className="h-5 w-5 text-[#34C759]" />
-        <p className="text-sm font-medium text-[#34C759]">Completed at {job.time}</p>
-      </div>
-
-      {/* View Lead Button */}
-      <button
-        onClick={onViewLead}
-        className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-[#f0f2f4] text-[#1d1d1f] text-sm font-semibold hover:bg-gray-200 transition-colors"
-      >
-        <Eye className="h-5 w-5" />
-        View Lead
-      </button>
-    </article>
-  );
-}
-
 // Empty State Component
 function EmptyState({
   tab,
@@ -362,12 +292,11 @@ function EmptyState({
   isLoading: boolean;
 }) {
   const messages: Record<JobTab, { title: string; subtitle: string }> = {
-    revisions: { title: 'No revisions needed', subtitle: 'All job completions are up to date' },
-    today: { title: 'No jobs scheduled for today', subtitle: 'Check back tomorrow' },
-    this_week: { title: 'No jobs scheduled this week', subtitle: 'Check back later' },
-    this_month: { title: 'No jobs scheduled this month', subtitle: 'Check back later' },
-    upcoming: { title: 'No upcoming jobs scheduled', subtitle: 'New jobs will appear here' },
-    completed: { title: 'No completed jobs yet', subtitle: 'Completed jobs will appear here' },
+    today: { title: 'No jobs today', subtitle: 'Check back later' },
+    this_week: { title: 'No jobs this week', subtitle: 'Check back later' },
+    overdue: { title: 'No overdue jobs', subtitle: "You're all caught up" },
+    pending_review: { title: 'No pending reviews', subtitle: 'Revisions from admin will appear here' },
+    all: { title: 'No jobs assigned', subtitle: 'New jobs will appear here' },
   };
 
   return (
@@ -436,38 +365,6 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
   );
 }
 
-// Revision Job Card Component
-function RevisionCard({ revision, onRevise }: { revision: RevisionJob; onRevise: () => void }) {
-  return (
-    <div className="bg-white rounded-xl border border-amber-200 p-4 shadow-sm space-y-3">
-      <div className="flex items-start justify-between">
-        <div className="space-y-1 min-w-0 flex-1">
-          <h3 className="text-lg font-bold text-[#1d1d1f] leading-tight">{revision.customerName}</h3>
-          <div className="flex items-center gap-1.5 text-sm text-[#86868b]">
-            <MapPin className="h-4 w-4 flex-shrink-0" />
-            <span className="truncate">{revision.address}{revision.suburb && `, ${revision.suburb}`}</span>
-          </div>
-        </div>
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 flex-shrink-0">
-          Revision
-        </span>
-      </div>
-      {revision.sendBackNote && (
-        <p className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
-          {revision.sendBackNote}
-        </p>
-      )}
-      <button
-        onClick={onRevise}
-        className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-amber-500 text-white text-sm font-bold active:scale-[0.98] transition-all"
-      >
-        Revise Job Completion
-        <ArrowRight className="h-5 w-5" />
-      </button>
-    </div>
-  );
-}
-
 // ============================================================================
 // MAIN PAGE COMPONENT
 // ============================================================================
@@ -475,14 +372,7 @@ function RevisionCard({ revision, onRevise }: { revision: RevisionJob; onRevise:
 export default function TechnicianJobs() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<JobTab>('today');
-  const { revisions, isLoading: revisionsLoading, count: revisionCount } = useRevisionJobs();
-
-  const isRevisionsTab = activeTab === 'revisions';
-  const jobsTab = isRevisionsTab ? 'today' : activeTab as TabFilter;
-  const { jobs, isLoading, error, refetch, counts } = useTechnicianJobs(jobsTab);
-
-  // Get today's date for comparison (YYYY-MM-DD in Melbourne timezone)
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' }).format(new Date());
+  const { jobs, isLoading, error, refetch, counts } = useTechnicianJobs(activeTab);
 
   // Group jobs by date
   const jobsByDate = jobs.reduce<Record<string, TechnicianJob[]>>((acc, job) => {
@@ -493,13 +383,11 @@ export default function TechnicianJobs() {
     return acc;
   }, {});
 
-  // Sort dates
-  const sortedDates = Object.keys(jobsByDate).sort((a, b) => {
-    if (activeTab === 'completed') {
-      return b.localeCompare(a); // Newest first
-    }
-    return a.localeCompare(b); // Earliest first
-  });
+  // Earliest date first across all tabs:
+  //   - Today: only one date, sort is a no-op
+  //   - This Week / All: chronological reads naturally
+  //   - Overdue: most-overdue-first surfaces longest-stale work at the top
+  const sortedDates = Object.keys(jobsByDate).sort((a, b) => a.localeCompare(b));
 
   // Handlers
   const handleCall = (phone: string) => {
@@ -529,31 +417,11 @@ export default function TechnicianJobs() {
   return (
     <div className="min-h-screen w-full flex flex-col bg-[#f5f7f8] overflow-x-hidden">
       {/* Sticky Header with Tabs */}
-      <JobsHeader
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        counts={{ revisions: revisionCount, ...counts }}
-      />
+      <JobsHeader activeTab={activeTab} onTabChange={setActiveTab} counts={counts} />
 
       {/* Scrollable Content */}
       <main className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
-        {isRevisionsTab ? (
-          revisionsLoading ? (
-            <LoadingState />
-          ) : revisions.length === 0 ? (
-            <EmptyState tab="revisions" onRefresh={refetch} isLoading={false} />
-          ) : (
-            <div className="space-y-4">
-              {revisions.map((rev) => (
-                <RevisionCard
-                  key={rev.leadId}
-                  revision={rev}
-                  onRevise={() => navigate(`/technician/job/${rev.leadId}`)}
-                />
-              ))}
-            </div>
-          )
-        ) : isLoading ? (
+        {isLoading ? (
           <LoadingState />
         ) : error ? (
           <ErrorState message={error} onRetry={refetch} />
@@ -563,8 +431,9 @@ export default function TechnicianJobs() {
           <>
             {sortedDates.map((date) => (
               <div key={date}>
-                {/* Date Header - show for multi-day views */}
-                {activeTab !== 'today' && activeTab !== 'revisions' && (
+                {/* Date Header — Today is single-date so a header adds no value;
+                    every other tab spans dates and benefits from grouping. */}
+                {activeTab !== 'today' && (
                   <h2 className="text-sm font-bold uppercase tracking-wider mb-3 px-1 text-[#86868b]">
                     {formatDateHeader(date)}
                   </h2>
@@ -572,21 +441,16 @@ export default function TechnicianJobs() {
 
                 {/* Jobs List */}
                 <div className="space-y-4">
-                  {jobsByDate[date].map((job) =>
-                    activeTab === 'completed' || job.status === 'completed' ? (
-                      <CompletedJobCard key={job.id} job={job} onViewLead={() => handleViewDetails(job)} />
-                    ) : (
-                      <ActiveJobCard
-                        key={job.id}
-                        job={job}
-                        isToday={job.date === today}
-                        onCall={() => handleCall(job.phone)}
-                        onDirections={() => handleDirections(job)}
-                        onStartJob={() => handleStartJob(job)}
-                        onViewDetails={() => handleViewDetails(job)}
-                      />
-                    )
-                  )}
+                  {jobsByDate[date].map((job) => (
+                    <ActiveJobCard
+                      key={job.id}
+                      job={job}
+                      onCall={() => handleCall(job.phone)}
+                      onDirections={() => handleDirections(job)}
+                      onStartJob={() => handleStartJob(job)}
+                      onViewDetails={() => handleViewDetails(job)}
+                    />
+                  ))}
                 </div>
               </div>
             ))}

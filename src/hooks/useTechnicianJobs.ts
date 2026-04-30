@@ -10,10 +10,9 @@ import { toast } from 'sonner';
 // Narrowed to match what the query actually returns post-Stage-1 filtering.
 // The full booking_status enum is scheduled | in_progress | completed | cancelled
 // | rescheduled, but the .in('status', ['scheduled', 'in_progress']) predicate
-// in the query rules out the other three. Stage 2 will clean up downstream tab
-// branches that compare against 'completed' / 'cancelled'.
+// in the query rules out the other three.
 export type JobStatus = 'scheduled' | 'in_progress';
-export type TabFilter = 'today' | 'this_week' | 'this_month' | 'upcoming' | 'completed';
+export type TabFilter = 'today' | 'this_week' | 'overdue' | 'pending_review' | 'all';
 
 export interface TechnicianJob {
   id: string;
@@ -23,6 +22,7 @@ export interface TechnicianJob {
   title: string;
   eventType: string;
   status: JobStatus;
+  leadStatus: string;
   // Date/Time
   startDatetime: string;
   endDatetime: string;
@@ -56,9 +56,9 @@ interface UseTechnicianJobsResult {
   counts: {
     today: number;
     thisWeek: number;
-    thisMonth: number;
-    upcoming: number;
-    completed: number;
+    overdue: number;
+    pendingReview: number;
+    all: number;
   };
 }
 
@@ -74,12 +74,25 @@ function getTodayDate(): string {
 }
 
 /**
- * Get date N days from today in YYYY-MM-DD format
+ * Monday–Sunday range for the current week in Melbourne timezone, as YYYY-MM-DD.
+ * Parses today's Melbourne date string into a UTC-midnight Date so weekday
+ * arithmetic doesn't drift across the date line.
  */
-function getDateOffset(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' }).format(date);
+function getThisWeekRange(): { start: string; end: string } {
+  const todayStr = getTodayDate();
+  const today = new Date(todayStr + 'T00:00:00Z');
+  const dayOfWeek = today.getUTCDay(); // 0 = Sunday … 6 = Saturday
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+  const monday = new Date(today);
+  monday.setUTCDate(today.getUTCDate() - daysFromMonday);
+
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+
+  const fmt = (d: Date) =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  return { start: fmt(monday), end: fmt(sunday) };
 }
 
 /**
@@ -215,6 +228,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
           title: booking.title || 'Inspection',
           eventType: booking.event_type || 'inspection',
           status: (booking.status as JobStatus) || 'scheduled',
+          leadStatus: lead?.status || '',
           startDatetime: booking.start_datetime,
           endDatetime: booking.end_datetime,
           date: extractDate(booking.start_datetime),
@@ -301,40 +315,36 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
     };
   }, [user?.id, fetchJobs]);
 
-  // Filter jobs based on active tab
+  // Filter jobs based on active tab. Tabs are non-overlapping — Overdue lives
+  // in its own tab so stale work is visible but doesn't bleed into Today/Week/All.
+  // Server query already restricts to actionable booking + lead statuses, so no
+  // need to filter on job.status here.
   const today = getTodayDate();
-  const weekEnd = getDateOffset(7);
-  const monthEnd = getDateOffset(30);
-
-  // Overdue = scheduled in the past but not completed/cancelled
-  const isOverdue = (job: TechnicianJob) =>
-    job.date < today && job.status !== 'completed' && job.status !== 'cancelled';
+  const { start: weekStart, end: weekEnd } = getThisWeekRange();
 
   const filteredJobs = allJobs.filter((job) => {
     switch (activeTab) {
       case 'today':
-        return (job.date === today && job.status !== 'completed') || isOverdue(job);
+        return job.date === today;
       case 'this_week':
-        return (job.date >= today && job.date <= weekEnd && job.status !== 'completed') || isOverdue(job);
-      case 'this_month':
-        return (job.date >= today && job.date <= monthEnd && job.status !== 'completed') || isOverdue(job);
-      case 'upcoming':
-        return (job.date >= today && job.status !== 'completed') || isOverdue(job);
-      case 'completed':
-        return job.status === 'completed';
+        return job.date >= weekStart && job.date <= weekEnd;
+      case 'overdue':
+        return job.date < today;
+      case 'pending_review':
+        return job.leadStatus === 'pending_review';
+      case 'all':
+        return true;
       default:
         return true;
     }
   });
 
-  // Calculate counts for each tab
-  const overdueCount = allJobs.filter(isOverdue).length;
   const counts = {
-    today: allJobs.filter((j) => j.date === today && j.status !== 'completed').length + overdueCount,
-    thisWeek: allJobs.filter((j) => j.date >= today && j.date <= weekEnd && j.status !== 'completed').length + overdueCount,
-    thisMonth: allJobs.filter((j) => j.date >= today && j.date <= monthEnd && j.status !== 'completed').length + overdueCount,
-    upcoming: allJobs.filter((j) => j.date >= today && j.status !== 'completed').length + overdueCount,
-    completed: allJobs.filter((j) => j.status === 'completed').length,
+    today: allJobs.filter((j) => j.date === today).length,
+    thisWeek: allJobs.filter((j) => j.date >= weekStart && j.date <= weekEnd).length,
+    overdue: allJobs.filter((j) => j.date < today).length,
+    pendingReview: allJobs.filter((j) => j.leadStatus === 'pending_review').length,
+    all: allJobs.length,
   };
 
   return {
