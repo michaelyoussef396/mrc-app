@@ -26,6 +26,7 @@ type JobTab = TabFilter;
 const TABS: { id: JobTab; label: string }[] = [
   { id: 'today', label: 'Today' },
   { id: 'this_week', label: 'This Week' },
+  { id: 'this_month', label: 'This Month' },
   { id: 'overdue', label: 'Overdue' },
   { id: 'pending_review', label: 'Pending Review' },
   { id: 'all', label: 'All' },
@@ -113,6 +114,7 @@ function JobsHeader({
   counts: {
     today: number;
     thisWeek: number;
+    thisMonth: number;
     overdue: number;
     pendingReview: number;
     all: number;
@@ -121,6 +123,7 @@ function JobsHeader({
   const countByTab: Record<JobTab, number> = {
     today: counts.today,
     this_week: counts.thisWeek,
+    this_month: counts.thisMonth,
     overdue: counts.overdue,
     pending_review: counts.pendingReview,
     all: counts.all,
@@ -294,6 +297,7 @@ function EmptyState({
   const messages: Record<JobTab, { title: string; subtitle: string }> = {
     today: { title: 'No jobs today', subtitle: 'Check back later' },
     this_week: { title: 'No jobs this week', subtitle: 'Check back later' },
+    this_month: { title: 'No jobs this month', subtitle: 'Check back later' },
     overdue: { title: 'No overdue jobs', subtitle: "You're all caught up" },
     pending_review: { title: 'No pending reviews', subtitle: 'Revisions from admin will appear here' },
     all: { title: 'No jobs assigned', subtitle: 'New jobs will appear here' },
