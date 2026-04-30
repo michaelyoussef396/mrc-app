@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 // | rescheduled, but the .in('status', ['scheduled', 'in_progress']) predicate
 // in the query rules out the other three.
 export type JobStatus = 'scheduled' | 'in_progress';
-export type TabFilter = 'today' | 'this_week' | 'overdue' | 'pending_review' | 'all';
+export type TabFilter = 'today' | 'this_week' | 'this_month' | 'overdue' | 'pending_review' | 'all';
 
 export interface TechnicianJob {
   id: string;
@@ -56,6 +56,7 @@ interface UseTechnicianJobsResult {
   counts: {
     today: number;
     thisWeek: number;
+    thisMonth: number;
     overdue: number;
     pendingReview: number;
     all: number;
@@ -93,6 +94,24 @@ function getThisWeekRange(): { start: string; end: string } {
   const fmt = (d: Date) =>
     `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
   return { start: fmt(monday), end: fmt(sunday) };
+}
+
+/**
+ * Calendar-month range (1st → last day) of the current Melbourne month, as YYYY-MM-DD.
+ * Date.UTC(year, month + 1, 0) returns the last day of `month` (day 0 of next month).
+ */
+function getThisMonthRange(): { start: string; end: string } {
+  const todayStr = getTodayDate();
+  const today = new Date(todayStr + 'T00:00:00Z');
+  const year = today.getUTCFullYear();
+  const month = today.getUTCMonth();
+
+  const firstDay = new Date(Date.UTC(year, month, 1));
+  const lastDay = new Date(Date.UTC(year, month + 1, 0));
+
+  const fmt = (d: Date) =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  return { start: fmt(firstDay), end: fmt(lastDay) };
 }
 
 /**
@@ -321,6 +340,13 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
   // need to filter on job.status here.
   const today = getTodayDate();
   const { start: weekStart, end: weekEnd } = getThisWeekRange();
+  const { start: monthStart, end: monthEnd } = getThisMonthRange();
+
+  // This Month bound: today → end-of-month. The `>= today` clamp keeps overdue
+  // (past-dated) jobs out of This Month so Overdue stays the single home for
+  // stale work — non-overlapping tabs.
+  const inThisMonth = (jobDate: string) =>
+    jobDate >= monthStart && jobDate <= monthEnd && jobDate >= today;
 
   const filteredJobs = allJobs.filter((job) => {
     switch (activeTab) {
@@ -328,6 +354,8 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
         return job.date === today;
       case 'this_week':
         return job.date >= weekStart && job.date <= weekEnd;
+      case 'this_month':
+        return inThisMonth(job.date);
       case 'overdue':
         return job.date < today;
       case 'pending_review':
@@ -342,6 +370,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
   const counts = {
     today: allJobs.filter((j) => j.date === today).length,
     thisWeek: allJobs.filter((j) => j.date >= weekStart && j.date <= weekEnd).length,
+    thisMonth: allJobs.filter((j) => inThisMonth(j.date)).length,
     overdue: allJobs.filter((j) => j.date < today).length,
     pendingReview: allJobs.filter((j) => j.leadStatus === 'pending_review').length,
     all: allJobs.length,
