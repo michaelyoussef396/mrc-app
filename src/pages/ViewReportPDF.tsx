@@ -40,8 +40,8 @@ import {
   generateInspectionPDF,
   approvePDF,
   getPDFVersionHistory,
-  updateFieldAndRegenerate
 } from '@/lib/api/pdfGeneration'
+import { StalePdfBanner } from '@/components/pdf/StalePdfBanner'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
 import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
@@ -652,7 +652,6 @@ export default function ViewReportPDF() {
       setJobEditOpen(false)
       setJobEditField(null)
       setJobPdfUrlOverride(null)
-      await handleGeneratePDF()
     } catch (err) {
       toast.error('Failed to update field')
       console.error(err)
@@ -781,7 +780,6 @@ export default function ViewReportPDF() {
       setJobReplacingPhotoId(null)
       setJobPdfUrlOverride(null)
       refetchJobPhotos()
-      await handleGeneratePDF()
     } catch (err) {
       console.error('Photo swap failed:', err)
       toast.error('Failed to swap photo')
@@ -1293,7 +1291,6 @@ export default function ViewReportPDF() {
 
   async function handleImageUploadSuccess() {
     toast.success('Image uploaded!', { id: 'image-upload' })
-    await handleGeneratePDF()
     setImageModalOpen(false)
     setEditingImage(null)
   }
@@ -1375,7 +1372,6 @@ export default function ViewReportPDF() {
       if (error) throw error
 
       toast.success(`${key === 'what_we_found' ? 'What We Found' : "What We're Going To Do"} updated`)
-      await handleGeneratePDF()
     } catch (error) {
       console.error('VP save failed:', error)
       toast.error('Failed to save')
@@ -1395,7 +1391,6 @@ export default function ViewReportPDF() {
       if (error) throw error
 
       toast.success('Problem Analysis updated')
-      await handleGeneratePDF()
     } catch (error) {
       console.error('PA save failed:', error)
       toast.error('Failed to save')
@@ -1415,7 +1410,6 @@ export default function ViewReportPDF() {
       if (error) throw error
 
       toast.success('Demolition content updated')
-      await handleGeneratePDF()
     } catch (error) {
       console.error('Demolition save failed:', error)
       toast.error('Failed to save')
@@ -1440,7 +1434,6 @@ export default function ViewReportPDF() {
         outdoor_dew_point: 'Dew Point',
       }
       toast.success(`${labelMap[key] || key} updated`)
-      await handleGeneratePDF()
     } catch (error) {
       console.error('Outdoor save failed:', error)
       toast.error('Failed to save')
@@ -1474,7 +1467,6 @@ export default function ViewReportPDF() {
       setSubfloorData(prev => prev ? { ...prev, [column]: value } : prev)
 
       toast.success(`Subfloor ${field} updated`)
-      await handleGeneratePDF()
     } catch (error) {
       console.error('Subfloor save failed:', error)
       toast.error('Failed to save')
@@ -1497,7 +1489,6 @@ export default function ViewReportPDF() {
       )
 
       toast.success('Moisture reading updated')
-      await handleGeneratePDF()
     } catch (error) {
       console.error('Subfloor reading save failed:', error)
       toast.error('Failed to save reading')
@@ -1529,7 +1520,7 @@ export default function ViewReportPDF() {
 
       if (error) throw error
 
-      // Update local state so UI reflects changes before PDF regenerates
+      // Update local state so UI reflects the saved changes
       setInspection(prev => prev ? {
         ...prev,
         labour_cost_ex_gst: costs.labour_cost_ex_gst,
@@ -1546,7 +1537,6 @@ export default function ViewReportPDF() {
       } : null)
 
       toast.success('Estimate updated')
-      await handleGeneratePDF()
     } catch (error) {
       console.error('Cost save failed:', error)
       toast.error('Failed to save estimate')
@@ -1631,7 +1621,6 @@ export default function ViewReportPDF() {
       toast.success('Subfloor photo swapped')
       setReplacingSubfloorPhotoId(null)
       await loadSubfloorPhotos()
-      await handleGeneratePDF()
     } catch (err) {
       console.error('Swap subfloor photo failed:', err)
       toast.error('Failed to swap photo')
@@ -1683,7 +1672,6 @@ export default function ViewReportPDF() {
       toast.success('Area updated')
       setAreaEditOpen(false)
       setEditingAreaId(null)
-      await handleGeneratePDF()
 
       // Refresh areas data
       const { data: areas } = await supabase
@@ -1783,8 +1771,7 @@ export default function ViewReportPDF() {
     try {
       await deleteInspectionPhoto(photoId)
       setAreaPhotos(prev => prev.filter(p => p.id !== photoId))
-      toast.success('Photo deleted — regenerating PDF...')
-      await handleGeneratePDF()
+      toast.success('Photo deleted')
     } catch (err) {
       console.error('Delete area photo failed:', err)
       toast.error('Failed to delete photo')
@@ -1831,7 +1818,6 @@ export default function ViewReportPDF() {
       setPrimaryPhotoId(photoId)
 
       toast.success('Area photo updated')
-      await handleGeneratePDF()
     } catch (error) {
       console.error('Failed to set area photo:', error)
       toast.error('Failed to set area photo')
@@ -1961,9 +1947,6 @@ export default function ViewReportPDF() {
           }
         }
       }
-
-      // Regenerate PDF with new data
-      await handleGeneratePDF()
     } catch (error) {
       console.error('Page 1 save failed:', error)
       toast.error('Failed to save')
@@ -1999,7 +1982,6 @@ export default function ViewReportPDF() {
         .eq('id', photoId)
 
       toast.success('Cover photo updated')
-      await handleGeneratePDF()
     } catch (error) {
       console.error('Failed to set cover photo:', error)
       toast.error('Failed to set cover photo')
@@ -2038,7 +2020,6 @@ export default function ViewReportPDF() {
       })
 
       toast.success('Photo updated')
-      await handleGeneratePDF()
     } catch (error) {
       console.error('Photo upload failed:', error)
       toast.error('Failed to upload photo')
@@ -2404,6 +2385,16 @@ export default function ViewReportPDF() {
           </div>
         </div>
       </header>
+
+      {reportType === 'inspection' && (
+        <div className="px-4 pt-3 max-w-6xl w-full mx-auto">
+          <StalePdfBanner
+            inspectionId={inspection?.id}
+            isRegenerating={generating}
+            onRegenerate={handleGeneratePDF}
+          />
+        </div>
+      )}
 
       {/* Version History Panel */}
       {showVersions && displayVersions.length > 0 && (
@@ -3049,7 +3040,6 @@ export default function ViewReportPDF() {
           }}
           onSuccess={async () => {
             await loadInspection()
-            await handleGeneratePDF()
           }}
         />
       )}

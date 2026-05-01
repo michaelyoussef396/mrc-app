@@ -1,5 +1,10 @@
 // PDF Generation API Helper
 // Calls the generate-inspection-pdf Supabase Edge Function
+//
+// PDF regeneration is user-explicit only. Save handlers must NOT chain a
+// PDF regen call. The Stale PDF banner surfaces a Regenerate button when
+// the latest AI summary is newer than the latest PDF version. See
+// docs/inspection-workflow-fix-plan-v2-2026-04-30.md, Stage 1.4.
 
 import { supabase } from '@/integrations/supabase/client'
 import { addBusinessBreadcrumb, captureBusinessError } from '@/lib/sentry'
@@ -118,13 +123,11 @@ export async function generateInspectionPDF(
 }
 
 /**
- * Update a field and regenerate the PDF
- * @param inspectionId - The UUID of the inspection
- * @param fieldKey - The field key to update
- * @param newValue - The new value for the field
- * @returns Updated PDF result
+ * Update a single editable field on inspections or leads, looked up via
+ * the editable_fields table. Does NOT regenerate the PDF — regen is
+ * user-explicit (see file header).
  */
-export async function updateFieldAndRegenerate(
+export async function updateInspectionField(
   inspectionId: string,
   fieldKey: string,
   newValue: string | number | boolean
@@ -139,7 +142,6 @@ export async function updateFieldAndRegenerate(
       }
     }
 
-    // First, fetch the editable field metadata to know which table/column to update
     const { data: fieldMeta, error: metaError } = await supabase
       .from('editable_fields')
       .select('field_table, field_column')
@@ -153,8 +155,6 @@ export async function updateFieldAndRegenerate(
       }
     }
 
-    // Update the field in the appropriate table
-    // For now, we handle the common cases
     if (fieldMeta.field_table === 'inspections') {
       const { error: updateError } = await supabase
         .from('inspections')
@@ -172,7 +172,6 @@ export async function updateFieldAndRegenerate(
         }
       }
     } else if (fieldMeta.field_table === 'leads') {
-      // Need to get the lead_id from the inspection first
       const { data: inspection, error: inspError } = await supabase
         .from('inspections')
         .select('lead_id')
@@ -199,10 +198,9 @@ export async function updateFieldAndRegenerate(
       }
     }
 
-    // Regenerate the PDF with the updated data
-    return generateInspectionPDF(inspectionId, { regenerate: true })
+    return { success: true }
   } catch (error) {
-    console.error('Update and regenerate error:', error)
+    console.error('Update inspection field error:', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
