@@ -10,6 +10,35 @@
 -- trigger fires before commit).
 --
 -- Run via Supabase Studio SQL editor or `psql` against the project DB.
+--
+-- =============================================================================
+-- PREREQUISITES — verify these BEFORE running any of the SQL tests below
+-- =============================================================================
+--
+-- These SQL tests verify the DB-side trigger + helper layer. They do NOT
+-- exercise the EF runtime's environment, where SYSTEM_USER_UUID actually
+-- lives. The Phase 2 close-out caught this gap: SQL tests passed end-to-end
+-- while the Supabase EF secret was missing, because the SQL tests set the
+-- session variable directly. Don't rely on these tests alone to claim
+-- Phase 2 attribution is functional — exercise the EF runtime layer too.
+--
+-- Mandatory checks before running these tests:
+--
+-- 1. Supabase EF secret set:
+--    npx supabase secrets list --project-ref ecyivrxjpsmjmexqatym | grep SYSTEM_USER_UUID
+--    Expected: a non-empty digest. Missing or empty = secret never landed.
+--
+-- 2. Vercel env var set on BOTH Production and Preview:
+--    Dashboard → Project → Settings → Environment Variables → VITE_SYSTEM_USER_UUID
+--    Or: vercel env ls (look for both scopes)
+--
+-- 3. At least one Bucket B EF has been invoked post-deploy:
+--    Invoke check-overdue-invoices via Supabase Studio (or curl with anon JWT)
+--    on a test invoice in 'sent' status with a past due_date. Then run Test 6
+--    of this file (or query audit_logs directly) to confirm the audit_logs
+--    row carries SYSTEM_USER_UUID, NOT NULL.
+--
+-- Without all three checks passing, the SQL tests below are insufficient.
 
 -- ---------------------------------------------------------------------------
 -- Test 3 — Session variable fallback (auth.uid() NULL, var SET)

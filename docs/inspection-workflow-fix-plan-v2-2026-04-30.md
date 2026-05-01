@@ -235,6 +235,8 @@ Attribution architecture chosen (per the v2 plan's executing-agent discretion):
 
 Verification passed: Test 3 (session var fallback), Test 4 (JWT precedence), Test 5 (audited_insert_lead_via_framer end-to-end), Test 6 (audited_mark_invoice_overdue end-to-end). Helpers SQL: `docs/phase-2-verification-helpers.sql`. End-to-end user matrix for post-merge: `docs/phase-2-verification-matrix.md`.
 
+**POST-CLOSURE FINDING (2026-05-01):** `SYSTEM_USER_UUID` was confirmed verbally during Stage 2.0b but never actually set on Supabase Edge Function secrets. Discovered when first `check-overdue-invoices` cron invocation post-deploy wrote `audit_logs.user_id = NULL`. Diagnosed via `npx supabase secrets list --project-ref ecyivrxjpsmjmexqatym | grep SYSTEM_USER_UUID` (showed nothing). Fixed via `npx supabase secrets set SYSTEM_USER_UUID=a5ae96f1-af3d-4e50-b7ec-1cab01bdec3f --project-ref ecyivrxjpsmjmexqatym`; re-invoking the cron confirmed `user_id = a5ae96f1-...` on the next audit row. Two permanent NULL-attributed `audit_logs` rows resulted as testing artefacts (07:07:47 cron pre-fix, 07:09:11 my pre-test reset). Going forward: env var changes must be verified via CLI output or dashboard screenshot, not textual confirmation. Lesson captured in persistent memory at `feedback_env_var_verification.md` and reflected in the verification preludes added to `docs/system-user-uuid.md`, `docs/phase-2-verification-helpers.sql`, and `docs/edge-function-attribution-manifest.md`.
+
 #### Stage 2.0 — Edge Function user_id propagation pattern
 
 - **Dependency:** PR-A and PR-B in production

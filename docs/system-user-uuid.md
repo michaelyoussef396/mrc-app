@@ -22,6 +22,22 @@ Set in two places. Both must hold the same value.
 - Scope: Production AND Preview
 - Set via Vercel Dashboard → Project → Settings → Environment Variables, or `vercel env add`
 
+## Verification (mandatory after every set / rotation)
+
+After setting `SYSTEM_USER_UUID` via Supabase dashboard or CLI, **ALWAYS** verify it actually landed:
+
+```bash
+npx supabase secrets list --project-ref ecyivrxjpsmjmexqatym | grep SYSTEM_USER_UUID
+```
+
+If the row is missing or the digest is empty, the secret never propagated to EF runtime. **A textual confirmation in chat is not verification.** Phase 2 surfaced exactly this failure mode: the previous session's Stage 2.0b accepted a verbal confirmation; the secret wasn't actually set; the first cron invocation post-deploy wrote `user_id = NULL` (see the Stage 2.0b POST-CLOSURE FINDING footnote in `docs/inspection-workflow-fix-plan-v2-2026-04-30.md`).
+
+For Vercel, equivalent verification is either:
+- Vercel dashboard screenshot showing both Production AND Preview rows, OR
+- `vercel env ls` output showing both scopes
+
+**The full attribution chain is only verified end-to-end by invoking a real Bucket B EF and SQL-checking the audit_logs row.** Setting the secret + listing it confirms presence; only an actual EF invocation confirms the runtime can read it.
+
 ## Why a sentinel and not NULL
 
 Section 6.1 exit criterion D of the master fix plan defines a data-integrity incident as "a row in any audited table whose audit_logs shows a write that does not have a corresponding application-layer event — i.e. an unattributed write that escaped the user_id propagation pattern." Validated daily by:
