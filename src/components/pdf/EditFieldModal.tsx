@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Loader2, Save, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { updateFieldAndRegenerate } from '@/lib/api/pdfGeneration'
+import { updateInspectionField } from '@/lib/api/pdfGeneration'
 
 interface EditableField {
   field_key: string
@@ -158,7 +158,7 @@ export function EditFieldModal({
         }
       }
 
-      const result = await updateFieldAndRegenerate(
+      const result = await updateInspectionField(
         inspectionId,
         field.field_key,
         finalValue
