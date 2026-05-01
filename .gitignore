@@ -58,3 +58,9 @@ supabase/.temp/
 
 # Email preview screenshots in repo root — local-only, not committed
 /email-preview-*.png
+
+# GitNexus local index (KuzuDB graph database, machine-local, regenerable)
+.gitnexus/
+
+# GitNexus backup snapshots (local-only rollback insurance)
+.gitnexus-backup-*/
