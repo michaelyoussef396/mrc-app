@@ -3296,7 +3296,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         // Backward compat: keep old boolean columns in sync
         hepa_vac: formData.selectedTreatmentMethods.includes('HEPA Vacuuming'),
         antimicrobial: formData.selectedTreatmentMethods.includes('Surface Remediation Treatment'),
-        stain_removing_antimicrobial: false,
+        stain_removing_antimicrobial: formData.stainRemovingAntimicrobial,
         home_sanitation_fogging: formData.selectedTreatmentMethods.includes('ULV Fogging - Property'),
         drying_equipment_enabled: formData.selectedTreatmentMethods.includes('Drying Equipment'),
         commercial_dehumidifier_enabled: formData.commercialDehumidifierEnabled,
