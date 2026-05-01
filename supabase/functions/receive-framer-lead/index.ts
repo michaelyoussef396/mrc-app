@@ -374,17 +374,31 @@ async function insertLeadWithRetry(
   supabase: any,
   // deno-lint-ignore no-explicit-any
   leadRow: Record<string, any>,
+  systemUserUuid: string,
   maxRetries = 3,
 // deno-lint-ignore no-explicit-any
 ): Promise<{ data: any; error: any }> {
+  // Audit attribution: insert via the audited_insert_lead_via_framer RPC
+  // so set_config('app.acting_user_id', SYSTEM_USER_UUID) and the INSERT
+  // run in one transaction. See docs/edge-function-attribution-manifest.md.
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const result = await supabase.from('leads').insert(leadRow).select('id').single()
-    if (!result.error) return result
-    console.error(`Lead insert attempt ${attempt}/${maxRetries} failed:`, result.error.message)
+    const result = await supabase.rpc('audited_insert_lead_via_framer', {
+      p_acting_user_id: systemUserUuid,
+      p_payload: leadRow,
+    })
+    if (!result.error && result.data) {
+      return { data: { id: result.data }, error: null }
+    }
+    console.error(
+      `Lead insert attempt ${attempt}/${maxRetries} failed:`,
+      result.error?.message || 'No id returned',
+    )
     if (attempt < maxRetries) {
       await new Promise(r => setTimeout(r, 500 * Math.pow(3, attempt - 1)))
     } else {
-      return result
+      return result.error
+        ? { data: null, error: result.error }
+        : { data: null, error: { message: 'No lead id returned' } }
     }
   }
   return { data: null, error: { message: 'All retries exhausted' } }
@@ -418,6 +432,14 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const supabase = createClient(supabaseUrl, supabaseKey)
+
+  // System user UUID for audit attribution on the leads INSERT and the
+  // email_logs INSERT below. See docs/edge-function-attribution-manifest.md
+  // and docs/system-user-uuid.md.
+  const systemUserUuid = Deno.env.get('SYSTEM_USER_UUID')
+  if (!systemUserUuid) {
+    console.error('[receive-framer-lead] SYSTEM_USER_UUID env var not set — audit attribution will be NULL')
+  }
 
   // --- Read raw body FIRST ---
   const rawBody = await req.text()
@@ -669,7 +691,11 @@ Deno.serve(async (req) => {
       possible_duplicate_of: possibleDuplicateOf,
     }
 
-    const { data: leadData, error: insertError } = await insertLeadWithRetry(supabase, leadRow)
+    const { data: leadData, error: insertError } = await insertLeadWithRetry(
+      supabase,
+      leadRow,
+      systemUserUuid || '',
+    )
 
     if (insertError) {
       const errMsg = `Lead insert failed after 3 retries: ${insertError.message}`
@@ -738,6 +764,7 @@ Deno.serve(async (req) => {
             template_name: 'framer_lead_confirmation',
             status: 'sent', provider: 'resend',
             provider_message_id: emailData?.id || null,
+            sent_by: systemUserUuid || null,
             sent_at: new Date().toISOString(),
           })
         }

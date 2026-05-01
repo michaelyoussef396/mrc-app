@@ -13,6 +13,10 @@ interface SendEmailParams {
   leadId?: string;
   inspectionId?: string;
   templateName?: string;
+  // Sender attribution for email_logs.sent_by. Auto-resolved from the
+  // current Supabase session if not explicitly provided. See
+  // docs/edge-function-attribution-manifest.md.
+  userId?: string;
   attachments?: Array<{
     filename: string;
     content: string;
@@ -301,10 +305,19 @@ export function buildInspectionReminderHtml(data: InspectionReminderData): strin
 /**
  * Send an email via the `send-email` Supabase Edge Function.
  * Fire-and-forget — failures are logged, never thrown.
+ *
+ * Resolves userId from the current session if the caller didn't pass one,
+ * so email_logs.sent_by gets populated for sender attribution.
  */
 export async function sendEmail(params: SendEmailParams): Promise<void> {
+  let userId = params.userId;
+  if (!userId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    userId = session?.user?.id;
+  }
+
   const { data, error } = await supabase.functions.invoke('send-email', {
-    body: params,
+    body: { ...params, userId },
   });
 
   if (error) {
