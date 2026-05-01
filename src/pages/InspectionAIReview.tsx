@@ -3,7 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { captureBusinessError } from '@/lib/sentry';
+import { generateInspectionPDF } from '@/lib/api/pdfGeneration';
 import AdminSidebar from '@/components/admin/AdminSidebar';
+import { StalePdfBanner } from '@/components/pdf/StalePdfBanner';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -105,6 +107,7 @@ export default function InspectionAIReview() {
   // Regeneration state
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
   const [regeneratingAll, setRegeneratingAll] = useState(false);
+  const [regeneratingPdf, setRegeneratingPdf] = useState(false);
 
   // Track dirty state
   const [isDirty, setIsDirty] = useState(false);
@@ -318,6 +321,33 @@ export default function InspectionAIReview() {
     }
   };
 
+  const handleRegeneratePdf = async () => {
+    if (!inspection?.id) return;
+    if (isDirty) {
+      toast({
+        title: 'Unsaved changes',
+        description: 'Save the AI summary before regenerating the PDF.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setRegeneratingPdf(true);
+    try {
+      const result = await generateInspectionPDF(inspection.id, { regenerate: true });
+      if (!result.success) throw new Error(result.error || 'PDF generation failed');
+      toast({ title: 'PDF regenerated', description: 'A new version was created.' });
+    } catch (err: any) {
+      captureBusinessError('Regenerate PDF failed', { inspectionId: inspection.id, error: err?.message });
+      toast({
+        title: 'Failed to regenerate PDF',
+        description: err?.message || 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setRegeneratingPdf(false);
+    }
+  };
+
   const hasDemolition = areas.some(a => a.demolition_required);
 
   if (loading) {
@@ -389,6 +419,19 @@ export default function InspectionAIReview() {
                 {saving ? 'Saving...' : 'Save Draft'}
               </button>
               <button
+                onClick={handleRegeneratePdf}
+                disabled={regeneratingPdf || isDirty}
+                title={isDirty ? 'Save the AI summary first' : 'Regenerate the PDF report'}
+                className="h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {regeneratingPdf ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-5 w-5" />
+                )}
+                {regeneratingPdf ? 'Regenerating PDF...' : 'Regenerate PDF'}
+              </button>
+              <button
                 onClick={handleApprove}
                 className="h-10 px-4 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm"
               >
@@ -402,6 +445,13 @@ export default function InspectionAIReview() {
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-[1440px] mx-auto p-4 md:p-6 lg:p-8">
+            <div className="mb-4">
+              <StalePdfBanner
+                inspectionId={inspection?.id}
+                isRegenerating={regeneratingPdf}
+                onRegenerate={handleRegeneratePdf}
+              />
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
               {/* Left Column — Context Card */}
