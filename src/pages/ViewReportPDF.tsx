@@ -1990,22 +1990,9 @@ export default function ViewReportPDF() {
     setPhotoUploading(true)
     setPhotoPickerOpen(false)
     try {
-      // Remove old front_house caption from any existing photo
-      const { data: existing } = await supabase
-        .from('photos')
-        .select('id')
-        .eq('inspection_id', inspection.id)
-        .eq('caption', 'front_house')
-
-      if (existing) {
-        for (const p of existing) {
-          if (p.id !== photoId) {
-            await supabase.from('photos').update({ caption: null }).eq('id', p.id)
-          }
-        }
-      }
-
-      // Set selected photo as front_house
+      // Set selected photo as front_house. Previously-marked photos retain
+      // their caption — clearing it would destroy human-entered descriptions
+      // when the caption column is later repurposed for free-form text.
       await supabase
         .from('photos')
         .update({ caption: 'front_house', photo_type: 'outdoor' })
