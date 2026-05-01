@@ -61,8 +61,13 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
   const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const SLACK_WEBHOOK_URL = Deno.env.get('SLACK_WEBHOOK_URL') ?? ''
+  const SYSTEM_USER_UUID = Deno.env.get('SYSTEM_USER_UUID')
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+
+  if (!SYSTEM_USER_UUID) {
+    console.error('[check-overdue-invoices] SYSTEM_USER_UUID env var not set — audit attribution will be NULL')
+  }
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -95,12 +100,15 @@ Deno.serve(async (req) => {
         const diffMs = today.getTime() - dueDate.getTime()
         const daysOverdue = Math.round(diffMs / (1000 * 60 * 60 * 24))
 
-        // First-time transition from sent -> overdue
+        // First-time transition from sent -> overdue.
+        // Audited write: routed through audited_mark_invoice_overdue RPC so
+        // set_config('app.acting_user_id', SYSTEM_USER_UUID) and the UPDATE
+        // run in one transaction. See docs/edge-function-attribution-manifest.md.
         if (inv.status === 'sent') {
-          const { error: updateErr } = await supabase
-            .from('invoices')
-            .update({ status: 'overdue' })
-            .eq('id', inv.id)
+          const { error: updateErr } = await supabase.rpc('audited_mark_invoice_overdue', {
+            p_acting_user_id: SYSTEM_USER_UUID || null,
+            p_invoice_id: inv.id,
+          })
           if (updateErr) {
             errors.push(`Failed to mark ${inv.invoice_number} overdue: ${updateErr.message}`)
             continue

@@ -1568,8 +1568,9 @@ Deno.serve(async (req) => {
     // Get Supabase credentials
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
 
-    if (!supabaseUrl || !supabaseServiceKey) {
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
       console.error('Missing Supabase credentials')
       return new Response(
         JSON.stringify({ error: 'Server configuration error' }),
@@ -1577,7 +1578,24 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Service-role client for cross-row reads (template fetch, full inspection
+    // join). Used for SELECTs only.
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // JWT-bound client for audited writes. The Authorization header is
+    // forwarded so auth.uid() captures the calling admin inside the
+    // audit_log_trigger() — see docs/edge-function-attribution-manifest.md.
+    // Falls back to the service-role client if no Authorization header is
+    // present (which would be unexpected for this EF; logged below).
+    const authHeader = req.headers.get('Authorization')
+    const supabaseAudited = authHeader
+      ? createClient(supabaseUrl, supabaseAnonKey, {
+          global: { headers: { Authorization: authHeader } },
+        })
+      : supabase
+    if (!authHeader) {
+      console.warn('[generate-inspection-pdf] No Authorization header — audit attribution will be NULL')
+    }
 
     // Parse and validate request body
     let rawBody: unknown
@@ -1795,7 +1813,7 @@ Deno.serve(async (req) => {
     const newVersion = regenerate ? (inspection.pdf_version || 0) + 1 : (inspection.pdf_version || 1)
 
     if (returnHtml) {
-      await supabase
+      await supabaseAudited
         .from('inspections')
         .update({
           pdf_version: newVersion,
@@ -1840,8 +1858,9 @@ Deno.serve(async (req) => {
 
     const reportUrl = urlData.publicUrl
 
-    // Update inspection record
-    const { error: updateError } = await supabase
+    // Update inspection record (audited write — uses JWT-bound client so
+    // audit_log_trigger() captures the calling admin's UUID)
+    const { error: updateError } = await supabaseAudited
       .from('inspections')
       .update({
         pdf_url: reportUrl,
