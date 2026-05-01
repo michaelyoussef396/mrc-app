@@ -16,7 +16,7 @@ React 18 + TypeScript + Supabase + Vite + Tailwind + shadcn/ui | PWA with offlin
 - /src/hooks — custom hooks
 - /src/types — all TypeScript types
 - /src/lib — Supabase client + utils
-- /supabase/functions — 10 Edge Functions
+- /supabase/functions — 12 Edge Functions (canonical list: `docs/edge-function-attribution-manifest.md`)
 - /supabase/migrations — DB migrations
 
 ## Business Rules (Non-Negotiable)

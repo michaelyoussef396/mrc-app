@@ -218,6 +218,23 @@ After Stages 1.1, 1.2, 1.3 each verified individually on Vercel preview, bundle 
 
 ### Phase 2 — Foundation: row-level audit (Tier 1)
 
+**FOOTNOTES — EXECUTED on 2026-05-01.** Phase 2 shipped continuous-run with four pre-flight findings beyond the original plan:
+
+1. **Live trigger reality vs migration files.** Pre-flight via `mcp__supabase__list_migrations` and `information_schema.triggers` revealed migration `20260311000001_add_audit_triggers.sql` was never applied to production. Live state at Phase 2 start: only `invoices` and `job_completions` had triggers (INSERT+UPDATE only — no DELETE). The earlier exploration agent's claim that 5 tables were already audited was based on file-system inspection, not live-DB verification. Lesson captured in `~/.claude/projects/-Users-michaelyoussef-mrc-app-1/memory/feedback_preflight_schema_verification.md`.
+
+2. **Stage 2.1 scope expanded to 25 triggers across 10 tables (not 15 across 5).** Once the live reality was understood, the user locked Option 2 (full coverage): leads/inspections/inspection_areas/subfloor_data/moisture_readings/subfloor_readings/photos all get INSERT+UPDATE+DELETE; user_roles gets INSERT+DELETE only (matching pattern); plus DELETE-only supplements on invoices/job_completions. The 4 pre-existing triggers on invoices/job_completions INSERT+UPDATE were left untouched to avoid attribution gaps during DROP→CREATE. Migration `supabase/migrations/20260501000004_audit_triggers_full_coverage.sql`. Post-migration verification: 29 trigger objects across 10 tables.
+
+3. **EF inventory mismatch with CLAUDE.md.** `supabase/functions/` actually contains 12 EFs, not 10. The two missing entries — `generate-job-report-pdf` and `check-overdue-invoices` — were folded into Stage 2.0c. CLAUDE.md updated to "12 Edge Functions" with a pointer to the new canonical reference `docs/edge-function-attribution-manifest.md`.
+
+4. **`audit_logs.user_id` had a FK to `auth.users(id)` blocking the SYSTEM_USER_UUID sentinel.** Discovered during Stage 2.0d Test 3 (FK violation). Architecturally wrong for an immutable forensic log: `ON DELETE NO ACTION` would either prevent deleting users with audit history or destroy attribution. Dropped in `supabase/migrations/20260501000003_audit_logs_drop_user_fk.sql` with a documenting `COMMENT ON COLUMN`.
+
+Attribution architecture chosen (per the v2 plan's executing-agent discretion):
+- **Bucket A** (frontend EFs with user JWT): dual-client. Service role for reads, JWT-bound `supabaseAudited` client for audited writes — `auth.uid()` captures the calling admin natively. EFs: generate-inspection-pdf, generate-inspection-summary (no EF-side change — frontend `.update()` already JWT-bound), send-email (column-level via `email_logs.sent_by`), generate-job-report-pdf.
+- **Bucket B** (system EFs without user JWT): helper RPCs `audited_insert_lead_via_framer(uuid, jsonb)` and `audited_mark_invoice_overdue(uuid, uuid)` pull `set_config('app.acting_user_id', ..., true)` and the audited write into one transaction. The `audit_log_trigger()` function (Stage 2.0a) reads `auth.uid()` first, falls back to the session variable. EFs: receive-framer-lead (RPC), check-overdue-invoices (RPC), send-inspection-reminder (column-level only — non-audited tables), manage-users (admin JWT — dual-client).
+- **Bucket C**: 4 read-only/no-audited-writes EFs, no work.
+
+Verification passed: Test 3 (session var fallback), Test 4 (JWT precedence), Test 5 (audited_insert_lead_via_framer end-to-end), Test 6 (audited_mark_invoice_overdue end-to-end). Helpers SQL: `docs/phase-2-verification-helpers.sql`. End-to-end user matrix for post-merge: `docs/phase-2-verification-matrix.md`.
+
 #### Stage 2.0 — Edge Function user_id propagation pattern
 
 - **Dependency:** PR-A and PR-B in production
