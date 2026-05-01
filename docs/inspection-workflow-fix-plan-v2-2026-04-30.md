@@ -206,11 +206,13 @@ After Stages 1.1, 1.2, 1.3 each verified individually on Vercel preview, bundle 
   - **Option B:** Debounce regen with a 5-minute idle timer.
   - **Option C:** Both.
 - **Recommendation:** Option A. Eliminates 109-version-per-inspection pattern entirely.
-- **Scope:** `src/lib/api/pdfGeneration.ts:127`, plus "Regenerate PDF" button on `src/pages/InspectionAIReview.tsx` and `src/pages/ViewReportPDF.tsx`. Add a "Stale PDF" warning banner when AI summary is newer than latest PDF.
+- **Scope (original):** `src/lib/api/pdfGeneration.ts:127`, plus "Regenerate PDF" button on `src/pages/InspectionAIReview.tsx` and `src/pages/ViewReportPDF.tsx`. Add a "Stale PDF" warning banner when AI summary is newer than latest PDF.
 - **Schema:** none
 - **Verification:** Edit a field 10 times in InspectionAIReview → confirm 0 new rows in `pdf_versions`. Click "Regenerate PDF" → confirm exactly 1 new row.
 - **Rollback:** revert the function change
 - **Estimate:** S (~3h including UX for the button)
+
+**FOOTNOTE — EXPANDED on execution (2026-05-01):** Pre-flight grep found the regen storm originated primarily from `ViewReportPDF.tsx` (~22 inline-save handlers including 2 `job_completion` handlers), not `pdfGeneration.ts:127` alone. Stage 1.4 expanded to remove auto-regen from all 18 `ViewReportPDF` save handlers + rename `updateFieldAndRegenerate` → `updateInspectionField` (the post-fix name no longer lies). The 4 explicit user-button bindings preserved (lines 2080, 2112, 2367, 2502; line numbers shifted slightly post-edit). A shared `StalePdfBanner` component (`src/components/pdf/StalePdfBanner.tsx`) was introduced; it queries `inspections.ai_summary_generated_at` vs latest `pdf_versions.created_at` (the Phase 3 migration to `ai_summary_versions` is documented in the component itself). Phase 2 (`job_completion`) constraint clarified: applies to FUTURE Phase 2 build per `docs/JOB_COMPLETION_PRD.md`, not already-merged Phase 2 code in `ViewReportPDF`. Stated success criterion (eliminate 109-version-per-inspection pattern) achieved by Option B with full coverage. Full pre-flight catalog: `docs/stage-1.4-callsite-catalog.md`.
 
 ---
 
