@@ -75,6 +75,20 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
+  // JWT-bound client for audited writes on job_completions. The
+  // Authorization header is forwarded so auth.uid() captures the calling
+  // admin inside audit_log_trigger() — see
+  // docs/edge-function-attribution-manifest.md.
+  const authHeader = req.headers.get('Authorization') || req.headers.get('authorization')
+  const supabaseAudited = authHeader
+    ? createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!, {
+        global: { headers: { Authorization: authHeader } },
+      })
+    : supabase
+  if (!authHeader) {
+    console.warn('[generate-job-report-pdf] No Authorization header — audit attribution will be NULL')
+  }
+
   try {
     // Parse and validate body
     let rawBody: unknown
@@ -298,7 +312,7 @@ Deno.serve(async (req) => {
     const newVersion = regenerate ? (jc.pdf_version || 0) + 1 : (jc.pdf_version || 0) + 1
 
     if (returnHtml) {
-      await supabase
+      await supabaseAudited
         .from('job_completions')
         .update({ pdf_version: newVersion, pdf_generated_at: new Date().toISOString() })
         .eq('id', jobCompletionId)
@@ -337,8 +351,9 @@ Deno.serve(async (req) => {
 
     const reportUrl = urlData.publicUrl
 
-    // Update job_completions record
-    const { error: updateError } = await supabase
+    // Update job_completions record (audited write — JWT-bound client so
+    // audit_log_trigger() captures the calling admin's UUID)
+    const { error: updateError } = await supabaseAudited
       .from('job_completions')
       .update({
         pdf_url: reportUrl,
@@ -351,8 +366,8 @@ Deno.serve(async (req) => {
       console.error('Failed to update job completion:', updateError)
     }
 
-    // Log to job_completion_pdf_versions
-    const authHeader = req.headers.get('authorization')
+    // Log to job_completion_pdf_versions (not audited via trigger; we
+    // capture generated_by directly from the JWT for column-level audit)
     let userId: string | null = null
     if (authHeader) {
       const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))

@@ -33,6 +33,11 @@ const EmailRequestSchema = z.object({
   leadId: z.string().uuid().optional(),
   inspectionId: z.string().uuid().optional(),
   templateName: z.string().max(100).optional(),
+  // Sender attribution for email_logs.sent_by. Frontend callers pass the
+  // authenticated user's UUID; system callers (cron, webhook) pass
+  // SYSTEM_USER_UUID. NULL only when caller fails to provide it (logged).
+  // See docs/edge-function-attribution-manifest.md.
+  userId: z.string().uuid().optional(),
   attachments: z.array(z.object({
     filename: z.string().max(255),
     content: z.string(),
@@ -141,8 +146,13 @@ Deno.serve(async (req) => {
       leadId,
       inspectionId,
       templateName,
+      userId,
       attachments,
     } = parsed.data
+
+    if (!userId) {
+      console.warn('[send-email] No userId in payload — email_logs.sent_by will be NULL')
+    }
 
     // Rate limiting: max 1 email to same recipient per 5 minutes
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -201,6 +211,7 @@ Deno.serve(async (req) => {
       error_message: result.error || null,
       lead_id: leadId || null,
       inspection_id: inspectionId || null,
+      sent_by: userId || null,
       sent_at: new Date().toISOString(),
     })
 

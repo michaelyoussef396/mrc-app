@@ -115,6 +115,15 @@ Deno.serve(async (req) => {
       )
     }
 
+    // JWT-bound client for audited writes on user_roles. The Authorization
+    // header is forwarded so auth.uid() captures the calling admin inside
+    // audit_log_trigger() — see docs/edge-function-attribution-manifest.md.
+    const supabaseAudited = createClient(
+      supabaseUrl,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } },
+    )
+
     const token = authHeader.replace('Bearer ', '')
 
     // Decode JWT to get user ID
@@ -287,7 +296,9 @@ Deno.serve(async (req) => {
         )
       }
 
-      const { error: roleInsertError } = await supabaseAdmin
+      // Audited write — JWT-bound client so audit_log_trigger() captures
+      // the calling admin's UUID via auth.uid().
+      const { error: roleInsertError } = await supabaseAudited
         .from('user_roles')
         .insert({
           user_id: createData.user.id,

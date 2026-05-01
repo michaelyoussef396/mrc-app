@@ -191,7 +191,12 @@ Deno.serve(async (_req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const SYSTEM_USER_UUID = Deno.env.get('SYSTEM_USER_UUID');
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    if (!SYSTEM_USER_UUID) {
+      console.error('[send-inspection-reminder] SYSTEM_USER_UUID env var not set — email_logs.sent_by will be NULL');
+    }
 
     // 1. Query bookings that need reminders
     const { data: bookings, error: queryError } = await supabase
@@ -305,6 +310,7 @@ Deno.serve(async (_req) => {
         provider_message_id: result.data?.id || null,
         error_message: result.error || null,
         lead_id: booking.lead_id,
+        sent_by: SYSTEM_USER_UUID || null,
         sent_at: new Date().toISOString(),
       });
 
