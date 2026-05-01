@@ -47,3 +47,14 @@ service-account.json
 
 # Design asset templates (PSDs, layer dumps, previews — too large for repo)
 job report templates/
+
+# Email template previews (regenerated locally via `npm run preview-emails`,
+# contain real test-lead PII, not for git). README + script ARE committed.
+docs/email-previews/*.html
+!docs/email-previews/README.md
+
+# Supabase CLI local state — machine-local, regenerable
+supabase/.temp/
+
+# Email preview screenshots in repo root — local-only, not committed
+/email-preview-*.png
