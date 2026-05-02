@@ -4,11 +4,9 @@ import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/integrations/supabase/client'
 
-// Phase 3 migration note: the staleness signal currently reads
-// inspections.ai_summary_generated_at vs the latest pdf_versions.created_at.
-// When Phase 3 ships ai_summary_versions (Stage 3.1), replace the
-// inspections.ai_summary_generated_at read with the latest version row's
-// generated_at. One-line query change in fetchStaleness().
+// Phase 3 Stage 3.4.5: the staleness signal reads the latest active
+// ai_summary_versions row's generated_at via the latest_ai_summary view,
+// compared to the most recent pdf_versions.created_at.
 
 interface StalePdfBannerProps {
   inspectionId: string | null | undefined
@@ -30,9 +28,9 @@ export function StalePdfBanner({ inspectionId, isRegenerating, onRegenerate }: S
 
       const [summaryRes, pdfRes] = await Promise.all([
         supabase
-          .from('inspections')
-          .select('ai_summary_generated_at')
-          .eq('id', inspectionId)
+          .from('latest_ai_summary')
+          .select('generated_at')
+          .eq('inspection_id', inspectionId)
           .maybeSingle(),
         supabase
           .from('pdf_versions')
@@ -45,7 +43,7 @@ export function StalePdfBanner({ inspectionId, isRegenerating, onRegenerate }: S
 
       if (cancelled) return
 
-      const summaryAt = summaryRes.data?.ai_summary_generated_at
+      const summaryAt = summaryRes.data?.generated_at
       const pdfAt = pdfRes.data?.created_at
 
       if (!summaryAt) {

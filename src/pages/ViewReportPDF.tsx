@@ -130,7 +130,12 @@ interface EditableField {
   position: { x: number; y: number }
 }
 
-// Select query for inspections (used in both load paths)
+// Select query for inspections (used in both load paths).
+// Stage 3.4.5: AI summary text fields (what_we_found_text, what_we_will_do_text,
+// what_you_get_text, problem_analysis_content, demolition_content, ai_summary_text)
+// are no longer selected from inspections — they're fetched from the
+// latest_ai_summary view in loadInspection() and merged onto the inspection
+// object after fetch.
 const INSPECTION_SELECT = `
   id,
   job_number,
@@ -146,15 +151,9 @@ const INSPECTION_SELECT = `
   inspection_date,
   inspector_name,
   dwelling_type,
-  what_we_found_text,
-  what_we_will_do_text,
-  what_you_get_text,
-  problem_analysis_content,
   what_we_discovered,
   identified_causes,
   why_this_happened,
-  demolition_content,
-  ai_summary_text,
   cause_of_mould,
   outdoor_temperature,
   outdoor_humidity,
@@ -525,10 +524,27 @@ export default function ViewReportPDF() {
         data = inspByLead
       }
 
-      setInspection(data as unknown as Inspection)
+      const inspId = (data as unknown as Inspection).id
+
+      // Stage 3.4.5: AI summary text comes from latest_ai_summary view.
+      const { data: latestSummary } = await supabase
+        .from('latest_ai_summary')
+        .select('ai_summary_text, what_we_found_text, what_we_will_do_text, what_you_get_text, problem_analysis_content, demolition_content')
+        .eq('inspection_id', inspId)
+        .maybeSingle()
+
+      const merged = {
+        ...(data as unknown as Inspection),
+        ai_summary_text: latestSummary?.ai_summary_text ?? undefined,
+        what_we_found_text: latestSummary?.what_we_found_text ?? undefined,
+        what_we_will_do_text: latestSummary?.what_we_will_do_text ?? undefined,
+        what_you_get_text: latestSummary?.what_you_get_text ?? undefined,
+        problem_analysis_content: latestSummary?.problem_analysis_content ?? undefined,
+        demolition_content: latestSummary?.demolition_content ?? undefined,
+      }
+      setInspection(merged)
 
       // Fetch inspection_areas for inline editing
-      const inspId = (data as unknown as Inspection).id
       const { data: areas, error: areasError } = await supabase
         .from('inspection_areas')
         .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes')
@@ -1352,25 +1368,105 @@ export default function ViewReportPDF() {
     option_2_total_inc_gst: inspection.option_2_total_inc_gst ?? 0,
   } : null
 
+  // Stage 3.4.5: inline AI summary edits create a new ai_summary_versions row
+  // with generation_type='manual_edit' (mirrors InspectionAIReview.handleSave).
+  // Race-safe via retry-on-UNIQUE. Other unchanged sections are carried forward
+  // from the latest active version. Local component state is updated so the
+  // visible text reflects the save without a full reload.
+  async function persistManualEdit(updates: {
+    ai_summary_text?: string | null
+    what_we_found_text?: string | null
+    what_we_will_do_text?: string | null
+    problem_analysis_content?: string | null
+    demolition_content?: string | null
+  }) {
+    if (!inspection?.id) throw new Error('No inspection loaded')
+
+    const { data: { session: editSession } } = await supabase.auth.getSession()
+    const editorId = editSession?.user?.id ?? null
+
+    const MAX_ATTEMPTS = 3
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const { data: latest, error: latestErr } = await supabase
+        .from('ai_summary_versions')
+        .select('version_number, ai_summary_text, what_we_found_text, what_we_will_do_text, problem_analysis_content, demolition_content')
+        .eq('inspection_id', inspection.id)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (latestErr) throw new Error(`version max query failed: ${latestErr.message}`)
+
+      const previousMax = (latest?.version_number as number | undefined) ?? 0
+      const nextVersion = previousMax + 1
+
+      const merged = {
+        ai_summary_text: updates.ai_summary_text !== undefined ? updates.ai_summary_text : (latest?.ai_summary_text ?? null),
+        what_we_found_text: updates.what_we_found_text !== undefined ? updates.what_we_found_text : (latest?.what_we_found_text ?? null),
+        what_we_will_do_text: updates.what_we_will_do_text !== undefined ? updates.what_we_will_do_text : (latest?.what_we_will_do_text ?? null),
+        problem_analysis_content: updates.problem_analysis_content !== undefined ? updates.problem_analysis_content : (latest?.problem_analysis_content ?? null),
+        demolition_content: updates.demolition_content !== undefined ? updates.demolition_content : (latest?.demolition_content ?? null),
+      }
+
+      const { data: inserted, error: insertErr } = await supabase
+        .from('ai_summary_versions')
+        .insert({
+          inspection_id: inspection.id,
+          version_number: nextVersion,
+          generation_type: 'manual_edit',
+          generated_by: editorId,
+          ...merged,
+        })
+        .select('id')
+        .single()
+
+      if (insertErr) {
+        const isUniqueViolation = (insertErr as { code?: string }).code === '23505'
+        if (isUniqueViolation && attempt < MAX_ATTEMPTS) continue
+        throw new Error(`version insert failed: ${insertErr.message}`)
+      }
+
+      const newId = inserted?.id as string
+
+      if (previousMax > 0) {
+        const { error: supersedeErr } = await supabase
+          .from('ai_summary_versions')
+          .update({
+            superseded_at: new Date().toISOString(),
+            superseded_by_version_id: newId,
+          })
+          .eq('inspection_id', inspection.id)
+          .neq('id', newId)
+          .is('superseded_at', null)
+        if (supersedeErr) {
+          console.warn('[ViewReportPDF] supersession update failed:', supersedeErr.message)
+        }
+      }
+
+      // Reflect the edit in component state so the rendered fields update
+      // without a refetch.
+      setInspection(prev => prev ? { ...prev, ...merged } as typeof prev : prev)
+      return
+    }
+
+    throw new Error('exceeded retry limit on version_number unique violation')
+  }
+
   async function handleVPFieldSave(key: string, value: string) {
     if (!inspection?.id) return
 
     try {
-      const columnMap: Record<string, string> = {
-        what_we_found: 'what_we_found_text',
-        what_we_will_do: 'what_we_will_do_text',
+      const updates: Parameters<typeof persistManualEdit>[0] = {}
+      if (key === 'what_we_found') {
+        updates.what_we_found_text = value || null
+        updates.ai_summary_text = value || null
+      } else if (key === 'what_we_will_do') {
+        updates.what_we_will_do_text = value || null
+      } else {
+        return
       }
 
-      const column = columnMap[key]
-      if (!column) return
-
-      const { error } = await supabase
-        .from('inspections')
-        .update({ [column]: value || null, updated_at: new Date().toISOString() })
-        .eq('id', inspection.id)
-
-      if (error) throw error
-
+      await persistManualEdit(updates)
       toast.success(`${key === 'what_we_found' ? 'What We Found' : "What We're Going To Do"} updated`)
     } catch (error) {
       console.error('VP save failed:', error)
@@ -1383,13 +1479,7 @@ export default function ViewReportPDF() {
     if (!inspection?.id) return
 
     try {
-      const { error } = await supabase
-        .from('inspections')
-        .update({ problem_analysis_content: value || null, updated_at: new Date().toISOString() })
-        .eq('id', inspection.id)
-
-      if (error) throw error
-
+      await persistManualEdit({ problem_analysis_content: value || null })
       toast.success('Problem Analysis updated')
     } catch (error) {
       console.error('PA save failed:', error)
@@ -1402,13 +1492,7 @@ export default function ViewReportPDF() {
     if (!inspection?.id) return
 
     try {
-      const { error } = await supabase
-        .from('inspections')
-        .update({ demolition_content: value || null, updated_at: new Date().toISOString() })
-        .eq('id', inspection.id)
-
-      if (error) throw error
-
+      await persistManualEdit({ demolition_content: value || null })
       toast.success('Demolition content updated')
     } catch (error) {
       console.error('Demolition save failed:', error)

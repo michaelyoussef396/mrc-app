@@ -1640,6 +1640,26 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Stage 3.4.5: AI summary content lives in ai_summary_versions; read the
+    // canonical version via the latest_ai_summary view and merge onto the
+    // inspection object. Falls back to the legacy inspections column values
+    // for inspections that pre-date the Stage 3.5 backfill (after Stage 3.5
+    // those columns are dropped and only the view's values remain).
+    const { data: latestSummary } = await supabase
+      .from('latest_ai_summary')
+      .select('ai_summary_text, what_we_found_text, what_we_will_do_text, what_you_get_text, problem_analysis_content, demolition_content')
+      .eq('inspection_id', inspectionId)
+      .maybeSingle()
+
+    if (latestSummary) {
+      ;(inspection as Record<string, unknown>).ai_summary_text = latestSummary.ai_summary_text ?? (inspection as Record<string, unknown>).ai_summary_text
+      ;(inspection as Record<string, unknown>).what_we_found_text = latestSummary.what_we_found_text ?? (inspection as Record<string, unknown>).what_we_found_text
+      ;(inspection as Record<string, unknown>).what_we_will_do_text = latestSummary.what_we_will_do_text ?? (inspection as Record<string, unknown>).what_we_will_do_text
+      ;(inspection as Record<string, unknown>).what_you_get_text = latestSummary.what_you_get_text ?? (inspection as Record<string, unknown>).what_you_get_text
+      ;(inspection as Record<string, unknown>).problem_analysis_content = latestSummary.problem_analysis_content ?? (inspection as Record<string, unknown>).problem_analysis_content
+      ;(inspection as Record<string, unknown>).demolition_content = latestSummary.demolition_content ?? (inspection as Record<string, unknown>).demolition_content
+    }
+
     // Validate lead status — PDF only allowed for completed inspections
     const validPdfStatuses = [
       'inspection_completed', 'inspection_ai_summary', 'approve_inspection_report',
