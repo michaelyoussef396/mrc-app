@@ -55,6 +55,106 @@ export type Database = {
           },
         ]
       }
+      ai_summary_versions: {
+        Row: {
+          ai_summary_text: string | null
+          approved_at: string | null
+          approved_by: string | null
+          demolition_content: string | null
+          generated_at: string | null
+          generated_by: string | null
+          generation_type: string
+          id: string
+          inspection_id: string
+          model_name: string | null
+          model_version: string | null
+          problem_analysis_content: string | null
+          prompt_tokens: number | null
+          regeneration_feedback: string | null
+          response_tokens: number | null
+          superseded_at: string | null
+          superseded_by_version_id: string | null
+          system_prompt_hash: string | null
+          user_prompt: string | null
+          version_number: number
+          what_we_found_text: string | null
+          what_we_will_do_text: string | null
+          what_you_get_text: string | null
+        }
+        Insert: {
+          ai_summary_text?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          demolition_content?: string | null
+          generated_at?: string | null
+          generated_by?: string | null
+          generation_type: string
+          id?: string
+          inspection_id: string
+          model_name?: string | null
+          model_version?: string | null
+          problem_analysis_content?: string | null
+          prompt_tokens?: number | null
+          regeneration_feedback?: string | null
+          response_tokens?: number | null
+          superseded_at?: string | null
+          superseded_by_version_id?: string | null
+          system_prompt_hash?: string | null
+          user_prompt?: string | null
+          version_number: number
+          what_we_found_text?: string | null
+          what_we_will_do_text?: string | null
+          what_you_get_text?: string | null
+        }
+        Update: {
+          ai_summary_text?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          demolition_content?: string | null
+          generated_at?: string | null
+          generated_by?: string | null
+          generation_type?: string
+          id?: string
+          inspection_id?: string
+          model_name?: string | null
+          model_version?: string | null
+          problem_analysis_content?: string | null
+          prompt_tokens?: number | null
+          regeneration_feedback?: string | null
+          response_tokens?: number | null
+          superseded_at?: string | null
+          superseded_by_version_id?: string | null
+          system_prompt_hash?: string | null
+          user_prompt?: string | null
+          version_number?: number
+          what_we_found_text?: string | null
+          what_we_will_do_text?: string | null
+          what_you_get_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_summary_versions_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_summary_versions_superseded_by_version_id_fkey"
+            columns: ["superseded_by_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_summary_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_summary_versions_superseded_by_version_id_fkey"
+            columns: ["superseded_by_version_id"]
+            isOneToOne: false
+            referencedRelation: "latest_ai_summary"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           created_at: string | null
@@ -189,6 +289,75 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      calendar_bookings_revert_cleanup_backup_20260429: {
+        Row: {
+          all_day: boolean | null
+          assigned_to: string | null
+          created_at: string | null
+          description: string | null
+          end_datetime: string | null
+          event_type: string | null
+          id: string | null
+          inspection_id: string | null
+          lead_id: string | null
+          location_address: string | null
+          reminder_scheduled_for: string | null
+          reminder_sent: boolean | null
+          reminder_sent_at: string | null
+          start_datetime: string | null
+          status: Database["public"]["Enums"]["booking_status"] | null
+          title: string | null
+          travel_from_suburb: string | null
+          travel_time_minutes: number | null
+          travel_to_suburb: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          all_day?: boolean | null
+          assigned_to?: string | null
+          created_at?: string | null
+          description?: string | null
+          end_datetime?: string | null
+          event_type?: string | null
+          id?: string | null
+          inspection_id?: string | null
+          lead_id?: string | null
+          location_address?: string | null
+          reminder_scheduled_for?: string | null
+          reminder_sent?: boolean | null
+          reminder_sent_at?: string | null
+          start_datetime?: string | null
+          status?: Database["public"]["Enums"]["booking_status"] | null
+          title?: string | null
+          travel_from_suburb?: string | null
+          travel_time_minutes?: number | null
+          travel_to_suburb?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          all_day?: boolean | null
+          assigned_to?: string | null
+          created_at?: string | null
+          description?: string | null
+          end_datetime?: string | null
+          event_type?: string | null
+          id?: string | null
+          inspection_id?: string | null
+          lead_id?: string | null
+          location_address?: string | null
+          reminder_scheduled_for?: string | null
+          reminder_sent?: boolean | null
+          reminder_sent_at?: string | null
+          start_datetime?: string | null
+          status?: Database["public"]["Enums"]["booking_status"] | null
+          title?: string | null
+          travel_from_suburb?: string | null
+          travel_time_minutes?: number | null
+          travel_to_suburb?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       editable_fields: {
         Row: {
@@ -506,9 +675,6 @@ export type Database = {
         Row: {
           additional_equipment_comments: string | null
           additional_info_technician: string | null
-          ai_summary_approved: boolean | null
-          ai_summary_generated_at: string | null
-          ai_summary_text: string | null
           air_mover_rate: number | null
           air_movers_enabled: boolean | null
           air_movers_qty: number | null
@@ -522,7 +688,6 @@ export type Database = {
           created_at: string | null
           dehumidifier_rate: number | null
           demo_labour_rate: number | null
-          demolition_content: string | null
           demolition_hours: number | null
           direction_photos_enabled: boolean | null
           discount_percent: number | null
@@ -571,7 +736,6 @@ export type Database = {
           pdf_generated_at: string | null
           pdf_url: string | null
           pdf_version: number | null
-          problem_analysis_content: string | null
           property_address_snapshot: string | null
           property_occupation:
             | Database["public"]["Enums"]["property_occupation"]
@@ -601,17 +765,11 @@ export type Database = {
           waste_disposal_required: boolean | null
           what_success_looks_like: string | null
           what_we_discovered: string | null
-          what_we_found_text: string | null
-          what_we_will_do_text: string | null
-          what_you_get_text: string | null
           why_this_happened: string | null
         }
         Insert: {
           additional_equipment_comments?: string | null
           additional_info_technician?: string | null
-          ai_summary_approved?: boolean | null
-          ai_summary_generated_at?: string | null
-          ai_summary_text?: string | null
           air_mover_rate?: number | null
           air_movers_enabled?: boolean | null
           air_movers_qty?: number | null
@@ -625,7 +783,6 @@ export type Database = {
           created_at?: string | null
           dehumidifier_rate?: number | null
           demo_labour_rate?: number | null
-          demolition_content?: string | null
           demolition_hours?: number | null
           direction_photos_enabled?: boolean | null
           discount_percent?: number | null
@@ -674,7 +831,6 @@ export type Database = {
           pdf_generated_at?: string | null
           pdf_url?: string | null
           pdf_version?: number | null
-          problem_analysis_content?: string | null
           property_address_snapshot?: string | null
           property_occupation?:
             | Database["public"]["Enums"]["property_occupation"]
@@ -704,17 +860,11 @@ export type Database = {
           waste_disposal_required?: boolean | null
           what_success_looks_like?: string | null
           what_we_discovered?: string | null
-          what_we_found_text?: string | null
-          what_we_will_do_text?: string | null
-          what_you_get_text?: string | null
           why_this_happened?: string | null
         }
         Update: {
           additional_equipment_comments?: string | null
           additional_info_technician?: string | null
-          ai_summary_approved?: boolean | null
-          ai_summary_generated_at?: string | null
-          ai_summary_text?: string | null
           air_mover_rate?: number | null
           air_movers_enabled?: boolean | null
           air_movers_qty?: number | null
@@ -728,7 +878,6 @@ export type Database = {
           created_at?: string | null
           dehumidifier_rate?: number | null
           demo_labour_rate?: number | null
-          demolition_content?: string | null
           demolition_hours?: number | null
           direction_photos_enabled?: boolean | null
           discount_percent?: number | null
@@ -777,7 +926,6 @@ export type Database = {
           pdf_generated_at?: string | null
           pdf_url?: string | null
           pdf_version?: number | null
-          problem_analysis_content?: string | null
           property_address_snapshot?: string | null
           property_occupation?:
             | Database["public"]["Enums"]["property_occupation"]
@@ -807,9 +955,6 @@ export type Database = {
           waste_disposal_required?: boolean | null
           what_success_looks_like?: string | null
           what_we_discovered?: string | null
-          what_we_found_text?: string | null
-          what_we_will_do_text?: string | null
-          what_you_get_text?: string | null
           why_this_happened?: string | null
         }
         Relationships: [
@@ -1198,6 +1343,8 @@ export type Database = {
           booked_at: string | null
           created_at: string | null
           created_by: string | null
+          customer_preferred_date: string | null
+          customer_preferred_time: string | null
           email: string
           full_name: string
           id: string
@@ -1206,6 +1353,7 @@ export type Database = {
           internal_notes: string | null
           invoice_amount: number | null
           invoice_sent_date: string | null
+          is_possible_duplicate: boolean | null
           issue_description: string | null
           job_completed_date: string | null
           job_scheduled_date: string | null
@@ -1215,6 +1363,7 @@ export type Database = {
           notes: string | null
           payment_received_date: string | null
           phone: string
+          possible_duplicate_of: string | null
           property_address_postcode: string
           property_address_state: string | null
           property_address_street: string
@@ -1240,6 +1389,8 @@ export type Database = {
           booked_at?: string | null
           created_at?: string | null
           created_by?: string | null
+          customer_preferred_date?: string | null
+          customer_preferred_time?: string | null
           email: string
           full_name: string
           id?: string
@@ -1248,6 +1399,7 @@ export type Database = {
           internal_notes?: string | null
           invoice_amount?: number | null
           invoice_sent_date?: string | null
+          is_possible_duplicate?: boolean | null
           issue_description?: string | null
           job_completed_date?: string | null
           job_scheduled_date?: string | null
@@ -1257,6 +1409,7 @@ export type Database = {
           notes?: string | null
           payment_received_date?: string | null
           phone: string
+          possible_duplicate_of?: string | null
           property_address_postcode: string
           property_address_state?: string | null
           property_address_street: string
@@ -1282,6 +1435,8 @@ export type Database = {
           booked_at?: string | null
           created_at?: string | null
           created_by?: string | null
+          customer_preferred_date?: string | null
+          customer_preferred_time?: string | null
           email?: string
           full_name?: string
           id?: string
@@ -1290,6 +1445,7 @@ export type Database = {
           internal_notes?: string | null
           invoice_amount?: number | null
           invoice_sent_date?: string | null
+          is_possible_duplicate?: boolean | null
           issue_description?: string | null
           job_completed_date?: string | null
           job_scheduled_date?: string | null
@@ -1299,6 +1455,7 @@ export type Database = {
           notes?: string | null
           payment_received_date?: string | null
           phone?: string
+          possible_duplicate_of?: string | null
           property_address_postcode?: string
           property_address_state?: string | null
           property_address_street?: string
@@ -1314,6 +1471,290 @@ export type Database = {
           search_text?: string | null
           special_requests?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
+          updated_at?: string | null
+          urgency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_possible_duplicate_of_fkey"
+            columns: ["possible_duplicate_of"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads_backup_20260428: {
+        Row: {
+          access_instructions: string | null
+          archived_at: string | null
+          assigned_to: string | null
+          booked_at: string | null
+          created_at: string | null
+          created_by: string | null
+          email: string | null
+          full_name: string | null
+          id: string | null
+          inspection_completed_date: string | null
+          inspection_scheduled_date: string | null
+          internal_notes: string | null
+          invoice_amount: number | null
+          invoice_sent_date: string | null
+          is_possible_duplicate: boolean | null
+          issue_description: string | null
+          job_completed_date: string | null
+          job_scheduled_date: string | null
+          lead_number: string | null
+          lead_source: string | null
+          lead_source_other: string | null
+          notes: string | null
+          payment_received_date: string | null
+          phone: string | null
+          possible_duplicate_of: string | null
+          property_address_postcode: string | null
+          property_address_state: string | null
+          property_address_street: string | null
+          property_address_suburb: string | null
+          property_lat: number | null
+          property_lng: number | null
+          property_type: string | null
+          property_zone: number | null
+          quoted_amount: number | null
+          report_pdf_url: string | null
+          scheduled_dates: string[] | null
+          scheduled_time: string | null
+          search_text: string | null
+          special_requests: string | null
+          status: Database["public"]["Enums"]["lead_status"] | null
+          updated_at: string | null
+          urgency: string | null
+        }
+        Insert: {
+          access_instructions?: string | null
+          archived_at?: string | null
+          assigned_to?: string | null
+          booked_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string | null
+          inspection_completed_date?: string | null
+          inspection_scheduled_date?: string | null
+          internal_notes?: string | null
+          invoice_amount?: number | null
+          invoice_sent_date?: string | null
+          is_possible_duplicate?: boolean | null
+          issue_description?: string | null
+          job_completed_date?: string | null
+          job_scheduled_date?: string | null
+          lead_number?: string | null
+          lead_source?: string | null
+          lead_source_other?: string | null
+          notes?: string | null
+          payment_received_date?: string | null
+          phone?: string | null
+          possible_duplicate_of?: string | null
+          property_address_postcode?: string | null
+          property_address_state?: string | null
+          property_address_street?: string | null
+          property_address_suburb?: string | null
+          property_lat?: number | null
+          property_lng?: number | null
+          property_type?: string | null
+          property_zone?: number | null
+          quoted_amount?: number | null
+          report_pdf_url?: string | null
+          scheduled_dates?: string[] | null
+          scheduled_time?: string | null
+          search_text?: string | null
+          special_requests?: string | null
+          status?: Database["public"]["Enums"]["lead_status"] | null
+          updated_at?: string | null
+          urgency?: string | null
+        }
+        Update: {
+          access_instructions?: string | null
+          archived_at?: string | null
+          assigned_to?: string | null
+          booked_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string | null
+          inspection_completed_date?: string | null
+          inspection_scheduled_date?: string | null
+          internal_notes?: string | null
+          invoice_amount?: number | null
+          invoice_sent_date?: string | null
+          is_possible_duplicate?: boolean | null
+          issue_description?: string | null
+          job_completed_date?: string | null
+          job_scheduled_date?: string | null
+          lead_number?: string | null
+          lead_source?: string | null
+          lead_source_other?: string | null
+          notes?: string | null
+          payment_received_date?: string | null
+          phone?: string | null
+          possible_duplicate_of?: string | null
+          property_address_postcode?: string | null
+          property_address_state?: string | null
+          property_address_street?: string | null
+          property_address_suburb?: string | null
+          property_lat?: number | null
+          property_lng?: number | null
+          property_type?: string | null
+          property_zone?: number | null
+          quoted_amount?: number | null
+          report_pdf_url?: string | null
+          scheduled_dates?: string[] | null
+          scheduled_time?: string | null
+          search_text?: string | null
+          special_requests?: string | null
+          status?: Database["public"]["Enums"]["lead_status"] | null
+          updated_at?: string | null
+          urgency?: string | null
+        }
+        Relationships: []
+      }
+      leads_revert_cleanup_backup_20260429: {
+        Row: {
+          access_instructions: string | null
+          archived_at: string | null
+          assigned_to: string | null
+          booked_at: string | null
+          created_at: string | null
+          created_by: string | null
+          customer_preferred_date: string | null
+          customer_preferred_time: string | null
+          email: string | null
+          full_name: string | null
+          id: string | null
+          inspection_completed_date: string | null
+          inspection_scheduled_date: string | null
+          internal_notes: string | null
+          invoice_amount: number | null
+          invoice_sent_date: string | null
+          is_possible_duplicate: boolean | null
+          issue_description: string | null
+          job_completed_date: string | null
+          job_scheduled_date: string | null
+          lead_number: string | null
+          lead_source: string | null
+          lead_source_other: string | null
+          notes: string | null
+          payment_received_date: string | null
+          phone: string | null
+          possible_duplicate_of: string | null
+          property_address_postcode: string | null
+          property_address_state: string | null
+          property_address_street: string | null
+          property_address_suburb: string | null
+          property_lat: number | null
+          property_lng: number | null
+          property_type: string | null
+          property_zone: number | null
+          quoted_amount: number | null
+          report_pdf_url: string | null
+          scheduled_dates: string[] | null
+          scheduled_time: string | null
+          search_text: string | null
+          special_requests: string | null
+          status: Database["public"]["Enums"]["lead_status"] | null
+          updated_at: string | null
+          urgency: string | null
+        }
+        Insert: {
+          access_instructions?: string | null
+          archived_at?: string | null
+          assigned_to?: string | null
+          booked_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_preferred_date?: string | null
+          customer_preferred_time?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string | null
+          inspection_completed_date?: string | null
+          inspection_scheduled_date?: string | null
+          internal_notes?: string | null
+          invoice_amount?: number | null
+          invoice_sent_date?: string | null
+          is_possible_duplicate?: boolean | null
+          issue_description?: string | null
+          job_completed_date?: string | null
+          job_scheduled_date?: string | null
+          lead_number?: string | null
+          lead_source?: string | null
+          lead_source_other?: string | null
+          notes?: string | null
+          payment_received_date?: string | null
+          phone?: string | null
+          possible_duplicate_of?: string | null
+          property_address_postcode?: string | null
+          property_address_state?: string | null
+          property_address_street?: string | null
+          property_address_suburb?: string | null
+          property_lat?: number | null
+          property_lng?: number | null
+          property_type?: string | null
+          property_zone?: number | null
+          quoted_amount?: number | null
+          report_pdf_url?: string | null
+          scheduled_dates?: string[] | null
+          scheduled_time?: string | null
+          search_text?: string | null
+          special_requests?: string | null
+          status?: Database["public"]["Enums"]["lead_status"] | null
+          updated_at?: string | null
+          urgency?: string | null
+        }
+        Update: {
+          access_instructions?: string | null
+          archived_at?: string | null
+          assigned_to?: string | null
+          booked_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_preferred_date?: string | null
+          customer_preferred_time?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string | null
+          inspection_completed_date?: string | null
+          inspection_scheduled_date?: string | null
+          internal_notes?: string | null
+          invoice_amount?: number | null
+          invoice_sent_date?: string | null
+          is_possible_duplicate?: boolean | null
+          issue_description?: string | null
+          job_completed_date?: string | null
+          job_scheduled_date?: string | null
+          lead_number?: string | null
+          lead_source?: string | null
+          lead_source_other?: string | null
+          notes?: string | null
+          payment_received_date?: string | null
+          phone?: string | null
+          possible_duplicate_of?: string | null
+          property_address_postcode?: string | null
+          property_address_state?: string | null
+          property_address_street?: string | null
+          property_address_suburb?: string | null
+          property_lat?: number | null
+          property_lng?: number | null
+          property_type?: string | null
+          property_zone?: number | null
+          quoted_amount?: number | null
+          report_pdf_url?: string | null
+          scheduled_dates?: string[] | null
+          scheduled_time?: string | null
+          search_text?: string | null
+          special_requests?: string | null
+          status?: Database["public"]["Enums"]["lead_status"] | null
           updated_at?: string | null
           urgency?: string | null
         }
@@ -1948,11 +2389,118 @@ export type Database = {
           },
         ]
       }
+      webhook_submissions: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          headers: Json | null
+          id: string
+          ip_address: string | null
+          lead_id: string | null
+          processed_at: string | null
+          raw_payload: Json
+          retry_count: number
+          source: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          headers?: Json | null
+          id?: string
+          ip_address?: string | null
+          lead_id?: string | null
+          processed_at?: string | null
+          raw_payload: Json
+          retry_count?: number
+          source?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          headers?: Json | null
+          id?: string
+          ip_address?: string | null
+          lead_id?: string | null
+          processed_at?: string | null
+          raw_payload?: Json
+          retry_count?: number
+          source?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      latest_ai_summary: {
+        Row: {
+          ai_summary_text: string | null
+          approved_at: string | null
+          approved_by: string | null
+          demolition_content: string | null
+          generated_at: string | null
+          generated_by: string | null
+          generation_type: string | null
+          id: string | null
+          inspection_id: string | null
+          model_name: string | null
+          model_version: string | null
+          problem_analysis_content: string | null
+          prompt_tokens: number | null
+          regeneration_feedback: string | null
+          response_tokens: number | null
+          superseded_at: string | null
+          superseded_by_version_id: string | null
+          system_prompt_hash: string | null
+          user_prompt: string | null
+          version_number: number | null
+          what_we_found_text: string | null
+          what_we_will_do_text: string | null
+          what_you_get_text: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_summary_versions_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_summary_versions_superseded_by_version_id_fkey"
+            columns: ["superseded_by_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_summary_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_summary_versions_superseded_by_version_id_fkey"
+            columns: ["superseded_by_version_id"]
+            isOneToOne: false
+            referencedRelation: "latest_ai_summary"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      audited_insert_lead_via_framer: {
+        Args: { p_acting_user_id: string; p_payload: Json }
+        Returns: string
+      }
+      audited_mark_invoice_overdue: {
+        Args: { p_acting_user_id: string; p_invoice_id: string }
+        Returns: undefined
+      }
       calculate_dew_point: {
         Args: { humidity: number; temperature: number }
         Returns: number
