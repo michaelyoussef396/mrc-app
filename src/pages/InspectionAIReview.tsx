@@ -165,9 +165,78 @@ export default function InspectionAIReview() {
 
   const handleSave = async () => {
     if (!inspection) return;
+    if (!isDirty) {
+      toast({ title: 'No changes', description: 'Nothing to save.' });
+      return;
+    }
     setSaving(true);
     try {
-      const { error } = await supabase
+      const { data: { session: saveSession } } = await supabase.auth.getSession();
+      const editorId = saveSession?.user?.id ?? null;
+
+      // Stage 3.3: each save creates a new ai_summary_versions row (manual_edit)
+      // and supersedes the previous active version. Race-safe: retries on
+      // UNIQUE(inspection_id, version_number) violation.
+      let newVersionId: string | null = null;
+      const MAX_ATTEMPTS = 3;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        const { data: maxRow, error: maxErr } = await supabase
+          .from('ai_summary_versions')
+          .select('version_number')
+          .eq('inspection_id', inspection.id)
+          .order('version_number', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (maxErr) throw new Error(`version max query failed: ${maxErr.message}`);
+
+        const previousMax = (maxRow?.version_number as number | undefined) ?? 0;
+        const nextVersion = previousMax + 1;
+
+        const { data: inserted, error: insertErr } = await supabase
+          .from('ai_summary_versions')
+          .insert({
+            inspection_id: inspection.id,
+            version_number: nextVersion,
+            generation_type: 'manual_edit',
+            generated_by: editorId,
+            ai_summary_text: whatWeFound || null,
+            what_we_found_text: whatWeFound || null,
+            what_we_will_do_text: whatWeWillDo || null,
+            problem_analysis_content: problemAnalysis || null,
+            demolition_content: demolitionContent || null,
+          })
+          .select('id')
+          .single();
+
+        if (insertErr) {
+          const isUniqueViolation = (insertErr as { code?: string }).code === '23505';
+          if (isUniqueViolation && attempt < MAX_ATTEMPTS) continue;
+          throw new Error(`version insert failed: ${insertErr.message}`);
+        }
+
+        newVersionId = inserted?.id as string;
+
+        if (previousMax > 0) {
+          const { error: supersedeErr } = await supabase
+            .from('ai_summary_versions')
+            .update({
+              superseded_at: new Date().toISOString(),
+              superseded_by_version_id: newVersionId,
+            })
+            .eq('inspection_id', inspection.id)
+            .neq('id', newVersionId)
+            .is('superseded_at', null);
+          if (supersedeErr) {
+            console.warn('[AIReview] supersession update failed:', supersedeErr.message);
+          }
+        }
+        break;
+      }
+
+      // Legacy mirror — kept until Stage 3.5 drops the inspections.ai_summary_* columns
+      // and Stage 3.4.5 has migrated all consumers to read from ai_summary_versions.
+      const { error: mirrorErr } = await supabase
         .from('inspections')
         .update({
           what_we_found_text: whatWeFound || null,
@@ -178,9 +247,12 @@ export default function InspectionAIReview() {
         })
         .eq('id', inspection.id);
 
-      if (error) throw error;
+      if (mirrorErr) {
+        console.warn('[AIReview] inspections mirror update failed:', mirrorErr.message);
+      }
+
       setIsDirty(false);
-      toast({ title: 'Saved', description: 'AI content saved successfully' });
+      toast({ title: 'Saved', description: 'A new version was created.' });
     } catch (err: any) {
       captureBusinessError('AI review save failed', { leadId, error: err?.message });
       toast({ title: 'Save Failed', description: err?.message || 'Failed to save', variant: 'destructive' });
