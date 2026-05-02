@@ -65,10 +65,6 @@ interface LeadData {
 
 interface InspectionData {
   id: string;
-  what_we_found_text: string | null;
-  what_we_will_do_text: string | null;
-  problem_analysis_content: string | null;
-  demolition_content: string | null;
   inspection_date: string | null;
   inspector_name: string | null;
   dwelling_type: string | null;
@@ -131,10 +127,11 @@ export default function InspectionAIReview() {
       if (leadError) throw leadError;
       setLead(leadData);
 
-      // Load inspection
+      // Load inspection metadata (AI text fields are read separately from
+      // latest_ai_summary view per Stage 3.4.5).
       const { data: inspData, error: inspError } = await supabase
         .from('inspections')
-        .select('id, what_we_found_text, what_we_will_do_text, problem_analysis_content, demolition_content, inspection_date, inspector_name, dwelling_type, property_occupation, outdoor_temperature, outdoor_humidity, cause_of_mould')
+        .select('id, inspection_date, inspector_name, dwelling_type, property_occupation, outdoor_temperature, outdoor_humidity, cause_of_mould')
         .eq('lead_id', leadId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -142,10 +139,20 @@ export default function InspectionAIReview() {
 
       if (inspError) throw inspError;
       setInspection(inspData);
-      setWhatWeFound(inspData.what_we_found_text || '');
-      setProblemAnalysis(inspData.problem_analysis_content || '');
-      setWhatWeWillDo(inspData.what_we_will_do_text || '');
-      setDemolitionContent(inspData.demolition_content || '');
+
+      // Load AI summary content from the latest_ai_summary compatibility view
+      // (canonical source post Stage 3.2). Empty result is valid when no AI
+      // generation has happened yet — fields stay blank for the admin to regen.
+      const { data: latestSummary } = await supabase
+        .from('latest_ai_summary')
+        .select('what_we_found_text, what_we_will_do_text, problem_analysis_content, demolition_content')
+        .eq('inspection_id', inspData.id)
+        .maybeSingle();
+
+      setWhatWeFound(latestSummary?.what_we_found_text || '');
+      setProblemAnalysis(latestSummary?.problem_analysis_content || '');
+      setWhatWeWillDo(latestSummary?.what_we_will_do_text || '');
+      setDemolitionContent(latestSummary?.demolition_content || '');
 
       // Load areas
       const { data: areasData } = await supabase
@@ -234,22 +241,9 @@ export default function InspectionAIReview() {
         break;
       }
 
-      // Legacy mirror — kept until Stage 3.5 drops the inspections.ai_summary_* columns
-      // and Stage 3.4.5 has migrated all consumers to read from ai_summary_versions.
-      const { error: mirrorErr } = await supabase
-        .from('inspections')
-        .update({
-          what_we_found_text: whatWeFound || null,
-          what_we_will_do_text: whatWeWillDo || null,
-          problem_analysis_content: problemAnalysis || null,
-          demolition_content: demolitionContent || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', inspection.id);
-
-      if (mirrorErr) {
-        console.warn('[AIReview] inspections mirror update failed:', mirrorErr.message);
-      }
+      // Stage 3.4.5: legacy inspections.ai_summary_* mirror dropped. The new
+      // version row above is the canonical store; consumers read via
+      // latest_ai_summary view.
 
       setIsDirty(false);
       toast({ title: 'Saved', description: 'A new version was created.' });
@@ -268,7 +262,8 @@ export default function InspectionAIReview() {
 
     try {
       // Stage 3.4: stamp approval onto the latest active ai_summary_versions row.
-      // Inspections.ai_summary_approved is also set as a legacy mirror until Stage 3.5.
+      // Stage 3.4.5: inspections.ai_summary_approved mirror dropped — version
+      // row's approved_at is the canonical signal.
       if (inspection?.id) {
         const { data: { session: approveSession } } = await supabase.auth.getSession();
         const approverId = approveSession?.user?.id ?? null;
@@ -295,15 +290,6 @@ export default function InspectionAIReview() {
           if (approveVersionErr) {
             console.warn('[AIReview] version approval update failed:', approveVersionErr.message);
           }
-        }
-
-        // Legacy mirror — dropped in Stage 3.5
-        const { error: mirrorErr } = await supabase
-          .from('inspections')
-          .update({ ai_summary_approved: true })
-          .eq('id', inspection.id);
-        if (mirrorErr) {
-          console.warn('[AIReview] inspections.ai_summary_approved mirror failed:', mirrorErr.message);
         }
       }
 

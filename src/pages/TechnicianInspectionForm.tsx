@@ -3323,12 +3323,12 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         option_1_equipment_ex_gst: saveOption1Equipment,
         option_1_total_inc_gst: saveOption1Total,
         option_2_total_inc_gst: saveOption2Total,
-        ai_summary_text: formData.jobSummaryFinal || null,
-        what_we_found_text: formData.whatWeFoundText || null,
-        what_we_will_do_text: formData.whatWeWillDoText || null,
-        what_you_get_text: formData.whatYouGetText || null,
-        problem_analysis_content: formData.problemAnalysisContent || null,
-        demolition_content: formData.demolitionContent || null,
+        // Stage 3.4.5: AI summary fields (ai_summary_text, what_we_*_text,
+        // problem_analysis_content, demolition_content) are no longer written
+        // through the technician form. The canonical store is
+        // ai_summary_versions, populated by generate-inspection-summary EF
+        // (initial / regeneration) and InspectionAIReview.handleSave (manual_edit).
+        // Dropped per audit gate sign-off 2026-05-01.
         updated_at: new Date().toISOString(),
       };
 
@@ -3684,16 +3684,11 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           structured: true,
         });
 
-        // 3. Save AI text to inspections table (if generation succeeded)
-        if (!aiError && aiData?.success && currentInspectionId) {
-          await supabase.from('inspections').update({
-            what_we_found_text: aiData.what_we_found || null,
-            what_we_will_do_text: aiData.what_we_will_do || null,
-            problem_analysis_content: aiData.detailed_analysis || null,
-            demolition_content: aiData.demolition_details || null,
-            updated_at: new Date().toISOString(),
-          }).eq('id', currentInspectionId);
-        } else if (aiError) {
+        // Stage 3.4.5: post-AI mirror write removed. The EF
+        // (generate-inspection-summary) is now the canonical writer of
+        // ai_summary_versions per Stage 3.2; the previous client-side
+        // inspections.update() here was a redundant mirror.
+        if (aiError) {
           console.error('[AI Generate on Complete] Error:', aiError);
           // AI failed — still proceed, admin can regenerate manually
         }
