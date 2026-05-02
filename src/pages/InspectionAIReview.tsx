@@ -263,10 +263,50 @@ export default function InspectionAIReview() {
 
   const handleApprove = async () => {
     if (!leadId) return;
-    // Save any pending changes first
+    // Save any pending changes first (creates a manual_edit version)
     if (isDirty) await handleSave();
 
     try {
+      // Stage 3.4: stamp approval onto the latest active ai_summary_versions row.
+      // Inspections.ai_summary_approved is also set as a legacy mirror until Stage 3.5.
+      if (inspection?.id) {
+        const { data: { session: approveSession } } = await supabase.auth.getSession();
+        const approverId = approveSession?.user?.id ?? null;
+
+        const { data: latestVersion, error: latestErr } = await supabase
+          .from('ai_summary_versions')
+          .select('id')
+          .eq('inspection_id', inspection.id)
+          .is('superseded_at', null)
+          .order('version_number', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestErr) {
+          console.warn('[AIReview] latest version lookup failed:', latestErr.message);
+        } else if (latestVersion?.id) {
+          const { error: approveVersionErr } = await supabase
+            .from('ai_summary_versions')
+            .update({
+              approved_at: new Date().toISOString(),
+              approved_by: approverId,
+            })
+            .eq('id', latestVersion.id);
+          if (approveVersionErr) {
+            console.warn('[AIReview] version approval update failed:', approveVersionErr.message);
+          }
+        }
+
+        // Legacy mirror — dropped in Stage 3.5
+        const { error: mirrorErr } = await supabase
+          .from('inspections')
+          .update({ ai_summary_approved: true })
+          .eq('id', inspection.id);
+        if (mirrorErr) {
+          console.warn('[AIReview] inspections.ai_summary_approved mirror failed:', mirrorErr.message);
+        }
+      }
+
       await supabase.from('leads').update({ status: 'approve_inspection_report' }).eq('id', leadId);
       await supabase.from('activities').insert({
         lead_id: leadId,
