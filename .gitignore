@@ -64,3 +64,7 @@ supabase/.temp/
 
 # GitNexus backup snapshots (local-only rollback insurance)
 .gitnexus-backup-*/
+
+# Phase 3 Stage 3.5 pre-destructive-DDL snapshots (local-only rollback insurance,
+# Supabase automated backups remain primary recovery)
+phase3-stage-3.5-snapshot-*.json
