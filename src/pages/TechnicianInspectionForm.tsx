@@ -2780,12 +2780,18 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             option1EquipmentCost: ins.option_1_equipment_ex_gst ? Number(ins.option_1_equipment_ex_gst) : 0,
             option1TotalIncGst: ins.option_1_total_inc_gst ? Number(ins.option_1_total_inc_gst) : 0,
             option2TotalIncGst: ins.option_2_total_inc_gst ? Number(ins.option_2_total_inc_gst) : 0,
-            jobSummaryFinal: ins.ai_summary_text || '',
-            whatWeFoundText: ins.what_we_found_text || '',
-            whatWeWillDoText: ins.what_we_will_do_text || '',
-            whatYouGetText: ins.what_you_get_text || '',
-            problemAnalysisContent: ins.problem_analysis_content || '',
-            demolitionContent: ins.demolition_content || '',
+            // Stage 3.5: AI summary text fields no longer live on inspections.
+            // The technician form has no UI inputs for these fields (confirmed
+            // in audit doc); they were pure load-then-save pass-through and
+            // the writes were already dropped in Stage 3.4.5. Initialise empty —
+            // the canonical store is ai_summary_versions, read by the admin
+            // review screen via the latest_ai_summary view.
+            jobSummaryFinal: '',
+            whatWeFoundText: '',
+            whatWeWillDoText: '',
+            whatYouGetText: '',
+            problemAnalysisContent: '',
+            demolitionContent: '',
           }));
         } else {
           // No existing inspection - pre-fill from lead data
@@ -3181,11 +3187,9 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         changes.push({ field: 'Total (inc GST)', old: initialTotal, new: newTotal });
       }
 
-      const initialSummary = (initial.ai_summary_text as string | null) ?? null;
-      const newSummary = fd.jobSummaryFinal || null;
-      if (initialSummary !== newSummary) {
-        changes.push({ field: 'AI Summary', old: initialSummary, new: newSummary });
-      }
+      // Stage 3.5: AI summary diff tracking removed — the canonical store is
+      // ai_summary_versions, audited via audit_log_trigger on that table. The
+      // technician form's adminDiff was reading the dropped inspections.ai_summary_text.
 
       const initialOpt1 = initial.option_1_total_inc_gst == null ? null : Number(initial.option_1_total_inc_gst);
       const newOpt1 = fd.option1TotalIncGst || null;
