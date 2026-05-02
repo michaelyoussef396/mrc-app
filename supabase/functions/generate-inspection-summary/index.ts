@@ -1,15 +1,19 @@
 // Supabase Edge Function: generate-inspection-summary
-// Calls OpenRouter AI to generate professional MRC inspection report sections
+// Calls OpenRouter AI to generate professional MRC inspection report sections.
+// Phase 3 Stage 3.2: writes a versioned snapshot to public.ai_summary_versions
+// for every successful generation (Bucket A audited write — JWT-bound client).
 
 import { z } from 'https://esm.sh/zod@3.22.4'
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const RequestBodySchema = z.object({
   formData: z.record(z.unknown()),
+  inspectionId: z.string().uuid(),
+  userId: z.string().uuid().optional(),
   section: z.string().optional(),
   structured: z.boolean().optional(),
-  customPrompt: z.string().max(2000, 'customPrompt must be 2000 characters or less').optional(),
+  regenerationFeedback: z.string().max(2000, 'regenerationFeedback must be 2000 characters or less').optional(),
   currentContent: z.string().optional(),
-  feedback: z.string().optional(),
 })
 
 const corsHeaders = {
@@ -111,11 +115,19 @@ interface InspectionFormData {
 
 interface RequestBody {
   formData: InspectionFormData
-  feedback?: string
+  inspectionId: string
+  userId?: string
   section?: 'whatWeFound' | 'whatWeWillDo' | 'detailedAnalysis' | 'demolitionDetails'
   structured?: boolean
-  customPrompt?: string
+  regenerationFeedback?: string
   currentContent?: string
+}
+
+interface OpenRouterResult {
+  text: string
+  modelName: string | null
+  promptTokens: number | null
+  responseTokens: number | null
 }
 
 interface StructuredSummary {
@@ -320,7 +332,7 @@ async function callOpenRouter(
   systemPrompt: string,
   userPrompt: string,
   maxTokens: number
-): Promise<string> {
+): Promise<OpenRouterResult> {
   const errors: string[] = []
 
   for (const model of MODELS) {
@@ -366,7 +378,12 @@ async function callOpenRouter(
         continue
       }
       console.log(`Success with model: ${model}`)
-      return text.trim()
+      return {
+        text: text.trim(),
+        modelName: typeof result?.model === 'string' ? result.model : model,
+        promptTokens: typeof result?.usage?.prompt_tokens === 'number' ? result.usage.prompt_tokens : null,
+        responseTokens: typeof result?.usage?.completion_tokens === 'number' ? result.usage.completion_tokens : null,
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       if (msg.startsWith('OpenRouter API failed:')) throw err
@@ -376,6 +393,136 @@ async function callOpenRouter(
   }
 
   throw new Error(`All models rate-limited: ${errors.join(' | ')}`)
+}
+
+// SHA-256 hex hash. Used to identify the system prompt that produced a version.
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+// Build a Supabase client. JWT-bound when authHeader present (Bucket A pattern —
+// audit_log_trigger captures auth.uid()). Falls back to service role.
+function buildAuditedClient(supabaseUrl: string, anonKey: string, serviceKey: string, authHeader: string | null): SupabaseClient {
+  if (authHeader) {
+    return createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    })
+  }
+  console.warn('[generate-inspection-summary] No Authorization header — falling back to service role; audit attribution will be NULL')
+  return createClient(supabaseUrl, serviceKey)
+}
+
+interface VersionContent {
+  aiSummaryText: string | null
+  whatWeFoundText: string | null
+  whatWeWillDoText: string | null
+  problemAnalysisContent: string | null
+  demolitionContent: string | null
+}
+
+// Insert a new ai_summary_versions row and supersede the previous active version.
+// Race-safe: retries on UNIQUE(inspection_id, version_number) violation.
+// Best-effort: any error is logged and returned but does not throw — the
+// caller still returns the AI text to the user so a transient DB issue does
+// not lose their generated content.
+async function persistVersionRow(args: {
+  client: SupabaseClient
+  inspectionId: string
+  userId: string | undefined
+  modelName: string | null
+  systemPromptHash: string
+  userPrompt: string
+  promptTokens: number | null
+  responseTokens: number | null
+  regenerationFeedback: string | null
+  content: VersionContent
+}): Promise<{ versionId: string | null; versionNumber: number | null; generationType: 'initial' | 'regeneration' | null; error: string | null }> {
+  const { client, inspectionId, userId, modelName, systemPromptHash, userPrompt, promptTokens, responseTokens, regenerationFeedback, content } = args
+
+  const MAX_ATTEMPTS = 3
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const { data: maxRow, error: maxErr } = await client
+      .from('ai_summary_versions')
+      .select('version_number')
+      .eq('inspection_id', inspectionId)
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (maxErr) {
+      return { versionId: null, versionNumber: null, generationType: null, error: `version max query failed: ${maxErr.message}` }
+    }
+
+    const previousMax = (maxRow?.version_number as number | undefined) ?? 0
+    const nextVersion = previousMax + 1
+    const generationType: 'initial' | 'regeneration' = previousMax === 0 ? 'initial' : 'regeneration'
+
+    const { data: inserted, error: insertErr } = await client
+      .from('ai_summary_versions')
+      .insert({
+        inspection_id: inspectionId,
+        version_number: nextVersion,
+        generation_type: generationType,
+        generated_by: userId ?? null,
+        model_name: modelName,
+        system_prompt_hash: systemPromptHash,
+        user_prompt: userPrompt,
+        prompt_tokens: promptTokens,
+        response_tokens: responseTokens,
+        regeneration_feedback: regenerationFeedback,
+        ai_summary_text: content.aiSummaryText,
+        what_we_found_text: content.whatWeFoundText,
+        what_we_will_do_text: content.whatWeWillDoText,
+        problem_analysis_content: content.problemAnalysisContent,
+        demolition_content: content.demolitionContent,
+      })
+      .select('id')
+      .single()
+
+    if (insertErr) {
+      // 23505 = unique_violation — concurrent insert took our version_number; retry
+      const isUniqueViolation = (insertErr as { code?: string }).code === '23505'
+      if (isUniqueViolation && attempt < MAX_ATTEMPTS) {
+        console.warn(`[persistVersionRow] version_number ${nextVersion} taken (attempt ${attempt}); retrying`)
+        continue
+      }
+      return { versionId: null, versionNumber: null, generationType: null, error: `version insert failed: ${insertErr.message}` }
+    }
+
+    const newId = inserted?.id as string
+
+    // Supersede previous active version(s). Update is best-effort — if it fails,
+    // the new row still exists and reflects the latest generation.
+    if (previousMax > 0) {
+      const { error: supersedeErr } = await client
+        .from('ai_summary_versions')
+        .update({
+          superseded_at: new Date().toISOString(),
+          superseded_by_version_id: newId,
+        })
+        .eq('inspection_id', inspectionId)
+        .neq('id', newId)
+        .is('superseded_at', null)
+
+      if (supersedeErr) {
+        console.warn('[persistVersionRow] supersession update failed:', supersedeErr.message)
+      }
+    }
+
+    return { versionId: newId, versionNumber: nextVersion, generationType, error: null }
+  }
+
+  return { versionId: null, versionNumber: null, generationType: null, error: 'exceeded retry limit on version_number unique violation' }
+}
+
+// Prefix injected into the user prompt when the reviewer supplied feedback.
+function buildFeedbackPreamble(feedback: string | undefined): string {
+  if (!feedback || !feedback.trim()) return ''
+  return `Reviewer feedback to incorporate (apply to every section you generate):\n"${sanitizeField(feedback)}"\n\n`
 }
 
 // Helper: extract JSON from AI response that may include markdown fencing or preamble
@@ -464,6 +611,10 @@ Deno.serve(async (req) => {
       )
     }
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+
     const rawBody = await req.json()
     const parseResult = RequestBodySchema.safeParse(rawBody)
 
@@ -474,7 +625,14 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { formData, section, structured, customPrompt, currentContent } = parseResult.data as RequestBody
+    const { formData, inspectionId, userId, section, structured, regenerationFeedback, currentContent } = parseResult.data as RequestBody
+
+    const authHeader = req.headers.get('Authorization')
+    const supabaseAudited = supabaseUrl
+      ? buildAuditedClient(supabaseUrl, supabaseAnonKey, supabaseServiceKey, authHeader)
+      : null
+    const systemPromptHash = await sha256Hex(MRC_SYSTEM_PROMPT)
+    const feedbackPreamble = buildFeedbackPreamble(regenerationFeedback)
 
     const userDataPrompt = buildUserPrompt(formData)
     const hasDemolition = formData.areas?.some(a => a.demolitionRequired) || false
@@ -487,7 +645,7 @@ Deno.serve(async (req) => {
         ? `"demolition_details": "Generate DEMOLITION DETAILS section with header: **Specifications for Material Removal**\\n\\nThen for each area requiring demolition, write:\\n**[Area Name]**\\n[Specific dimensions and materials to be removed — plasterboard, carpet, timber etc.]\\n[Description of affected areas and scope of removal]\\n\\nCover all demolition areas from the inspection data. Include total demolition hours."`
         : `"demolition_details": ""`
 
-      const structuredUserPrompt = `Generate professional inspection report sections for this property.
+      const structuredUserPrompt = `${feedbackPreamble}Generate professional inspection report sections for this property.
 
 ${userDataPrompt}
 
@@ -517,17 +675,48 @@ Return ONLY the JSON object:`
       console.log('Calling OpenRouter API for STRUCTURED output...')
 
       try {
-        const generatedText = await callOpenRouter(openrouterApiKey, MRC_SYSTEM_PROMPT, structuredUserPrompt, 5000)
-        console.log('Raw AI response (first 300 chars):', generatedText.slice(0, 300))
+        const aiResult = await callOpenRouter(openrouterApiKey, MRC_SYSTEM_PROMPT, structuredUserPrompt, 5000)
+        console.log('Raw AI response (first 300 chars):', aiResult.text.slice(0, 300))
 
-        const cleanedText = extractJson(generatedText)
+        const cleanedText = extractJson(aiResult.text)
         const structuredData: StructuredSummary = JSON.parse(cleanedText)
+
+        // Persist a new ai_summary_versions row (best-effort — never fails the request)
+        let versionMeta: { versionId: string | null; versionNumber: number | null; generationType: string | null } = { versionId: null, versionNumber: null, generationType: null }
+        if (supabaseAudited) {
+          const persistResult = await persistVersionRow({
+            client: supabaseAudited,
+            inspectionId,
+            userId,
+            modelName: aiResult.modelName,
+            systemPromptHash,
+            userPrompt: structuredUserPrompt,
+            promptTokens: aiResult.promptTokens,
+            responseTokens: aiResult.responseTokens,
+            regenerationFeedback: regenerationFeedback ?? null,
+            content: {
+              aiSummaryText: structuredData.what_we_found || null,
+              whatWeFoundText: structuredData.what_we_found || null,
+              whatWeWillDoText: structuredData.what_we_will_do || null,
+              problemAnalysisContent: structuredData.detailed_analysis || null,
+              demolitionContent: structuredData.demolition_details || null,
+            },
+          })
+          if (persistResult.error) {
+            console.warn('[generate-inspection-summary] persistVersionRow failed:', persistResult.error)
+          } else {
+            versionMeta = persistResult
+          }
+        }
 
         return new Response(
           JSON.stringify({
             success: true,
             structured: true,
             ...structuredData,
+            version_id: versionMeta.versionId,
+            version_number: versionMeta.versionNumber,
+            generation_type: versionMeta.generationType,
             generated_at: new Date().toISOString()
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -548,14 +737,14 @@ Return ONLY the JSON object:`
     // ================================================================
     // SECTION-SPECIFIC REGENERATION
     // ================================================================
-    const isRegeneration = customPrompt && currentContent
+    const isRegeneration = regenerationFeedback && currentContent
     let userPrompt: string
     let maxTokens = 800
 
     // Regeneration preamble
     const regenPreamble = (sectionName: string, formatNote: string) => {
       const safeContent = sanitizeField(currentContent)
-      const safePrompt = sanitizeField(customPrompt)
+      const safePrompt = sanitizeField(regenerationFeedback)
       return `You previously generated this "${sectionName}" content for a mould inspection report:
 
 "${safeContent}"
@@ -696,13 +885,72 @@ ${userDataPrompt}
 Write 2 paragraphs in flowing prose. Australian English.`
     }
 
+    // Inject reviewer feedback for fresh-generation paths. Regeneration paths
+    // already wove regenerationFeedback into the prompt via regenPreamble.
+    const userPromptWithFeedback = isRegeneration ? userPrompt : `${feedbackPreamble}${userPrompt}`
+
     console.log(`Calling OpenRouter API for section: ${section || 'default'}...`)
-    const generatedText = await callOpenRouter(openrouterApiKey, MRC_SYSTEM_PROMPT, userPrompt, maxTokens)
+    const aiResult = await callOpenRouter(openrouterApiKey, MRC_SYSTEM_PROMPT, userPromptWithFeedback, maxTokens)
+
+    // Persist a new ai_summary_versions row carrying forward the other sections
+    // from the latest active version, replacing only the regenerated section.
+    let versionMeta: { versionId: string | null; versionNumber: number | null; generationType: string | null } = { versionId: null, versionNumber: null, generationType: null }
+    if (supabaseAudited) {
+      const { data: previous } = await supabaseAudited
+        .from('ai_summary_versions')
+        .select('ai_summary_text, what_we_found_text, what_we_will_do_text, problem_analysis_content, demolition_content')
+        .eq('inspection_id', inspectionId)
+        .is('superseded_at', null)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const baseContent: VersionContent = {
+        aiSummaryText: (previous?.ai_summary_text as string | null | undefined) ?? null,
+        whatWeFoundText: (previous?.what_we_found_text as string | null | undefined) ?? null,
+        whatWeWillDoText: (previous?.what_we_will_do_text as string | null | undefined) ?? null,
+        problemAnalysisContent: (previous?.problem_analysis_content as string | null | undefined) ?? null,
+        demolitionContent: (previous?.demolition_content as string | null | undefined) ?? null,
+      }
+
+      const regenContent: VersionContent = { ...baseContent }
+      if (section === 'whatWeFound') {
+        regenContent.whatWeFoundText = aiResult.text
+        regenContent.aiSummaryText = aiResult.text
+      } else if (section === 'whatWeWillDo') {
+        regenContent.whatWeWillDoText = aiResult.text
+      } else if (section === 'detailedAnalysis') {
+        regenContent.problemAnalysisContent = aiResult.text
+      } else if (section === 'demolitionDetails') {
+        regenContent.demolitionContent = aiResult.text
+      }
+
+      const persistResult = await persistVersionRow({
+        client: supabaseAudited,
+        inspectionId,
+        userId,
+        modelName: aiResult.modelName,
+        systemPromptHash,
+        userPrompt: userPromptWithFeedback,
+        promptTokens: aiResult.promptTokens,
+        responseTokens: aiResult.responseTokens,
+        regenerationFeedback: regenerationFeedback ?? null,
+        content: regenContent,
+      })
+      if (persistResult.error) {
+        console.warn('[generate-inspection-summary] persistVersionRow failed:', persistResult.error)
+      } else {
+        versionMeta = persistResult
+      }
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        summary: generatedText,
+        summary: aiResult.text,
+        version_id: versionMeta.versionId,
+        version_number: versionMeta.versionNumber,
+        generation_type: versionMeta.generationType,
         generated_at: new Date().toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

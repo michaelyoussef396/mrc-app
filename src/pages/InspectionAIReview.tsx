@@ -108,6 +108,7 @@ export default function InspectionAIReview() {
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
   const [regeneratingAll, setRegeneratingAll] = useState(false);
   const [regeneratingPdf, setRegeneratingPdf] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
 
   // Track dirty state
   const [isDirty, setIsDirty] = useState(false);
@@ -247,10 +248,15 @@ export default function InspectionAIReview() {
         .order('area_order');
 
       const payload = buildEdgeFunctionPayload(fullInspection, fullAreas || [], lead);
+      const { data: { session: regenSession } } = await supabase.auth.getSession();
+      const trimmedFeedback = feedbackText.trim();
 
       const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
         formData: payload,
+        inspectionId: inspection.id,
+        userId: regenSession?.user?.id,
         structured: true,
+        regenerationFeedback: trimmedFeedback || undefined,
       });
 
       if (error) throw error;
@@ -261,6 +267,7 @@ export default function InspectionAIReview() {
       setWhatWeWillDo(data.what_we_will_do || '');
       setDemolitionContent(data.demolition_details || '');
       setIsDirty(true);
+      setFeedbackText('');
 
       toast({ title: 'Regenerated', description: 'All AI sections regenerated. Remember to save.' });
     } catch (err: any) {
@@ -297,11 +304,16 @@ export default function InspectionAIReview() {
         .order('area_order');
 
       const payload = buildEdgeFunctionPayload(fullInspection, fullAreas || [], lead);
+      const { data: { session: regenSession } } = await supabase.auth.getSession();
+      const trimmedFeedback = feedbackText.trim();
 
       const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
         formData: payload,
+        inspectionId: inspection.id,
+        userId: regenSession?.user?.id,
         section,
         currentContent: contentMap[section],
+        regenerationFeedback: trimmedFeedback || undefined,
       });
 
       if (error) throw error;
@@ -313,6 +325,7 @@ export default function InspectionAIReview() {
       else if (section === 'demolitionDetails') setDemolitionContent(newContent);
 
       setIsDirty(true);
+      setFeedbackText('');
       toast({ title: 'Section Regenerated', description: 'Content updated. Remember to save.' });
     } catch (err: any) {
       toast({ title: 'Failed', description: err?.message || 'Failed to regenerate section', variant: 'destructive' });
@@ -543,6 +556,25 @@ export default function InspectionAIReview() {
                       ))}
                     </div>
                   )}
+                </div>
+
+                {/* Regeneration feedback (optional) */}
+                <div className="space-y-2">
+                  <label htmlFor="ai-regen-feedback" className="text-sm font-medium text-slate-700">
+                    Tell the AI what to change <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <textarea
+                    id="ai-regen-feedback"
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value.slice(0, 2000))}
+                    placeholder="e.g. Make the recommendations more specific to the bedroom mould, mention the specific moisture readings"
+                    rows={3}
+                    maxLength={2000}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 resize-y min-h-[72px]"
+                  />
+                  <p className="text-xs text-slate-500">
+                    {feedbackText.length}/2000 — applies to the next regeneration (whole or section)
+                  </p>
                 </div>
 
                 {/* Regenerate All */}

@@ -2499,7 +2499,6 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
     option1TotalIncGst: 0,
     option2TotalIncGst: 0,
     jobSummaryFinal: '',
-    regenerationFeedback: '',
     whatWeFoundText: '',
     whatWeWillDoText: '',
     whatYouGetText: '',
@@ -3677,8 +3676,11 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
 
         // 2. Generate AI summary via edge function
         const payload = buildAIPayload(formData, lead);
+        const { data: { session: aiSession } } = await supabase.auth.getSession();
         const { data: aiData, error: aiError } = await invokeEdgeFunction('generate-inspection-summary', {
           formData: payload,
+          inspectionId: currentInspectionId,
+          userId: aiSession?.user?.id,
           structured: true,
         });
 
