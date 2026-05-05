@@ -15,6 +15,11 @@ import { Button } from '@/components/ui/button'
 import { Loader2, Upload, Image as ImageIcon, X, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/integrations/supabase/client'
+import { validatePhotoCaption, PhotoCaptionRequiredError } from '@/lib/utils/photoUpload'
+
+// TODO(michael): refactor this modal to upload via uploadInspectionPhoto() so
+// the central caption gate / Storage cleanup / signed URL helpers all apply.
+// Tracked in Phase 4 follow-up; out of scope for Stage 4.1.
 
 interface ImageUploadModalProps {
   /** Whether the modal is open */
@@ -79,6 +84,16 @@ export function ImageUploadModal({
       return
     }
 
+    try {
+      validatePhotoCaption(fieldLabel)
+    } catch (err) {
+      const msg = err instanceof PhotoCaptionRequiredError
+        ? 'A caption is required before uploading this image'
+        : 'Invalid caption'
+      toast.error(msg)
+      return
+    }
+
     setUploading(true)
     toast.loading('Uploading image...', { id: 'image-upload' })
 
@@ -118,7 +133,7 @@ export function ImageUploadModal({
           inspection_id: inspectionId,
           storage_path: filename,
           photo_type: mapFieldKeyToPhotoType(fieldKey),
-          caption: fieldLabel
+          caption: fieldLabel.trim()
         })
 
       toast.success('Image uploaded successfully!', { id: 'image-upload' })

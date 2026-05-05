@@ -21,7 +21,12 @@ export interface QueuedPhoto {
   photoType: 'area' | 'subfloor' | 'general' | 'outdoor';
   areaId?: string;
   subfloorId?: string;
-  caption?: string;
+  /**
+   * Required since Stage 4.1. Validated at enqueue (queuePhotoOffline) and
+   * re-validated at dequeue (Stage 4.1.5 routes invalid rows to quarantine
+   * rather than silently uploading with NULL).
+   */
+  caption: string;
   orderIndex: number;
   createdAt: string;
   syncedAt?: string;

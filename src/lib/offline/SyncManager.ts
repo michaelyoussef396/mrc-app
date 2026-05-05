@@ -271,7 +271,7 @@ export class SyncManager {
         file_name: filename,
         file_size: photo.blob.size,
         mime_type: 'image/jpeg',
-        caption: photo.caption || null,
+        caption: photo.caption.trim(),
         order_index: photo.orderIndex,
         uploaded_by: user?.id || null,
       })
