@@ -1,8 +1,25 @@
 import { offlineDb } from './db';
-import type { InspectionDraft, QueuedPhoto, SyncLogEntry, SyncStatus } from './types';
+import type { InspectionDraft, QueuedPhoto, QuarantinedPhoto, SyncLogEntry, SyncStatus } from './types';
 import { supabase } from '@/integrations/supabase/client';
 
 const MAX_RETRIES = 3;
+
+/**
+ * Stage 4.1.5: thrown by syncPhoto() when a queued photo fails the caption
+ * gate at dequeue. The photo has already been moved from photoQueue to
+ * quarantinedPhotos by the time this is thrown — so syncAll() must NOT mark
+ * the (now non-existent) photoQueue row as error.
+ */
+export class PhotoQuarantinedError extends Error {
+  constructor(public photoId: string, public reason: QuarantinedPhoto['reason']) {
+    super(`Photo ${photoId} quarantined: ${reason}`);
+    this.name = 'PhotoQuarantinedError';
+  }
+}
+
+function isCaptionValid(caption: unknown): caption is string {
+  return typeof caption === 'string' && caption.trim().length > 0;
+}
 
 /**
  * SyncManager orchestrates the text-first sync pattern:
@@ -102,18 +119,19 @@ export class SyncManager {
    * Sync all pending items to Supabase.
    * Text-first pattern: sync inspection text → then photos.
    */
-  async syncAll(): Promise<{ syncedDrafts: number; syncedPhotos: number; errors: string[] }> {
+  async syncAll(): Promise<{ syncedDrafts: number; syncedPhotos: number; quarantinedPhotos: number; errors: string[] }> {
     if (this.syncing) {
-      return { syncedDrafts: 0, syncedPhotos: 0, errors: [] };
+      return { syncedDrafts: 0, syncedPhotos: 0, quarantinedPhotos: 0, errors: [] };
     }
 
     if (!navigator.onLine) {
-      return { syncedDrafts: 0, syncedPhotos: 0, errors: ['Device is offline'] };
+      return { syncedDrafts: 0, syncedPhotos: 0, quarantinedPhotos: 0, errors: ['Device is offline'] };
     }
 
     this.syncing = true;
     let syncedDrafts = 0;
     let syncedPhotos = 0;
+    let quarantinedPhotos = 0;
     const errors: string[] = [];
 
     try {
@@ -132,6 +150,14 @@ export class SyncManager {
               await this.syncPhoto(photo, draft);
               syncedPhotos++;
             } catch (err) {
+              if (err instanceof PhotoQuarantinedError) {
+                // Row already moved to quarantinedPhotos by syncPhoto.
+                // Don't write to errors[] and don't touch photoQueue here
+                // (the original row no longer exists).
+                quarantinedPhotos++;
+                console.warn('[SyncManager]', err.message);
+                continue;
+              }
               const msg = `Photo sync failed (${photo.id}): ${err instanceof Error ? err.message : 'Unknown error'}`;
               console.error('[SyncManager]', msg);
               errors.push(msg);
@@ -155,7 +181,7 @@ export class SyncManager {
       this.syncing = false;
     }
 
-    return { syncedDrafts, syncedPhotos, errors };
+    return { syncedDrafts, syncedPhotos, quarantinedPhotos, errors };
   }
 
   /**
@@ -228,6 +254,14 @@ export class SyncManager {
   private async syncPhoto(photo: QueuedPhoto, draft: InspectionDraft): Promise<void> {
     if (!draft.remoteInspectionId) {
       throw new Error('Cannot sync photo: draft has no remote inspection ID');
+    }
+
+    // Stage 4.1.5: dequeue caption gate. Photos enqueued before Stage 4.1
+    // (or by a future bypass) get routed to quarantine instead of uploaded
+    // with a NULL/empty caption.
+    if (!isCaptionValid(photo.caption)) {
+      await this.quarantinePhoto(photo, 'missing_caption');
+      throw new PhotoQuarantinedError(photo.id, 'missing_caption');
     }
 
     await offlineDb.photoQueue.update(photo.id, { status: 'syncing' as SyncStatus });
@@ -309,7 +343,97 @@ export class SyncManager {
       .where('inspectionDraftId')
       .equals(draftId)
       .delete();
+    await offlineDb.quarantinedPhotos
+      .where('inspectionDraftId')
+      .equals(draftId)
+      .delete();
     await offlineDb.inspectionDrafts.delete(draftId);
+  }
+
+  /**
+   * Move a queued photo to the quarantine store. Stage 4.1.5 — used when a
+   * photo fails the dequeue caption gate so it never reaches the photos
+   * table with caption = NULL.
+   */
+  private async quarantinePhoto(
+    photo: QueuedPhoto,
+    reason: QuarantinedPhoto['reason'],
+  ): Promise<void> {
+    const quarantined: QuarantinedPhoto = {
+      id: photo.id,
+      inspectionDraftId: photo.inspectionDraftId,
+      blob: photo.blob,
+      originalFileName: photo.originalFileName,
+      photoType: photo.photoType,
+      areaId: photo.areaId,
+      subfloorId: photo.subfloorId,
+      orderIndex: photo.orderIndex,
+      reason,
+      originalCreatedAt: photo.createdAt,
+      quarantinedAt: new Date().toISOString(),
+    };
+
+    await offlineDb.transaction('rw', offlineDb.photoQueue, offlineDb.quarantinedPhotos, async () => {
+      await offlineDb.quarantinedPhotos.put(quarantined);
+      await offlineDb.photoQueue.delete(photo.id);
+    });
+  }
+
+  /**
+   * UI surface — count of photos held in quarantine awaiting tech action.
+   */
+  async getQuarantinedPhotoCount(): Promise<number> {
+    return offlineDb.quarantinedPhotos.count();
+  }
+
+  /**
+   * UI surface — full list of quarantined photos for re-caption / discard.
+   */
+  async getQuarantinedPhotos(): Promise<QuarantinedPhoto[]> {
+    return offlineDb.quarantinedPhotos.toArray();
+  }
+
+  /**
+   * UI surface — discard a quarantined photo permanently.
+   */
+  async discardQuarantinedPhoto(id: string): Promise<void> {
+    await offlineDb.quarantinedPhotos.delete(id);
+  }
+
+  /**
+   * UI surface — re-queue a quarantined photo with a fresh caption. The
+   * caller is expected to have collected the caption via
+   * PhotoCaptionPromptDialog; we still re-validate here so a UI bug can
+   * never push an invalid row back into the queue.
+   */
+  async requeueQuarantinedPhoto(id: string, caption: string): Promise<void> {
+    if (!isCaptionValid(caption)) {
+      throw new Error('Cannot requeue quarantined photo without a non-empty caption');
+    }
+
+    const quarantined = await offlineDb.quarantinedPhotos.get(id);
+    if (!quarantined) {
+      throw new Error(`Quarantined photo ${id} not found`);
+    }
+
+    const requeued: QueuedPhoto = {
+      id: quarantined.id,
+      inspectionDraftId: quarantined.inspectionDraftId,
+      status: 'pending',
+      blob: quarantined.blob,
+      originalFileName: quarantined.originalFileName,
+      photoType: quarantined.photoType,
+      areaId: quarantined.areaId,
+      subfloorId: quarantined.subfloorId,
+      caption: caption.trim(),
+      orderIndex: quarantined.orderIndex,
+      createdAt: new Date().toISOString(),
+    };
+
+    await offlineDb.transaction('rw', offlineDb.photoQueue, offlineDb.quarantinedPhotos, async () => {
+      await offlineDb.photoQueue.put(requeued);
+      await offlineDb.quarantinedPhotos.delete(id);
+    });
   }
 }
 
