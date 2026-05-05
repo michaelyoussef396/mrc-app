@@ -172,7 +172,7 @@ If this returns > 0, the backfill INSERT must either:
 (a) Use `NULL` for those rows, or
 (b) Drop the `approved_by` FK first (precedent: Phase 2 `audit_logs_drop_user_fk`).
 
-☐ Pre-flight orphan check run; result documented
+☑ Pre-flight orphan check run 2026-05-02; result documented in commit ae99897 — **0 orphans**, FK stays.
 
 ---
 
@@ -180,14 +180,38 @@ If this returns > 0, the backfill INSERT must either:
 
 Before Stage 3.5 step A can run, every ☐ above must be ☑ (and the work to migrate the consumer must be merged to `main` and verified on production).
 
-- [ ] All consumer migrations merged
-- [ ] Generated types regenerated after column drop
-- [ ] Backfill orphan pre-flight check run and resolved
+- [x] All consumer migrations merged (PR #47, merge commit `cbc6119`)
+- [x] Generated types regenerated after column drop (PR-E commit `2c3d04c`)
+- [x] Backfill orphan pre-flight check run and resolved (0 orphans; FK stays)
 - [x] Reviewed by **Michael** — **2026-05-01**. Approved to proceed with consumer migrations. Three flagged risks acknowledged:
-  - **ViewReportPDF inline-editor WRITES** (`ViewReportPDF.tsx:1388`, `1407`) → migrate to `ai_summary_versions` `manual_edit` pattern, mirroring Stage 3.3 `handleSave`.
-  - **`TechnicianInspectionForm.tsx:3326-3331`** redundant post-AI mirror write → **DROP** (not migrate). EF is now the canonical writer per Stage 3.2.
-  - **Stage 3.5 backfill FK-orphan risk** → pre-flight orphan check at the start of Stage 3.5. If 0 orphans, FK stays. If orphans found, present remediation options before applying.
-- [ ] Compatibility view `latest_ai_summary` created (Stage 3.5 step C predecessor)
+  - **ViewReportPDF inline-editor WRITES** (`ViewReportPDF.tsx:1388`, `1407`) → migrated to `ai_summary_versions` `manual_edit` pattern in PR #47 commit `3290253` (Stage 3.4.5) via the local helper `persistManualEdit()`.
+  - **`TechnicianInspectionForm.tsx:3326-3331`** redundant post-AI mirror write → **DROPPED** in PR #47 commit `3290253` (Stage 3.4.5). EF is now the canonical writer per Stage 3.2.
+  - **Stage 3.5 backfill FK-orphan risk** → pre-flight orphan check ran at the start of Stage 3.5. **0 orphans found**, FK on `ai_summary_versions.approved_by` stays. (And 0 inspections currently have `ai_summary_approved=true`, so the CASE WHEN clause never fires anyway.)
+- [x] Compatibility view `latest_ai_summary` created (PR #47 commit `3290253` — Stage 3.4.5; created earlier than master plan's "Stage 3.5 step C predecessor" position to support consumer migrations in PR #47)
+
+---
+
+## Stage 3.5 execution log (PR-E)
+
+**Authorized:** Michael 2026-05-02 (after Phase 3 PR #47 merged to `main` at `cbc6119`)
+
+**Backfilled inspection IDs (audit trail):**
+| inspection_id | lead_id | content backfilled |
+|---|---|---|
+| `1c29e606-ae24-4aec-90c3-229782d8a9d0` | `21a9568d-7a28-4816-aa2b-02e61371f1e3` | ai_summary_text + 3 sections + problem_analysis (full standard backfill) |
+| `c61ffdf4-f42a-47a7-b579-1afa75a250db` | `85fca3d1-f30b-4942-ba6c-f9c7d27269d8` | 4 sections (no ai_summary_text); preserved by broader-predicate divergence |
+
+**Predicate divergence from master plan:** The master plan v2 (line 547) specifies `WHERE ai_summary_text IS NOT NULL` for the backfill. Pre-flight on production found 1 inspection (`c61ffdf4-...`) with 6,978 chars of populated section content but null `ai_summary_text`. Plan-spec predicate would have silently lost that data on `DROP COLUMN`. Predicate broadened to `OR` across the 6 content columns. Authorized by Michael 2026-05-02. **Master plan footnote correction tracked as post-PR-E task** (separate commit on `main` after PR-E merges).
+
+**Migrations applied to production DB (verified at apply time):**
+- `20260502100028_phase3_stage_3_5_backfill_ai_summary_versions` — INSERT 2 rows
+- `20260502100119_phase3_stage_3_5_drop_legacy_ai_summary_columns` — DROP 8 columns explicit + IF EXISTS regeneration_feedback (column never existed; per Phase 1 Stage 1.3 footnote, was a wired-but-not-implemented form-state stub)
+
+**Local snapshot (gitignored):** `phase3-stage-3.5-snapshot-pre-backfill.json` captures full pre-backfill content of both inspections. Supabase automated backups remain primary recovery.
+
+**Final consumer-audit re-grep:** 0 inspections-table reads/writes reference any of the 9 dropped columns. (114 string hits across 7 files all legitimate: `latest_ai_summary` view selects, `ai_summary_versions` table writes, merged-object property names, HTML template placeholders in PDF EF, comments, local TypeScript interface declarations.)
+
+**Stage 3.5-induced consumer fix:** PR-E commit `<this commit>` drops dead AI-summary load paths from `TechnicianInspectionForm.tsx` (lines 2783-2788 + 3184) — these were load-then-save pass-through state with no UI input. Audit-listed during PR #47 but not migrated until the regenerated types after Stage 3.5 surfaced them as TypeScript errors.
 
 ---
 
