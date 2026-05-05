@@ -10,6 +10,7 @@ import {
   uploadMultiplePhotos,
   deleteInspectionPhoto,
 } from '@/lib/utils/photoUpload';
+import { PhotoCaptionPromptDialog } from '@/components/photos/PhotoCaptionPromptDialog';
 
 import type { JobCompletionFormData } from '@/types/jobCompletion';
 
@@ -98,6 +99,9 @@ export function Section4AfterPhotos({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingCategoryRef = useRef<PhotoCategory>('after');
+  const pendingCaptionRef = useRef<string>('');
+  const [captionPromptOpen, setCaptionPromptOpen] = useState(false);
+  const [captionPromptCategory, setCaptionPromptCategory] = useState<PhotoCategory>('after');
 
   useEffect(() => {
     let cancelled = false;
@@ -166,7 +170,19 @@ export function Section4AfterPhotos({
     }
 
     pendingCategoryRef.current = category;
+    setCaptionPromptCategory(category);
+    setCaptionPromptOpen(true);
+  }
+
+  function handleCaptionConfirm(caption: string) {
+    pendingCaptionRef.current = caption;
+    setCaptionPromptOpen(false);
     fileInputRef.current?.click();
+  }
+
+  function handleCaptionCancel() {
+    setCaptionPromptOpen(false);
+    pendingCaptionRef.current = '';
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -192,6 +208,12 @@ export function Section4AfterPhotos({
       toast.info(`Only uploading ${filesToUpload.length} of ${files.length} — limit is ${limit}`);
     }
 
+    const caption = pendingCaptionRef.current;
+    if (!caption.trim()) {
+      toast.error('Caption missing — try uploading again');
+      return;
+    }
+
     setIsUploading(true);
     try {
       const results = await uploadMultiplePhotos(filesToUpload, {
@@ -199,6 +221,7 @@ export function Section4AfterPhotos({
         job_completion_id: jobCompletionId,
         photo_category: category,
         photo_type: 'general',
+        caption,
       });
       await refetch();
       toast.success(`${results.length} photo${results.length === 1 ? '' : 's'} uploaded`);
@@ -206,6 +229,7 @@ export function Section4AfterPhotos({
       console.error('[Section4AfterPhotos] Upload failed:', err);
       toast.error(err instanceof Error ? err.message : 'Photo upload failed');
     } finally {
+      pendingCaptionRef.current = '';
       setIsUploading(false);
     }
   }
@@ -227,6 +251,22 @@ export function Section4AfterPhotos({
 
   return (
     <section aria-labelledby="after-photos-heading" className="space-y-5">
+      <PhotoCaptionPromptDialog
+        isOpen={captionPromptOpen}
+        title={captionPromptCategory === 'demolition' ? 'Add Demolition Photo' : 'Add After Photo'}
+        description={
+          captionPromptCategory === 'demolition'
+            ? 'Describe what was demolished or removed'
+            : 'Describe the area after remediation'
+        }
+        placeholder={
+          captionPromptCategory === 'demolition'
+            ? 'e.g. Cavity exposed after removing affected plaster'
+            : 'e.g. Bathroom ceiling cleared of mould'
+        }
+        onConfirm={handleCaptionConfirm}
+        onCancel={handleCaptionCancel}
+      />
       <input
         ref={fileInputRef}
         type="file"
