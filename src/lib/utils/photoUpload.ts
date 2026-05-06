@@ -14,10 +14,33 @@ export interface PhotoMetadata {
   subfloor_id?: string
   moisture_reading_id?: string
   photo_type: 'area' | 'subfloor' | 'general' | 'outdoor'
-  caption?: string
+  /**
+   * Required since Stage 4.1. Either a sentinel role tag (e.g. 'infrared',
+   * 'front_house', 'moisture') or a human-readable description collected via
+   * PhotoCaptionPromptDialog. Empty/whitespace strings are rejected.
+   */
+  caption: string
   order_index?: number
   job_completion_id?: string
   photo_category?: 'before' | 'after' | 'demolition'
+}
+
+export class PhotoCaptionRequiredError extends Error {
+  constructor() {
+    super('Photo caption is required and cannot be empty')
+    this.name = 'PhotoCaptionRequiredError'
+  }
+}
+
+/**
+ * Stage 4.1 gate: every photo INSERT (online or queued offline) must carry a
+ * non-empty caption. Sentinel role tags satisfy this; human captions are
+ * collected via PhotoCaptionPromptDialog before the file picker opens.
+ */
+export function validatePhotoCaption(caption: unknown): asserts caption is string {
+  if (typeof caption !== 'string' || caption.trim().length === 0) {
+    throw new PhotoCaptionRequiredError()
+  }
 }
 
 /**
@@ -28,6 +51,8 @@ export async function queuePhotoOffline(
   file: File,
   metadata: PhotoMetadata & { inspectionDraftId: string }
 ): Promise<string> {
+  validatePhotoCaption(metadata.caption)
+
   const resized = await resizePhoto(file)
   const id = crypto.randomUUID()
 
@@ -57,6 +82,8 @@ export async function uploadInspectionPhoto(
   file: File,
   metadata: PhotoMetadata
 ): Promise<PhotoUploadResult> {
+  validatePhotoCaption(metadata.caption)
+
   // 1. Resize photo before upload (converts to JPEG, max 1600px, ~200-500KB)
   const resizedBlob = await resizePhoto(file)
 
@@ -133,7 +160,7 @@ export async function uploadInspectionPhoto(
       file_name: filename,
       file_size: resizedBlob.size,
       mime_type: 'image/jpeg',
-      caption: metadata.caption || null,
+      caption: metadata.caption.trim(),
       order_index: metadata.order_index || 0,
       uploaded_by: user.id,
       job_completion_id: metadata.job_completion_id || null,

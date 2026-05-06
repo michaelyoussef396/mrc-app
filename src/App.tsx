@@ -12,6 +12,7 @@ import { GlobalLoader, ProgressBar, PageTransition } from "@/components/loading"
 import { useSessionRefresh } from "@/lib/hooks/useSessionRefresh";
 import ErrorBoundary, { PageErrorBoundary } from "@/components/ErrorBoundary";
 import OfflineBanner from "@/components/OfflineBanner";
+import QuarantinedPhotosBanner from "@/components/QuarantinedPhotosBanner";
 import { Loader2 } from "lucide-react";
 
 // Eagerly loaded pages (login flow - needed immediately)
@@ -74,6 +75,7 @@ const AppContent = () => {
   return (
     <>
       <OfflineBanner />
+      <QuarantinedPhotosBanner />
       <ProgressBar />
       <PageTransition location={location.pathname}>
         <Suspense fallback={<PageLoader />}>

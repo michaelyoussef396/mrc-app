@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockStore: Record<string, Record<string, unknown>[]> = {
   inspectionDrafts: [],
   photoQueue: [],
+  quarantinedPhotos: [],
   syncLog: [],
 }
 
@@ -21,6 +22,8 @@ const createMockTable = (name: string) => ({
   delete: vi.fn(async (id: string) => {
     mockStore[name] = mockStore[name].filter((r: any) => r.id !== id)
   }),
+  count: vi.fn(async () => mockStore[name].length),
+  toArray: vi.fn(async () => [...mockStore[name]]),
   where: vi.fn((field: string) => ({
     equals: vi.fn((value: any) => ({
       first: vi.fn(async () => mockStore[name].find((r: any) => (r as any)[field] === value)),
@@ -43,7 +46,13 @@ vi.mock('../db', () => ({
   offlineDb: {
     inspectionDrafts: createMockTable('inspectionDrafts'),
     photoQueue: createMockTable('photoQueue'),
+    quarantinedPhotos: createMockTable('quarantinedPhotos'),
     syncLog: createMockTable('syncLog'),
+    // Real Dexie isolates txn writes; mock just runs the callback inline.
+    transaction: vi.fn(async (_mode: string, ..._args: unknown[]) => {
+      const callback = _args[_args.length - 1] as () => Promise<void>
+      await callback()
+    }),
   },
 }))
 
@@ -75,6 +84,7 @@ describe('SyncManager', () => {
   beforeEach(async () => {
     mockStore.inspectionDrafts = []
     mockStore.photoQueue = []
+    mockStore.quarantinedPhotos = []
     mockStore.syncLog = []
 
     vi.resetModules()
@@ -131,6 +141,7 @@ describe('SyncManager', () => {
       blob: new Blob(['test'], { type: 'image/jpeg' }),
       originalFileName: 'test.jpg',
       photoType: 'area' as const,
+      caption: 'test caption',
       orderIndex: 0,
     })
 
@@ -159,5 +170,120 @@ describe('SyncManager', () => {
 
     const result = await sm.getDraft('del-1')
     expect(result).toBeUndefined()
+  })
+
+  // Stage 4.1.5 — quarantine path
+  describe('quarantine path (Stage 4.1.5)', () => {
+    function seedDraftAndPhoto(captionOverride: unknown) {
+      mockStore.inspectionDrafts.push({
+        id: 'draft-q',
+        leadId: 'lead-q',
+        status: 'pending',
+        formData: {},
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        remoteInspectionId: 'remote-inspection-1',
+      })
+      mockStore.photoQueue.push({
+        id: 'photo-q',
+        inspectionDraftId: 'draft-q',
+        status: 'pending',
+        blob: new Blob(['test'], { type: 'image/jpeg' }),
+        originalFileName: 'test.jpg',
+        photoType: 'area',
+        // Cast through unknown so the mock can store an invalid caption
+        // even though QueuedPhoto.caption is typed as string.
+        caption: captionOverride as string,
+        orderIndex: 0,
+        createdAt: new Date().toISOString(),
+      })
+    }
+
+    it('syncAll() routes a captionless queued photo to quarantine instead of uploading', async () => {
+      seedDraftAndPhoto('')
+
+      const sm = new SyncManager()
+      const result = await sm.syncAll()
+
+      expect(result.quarantinedPhotos).toBe(1)
+      expect(result.syncedPhotos).toBe(0)
+      expect(result.errors).toEqual([])
+      expect(mockStore.photoQueue).toHaveLength(0)
+      expect(mockStore.quarantinedPhotos).toHaveLength(1)
+      expect(mockStore.quarantinedPhotos[0]).toMatchObject({
+        id: 'photo-q',
+        reason: 'missing_caption',
+      })
+    })
+
+    it('syncAll() quarantines a whitespace-only caption', async () => {
+      seedDraftAndPhoto('   ')
+
+      const sm = new SyncManager()
+      const result = await sm.syncAll()
+
+      expect(result.quarantinedPhotos).toBe(1)
+      expect(mockStore.quarantinedPhotos).toHaveLength(1)
+    })
+
+    it('syncAll() does NOT quarantine a photo with a valid caption', async () => {
+      seedDraftAndPhoto('Mould near skirting')
+
+      const sm = new SyncManager()
+      const result = await sm.syncAll()
+
+      expect(result.quarantinedPhotos).toBe(0)
+      expect(result.syncedPhotos).toBe(1)
+      expect(mockStore.quarantinedPhotos).toHaveLength(0)
+    })
+
+    it('getQuarantinedPhotoCount() returns the number of quarantined rows', async () => {
+      seedDraftAndPhoto('')
+      const sm = new SyncManager()
+      await sm.syncAll()
+
+      const count = await sm.getQuarantinedPhotoCount()
+      expect(count).toBe(1)
+    })
+
+    it('requeueQuarantinedPhoto() moves a photo back to photoQueue with the new caption', async () => {
+      seedDraftAndPhoto('')
+      const sm = new SyncManager()
+      await sm.syncAll()
+      expect(mockStore.quarantinedPhotos).toHaveLength(1)
+
+      await sm.requeueQuarantinedPhoto('photo-q', 'New caption')
+
+      expect(mockStore.quarantinedPhotos).toHaveLength(0)
+      expect(mockStore.photoQueue).toHaveLength(1)
+      expect(mockStore.photoQueue[0]).toMatchObject({
+        id: 'photo-q',
+        caption: 'New caption',
+        status: 'pending',
+      })
+    })
+
+    it('requeueQuarantinedPhoto() rejects an empty caption', async () => {
+      seedDraftAndPhoto('')
+      const sm = new SyncManager()
+      await sm.syncAll()
+
+      await expect(sm.requeueQuarantinedPhoto('photo-q', '   ')).rejects.toThrow(
+        /non-empty caption/i,
+      )
+      expect(mockStore.quarantinedPhotos).toHaveLength(1)
+      expect(mockStore.photoQueue).toHaveLength(0)
+    })
+
+    it('discardQuarantinedPhoto() removes the row permanently', async () => {
+      seedDraftAndPhoto('')
+      const sm = new SyncManager()
+      await sm.syncAll()
+
+      await sm.discardQuarantinedPhoto('photo-q')
+
+      expect(mockStore.quarantinedPhotos).toHaveLength(0)
+      expect(mockStore.photoQueue).toHaveLength(0)
+    })
   })
 })

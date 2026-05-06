@@ -45,6 +45,7 @@ import { StalePdfBanner } from '@/components/pdf/StalePdfBanner'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
 import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
+import { PhotoCaptionPromptDialog } from '@/components/photos/PhotoCaptionPromptDialog'
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { resizePhoto } from '@/lib/offline/photoResizer'
 import { formatDateAU } from '@/lib/dateUtils'
@@ -357,7 +358,15 @@ export default function ViewReportPDF() {
   const [jobPhotoPool, setJobPhotoPool] = useState<Array<{ key: string; label: string; photos: Array<{ id: string; signed_url: string }> }>>([])
   const [jobPhotoPoolLoading, setJobPhotoPoolLoading] = useState(false)
   const jobUploadRef = useRef<HTMLInputElement>(null)
+  const areaUploadRef = useRef<HTMLInputElement>(null)
   const [jobPhotoUploading, setJobPhotoUploading] = useState(false)
+
+  // Stage 4.1: caption-required prompt for the two admin photo-replace flows
+  // (handleJobPhotoUpload, handleUploadNewAreaPhoto). Captured before the file
+  // picker opens, then attached to the upload metadata.
+  const [captionPromptOpen, setCaptionPromptOpen] = useState(false)
+  const [captionPromptKind, setCaptionPromptKind] = useState<'job' | 'area'>('area')
+  const pendingCaptionRef = useRef<string>('')
 
   // Edit modal state (Pages 2+)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -754,19 +763,27 @@ export default function ViewReportPDF() {
     if (jobUploadRef.current) jobUploadRef.current.value = ''
     if (!file || !jobCompletion?.inspection_id) return
 
+    const caption = pendingCaptionRef.current.trim()
+    if (!caption) {
+      toast.error('Caption required — please try uploading again')
+      return
+    }
+
     setJobPhotoUploading(true)
     try {
       const { uploadInspectionPhoto: upload } = await import('@/lib/utils/photoUpload')
       const result = await upload(file, {
         inspection_id: jobCompletion.inspection_id,
         photo_type: 'general',
+        caption,
       })
       toast.success('Photo uploaded')
       await handleJobPhotoSwap(result.photo_id)
     } catch (err) {
       console.error('Upload failed:', err)
-      toast.error('Failed to upload photo')
+      toast.error(err instanceof Error ? err.message : 'Failed to upload photo')
     } finally {
+      pendingCaptionRef.current = ''
       setJobPhotoUploading(false)
     }
   }
@@ -1912,8 +1929,17 @@ export default function ViewReportPDF() {
 
   async function handleUploadNewAreaPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !editingAreaId || !inspection?.id) return
+    if (!file || !editingAreaId || !inspection?.id) {
+      e.target.value = ''
+      return
+    }
     e.target.value = ''
+
+    const caption = pendingCaptionRef.current.trim()
+    if (!caption) {
+      toast.error('Caption required — please try uploading again')
+      return
+    }
 
     setAreaPhotoUploading(true)
     try {
@@ -1923,6 +1949,7 @@ export default function ViewReportPDF() {
         inspection_id: inspection.id,
         photo_type: 'area',
         order_index: 0,
+        caption,
       })
 
       toast.success('Photo uploaded — select it from the grid')
@@ -1930,10 +1957,31 @@ export default function ViewReportPDF() {
       await openAreaPhotoPicker()
     } catch (err) {
       console.error('Area photo upload failed:', err)
-      toast.error('Failed to upload photo')
+      toast.error(err instanceof Error ? err.message : 'Failed to upload photo')
     } finally {
+      pendingCaptionRef.current = ''
       setAreaPhotoUploading(false)
     }
+  }
+
+  function openCaptionPrompt(kind: 'job' | 'area') {
+    setCaptionPromptKind(kind)
+    setCaptionPromptOpen(true)
+  }
+
+  function handleCaptionPromptConfirm(caption: string) {
+    pendingCaptionRef.current = caption
+    setCaptionPromptOpen(false)
+    if (captionPromptKind === 'job') {
+      jobUploadRef.current?.click()
+    } else {
+      areaUploadRef.current?.click()
+    }
+  }
+
+  function handleCaptionPromptCancel() {
+    setCaptionPromptOpen(false)
+    pendingCaptionRef.current = ''
   }
 
   async function handleAddArea() {
@@ -2684,6 +2732,18 @@ export default function ViewReportPDF() {
         </div>
       )}
 
+      <PhotoCaptionPromptDialog
+        isOpen={captionPromptOpen}
+        title={captionPromptKind === 'job' ? 'Replace Photo' : 'Upload New Area Photo'}
+        description={
+          captionPromptKind === 'job'
+            ? 'Describe what this replacement photo shows'
+            : 'Describe what this area photo shows'
+        }
+        onConfirm={handleCaptionPromptConfirm}
+        onCancel={handleCaptionPromptCancel}
+      />
+
       {/* Job Report Edit Dialog */}
       <Dialog open={jobEditOpen} onOpenChange={setJobEditOpen}>
         <DialogContent className="sm:max-w-md">
@@ -2747,7 +2807,7 @@ export default function ViewReportPDF() {
 
           <Button
             variant="outline"
-            onClick={() => jobUploadRef.current?.click()}
+            onClick={() => openCaptionPrompt('job')}
             disabled={jobPhotoUploading}
             className="w-full h-12 mb-3"
           >
@@ -3190,16 +3250,21 @@ export default function ViewReportPDF() {
                 <p className="text-center text-gray-500 py-4">No photos found for this inspection</p>
               )}
 
-              <label className="flex items-center justify-center w-full h-12 min-h-[48px] mt-2 border border-input bg-background rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">
+              <input
+                ref={areaUploadRef}
+                type="file"
+                accept="image/*"
+                onChange={handleUploadNewAreaPhoto}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => openCaptionPrompt('area')}
+                className="flex items-center justify-center w-full h-12 min-h-[48px] mt-2 border border-input bg-background rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
                 <Upload className="h-5 w-5 mr-2" />
                 Upload New Photo
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleUploadNewAreaPhoto}
-                  className="hidden"
-                />
-              </label>
+              </button>
             </>
           )}
         </DialogContent>

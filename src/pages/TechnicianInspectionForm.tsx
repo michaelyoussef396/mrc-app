@@ -16,6 +16,7 @@ import {
   deleteInspectionPhoto,
   loadInspectionPhotos,
 } from '@/lib/utils/photoUpload';
+import { PhotoCaptionPromptDialog } from '@/components/photos/PhotoCaptionPromptDialog';
 import type {
   InspectionFormData,
   InspectionArea,
@@ -2994,30 +2995,55 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   // Photo handlers - upload to Supabase Storage
   // Persistent refs for file input (mobile browsers block .click() on detached inputs)
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const photoContextRef = useRef<{ type: string; areaId?: string; readingId?: string }>({ type: '' });
+  const photoContextRef = useRef<{ type: string; areaId?: string; readingId?: string; userCaption?: string }>({ type: '' });
+  const [captionPromptOpen, setCaptionPromptOpen] = useState(false);
+  const [captionPromptType, setCaptionPromptType] = useState<'roomView' | 'subfloor'>('roomView');
+
+  // Stage 4.1: types whose caption is collected from the technician via
+  // PhotoCaptionPromptDialog. All other types (sentinel role tags like
+  // 'infrared', 'front_house', or moisture readings) supply their own caption.
+  const HUMAN_CAPTION_TYPES = new Set(['roomView', 'subfloor']);
+
+  const openFilePicker = (multiple: boolean) => {
+    const input = photoInputRef.current;
+    if (!input) return;
+    input.multiple = multiple;
+    input.value = '';
+    input.click();
+  };
 
   const handlePhotoCapture = (type: string, areaId?: string, readingId?: string) => {
     const input = photoInputRef.current;
     if (!input) return;
 
-    // Store context for the onChange handler
-    photoContextRef.current = { type, areaId, readingId };
+    photoContextRef.current = { type, areaId, readingId, userCaption: undefined };
 
-    // Configure input attributes
-    input.multiple = type !== 'single' && !readingId;
+    if (HUMAN_CAPTION_TYPES.has(type)) {
+      setCaptionPromptType(type as 'roomView' | 'subfloor');
+      setCaptionPromptOpen(true);
+      return;
+    }
 
-    // Reset value so same file can be re-selected
-    input.value = '';
+    openFilePicker(type !== 'single' && !readingId);
+  };
 
-    // Trigger file picker
-    input.click();
+  const handleCaptionPromptConfirm = (caption: string) => {
+    photoContextRef.current = { ...photoContextRef.current, userCaption: caption };
+    setCaptionPromptOpen(false);
+    const ctx = photoContextRef.current;
+    openFilePicker(ctx.type !== 'single' && !ctx.readingId);
+  };
+
+  const handleCaptionPromptCancel = () => {
+    setCaptionPromptOpen(false);
+    photoContextRef.current = { ...photoContextRef.current, userCaption: undefined };
   };
 
   const handlePhotoInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    const { type, areaId, readingId } = photoContextRef.current;
+    const { type, areaId, readingId, userCaption } = photoContextRef.current;
 
     // Require saved inspection before uploading photos
     if (!currentInspectionId) {
@@ -3042,8 +3068,10 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         photoType = 'area';
         if (type === 'infrared') caption = 'infrared';
         else if (type === 'naturalInfrared') caption = 'natural_infrared';
+        else if (type === 'roomView') caption = userCaption;
       } else if (type === 'subfloor') {
         photoType = 'subfloor';
+        caption = userCaption;
       } else if (['frontDoor', 'frontHouse', 'mailbox', 'street', 'direction'].includes(type)) {
         photoType = 'outdoor';
         const captionMap: Record<string, string> = {
@@ -3051,6 +3079,16 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           mailbox: 'mailbox', street: 'street', direction: 'direction',
         };
         caption = captionMap[type];
+      }
+
+      const finalCaption = readingId ? 'moisture' : caption;
+      if (!finalCaption || !finalCaption.trim()) {
+        toast({
+          title: 'Caption required',
+          description: 'Photo caption was missing — please try again',
+          variant: 'destructive',
+        });
+        return;
       }
 
       // Upload each file
@@ -3062,7 +3100,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           inspection_id: currentInspectionId,
           area_id: areaId,
           photo_type: photoType,
-          caption: readingId ? 'moisture' : caption,
+          caption: finalCaption,
         });
         newPhotos.push({
           id: result.photo_id,
@@ -3109,6 +3147,8 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         description: err?.message || 'Failed to upload photo(s)',
         variant: 'destructive',
       });
+    } finally {
+      photoContextRef.current = { ...photoContextRef.current, userCaption: undefined };
     }
   };
 
@@ -3861,6 +3901,23 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         accept="image/*"
         className="hidden"
         onChange={handlePhotoInputChange}
+      />
+
+      <PhotoCaptionPromptDialog
+        isOpen={captionPromptOpen}
+        title={captionPromptType === 'subfloor' ? 'Add Subfloor Photo' : 'Add Room Photo'}
+        description={
+          captionPromptType === 'subfloor'
+            ? 'Describe what this subfloor photo shows'
+            : 'Describe what this room photo shows'
+        }
+        placeholder={
+          captionPromptType === 'subfloor'
+            ? 'e.g. Moisture damage on floor joist near south wall'
+            : 'e.g. Visible mould on ceiling above shower'
+        }
+        onConfirm={handleCaptionPromptConfirm}
+        onCancel={handleCaptionPromptCancel}
       />
 
       {/* Completing overlay — shown while AI summary generates */}
