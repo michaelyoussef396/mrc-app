@@ -45,6 +45,7 @@ import { StalePdfBanner } from '@/components/pdf/StalePdfBanner'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
 import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
+import { recordPhotoHistory } from '@/lib/utils/photoHistory'
 import { PhotoCaptionPromptDialog } from '@/components/photos/PhotoCaptionPromptDialog'
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { resizePhoto } from '@/lib/offline/photoResizer'
@@ -793,21 +794,34 @@ export default function ViewReportPDF() {
     setJobPhotoPickerOpen(false)
 
     try {
-      if (jobPhotoPickerCategory === 'before') {
-        await supabase.from('photos')
-          .update({ job_completion_id: null, photo_category: null })
-          .eq('id', jobReplacingPhotoId)
-        await supabase.from('photos')
-          .update({ job_completion_id: jobCompletion.id, photo_category: 'before' })
-          .eq('id', newPhotoId)
-      } else {
-        await supabase.from('photos')
-          .update({ job_completion_id: null, photo_category: null })
-          .eq('id', jobReplacingPhotoId)
-        await supabase.from('photos')
-          .update({ job_completion_id: jobCompletion.id, photo_category: jobPhotoPickerCategory })
-          .eq('id', newPhotoId)
-      }
+      // The original if/else passed the same category in both branches
+      // (the 'before' branch and the else fall-through with 'before' as
+      // jobPhotoPickerCategory both wrote 'before'). Collapsed to one path.
+      const swapCategory = jobPhotoPickerCategory
+
+      await supabase.from('photos')
+        .update({ job_completion_id: null, photo_category: null })
+        .eq('id', jobReplacingPhotoId)
+      await supabase.from('photos')
+        .update({ job_completion_id: jobCompletion.id, photo_category: swapCategory })
+        .eq('id', newPhotoId)
+
+      // Stage 4.2: domain-level history for both ends of the swap.
+      // Non-blocking — never throws.
+      await recordPhotoHistory({
+        photo_id: jobReplacingPhotoId,
+        inspection_id: jobCompletion.inspection_id,
+        action: 'category_changed',
+        before: { photo_category: swapCategory, job_completion_id: jobCompletion.id },
+        after: { photo_category: null, job_completion_id: null },
+      })
+      await recordPhotoHistory({
+        photo_id: newPhotoId,
+        inspection_id: jobCompletion.inspection_id,
+        action: 'category_changed',
+        before: { photo_category: null, job_completion_id: null },
+        after: { photo_category: swapCategory, job_completion_id: jobCompletion.id },
+      })
 
       toast.success('Photo swapped')
       setJobReplacingPhotoId(null)
