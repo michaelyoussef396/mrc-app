@@ -1968,6 +1968,39 @@ export type Database = {
           },
         ]
       }
+      photo_history: {
+        Row: {
+          action: string
+          after: Json | null
+          before: Json | null
+          changed_at: string | null
+          changed_by: string | null
+          id: string
+          inspection_id: string
+          photo_id: string
+        }
+        Insert: {
+          action: string
+          after?: Json | null
+          before?: Json | null
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: string
+          inspection_id: string
+          photo_id: string
+        }
+        Update: {
+          action?: string
+          after?: Json | null
+          before?: Json | null
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: string
+          inspection_id?: string
+          photo_id?: string
+        }
+        Relationships: []
+      }
       photos: {
         Row: {
           area_id: string | null
