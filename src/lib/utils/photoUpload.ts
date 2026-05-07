@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client'
 import { syncManager, resizePhoto } from '@/lib/offline'
 import { captureBusinessError } from '@/lib/sentry'
+import { recordPhotoHistory } from '@/lib/utils/photoHistory'
 
 export interface PhotoUploadResult {
   storage_path: string
@@ -178,6 +179,20 @@ export async function uploadInspectionPhoto(
     console.error('Photo metadata save error:', photoError)
     throw new Error(`Failed to save photo metadata: ${photoError.message}`)
   }
+
+  // Stage 4.2: domain-level history. Non-blocking — never throws.
+  await recordPhotoHistory({
+    photo_id: photoData.id,
+    inspection_id: metadata.inspection_id,
+    action: 'added',
+    after: {
+      photo_type: metadata.photo_type,
+      area_id: metadata.area_id ?? null,
+      subfloor_id: metadata.subfloor_id ?? null,
+      caption: metadata.caption.trim(),
+      photo_category: metadata.photo_category ?? null,
+    },
+  })
 
   return {
     storage_path: uploadData.path,

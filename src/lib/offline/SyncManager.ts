@@ -1,6 +1,7 @@
 import { offlineDb } from './db';
 import type { InspectionDraft, QueuedPhoto, QuarantinedPhoto, SyncLogEntry, SyncStatus } from './types';
 import { supabase } from '@/integrations/supabase/client';
+import { recordPhotoHistory } from '@/lib/utils/photoHistory';
 
 const MAX_RETRIES = 3;
 
@@ -317,6 +318,22 @@ export class SyncManager {
       await supabase.storage.from('inspection-photos').remove([uploadData.path]);
       throw photoError;
     }
+
+    // Stage 4.2: domain-level history. Non-blocking — never throws. Master
+    // plan v2 omits this from SyncManager.syncPhoto(); offline-uploaded
+    // photos still need a history row at dequeue time, same as the online
+    // path in uploadInspectionPhoto().
+    await recordPhotoHistory({
+      photo_id: photoData.id,
+      inspection_id: draft.remoteInspectionId,
+      action: 'added',
+      after: {
+        photo_type: photo.photoType,
+        area_id: photo.areaId ?? null,
+        subfloor_id: photo.subfloorId ?? null,
+        caption: photo.caption.trim(),
+      },
+    });
 
     const now = new Date().toISOString();
     await offlineDb.photoQueue.update(photo.id, {
