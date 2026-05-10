@@ -272,40 +272,78 @@ export async function getPhotoSignedUrl(
 }
 
 /**
- * Delete a photo from Storage and photos table
- * @param photoId The photo ID from photos table
- * @returns Promise<void>
+ * Soft-delete an inspection photo.
+ *
+ * Stage 4.3 — see docs/stage-4.3-consumer-audit.md and plan v2 §4.3.
+ *
+ * Behaviour:
+ * 1. Reads the row metadata (filtered to active rows). Throws if the photo
+ *    was already soft-deleted — silent idempotency would mask programmer
+ *    errors.
+ * 2. NULLs out `inspection_areas.primary_photo_id` for any area pointing to
+ *    this photo. The SET NULL FK only fires on hard DELETE; soft-delete
+ *    needs explicit cleanup or stale primary pointers leak.
+ * 3. UPDATEs `photos.deleted_at = NOW()`. Read consumers filter
+ *    `deleted_at IS NULL`, so the row disappears from the live set.
+ * 4. The Storage object is intentionally retained — plan v2 verification
+ *    spec: "file still in Storage" after soft-delete. A future stage may
+ *    add Storage cleanup; out of scope here.
+ * 5. Emits a `photo_history { action: 'deleted' }` row (non-blocking via
+ *    `recordPhotoHistory`). Wires the `'deleted'` action enum value that
+ *    Stage 4.2 added without a caller.
  */
 export async function deleteInspectionPhoto(photoId: string): Promise<void> {
-  // 1. Get photo metadata to find storage path
   const { data: photo, error: fetchError } = await supabase
     .from('photos')
-    .select('storage_path')
+    .select('id, inspection_id, area_id, subfloor_id, photo_type, photo_category, caption, job_completion_id, storage_path')
     .eq('id', photoId)
-    .single()
+    .is('deleted_at', null)
+    .maybeSingle()
 
-  if (fetchError || !photo) {
-    throw new Error('Photo not found')
+  if (fetchError) {
+    throw new Error(`Failed to read photo before delete: ${fetchError.message}`)
+  }
+  if (!photo) {
+    throw new Error('Photo not found or already deleted')
   }
 
-  // 2. Delete from Storage
-  const { error: storageError } = await supabase.storage
-    .from('inspection-photos')
-    .remove([photo.storage_path])
+  // Clear any inspection_areas.primary_photo_id pointing at this photo —
+  // the FK is SET NULL on hard delete only, and we're soft-deleting.
+  const { error: primaryNullError } = await supabase
+    .from('inspection_areas')
+    .update({ primary_photo_id: null })
+    .eq('primary_photo_id', photoId)
 
-  if (storageError) {
-    console.error('Storage delete error:', storageError)
-    // Continue anyway to delete metadata
+  if (primaryNullError) {
+    throw new Error(`Failed to clear primary_photo_id refs: ${primaryNullError.message}`)
   }
 
-  // 3. Delete metadata from photos table
-  const { error: deleteError } = await supabase
+  const { error: softDeleteError } = await supabase
     .from('photos')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq('id', photoId)
+    .is('deleted_at', null)
 
-  if (deleteError) {
-    throw new Error(`Failed to delete photo metadata: ${deleteError.message}`)
+  if (softDeleteError) {
+    throw new Error(`Failed to soft-delete photo: ${softDeleteError.message}`)
+  }
+
+  // Domain history. Non-blocking — never throws.
+  if (photo.inspection_id) {
+    await recordPhotoHistory({
+      photo_id: photoId,
+      inspection_id: photo.inspection_id,
+      action: 'deleted',
+      before: {
+        photo_type: photo.photo_type,
+        area_id: photo.area_id ?? null,
+        subfloor_id: photo.subfloor_id ?? null,
+        caption: photo.caption ?? null,
+        photo_category: photo.photo_category ?? null,
+        job_completion_id: photo.job_completion_id ?? null,
+      },
+      after: null,
+    })
   }
 }
 
@@ -329,11 +367,12 @@ export async function loadInspectionPhotos(
   signed_url: string
   created_at: string
 }>> {
-  // 1. Get photo metadata
+  // 1. Get photo metadata. Stage 4.3: filter soft-deleted rows.
   const { data: photos, error } = await supabase
     .from('photos')
     .select('*')
     .eq('inspection_id', inspectionId)
+    .is('deleted_at', null)
     .order('order_index', { ascending: true })
 
   if (error) {

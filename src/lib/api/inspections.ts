@@ -400,11 +400,12 @@ export async function loadCompleteInspection(inspectionId: string) {
   // Load all areas
   const areas = await loadInspectionAreas(inspectionId)
 
-  // Load all photos
+  // Load all photos. Stage 4.3: filter soft-deleted rows.
   const { data: photos, error: photosError } = await supabase
     .from('photos')
     .select('*')
     .eq('inspection_id', inspectionId)
+    .is('deleted_at', null)
     .order('order_index', { ascending: true })
 
   if (photosError) {
@@ -550,6 +551,7 @@ export async function fetchCompleteInspectionData(
       .from('photos')
       .select('*')
       .eq('inspection_id', inspectionId)
+      .is('deleted_at', null)
       .order('order_index'),
     supabase
       .from('latest_ai_summary')

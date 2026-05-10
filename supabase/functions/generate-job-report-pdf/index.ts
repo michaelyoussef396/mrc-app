@@ -170,12 +170,13 @@ Deno.serve(async (req) => {
 
     const technicianName = profile?.full_name || jc.remediation_completed_by || 'Technician'
 
-    // Photos — before, after, demolition
+    // Photos — before, after, demolition. Stage 4.3: filter soft-deleted rows.
     const { data: photos } = await supabase
       .from('photos')
       .select('id, storage_path, photo_category')
       .eq('job_completion_id', jobCompletionId)
       .in('photo_category', ['before', 'after', 'demolition'])
+      .is('deleted_at', null)
       .order('created_at', { ascending: true })
 
     const allPhotos = (photos || []) as Array<{ id: string; storage_path: string; photo_category: string }>

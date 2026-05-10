@@ -182,11 +182,13 @@ export function JobCompletionSummary({
     useQuery<PhotosByCategory>({
       queryKey: ['job-completion-photos', jobCompletion.id],
       queryFn: async () => {
+        // Stage 4.3: filter soft-deleted rows
         const { data: rows, error } = await supabase
           .from('photos')
           .select('id, storage_path, photo_category')
           .eq('job_completion_id', jobCompletion.id)
           .in('photo_category', ['before', 'after', 'demolition'])
+          .is('deleted_at', null)
           .order('created_at', { ascending: true });
 
         if (error) throw error;
