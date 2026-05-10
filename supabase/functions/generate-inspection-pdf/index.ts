@@ -1621,13 +1621,17 @@ Deno.serve(async (req) => {
     console.log(`Generating PDF for inspection: ${inspectionId}, regenerate: ${regenerate}`)
 
     // ===== STEP 1: Fetch inspection data with all related tables =====
+    // Stage 4.3: photos are fetched via a separate query so we can filter
+    // soft-deleted rows (.is('deleted_at', null)). PostgREST embedded
+    // filters on non-inner joins are awkward; the split is cheaper than
+    // wrestling with !inner semantics (which would drop inspections that
+    // legitimately have no photos).
     const { data: inspection, error: fetchError } = await supabase
       .from('inspections')
       .select(`
         *,
         lead:leads(*),
-        areas:inspection_areas(*,moisture_readings(*)),
-        photos:photos(*)
+        areas:inspection_areas(*,moisture_readings(*))
       `)
       .eq('id', inspectionId)
       .single()
@@ -1639,6 +1643,22 @@ Deno.serve(async (req) => {
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    // Stage 4.3: separate active-photos query (replaces relational select)
+    const { data: activePhotos, error: photosError } = await supabase
+      .from('photos')
+      .select('*')
+      .eq('inspection_id', inspectionId)
+      .is('deleted_at', null)
+
+    if (photosError) {
+      console.error('Failed to fetch photos:', photosError)
+      return new Response(
+        JSON.stringify({ error: 'Photos fetch failed', details: photosError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    ;(inspection as Record<string, unknown>).photos = activePhotos ?? []
 
     // Stage 3.4.5: AI summary content lives in ai_summary_versions; read the
     // canonical version via the latest_ai_summary view and merge onto the
@@ -1714,11 +1734,13 @@ Deno.serve(async (req) => {
         subfloorReadings = (sfReadings || []) as SubfloorReading[]
 
         // Fetch subfloor photos — try by subfloor_id first, fall back to photo_type
-        // Photos are already fetched in the main query, so also check those
+        // Photos are already fetched in the main query, so also check those.
+        // Stage 4.3: filter soft-deleted rows.
         const { data: sfPhotos } = await supabase
           .from('photos')
           .select('*')
           .eq('subfloor_id', sfData.id)
+          .is('deleted_at', null)
 
         if (sfPhotos && sfPhotos.length > 0) {
           subfloorPhotos = sfPhotos as Photo[]

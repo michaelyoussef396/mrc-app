@@ -485,6 +485,7 @@ export default function ViewReportPDF() {
         .select('id, storage_path, photo_category')
         .eq('job_completion_id', jobCompletion.id)
         .in('photo_category', ['before', 'after', 'demolition'])
+        .is('deleted_at', null)
         .order('created_at', { ascending: true })
 
       const withUrls = await Promise.all((data || []).map(async (p) => {
@@ -701,6 +702,7 @@ export default function ViewReportPDF() {
           .from('photos')
           .select('id, storage_path, photo_type, photo_category, area_id')
           .eq('inspection_id', inspectionId)
+          .is('deleted_at', null)
           .order('order_index', { ascending: true }),
         supabase
           .from('inspection_areas')
@@ -799,12 +801,15 @@ export default function ViewReportPDF() {
       // jobPhotoPickerCategory both wrote 'before'). Collapsed to one path.
       const swapCategory = jobPhotoPickerCategory
 
+      // Stage 4.3: guard against resurrecting soft-deleted rows
       await supabase.from('photos')
         .update({ job_completion_id: null, photo_category: null })
         .eq('id', jobReplacingPhotoId)
+        .is('deleted_at', null)
       await supabase.from('photos')
         .update({ job_completion_id: jobCompletion.id, photo_category: swapCategory })
         .eq('id', newPhotoId)
+        .is('deleted_at', null)
 
       // Stage 4.2: domain-level history for both ends of the swap.
       // Non-blocking — never throws.
@@ -1667,6 +1672,7 @@ export default function ViewReportPDF() {
         .from('photos')
         .select('id, storage_path')
         .eq('subfloor_id', subfloorData.id)
+        .is('deleted_at', null)
         .order('created_at', { ascending: true })
 
       if (photos && photos.length > 0) {
@@ -1721,17 +1727,20 @@ export default function ViewReportPDF() {
     if (!replacingSubfloorPhotoId || !subfloorData?.id) return
     setSubfloorPhotoPickerOpen(false)
     try {
-      // Remove subfloor_id from old photo
+      // Remove subfloor_id from old photo. Stage 4.3: guard against
+      // resurrecting soft-deleted rows.
       await supabase
         .from('photos')
         .update({ subfloor_id: null })
         .eq('id', replacingSubfloorPhotoId)
+        .is('deleted_at', null)
 
       // Set subfloor_id on new photo
       await supabase
         .from('photos')
         .update({ subfloor_id: subfloorData.id })
         .eq('id', newPhotoId)
+        .is('deleted_at', null)
 
       toast.success('Subfloor photo swapped')
       setReplacingSubfloorPhotoId(null)
@@ -1816,22 +1825,26 @@ export default function ViewReportPDF() {
       const primaryId = area?.primary_photo_id || null
       setPrimaryPhotoId(primaryId)
 
-      // Load ALL photos assigned to this area
+      // Load ALL photos assigned to this area. Stage 4.3: filter soft-deleted.
       const { data: photos, error } = await supabase
         .from('photos')
         .select('id, storage_path, file_name, caption')
         .eq('area_id', areaId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: true })
 
       let allAreaPhotos = photos || []
 
-      // If primary_photo_id photo isn't in area_id results, fetch and include it
+      // If primary_photo_id photo isn't in area_id results, fetch and include it.
+      // Stage 4.3: deleteInspectionPhoto NULLs primary_photo_id before soft-delete,
+      // but defense-in-depth — still filter soft-deleted here.
       if (primaryId && !allAreaPhotos.some(p => p.id === primaryId)) {
         const { data: primaryPhoto } = await supabase
           .from('photos')
           .select('id, storage_path, file_name, caption')
           .eq('id', primaryId)
-          .single()
+          .is('deleted_at', null)
+          .maybeSingle()
         if (primaryPhoto) {
           allAreaPhotos = [primaryPhoto, ...allAreaPhotos]
         }

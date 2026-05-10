@@ -47,11 +47,13 @@ async function fetchInspectionId(leadId: string): Promise<string | null> {
 }
 
 async function fetchJobCompletionPhotos(jobCompletionId: string): Promise<JobPhoto[]> {
+  // Stage 4.3: filter soft-deleted rows
   const { data: rows, error } = await supabase
     .from('photos')
     .select('id, storage_path, photo_category')
     .eq('job_completion_id', jobCompletionId)
     .in('photo_category', ['after', 'demolition'])
+    .is('deleted_at', null)
     .order('created_at', { ascending: true });
 
   if (error) throw error;
@@ -75,11 +77,13 @@ async function fetchJobCompletionPhotos(jobCompletionId: string): Promise<JobPho
 }
 
 async function fetchBeforePhotoCount(jobCompletionId: string): Promise<number> {
+  // Stage 4.3: soft-deleted photos must not count toward the before-photo gate
   const { count, error } = await supabase
     .from('photos')
     .select('id', { count: 'exact', head: true })
     .eq('job_completion_id', jobCompletionId)
-    .eq('photo_category', 'before');
+    .eq('photo_category', 'before')
+    .is('deleted_at', null);
 
   if (error) return 0;
   return count ?? 0;

@@ -3496,12 +3496,14 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
               await supabase.from('moisture_readings').insert({ id: reading.id, ...readingRow });
             }
 
-            // Link photo to this moisture reading (photo was uploaded without moisture_reading_id)
+            // Link photo to this moisture reading (photo was uploaded without moisture_reading_id).
+            // Stage 4.3: guard against resurrecting soft-deleted rows.
             if (reading.photo) {
               await supabase
                 .from('photos')
                 .update({ moisture_reading_id: reading.id })
-                .eq('id', reading.photo.id);
+                .eq('id', reading.photo.id)
+                .is('deleted_at', null);
             }
           }
         }

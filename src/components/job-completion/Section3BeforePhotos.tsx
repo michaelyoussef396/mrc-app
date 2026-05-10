@@ -62,6 +62,7 @@ async function fetchInspectionPhotos(leadId: string): Promise<PhotoWithUrl[]> {
       .select('id, inspection_id, storage_path, caption, area_id, photo_type, job_completion_id')
       .eq('inspection_id', inspection.id)
       .or('photo_category.is.null,photo_category.eq.before')
+      .is('deleted_at', null)
       .order('order_index', { ascending: true }),
     supabase
       .from('inspection_areas')
@@ -224,6 +225,7 @@ export function Section3BeforePhotos({
     setIsPersisting(true);
     try {
       const photo = photos.find((p) => p.id === photoId);
+      // Stage 4.3: guard against resurrecting soft-deleted rows
       const { error: updateError } = await supabase
         .from('photos')
         .update(
@@ -231,7 +233,8 @@ export function Section3BeforePhotos({
             ? { job_completion_id: null, photo_category: null }
             : { job_completion_id: jobCompletionId, photo_category: 'before' }
         )
-        .eq('id', photoId);
+        .eq('id', photoId)
+        .is('deleted_at', null);
 
       if (updateError) throw updateError;
 
