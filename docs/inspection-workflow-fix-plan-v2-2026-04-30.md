@@ -54,6 +54,12 @@ This v2 locks 5 deferred decisions and adds 5 missing stages flagged during plan
 
 - **Stage 1.3 DEFERRED.** Pre-flight grep during execution revealed `regenerationFeedback` is a wired-up-but-not-yet-implemented form-state stub with no UI input and no consumer. No current data loss. Resolution moved to **Stage 3.2** (whose scope expanded to include the regen feedback textarea UI in `InspectionAIReview.tsx` + Edge Function payload threading + persistence to `ai_summary_versions.regeneration_feedback`). PR-A reduced to Stages 1.1 + 1.2 only. See Stage 1.3 footnote for diagnosis. Net stage count unchanged at 48 (1.3 still listed but not executed; 3.2 absorbs the work).
 
+### Execution-time amendments (2026-05-10)
+
+- **Stage 3.5 backfill predicate broader than Step A spec.** The Step A `INSERT INTO public.ai_summary_versions … WHERE` predicate as written in §Stage 3.5 only filters on `inspections.ai_summary_text IS NOT NULL`. The actual backfill migration (`20260502100028_phase3_stage_3_5_backfill_ai_summary_versions.sql`) used a broader OR predicate covering every legacy column being dropped (`ai_summary_text IS NOT NULL OR what_we_found_text IS NOT NULL OR what_we_will_do_text IS NOT NULL OR what_you_get_text IS NOT NULL OR problem_analysis_content IS NOT NULL OR demolition_content IS NOT NULL`). Reason: rows with partial AI content (e.g. only `problem_analysis_content` populated post-Stage 3.2 regen-feedback work) would have been silently lost under the narrower predicate. Plan v2 Step A wording should be amended to reflect the OR predicate as canonical.
+- **Stage 4.2 photo_history offline write site missing from plan.** The `'added'` action call sites listed in §Stage 4.2 cover `src/lib/utils/photoUpload.ts` only. The actual PR-G wired a second site at `src/lib/offline/SyncManager.ts:syncPhoto()` after the photos INSERT in the offline-dequeue path. Without this wire-in, every offline-uploaded photo would silently lack a `photo_history` row at dequeue. Same omission pattern as Stage 4.1.5 (quarantine path missing from plan until late in PR-F). Plan v2 Stage 4.2 wired-callers table should include the SyncManager site as canonical.
+- **Stage 4.2 photo_history RLS reference is wrong-shape.** §Stage 4.2 says RLS policies should be "same admin-all + tech-assigned policies as `ai_summary_versions`". That table is **service-role-written** by the `generate-inspection-summary` Edge Function with SELECT-only tech access — no tech INSERT policy exists. `photo_history` is **technician-session-written** (Bucket A), so adopting the `ai_summary_versions` policy shape verbatim would block every technician upload's history insert under RLS. The symmetric reference is **`photos`** (`is_admin()` admin-all policy + `lead.assigned_to` tech INSERT/SELECT). Plan v2 Stage 4.2 RLS reference should be amended to point at the `photos` policy shape.
+
 ---
 
 ## 1. Executive Summary
@@ -658,20 +664,51 @@ ALTER TABLE public.photo_history ENABLE ROW LEVEL SECURITY;
 
 #### Stage 4.3 — Soft-delete on photos
 
-- **Dependency:** 4.2
+- **Dependency:** 4.3.5 signed off (every checklist entry ticked)
 - **Scope:**
   - Migration: `ALTER TABLE photos ADD COLUMN deleted_at TIMESTAMPTZ;`
   - All photo SELECT queries require `WHERE deleted_at IS NULL`
   - `deleteInspectionPhoto()` becomes UPDATE not DELETE
+  - Every existing `photos` DELETE call site converted to `UPDATE … SET deleted_at = NOW()`
+  - Every wired DELETE site emits `recordPhotoHistory({ action: 'deleted' })` (the deferred PR-G action gets its first caller)
 - **Schema:**
   ```sql
   ALTER TABLE public.photos ADD COLUMN deleted_at TIMESTAMPTZ;
   CREATE INDEX idx_photos_active ON public.photos(inspection_id, photo_type) WHERE deleted_at IS NULL;
   ```
-- **CRITICAL:** every photo-reading query must be updated. Grep for `from('photos')` and audit each.
-- **Verification:** Upload → Soft-delete → not in UI → row exists with `deleted_at` populated → file still in Storage
+- **CRITICAL:** every photo-reading query must be updated. Audit gated by Stage 4.3.5 (mandatory sign-off).
+- **Verification:** Upload → Soft-delete → not in UI → row exists with `deleted_at` populated → file still in Storage → `photo_history` row with `action='deleted'`
 - **Rollback:** drop column + revert query changes
 - **Estimate:** M (1–2 days)
+
+#### Stage 4.3.5 — Stage 4.3 consumer audit gate
+
+- **Dependency:** 4.2 verified live
+- **Type:** **Audit-only gate. No code change. No schema change.**
+- **Purpose:** Lock the destructive Stage 4.3 soft-delete migration behind a formal grep + manual audit gate. Parallels Stage 3.4.5's role for Stage 3.5. Stage 4.3 cannot proceed until this audit is complete and signed off. Same risk tier as Stage 3.5 (top-5 highest risk per §1) — same discipline.
+- **Why this gate exists:** Stage 4.3 changes `photos` from hard-delete to soft-delete by adding a `deleted_at` column. Two failure modes if the gate is skipped:
+  1. **Read-side leak:** Any photo SELECT that doesn't add `WHERE deleted_at IS NULL` will continue to return soft-deleted rows in UI / PDF / AI prompts / Edge Function payloads.
+  2. **Write-side leak:** Any photo DELETE call site not converted to `UPDATE … SET deleted_at = NOW()` will continue to hard-delete, defeating the purpose of soft-delete (and never emitting a `photo_history { action: 'deleted' }` row).
+- **Scope:**
+  1. Comprehensive grep audit of every consumer that reads from or writes to `public.photos`:
+     - **Read sites:** `from('photos')`, `from("photos")`, raw SQL `FROM photos`, `SELECT … FROM public.photos`, view definitions
+     - **Delete sites:** `.delete()` chained off any photos query, raw SQL `DELETE FROM photos`, ON DELETE CASCADE chains from parent tables (`inspections`, `inspection_areas`, `subfloor_data`, `moisture_readings`, `subfloor_readings`, `job_completions`)
+     - **Storage-side:** Storage object deletion paths that pair with row deletion (Stage 4.3 is row-soft-delete only; Storage objects continue to be deleted per current behaviour — flag any caller that assumes row-survival implies Storage-survival)
+  2. Search across:
+     - `src/**/*.{ts,tsx}`
+     - `supabase/functions/**/*.ts`
+     - `supabase/migrations/*.sql` (for views, functions, or triggers referencing `photos`)
+     - Database views and functions (`pg_views`, `pg_proc`)
+     - Cascade-delete graph (`information_schema.referential_constraints` rooted at `photos`)
+  3. Output: **`docs/stage-4.3-consumer-audit.md`** — a checklist with three sections:
+     - **Read consumers** — every hit with `"WHERE deleted_at IS NULL added: confirmed ☐"` per entry
+     - **Delete consumers** — every hit with `"converted to soft-delete UPDATE: confirmed ☐"` per entry
+     - **Cascade chains** — every FK to `photos` with `"cascade behaviour reviewed: confirmed ☐"` per entry (some cascades may need to remain hard-delete; that decision is documented per chain)
+  4. Migrate every read consumer to add `WHERE deleted_at IS NULL` BEFORE the column-add migration runs (idempotent — adding the predicate before the column exists is harmless because every existing row has `deleted_at = NULL`).
+  5. **Sign-off requirement:** every checkbox ticked + reviewed by Michael before Stage 4.3 can run. The checklist file is committed to the repo as the audit trail.
+- **Verification:** Run the grep audit a second time after migrations — must return zero hits in `src/` and `supabase/functions/` reading the `photos` table without the soft-delete predicate (allow-list documented exceptions only — e.g. admin-only "show deleted" views, if any are added later).
+- **Rollback:** N/A (audit-only)
+- **Estimate:** S (~3h grep + 2h checklist authoring; consumer migrations are part of Stage 4.3 work)
 
 #### Stage 4.4 — Backfill review of 58 NULL-caption photos
 
