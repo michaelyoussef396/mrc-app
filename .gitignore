@@ -68,3 +68,10 @@ supabase/.temp/
 # Phase 3 Stage 3.5 pre-destructive-DDL snapshots (local-only rollback insurance,
 # Supabase automated backups remain primary recovery)
 phase3-stage-3.5-snapshot-*.json
+
+# Vercel CLI artifacts
+.vercel
+
+# Claude Code local overrides
+CLAUDE.local.md
+settings.local.json
