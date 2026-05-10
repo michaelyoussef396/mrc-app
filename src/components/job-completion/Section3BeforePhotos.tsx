@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 import type { JobCompletionFormData } from '@/types/jobCompletion';
+import { recordPhotoHistory } from '@/lib/utils/photoHistory';
 
 interface SectionProps {
   formData: JobCompletionFormData;
@@ -20,6 +21,7 @@ interface SectionProps {
 /** Photo row enriched with a short-lived signed URL for display */
 interface PhotoWithUrl {
   id: string;
+  inspection_id: string;
   storage_path: string;
   caption: string | null;
   area_id: string | null;
@@ -57,7 +59,7 @@ async function fetchInspectionPhotos(leadId: string): Promise<PhotoWithUrl[]> {
   const [photosResult, areasResult] = await Promise.all([
     supabase
       .from('photos')
-      .select('id, storage_path, caption, area_id, photo_type, job_completion_id')
+      .select('id, inspection_id, storage_path, caption, area_id, photo_type, job_completion_id')
       .eq('inspection_id', inspection.id)
       .or('photo_category.is.null,photo_category.eq.before')
       .order('order_index', { ascending: true }),
@@ -86,6 +88,7 @@ async function fetchInspectionPhotos(leadId: string): Promise<PhotoWithUrl[]> {
 
         return {
           id: row.id,
+          inspection_id: row.inspection_id ?? inspection.id,
           storage_path: row.storage_path,
           caption: row.caption,
           area_id: row.area_id,
@@ -97,6 +100,7 @@ async function fetchInspectionPhotos(leadId: string): Promise<PhotoWithUrl[]> {
       } catch {
         return {
           id: row.id,
+          inspection_id: row.inspection_id ?? inspection.id,
           storage_path: row.storage_path,
           caption: row.caption,
           area_id: row.area_id,
@@ -219,6 +223,7 @@ export function Section3BeforePhotos({
 
     setIsPersisting(true);
     try {
+      const photo = photos.find((p) => p.id === photoId);
       const { error: updateError } = await supabase
         .from('photos')
         .update(
@@ -229,6 +234,22 @@ export function Section3BeforePhotos({
         .eq('id', photoId);
 
       if (updateError) throw updateError;
+
+      // Stage 4.2: domain-level history. Non-blocking — never throws.
+      if (photo) {
+        await recordPhotoHistory({
+          photo_id: photoId,
+          inspection_id: photo.inspection_id,
+          action: 'category_changed',
+          before: {
+            photo_category: isCurrentlySelected ? 'before' : null,
+            job_completion_id: isCurrentlySelected ? jobCompletionId : null,
+          },
+          after: isCurrentlySelected
+            ? { photo_category: null, job_completion_id: null }
+            : { photo_category: 'before', job_completion_id: jobCompletionId },
+        });
+      }
     } catch (err) {
       console.error('[Section3BeforePhotos] Failed to update photo selection:', err);
       toast.error('Could not save photo selection');
