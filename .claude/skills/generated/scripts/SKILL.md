@@ -81,11 +81,10 @@ Start here when exploring this area:
 
 | Area | Connections |
 |------|-------------|
-| Cluster_91 | 4 calls |
-| Pages | 3 calls |
-| Job-completion | 1 calls |
+| Cluster_101 | 4 calls |
+| Pages | 4 calls |
 | Tools | 1 calls |
-| Cluster_101 | 1 calls |
+| Cluster_104 | 1 calls |
 
 ## How to Explore
 

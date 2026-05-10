@@ -42,7 +42,7 @@ Start here when exploring this area:
 | `getDiscountTierDescription` | Function | `src/lib/calculations/pricing.ts` | 187 |
 | `calculateEquipmentCost` | Function | `src/lib/calculations/pricing.ts` | 218 |
 | `calculateCostEstimate` | Function | `src/lib/calculations/pricing.ts` | 304 |
-| `Section9CostEstimate` | Function | `src/pages/TechnicianInspectionForm.tsx` | 1878 |
+| `Section9CostEstimate` | Function | `src/pages/TechnicianInspectionForm.tsx` | 1879 |
 
 ## Execution Flows
 

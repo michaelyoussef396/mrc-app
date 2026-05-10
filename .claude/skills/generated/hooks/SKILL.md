@@ -1,16 +1,16 @@
 ---
 name: hooks
-description: "Skill for the Hooks area of mrc-app. 109 symbols across 41 files."
+description: "Skill for the Hooks area of mrc-app. 103 symbols across 39 files."
 ---
 
 # Hooks
 
-109 symbols | 41 files | Cohesion: 79%
+103 symbols | 39 files | Cohesion: 77%
 
 ## When to Use
 
 - Working with code in `src/`
-- Understanding how useNotifications, useUnreadCount, useMarkAllAsRead work
+- Understanding how HelpSupport, useNotifications, useUnreadCount work
 - Modifying hooks-related functionality
 
 ## Key Files
@@ -32,20 +32,20 @@ description: "Skill for the Hooks area of mrc-app. 109 symbols across 41 files."
 
 Start here when exploring this area:
 
+- **`HelpSupport`** (Function) — `src/pages/HelpSupport.tsx:15`
 - **`useNotifications`** (Function) — `src/hooks/useNotifications.ts:30`
 - **`useUnreadCount`** (Function) — `src/hooks/useNotifications.ts:103`
 - **`useMarkAllAsRead`** (Function) — `src/hooks/useNotifications.ts:178`
-- **`HelpSupport`** (Function) — `src/pages/HelpSupport.tsx:15`
 - **`useInspectionLeads`** (Function) — `src/hooks/useInspectionLeads.ts:38`
 
 ## Key Symbols
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
+| `HelpSupport` | Function | `src/pages/HelpSupport.tsx` | 15 |
 | `useNotifications` | Function | `src/hooks/useNotifications.ts` | 30 |
 | `useUnreadCount` | Function | `src/hooks/useNotifications.ts` | 103 |
 | `useMarkAllAsRead` | Function | `src/hooks/useNotifications.ts` | 178 |
-| `HelpSupport` | Function | `src/pages/HelpSupport.tsx` | 15 |
 | `useInspectionLeads` | Function | `src/hooks/useInspectionLeads.ts` | 38 |
 | `useInspectionLeadsCount` | Function | `src/hooks/useInspectionLeads.ts` | 144 |
 | `useAuth` | Function | `src/contexts/AuthContext.tsx` | 300 |
@@ -84,14 +84,15 @@ Start here when exploring this area:
 |------|-------------|
 | Pages | 3 calls |
 | Tools | 2 calls |
-| Job-completion | 2 calls |
 | Schedule | 1 calls |
+| Services | 1 calls |
 | Api | 1 calls |
 | Technician | 1 calls |
+| Job-completion | 1 calls |
 | Ui | 1 calls |
 
 ## How to Explore
 
-1. `gitnexus_context({name: "useNotifications"})` — see callers and callees
+1. `gitnexus_context({name: "HelpSupport"})` — see callers and callees
 2. `gitnexus_query({query: "hooks"})` — find related execution flows
 3. Read key files listed above for implementation details

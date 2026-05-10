@@ -121,7 +121,7 @@ React 18 + TypeScript + Supabase + Vite + Tailwind + shadcn/ui | PWA with offlin
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mrc-app** (7958 symbols, 11584 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mrc-app** (8099 symbols, 11829 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -159,25 +159,25 @@ This project is indexed by GitNexus as **mrc-app** (7958 symbols, 11584 relation
 | Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
 | Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-| Work in the Pages area (242 symbols) | `.claude/skills/generated/pages/SKILL.md` |
-| Work in the Hooks area (109 symbols) | `.claude/skills/generated/hooks/SKILL.md` |
-| Work in the Leads area (86 symbols) | `.claude/skills/generated/leads/SKILL.md` |
-| Work in the Api area (75 symbols) | `.claude/skills/generated/api/SKILL.md` |
+| Work in the Pages area (239 symbols) | `.claude/skills/generated/pages/SKILL.md` |
+| Work in the Hooks area (103 symbols) | `.claude/skills/generated/hooks/SKILL.md` |
+| Work in the Leads area (85 symbols) | `.claude/skills/generated/leads/SKILL.md` |
 | Work in the Scripts area (74 symbols) | `.claude/skills/generated/scripts/SKILL.md` |
-| Work in the Job-completion area (52 symbols) | `.claude/skills/generated/job-completion/SKILL.md` |
+| Work in the Api area (64 symbols) | `.claude/skills/generated/api/SKILL.md` |
+| Work in the Job-completion area (40 symbols) | `.claude/skills/generated/job-completion/SKILL.md` |
 | Work in the Generate-inspection-pdf area (31 symbols) | `.claude/skills/generated/generate-inspection-pdf/SKILL.md` |
-| Work in the Schedule area (23 symbols) | `.claude/skills/generated/schedule/SKILL.md` |
-| Work in the Pdf area (20 symbols) | `.claude/skills/generated/pdf/SKILL.md` |
+| Work in the Schedule area (29 symbols) | `.claude/skills/generated/schedule/SKILL.md` |
+| Work in the Services area (27 symbols) | `.claude/skills/generated/services/SKILL.md` |
+| Work in the Pdf area (24 symbols) | `.claude/skills/generated/pdf/SKILL.md` |
+| Work in the Offline area (18 symbols) | `.claude/skills/generated/offline/SKILL.md` |
 | Work in the Testsprite_tests area (17 symbols) | `.claude/skills/generated/testsprite-tests/SKILL.md` |
 | Work in the Tools area (16 symbols) | `.claude/skills/generated/tools/SKILL.md` |
 | Work in the Technician area (16 symbols) | `.claude/skills/generated/technician/SKILL.md` |
 | Work in the Ui area (14 symbols) | `.claude/skills/generated/ui/SKILL.md` |
 | Work in the Admin area (11 symbols) | `.claude/skills/generated/admin/SKILL.md` |
-| Work in the Offline area (10 symbols) | `.claude/skills/generated/offline/SKILL.md` |
 | Work in the Calculations area (9 symbols) | `.claude/skills/generated/calculations/SKILL.md` |
+| Work in the Supabase area (9 symbols) | `.claude/skills/generated/supabase/SKILL.md` |
 | Work in the Technicians area (9 symbols) | `.claude/skills/generated/technicians/SKILL.md` |
 | Work in the Dashboard area (6 symbols) | `.claude/skills/generated/dashboard/SKILL.md` |
-| Work in the Cluster_91 area (6 symbols) | `.claude/skills/generated/cluster-91/SKILL.md` |
-| Work in the Cluster_101 area (6 symbols) | `.claude/skills/generated/cluster-101/SKILL.md` |
 
 <!-- gitnexus:end -->

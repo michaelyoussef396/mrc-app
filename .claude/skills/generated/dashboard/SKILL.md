@@ -50,8 +50,6 @@ Start here when exploring this area:
 | `HandleSaveNote → FormatTimeAU` | cross_community | 4 |
 | `InspectionReportHistory → FormatDateAU` | cross_community | 4 |
 | `InspectionReportHistory → FormatTimeAU` | cross_community | 4 |
-| `RenderPrimaryCTA → FormatDateAU` | cross_community | 3 |
-| `RenderPrimaryCTA → FormatTimeAU` | cross_community | 3 |
 
 ## Connected Areas
 
