@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client'
 import { syncManager, resizePhoto } from '@/lib/offline'
 import { captureBusinessError } from '@/lib/sentry'
+import { recordPhotoHistory } from '@/lib/utils/photoHistory'
 
 export interface PhotoUploadResult {
   storage_path: string
@@ -14,10 +15,33 @@ export interface PhotoMetadata {
   subfloor_id?: string
   moisture_reading_id?: string
   photo_type: 'area' | 'subfloor' | 'general' | 'outdoor'
-  caption?: string
+  /**
+   * Required since Stage 4.1. Either a sentinel role tag (e.g. 'infrared',
+   * 'front_house', 'moisture') or a human-readable description collected via
+   * PhotoCaptionPromptDialog. Empty/whitespace strings are rejected.
+   */
+  caption: string
   order_index?: number
   job_completion_id?: string
   photo_category?: 'before' | 'after' | 'demolition'
+}
+
+export class PhotoCaptionRequiredError extends Error {
+  constructor() {
+    super('Photo caption is required and cannot be empty')
+    this.name = 'PhotoCaptionRequiredError'
+  }
+}
+
+/**
+ * Stage 4.1 gate: every photo INSERT (online or queued offline) must carry a
+ * non-empty caption. Sentinel role tags satisfy this; human captions are
+ * collected via PhotoCaptionPromptDialog before the file picker opens.
+ */
+export function validatePhotoCaption(caption: unknown): asserts caption is string {
+  if (typeof caption !== 'string' || caption.trim().length === 0) {
+    throw new PhotoCaptionRequiredError()
+  }
 }
 
 /**
@@ -28,6 +52,8 @@ export async function queuePhotoOffline(
   file: File,
   metadata: PhotoMetadata & { inspectionDraftId: string }
 ): Promise<string> {
+  validatePhotoCaption(metadata.caption)
+
   const resized = await resizePhoto(file)
   const id = crypto.randomUUID()
 
@@ -57,6 +83,8 @@ export async function uploadInspectionPhoto(
   file: File,
   metadata: PhotoMetadata
 ): Promise<PhotoUploadResult> {
+  validatePhotoCaption(metadata.caption)
+
   // 1. Resize photo before upload (converts to JPEG, max 1600px, ~200-500KB)
   const resizedBlob = await resizePhoto(file)
 
@@ -133,7 +161,7 @@ export async function uploadInspectionPhoto(
       file_name: filename,
       file_size: resizedBlob.size,
       mime_type: 'image/jpeg',
-      caption: metadata.caption || null,
+      caption: metadata.caption.trim(),
       order_index: metadata.order_index || 0,
       uploaded_by: user.id,
       job_completion_id: metadata.job_completion_id || null,
@@ -151,6 +179,20 @@ export async function uploadInspectionPhoto(
     console.error('Photo metadata save error:', photoError)
     throw new Error(`Failed to save photo metadata: ${photoError.message}`)
   }
+
+  // Stage 4.2: domain-level history. Non-blocking — never throws.
+  await recordPhotoHistory({
+    photo_id: photoData.id,
+    inspection_id: metadata.inspection_id,
+    action: 'added',
+    after: {
+      photo_type: metadata.photo_type,
+      area_id: metadata.area_id ?? null,
+      subfloor_id: metadata.subfloor_id ?? null,
+      caption: metadata.caption.trim(),
+      photo_category: metadata.photo_category ?? null,
+    },
+  })
 
   return {
     storage_path: uploadData.path,
@@ -230,40 +272,78 @@ export async function getPhotoSignedUrl(
 }
 
 /**
- * Delete a photo from Storage and photos table
- * @param photoId The photo ID from photos table
- * @returns Promise<void>
+ * Soft-delete an inspection photo.
+ *
+ * Stage 4.3 — see docs/stage-4.3-consumer-audit.md and plan v2 §4.3.
+ *
+ * Behaviour:
+ * 1. Reads the row metadata (filtered to active rows). Throws if the photo
+ *    was already soft-deleted — silent idempotency would mask programmer
+ *    errors.
+ * 2. NULLs out `inspection_areas.primary_photo_id` for any area pointing to
+ *    this photo. The SET NULL FK only fires on hard DELETE; soft-delete
+ *    needs explicit cleanup or stale primary pointers leak.
+ * 3. UPDATEs `photos.deleted_at = NOW()`. Read consumers filter
+ *    `deleted_at IS NULL`, so the row disappears from the live set.
+ * 4. The Storage object is intentionally retained — plan v2 verification
+ *    spec: "file still in Storage" after soft-delete. A future stage may
+ *    add Storage cleanup; out of scope here.
+ * 5. Emits a `photo_history { action: 'deleted' }` row (non-blocking via
+ *    `recordPhotoHistory`). Wires the `'deleted'` action enum value that
+ *    Stage 4.2 added without a caller.
  */
 export async function deleteInspectionPhoto(photoId: string): Promise<void> {
-  // 1. Get photo metadata to find storage path
   const { data: photo, error: fetchError } = await supabase
     .from('photos')
-    .select('storage_path')
+    .select('id, inspection_id, area_id, subfloor_id, photo_type, photo_category, caption, job_completion_id, storage_path')
     .eq('id', photoId)
-    .single()
+    .is('deleted_at', null)
+    .maybeSingle()
 
-  if (fetchError || !photo) {
-    throw new Error('Photo not found')
+  if (fetchError) {
+    throw new Error(`Failed to read photo before delete: ${fetchError.message}`)
+  }
+  if (!photo) {
+    throw new Error('Photo not found or already deleted')
   }
 
-  // 2. Delete from Storage
-  const { error: storageError } = await supabase.storage
-    .from('inspection-photos')
-    .remove([photo.storage_path])
+  // Clear any inspection_areas.primary_photo_id pointing at this photo —
+  // the FK is SET NULL on hard delete only, and we're soft-deleting.
+  const { error: primaryNullError } = await supabase
+    .from('inspection_areas')
+    .update({ primary_photo_id: null })
+    .eq('primary_photo_id', photoId)
 
-  if (storageError) {
-    console.error('Storage delete error:', storageError)
-    // Continue anyway to delete metadata
+  if (primaryNullError) {
+    throw new Error(`Failed to clear primary_photo_id refs: ${primaryNullError.message}`)
   }
 
-  // 3. Delete metadata from photos table
-  const { error: deleteError } = await supabase
+  const { error: softDeleteError } = await supabase
     .from('photos')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq('id', photoId)
+    .is('deleted_at', null)
 
-  if (deleteError) {
-    throw new Error(`Failed to delete photo metadata: ${deleteError.message}`)
+  if (softDeleteError) {
+    throw new Error(`Failed to soft-delete photo: ${softDeleteError.message}`)
+  }
+
+  // Domain history. Non-blocking — never throws.
+  if (photo.inspection_id) {
+    await recordPhotoHistory({
+      photo_id: photoId,
+      inspection_id: photo.inspection_id,
+      action: 'deleted',
+      before: {
+        photo_type: photo.photo_type,
+        area_id: photo.area_id ?? null,
+        subfloor_id: photo.subfloor_id ?? null,
+        caption: photo.caption ?? null,
+        photo_category: photo.photo_category ?? null,
+        job_completion_id: photo.job_completion_id ?? null,
+      },
+      after: null,
+    })
   }
 }
 
@@ -287,11 +367,12 @@ export async function loadInspectionPhotos(
   signed_url: string
   created_at: string
 }>> {
-  // 1. Get photo metadata
+  // 1. Get photo metadata. Stage 4.3: filter soft-deleted rows.
   const { data: photos, error } = await supabase
     .from('photos')
     .select('*')
     .eq('inspection_id', inspectionId)
+    .is('deleted_at', null)
     .order('order_index', { ascending: true })
 
   if (error) {

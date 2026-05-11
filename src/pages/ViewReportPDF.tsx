@@ -45,6 +45,8 @@ import { StalePdfBanner } from '@/components/pdf/StalePdfBanner'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
 import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
+import { recordPhotoHistory } from '@/lib/utils/photoHistory'
+import { PhotoCaptionPromptDialog } from '@/components/photos/PhotoCaptionPromptDialog'
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { resizePhoto } from '@/lib/offline/photoResizer'
 import { formatDateAU } from '@/lib/dateUtils'
@@ -130,7 +132,12 @@ interface EditableField {
   position: { x: number; y: number }
 }
 
-// Select query for inspections (used in both load paths)
+// Select query for inspections (used in both load paths).
+// Stage 3.4.5: AI summary text fields (what_we_found_text, what_we_will_do_text,
+// what_you_get_text, problem_analysis_content, demolition_content, ai_summary_text)
+// are no longer selected from inspections — they're fetched from the
+// latest_ai_summary view in loadInspection() and merged onto the inspection
+// object after fetch.
 const INSPECTION_SELECT = `
   id,
   job_number,
@@ -146,15 +153,9 @@ const INSPECTION_SELECT = `
   inspection_date,
   inspector_name,
   dwelling_type,
-  what_we_found_text,
-  what_we_will_do_text,
-  what_you_get_text,
-  problem_analysis_content,
   what_we_discovered,
   identified_causes,
   why_this_happened,
-  demolition_content,
-  ai_summary_text,
   cause_of_mould,
   outdoor_temperature,
   outdoor_humidity,
@@ -358,7 +359,15 @@ export default function ViewReportPDF() {
   const [jobPhotoPool, setJobPhotoPool] = useState<Array<{ key: string; label: string; photos: Array<{ id: string; signed_url: string }> }>>([])
   const [jobPhotoPoolLoading, setJobPhotoPoolLoading] = useState(false)
   const jobUploadRef = useRef<HTMLInputElement>(null)
+  const areaUploadRef = useRef<HTMLInputElement>(null)
   const [jobPhotoUploading, setJobPhotoUploading] = useState(false)
+
+  // Stage 4.1: caption-required prompt for the two admin photo-replace flows
+  // (handleJobPhotoUpload, handleUploadNewAreaPhoto). Captured before the file
+  // picker opens, then attached to the upload metadata.
+  const [captionPromptOpen, setCaptionPromptOpen] = useState(false)
+  const [captionPromptKind, setCaptionPromptKind] = useState<'job' | 'area'>('area')
+  const pendingCaptionRef = useRef<string>('')
 
   // Edit modal state (Pages 2+)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -476,6 +485,7 @@ export default function ViewReportPDF() {
         .select('id, storage_path, photo_category')
         .eq('job_completion_id', jobCompletion.id)
         .in('photo_category', ['before', 'after', 'demolition'])
+        .is('deleted_at', null)
         .order('created_at', { ascending: true })
 
       const withUrls = await Promise.all((data || []).map(async (p) => {
@@ -525,10 +535,27 @@ export default function ViewReportPDF() {
         data = inspByLead
       }
 
-      setInspection(data as unknown as Inspection)
+      const inspId = (data as unknown as Inspection).id
+
+      // Stage 3.4.5: AI summary text comes from latest_ai_summary view.
+      const { data: latestSummary } = await supabase
+        .from('latest_ai_summary')
+        .select('ai_summary_text, what_we_found_text, what_we_will_do_text, what_you_get_text, problem_analysis_content, demolition_content')
+        .eq('inspection_id', inspId)
+        .maybeSingle()
+
+      const merged = {
+        ...(data as unknown as Inspection),
+        ai_summary_text: latestSummary?.ai_summary_text ?? undefined,
+        what_we_found_text: latestSummary?.what_we_found_text ?? undefined,
+        what_we_will_do_text: latestSummary?.what_we_will_do_text ?? undefined,
+        what_you_get_text: latestSummary?.what_you_get_text ?? undefined,
+        problem_analysis_content: latestSummary?.problem_analysis_content ?? undefined,
+        demolition_content: latestSummary?.demolition_content ?? undefined,
+      }
+      setInspection(merged)
 
       // Fetch inspection_areas for inline editing
-      const inspId = (data as unknown as Inspection).id
       const { data: areas, error: areasError } = await supabase
         .from('inspection_areas')
         .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes')
@@ -675,6 +702,7 @@ export default function ViewReportPDF() {
           .from('photos')
           .select('id, storage_path, photo_type, photo_category, area_id')
           .eq('inspection_id', inspectionId)
+          .is('deleted_at', null)
           .order('order_index', { ascending: true }),
         supabase
           .from('inspection_areas')
@@ -738,19 +766,27 @@ export default function ViewReportPDF() {
     if (jobUploadRef.current) jobUploadRef.current.value = ''
     if (!file || !jobCompletion?.inspection_id) return
 
+    const caption = pendingCaptionRef.current.trim()
+    if (!caption) {
+      toast.error('Caption required — please try uploading again')
+      return
+    }
+
     setJobPhotoUploading(true)
     try {
       const { uploadInspectionPhoto: upload } = await import('@/lib/utils/photoUpload')
       const result = await upload(file, {
         inspection_id: jobCompletion.inspection_id,
         photo_type: 'general',
+        caption,
       })
       toast.success('Photo uploaded')
       await handleJobPhotoSwap(result.photo_id)
     } catch (err) {
       console.error('Upload failed:', err)
-      toast.error('Failed to upload photo')
+      toast.error(err instanceof Error ? err.message : 'Failed to upload photo')
     } finally {
+      pendingCaptionRef.current = ''
       setJobPhotoUploading(false)
     }
   }
@@ -760,21 +796,37 @@ export default function ViewReportPDF() {
     setJobPhotoPickerOpen(false)
 
     try {
-      if (jobPhotoPickerCategory === 'before') {
-        await supabase.from('photos')
-          .update({ job_completion_id: null, photo_category: null })
-          .eq('id', jobReplacingPhotoId)
-        await supabase.from('photos')
-          .update({ job_completion_id: jobCompletion.id, photo_category: 'before' })
-          .eq('id', newPhotoId)
-      } else {
-        await supabase.from('photos')
-          .update({ job_completion_id: null, photo_category: null })
-          .eq('id', jobReplacingPhotoId)
-        await supabase.from('photos')
-          .update({ job_completion_id: jobCompletion.id, photo_category: jobPhotoPickerCategory })
-          .eq('id', newPhotoId)
-      }
+      // The original if/else passed the same category in both branches
+      // (the 'before' branch and the else fall-through with 'before' as
+      // jobPhotoPickerCategory both wrote 'before'). Collapsed to one path.
+      const swapCategory = jobPhotoPickerCategory
+
+      // Stage 4.3: guard against resurrecting soft-deleted rows
+      await supabase.from('photos')
+        .update({ job_completion_id: null, photo_category: null })
+        .eq('id', jobReplacingPhotoId)
+        .is('deleted_at', null)
+      await supabase.from('photos')
+        .update({ job_completion_id: jobCompletion.id, photo_category: swapCategory })
+        .eq('id', newPhotoId)
+        .is('deleted_at', null)
+
+      // Stage 4.2: domain-level history for both ends of the swap.
+      // Non-blocking — never throws.
+      await recordPhotoHistory({
+        photo_id: jobReplacingPhotoId,
+        inspection_id: jobCompletion.inspection_id,
+        action: 'category_changed',
+        before: { photo_category: swapCategory, job_completion_id: jobCompletion.id },
+        after: { photo_category: null, job_completion_id: null },
+      })
+      await recordPhotoHistory({
+        photo_id: newPhotoId,
+        inspection_id: jobCompletion.inspection_id,
+        action: 'category_changed',
+        before: { photo_category: null, job_completion_id: null },
+        after: { photo_category: swapCategory, job_completion_id: jobCompletion.id },
+      })
 
       toast.success('Photo swapped')
       setJobReplacingPhotoId(null)
@@ -1352,25 +1404,105 @@ export default function ViewReportPDF() {
     option_2_total_inc_gst: inspection.option_2_total_inc_gst ?? 0,
   } : null
 
+  // Stage 3.4.5: inline AI summary edits create a new ai_summary_versions row
+  // with generation_type='manual_edit' (mirrors InspectionAIReview.handleSave).
+  // Race-safe via retry-on-UNIQUE. Other unchanged sections are carried forward
+  // from the latest active version. Local component state is updated so the
+  // visible text reflects the save without a full reload.
+  async function persistManualEdit(updates: {
+    ai_summary_text?: string | null
+    what_we_found_text?: string | null
+    what_we_will_do_text?: string | null
+    problem_analysis_content?: string | null
+    demolition_content?: string | null
+  }) {
+    if (!inspection?.id) throw new Error('No inspection loaded')
+
+    const { data: { session: editSession } } = await supabase.auth.getSession()
+    const editorId = editSession?.user?.id ?? null
+
+    const MAX_ATTEMPTS = 3
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const { data: latest, error: latestErr } = await supabase
+        .from('ai_summary_versions')
+        .select('version_number, ai_summary_text, what_we_found_text, what_we_will_do_text, problem_analysis_content, demolition_content')
+        .eq('inspection_id', inspection.id)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (latestErr) throw new Error(`version max query failed: ${latestErr.message}`)
+
+      const previousMax = (latest?.version_number as number | undefined) ?? 0
+      const nextVersion = previousMax + 1
+
+      const merged = {
+        ai_summary_text: updates.ai_summary_text !== undefined ? updates.ai_summary_text : (latest?.ai_summary_text ?? null),
+        what_we_found_text: updates.what_we_found_text !== undefined ? updates.what_we_found_text : (latest?.what_we_found_text ?? null),
+        what_we_will_do_text: updates.what_we_will_do_text !== undefined ? updates.what_we_will_do_text : (latest?.what_we_will_do_text ?? null),
+        problem_analysis_content: updates.problem_analysis_content !== undefined ? updates.problem_analysis_content : (latest?.problem_analysis_content ?? null),
+        demolition_content: updates.demolition_content !== undefined ? updates.demolition_content : (latest?.demolition_content ?? null),
+      }
+
+      const { data: inserted, error: insertErr } = await supabase
+        .from('ai_summary_versions')
+        .insert({
+          inspection_id: inspection.id,
+          version_number: nextVersion,
+          generation_type: 'manual_edit',
+          generated_by: editorId,
+          ...merged,
+        })
+        .select('id')
+        .single()
+
+      if (insertErr) {
+        const isUniqueViolation = (insertErr as { code?: string }).code === '23505'
+        if (isUniqueViolation && attempt < MAX_ATTEMPTS) continue
+        throw new Error(`version insert failed: ${insertErr.message}`)
+      }
+
+      const newId = inserted?.id as string
+
+      if (previousMax > 0) {
+        const { error: supersedeErr } = await supabase
+          .from('ai_summary_versions')
+          .update({
+            superseded_at: new Date().toISOString(),
+            superseded_by_version_id: newId,
+          })
+          .eq('inspection_id', inspection.id)
+          .neq('id', newId)
+          .is('superseded_at', null)
+        if (supersedeErr) {
+          console.warn('[ViewReportPDF] supersession update failed:', supersedeErr.message)
+        }
+      }
+
+      // Reflect the edit in component state so the rendered fields update
+      // without a refetch.
+      setInspection(prev => prev ? { ...prev, ...merged } as typeof prev : prev)
+      return
+    }
+
+    throw new Error('exceeded retry limit on version_number unique violation')
+  }
+
   async function handleVPFieldSave(key: string, value: string) {
     if (!inspection?.id) return
 
     try {
-      const columnMap: Record<string, string> = {
-        what_we_found: 'what_we_found_text',
-        what_we_will_do: 'what_we_will_do_text',
+      const updates: Parameters<typeof persistManualEdit>[0] = {}
+      if (key === 'what_we_found') {
+        updates.what_we_found_text = value || null
+        updates.ai_summary_text = value || null
+      } else if (key === 'what_we_will_do') {
+        updates.what_we_will_do_text = value || null
+      } else {
+        return
       }
 
-      const column = columnMap[key]
-      if (!column) return
-
-      const { error } = await supabase
-        .from('inspections')
-        .update({ [column]: value || null, updated_at: new Date().toISOString() })
-        .eq('id', inspection.id)
-
-      if (error) throw error
-
+      await persistManualEdit(updates)
       toast.success(`${key === 'what_we_found' ? 'What We Found' : "What We're Going To Do"} updated`)
     } catch (error) {
       console.error('VP save failed:', error)
@@ -1383,13 +1515,7 @@ export default function ViewReportPDF() {
     if (!inspection?.id) return
 
     try {
-      const { error } = await supabase
-        .from('inspections')
-        .update({ problem_analysis_content: value || null, updated_at: new Date().toISOString() })
-        .eq('id', inspection.id)
-
-      if (error) throw error
-
+      await persistManualEdit({ problem_analysis_content: value || null })
       toast.success('Problem Analysis updated')
     } catch (error) {
       console.error('PA save failed:', error)
@@ -1402,13 +1528,7 @@ export default function ViewReportPDF() {
     if (!inspection?.id) return
 
     try {
-      const { error } = await supabase
-        .from('inspections')
-        .update({ demolition_content: value || null, updated_at: new Date().toISOString() })
-        .eq('id', inspection.id)
-
-      if (error) throw error
-
+      await persistManualEdit({ demolition_content: value || null })
       toast.success('Demolition content updated')
     } catch (error) {
       console.error('Demolition save failed:', error)
@@ -1552,6 +1672,7 @@ export default function ViewReportPDF() {
         .from('photos')
         .select('id, storage_path')
         .eq('subfloor_id', subfloorData.id)
+        .is('deleted_at', null)
         .order('created_at', { ascending: true })
 
       if (photos && photos.length > 0) {
@@ -1606,17 +1727,20 @@ export default function ViewReportPDF() {
     if (!replacingSubfloorPhotoId || !subfloorData?.id) return
     setSubfloorPhotoPickerOpen(false)
     try {
-      // Remove subfloor_id from old photo
+      // Remove subfloor_id from old photo. Stage 4.3: guard against
+      // resurrecting soft-deleted rows.
       await supabase
         .from('photos')
         .update({ subfloor_id: null })
         .eq('id', replacingSubfloorPhotoId)
+        .is('deleted_at', null)
 
       // Set subfloor_id on new photo
       await supabase
         .from('photos')
         .update({ subfloor_id: subfloorData.id })
         .eq('id', newPhotoId)
+        .is('deleted_at', null)
 
       toast.success('Subfloor photo swapped')
       setReplacingSubfloorPhotoId(null)
@@ -1701,22 +1825,26 @@ export default function ViewReportPDF() {
       const primaryId = area?.primary_photo_id || null
       setPrimaryPhotoId(primaryId)
 
-      // Load ALL photos assigned to this area
+      // Load ALL photos assigned to this area. Stage 4.3: filter soft-deleted.
       const { data: photos, error } = await supabase
         .from('photos')
         .select('id, storage_path, file_name, caption')
         .eq('area_id', areaId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: true })
 
       let allAreaPhotos = photos || []
 
-      // If primary_photo_id photo isn't in area_id results, fetch and include it
+      // If primary_photo_id photo isn't in area_id results, fetch and include it.
+      // Stage 4.3: deleteInspectionPhoto NULLs primary_photo_id before soft-delete,
+      // but defense-in-depth — still filter soft-deleted here.
       if (primaryId && !allAreaPhotos.some(p => p.id === primaryId)) {
         const { data: primaryPhoto } = await supabase
           .from('photos')
           .select('id, storage_path, file_name, caption')
           .eq('id', primaryId)
-          .single()
+          .is('deleted_at', null)
+          .maybeSingle()
         if (primaryPhoto) {
           allAreaPhotos = [primaryPhoto, ...allAreaPhotos]
         }
@@ -1828,8 +1956,17 @@ export default function ViewReportPDF() {
 
   async function handleUploadNewAreaPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !editingAreaId || !inspection?.id) return
+    if (!file || !editingAreaId || !inspection?.id) {
+      e.target.value = ''
+      return
+    }
     e.target.value = ''
+
+    const caption = pendingCaptionRef.current.trim()
+    if (!caption) {
+      toast.error('Caption required — please try uploading again')
+      return
+    }
 
     setAreaPhotoUploading(true)
     try {
@@ -1839,6 +1976,7 @@ export default function ViewReportPDF() {
         inspection_id: inspection.id,
         photo_type: 'area',
         order_index: 0,
+        caption,
       })
 
       toast.success('Photo uploaded — select it from the grid')
@@ -1846,10 +1984,31 @@ export default function ViewReportPDF() {
       await openAreaPhotoPicker()
     } catch (err) {
       console.error('Area photo upload failed:', err)
-      toast.error('Failed to upload photo')
+      toast.error(err instanceof Error ? err.message : 'Failed to upload photo')
     } finally {
+      pendingCaptionRef.current = ''
       setAreaPhotoUploading(false)
     }
+  }
+
+  function openCaptionPrompt(kind: 'job' | 'area') {
+    setCaptionPromptKind(kind)
+    setCaptionPromptOpen(true)
+  }
+
+  function handleCaptionPromptConfirm(caption: string) {
+    pendingCaptionRef.current = caption
+    setCaptionPromptOpen(false)
+    if (captionPromptKind === 'job') {
+      jobUploadRef.current?.click()
+    } else {
+      areaUploadRef.current?.click()
+    }
+  }
+
+  function handleCaptionPromptCancel() {
+    setCaptionPromptOpen(false)
+    pendingCaptionRef.current = ''
   }
 
   async function handleAddArea() {
@@ -2600,6 +2759,18 @@ export default function ViewReportPDF() {
         </div>
       )}
 
+      <PhotoCaptionPromptDialog
+        isOpen={captionPromptOpen}
+        title={captionPromptKind === 'job' ? 'Replace Photo' : 'Upload New Area Photo'}
+        description={
+          captionPromptKind === 'job'
+            ? 'Describe what this replacement photo shows'
+            : 'Describe what this area photo shows'
+        }
+        onConfirm={handleCaptionPromptConfirm}
+        onCancel={handleCaptionPromptCancel}
+      />
+
       {/* Job Report Edit Dialog */}
       <Dialog open={jobEditOpen} onOpenChange={setJobEditOpen}>
         <DialogContent className="sm:max-w-md">
@@ -2663,7 +2834,7 @@ export default function ViewReportPDF() {
 
           <Button
             variant="outline"
-            onClick={() => jobUploadRef.current?.click()}
+            onClick={() => openCaptionPrompt('job')}
             disabled={jobPhotoUploading}
             className="w-full h-12 mb-3"
           >
@@ -3106,16 +3277,21 @@ export default function ViewReportPDF() {
                 <p className="text-center text-gray-500 py-4">No photos found for this inspection</p>
               )}
 
-              <label className="flex items-center justify-center w-full h-12 min-h-[48px] mt-2 border border-input bg-background rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">
+              <input
+                ref={areaUploadRef}
+                type="file"
+                accept="image/*"
+                onChange={handleUploadNewAreaPhoto}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => openCaptionPrompt('area')}
+                className="flex items-center justify-center w-full h-12 min-h-[48px] mt-2 border border-input bg-background rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
                 <Upload className="h-5 w-5 mr-2" />
                 Upload New Photo
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleUploadNewAreaPhoto}
-                  className="hidden"
-                />
-              </label>
+              </button>
             </>
           )}
         </DialogContent>

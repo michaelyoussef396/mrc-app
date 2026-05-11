@@ -65,10 +65,6 @@ interface LeadData {
 
 interface InspectionData {
   id: string;
-  what_we_found_text: string | null;
-  what_we_will_do_text: string | null;
-  problem_analysis_content: string | null;
-  demolition_content: string | null;
   inspection_date: string | null;
   inspector_name: string | null;
   dwelling_type: string | null;
@@ -108,6 +104,7 @@ export default function InspectionAIReview() {
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
   const [regeneratingAll, setRegeneratingAll] = useState(false);
   const [regeneratingPdf, setRegeneratingPdf] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
 
   // Track dirty state
   const [isDirty, setIsDirty] = useState(false);
@@ -130,10 +127,11 @@ export default function InspectionAIReview() {
       if (leadError) throw leadError;
       setLead(leadData);
 
-      // Load inspection
+      // Load inspection metadata (AI text fields are read separately from
+      // latest_ai_summary view per Stage 3.4.5).
       const { data: inspData, error: inspError } = await supabase
         .from('inspections')
-        .select('id, what_we_found_text, what_we_will_do_text, problem_analysis_content, demolition_content, inspection_date, inspector_name, dwelling_type, property_occupation, outdoor_temperature, outdoor_humidity, cause_of_mould')
+        .select('id, inspection_date, inspector_name, dwelling_type, property_occupation, outdoor_temperature, outdoor_humidity, cause_of_mould')
         .eq('lead_id', leadId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -141,10 +139,20 @@ export default function InspectionAIReview() {
 
       if (inspError) throw inspError;
       setInspection(inspData);
-      setWhatWeFound(inspData.what_we_found_text || '');
-      setProblemAnalysis(inspData.problem_analysis_content || '');
-      setWhatWeWillDo(inspData.what_we_will_do_text || '');
-      setDemolitionContent(inspData.demolition_content || '');
+
+      // Load AI summary content from the latest_ai_summary compatibility view
+      // (canonical source post Stage 3.2). Empty result is valid when no AI
+      // generation has happened yet — fields stay blank for the admin to regen.
+      const { data: latestSummary } = await supabase
+        .from('latest_ai_summary')
+        .select('what_we_found_text, what_we_will_do_text, problem_analysis_content, demolition_content')
+        .eq('inspection_id', inspData.id)
+        .maybeSingle();
+
+      setWhatWeFound(latestSummary?.what_we_found_text || '');
+      setProblemAnalysis(latestSummary?.problem_analysis_content || '');
+      setWhatWeWillDo(latestSummary?.what_we_will_do_text || '');
+      setDemolitionContent(latestSummary?.demolition_content || '');
 
       // Load areas
       const { data: areasData } = await supabase
@@ -164,22 +172,81 @@ export default function InspectionAIReview() {
 
   const handleSave = async () => {
     if (!inspection) return;
+    if (!isDirty) {
+      toast({ title: 'No changes', description: 'Nothing to save.' });
+      return;
+    }
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('inspections')
-        .update({
-          what_we_found_text: whatWeFound || null,
-          what_we_will_do_text: whatWeWillDo || null,
-          problem_analysis_content: problemAnalysis || null,
-          demolition_content: demolitionContent || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', inspection.id);
+      const { data: { session: saveSession } } = await supabase.auth.getSession();
+      const editorId = saveSession?.user?.id ?? null;
 
-      if (error) throw error;
+      // Stage 3.3: each save creates a new ai_summary_versions row (manual_edit)
+      // and supersedes the previous active version. Race-safe: retries on
+      // UNIQUE(inspection_id, version_number) violation.
+      let newVersionId: string | null = null;
+      const MAX_ATTEMPTS = 3;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        const { data: maxRow, error: maxErr } = await supabase
+          .from('ai_summary_versions')
+          .select('version_number')
+          .eq('inspection_id', inspection.id)
+          .order('version_number', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (maxErr) throw new Error(`version max query failed: ${maxErr.message}`);
+
+        const previousMax = (maxRow?.version_number as number | undefined) ?? 0;
+        const nextVersion = previousMax + 1;
+
+        const { data: inserted, error: insertErr } = await supabase
+          .from('ai_summary_versions')
+          .insert({
+            inspection_id: inspection.id,
+            version_number: nextVersion,
+            generation_type: 'manual_edit',
+            generated_by: editorId,
+            ai_summary_text: whatWeFound || null,
+            what_we_found_text: whatWeFound || null,
+            what_we_will_do_text: whatWeWillDo || null,
+            problem_analysis_content: problemAnalysis || null,
+            demolition_content: demolitionContent || null,
+          })
+          .select('id')
+          .single();
+
+        if (insertErr) {
+          const isUniqueViolation = (insertErr as { code?: string }).code === '23505';
+          if (isUniqueViolation && attempt < MAX_ATTEMPTS) continue;
+          throw new Error(`version insert failed: ${insertErr.message}`);
+        }
+
+        newVersionId = inserted?.id as string;
+
+        if (previousMax > 0) {
+          const { error: supersedeErr } = await supabase
+            .from('ai_summary_versions')
+            .update({
+              superseded_at: new Date().toISOString(),
+              superseded_by_version_id: newVersionId,
+            })
+            .eq('inspection_id', inspection.id)
+            .neq('id', newVersionId)
+            .is('superseded_at', null);
+          if (supersedeErr) {
+            console.warn('[AIReview] supersession update failed:', supersedeErr.message);
+          }
+        }
+        break;
+      }
+
+      // Stage 3.4.5: legacy inspections.ai_summary_* mirror dropped. The new
+      // version row above is the canonical store; consumers read via
+      // latest_ai_summary view.
+
       setIsDirty(false);
-      toast({ title: 'Saved', description: 'AI content saved successfully' });
+      toast({ title: 'Saved', description: 'A new version was created.' });
     } catch (err: any) {
       captureBusinessError('AI review save failed', { leadId, error: err?.message });
       toast({ title: 'Save Failed', description: err?.message || 'Failed to save', variant: 'destructive' });
@@ -190,10 +257,42 @@ export default function InspectionAIReview() {
 
   const handleApprove = async () => {
     if (!leadId) return;
-    // Save any pending changes first
+    // Save any pending changes first (creates a manual_edit version)
     if (isDirty) await handleSave();
 
     try {
+      // Stage 3.4: stamp approval onto the latest active ai_summary_versions row.
+      // Stage 3.4.5: inspections.ai_summary_approved mirror dropped — version
+      // row's approved_at is the canonical signal.
+      if (inspection?.id) {
+        const { data: { session: approveSession } } = await supabase.auth.getSession();
+        const approverId = approveSession?.user?.id ?? null;
+
+        const { data: latestVersion, error: latestErr } = await supabase
+          .from('ai_summary_versions')
+          .select('id')
+          .eq('inspection_id', inspection.id)
+          .is('superseded_at', null)
+          .order('version_number', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestErr) {
+          console.warn('[AIReview] latest version lookup failed:', latestErr.message);
+        } else if (latestVersion?.id) {
+          const { error: approveVersionErr } = await supabase
+            .from('ai_summary_versions')
+            .update({
+              approved_at: new Date().toISOString(),
+              approved_by: approverId,
+            })
+            .eq('id', latestVersion.id);
+          if (approveVersionErr) {
+            console.warn('[AIReview] version approval update failed:', approveVersionErr.message);
+          }
+        }
+      }
+
       await supabase.from('leads').update({ status: 'approve_inspection_report' }).eq('id', leadId);
       await supabase.from('activities').insert({
         lead_id: leadId,
@@ -247,10 +346,15 @@ export default function InspectionAIReview() {
         .order('area_order');
 
       const payload = buildEdgeFunctionPayload(fullInspection, fullAreas || [], lead);
+      const { data: { session: regenSession } } = await supabase.auth.getSession();
+      const trimmedFeedback = feedbackText.trim();
 
       const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
         formData: payload,
+        inspectionId: inspection.id,
+        userId: regenSession?.user?.id,
         structured: true,
+        regenerationFeedback: trimmedFeedback || undefined,
       });
 
       if (error) throw error;
@@ -261,6 +365,7 @@ export default function InspectionAIReview() {
       setWhatWeWillDo(data.what_we_will_do || '');
       setDemolitionContent(data.demolition_details || '');
       setIsDirty(true);
+      setFeedbackText('');
 
       toast({ title: 'Regenerated', description: 'All AI sections regenerated. Remember to save.' });
     } catch (err: any) {
@@ -297,11 +402,16 @@ export default function InspectionAIReview() {
         .order('area_order');
 
       const payload = buildEdgeFunctionPayload(fullInspection, fullAreas || [], lead);
+      const { data: { session: regenSession } } = await supabase.auth.getSession();
+      const trimmedFeedback = feedbackText.trim();
 
       const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
         formData: payload,
+        inspectionId: inspection.id,
+        userId: regenSession?.user?.id,
         section,
         currentContent: contentMap[section],
+        regenerationFeedback: trimmedFeedback || undefined,
       });
 
       if (error) throw error;
@@ -313,6 +423,7 @@ export default function InspectionAIReview() {
       else if (section === 'demolitionDetails') setDemolitionContent(newContent);
 
       setIsDirty(true);
+      setFeedbackText('');
       toast({ title: 'Section Regenerated', description: 'Content updated. Remember to save.' });
     } catch (err: any) {
       toast({ title: 'Failed', description: err?.message || 'Failed to regenerate section', variant: 'destructive' });
@@ -543,6 +654,25 @@ export default function InspectionAIReview() {
                       ))}
                     </div>
                   )}
+                </div>
+
+                {/* Regeneration feedback (optional) */}
+                <div className="space-y-2">
+                  <label htmlFor="ai-regen-feedback" className="text-sm font-medium text-slate-700">
+                    Tell the AI what to change <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <textarea
+                    id="ai-regen-feedback"
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value.slice(0, 2000))}
+                    placeholder="e.g. Make the recommendations more specific to the bedroom mould, mention the specific moisture readings"
+                    rows={3}
+                    maxLength={2000}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 resize-y min-h-[72px]"
+                  />
+                  <p className="text-xs text-slate-500">
+                    {feedbackText.length}/2000 — applies to the next regeneration (whole or section)
+                  </p>
                 </div>
 
                 {/* Regenerate All */}

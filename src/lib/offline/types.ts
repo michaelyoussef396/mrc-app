@@ -21,7 +21,12 @@ export interface QueuedPhoto {
   photoType: 'area' | 'subfloor' | 'general' | 'outdoor';
   areaId?: string;
   subfloorId?: string;
-  caption?: string;
+  /**
+   * Required since Stage 4.1. Validated at enqueue (queuePhotoOffline) and
+   * re-validated at dequeue (Stage 4.1.5 routes invalid rows to quarantine
+   * rather than silently uploading with NULL).
+   */
+  caption: string;
   orderIndex: number;
   createdAt: string;
   syncedAt?: string;
@@ -36,6 +41,27 @@ export interface SyncLogEntry {
   action: 'create' | 'update';
   syncedAt: string;
   remoteId: string;
+}
+
+/**
+ * Photos that fail the Stage 4.1 caption gate at dequeue (e.g. queued by an
+ * older client that didn't enforce the gate, or by a corrupted entry). Held
+ * in a separate Dexie store so they never reach the photos table NULL-caption,
+ * and surfaced via a UI banner so the technician can re-caption + re-queue
+ * or discard. Added in Stage 4.1.5.
+ */
+export interface QuarantinedPhoto {
+  id: string;
+  inspectionDraftId: string;
+  blob: Blob;
+  originalFileName: string;
+  photoType: 'area' | 'subfloor' | 'general' | 'outdoor';
+  areaId?: string;
+  subfloorId?: string;
+  orderIndex: number;
+  reason: 'missing_caption';
+  originalCreatedAt: string;
+  quarantinedAt: string;
 }
 
 export type OverallSyncState = 'synced' | 'pending' | 'offline' | 'syncing' | 'error';

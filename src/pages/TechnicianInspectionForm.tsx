@@ -16,6 +16,7 @@ import {
   deleteInspectionPhoto,
   loadInspectionPhotos,
 } from '@/lib/utils/photoUpload';
+import { PhotoCaptionPromptDialog } from '@/components/photos/PhotoCaptionPromptDialog';
 import type {
   InspectionFormData,
   InspectionArea,
@@ -2499,7 +2500,6 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
     option1TotalIncGst: 0,
     option2TotalIncGst: 0,
     jobSummaryFinal: '',
-    regenerationFeedback: '',
     whatWeFoundText: '',
     whatWeWillDoText: '',
     whatYouGetText: '',
@@ -2781,12 +2781,18 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             option1EquipmentCost: ins.option_1_equipment_ex_gst ? Number(ins.option_1_equipment_ex_gst) : 0,
             option1TotalIncGst: ins.option_1_total_inc_gst ? Number(ins.option_1_total_inc_gst) : 0,
             option2TotalIncGst: ins.option_2_total_inc_gst ? Number(ins.option_2_total_inc_gst) : 0,
-            jobSummaryFinal: ins.ai_summary_text || '',
-            whatWeFoundText: ins.what_we_found_text || '',
-            whatWeWillDoText: ins.what_we_will_do_text || '',
-            whatYouGetText: ins.what_you_get_text || '',
-            problemAnalysisContent: ins.problem_analysis_content || '',
-            demolitionContent: ins.demolition_content || '',
+            // Stage 3.5: AI summary text fields no longer live on inspections.
+            // The technician form has no UI inputs for these fields (confirmed
+            // in audit doc); they were pure load-then-save pass-through and
+            // the writes were already dropped in Stage 3.4.5. Initialise empty —
+            // the canonical store is ai_summary_versions, read by the admin
+            // review screen via the latest_ai_summary view.
+            jobSummaryFinal: '',
+            whatWeFoundText: '',
+            whatWeWillDoText: '',
+            whatYouGetText: '',
+            problemAnalysisContent: '',
+            demolitionContent: '',
           }));
         } else {
           // No existing inspection - pre-fill from lead data
@@ -2989,30 +2995,55 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   // Photo handlers - upload to Supabase Storage
   // Persistent refs for file input (mobile browsers block .click() on detached inputs)
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const photoContextRef = useRef<{ type: string; areaId?: string; readingId?: string }>({ type: '' });
+  const photoContextRef = useRef<{ type: string; areaId?: string; readingId?: string; userCaption?: string }>({ type: '' });
+  const [captionPromptOpen, setCaptionPromptOpen] = useState(false);
+  const [captionPromptType, setCaptionPromptType] = useState<'roomView' | 'subfloor'>('roomView');
+
+  // Stage 4.1: types whose caption is collected from the technician via
+  // PhotoCaptionPromptDialog. All other types (sentinel role tags like
+  // 'infrared', 'front_house', or moisture readings) supply their own caption.
+  const HUMAN_CAPTION_TYPES = new Set(['roomView', 'subfloor']);
+
+  const openFilePicker = (multiple: boolean) => {
+    const input = photoInputRef.current;
+    if (!input) return;
+    input.multiple = multiple;
+    input.value = '';
+    input.click();
+  };
 
   const handlePhotoCapture = (type: string, areaId?: string, readingId?: string) => {
     const input = photoInputRef.current;
     if (!input) return;
 
-    // Store context for the onChange handler
-    photoContextRef.current = { type, areaId, readingId };
+    photoContextRef.current = { type, areaId, readingId, userCaption: undefined };
 
-    // Configure input attributes
-    input.multiple = type !== 'single' && !readingId;
+    if (HUMAN_CAPTION_TYPES.has(type)) {
+      setCaptionPromptType(type as 'roomView' | 'subfloor');
+      setCaptionPromptOpen(true);
+      return;
+    }
 
-    // Reset value so same file can be re-selected
-    input.value = '';
+    openFilePicker(type !== 'single' && !readingId);
+  };
 
-    // Trigger file picker
-    input.click();
+  const handleCaptionPromptConfirm = (caption: string) => {
+    photoContextRef.current = { ...photoContextRef.current, userCaption: caption };
+    setCaptionPromptOpen(false);
+    const ctx = photoContextRef.current;
+    openFilePicker(ctx.type !== 'single' && !ctx.readingId);
+  };
+
+  const handleCaptionPromptCancel = () => {
+    setCaptionPromptOpen(false);
+    photoContextRef.current = { ...photoContextRef.current, userCaption: undefined };
   };
 
   const handlePhotoInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    const { type, areaId, readingId } = photoContextRef.current;
+    const { type, areaId, readingId, userCaption } = photoContextRef.current;
 
     // Require saved inspection before uploading photos
     if (!currentInspectionId) {
@@ -3037,8 +3068,10 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         photoType = 'area';
         if (type === 'infrared') caption = 'infrared';
         else if (type === 'naturalInfrared') caption = 'natural_infrared';
+        else if (type === 'roomView') caption = userCaption;
       } else if (type === 'subfloor') {
         photoType = 'subfloor';
+        caption = userCaption;
       } else if (['frontDoor', 'frontHouse', 'mailbox', 'street', 'direction'].includes(type)) {
         photoType = 'outdoor';
         const captionMap: Record<string, string> = {
@@ -3046,6 +3079,16 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           mailbox: 'mailbox', street: 'street', direction: 'direction',
         };
         caption = captionMap[type];
+      }
+
+      const finalCaption = readingId ? 'moisture' : caption;
+      if (!finalCaption || !finalCaption.trim()) {
+        toast({
+          title: 'Caption required',
+          description: 'Photo caption was missing — please try again',
+          variant: 'destructive',
+        });
+        return;
       }
 
       // Upload each file
@@ -3057,7 +3100,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           inspection_id: currentInspectionId,
           area_id: areaId,
           photo_type: photoType,
-          caption: readingId ? 'moisture' : caption,
+          caption: finalCaption,
         });
         newPhotos.push({
           id: result.photo_id,
@@ -3104,6 +3147,8 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         description: err?.message || 'Failed to upload photo(s)',
         variant: 'destructive',
       });
+    } finally {
+      photoContextRef.current = { ...photoContextRef.current, userCaption: undefined };
     }
   };
 
@@ -3182,11 +3227,9 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         changes.push({ field: 'Total (inc GST)', old: initialTotal, new: newTotal });
       }
 
-      const initialSummary = (initial.ai_summary_text as string | null) ?? null;
-      const newSummary = fd.jobSummaryFinal || null;
-      if (initialSummary !== newSummary) {
-        changes.push({ field: 'AI Summary', old: initialSummary, new: newSummary });
-      }
+      // Stage 3.5: AI summary diff tracking removed — the canonical store is
+      // ai_summary_versions, audited via audit_log_trigger on that table. The
+      // technician form's adminDiff was reading the dropped inspections.ai_summary_text.
 
       const initialOpt1 = initial.option_1_total_inc_gst == null ? null : Number(initial.option_1_total_inc_gst);
       const newOpt1 = fd.option1TotalIncGst || null;
@@ -3324,12 +3367,12 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         option_1_equipment_ex_gst: saveOption1Equipment,
         option_1_total_inc_gst: saveOption1Total,
         option_2_total_inc_gst: saveOption2Total,
-        ai_summary_text: formData.jobSummaryFinal || null,
-        what_we_found_text: formData.whatWeFoundText || null,
-        what_we_will_do_text: formData.whatWeWillDoText || null,
-        what_you_get_text: formData.whatYouGetText || null,
-        problem_analysis_content: formData.problemAnalysisContent || null,
-        demolition_content: formData.demolitionContent || null,
+        // Stage 3.4.5: AI summary fields (ai_summary_text, what_we_*_text,
+        // problem_analysis_content, demolition_content) are no longer written
+        // through the technician form. The canonical store is
+        // ai_summary_versions, populated by generate-inspection-summary EF
+        // (initial / regeneration) and InspectionAIReview.handleSave (manual_edit).
+        // Dropped per audit gate sign-off 2026-05-01.
         updated_at: new Date().toISOString(),
       };
 
@@ -3453,12 +3496,14 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
               await supabase.from('moisture_readings').insert({ id: reading.id, ...readingRow });
             }
 
-            // Link photo to this moisture reading (photo was uploaded without moisture_reading_id)
+            // Link photo to this moisture reading (photo was uploaded without moisture_reading_id).
+            // Stage 4.3: guard against resurrecting soft-deleted rows.
             if (reading.photo) {
               await supabase
                 .from('photos')
                 .update({ moisture_reading_id: reading.id })
-                .eq('id', reading.photo.id);
+                .eq('id', reading.photo.id)
+                .is('deleted_at', null);
             }
           }
         }
@@ -3677,21 +3722,19 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
 
         // 2. Generate AI summary via edge function
         const payload = buildAIPayload(formData, lead);
+        const { data: { session: aiSession } } = await supabase.auth.getSession();
         const { data: aiData, error: aiError } = await invokeEdgeFunction('generate-inspection-summary', {
           formData: payload,
+          inspectionId: currentInspectionId,
+          userId: aiSession?.user?.id,
           structured: true,
         });
 
-        // 3. Save AI text to inspections table (if generation succeeded)
-        if (!aiError && aiData?.success && currentInspectionId) {
-          await supabase.from('inspections').update({
-            what_we_found_text: aiData.what_we_found || null,
-            what_we_will_do_text: aiData.what_we_will_do || null,
-            problem_analysis_content: aiData.detailed_analysis || null,
-            demolition_content: aiData.demolition_details || null,
-            updated_at: new Date().toISOString(),
-          }).eq('id', currentInspectionId);
-        } else if (aiError) {
+        // Stage 3.4.5: post-AI mirror write removed. The EF
+        // (generate-inspection-summary) is now the canonical writer of
+        // ai_summary_versions per Stage 3.2; the previous client-side
+        // inspections.update() here was a redundant mirror.
+        if (aiError) {
           console.error('[AI Generate on Complete] Error:', aiError);
           // AI failed — still proceed, admin can regenerate manually
         }
@@ -3860,6 +3903,23 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         accept="image/*"
         className="hidden"
         onChange={handlePhotoInputChange}
+      />
+
+      <PhotoCaptionPromptDialog
+        isOpen={captionPromptOpen}
+        title={captionPromptType === 'subfloor' ? 'Add Subfloor Photo' : 'Add Room Photo'}
+        description={
+          captionPromptType === 'subfloor'
+            ? 'Describe what this subfloor photo shows'
+            : 'Describe what this room photo shows'
+        }
+        placeholder={
+          captionPromptType === 'subfloor'
+            ? 'e.g. Moisture damage on floor joist near south wall'
+            : 'e.g. Visible mould on ceiling above shower'
+        }
+        onConfirm={handleCaptionPromptConfirm}
+        onCancel={handleCaptionPromptCancel}
       />
 
       {/* Completing overlay — shown while AI summary generates */}

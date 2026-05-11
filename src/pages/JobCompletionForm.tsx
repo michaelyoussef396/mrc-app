@@ -158,26 +158,31 @@ export default function JobCompletionForm() {
       if (!formData.demolitionRemovalNotes?.trim()) {
         errors.push({ section: 4, message: 'Removal notes are required when demolition is enabled' })
       }
-      // Photo counts checked via DB query
+      // Photo counts checked via DB query.
+      // Stage 4.3: soft-deleted photos must not satisfy validation gates.
       if (jobCompletionId) {
         const { count: demoCount } = await supabase
           .from('photos')
           .select('id', { count: 'exact', head: true })
           .eq('job_completion_id', jobCompletionId)
           .eq('photo_category', 'demolition')
+          .is('deleted_at', null)
         if ((demoCount ?? 0) < 4) {
           errors.push({ section: 4, message: `Demolition requires exactly 4 photos (${demoCount ?? 0}/4 uploaded)` })
         }
       }
     }
 
-    // Section 3/4: Before + After photos parity
+    // Section 3/4: Before + After photos parity.
+    // Stage 4.3: filter soft-deleted (was missed in audit doc — bundled in Promise.all).
     if (jobCompletionId) {
       const [{ count: beforeCount }, { count: afterCount }] = await Promise.all([
         supabase.from('photos').select('id', { count: 'exact', head: true })
-          .eq('job_completion_id', jobCompletionId).eq('photo_category', 'before'),
+          .eq('job_completion_id', jobCompletionId).eq('photo_category', 'before')
+          .is('deleted_at', null),
         supabase.from('photos').select('id', { count: 'exact', head: true })
-          .eq('job_completion_id', jobCompletionId).eq('photo_category', 'after'),
+          .eq('job_completion_id', jobCompletionId).eq('photo_category', 'after')
+          .is('deleted_at', null),
       ])
       if ((beforeCount ?? 0) < 1) {
         errors.push({ section: 3, message: 'At least one before photo must be selected' })

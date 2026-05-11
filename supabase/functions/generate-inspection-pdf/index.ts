@@ -909,6 +909,7 @@ function generateNavyBoxSectionPages(contentHtml: string, config: SectionConfig)
 
 // Handle PROBLEM ANALYSIS & RECOMMENDATIONS overflow
 function handleProblemAnalysisOverflow(html: string, problemContentHtml: string): string {
+  // Lookahead Page 7 = Demolition (was Cleaning before page-order restructure)
   const regex = /<!-- Page 6: Problem Analysis[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 7)/
   const match = html.match(regex)
 
@@ -933,7 +934,7 @@ function handleProblemAnalysisOverflow(html: string, problemContentHtml: string)
 
 // Handle DEMOLITION section overflow
 function handleDemolitionOverflow(html: string, demolitionContentHtml: string): string {
-  const regex = /<!-- Page 9: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 10)/
+  const regex = /<!-- Page 7: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 8)/
   const match = html.match(regex)
 
   if (!match) return html
@@ -942,7 +943,7 @@ function handleDemolitionOverflow(html: string, demolitionContentHtml: string): 
   const logoUrl = logoMatch ? logoMatch[1] : `${ASSET_BASE}/assets/logos/logo-mrc.png`
 
   const config: SectionConfig = {
-    pageComment: '<!-- Page 9: Demolition Page -->',
+    pageComment: '<!-- Page 7: Demolition Page -->',
     titleHtml: `<!-- DEMOLITION title -->
             <div style="width: 600px; left: 41px; top: 25px; position: absolute; color: #000000; font-size: 56px; font-family: 'Garet Heavy'; font-weight: 800; text-transform: uppercase; letter-spacing: 1.6px; line-height: normal; z-index: 10;">DEMOLITION</div>`,
     contentTop: 145,
@@ -1417,6 +1418,11 @@ function generateReportHtml(
     problemMarkdown = rebuildProblemAnalysisMarkdown(overrideSections)
   }
   const problemContentHtml = markdownToHtml(problemMarkdown) || defaultAnalysis
+  // IMPORTANT: handleProblemAnalysisOverflow MUST run before the demolition
+  // strip below. Its lookahead regex `(?=\s*<!-- Page 7)` anchors on the
+  // Demolition placeholder block, which the strip may delete. Reordering
+  // these calls will silently break Problem Analysis pagination on
+  // non-demolition inspections.
   html = handleProblemAnalysisOverflow(html, problemContentHtml)
 
   // Reparse sections after overrides for template placeholder compat
@@ -1435,17 +1441,17 @@ function generateReportHtml(
   html = html.replace(/\{\{timeline_text\}\}/g, stripMarkdown(problemSections.timeline_text) || '')
   html = html.replace(/\{\{problem_analysis_content\}\}/g, '') // Already handled by overflow
 
-  // ===== PAGE 9: DEMOLITION (conditional + multi-page overflow) =====
+  // ===== PAGE 7: DEMOLITION (conditional + multi-page overflow) =====
   const hasDemolition = demolitionAreas.length > 0 || !!inspection.demolition_content?.trim()
   if (hasDemolition) {
     html = handleDemolitionOverflow(html, demolitionContent)
   } else {
     // Remove demolition page entirely when no areas require it
-    const demolitionRemoveRegex = /\s*<!-- Page 9: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 10)/
+    const demolitionRemoveRegex = /\s*<!-- Page 7: Demolition[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 8)/
     html = html.replace(demolitionRemoveRegex, '\n\n')
   }
 
-  // ===== PAGE 10: VISUAL MOULD CLEANING ESTIMATE =====
+  // ===== PAGE 8: VISUAL MOULD CLEANING ESTIMATE =====
   // Use pre-computed option_selected if available, fall back to algorithmic derivation
   const hasSubfloor = inspection.subfloor_required && subfloorData != null
   const optionSelected = inspection.option_selected
@@ -1615,13 +1621,17 @@ Deno.serve(async (req) => {
     console.log(`Generating PDF for inspection: ${inspectionId}, regenerate: ${regenerate}`)
 
     // ===== STEP 1: Fetch inspection data with all related tables =====
+    // Stage 4.3: photos are fetched via a separate query so we can filter
+    // soft-deleted rows (.is('deleted_at', null)). PostgREST embedded
+    // filters on non-inner joins are awkward; the split is cheaper than
+    // wrestling with !inner semantics (which would drop inspections that
+    // legitimately have no photos).
     const { data: inspection, error: fetchError } = await supabase
       .from('inspections')
       .select(`
         *,
         lead:leads(*),
-        areas:inspection_areas(*,moisture_readings(*)),
-        photos:photos(*)
+        areas:inspection_areas(*,moisture_readings(*))
       `)
       .eq('id', inspectionId)
       .single()
@@ -1632,6 +1642,42 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Inspection not found', details: fetchError?.message }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
+    }
+
+    // Stage 4.3: separate active-photos query (replaces relational select)
+    const { data: activePhotos, error: photosError } = await supabase
+      .from('photos')
+      .select('*')
+      .eq('inspection_id', inspectionId)
+      .is('deleted_at', null)
+
+    if (photosError) {
+      console.error('Failed to fetch photos:', photosError)
+      return new Response(
+        JSON.stringify({ error: 'Photos fetch failed', details: photosError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    ;(inspection as Record<string, unknown>).photos = activePhotos ?? []
+
+    // Stage 3.4.5: AI summary content lives in ai_summary_versions; read the
+    // canonical version via the latest_ai_summary view and merge onto the
+    // inspection object. Falls back to the legacy inspections column values
+    // for inspections that pre-date the Stage 3.5 backfill (after Stage 3.5
+    // those columns are dropped and only the view's values remain).
+    const { data: latestSummary } = await supabase
+      .from('latest_ai_summary')
+      .select('ai_summary_text, what_we_found_text, what_we_will_do_text, what_you_get_text, problem_analysis_content, demolition_content')
+      .eq('inspection_id', inspectionId)
+      .maybeSingle()
+
+    if (latestSummary) {
+      ;(inspection as Record<string, unknown>).ai_summary_text = latestSummary.ai_summary_text ?? (inspection as Record<string, unknown>).ai_summary_text
+      ;(inspection as Record<string, unknown>).what_we_found_text = latestSummary.what_we_found_text ?? (inspection as Record<string, unknown>).what_we_found_text
+      ;(inspection as Record<string, unknown>).what_we_will_do_text = latestSummary.what_we_will_do_text ?? (inspection as Record<string, unknown>).what_we_will_do_text
+      ;(inspection as Record<string, unknown>).what_you_get_text = latestSummary.what_you_get_text ?? (inspection as Record<string, unknown>).what_you_get_text
+      ;(inspection as Record<string, unknown>).problem_analysis_content = latestSummary.problem_analysis_content ?? (inspection as Record<string, unknown>).problem_analysis_content
+      ;(inspection as Record<string, unknown>).demolition_content = latestSummary.demolition_content ?? (inspection as Record<string, unknown>).demolition_content
     }
 
     // Validate lead status — PDF only allowed for completed inspections
@@ -1688,11 +1734,13 @@ Deno.serve(async (req) => {
         subfloorReadings = (sfReadings || []) as SubfloorReading[]
 
         // Fetch subfloor photos — try by subfloor_id first, fall back to photo_type
-        // Photos are already fetched in the main query, so also check those
+        // Photos are already fetched in the main query, so also check those.
+        // Stage 4.3: filter soft-deleted rows.
         const { data: sfPhotos } = await supabase
           .from('photos')
           .select('*')
           .eq('subfloor_id', sfData.id)
+          .is('deleted_at', null)
 
         if (sfPhotos && sfPhotos.length > 0) {
           subfloorPhotos = sfPhotos as Photo[]
@@ -1778,7 +1826,8 @@ Deno.serve(async (req) => {
       '<!-- Page 4: Outdoor Environment',
       '<!-- Page 5: Subfloor',
       '<!-- Page 6: Problem Analysis',
-      '<!-- Page 7: Visual Mould Cleaning',
+      '<!-- Page 7: Demolition',
+      '<!-- Page 8: Visual Mould Cleaning',
     ]
     const missingMarkers = requiredMarkers.filter(marker => !templateHtml.includes(marker))
     if (missingMarkers.length > 0) {

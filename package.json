@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "preview-emails": "npx tsx scripts/preview-emails.ts"
   },
   "dependencies": {
     "@fingerprintjs/fingerprintjs": "^4.5.1",

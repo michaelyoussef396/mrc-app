@@ -400,11 +400,12 @@ export async function loadCompleteInspection(inspectionId: string) {
   // Load all areas
   const areas = await loadInspectionAreas(inspectionId)
 
-  // Load all photos
+  // Load all photos. Stage 4.3: filter soft-deleted rows.
   const { data: photos, error: photosError } = await supabase
     .from('photos')
     .select('*')
     .eq('inspection_id', inspectionId)
+    .is('deleted_at', null)
     .order('order_index', { ascending: true })
 
   if (photosError) {
@@ -529,8 +530,10 @@ export async function fetchCompleteInspectionData(
 
   const areaIds = (rawAreas || []).map(a => a.id)
 
-  // 3. Load moisture readings, subfloor, and photos in parallel
-  const [moistureResult, subfloorResult, photosResult] = await Promise.all([
+  // 3. Load moisture readings, subfloor, photos, and AI summary in parallel.
+  //    Stage 3.4.5: AI summary content comes from latest_ai_summary view (the
+  //    legacy inspections.ai_summary_* columns are dropped in Stage 3.5).
+  const [moistureResult, subfloorResult, photosResult, aiSummaryResult] = await Promise.all([
     areaIds.length > 0
       ? supabase
           .from('moisture_readings')
@@ -548,12 +551,19 @@ export async function fetchCompleteInspectionData(
       .from('photos')
       .select('*')
       .eq('inspection_id', inspectionId)
+      .is('deleted_at', null)
       .order('order_index'),
+    supabase
+      .from('latest_ai_summary')
+      .select('ai_summary_text, what_we_found_text, what_we_will_do_text, what_you_get_text, problem_analysis_content, demolition_content, generated_at, approved_at, approved_by')
+      .eq('inspection_id', inspectionId)
+      .maybeSingle(),
   ])
 
   const rawMoisture = moistureResult.data || []
   const subfloorData = subfloorResult.data
   const rawPhotos = photosResult.data || []
+  const aiSummary = aiSummaryResult.data
 
   // 4. Load subfloor readings if subfloor exists
   let subfloorReadings: Tables<'subfloor_readings'>[] = []
@@ -641,8 +651,24 @@ export async function fetchCompleteInspectionData(
       }
     : null
 
+  // Merge AI summary fields into the inspection object so downstream readers
+  // (e.g. InspectionDataDisplay) see the same shape the legacy columns
+  // produced. Approval state surfaces as ai_summary_approved boolean for
+  // backward compatibility with any code that still reads it.
+  const inspectionWithAi = {
+    ...inspection,
+    ai_summary_text: aiSummary?.ai_summary_text ?? null,
+    what_we_found_text: aiSummary?.what_we_found_text ?? null,
+    what_we_will_do_text: aiSummary?.what_we_will_do_text ?? null,
+    what_you_get_text: aiSummary?.what_you_get_text ?? null,
+    problem_analysis_content: aiSummary?.problem_analysis_content ?? null,
+    demolition_content: aiSummary?.demolition_content ?? null,
+    ai_summary_generated_at: aiSummary?.generated_at ?? null,
+    ai_summary_approved: aiSummary?.approved_at != null,
+  }
+
   return {
-    inspection,
+    inspection: inspectionWithAi,
     areas,
     subfloor,
     photos: photosWithUrls,

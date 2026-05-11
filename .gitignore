@@ -47,3 +47,31 @@ service-account.json
 
 # Design asset templates (PSDs, layer dumps, previews — too large for repo)
 job report templates/
+
+# Email template previews (regenerated locally via `npm run preview-emails`,
+# contain real test-lead PII, not for git). README + script ARE committed.
+docs/email-previews/*.html
+!docs/email-previews/README.md
+
+# Supabase CLI local state — machine-local, regenerable
+supabase/.temp/
+
+# Email preview screenshots in repo root — local-only, not committed
+/email-preview-*.png
+
+# GitNexus local index (KuzuDB graph database, machine-local, regenerable)
+.gitnexus/
+
+# GitNexus backup snapshots (local-only rollback insurance)
+.gitnexus-backup-*/
+
+# Phase 3 Stage 3.5 pre-destructive-DDL snapshots (local-only rollback insurance,
+# Supabase automated backups remain primary recovery)
+phase3-stage-3.5-snapshot-*.json
+
+# Vercel CLI artifacts
+.vercel
+
+# Claude Code local overrides
+CLAUDE.local.md
+settings.local.json

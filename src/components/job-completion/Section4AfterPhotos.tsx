@@ -10,6 +10,7 @@ import {
   uploadMultiplePhotos,
   deleteInspectionPhoto,
 } from '@/lib/utils/photoUpload';
+import { PhotoCaptionPromptDialog } from '@/components/photos/PhotoCaptionPromptDialog';
 
 import type { JobCompletionFormData } from '@/types/jobCompletion';
 
@@ -46,11 +47,13 @@ async function fetchInspectionId(leadId: string): Promise<string | null> {
 }
 
 async function fetchJobCompletionPhotos(jobCompletionId: string): Promise<JobPhoto[]> {
+  // Stage 4.3: filter soft-deleted rows
   const { data: rows, error } = await supabase
     .from('photos')
     .select('id, storage_path, photo_category')
     .eq('job_completion_id', jobCompletionId)
     .in('photo_category', ['after', 'demolition'])
+    .is('deleted_at', null)
     .order('created_at', { ascending: true });
 
   if (error) throw error;
@@ -74,11 +77,13 @@ async function fetchJobCompletionPhotos(jobCompletionId: string): Promise<JobPho
 }
 
 async function fetchBeforePhotoCount(jobCompletionId: string): Promise<number> {
+  // Stage 4.3: soft-deleted photos must not count toward the before-photo gate
   const { count, error } = await supabase
     .from('photos')
     .select('id', { count: 'exact', head: true })
     .eq('job_completion_id', jobCompletionId)
-    .eq('photo_category', 'before');
+    .eq('photo_category', 'before')
+    .is('deleted_at', null);
 
   if (error) return 0;
   return count ?? 0;
@@ -98,6 +103,9 @@ export function Section4AfterPhotos({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingCategoryRef = useRef<PhotoCategory>('after');
+  const pendingCaptionRef = useRef<string>('');
+  const [captionPromptOpen, setCaptionPromptOpen] = useState(false);
+  const [captionPromptCategory, setCaptionPromptCategory] = useState<PhotoCategory>('after');
 
   useEffect(() => {
     let cancelled = false;
@@ -166,7 +174,19 @@ export function Section4AfterPhotos({
     }
 
     pendingCategoryRef.current = category;
+    setCaptionPromptCategory(category);
+    setCaptionPromptOpen(true);
+  }
+
+  function handleCaptionConfirm(caption: string) {
+    pendingCaptionRef.current = caption;
+    setCaptionPromptOpen(false);
     fileInputRef.current?.click();
+  }
+
+  function handleCaptionCancel() {
+    setCaptionPromptOpen(false);
+    pendingCaptionRef.current = '';
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -192,6 +212,12 @@ export function Section4AfterPhotos({
       toast.info(`Only uploading ${filesToUpload.length} of ${files.length} — limit is ${limit}`);
     }
 
+    const caption = pendingCaptionRef.current;
+    if (!caption.trim()) {
+      toast.error('Caption missing — try uploading again');
+      return;
+    }
+
     setIsUploading(true);
     try {
       const results = await uploadMultiplePhotos(filesToUpload, {
@@ -199,6 +225,7 @@ export function Section4AfterPhotos({
         job_completion_id: jobCompletionId,
         photo_category: category,
         photo_type: 'general',
+        caption,
       });
       await refetch();
       toast.success(`${results.length} photo${results.length === 1 ? '' : 's'} uploaded`);
@@ -206,6 +233,7 @@ export function Section4AfterPhotos({
       console.error('[Section4AfterPhotos] Upload failed:', err);
       toast.error(err instanceof Error ? err.message : 'Photo upload failed');
     } finally {
+      pendingCaptionRef.current = '';
       setIsUploading(false);
     }
   }
@@ -227,6 +255,22 @@ export function Section4AfterPhotos({
 
   return (
     <section aria-labelledby="after-photos-heading" className="space-y-5">
+      <PhotoCaptionPromptDialog
+        isOpen={captionPromptOpen}
+        title={captionPromptCategory === 'demolition' ? 'Add Demolition Photo' : 'Add After Photo'}
+        description={
+          captionPromptCategory === 'demolition'
+            ? 'Describe what was demolished or removed'
+            : 'Describe the area after remediation'
+        }
+        placeholder={
+          captionPromptCategory === 'demolition'
+            ? 'e.g. Cavity exposed after removing affected plaster'
+            : 'e.g. Bathroom ceiling cleared of mould'
+        }
+        onConfirm={handleCaptionConfirm}
+        onCancel={handleCaptionCancel}
+      />
       <input
         ref={fileInputRef}
         type="file"
