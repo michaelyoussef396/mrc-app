@@ -52,12 +52,10 @@ function VariationTextarea({
  * Section8Variations — Records any scope deviations from the original inspection quote.
  *
  * The "Scope Changed" toggle controls visibility of four conditional textarea fields.
- * When scope_changed is true, the variation details are included in the Job Report PDF
- * (page 7) and the invoice helper pre-populates a variation line item.
- *
- * Business rule: variation data surfaces in the PDF and invoice only when scopeChanged
- * is true — the integration-specialist must read scopeChanged before reading the other
- * fields.
+ * Captured data is for admin context only — customer-facing PDF rendering of variations
+ * is intentionally out of scope (separate IP decision). Admin surfaces the captured fields
+ * via the variation context panel on LeadDetail, which pulls original quote from
+ * `inspections` + current state from `job_completions` + change timeline from `audit_logs`.
  *
  * @param formData - Full job completion form state
  * @param onChange - Field update callback
