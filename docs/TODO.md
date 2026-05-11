@@ -26,11 +26,74 @@ Items that need a decision from you, not engineering work. Resolving these unblo
 
 ## Launch Blockers (MUST fix before Glen + Clayton + customers start using)
 
-### L1 — AFD equipment rate confirmation
-- **Estimate:** 30 min (Michael's input + one-line constant update + redeploy)
-- **Status:** Awaiting Michael's input. Real rate documented in Michael's Google Drive — needs to be located and applied.
-- **File:** `src/components/job-completion/Section7Equipment.tsx:9`
-- **Blocking:** any real job that uses AFD will quote the wrong subtotal until this is locked.
+### L1 — Equipment pricing audit + AFD rate
+- **Status:** Investigation complete (2026-05-11). No code changes made. Multiple decisions deferred for future review with fresh head + business records access.
+- **Estimate:** Re-scope needed. Original "30 min" estimate was wrong; real scope is multi-decision spanning pricing engine + customer PDF + invoice generation.
+
+- **What customers ACTUALLY see today on inspection PDF page 8:**
+  - "Commercial dehumidifier: $132/day × {qty}"
+  - "Air Mover: $46/day × {qty}"
+  - "RCD Box: $5/day × {qty}"
+  - "Capped at 5 days" (always literal text, regardless of actual quote days)
+  - No equipment days shown
+  - No AFD line
+  - Rates render even when qty = 0 (informational)
+
+- **Findings deferred (no decision made tonight):**
+
+  1. **Rate reconciliation between code and reference doc**
+     - Code: $132 dehumidifier / $46 air mover / $5 RCD
+     - Reference doc Michael shared (2026-05-11): $118 dehumidifier / $44 air mover, no AFD/RCD specified
+     - Michael's call: leave code rates as-is. Reference doc context unclear (old? supplier? planning artifact?)
+     - Action when decided: if doc is canonical, update 4 surfaces — pricing.ts:22-26, Section7Equipment.tsx:6-11, inspectionUtils.ts:57-61, and the hardcoded literals in generate-inspection-pdf/index.ts:1345-1347
+
+  2. **"Capped at 5 days" — cosmetic display, not enforced in code**
+     - PDF tells customer "Capped at 5 days" (hardcoded at generate-inspection-pdf/index.ts:1534)
+     - Code does NOT enforce this cap — pricing.ts:219-227 calculates `days = Math.max(1, Math.ceil(totalLabourHours / 8))` with no upper bound
+     - A 50-hour job calculates 7 equipment days, customer PDF still says "capped at 5"
+     - Michael confirmed 5-day cap IS the real policy
+     - Action when decided: clamp days to max 5 in pricing.ts calculateEquipmentCost (touches "sacred" pricing — requires careful test)
+
+  3. **AFD invisibility across system**
+     - Tech form (Section7Equipment.tsx) has AFD field with $75 placeholder rate
+     - AFD not in pricing.ts EquipmentInput/EquipmentResult types
+     - AFD not in invoices.ts line items — invoice generation silently drops AFD cost
+     - AFD not in customer-facing inspection PDF (no `{{equipment_afd}}` placeholder)
+     - Real AFD rate unknown
+     - Action when decided: either (a) thread AFD through pricing engine + invoice + PDF with real rate, or (b) remove AFD from tech form entirely if it's a phantom feature
+
+  4. **Zero-equipment jobs still display rate card**
+     - generate-inspection-pdf/index.ts:1345-1347 ternary false branch shows bare rate when qty=0
+     - Customer sees "$132/day, $46/day, $5/day" even on jobs with no equipment hire
+     - May be intentional (informational rates) or a display bug
+     - Michael's call: leave as-is
+
+  5. **Equipment days never shown to customer**
+     - Customer sees rate × qty (e.g. "$132/day × 1") but no duration
+     - Cannot compute their own total from PDF
+     - Michael's call: leave as-is
+
+  6. **Three duplicate EQUIPMENT_RATES blocks (drift risk)**
+     - src/lib/calculations/pricing.ts:22-26 (canonical, exported, no AFD)
+     - src/components/job-completion/Section7Equipment.tsx:6-11 (local, has AFD)
+     - src/lib/inspectionUtils.ts:57-61 (local, no AFD)
+     - Updating one without the others creates silent drift
+
+  7. **STEP_DESCRIPTIONS key alignment risk**
+     - generate-inspection-pdf/index.ts:247-314 hardcodes 11 toggle description keys
+     - Section 5 toggle labels in form must match these keys exactly
+     - Suspect mismatches:
+       - Section 5 "Containment & PRV Preparation" vs EF key "Containment and Prep"
+       - Section 5 "Surface Mould Remediation" vs EF key "Surface Remediation Treatment"
+     - If labels don't match keys, descriptions silently drop from customer PDF
+     - Action when decided: verify treatment_methods array values vs EF keys, align or remap
+
+  8. **docs/COST_CALCULATION_SYSTEM.md is stale**
+     - Says "Equipment is entered as a direct total cost (ex GST), not calculated from quantities and rates" — wrong
+     - Reality: qty × rate × days is the canonical path
+     - Doc version 1.0, last updated 2026-01-08
+
+- **Why deferred:** Investigation surfaced 8 separate issues, multiple touch pricing code that's marked "sacred" with 13% discount cap CHECK constraint. Decisions affect customer-facing rates and money flow. Requires fresh head + verification against business records before any change ships.
 
 ### L2 — Variation context admin panel on LeadDetail
 - **Estimate:** ~1 day engineering
