@@ -27,7 +27,7 @@ Items that need a decision from you, not engineering work. Resolving these unblo
 ## Launch Blockers (MUST fix before Glen + Clayton + customers start using)
 
 ### L1 — Equipment pricing audit + AFD rate
-- **Status:** Investigation complete (2026-05-11). No code changes made. Multiple decisions deferred for future review with fresh head + business records access.
+- **Status:** Investigation complete (2026-05-11) — Michael APPROVED defer to future session with business records. **Parked, not active.**
 - **Estimate:** Re-scope needed. Original "30 min" estimate was wrong; real scope is multi-decision spanning pricing engine + customer PDF + invoice generation.
 
 - **What customers ACTUALLY see today on inspection PDF page 8:**
@@ -133,13 +133,8 @@ Items that need a decision from you, not engineering work. Resolving these unblo
   - [ ] Test deliverability (inbox vs spam)
 - **Blocking:** brand integrity. Customer-facing emails currently send from non-MRC domain.
 
-### L6 — Activate Glen + Clayton + Vryan production accounts
-- **Estimate:** 30 min
-- **Status:** Accounts CREATED and waiting in dormant state. Activation pending Michael's pre-test green flag.
-- **Tasks:**
-  - [ ] Activate Glen's production technician account, verify login
-  - [ ] Activate Clayton's production technician account, verify login
-  - [ ] Activate Vryan's admin account, verify login
+### L6 — Activate Glen + Clayton + Vryan production accounts ✅ COMPLETE
+- **Status:** Accounts activated (confirmed by Michael 2026-05-12). Glen + Clayton + Vryan can log in to production.
 
 ### L7 — Glen/Clayton E2E walkthrough on dev
 - **Estimate:** 1 day wall-clock (mostly human time)
