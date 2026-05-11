@@ -93,9 +93,18 @@ Items that need a decision from you, not engineering work. Resolving these unblo
 ## Should-Fix Before Launch (high-impact, not blockers)
 
 ### S1 — Stage 6.1 — `email_logs.sent_by` capture
-- **Estimate:** 30 min
-- **Scope:** `supabase/functions/send-email/index.ts:194` — replace `sent_by: null` with calling user id (frontend-passed) or `SYSTEM_USER_UUID` for cron/webhook.
-- **Why:** audit attribution gap; emails sent post-launch should attribute.
+- **Estimate:** 5 min (live runtime verification only)
+- **Status:** CODE COMPLETE — implemented as part of Phase 2 audit foundation (commit `a0ae550`, 2026-05-01). The TODO entry that described this as outstanding was based on stale info.
+- **Implementation verified in code:**
+  - `send-email` EF schema accepts `userId` (`supabase/functions/send-email/index.ts:27-46`)
+  - `send-email` EF writes `sent_by` to email_logs (line 214)
+  - Frontend wrapper `sendEmail()` auto-fills `userId` from session (`src/lib/api/notifications.ts:312-322`)
+  - System callers (`send-inspection-reminder`, `receive-framer-lead`) write `sent_by = SYSTEM_USER_UUID` directly
+  - `email_logs.sent_by` column has existed since `20251111000008` (predates Phase 2)
+- **Remaining work (live verification):**
+  - [ ] Verify `SYSTEM_USER_UUID` env var is set in production Supabase secrets (`npx supabase secrets list --project-ref ecyivrxjpsmjmexqatym`, expected value: `a5ae96f1-af3d-4e50-b7ec-1cab01bdec3f` per CLAUDE.md memory)
+  - [ ] Verify recent email_logs show non-NULL `sent_by`: `SELECT sent_by, COUNT(*) FROM email_logs WHERE sent_at > NOW() - INTERVAL '7 days' GROUP BY sent_by;`
+  - If either fails: real S1 work is a config fix (set env var or fix attribution-missing callers), not code.
 
 ### S2 — Plan v2 missing footnote (PostgREST 400 sequencing)
 - **Estimate:** 15 min
