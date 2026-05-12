@@ -35,23 +35,28 @@
 | TechnicianAlerts | Partial | Uses mock data, needs real notifications integration |
 | Avg Response Time KPI | Placeholder | Hardcoded "24 hrs", needs `first_contact_at` field |
 
-### Database — 16 Active Tables
+### Database — 21 Active Tables (post-Phase-3 + Phase-4)
 
 | Table | Purpose | Key Relationships |
 |-------|---------|-------------------|
 | leads | Lead records | FK: assigned_to → auth.users |
-| inspections | Inspection data + AI summary + pricing | FK: lead_id → leads, inspector_id → auth.users |
+| inspections | Inspection data + pricing (AI summary fields dropped Stage 3.5) | FK: lead_id → leads, inspector_id → auth.users |
 | inspection_areas | Per-area mould/moisture data | FK: inspection_id → inspections |
 | moisture_readings | Moisture measurements | FK: area_id → inspection_areas |
 | subfloor_data | Subfloor assessment | FK: inspection_id → inspections |
 | subfloor_readings | Subfloor moisture readings | FK: subfloor_id → subfloor_data |
-| photos | Inspection photos | FK: inspection_id, area_id, subfloor_id |
+| photos | Inspection + job photos. `deleted_at` soft-delete added Stage 4.3. | FK: inspection_id, area_id, subfloor_id, job_completion_id |
+| photo_history | Audit history for photos (added/category_changed/deleted) — Stage 4.2 | FK: photo_id → photos |
+| ai_summary_versions | Versioned AI summary rows — Stage 3.1; `latest_ai_summary` view exposes the active row per inspection | FK: inspection_id → inspections |
+| job_completions | Phase 2 job completion form data, scope_* variation fields, actual_* equipment | FK: lead_id → leads, inspection_id → inspections |
+| job_completion_pdf_versions | Versioned job report PDFs | FK: job_completion_id → job_completions |
+| invoices | Invoice tracking (auto-generate number, status, payment) | FK: lead_id → leads, job_completion_id → job_completions |
 | calendar_bookings | Scheduled inspections/jobs | FK: lead_id → leads |
 | profiles | User profiles | FK: id → auth.users |
 | user_roles | Role assignments | FK: user_id → auth.users, role_id → roles |
 | email_logs | Email delivery tracking | FK: lead_id, inspection_id, sent_by |
 | error_logs | Application errors | FK: user_id |
-| audit_logs | Immutable change audit | Triggers on leads, inspections, inspection_areas, user_roles |
+| audit_logs | Immutable change audit. 29 triggers across 10 tables post-Phase-2 (leads, inspections, inspection_areas, subfloor_data, moisture_readings, subfloor_readings, photos, user_roles, invoices, job_completions). | — |
 | login_activity | Login attempts | FK: user_id |
 | user_devices | Trusted devices | FK: user_id |
 | user_sessions | Active sessions | FK: user_id, device_id |

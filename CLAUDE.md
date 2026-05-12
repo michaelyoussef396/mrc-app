@@ -50,11 +50,13 @@ React 18 + TypeScript + Supabase + Vite + Tailwind + shadcn/ui | PWA with offlin
 - Never touch /src/auth without asking
 - Vryan — marketing/sales for white-label venture
 
-## Current State (April 2026)
+## Current State (May 2026)
 
 - Phase 1: COMPLETE — inspection workflow end-to-end
-- Phase 2: IN PROGRESS — job completion workflow
-- See @docs/TODO.md for current tasks
+- Phase 2: COMPLETE — job completion workflow (2 known gaps tracked as L1 + L2 in TODO.md)
+- Phase 3: COMPLETE — AI summary versioning (Stages 3.1-3.5 shipped 2026-05-02)
+- Phase 4: PARTIAL — photo integrity Stages 4.1/4.1.5/4.2/4.3 shipped (2026-05-05 to 2026-05-11); Stages 4.4-4.7 deferred post-launch
+- Pre-launch hardening underway. See @docs/TODO.md for current tasks (Launch Model + L/S/T sections)
 - See @docs/PHASE_2_EXECUTION.md for build plan
 - See @docs/JOB_COMPLETION_PRD.md for full spec
 
