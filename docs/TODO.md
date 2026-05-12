@@ -95,16 +95,11 @@ Items that need a decision from you, not engineering work. Resolving these unblo
 
 - **Why deferred:** Investigation surfaced 8 separate issues, multiple touch pricing code that's marked "sacred" with 13% discount cap CHECK constraint. Decisions affect customer-facing rates and money flow. Requires fresh head + verification against business records before any change ships.
 
-### L2 — Variation context admin panel on LeadDetail
-- **Estimate:** ~1 day engineering
-- **Status:** Launch blocker (admin needs context in one place before real customer jobs ship)
-- **Scope:** Build a read-only admin panel on LeadDetail that surfaces three data sources side-by-side:
-  1. **Original quote** — from `inspections` row (option_1/2 totals, labour/equipment breakdown, equipment qty × days)
-  2. **Current variation state** — from `job_completions` (scope_changed + 4 textareas + actual_* equipment columns)
-  3. **Change history timeline** — from `audit_logs` filtered to scope_* field deltas, rendered as "YYYY-MM-DD HH:MM, [user]: changed [field] from X to Y"
-- **Why:** Manual customer invoicing happens outside the app. Admin needs ONE place to see "what was originally quoted vs what changed vs who changed what when" to invoice confidently. Today admin opens 3 separate pages + must hand-query audit_logs.
-- **Data layer:** COMPLETE. All inputs already captured (inspection quote, job_completions.scope_*, audit_logs.metadata with before/after row state). This is purely UI surface.
-- **NOT in scope:** Customer-facing PDF rendering of variations — separate IP decision, not part of this work.
+### L2 — Variation context admin panel
+- **Status:** ❌ CANCELLED 2026-05-12. UI panel work removed from launch scope.
+- **What shipped:** Data-layer hook `src/hooks/useVariationContext.ts` (commit 30bf3bc) — kept in codebase as dormant code. Hook is unused, typechecks clean, no impact on production.
+- **Reason for cancellation:** Michael's call. Variation context can be reviewed via the existing JobCompletionSummary card + audit_logs in Supabase Studio. Standalone admin panel UI deemed unnecessary for launch.
+- **Future:** If a variation context UI is ever needed, the hook is ready to consume. Re-open as a post-launch backlog item, not a launch blocker.
 
 ### L3 — Framer → Supabase lead capture (FINAL pre-launch step)
 - **Estimate:** 1-2h
@@ -138,7 +133,7 @@ Items that need a decision from you, not engineering work. Resolving these unblo
 
 ### L7 — Glen/Clayton E2E walkthrough on dev
 - **Estimate:** 1 day wall-clock (mostly human time)
-- **Dependency:** L4 (dev environment must exist), L1 + L2 (no broken core flows)
+- **Dependency:** L4 (dev environment must exist). L1 parked, L2 cancelled — neither blocks.
 - **Tasks:**
   - [ ] Run the 18 smoke scenarios in the T section against dev DB with a test tech account
   - [ ] Fix anything material before scheduling Glen + Clayton
