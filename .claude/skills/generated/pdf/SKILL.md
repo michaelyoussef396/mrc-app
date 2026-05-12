@@ -1,11 +1,11 @@
 ---
 name: pdf
-description: "Skill for the Pdf area of mrc-app. 20 symbols across 4 files."
+description: "Skill for the Pdf area of mrc-app. 18 symbols across 3 files."
 ---
 
 # Pdf
 
-20 symbols | 4 files | Cohesion: 100%
+18 symbols | 3 files | Cohesion: 100%
 
 ## When to Use
 
@@ -19,7 +19,6 @@ description: "Skill for the Pdf area of mrc-app. 20 symbols across 4 files."
 |------|---------|
 | `src/components/pdf/ReportPreviewHTML.tsx` | getPositionInContainer, ReportPreviewHTML, fetchHTML, findHeadings, startP1Edit (+9) |
 | `src/components/pdf/StalePdfBanner.tsx` | StalePdfBanner, fetchStaleness |
-| `src/components/pdf/ImageUploadModal.tsx` | handleUpload, mapFieldKeyToPhotoType |
 | `src/components/pdf/EditFieldModal.tsx` | EditFieldModal, renderInput |
 
 ## Entry Points
@@ -47,12 +46,10 @@ Start here when exploring this area:
 | `scrollToPage` | Function | `src/components/pdf/ReportPreviewHTML.tsx` | 501 |
 | `goToPreviousPage` | Function | `src/components/pdf/ReportPreviewHTML.tsx` | 510 |
 | `goToNextPage` | Function | `src/components/pdf/ReportPreviewHTML.tsx` | 516 |
-| `StalePdfBanner` | Function | `src/components/pdf/StalePdfBanner.tsx` | 18 |
-| `fetchStaleness` | Function | `src/components/pdf/StalePdfBanner.tsx` | 24 |
+| `StalePdfBanner` | Function | `src/components/pdf/StalePdfBanner.tsx` | 16 |
+| `fetchStaleness` | Function | `src/components/pdf/StalePdfBanner.tsx` | 22 |
 | `startCostEdit` | Function | `src/components/pdf/ReportPreviewHTML.tsx` | 757 |
 | `recalcTotals` | Function | `src/components/pdf/ReportPreviewHTML.tsx` | 771 |
-| `handleUpload` | Function | `src/components/pdf/ImageUploadModal.tsx` | 75 |
-| `mapFieldKeyToPhotoType` | Function | `src/components/pdf/ImageUploadModal.tsx` | 145 |
 | `EditFieldModal` | Function | `src/components/pdf/EditFieldModal.tsx` | 56 |
 | `renderInput` | Function | `src/components/pdf/EditFieldModal.tsx` | 183 |
 | `getPositionInContainer` | Function | `src/components/pdf/ReportPreviewHTML.tsx` | 90 |

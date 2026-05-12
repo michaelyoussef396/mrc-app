@@ -1,9 +1,9 @@
 ---
-name: cluster-101
-description: "Skill for the Cluster_101 area of mrc-app. 6 symbols across 2 files."
+name: cluster-104
+description: "Skill for the Cluster_104 area of mrc-app. 6 symbols across 2 files."
 ---
 
-# Cluster_101
+# Cluster_104
 
 6 symbols | 2 files | Cohesion: 64%
 
@@ -11,7 +11,7 @@ description: "Skill for the Cluster_101 area of mrc-app. 6 symbols across 2 file
 
 - Working with code in `slack-mcp-server/`
 - Understanding how resolveUser, formatTimestamp, handleConversationsHistory work
-- Modifying cluster_101-related functionality
+- Modifying cluster_104-related functionality
 
 ## Key Files
 
@@ -54,10 +54,10 @@ Start here when exploring this area:
 |------|-------------|
 | Scripts | 6 calls |
 | Tools | 1 calls |
-| Job-completion | 1 calls |
+| Hooks | 1 calls |
 
 ## How to Explore
 
 1. `gitnexus_context({name: "resolveUser"})` — see callers and callees
-2. `gitnexus_query({query: "cluster_101"})` — find related execution flows
+2. `gitnexus_query({query: "cluster_104"})` — find related execution flows
 3. Read key files listed above for implementation details

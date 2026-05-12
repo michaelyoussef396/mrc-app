@@ -1,23 +1,23 @@
 ---
 name: hooks
-description: "Skill for the Hooks area of mrc-app. 109 symbols across 41 files."
+description: "Skill for the Hooks area of mrc-app. 111 symbols across 46 files."
 ---
 
 # Hooks
 
-109 symbols | 41 files | Cohesion: 79%
+111 symbols | 46 files | Cohesion: 75%
 
 ## When to Use
 
 - Working with code in `src/`
-- Understanding how useNotifications, useUnreadCount, useMarkAllAsRead work
+- Understanding how HelpSupport, useNotifications, useUnreadCount work
 - Modifying hooks-related functionality
 
 ## Key Files
 
 | File | Symbols |
 |------|---------|
-| `src/hooks/useScheduleCalendar.ts` | getWeekStart, getWeekEnd, formatWeekRange, formatDateKey, isSameDay (+5) |
+| `src/hooks/useScheduleCalendar.ts` | formatDateKey, isSameDay, useScheduleCalendar, getTechnicianColorByName, getTechnicianInitialByName (+5) |
 | `src/hooks/useTechnicianJobs.ts` | getTodayDate, getThisWeekRange, getThisMonthRange, formatTime, extractDate (+2) |
 | `src/hooks/useTechnicianDetail.ts` | fetchTechnicianDetail, formatJobDateTime, getEventTypeColor, getJobAccentColor, fetchUpcomingJobs (+2) |
 | `src/hooks/useLeadsToSchedule.ts` | useLeadsToSchedule, parseFullName, formatDisplayName, getInitials, buildFullAddress (+1) |
@@ -25,27 +25,27 @@ description: "Skill for the Hooks area of mrc-app. 109 symbols across 41 files."
 | `src/hooks/useActivityTimeline.ts` | getActivityIcon, getEmailIcon, getNotificationIcon, formatTemplateName, useActivityTimeline |
 | `src/hooks/useGoogleMaps.ts` | useAddressAutocomplete, getComponent, useLoadGoogleMaps, useTravelTime, useSmartBookingSlots |
 | `src/hooks/useTechnicianStats.ts` | useTechnicianStats, getInitials, getTechnicianColor, fetchTechniciansWithStats |
-| `src/hooks/useCancelledBookings.ts` | useCancelledBookings, getTechnicianColor, extractNameFromTitle, extractSuburbFromAddress |
 | `src/hooks/useTodaysSchedule.ts` | useTodaysSchedule, fetchTodaysSchedule, formatTime, formatJobType |
+| `src/hooks/useCancelledBookings.ts` | useCancelledBookings, getTechnicianColor, extractNameFromTitle, extractSuburbFromAddress |
 
 ## Entry Points
 
 Start here when exploring this area:
 
+- **`HelpSupport`** (Function) — `src/pages/HelpSupport.tsx:15`
 - **`useNotifications`** (Function) — `src/hooks/useNotifications.ts:30`
 - **`useUnreadCount`** (Function) — `src/hooks/useNotifications.ts:103`
 - **`useMarkAllAsRead`** (Function) — `src/hooks/useNotifications.ts:178`
-- **`HelpSupport`** (Function) — `src/pages/HelpSupport.tsx:15`
 - **`useInspectionLeads`** (Function) — `src/hooks/useInspectionLeads.ts:38`
 
 ## Key Symbols
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
+| `HelpSupport` | Function | `src/pages/HelpSupport.tsx` | 15 |
 | `useNotifications` | Function | `src/hooks/useNotifications.ts` | 30 |
 | `useUnreadCount` | Function | `src/hooks/useNotifications.ts` | 103 |
 | `useMarkAllAsRead` | Function | `src/hooks/useNotifications.ts` | 178 |
-| `HelpSupport` | Function | `src/pages/HelpSupport.tsx` | 15 |
 | `useInspectionLeads` | Function | `src/hooks/useInspectionLeads.ts` | 38 |
 | `useInspectionLeadsCount` | Function | `src/hooks/useInspectionLeads.ts` | 144 |
 | `useAuth` | Function | `src/contexts/AuthContext.tsx` | 300 |
@@ -67,31 +67,32 @@ Start here when exploring this area:
 
 | Flow | Type | Steps |
 |------|------|-------|
+| `HandleNext → Set` | cross_community | 5 |
 | `AdminDashboard → FormatShortDateAU` | cross_community | 5 |
+| `Section3BeforePhotos → Set` | cross_community | 5 |
+| `HandlePrevious → Set` | cross_community | 5 |
+| `QuarantinedPhotosBanner → Set` | cross_community | 5 |
 | `LeadDetail → Set` | cross_community | 4 |
 | `AdminDashboard → FormatTime` | cross_community | 4 |
 | `AdminDashboard → FormatJobType` | cross_community | 4 |
 | `AdminDashboard → ParseFullName` | cross_community | 4 |
 | `AdminDashboard → FormatDisplayName` | cross_community | 4 |
-| `AdminDashboard → GetInitials` | cross_community | 4 |
-| `ScheduleCalendar → FormatDateKey` | cross_community | 4 |
-| `AdminSearchBar → EscapeIlike` | cross_community | 4 |
-| `AdminTechnicianDetail → GetInitials` | cross_community | 4 |
 
 ## Connected Areas
 
 | Area | Connections |
 |------|-------------|
-| Pages | 3 calls |
-| Tools | 2 calls |
-| Job-completion | 2 calls |
+| Tools | 7 calls |
+| Pages | 5 calls |
 | Schedule | 1 calls |
+| Services | 1 calls |
 | Api | 1 calls |
 | Technician | 1 calls |
+| Job-completion | 1 calls |
 | Ui | 1 calls |
 
 ## How to Explore
 
-1. `gitnexus_context({name: "useNotifications"})` — see callers and callees
+1. `gitnexus_context({name: "HelpSupport"})` — see callers and callees
 2. `gitnexus_query({query: "hooks"})` — find related execution flows
 3. Read key files listed above for implementation details
