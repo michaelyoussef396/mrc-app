@@ -97,7 +97,3 @@ export function useTodaysSchedule(): TodaysScheduleResult {
   return { schedule, isLoading, error };
 }
 
-// formatTime + formatJobType helpers removed in Phase 5 dead-column drop
-// (their source columns inspection_start_time + selected_job_type were
-// dropped). Schedule will show 'TBD' and 'Inspection' until a replacement
-// schedule model is built.
