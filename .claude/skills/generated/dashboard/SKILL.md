@@ -1,11 +1,11 @@
 ---
 name: dashboard
-description: "Skill for the Dashboard area of mrc-app. 6 symbols across 2 files."
+description: "Skill for the Dashboard area of mrc-app. 7 symbols across 3 files."
 ---
 
 # Dashboard
 
-6 symbols | 2 files | Cohesion: 63%
+7 symbols | 3 files | Cohesion: 67%
 
 ## When to Use
 
@@ -19,6 +19,7 @@ description: "Skill for the Dashboard area of mrc-app. 6 symbols across 2 files.
 |------|---------|
 | `src/components/dashboard/ActivityTimeline.tsx` | formatDiffValue, getFieldEditMetadata, formatRelativeTime, getSourceBadge, ActivityTimeline |
 | `src/lib/dateUtils.ts` | formatDateTimeAU |
+| `src/components/leads/InspectionReportHistory.tsx` | formatDateTime |
 
 ## Entry Points
 
@@ -33,6 +34,7 @@ Start here when exploring this area:
 |--------|------|------|------|
 | `formatDateTimeAU` | Function | `src/lib/dateUtils.ts` | 26 |
 | `ActivityTimeline` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 108 |
+| `formatDateTime` | Function | `src/components/leads/InspectionReportHistory.tsx` | 38 |
 | `formatDiffValue` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 36 |
 | `getFieldEditMetadata` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 53 |
 | `formatRelativeTime` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 63 |
@@ -50,8 +52,6 @@ Start here when exploring this area:
 | `HandleSaveNote → FormatTimeAU` | cross_community | 4 |
 | `InspectionReportHistory → FormatDateAU` | cross_community | 4 |
 | `InspectionReportHistory → FormatTimeAU` | cross_community | 4 |
-| `RenderPrimaryCTA → FormatDateAU` | cross_community | 3 |
-| `RenderPrimaryCTA → FormatTimeAU` | cross_community | 3 |
 
 ## Connected Areas
 

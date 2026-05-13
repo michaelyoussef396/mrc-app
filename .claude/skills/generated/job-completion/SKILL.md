@@ -1,11 +1,11 @@
 ---
 name: job-completion
-description: "Skill for the Job-completion area of mrc-app. 52 symbols across 20 files."
+description: "Skill for the Job-completion area of mrc-app. 40 symbols across 13 files."
 ---
 
 # Job-completion
 
-52 symbols | 20 files | Cohesion: 88%
+40 symbols | 13 files | Cohesion: 94%
 
 ## When to Use
 
@@ -21,12 +21,12 @@ description: "Skill for the Job-completion area of mrc-app. 52 symbols across 20
 | `src/components/job-completion/Section7Equipment.tsx` | Stepper, decrement, increment, formatCurrency, EquipmentCard (+1) |
 | `src/components/job-completion/Section2Summary.tsx` | Section2Summary, handleAddArea, handleRemoveArea, handleAreaInputKeyDown, formatDateDisplay |
 | `src/components/job-completion/Section4AfterPhotos.tsx` | fetchInspectionId, fetchJobCompletionPhotos, fetchBeforePhotoCount, Section4AfterPhotos, triggerUpload |
-| `src/components/job-completion/Section3BeforePhotos.tsx` | fetchInspectionPhotos, groupPhotos, Section3BeforePhotos, togglePhoto |
 | `src/components/job-completion/Section9JobNotes.tsx` | ToggleRow, ConditionalTextarea, Section9JobNotes |
 | `src/components/job-completion/Section8Variations.tsx` | VariationTextarea, Section8Variations |
-| `src/hooks/use-toast.ts` | addToRemoveQueue, reducer |
-| `slack-mcp-server/lib/slack-client.js` | set, has |
 | `src/pages/InspectionAIReview.tsx` | SectionCard |
+| `src/hooks/use-mobile.tsx` | onChange |
+| `src/components/reports/PeriodFilter.tsx` | PeriodFilter |
+| `src/components/job-completion/Section6ChemicalToggles.tsx` | Section6ChemicalToggles |
 
 ## Entry Points
 
@@ -55,35 +55,18 @@ Start here when exploring this area:
 | `formatDateDisplay` | Function | `src/components/job-completion/Section2Summary.tsx` | 89 |
 | `Section1OfficeInfo` | Function | `src/components/job-completion/Section1OfficeInfo.tsx` | 35 |
 | `Section10OfficeNotes` | Function | `src/components/job-completion/Section10OfficeNotes.tsx` | 36 |
-| `openJobPhotoPicker` | Function | `src/pages/ViewReportPDF.tsx` | 662 |
-| `reducer` | Function | `src/hooks/use-toast.ts` | 70 |
-| `Section3BeforePhotos` | Function | `src/components/job-completion/Section3BeforePhotos.tsx` | 169 |
-| `togglePhoto` | Function | `src/components/job-completion/Section3BeforePhotos.tsx` | 200 |
-| `Section4AfterPhotos` | Function | `src/components/job-completion/Section4AfterPhotos.tsx` | 86 |
-| `triggerUpload` | Function | `src/components/job-completion/Section4AfterPhotos.tsx` | 148 |
+| `Section4AfterPhotos` | Function | `src/components/job-completion/Section4AfterPhotos.tsx` | 91 |
+| `triggerUpload` | Function | `src/components/job-completion/Section4AfterPhotos.tsx` | 156 |
 | `Section7Equipment` | Function | `src/components/job-completion/Section7Equipment.tsx` | 171 |
-
-## Execution Flows
-
-| Flow | Type | Steps |
-|------|------|-------|
-| `HandleNext → Set` | cross_community | 5 |
-| `Section3BeforePhotos → Set` | cross_community | 5 |
-| `HandlePrevious → Set` | cross_community | 5 |
-| `LeadDetail → Set` | cross_community | 4 |
-| `GenerateReportHtml → Set` | cross_community | 4 |
-| `OpenJobPhotoPicker → Set` | cross_community | 4 |
-| `Notifications → Set` | cross_community | 4 |
-| `HandleListConversations → Set` | cross_community | 4 |
-| `ViewReportPDF → Set` | cross_community | 3 |
-| `TechnicianInspectionForm → Set` | cross_community | 3 |
+| `ToggleSwitch` | Function | `src/pages/TechnicianInspectionForm.tsx` | 496 |
+| `SelectInput` | Function | `src/pages/TechnicianInspectionForm.tsx` | 523 |
+| `NumberInput` | Function | `src/pages/TechnicianInspectionForm.tsx` | 551 |
+| `Section1BasicInfo` | Function | `src/pages/TechnicianInspectionForm.tsx` | 734 |
 
 ## Connected Areas
 
 | Area | Connections |
 |------|-------------|
-| Tools | 7 calls |
-| Pages | 3 calls |
 | Leads | 1 calls |
 
 ## How to Explore

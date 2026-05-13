@@ -1,11 +1,11 @@
 ---
 name: offline
-description: "Skill for the Offline area of mrc-app. 10 symbols across 5 files."
+description: "Skill for the Offline area of mrc-app. 18 symbols across 7 files."
 ---
 
 # Offline
 
-10 symbols | 5 files | Cohesion: 73%
+18 symbols | 7 files | Cohesion: 69%
 
 ## When to Use
 
@@ -17,11 +17,13 @@ description: "Skill for the Offline area of mrc-app. 10 symbols across 5 files."
 
 | File | Symbols |
 |------|---------|
-| `src/lib/offline/SyncManager.ts` | getPendingCounts, getPendingDrafts, getPendingPhotos, syncAll, syncDraft (+1) |
+| `src/lib/offline/SyncManager.ts` | getPendingCounts, PhotoQuarantinedError, isCaptionValid, syncPhoto, quarantinePhoto (+7) |
 | `src/components/OfflineBanner.tsx` | OfflineBanner |
 | `src/lib/offline/useOfflineSync.ts` | useOfflineSync |
 | `src/lib/offline/useNetworkStatus.ts` | useNetworkStatus |
 | `src/lib/offline/SyncIndicator.tsx` | SyncIndicator |
+| `src/components/QuarantinedPhotosBanner.tsx` | QuarantinedPhotosBanner |
+| `src/lib/offline/useQuarantinedPhotos.ts` | useQuarantinedPhotos |
 
 ## Entry Points
 
@@ -31,34 +33,46 @@ Start here when exploring this area:
 - **`useOfflineSync`** (Function) — `src/lib/offline/useOfflineSync.ts:15`
 - **`useNetworkStatus`** (Function) — `src/lib/offline/useNetworkStatus.ts:2`
 - **`SyncIndicator`** (Function) — `src/lib/offline/SyncIndicator.tsx:11`
-- **`getPendingCounts`** (Method) — `src/lib/offline/SyncManager.ts:71`
+- **`QuarantinedPhotosBanner`** (Function) — `src/components/QuarantinedPhotosBanner.tsx:25`
 
 ## Key Symbols
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
+| `PhotoQuarantinedError` | Class | `src/lib/offline/SyncManager.ts` | 13 |
 | `OfflineBanner` | Function | `src/components/OfflineBanner.tsx` | 4 |
 | `useOfflineSync` | Function | `src/lib/offline/useOfflineSync.ts` | 15 |
 | `useNetworkStatus` | Function | `src/lib/offline/useNetworkStatus.ts` | 2 |
 | `SyncIndicator` | Function | `src/lib/offline/SyncIndicator.tsx` | 11 |
-| `getPendingCounts` | Method | `src/lib/offline/SyncManager.ts` | 71 |
-| `getPendingDrafts` | Method | `src/lib/offline/SyncManager.ts` | 50 |
-| `getPendingPhotos` | Method | `src/lib/offline/SyncManager.ts` | 60 |
-| `syncAll` | Method | `src/lib/offline/SyncManager.ts` | 104 |
-| `syncDraft` | Method | `src/lib/offline/SyncManager.ts` | 164 |
-| `syncPhoto` | Method | `src/lib/offline/SyncManager.ts` | 227 |
+| `QuarantinedPhotosBanner` | Function | `src/components/QuarantinedPhotosBanner.tsx` | 25 |
+| `useQuarantinedPhotos` | Function | `src/lib/offline/useQuarantinedPhotos.ts` | 22 |
+| `getPendingCounts` | Method | `src/lib/offline/SyncManager.ts` | 89 |
+| `syncPhoto` | Method | `src/lib/offline/SyncManager.ts` | 254 |
+| `quarantinePhoto` | Method | `src/lib/offline/SyncManager.ts` | 374 |
+| `requeueQuarantinedPhoto` | Method | `src/lib/offline/SyncManager.ts` | 425 |
+| `getQuarantinedPhotos` | Method | `src/lib/offline/SyncManager.ts` | 408 |
+| `discardQuarantinedPhoto` | Method | `src/lib/offline/SyncManager.ts` | 415 |
+| `getPendingDrafts` | Method | `src/lib/offline/SyncManager.ts` | 68 |
+| `getPendingPhotos` | Method | `src/lib/offline/SyncManager.ts` | 78 |
+| `syncAll` | Method | `src/lib/offline/SyncManager.ts` | 122 |
+| `syncDraft` | Method | `src/lib/offline/SyncManager.ts` | 191 |
+| `isCaptionValid` | Function | `src/lib/offline/SyncManager.ts` | 20 |
 
 ## Execution Flows
 
 | Flow | Type | Steps |
 |------|------|-------|
-| `UseOfflineSync → Dispatch` | cross_community | 5 |
+| `QuarantinedPhotosBanner → Set` | cross_community | 5 |
+| `QuarantinedPhotosBanner → IsCaptionValid` | cross_community | 4 |
+| `SyncAll → Dispatch` | cross_community | 4 |
 
 ## Connected Areas
 
 | Area | Connections |
 |------|-------------|
-| Pages | 4 calls |
+| Pages | 3 calls |
+| Services | 3 calls |
+| Tools | 1 calls |
 
 ## How to Explore
 

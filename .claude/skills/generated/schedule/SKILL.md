@@ -1,11 +1,11 @@
 ---
 name: schedule
-description: "Skill for the Schedule area of mrc-app. 23 symbols across 9 files."
+description: "Skill for the Schedule area of mrc-app. 22 symbols across 8 files."
 ---
 
 # Schedule
 
-23 symbols | 9 files | Cohesion: 79%
+22 symbols | 8 files | Cohesion: 79%
 
 ## When to Use
 
@@ -24,7 +24,6 @@ description: "Skill for the Schedule area of mrc-app. 23 symbols across 9 files.
 | `src/components/schedule/ScheduleCalendar.tsx` | ScheduleCalendar, handleEventClick |
 | `src/hooks/useBookingValidation.ts` | useBookingValidation, formatTimeDisplay |
 | `src/lib/dateUtils.ts` | formatTimeAU |
-| `src/components/schedule/CancelledBookingsList.tsx` | CancelledBookingsList |
 | `src/components/booking/TimeSlotValidator.tsx` | TimeSlotValidator |
 
 ## Entry Points
@@ -52,7 +51,6 @@ Start here when exploring this area:
 | `ScheduleDailyView` | Function | `src/components/schedule/ScheduleDailyView.tsx` | 12 |
 | `ScheduleCalendar` | Function | `src/components/schedule/ScheduleCalendar.tsx` | 29 |
 | `handleEventClick` | Function | `src/components/schedule/ScheduleCalendar.tsx` | 38 |
-| `CancelledBookingsList` | Function | `src/components/schedule/CancelledBookingsList.tsx` | 18 |
 | `useBookingValidation` | Function | `src/hooks/useBookingValidation.ts` | 84 |
 | `formatTimeDisplay` | Function | `src/hooks/useBookingValidation.ts` | 231 |
 | `LeadBookingCard` | Function | `src/components/schedule/LeadBookingCard.tsx` | 84 |
@@ -61,6 +59,7 @@ Start here when exploring this area:
 | `handleDateChange` | Function | `src/components/schedule/LeadBookingCard.tsx` | 348 |
 | `getTimeSlots` | Function | `src/components/schedule/LeadBookingCard.tsx` | 355 |
 | `handleBookInspection` | Function | `src/components/schedule/LeadBookingCard.tsx` | 365 |
+| `performBooking` | Function | `src/components/schedule/LeadBookingCard.tsx` | 384 |
 
 ## Execution Flows
 
@@ -84,7 +83,6 @@ Start here when exploring this area:
 | Hooks | 4 calls |
 | Api | 2 calls |
 | Pages | 1 calls |
-| Leads | 1 calls |
 | Ui | 1 calls |
 
 ## How to Explore

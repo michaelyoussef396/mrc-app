@@ -64,12 +64,7 @@ import { InlineEditField } from "@/components/leads/InlineEditField";
 import { InlineEditAddress, type AddressFields } from "@/components/leads/InlineEditAddress";
 import { BookJobSheet } from "@/components/leads/BookJobSheet";
 import { useLeadUpdate } from "@/hooks/useLeadUpdate";
-import {
-  formatPhoneNumber,
-  leadSourceOptions,
-  propertyTypeOptions,
-  urgencyOptions,
-} from "@/lib/leadUtils";
+import { formatPhoneNumber, leadSourceOptions } from "@/lib/leadUtils";
 import { JobBookingDetails } from "@/components/leads/JobBookingDetails";
 import { JobCompletionSummary } from "@/components/leads/JobCompletionSummary";
 import { JobCompletionEditSheet } from "@/components/leads/JobCompletionEditSheet";
@@ -1363,20 +1358,6 @@ export default function LeadDetail() {
                 />
               )}
             </div>
-            <InlineEditField
-              label="Property Type"
-              value={lead.property_type}
-              variant="select"
-              selectOptions={propertyTypeOptions}
-              placeholder="Select property type"
-              emptyLabel="Set property type"
-              readOnly={!isAdmin}
-              renderReadOnly={(v) => {
-                const opt = propertyTypeOptions.find((o) => o.value === v);
-                return opt?.label ?? v;
-              }}
-              onSave={(v) => saveField("property_type", v || null)}
-            />
             <Button variant="outline" className="w-full h-12" onClick={handleDirections}>
               <Navigation className="h-4 w-4 mr-2" />
               View on Google Maps
@@ -1448,24 +1429,6 @@ export default function LeadDetail() {
                 onSave={(v) => saveField("lead_source_other", v || null)}
               />
             )}
-            <InlineEditField
-              label="Urgency"
-              value={lead.urgency}
-              variant="select"
-              selectOptions={urgencyOptions}
-              placeholder="Select urgency"
-              emptyLabel="Set urgency"
-              readOnly={!isAdmin}
-              renderReadOnly={(v) => {
-                const opt = urgencyOptions.find((o) => o.value === v);
-                return (
-                  <Badge variant="secondary" className="capitalize">
-                    {opt?.label ?? v}
-                  </Badge>
-                );
-              }}
-              onSave={(v) => saveField("urgency", v || null)}
-            />
             <div className="flex items-center justify-between py-2.5">
               <span className="text-sm text-gray-500">Date Created</span>
               <span className="text-sm font-medium">{formatDate(lead.created_at)}</span>

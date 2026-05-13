@@ -21,8 +21,8 @@ description: "Skill for the Technician area of mrc-app. 16 symbols across 8 file
 | `src/components/technician/TechnicianHeader.tsx` | TechnicianHeader, getGreeting, formatDate |
 | `src/components/technician/TechnicianBottomNav.tsx` | TechnicianBottomNav, isActive, handleNavClick |
 | `src/hooks/useTechnicianAlerts.ts` | mapActivityType, useTechnicianAlerts |
-| `src/pages/TechnicianJobs.tsx` | formatDateHeader |
 | `src/lib/dateUtils.ts` | formatWeekdayDateAU |
+| `src/pages/TechnicianJobs.tsx` | formatDateHeader |
 | `src/components/schedule/EventDetailsPanel.tsx` | EventDetailsPanel |
 | `src/pages/TechnicianAlerts.tsx` | TechnicianAlerts |
 
@@ -45,8 +45,8 @@ Start here when exploring this area:
 | `getGreeting` | Function | `src/components/technician/TechnicianHeader.tsx` | 20 |
 | `formatDate` | Function | `src/components/technician/TechnicianHeader.tsx` | 27 |
 | `EventDetailsPanel` | Function | `src/components/schedule/EventDetailsPanel.tsx` | 30 |
-| `TechnicianAlerts` | Function | `src/pages/TechnicianAlerts.tsx` | 186 |
 | `useTechnicianAlerts` | Function | `src/hooks/useTechnicianAlerts.ts` | 123 |
+| `TechnicianAlerts` | Function | `src/pages/TechnicianAlerts.tsx` | 186 |
 | `TechnicianBottomNav` | Function | `src/components/technician/TechnicianBottomNav.tsx` | 23 |
 | `isActive` | Function | `src/components/technician/TechnicianBottomNav.tsx` | 42 |
 | `handleNavClick` | Function | `src/components/technician/TechnicianBottomNav.tsx` | 53 |
@@ -65,8 +65,6 @@ Start here when exploring this area:
 | `TechnicianHeader → FormatDateAU` | cross_community | 4 |
 | `ScheduleHeader → FormatDateAU` | cross_community | 4 |
 | `TechnicianDashboard → MapActivityType` | cross_community | 3 |
-| `TechnicianBottomNav → UseAuth` | cross_community | 3 |
-| `TechnicianBottomNav → MapActivityType` | intra_community | 3 |
 
 ## Connected Areas
 

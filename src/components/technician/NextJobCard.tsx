@@ -1,4 +1,3 @@
-
 import { Clock, Eye, MapPin, Navigation } from 'lucide-react';interface NextJobCardProps {
   customerName: string;
   timeSlot: string;

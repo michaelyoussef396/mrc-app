@@ -148,6 +148,7 @@ function buildSlackBlocks(lead: FramerLeadPayload, createdAt: string, isPossible
         fields: [
           { type: 'mrkdwn', text: `*Street Address*\n${lead.street || 'N/A'}` },
           { type: 'mrkdwn', text: `*Suburb*\n${lead.suburb || 'N/A'}` },
+          { type: 'mrkdwn', text: `*Postcode*\n${lead.postcode || 'N/A'}` },
         ],
       },
       {
