@@ -59,6 +59,7 @@ import {
   ClipboardCheck,
   Star,
   Save,
+  Copy,
 } from "lucide-react";
 import { InlineEditField } from "@/components/leads/InlineEditField";
 import { InlineEditAddress, type AddressFields } from "@/components/leads/InlineEditAddress";
@@ -579,12 +580,16 @@ export default function LeadDetail() {
   const fullAddress = `${lead.property_address_street}, ${lead.property_address_suburb} ${lead.property_address_state} ${lead.property_address_postcode}`;
 
   // Action handlers
-  const handleCall = () => {
-    window.location.href = `tel:${lead.phone}`;
-  };
-
-  const handleEmail = () => {
-    window.location.href = `mailto:${lead.email}`;
+  // Note: Call + Email use direct anchor tags (`<a href="tel:…">` / `mailto:`) in JSX
+  // so a missing OS handler leaves the page intact instead of navigating to about:blank.
+  const handleCopy = async (label: string, value: string | null | undefined) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} copied`);
+    } catch {
+      toast.error(`Couldn't copy ${label.toLowerCase()}`);
+    }
   };
 
   const handleSMS = () => {
@@ -793,9 +798,11 @@ export default function LeadDetail() {
               <Eye className="h-5 w-5 mr-2" />
               View Final Report
             </Button>
-            <Button variant="outline" className="w-full h-12" onClick={handleCall}>
-              <Phone className="h-4 w-4 mr-2" />
-              Call Customer
+            <Button asChild variant="outline" className="w-full h-12">
+              <a href={`tel:${lead.phone}`}>
+                <Phone className="h-4 w-4 mr-2" />
+                Call Customer
+              </a>
             </Button>
           </div>
         );
@@ -873,13 +880,17 @@ export default function LeadDetail() {
             </div>
 
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1 h-12" onClick={handleCall}>
-                <Phone className="h-4 w-4 mr-2" />
-                Call Customer
+              <Button asChild variant="outline" className="flex-1 h-12">
+                <a href={`tel:${lead.phone}`}>
+                  <Phone className="h-4 w-4 mr-2" />
+                  Call Customer
+                </a>
               </Button>
-              <Button variant="outline" className="flex-1 h-12" onClick={handleEmail}>
-                <Mail className="h-4 w-4 mr-2" />
-                Email Customer
+              <Button asChild variant="outline" className="flex-1 h-12">
+                <a href={`mailto:${lead.email}`}>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email Customer
+                </a>
               </Button>
             </div>
 
@@ -968,11 +979,15 @@ export default function LeadDetail() {
             </Button>
 
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1 h-12" onClick={handleCall}>
-                <Phone className="h-4 w-4 mr-2" /> Call Customer
+              <Button asChild variant="outline" className="flex-1 h-12">
+                <a href={`tel:${lead.phone}`}>
+                  <Phone className="h-4 w-4 mr-2" /> Call Customer
+                </a>
               </Button>
-              <Button variant="outline" className="flex-1 h-12" onClick={handleEmail}>
-                <Mail className="h-4 w-4 mr-2" /> Email Customer
+              <Button asChild variant="outline" className="flex-1 h-12">
+                <a href={`mailto:${lead.email}`}>
+                  <Mail className="h-4 w-4 mr-2" /> Email Customer
+                </a>
               </Button>
             </div>
 
@@ -1021,11 +1036,15 @@ export default function LeadDetail() {
             </Button>
 
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1 h-12" onClick={handleCall}>
-                <Phone className="h-4 w-4 mr-2" /> Call Customer
+              <Button asChild variant="outline" className="flex-1 h-12">
+                <a href={`tel:${lead.phone}`}>
+                  <Phone className="h-4 w-4 mr-2" /> Call Customer
+                </a>
               </Button>
-              <Button variant="outline" className="flex-1 h-12" onClick={handleEmail}>
-                <Mail className="h-4 w-4 mr-2" /> Email Customer
+              <Button asChild variant="outline" className="flex-1 h-12">
+                <a href={`mailto:${lead.email}`}>
+                  <Mail className="h-4 w-4 mr-2" /> Email Customer
+                </a>
               </Button>
             </div>
 
@@ -1124,13 +1143,17 @@ export default function LeadDetail() {
             <div className="flex items-center gap-2 flex-shrink-0">
               {/* Desktop action buttons (hidden on mobile) */}
               <div className="hidden md:flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handleCall} className="h-9">
-                  <Phone className="h-4 w-4 mr-1.5" />
-                  Call
+                <Button asChild variant="outline" size="sm" className="h-9">
+                  <a href={`tel:${lead.phone}`}>
+                    <Phone className="h-4 w-4 mr-1.5" />
+                    Call
+                  </a>
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleEmail} className="h-9">
-                  <Mail className="h-4 w-4 mr-1.5" />
-                  Email
+                <Button asChild variant="outline" size="sm" className="h-9">
+                  <a href={`mailto:${lead.email}`}>
+                    <Mail className="h-4 w-4 mr-1.5" />
+                    Email
+                  </a>
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleDirections} className="h-9">
                   <Navigation className="h-4 w-4 mr-1.5" />
@@ -1151,8 +1174,10 @@ export default function LeadDetail() {
 
               {/* Mobile: phone + 3-dot menu (hidden on desktop) */}
               <div className="flex md:hidden items-center gap-2">
-                <Button variant="outline" size="icon" onClick={handleCall} className="h-10 w-10">
-                  <Phone className="h-5 w-5" />
+                <Button asChild variant="outline" size="icon" className="h-10 w-10">
+                  <a href={`tel:${lead.phone}`} aria-label="Call customer">
+                    <Phone className="h-5 w-5" />
+                  </a>
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -1161,13 +1186,17 @@ export default function LeadDetail() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={handleCall}>
-                      <Phone className="h-4 w-4 mr-3" />
-                      Call
+                    <DropdownMenuItem asChild>
+                      <a href={`tel:${lead.phone}`}>
+                        <Phone className="h-4 w-4 mr-3" />
+                        Call
+                      </a>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleEmail}>
-                      <Mail className="h-4 w-4 mr-3" />
-                      Email
+                    <DropdownMenuItem asChild>
+                      <a href={`mailto:${lead.email}`}>
+                        <Mail className="h-4 w-4 mr-3" />
+                        Email
+                      </a>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleSMS}>
                       <MessageSquare className="h-4 w-4 mr-3" />
@@ -1289,13 +1318,27 @@ export default function LeadDetail() {
               readOnly={!isAdmin}
               formatOnChange={formatPhoneNumber}
               renderReadOnly={(v) => (
-                <a
-                  href={`tel:${v}`}
-                  className="text-blue-600 hover:underline flex items-center gap-1"
-                >
-                  <Phone className="h-3 w-3" />
-                  {v}
-                </a>
+                <span className="flex items-center gap-1.5">
+                  <a
+                    href={`tel:${v}`}
+                    className="text-blue-600 hover:underline flex items-center gap-1"
+                  >
+                    <Phone className="h-3 w-3" />
+                    {v}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleCopy("Phone", v);
+                    }}
+                    aria-label="Copy phone number"
+                    className="p-1 text-gray-400 hover:text-gray-700 rounded"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </button>
+                </span>
               )}
               onSave={(v) => saveField("phone", v || null)}
             />
@@ -1313,13 +1356,27 @@ export default function LeadDetail() {
                   : "Invalid email address";
               }}
               renderReadOnly={(v) => (
-                <a
-                  href={`mailto:${v}`}
-                  className="text-blue-600 hover:underline flex items-center gap-1 truncate max-w-[220px]"
-                >
-                  <Mail className="h-3 w-3 flex-shrink-0" />
-                  <span className="truncate">{v}</span>
-                </a>
+                <span className="flex items-center gap-1.5">
+                  <a
+                    href={`mailto:${v}`}
+                    className="text-blue-600 hover:underline flex items-center gap-1 truncate max-w-[220px]"
+                  >
+                    <Mail className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">{v}</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleCopy("Email", v);
+                    }}
+                    aria-label="Copy email address"
+                    className="p-1 text-gray-400 hover:text-gray-700 rounded flex-shrink-0"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </button>
+                </span>
               )}
               onSave={(v) => saveField("email", v || null)}
             />
