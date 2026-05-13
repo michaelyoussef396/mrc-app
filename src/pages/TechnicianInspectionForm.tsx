@@ -2675,6 +2675,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
                 }
                 return mapped.slice(0, 2);
               })(),
+              internalMoisture: area.internal_moisture != null ? String(area.internal_moisture) : '',
               externalMoisture: area.external_moisture != null ? String(area.external_moisture) : '',
               internalNotes: area.internal_office_notes || '',
               roomViewPhotos,
@@ -2773,7 +2774,9 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             manualPriceOverride: ins.manual_price_override || false,
             manualTotal: ins.manual_total_inc_gst ? Number(ins.manual_total_inc_gst) : 0,
             laborCost: ins.labour_cost_ex_gst ? Number(ins.labour_cost_ex_gst) : 0,
-            discountPercent: ins.discount_percent ? Number(ins.discount_percent) : 0,
+            // NOTE: DB stores percent scale (0–13); form state uses decimal (0–0.13).
+            // Divide here to keep in-form calculations on decimal scale.
+            discountPercent: ins.discount_percent ? Number(ins.discount_percent) / 100 : 0,
             subtotalExGst: ins.subtotal_ex_gst ? Number(ins.subtotal_ex_gst) : 0,
             gstAmount: ins.gst_amount ? Number(ins.gst_amount) : 0,
             totalIncGst: ins.total_inc_gst ? Number(ins.total_inc_gst) : 0,
@@ -3359,10 +3362,22 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         subfloor_hours: saveSubfloorHours,
         equipment_cost_ex_gst: saveEquipment || 0,
         labour_cost_ex_gst: saveLabour || 0,
-        discount_percent: saveFullResult.discountPercent || 0,
+        // NOTE: pricing.ts keeps discountPercent on decimal scale (0–0.13 max).
+        // DB column discount_percent uses percent scale (0–13). Convert at the
+        // persistence boundary so the CHECK constraint (0–13) is satisfied and
+        // InspectionDataDisplay renders the correct human-readable value.
+        discount_percent: (saveFullResult.discountPercent || 0) * 100,
         subtotal_ex_gst: saveSubtotal || 0,
         gst_amount: saveGst || 0,
         total_inc_gst: saveTotal || 0,
+        // BUG-021: persist manual override state so reload restores the override
+        // correctly. manual_labour_override mirrors manualPriceOverride at the DB
+        // boundary (the form field is named manualPriceOverride; both boolean
+        // columns track the same user intent — one for the labour calc, one for
+        // the overall price gate). manual_total_inc_gst is cleared when not in
+        // override mode to avoid stale totals misleading the invoice generation.
+        manual_labour_override: formData.manualPriceOverride,
+        manual_total_inc_gst: formData.manualPriceOverride ? parseFloat(String(formData.manualTotal)) : null,
         option_1_labour_ex_gst: saveOption1Labour,
         option_1_equipment_ex_gst: saveOption1Equipment,
         option_1_total_inc_gst: saveOption1Total,
@@ -3438,6 +3453,10 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           humidity: area.humidity ? parseFloat(area.humidity) : null,
           dew_point: area.dewPoint ? parseFloat(area.dewPoint) : null,
           moisture_readings_enabled: true,
+          // moistureReadings array convention: index 0 = internal, index 1 = external.
+          // Both columns must be written so PDF placeholder {{internal_moisture}}
+          // and {{external_moisture}} render correctly per area.
+          internal_moisture: area.moistureReadings[0]?.reading ? parseFloat(area.moistureReadings[0].reading) : null,
           external_moisture: area.moistureReadings[1]?.reading ? parseFloat(area.moistureReadings[1].reading) : null,
           internal_office_notes: area.internalNotes || null,
           infrared_enabled: area.infraredEnabled,

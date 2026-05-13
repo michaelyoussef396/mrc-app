@@ -1842,7 +1842,7 @@ Deno.serve(async (req) => {
     }
 
     // ===== STEP 5: Populate the template =====
-    const populatedHtml = generateReportHtml(
+    let populatedHtml = generateReportHtml(
       inspection as Inspection,
       templateHtml,
       inspectorName,
@@ -1850,6 +1850,9 @@ Deno.serve(async (req) => {
       subfloorReadings,
       subfloorPhotos
     )
+
+    // Safety net: strip any unrendered {{placeholder}} tokens so the customer never sees raw template syntax.
+    populatedHtml = populatedHtml.replace(/\{\{[a-zA-Z_]+\}\}/g, '')
 
     // ===== STEP 6: Save and return =====
     const newVersion = regenerate ? (inspection.pdf_version || 0) + 1 : (inspection.pdf_version || 1)

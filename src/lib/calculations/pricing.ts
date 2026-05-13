@@ -38,6 +38,12 @@ export const DISCOUNT_TIERS = [
 export const GST_RATE = 0.10;
 
 // Maximum discount cap - SACRED RULE - NEVER EXCEED
+// NOTE: All discount values inside this module (MAX_DISCOUNT, DISCOUNT_TIERS[].discount,
+// CostEstimateResult.discountPercent) are on DECIMAL scale (0.13 = 13%).
+// The persistence boundary in TechnicianInspectionForm.tsx multiplies by 100 before
+// writing to DB (inspections.discount_percent CHECK: 0–13 percent scale) and divides
+// by 100 on read. Never change this constant to percent scale — doing so would violate
+// the 13% cap immediately (0.87 multiplier minimum).
 export const MAX_DISCOUNT = 0.13;
 
 export type LabourType = 'nonDemo' | 'demolition' | 'construction' | 'subfloor';

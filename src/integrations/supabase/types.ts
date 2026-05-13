@@ -2006,6 +2006,7 @@ export type Database = {
           area_id: string | null
           caption: string | null
           created_at: string | null
+          deleted_at: string | null
           file_name: string | null
           file_size: number | null
           id: string
@@ -2024,6 +2025,7 @@ export type Database = {
           area_id?: string | null
           caption?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           file_name?: string | null
           file_size?: number | null
           id?: string
@@ -2042,6 +2044,7 @@ export type Database = {
           area_id?: string | null
           caption?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           file_name?: string | null
           file_size?: number | null
           id?: string
@@ -2791,3 +2794,4 @@ export const Constants = {
     },
   },
 } as const
+<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />
