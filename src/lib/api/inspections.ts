@@ -6,7 +6,6 @@ export interface InspectionData {
   lead_id: string
   inspector_id: string
   inspection_date: string
-  inspection_start_time?: string
   job_number?: string
 
   // Property & Client Info
@@ -23,23 +22,17 @@ export interface InspectionData {
   outdoor_comments?: string
 
   // Flags
-  subfloor_required?: boolean
   waste_disposal_required?: boolean
   direction_photos_enabled?: boolean
 
   // Cost Estimates
   total_time_minutes?: number
-  estimated_cost_ex_gst?: number
-  estimated_cost_inc_gst?: number
-  selected_job_type?: string
   equipment_cost_ex_gst?: number
-  equipment_cost_inc_gst?: number
   waste_disposal_cost?: number
 
   // Job Type Hours (editable)
   no_demolition_hours?: number
   demolition_hours?: number
-  construction_hours?: number
   subfloor_hours?: number
 
   // Equipment Quantities (editable)
@@ -48,8 +41,8 @@ export interface InspectionData {
   rcd_box_qty?: number
   equipment_days?: number
 
-  // Manual Override
-  manual_price_override?: boolean
+  // Manual Override (Phase 1c — manual_labour_override is the canonical column)
+  manual_labour_override?: boolean
   manual_total_inc_gst?: number
 
   // Calculated Pricing Values
@@ -72,36 +65,20 @@ export interface InspectionAreaData {
   area_order: number
   area_name: string
 
-  // Mould Description (text field - replaces checkbox booleans)
+  // Mould Description (text field)
   mould_description?: string
   mould_visible_locations?: string[]
   mould_visible_custom?: string
 
-  // Legacy Mould Location Checklist (12 boolean fields - for backwards compatibility)
-  mould_ceiling?: boolean
-  mould_cornice?: boolean
-  mould_windows?: boolean
-  mould_window_furnishings?: boolean
-  mould_walls?: boolean
-  mould_skirting?: boolean
-  mould_flooring?: boolean
-  mould_wardrobe?: boolean
-  mould_cupboard?: boolean
-  mould_contents?: boolean
-  mould_grout_silicone?: boolean
-  mould_none_visible?: boolean
-
   // Comments
   comments?: string
-  comments_approved?: boolean
 
   // Environmental Readings
   temperature?: number
   humidity?: number
   dew_point?: number
 
-  // Moisture Detection
-  moisture_readings_enabled?: boolean
+  // Notes
   internal_office_notes?: string
 
   // Infrared Observations
@@ -147,7 +124,6 @@ export async function createInspection(data: InspectionData) {
       ...data,
       job_number: jobNumber,
       inspection_date: data.inspection_date || new Date().toISOString().split('T')[0],
-      inspection_start_time: data.inspection_start_time || new Date().toTimeString().split(' ')[0],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
@@ -444,7 +420,6 @@ export interface MoistureReadingData {
   reading_order: number
   title: string
   moisture_percentage: number
-  moisture_status: string | null
   photos: PhotoWithUrl[]
 }
 
@@ -602,7 +577,6 @@ export async function fetchCompleteInspectionData(
       reading_order: r.reading_order,
       title: r.title || '',
       moisture_percentage: r.moisture_percentage || 0,
-      moisture_status: r.moisture_status || null,
       photos: photosWithUrls.filter(p => p.moisture_reading_id === r.id),
     }))
 

@@ -62,7 +62,6 @@ export const FIELD_LABELS: Record<string, string> = {
   triage_description: 'Triage Description',
   property_occupation: 'Property Occupation',
   dwelling_type: 'Dwelling Type',
-  property_address_snapshot: 'Address Snapshot',
 
   // inspections — outdoor readings
   outdoor_temperature: 'Outdoor Temperature',
@@ -81,14 +80,10 @@ export const FIELD_LABELS: Record<string, string> = {
   antimicrobial: 'Antimicrobial Treatment',
   stain_removing_antimicrobial: 'Stain-Removing Antimicrobial',
   home_sanitation_fogging: 'ULV Fogging',
-  drying_equipment_enabled: 'Drying Equipment',
 
   // inspections — equipment
-  commercial_dehumidifier_enabled: 'Dehumidifier Enabled',
   commercial_dehumidifier_qty: 'Dehumidifier Qty',
-  air_movers_enabled: 'Air Movers Enabled',
   air_movers_qty: 'Air Movers Qty',
-  rcd_box_enabled: 'RCD Box Enabled',
   rcd_box_qty: 'RCD Box Qty',
   recommended_dehumidifier: 'Recommended Dehumidifier',
   direction_photos_enabled: 'Direction Photos',
@@ -96,7 +91,6 @@ export const FIELD_LABELS: Record<string, string> = {
   // inspections — waste / subfloor flags
   waste_disposal_required: 'Waste Disposal Required',
   waste_disposal_amount: 'Waste Disposal Amount',
-  subfloor_required: 'Subfloor Required',
   parking_option: 'Parking Option',
 
   // inspections — labour hours
@@ -134,18 +128,6 @@ export const FIELD_LABELS: Record<string, string> = {
   mould_description: 'Mould Description',
   mould_visible_locations: 'Mould Locations',
   mould_visible_custom: 'Mould (Custom)',
-  mould_ceiling: 'Mould — Ceiling',
-  mould_walls: 'Mould — Walls',
-  mould_flooring: 'Mould — Flooring',
-  mould_skirting: 'Mould — Skirting',
-  mould_cornice: 'Mould — Cornice',
-  mould_windows: 'Mould — Windows',
-  mould_window_furnishings: 'Mould — Window Furnishings',
-  mould_cupboard: 'Mould — Cupboard',
-  mould_wardrobe: 'Mould — Wardrobe',
-  mould_grout_silicone: 'Mould — Grout/Silicone',
-  mould_contents: 'Mould — Contents',
-  mould_none_visible: 'No Mould Visible',
 
   // inspection_areas — infrared
   infrared_enabled: 'Infrared Enabled',
@@ -160,7 +142,6 @@ export const FIELD_LABELS: Record<string, string> = {
   demolition_required: 'Demolition Required',
   demolition_time_minutes: 'Demolition Time (mins)',
   demolition_description: 'Demolition Description',
-  moisture_readings_enabled: 'Moisture Readings Enabled',
 
   // inspection_areas — notes
   comments: 'Report Comments',
@@ -170,7 +151,6 @@ export const FIELD_LABELS: Record<string, string> = {
 
   // moisture_readings
   moisture_percentage: 'Moisture %',
-  moisture_status: 'Moisture Status',
   reading_order: 'Reading Order',
   title: 'Reading Title',
 
@@ -178,9 +158,7 @@ export const FIELD_LABELS: Record<string, string> = {
   observations: 'Subfloor Observations',
   landscape: 'Subfloor Landscape',
   sanitation_required: 'Sanitation Required',
-  racking_required: 'Racking Required',
   treatment_time_minutes: 'Treatment Time (mins)',
-  comments_approved: 'Comments Approved',
 
   // subfloor_readings
   location: 'Reading Location',

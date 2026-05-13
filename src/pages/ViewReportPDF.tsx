@@ -104,7 +104,6 @@ interface Inspection {
   option_1_equipment_ex_gst?: number | null
   option_1_total_inc_gst?: number | null
   option_2_total_inc_gst?: number | null
-  subfloor_required?: boolean
   lead?: {
     id: string
     full_name: string
@@ -173,7 +172,6 @@ const INSPECTION_SELECT = `
   option_1_equipment_ex_gst,
   option_1_total_inc_gst,
   option_2_total_inc_gst,
-  subfloor_required,
   lead:leads(
     id,
     full_name,
@@ -570,9 +568,9 @@ export default function ViewReportPDF() {
       }
       setAreasData((areas || []) as AreaRecord[])
 
-      // Load subfloor data if required
-      const inspData = data as unknown as Inspection
-      if (inspData.subfloor_required) {
+      // Load subfloor data (Phase 5 — subfloor_required column dropped;
+      // subfloor section now renders when subfloor_data row exists)
+      {
         const { data: sfData } = await supabase
           .from('subfloor_data')
           .select('id, observations, comments, landscape')
@@ -2700,7 +2698,7 @@ export default function ViewReportPDF() {
       )}
 
       {/* Floating Edit Subfloor Photos Button — only show if subfloor is required (inspection only) */}
-      {reportType === 'inspection' && inspection?.subfloor_required && subfloorData && (
+      {reportType === 'inspection' && subfloorData && (
         <button
           onClick={() => { setSubfloorEditOpen(true); loadSubfloorPhotos() }}
           className="fixed bottom-40 md:bottom-20 right-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 z-50 min-h-[48px] transition-colors animate-pulse"
