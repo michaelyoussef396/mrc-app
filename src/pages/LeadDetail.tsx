@@ -74,6 +74,7 @@ import { BookJobSheet } from "@/components/leads/BookJobSheet";
 import { useLeadUpdate } from "@/hooks/useLeadUpdate";
 import { logFieldEdits, type FieldChange } from "@/lib/api/fieldEditLog";
 import { formatPhoneNumber, leadSourceOptions } from "@/lib/leadUtils";
+import { leadSourceSchema } from "@/lib/validators/lead-creation.schemas";
 import { formatTimeForDisplay } from "@/lib/bookingService";
 import { JobBookingDetails } from "@/components/leads/JobBookingDetails";
 import { JobCompletionSummary } from "@/components/leads/JobCompletionSummary";
@@ -1487,15 +1488,24 @@ export default function LeadDetail() {
               renderReadOnly={(v) => {
                 const opt = leadSourceOptions.find((o) => o.value === v);
                 const label = opt?.label ?? v;
-                if (v === "Other" && lead.lead_source_other) {
+                if (v === "other" && lead.lead_source_other) {
                   return `Other: ${lead.lead_source_other}`;
                 }
                 return label;
               }}
-              onSave={(v) => saveField("lead_source", v || null)}
+              onSave={(v) => {
+                if (v) {
+                  const parsed = leadSourceSchema.safeParse(v);
+                  if (!parsed.success) {
+                    toast.error('Invalid lead source value — please select a valid option');
+                    return Promise.resolve(false);
+                  }
+                }
+                return saveField("lead_source", v || null);
+              }}
             />
             {/* Conditional sub-row for the Other-source free text */}
-            {lead.lead_source === "Other" && (
+            {lead.lead_source === "other" && (
               <InlineEditField
                 label="Other source"
                 value={lead.lead_source_other}

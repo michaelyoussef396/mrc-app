@@ -97,31 +97,18 @@ export function isLeadUrgent(createdAt: Date | string, status: string): boolean 
 }
 
 /**
- * Lead source options organized by category
+ * Canonical lead source options (8 values, Phase 7 / BUG-011).
+ * Values are lowercase and match the leadSourceSchema Zod enum exactly.
  */
 export const leadSourceOptions = [
-  { label: '── DIGITAL ──', value: 'header_digital', disabled: true },
   { label: 'Website', value: 'website' },
-  { label: 'Website Form', value: 'Website Form' },
-  { label: 'Google Search (Organic)', value: 'Google Search (Organic)' },
-  { label: 'Google Ads', value: 'Google Ads' },
-  { label: 'Facebook/Instagram', value: 'Facebook/Instagram' },
-  { label: 'LinkedIn', value: 'LinkedIn' },
-  { label: 'Other Social Media', value: 'Other Social Media' },
-  { label: '── REFERRAL ──', value: 'header_referral', disabled: true },
-  { label: 'Customer Referral', value: 'Customer Referral' },
-  { label: 'Real Estate Agent', value: 'Real Estate Agent' },
-  { label: 'Property Manager', value: 'Property Manager' },
-  { label: 'Strata Manager', value: 'Strata Manager' },
-  { label: 'Insurance Company', value: 'Insurance Company' },
-  { label: '── TRADITIONAL ──', value: 'header_traditional', disabled: true },
-  { label: 'Phone Call (Direct)', value: 'Phone Call (Direct)' },
-  { label: 'Email Inquiry', value: 'Email Inquiry' },
-  { label: 'Walk-in', value: 'Walk-in' },
-  { label: '── OTHER ──', value: 'header_other', disabled: true },
-  { label: 'Repeat Customer', value: 'Repeat Customer' },
-  { label: 'Trade Show/Event', value: 'Trade Show/Event' },
-  { label: 'Other', value: 'Other' },
+  { label: 'Hipages', value: 'hipages' },
+  { label: 'Google', value: 'google' },
+  { label: 'Referral', value: 'referral' },
+  { label: 'Repeat Customer', value: 'repeat' },
+  { label: 'Facebook', value: 'facebook' },
+  { label: 'Instagram', value: 'instagram' },
+  { label: 'Other', value: 'other' },
 ];
 
 /**

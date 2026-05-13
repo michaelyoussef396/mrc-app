@@ -686,7 +686,7 @@ Deno.serve(async (req) => {
       customer_preferred_date: preferredDate || null,
       customer_preferred_time: preferredTime || null,
       issue_description: issueDescription || null,
-      lead_source: 'website',
+      lead_source: 'website', // canonical value (Phase 7 / BUG-011) — Framer form is always website-sourced
       status: 'new_lead',
       is_possible_duplicate: isPossibleDuplicate,
       possible_duplicate_of: possibleDuplicateOf,
