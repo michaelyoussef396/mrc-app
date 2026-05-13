@@ -67,6 +67,7 @@ import { BookJobSheet } from "@/components/leads/BookJobSheet";
 import { useLeadUpdate } from "@/hooks/useLeadUpdate";
 import { logFieldEdits, type FieldChange } from "@/lib/api/fieldEditLog";
 import { formatPhoneNumber, leadSourceOptions } from "@/lib/leadUtils";
+import { formatTimeForDisplay } from "@/lib/bookingService";
 import { JobBookingDetails } from "@/components/leads/JobBookingDetails";
 import { JobCompletionSummary } from "@/components/leads/JobCompletionSummary";
 import { JobCompletionEditSheet } from "@/components/leads/JobCompletionEditSheet";
@@ -107,14 +108,10 @@ const formatDate = (dateString: string | null | undefined) => {
   return formatDateAU(dateString) || "-";
 };
 
-// Time formatter
-const formatTime = (timeString: string | null | undefined) => {
-  if (!timeString) return "-";
-  const hour = parseInt(timeString.substring(0, 2));
-  if (hour === 12) return "12:00 PM";
-  if (hour > 12) return `${hour - 12}:00 PM`;
-  return `${hour}:00 AM`;
-};
+// Null-safe wrapper over the canonical formatTimeForDisplay so the empty-fallback
+// chain at scheduled_time/booking renders still works without a throw on null input.
+const formatTime = (timeString: string | null | undefined) =>
+  timeString ? formatTimeForDisplay(timeString) : "";
 
 // Get initials from name
 const getInitials = (name: string | null | undefined) => {
