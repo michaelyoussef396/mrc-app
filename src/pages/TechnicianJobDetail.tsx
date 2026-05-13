@@ -16,6 +16,8 @@ import {
   ArrowLeft, Phone, Mail, MapPin, Calendar, Clock,
   Globe, ExternalLink, StickyNote, CheckCircle2,
   Edit, X, Save, Navigation,
+  MessageSquare, Shield, Trash2, Wind, Car, FileText,
+  AlertTriangle, Home, Cloud, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { formatWeekdayDateAU, formatTimeAU } from '@/lib/dateUtils';
 
@@ -64,6 +66,28 @@ interface InspectionData {
   report_generated: boolean | null;
 }
 
+/** Inspection fields surfaced on the tech's pre-drive Site Prep card. */
+interface InspectionSiteData {
+  waste_disposal_required: boolean | null;
+  waste_disposal_amount: string | null;
+  recommended_dehumidifier: string | null;
+  parking_option: string | null;
+  additional_info_technician: string | null;
+  cause_of_mould: string | null;
+  property_occupation: string | null;
+  outdoor_comments: string | null;
+}
+
+interface SubfloorSiteData {
+  sanitation_required: boolean | null;
+}
+
+interface AreaSiteData {
+  id: string;
+  area_name: string;
+  internal_office_notes: string | null;
+}
+
 // ============================================================================
 // MAIN PAGE
 // ============================================================================
@@ -76,6 +100,9 @@ export default function TechnicianJobDetail() {
   const [booking, setBooking] = useState<BookingData | null>(null);
   const [inspection, setInspection] = useState<InspectionData | null>(null);
   const [jobCompletion, setJobCompletion] = useState<{ submitted_at: string | null } | null>(null);
+  const [inspectionSiteData, setInspectionSiteData] = useState<InspectionSiteData | null>(null);
+  const [subfloorData, setSubfloorData] = useState<SubfloorSiteData | null>(null);
+  const [areaSiteData, setAreaSiteData] = useState<AreaSiteData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Edit mode
@@ -94,6 +121,9 @@ export default function TechnicianJobDetail() {
   const [editAddress, setEditAddress] = useState<AddressValue>({
     street: '', suburb: '', state: '', postcode: '', fullAddress: '',
   });
+
+  // Track which area notes rows are expanded (keyed by area id)
+  const [expandedAreas, setExpandedAreas] = useState<Record<string, boolean>>({});
 
   const { updateLead, isUpdating } = useLeadUpdate(id || '');
   const { profile, user } = useAuth();
@@ -128,15 +158,59 @@ export default function TechnicianJobDetail() {
 
       const { data: inspectionData } = await supabase
         .from('inspections')
-        .select('id, pdf_url, report_generated')
+        .select(`
+          id,
+          pdf_url,
+          report_generated,
+          waste_disposal_required,
+          waste_disposal_amount,
+          recommended_dehumidifier,
+          parking_option,
+          additional_info_technician,
+          cause_of_mould,
+          property_occupation,
+          outdoor_comments
+        `)
         .eq('lead_id', id)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (inspectionData) {
-        setInspection(inspectionData);
+        setInspection({
+          id: inspectionData.id,
+          pdf_url: inspectionData.pdf_url,
+          report_generated: inspectionData.report_generated,
+        });
+        setInspectionSiteData({
+          waste_disposal_required: inspectionData.waste_disposal_required,
+          waste_disposal_amount: inspectionData.waste_disposal_amount,
+          recommended_dehumidifier: inspectionData.recommended_dehumidifier,
+          parking_option: inspectionData.parking_option,
+          additional_info_technician: inspectionData.additional_info_technician,
+          cause_of_mould: inspectionData.cause_of_mould,
+          property_occupation: inspectionData.property_occupation,
+          outdoor_comments: inspectionData.outdoor_comments,
+        });
         setInspectionContext(inspectionData.id, id);
+
+        // Fetch subfloor sanitation flag for this inspection
+        const { data: sfData } = await supabase
+          .from('subfloor_data')
+          .select('sanitation_required')
+          .eq('inspection_id', inspectionData.id)
+          .maybeSingle();
+        setSubfloorData(sfData ?? null);
+
+        // Fetch per-area internal office notes (only areas that have them)
+        const { data: areasData } = await supabase
+          .from('inspection_areas')
+          .select('id, area_name, internal_office_notes')
+          .eq('inspection_id', inspectionData.id)
+          .order('area_order', { ascending: true });
+        setAreaSiteData(
+          (areasData ?? []).filter((a) => a.internal_office_notes?.trim()),
+        );
       }
 
       const { data: jcData } = await supabase
@@ -413,6 +487,253 @@ export default function TechnicianJobDetail() {
             <span className="text-xs font-semibold">Directions</span>
           </Button>
         </div>
+
+        {/* ── Site Prep Card ── */}
+        {(lead.access_instructions || lead.special_requests ||
+          subfloorData?.sanitation_required != null ||
+          inspectionSiteData?.waste_disposal_required ||
+          inspectionSiteData?.recommended_dehumidifier ||
+          inspectionSiteData?.parking_option ||
+          inspectionSiteData?.additional_info_technician ||
+          areaSiteData.length > 0 ||
+          inspectionSiteData?.cause_of_mould ||
+          inspectionSiteData?.property_occupation ||
+          inspectionSiteData?.outdoor_comments) && (
+          <div className="bg-white rounded-xl border border-amber-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b bg-amber-50/60">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                <span className="text-xs font-medium uppercase tracking-wider text-amber-700">
+                  Site Prep
+                </span>
+              </div>
+            </div>
+            <div className="divide-y">
+
+              {/* Customer Requests: access + special requests */}
+              {(lead.access_instructions || lead.special_requests) && (
+                <div className="px-5 py-4 flex items-start gap-3">
+                  <div className="mt-0.5 flex-shrink-0">
+                    <MessageSquare className="h-4 w-4 text-amber-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Customer Requests
+                    </p>
+                    {lead.access_instructions && (
+                      <p className="text-sm text-foreground leading-relaxed">
+                        {lead.access_instructions}
+                      </p>
+                    )}
+                    {lead.special_requests && (
+                      <p className="text-sm text-foreground leading-relaxed mt-1">
+                        {lead.special_requests}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Parking */}
+              {inspectionSiteData?.parking_option && (
+                <div className="px-5 py-4 flex items-start gap-3">
+                  <div className="mt-0.5 flex-shrink-0">
+                    <Car className="h-4 w-4 text-slate-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Parking
+                    </p>
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {inspectionSiteData.parking_option}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Property Occupation */}
+              {inspectionSiteData?.property_occupation && (
+                <div className="px-5 py-4 flex items-start gap-3">
+                  <div className="mt-0.5 flex-shrink-0">
+                    <Home className="h-4 w-4 text-slate-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Property Occupation
+                    </p>
+                    <p className="text-sm text-foreground leading-relaxed capitalize">
+                      {inspectionSiteData.property_occupation.replace(/_/g, ' ')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Dehumidifier Recommendation */}
+              {inspectionSiteData?.recommended_dehumidifier && (
+                <div className="px-5 py-4 flex items-start gap-3">
+                  <div className="mt-0.5 flex-shrink-0">
+                    <Wind className="h-4 w-4 text-blue-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Dehumidifier
+                    </p>
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {inspectionSiteData.recommended_dehumidifier}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Subfloor Sanitation */}
+              {subfloorData?.sanitation_required != null && (
+                <div className="px-5 py-4 flex items-start gap-3">
+                  <div className="mt-0.5 flex-shrink-0">
+                    <Shield className="h-4 w-4 text-purple-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Subfloor Sanitation
+                    </p>
+                    <Badge
+                      className={
+                        subfloorData.sanitation_required
+                          ? 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-50'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50'
+                      }
+                    >
+                      {subfloorData.sanitation_required ? 'Required' : 'Not required'}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+
+              {/* Waste Disposal */}
+              {inspectionSiteData?.waste_disposal_required && (
+                <div className="px-5 py-4 flex items-start gap-3">
+                  <div className="mt-0.5 flex-shrink-0">
+                    <Trash2 className="h-4 w-4 text-red-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Waste Disposal
+                    </p>
+                    <p className="text-sm text-foreground">
+                      Required
+                      {inspectionSiteData.waste_disposal_amount
+                        ? ` — ${inspectionSiteData.waste_disposal_amount}`
+                        : ''}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Cause of Mould */}
+              {inspectionSiteData?.cause_of_mould && (
+                <div className="px-5 py-4 flex items-start gap-3">
+                  <div className="mt-0.5 flex-shrink-0">
+                    <AlertTriangle className="h-4 w-4 text-orange-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Cause of Mould
+                    </p>
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {inspectionSiteData.cause_of_mould}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Outdoor Comments */}
+              {inspectionSiteData?.outdoor_comments && (
+                <div className="px-5 py-4 flex items-start gap-3">
+                  <div className="mt-0.5 flex-shrink-0">
+                    <Cloud className="h-4 w-4 text-sky-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Outdoor / Site Conditions
+                    </p>
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {inspectionSiteData.outdoor_comments}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Additional Info for Technician */}
+              {inspectionSiteData?.additional_info_technician && (
+                <div className="px-5 py-4 flex items-start gap-3">
+                  <div className="mt-0.5 flex-shrink-0">
+                    <FileText className="h-4 w-4 text-slate-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      Tech Notes
+                    </p>
+                    <p className="text-sm text-foreground leading-relaxed">
+                      {inspectionSiteData.additional_info_technician}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Internal Office Notes per area (collapsible) */}
+              {areaSiteData.length > 0 && (
+                <div className="px-5 py-4">
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="mt-0.5 flex-shrink-0">
+                      <StickyNote className="h-4 w-4 text-slate-500" />
+                    </div>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Area Notes ({areaSiteData.length})
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {areaSiteData.map((area) => {
+                      const isExpanded = expandedAreas[area.id] ?? false;
+                      return (
+                        <button
+                          key={area.id}
+                          type="button"
+                          onClick={() =>
+                            setExpandedAreas((prev) => ({
+                              ...prev,
+                              [area.id]: !isExpanded,
+                            }))
+                          }
+                          className="w-full text-left rounded-lg border border-slate-200 bg-slate-50 overflow-hidden"
+                          style={{ minHeight: '48px' }}
+                          aria-expanded={isExpanded}
+                        >
+                          <div className="flex items-center justify-between px-4 py-3">
+                            <span className="text-sm font-medium text-foreground">
+                              {area.area_name}
+                            </span>
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            )}
+                          </div>
+                          {isExpanded && (
+                            <div className="px-4 pb-4 border-t border-slate-200 pt-3">
+                              <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">
+                                {area.internal_office_notes}
+                              </p>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        )}
 
         {/* ── Contact Information Card ── */}
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden">

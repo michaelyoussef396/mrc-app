@@ -456,6 +456,7 @@ export interface AreaWithDetails {
   mould_visible_locations: string[] | null
   mould_visible_custom: string | null
   comments: string | null
+  internal_office_notes: string | null
   temperature: number | null
   humidity: number | null
   dew_point: number | null
@@ -613,6 +614,7 @@ export async function fetchCompleteInspectionData(
       mould_visible_locations: (area as any).mould_visible_locations || null,
       mould_visible_custom: (area as any).mould_visible_custom || null,
       comments: area.comments,
+      internal_office_notes: (area as Record<string, unknown>).internal_office_notes as string | null ?? null,
       temperature: area.temperature,
       humidity: area.humidity,
       dew_point: area.dew_point,

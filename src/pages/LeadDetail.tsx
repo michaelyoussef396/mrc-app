@@ -60,6 +60,13 @@ import {
   Star,
   Save,
   Copy,
+  Building2,
+  Droplets,
+  Car,
+  Info,
+  Leaf,
+  Wrench,
+  Calculator,
 } from "lucide-react";
 import { InlineEditField } from "@/components/leads/InlineEditField";
 import { InlineEditAddress, type AddressFields } from "@/components/leads/InlineEditAddress";
@@ -1756,6 +1763,293 @@ export default function LeadDetail() {
                   {formatCurrency(inspection.total_inc_gst)}
                 </span>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Admin-only inspection context cards (10 cards) ───────────────────
+            All cards gated on isAdmin. Data sourced from the inspection row
+            already fetched above (select("*")) and inspectionDisplayData.areas
+            (available once fetchCompleteInspectionData resolves).
+        ──────────────────────────────────────────────────────────────────── */}
+
+        {/* Card 1 — Subfloor Sanitation badge (admin — surfaced prominently
+            above the full Inspection Data section for quick at-a-glance read) */}
+        {isAdmin && inspection && inspectionDisplayData?.subfloor && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Droplets className="h-4 w-4" />
+                Subfloor Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Sanitation Required</span>
+                <Badge
+                  variant={inspectionDisplayData.subfloor.sanitation_required ? "destructive" : "secondary"}
+                >
+                  {inspectionDisplayData.subfloor.sanitation_required ? "Yes — Sanitation Required" : "No Sanitation Required"}
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Card 2 — Waste Disposal */}
+        {isAdmin && inspection && (inspection.waste_disposal_required === true || inspection.waste_disposal_required === false) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Leaf className="h-4 w-4" />
+                Waste Disposal
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Required</span>
+                <Badge variant={inspection.waste_disposal_required ? "default" : "secondary"}>
+                  {inspection.waste_disposal_required ? "Yes" : "No"}
+                </Badge>
+              </div>
+              {inspection.waste_disposal_required && inspection.waste_disposal_amount && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Estimated Amount</span>
+                  <span className="text-sm font-medium">{inspection.waste_disposal_amount}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Card 3 — Dehumidifier Recommendation (admin only) */}
+        {isAdmin && inspection && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Wrench className="h-4 w-4" />
+                Dehumidifier Recommendation
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {inspection.recommended_dehumidifier ? (
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                  {inspection.recommended_dehumidifier}
+                </p>
+              ) : (
+                <p className="text-sm italic text-gray-400">No recommendation recorded</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Card 4 — Parking Option
+            IA decision: placed inside Customer Requests card content as an
+            additional read-only row. Rationale: parking is a site-logistics item
+            that lives naturally alongside access instructions and special requests.
+            The Property Information card is already full (address + map button).
+            Admin-only read-only append below the existing inline-edit fields. */}
+        {isAdmin && inspection?.parking_option && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Car className="h-4 w-4" />
+                Parking
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Parking Option</span>
+                <span className="text-sm font-medium capitalize">
+                  {inspection.parking_option.replace(/_/g, " ")}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Card 5 — Additional Info for Technician (admin only) */}
+        {isAdmin && inspection && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                Additional Info for Technician
+              </CardTitle>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Internal — passed to AI summary. Review per Phase 0 audit.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {inspection.additional_info_technician ? (
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                  {inspection.additional_info_technician}
+                </p>
+              ) : (
+                <p className="text-sm italic text-gray-400">Not specified</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Card 6 — Internal Office Notes per area (admin only)
+            Shows only areas that have non-empty internal_office_notes.
+            Data available once inspectionDisplayData resolves. */}
+        {isAdmin && inspectionDisplayData && (() => {
+          const areasWithNotes = inspectionDisplayData.areas.filter(
+            a => a.internal_office_notes?.trim()
+          );
+          if (areasWithNotes.length === 0) return null;
+          return (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <StickyNote className="h-4 w-4" />
+                  Internal Office Notes (per area)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {areasWithNotes.map(area => (
+                  <div key={area.id} className="space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      {area.area_name || `Area ${area.area_order}`}
+                    </p>
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                      {area.internal_office_notes}
+                    </p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          );
+        })()}
+
+        {/* Card 7 — Cause of Mould (standalone — NOT inside AI summary card) */}
+        {isAdmin && inspection && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                Cause of Mould
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {inspection.cause_of_mould ? (
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                  {inspection.cause_of_mould}
+                </p>
+              ) : (
+                <p className="text-sm italic text-gray-400">Not specified yet</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Card 8 — Property Occupation
+            Extends the Property Information card concept as a separate admin row.
+            Pretty-prints the enum value using the same pattern as Phase 3b. */}
+        {isAdmin && inspection?.property_occupation && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                Property Occupation
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Occupation Status</span>
+                <span className="text-sm font-medium">
+                  {(() => {
+                    const labels: Record<string, string> = {
+                      tenanted: "Tenanted",
+                      vacant: "Vacant",
+                      owner_occupied: "Owner Occupied",
+                      tenants_vacating: "Tenants Vacating",
+                    };
+                    return labels[inspection.property_occupation] ?? inspection.property_occupation;
+                  })()}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Card 9 — Outdoor Comments (hidden entirely when null/empty) */}
+        {isAdmin && inspection?.outdoor_comments?.trim() && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Leaf className="h-4 w-4" />
+                Outdoor Comments
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                {inspection.outdoor_comments}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Card 10 — Admin Cost Breakdown (admin only)
+            Columns sourced from inspections.*: labour_cost_ex_gst,
+            equipment_cost_ex_gst, subtotal_ex_gst, gst_amount, total_inc_gst.
+            Total Inc-GST is referenced but not duplicated (see Cost Estimate card above). */}
+        {isAdmin && inspection && (
+          inspection.labour_cost_ex_gst != null ||
+          inspection.equipment_cost_ex_gst != null ||
+          inspection.subtotal_ex_gst != null
+        ) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Calculator className="h-4 w-4" />
+                Cost Breakdown (Admin)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="space-y-2">
+                {inspection.labour_cost_ex_gst != null && (
+                  <div className="flex items-center justify-between">
+                    <dt className="text-sm text-gray-500">Labour Subtotal Ex-GST</dt>
+                    <dd className="text-sm font-medium tabular-nums">
+                      {formatCurrency(inspection.labour_cost_ex_gst)}
+                    </dd>
+                  </div>
+                )}
+                {inspection.equipment_cost_ex_gst != null && (
+                  <div className="flex items-center justify-between">
+                    <dt className="text-sm text-gray-500">Equipment Cost Ex-GST</dt>
+                    <dd className="text-sm font-medium tabular-nums">
+                      {formatCurrency(inspection.equipment_cost_ex_gst)}
+                    </dd>
+                  </div>
+                )}
+                {inspection.subtotal_ex_gst != null && (
+                  <div className="flex items-center justify-between">
+                    <dt className="text-sm text-gray-500">Subtotal Ex-GST</dt>
+                    <dd className="text-sm font-medium tabular-nums">
+                      {formatCurrency(inspection.subtotal_ex_gst)}
+                    </dd>
+                  </div>
+                )}
+                {inspection.gst_amount != null && (
+                  <div className="flex items-center justify-between">
+                    <dt className="text-sm text-gray-500">GST (10%)</dt>
+                    <dd className="text-sm font-medium tabular-nums">
+                      {formatCurrency(inspection.gst_amount)}
+                    </dd>
+                  </div>
+                )}
+                <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                  <dt className="text-sm text-gray-500">Total Inc-GST</dt>
+                  <dd className="text-sm text-gray-400 italic">
+                    See Cost Estimate card above
+                  </dd>
+                </div>
+              </dl>
+              <p className="text-xs text-gray-400 mt-3">All prices exclude GST unless stated otherwise.</p>
             </CardContent>
           </Card>
         )}
