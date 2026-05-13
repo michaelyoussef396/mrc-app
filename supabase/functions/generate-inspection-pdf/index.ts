@@ -35,25 +35,12 @@ interface MoistureReading {
   reading_order: number
   title: string
   moisture_percentage: number | null
-  moisture_status: string | null
 }
 
 interface InspectionArea {
   id: string
   area_name: string
   area_order: number
-  mould_ceiling: boolean
-  mould_cornice: boolean
-  mould_windows: boolean
-  mould_window_furnishings: boolean
-  mould_walls: boolean
-  mould_skirting: boolean
-  mould_flooring: boolean
-  mould_wardrobe: boolean
-  mould_cupboard: boolean
-  mould_contents: boolean
-  mould_grout_silicone: boolean
-  mould_none_visible: boolean
   mould_description: string
   mould_visible_locations: string[]
   mould_visible_custom: string
@@ -65,7 +52,6 @@ interface InspectionArea {
   demolition_required: boolean
   demolition_time_minutes: number
   demolition_description: string
-  moisture_readings_enabled: boolean
   moisture_readings?: MoistureReading[]
   external_moisture: number | null
   primary_photo_id?: string | null
@@ -105,7 +91,6 @@ interface Inspection {
   inspector_id: string
   inspector_name?: string
   inspection_date: string
-  inspection_start_time: string
   triage_description: string
   requested_by: string
   attention_to: string
@@ -139,7 +124,6 @@ interface Inspection {
   option_2_total_inc_gst: number | null
   pdf_url?: string
   pdf_version: number
-  subfloor_required: boolean
   // Page 2 AI-generated fields
   what_we_found_text?: string
   what_we_will_do_text?: string
@@ -210,21 +194,7 @@ function getMouldDescription(area: InspectionArea): string {
     return area.mould_description.trim()
   }
 
-  // Priority 3: Legacy boolean fields
-  const locations: string[] = []
-  if (area.mould_ceiling) locations.push('Ceiling')
-  if (area.mould_cornice) locations.push('Cornice')
-  if (area.mould_windows) locations.push('Windows')
-  if (area.mould_window_furnishings) locations.push('Window Furnishings')
-  if (area.mould_walls) locations.push('Walls')
-  if (area.mould_skirting) locations.push('Skirting')
-  if (area.mould_flooring) locations.push('Flooring')
-  if (area.mould_wardrobe) locations.push('Wardrobe')
-  if (area.mould_cupboard) locations.push('Cupboard')
-  if (area.mould_contents) locations.push('Contents')
-  if (area.mould_grout_silicone) locations.push('Grout/Silicone')
-  if (area.mould_none_visible) locations.push('No visible mould')
-  return locations.join(', ') || 'No mould visible'
+  return ''
 }
 
 // Get valid value - filters out placeholder text and empty values
@@ -1164,7 +1134,7 @@ function handleSubfloorPage(
 ): string {
   const subfloorPageRegex = /\s*<!-- Page 5: Subfloor[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 6)/
 
-  if (!inspection.subfloor_required || !subfloorData) {
+  if (!subfloorData) {
     return html.replace(subfloorPageRegex, '\n\n')
   }
 
@@ -1453,7 +1423,7 @@ function generateReportHtml(
 
   // ===== PAGE 8: VISUAL MOULD CLEANING ESTIMATE =====
   // Use pre-computed option_selected if available, fall back to algorithmic derivation
-  const hasSubfloor = inspection.subfloor_required && subfloorData != null
+  const hasSubfloor = subfloorData != null
   const optionSelected = inspection.option_selected
     ?? ((hasDemolition || hasSubfloor) ? 2 : 1)
 
@@ -1712,48 +1682,48 @@ Deno.serve(async (req) => {
     let subfloorReadings: SubfloorReading[] = []
     let subfloorPhotos: Photo[] = []
 
-    if (inspection.subfloor_required) {
-      console.log('Subfloor required — fetching subfloor data...')
+    // Always attempt subfloor fetch — page renders when data exists, removed when null.
+    // Gating on subfloor_required column removed in Phase 5c (column being dropped).
+    console.log('Fetching subfloor data...')
 
-      const { data: sfData } = await supabase
-        .from('subfloor_data')
+    const { data: sfData } = await supabase
+      .from('subfloor_data')
+      .select('*')
+      .eq('inspection_id', inspectionId)
+      .single()
+
+    if (sfData) {
+      subfloorData = sfData as SubfloorData
+
+      // Fetch subfloor moisture readings
+      const { data: sfReadings } = await supabase
+        .from('subfloor_readings')
         .select('*')
-        .eq('inspection_id', inspectionId)
-        .single()
+        .eq('subfloor_id', sfData.id)
+        .order('reading_order', { ascending: true })
 
-      if (sfData) {
-        subfloorData = sfData as SubfloorData
+      subfloorReadings = (sfReadings || []) as SubfloorReading[]
 
-        // Fetch subfloor moisture readings
-        const { data: sfReadings } = await supabase
-          .from('subfloor_readings')
-          .select('*')
-          .eq('subfloor_id', sfData.id)
-          .order('reading_order', { ascending: true })
+      // Fetch subfloor photos — try by subfloor_id first, fall back to photo_type
+      // Photos are already fetched in the main query, so also check those.
+      // Stage 4.3: filter soft-deleted rows.
+      const { data: sfPhotos } = await supabase
+        .from('photos')
+        .select('*')
+        .eq('subfloor_id', sfData.id)
+        .is('deleted_at', null)
 
-        subfloorReadings = (sfReadings || []) as SubfloorReading[]
-
-        // Fetch subfloor photos — try by subfloor_id first, fall back to photo_type
-        // Photos are already fetched in the main query, so also check those.
-        // Stage 4.3: filter soft-deleted rows.
-        const { data: sfPhotos } = await supabase
-          .from('photos')
-          .select('*')
-          .eq('subfloor_id', sfData.id)
-          .is('deleted_at', null)
-
-        if (sfPhotos && sfPhotos.length > 0) {
-          subfloorPhotos = sfPhotos as Photo[]
-        } else {
-          // Fallback: photos may have null subfloor_id but photo_type='subfloor'
-          subfloorPhotos = (inspection.photos || []).filter(
-            (p: any) => p.photo_type === 'subfloor'
-          ) as Photo[]
-        }
-        console.log(`Subfloor: ${subfloorReadings.length} readings, ${subfloorPhotos.length} photos`)
+      if (sfPhotos && sfPhotos.length > 0) {
+        subfloorPhotos = sfPhotos as Photo[]
       } else {
-        console.log('No subfloor data found despite subfloor_required=true')
+        // Fallback: photos may have null subfloor_id but photo_type='subfloor'
+        subfloorPhotos = (inspection.photos || []).filter(
+          (p: any) => p.photo_type === 'subfloor'
+        ) as Photo[]
       }
+      console.log(`Subfloor: ${subfloorReadings.length} readings, ${subfloorPhotos.length} photos`)
+    } else {
+      console.log('No subfloor data found — subfloor page will be omitted from PDF')
     }
 
     // ===== STEP 3: Generate signed URLs for all photos =====

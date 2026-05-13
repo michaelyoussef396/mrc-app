@@ -2799,22 +2799,26 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             selectedTreatmentMethods: (ins.treatment_methods && ins.treatment_methods.length > 0)
               ? ins.treatment_methods
               : [
-                  // Backward compat: derive from old boolean columns
+                  // Backward compat: derive treatment methods from surviving boolean columns
+                  // for old inspections that predate the treatment_methods array column.
+                  // NOTE: drying_equipment_enabled removed in Phase 5c (column being dropped).
+                  // Legacy records that used only that boolean will show no Drying Equipment
+                  // selection — acceptable given treatment_methods array has been canonical
+                  // since Phase 2 and all active inspections use it.
                   ...(ins.hepa_vac ? ['HEPA Vacuuming'] : []),
                   ...(ins.antimicrobial ? ['Surface Remediation Treatment'] : []),
                   ...(ins.home_sanitation_fogging ? ['ULV Fogging - Property'] : []),
-                  ...(ins.drying_equipment_enabled ? ['Drying Equipment'] : []),
                 ],
             hepaVac: ins.hepa_vac || false,
             antimicrobial: ins.antimicrobial || false,
             stainRemovingAntimicrobial: ins.stain_removing_antimicrobial || false,
             homeSanitationFogging: ins.home_sanitation_fogging || false,
-            dryingEquipmentEnabled: ins.drying_equipment_enabled || false,
-            commercialDehumidifierEnabled: ins.commercial_dehumidifier_enabled || false,
+            dryingEquipmentEnabled: (ins.treatment_methods ?? []).includes('Drying Equipment'),
+            commercialDehumidifierEnabled: (ins.commercial_dehumidifier_qty ?? 0) > 0,
             commercialDehumidifierQty: ins.commercial_dehumidifier_qty || 0,
-            airMoversEnabled: ins.air_movers_enabled || false,
+            airMoversEnabled: (ins.air_movers_qty ?? 0) > 0,
             airMoversQty: ins.air_movers_qty || 0,
-            rcdBoxEnabled: ins.rcd_box_enabled || false,
+            rcdBoxEnabled: (ins.rcd_box_qty ?? 0) > 0,
             rcdBoxQty: ins.rcd_box_qty || 0,
             recommendDehumidifier: ins.recommended_dehumidifier != null,
             dehumidifierSize: ins.recommended_dehumidifier || '',
@@ -2826,7 +2830,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             demolitionHours: ins.demolition_hours ? Number(ins.demolition_hours) : 0,
             subfloorHours: ins.subfloor_hours ? Number(ins.subfloor_hours) : 0,
             equipmentCost: ins.equipment_cost_ex_gst ? Number(ins.equipment_cost_ex_gst) : 0,
-            manualPriceOverride: ins.manual_price_override || false,
+            manualPriceOverride: ins.manual_labour_override || false,
             manualTotal: ins.manual_total_inc_gst ? Number(ins.manual_total_inc_gst) : 0,
             laborCost: ins.labour_cost_ex_gst ? Number(ins.labour_cost_ex_gst) : 0,
             // NOTE: DB stores percent scale (0–13); form state uses decimal (0–0.13).
@@ -3443,19 +3447,14 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         antimicrobial: formData.selectedTreatmentMethods.includes('Surface Remediation Treatment'),
         stain_removing_antimicrobial: formData.stainRemovingAntimicrobial,
         home_sanitation_fogging: formData.selectedTreatmentMethods.includes('ULV Fogging - Property'),
-        drying_equipment_enabled: formData.selectedTreatmentMethods.includes('Drying Equipment'),
-        commercial_dehumidifier_enabled: formData.commercialDehumidifierEnabled,
         commercial_dehumidifier_qty: formData.commercialDehumidifierQty || 0,
-        air_movers_enabled: formData.airMoversEnabled,
         air_movers_qty: formData.airMoversQty || 0,
-        rcd_box_enabled: formData.rcdBoxEnabled,
         rcd_box_qty: formData.rcdBoxQty || 0,
         recommended_dehumidifier: formData.recommendDehumidifier ? (formData.dehumidifierSize || null) : null,
         cause_of_mould: formData.causeOfMould || null,
         additional_info_technician: formData.additionalInfoForTech || null,
         additional_equipment_comments: formData.additionalEquipmentComments || null,
         parking_option: formData.parkingOptions || null,
-        subfloor_required: formData.subfloorEnabled,
         no_demolition_hours: saveNonDemoHours,
         demolition_hours: saveDemoHours,
         subfloor_hours: saveSubfloorHours,
@@ -3551,7 +3550,6 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           temperature: area.temperature ? parseFloat(area.temperature) : null,
           humidity: area.humidity ? parseFloat(area.humidity) : null,
           dew_point: area.dewPoint ? parseFloat(area.dewPoint) : null,
-          moisture_readings_enabled: true,
           // moistureReadings array convention: index 0 = internal, index 1 = external.
           // Both columns must be written so PDF placeholder {{internal_moisture}}
           // and {{external_moisture}} render correctly per area.
