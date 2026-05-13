@@ -101,6 +101,7 @@ export function isLeadUrgent(createdAt: Date | string, status: string): boolean 
  */
 export const leadSourceOptions = [
   { label: '── DIGITAL ──', value: 'header_digital', disabled: true },
+  { label: 'Website', value: 'website' },
   { label: 'Website Form', value: 'Website Form' },
   { label: 'Google Search (Organic)', value: 'Google Search (Organic)' },
   { label: 'Google Ads', value: 'Google Ads' },
