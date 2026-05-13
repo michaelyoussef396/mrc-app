@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { logFieldEdits } from '@/lib/api/fieldEditLog'
 import { toast } from 'sonner'
 import {
   Receipt, CheckCircle2, AlertCircle, Send, Loader2, XCircle, Pencil, Save,
@@ -127,6 +129,7 @@ function statusBadge(status: string, isOverdue: boolean) {
 export function InvoicePaymentCard({ leadId, leadStatus, onRefresh }: Props) {
   const { invoice, isLoading, markPaid, isMarkingPaid, isMarkingSent, isOverdue, daysUntilDue, daysPastDue, refetch, markSent } =
     usePaymentTracking(leadId)
+  const queryClient = useQueryClient()
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -290,6 +293,18 @@ export function InvoicePaymentCard({ leadId, leadStatus, onRefresh }: Props) {
       } else {
         await markPaid(paymentMethod, paymentReference || undefined)
       }
+      await logFieldEdits({
+        leadId: invoice.lead_id ?? leadId,
+        entityType: 'lead',
+        entityId: invoice.lead_id ?? leadId,
+        changes: [{ field: 'status', old: leadStatus, new: 'paid' }],
+        extraMetadata: {
+          payment_method: paymentMethod,
+          paid_date: paymentDate,
+          payment_reference: paymentReference || null,
+        },
+      })
+      queryClient.invalidateQueries({ queryKey: ['activity-timeline'] })
       toast.success('Payment recorded')
       setPaidDialogOpen(false)
       setPaymentReference('')

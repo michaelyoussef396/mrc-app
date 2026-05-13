@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { captureBusinessError } from '@/lib/sentry';
+import { logFieldEdits } from '@/lib/api/fieldEditLog';
 import { generateInspectionPDF } from '@/lib/api/pdfGeneration';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import { StalePdfBanner } from '@/components/pdf/StalePdfBanner';
@@ -52,6 +54,7 @@ async function invokeEdgeFunction(functionName: string, body: object): Promise<{
 
 interface LeadData {
   id: string;
+  status: string;
   full_name: string;
   email: string;
   phone: string;
@@ -84,6 +87,7 @@ interface AreaData {
 
 export default function InspectionAIReview() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { leadId } = useParams<{ leadId: string }>();
   const { toast } = useToast();
 
@@ -119,7 +123,7 @@ export default function InspectionAIReview() {
       // Load lead
       const { data: leadData, error: leadError } = await supabase
         .from('leads')
-        .select('id, full_name, email, phone, property_address_street, property_address_suburb, property_address_state, property_address_postcode, issue_description, internal_notes')
+        .select('id, status, full_name, email, phone, property_address_street, property_address_suburb, property_address_state, property_address_postcode, issue_description, internal_notes')
         .eq('id', leadId)
         .is('archived_at', null)
         .single();
@@ -294,12 +298,13 @@ export default function InspectionAIReview() {
       }
 
       await supabase.from('leads').update({ status: 'approve_inspection_report' }).eq('id', leadId);
-      await supabase.from('activities').insert({
-        lead_id: leadId,
-        activity_type: 'status_change',
-        title: 'AI summary approved',
-        description: 'Admin approved AI-generated content. Ready for PDF generation.',
+      await logFieldEdits({
+        leadId,
+        entityType: 'lead',
+        entityId: leadId,
+        changes: [{ field: 'status', old: lead?.status ?? null, new: 'approve_inspection_report' }],
       });
+      queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
       toast({ title: 'Approved', description: 'AI content approved. Lead moved to report approval stage.' });
       navigate('/admin/leads');
     } catch (err: any) {
@@ -314,12 +319,14 @@ export default function InspectionAIReview() {
 
     try {
       await supabase.from('leads').update({ status: 'inspection_waiting' }).eq('id', leadId);
-      await supabase.from('activities').insert({
-        lead_id: leadId,
-        activity_type: 'status_change',
-        title: 'AI summary rejected',
-        description: 'Admin rejected AI content. Lead sent back for re-inspection.',
+      await logFieldEdits({
+        leadId,
+        entityType: 'lead',
+        entityId: leadId,
+        changes: [{ field: 'status', old: lead?.status ?? null, new: 'inspection_waiting' }],
+        extraMetadata: { reason: 'ai_summary_rejected' },
       });
+      queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
       toast({ title: 'Rejected', description: 'Lead sent back to awaiting inspection.' });
       navigate('/admin/leads');
     } catch (err: any) {

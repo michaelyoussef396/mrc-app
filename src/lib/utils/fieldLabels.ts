@@ -51,6 +51,139 @@ export const FIELD_LABELS: Record<string, string> = {
   // leads — customer preferences (never cleared)
   customer_preferred_date: 'Customer Preferred Date',
   customer_preferred_time: 'Customer Preferred Time',
+
+  // inspections — identity / header
+  inspector_name: 'Inspector Name',
+  inspector_id: 'Inspector',
+  job_number: 'Job Number',
+  inspection_date: 'Inspection Date',
+  requested_by: 'Requested By',
+  attention_to: 'Attention To',
+  triage_description: 'Triage Description',
+  property_occupation: 'Property Occupation',
+  dwelling_type: 'Dwelling Type',
+  property_address_snapshot: 'Address Snapshot',
+
+  // inspections — outdoor readings
+  outdoor_temperature: 'Outdoor Temperature',
+  outdoor_humidity: 'Outdoor Humidity',
+  outdoor_dew_point: 'Outdoor Dew Point',
+  outdoor_comments: 'Outdoor Comments',
+
+  // inspections — mould / cause
+  cause_of_mould: 'Cause of Mould',
+  additional_info_technician: 'Additional Info (Tech)',
+  additional_equipment_comments: 'Equipment Comments',
+
+  // inspections — treatment methods
+  treatment_methods: 'Treatment Methods',
+  hepa_vac: 'HEPA Vacuuming',
+  antimicrobial: 'Antimicrobial Treatment',
+  stain_removing_antimicrobial: 'Stain-Removing Antimicrobial',
+  home_sanitation_fogging: 'ULV Fogging',
+  drying_equipment_enabled: 'Drying Equipment',
+
+  // inspections — equipment
+  commercial_dehumidifier_enabled: 'Dehumidifier Enabled',
+  commercial_dehumidifier_qty: 'Dehumidifier Qty',
+  air_movers_enabled: 'Air Movers Enabled',
+  air_movers_qty: 'Air Movers Qty',
+  rcd_box_enabled: 'RCD Box Enabled',
+  rcd_box_qty: 'RCD Box Qty',
+  recommended_dehumidifier: 'Recommended Dehumidifier',
+  direction_photos_enabled: 'Direction Photos',
+
+  // inspections — waste / subfloor flags
+  waste_disposal_required: 'Waste Disposal Required',
+  waste_disposal_amount: 'Waste Disposal Amount',
+  subfloor_required: 'Subfloor Required',
+  parking_option: 'Parking Option',
+
+  // inspections — labour hours
+  no_demolition_hours: 'Non-Demo Hours',
+  demolition_hours: 'Demolition Hours',
+  subfloor_hours: 'Subfloor Hours',
+
+  // inspections — pricing
+  equipment_cost_ex_gst: 'Equipment Cost (ex GST)',
+  labour_cost_ex_gst: 'Labour Cost (ex GST)',
+  discount_percent: 'Discount %',
+  subtotal_ex_gst: 'Subtotal (ex GST)',
+  gst_amount: 'GST Amount',
+  total_inc_gst: 'Total (inc GST)',
+  manual_labour_override: 'Manual Labour Override',
+  manual_total_inc_gst: 'Manual Total (inc GST)',
+  option_selected: 'Option Selected',
+  option_1_labour_ex_gst: 'Option 1 Labour (ex GST)',
+  option_1_equipment_ex_gst: 'Option 1 Equipment (ex GST)',
+  option_1_total_inc_gst: 'Option 1 Total (inc GST)',
+  option_2_total_inc_gst: 'Option 2 Total (inc GST)',
+
+  // inspection_areas — identity
+  area_name: 'Area Name',
+  area_order: 'Area Order',
+
+  // inspection_areas — environmental readings
+  temperature: 'Temperature',
+  humidity: 'Humidity',
+  dew_point: 'Dew Point',
+  internal_moisture: 'Internal Moisture',
+  external_moisture: 'External Moisture',
+
+  // inspection_areas — mould observations
+  mould_description: 'Mould Description',
+  mould_visible_locations: 'Mould Locations',
+  mould_visible_custom: 'Mould (Custom)',
+  mould_ceiling: 'Mould — Ceiling',
+  mould_walls: 'Mould — Walls',
+  mould_flooring: 'Mould — Flooring',
+  mould_skirting: 'Mould — Skirting',
+  mould_cornice: 'Mould — Cornice',
+  mould_windows: 'Mould — Windows',
+  mould_window_furnishings: 'Mould — Window Furnishings',
+  mould_cupboard: 'Mould — Cupboard',
+  mould_wardrobe: 'Mould — Wardrobe',
+  mould_grout_silicone: 'Mould — Grout/Silicone',
+  mould_contents: 'Mould — Contents',
+  mould_none_visible: 'No Mould Visible',
+
+  // inspection_areas — infrared
+  infrared_enabled: 'Infrared Enabled',
+  infrared_observation_no_active: 'IR: No Active Intrusion',
+  infrared_observation_water_infiltration: 'IR: Active Water Infiltration',
+  infrared_observation_past_ingress: 'IR: Past Water Ingress',
+  infrared_observation_condensation: 'IR: Condensation Pattern',
+  infrared_observation_missing_insulation: 'IR: Missing Insulation',
+
+  // inspection_areas — job / demo
+  job_time_minutes: 'Job Time (mins)',
+  demolition_required: 'Demolition Required',
+  demolition_time_minutes: 'Demolition Time (mins)',
+  demolition_description: 'Demolition Description',
+  moisture_readings_enabled: 'Moisture Readings Enabled',
+
+  // inspection_areas — notes
+  comments: 'Report Comments',
+  internal_office_notes: 'Internal Notes',
+  extra_notes: 'Extra Notes',
+  primary_photo_id: 'Primary Photo',
+
+  // moisture_readings
+  moisture_percentage: 'Moisture %',
+  moisture_status: 'Moisture Status',
+  reading_order: 'Reading Order',
+  title: 'Reading Title',
+
+  // subfloor_data
+  observations: 'Subfloor Observations',
+  landscape: 'Subfloor Landscape',
+  sanitation_required: 'Sanitation Required',
+  racking_required: 'Racking Required',
+  treatment_time_minutes: 'Treatment Time (mins)',
+  comments_approved: 'Comments Approved',
+
+  // subfloor_readings
+  location: 'Reading Location',
 };
 
 /**

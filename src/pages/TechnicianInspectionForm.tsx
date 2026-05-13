@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,7 +27,7 @@ import type {
 } from '@/types/inspection';
 import { validateInspectionCompletion } from '@/lib/schemas/inspectionSchema';
 import { captureBusinessError } from '@/lib/sentry';
-import { logFieldEdits, type FieldChange } from '@/lib/api/fieldEditLog';
+import { logFieldEdits, logSectionMilestone, diffPayload, type FieldChange } from '@/lib/api/fieldEditLog';
 import {
   AlertCircle,
   ArrowLeft,
@@ -186,6 +187,7 @@ interface LeadData {
   property_lng: number | null;
   issue_description: string | null;
   internal_notes: string | null;
+  status: string;
 }
 
 interface BookingData {
@@ -2466,6 +2468,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   const leadId = adminMode ? routeParams.leadId ?? null : searchParams.get('leadId');
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Capture the initial inspection row when adminMode loads so we can diff on unmount
   const initialInspectionRef = useRef<Record<string, unknown> | null>(null);
@@ -2586,7 +2589,8 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             property_lat,
             property_lng,
             issue_description,
-            internal_notes
+            internal_notes,
+            status
           `
           )
           .eq('id', leadId)
@@ -3381,6 +3385,36 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         saveOption1Total = null;
       }
 
+      // Snapshot existing DB state for milestone diff — fetch before any write.
+      // If the inspection doesn't exist yet (first save) these return null/empty,
+      // and diffPayload treats null oldRow as no changes (new-row inserts do not
+      // produce a milestone — the initial save has no "old" to diff against).
+      const existingInspectionSnap = currentInspectionId
+        ? await supabase
+            .from('inspections')
+            .select('*')
+            .eq('id', currentInspectionId)
+            .maybeSingle()
+            .then((r) => r.data ?? null)
+        : null;
+
+      const existingAreasSnap = currentInspectionId
+        ? await supabase
+            .from('inspection_areas')
+            .select('*')
+            .eq('inspection_id', currentInspectionId)
+            .then((r) => r.data ?? [])
+        : [];
+
+      const existingSubfloorSnap = currentInspectionId
+        ? await supabase
+            .from('subfloor_data')
+            .select('*')
+            .eq('inspection_id', currentInspectionId)
+            .maybeSingle()
+            .then((r) => r.data ?? null)
+        : null;
+
       // 1. Upsert inspections row
       const inspectionRow: Record<string, any> = {
         lead_id: leadId,
@@ -3661,6 +3695,71 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         }
       }
 
+      // Compute union diff across all 5 tables and emit one milestone row.
+      // Each call to diffPayload returns raw DB column names as FieldChange.field
+      // so the timeline resolves human labels via getFieldLabel().
+      if (inspectionId) {
+        const allChanges: FieldChange[] = [];
+
+        // inspections diff — compare the payload we just wrote against the snapshot
+        if (existingInspectionSnap) {
+          allChanges.push(
+            ...diffPayload(existingInspectionSnap as Record<string, unknown>, inspectionRow as Record<string, unknown>)
+          );
+        }
+
+        // inspection_areas diff — per-area against the pre-save snapshots
+        const areaSnapMap = new Map(
+          (existingAreasSnap as Array<Record<string, unknown>>).map((a) => [a.id as string, a])
+        );
+        for (let i = 0; i < formData.areas.length; i++) {
+          const area = formData.areas[i];
+          const oldArea = areaSnapMap.get(area.id) ?? null;
+          if (oldArea) {
+            const areaPayload: Record<string, unknown> = {
+              area_name: area.areaName || `Area ${i + 1}`,
+              comments: area.commentsForReport || null,
+              temperature: area.temperature ? parseFloat(area.temperature) : null,
+              humidity: area.humidity ? parseFloat(area.humidity) : null,
+              dew_point: area.dewPoint ? parseFloat(area.dewPoint) : null,
+              internal_moisture: area.moistureReadings[0]?.reading ? parseFloat(area.moistureReadings[0].reading) : null,
+              external_moisture: area.moistureReadings[1]?.reading ? parseFloat(area.moistureReadings[1].reading) : null,
+              internal_office_notes: area.internalNotes || null,
+              extra_notes: area.extraNotes || null,
+              infrared_enabled: area.infraredEnabled,
+              job_time_minutes: Math.round((area.timeWithoutDemo || 0) * 60),
+              demolition_required: area.demolitionRequired,
+              demolition_time_minutes: Math.round((area.demolitionTime || 0) * 60),
+              demolition_description: area.demolitionDescription || null,
+              mould_visible_custom: area.mouldVisibleCustom || null,
+            };
+            allChanges.push(...diffPayload(oldArea, areaPayload));
+          }
+        }
+
+        // subfloor_data diff
+        if (existingSubfloorSnap) {
+          const subfloorPayload: Record<string, unknown> = {
+            observations: formData.subfloorObservations || null,
+            comments: formData.subfloorComments || null,
+            landscape: formData.subfloorLandscape || null,
+            sanitation_required: formData.subfloorSanitation,
+            treatment_time_minutes: Math.round((formData.subfloorTreatmentTime || 0) * 60),
+          };
+          allChanges.push(
+            ...diffPayload(existingSubfloorSnap as Record<string, unknown>, subfloorPayload)
+          );
+        }
+
+        void logSectionMilestone({
+          leadId,
+          inspectionId,
+          sectionNumber: currentSection,
+          sectionName: SECTION_TITLES[currentSection - 1] ?? `Section ${currentSection}`,
+          changes: allChanges,
+        });
+      }
+
       setHasUnsavedChanges(false);
       if (options?.silent) {
         toast({
@@ -3828,12 +3927,14 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         // 4. Update lead status to inspection_ai_summary
         if (leadId) {
           await supabase.from('leads').update({ status: 'inspection_ai_summary' }).eq('id', leadId);
-          await supabase.from('activities').insert({
-            lead_id: leadId,
-            activity_type: 'status_change',
-            title: 'Inspection completed',
-            description: 'Technician completed inspection. AI summary generated for admin review.',
+          await logFieldEdits({
+            leadId,
+            entityType: 'lead',
+            entityId: leadId,
+            changes: [{ field: 'status', old: lead?.status ?? null, new: 'inspection_ai_summary' }],
+            extraMetadata: { trigger: 'inspection_completed', ai_generated: !aiError },
           });
+          queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
         }
 
         // 5. Navigate back to technician home

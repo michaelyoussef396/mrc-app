@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
 import type { Page1Data, VPData, OutdoorData, AreaRecord, SubfloorEditData, CostData } from '@/components/pdf/ReportPreviewHTML'
@@ -46,6 +46,7 @@ import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobRepo
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
 import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
 import { recordPhotoHistory } from '@/lib/utils/photoHistory'
+import { logFieldEdits } from '@/lib/api/fieldEditLog'
 import { PhotoCaptionPromptDialog } from '@/components/photos/PhotoCaptionPromptDialog'
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { resizePhoto } from '@/lib/offline/photoResizer'
@@ -287,6 +288,7 @@ export default function ViewReportPDF() {
   const location = useLocation()
   const reportType: 'inspection' | 'job' = location.pathname.startsWith('/admin/job-report') ? 'job' : 'inspection'
   const [searchParams, setSearchParams] = useSearchParams()
+  const queryClient = useQueryClient()
 
   const [inspection, setInspection] = useState<Inspection | null>(null)
   const [loading, setLoading] = useState(true)
@@ -1007,13 +1009,14 @@ export default function ViewReportPDF() {
           console.error('Lead status update failed:', statusErr)
           toast.error(`Email sent but status update failed: ${statusErr.message}`, { id: 'send-email' })
         }
-        const { error: activityErr } = await supabase.from('activities').insert({
-          lead_id: lead.id,
-          activity_type: 'email_sent',
-          title: 'Job report sent to customer',
-          description: `Report emailed to ${recipient} with PDF attached`,
-        })
-        if (activityErr) console.error('Activity log failed:', activityErr)
+        await logFieldEdits({
+          leadId: lead.id,
+          entityType: 'lead',
+          entityId: lead.id,
+          changes: [{ field: 'status', old: (lead as { id: string; full_name: string; email?: string; property_address_street?: string; property_address_suburb?: string; property_address_state?: string; property_address_postcode?: string; status?: string }).status ?? null, new: 'job_report_pdf_sent' }],
+          extraMetadata: { trigger: 'job_report_emailed', recipient },
+        }).catch(err => console.error('Activity log failed:', err))
+        queryClient.invalidateQueries({ queryKey: ['activity-timeline'] })
 
         toast.success(`Email sent to ${recipient} with PDF attached!`, { id: 'send-email' })
         navigate(`/leads/${lead.id}`)

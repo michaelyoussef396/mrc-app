@@ -546,12 +546,14 @@ export default function LeadDetail() {
           .eq('id', jobCompletion.id);
       }
 
-      await supabase.from('activities').insert({
-        lead_id: lead.id,
-        activity_type: 'job_completion_sent_back',
-        title: 'Job completion sent back to technician',
-        description: sendBackNote.trim(),
+      await logFieldEdits({
+        leadId: lead.id,
+        entityType: 'lead',
+        entityId: lead.id,
+        changes: [{ field: 'status', old: lead.status, new: 'job_scheduled' }],
+        extraMetadata: { trigger: 'sent_back_to_technician', send_back_note: sendBackNote.trim() },
       });
+      queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
 
       sendSlackNotification({
         event: 'status_changed',
@@ -2402,6 +2404,7 @@ function FinishLeadSection({
   lead, onRefresh,
 }: { lead: { id: string }; onRefresh: () => void }) {
   const [finishing, setFinishing] = useState(false);
+  const queryClient = useQueryClient();
 
   async function handleFinish() {
     setFinishing(true);
@@ -2410,12 +2413,14 @@ function FinishLeadSection({
         .from('leads').update({ status: 'finished' }).eq('id', lead.id);
       if (statusErr) throw statusErr;
 
-      await supabase.from('activities').insert({
-        lead_id: lead.id,
-        activity_type: 'status_changed',
-        title: 'Lead marked as finished',
-        description: 'Admin closed the lead after review request.',
+      await logFieldEdits({
+        leadId: lead.id,
+        entityType: 'lead',
+        entityId: lead.id,
+        changes: [{ field: 'status', old: 'google_review', new: 'finished' }],
+        extraMetadata: { trigger: 'admin_close_after_review_request' },
       });
+      queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
 
       toast.success('Lead marked as finished');
       onRefresh();
