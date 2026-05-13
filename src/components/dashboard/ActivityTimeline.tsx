@@ -13,9 +13,11 @@ import {
   Bell,
   Clock,
   PencilLine,
+  StickyNote,
 } from 'lucide-react';
 import type { TimelineEvent, FieldEditMetadata } from '@/hooks/useActivityTimeline';
 import { formatDateTimeAU } from '@/lib/dateUtils';
+import { getFieldLabel } from '@/lib/utils/fieldLabels';
 
 // Icon component lookup
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -30,6 +32,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   MailX,
   Bell,
   PencilLine,
+  StickyNote,
 };
 
 const MAX_DIFF_STRING_LENGTH = 60;
@@ -191,6 +194,10 @@ export function ActivityTimeline({
         // Full timeline view for lead detail
         const fieldEdit =
           event.type === 'field_edit' ? getFieldEditMetadata(event.metadata) : null;
+        const noteAdded =
+          event.type === 'note_added' && event.metadata && typeof event.metadata.note_text === 'string'
+            ? (event.metadata as { note_text: string; author?: string })
+            : null;
 
         return (
           <div
@@ -220,11 +227,15 @@ export function ActivityTimeline({
                 <ul className="space-y-0.5">
                   {fieldEdit.changes.map((change, i) => (
                     <li key={i} className="text-xs text-muted-foreground">
-                      <span className="font-medium">{change.field}:</span>{' '}
+                      <span className="font-medium">{getFieldLabel(change.field)}:</span>{' '}
                       {formatDiffValue(change.old)} → {formatDiffValue(change.new)}
                     </li>
                   ))}
                 </ul>
+              ) : noteAdded ? (
+                <blockquote className="text-xs text-gray-700 border-l-2 border-gray-300 pl-2 whitespace-pre-wrap">
+                  {noteAdded.note_text}
+                </blockquote>
               ) : (
                 event.description && (
                   <p className="text-xs text-gray-500">{event.description}</p>

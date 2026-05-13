@@ -4,6 +4,7 @@ import { sendEmail, sendSlackNotification, buildBookingConfirmationHtml } from '
 import { captureBusinessError, addBusinessBreadcrumb } from '@/lib/sentry';
 import { formatMediumDateAU } from '@/lib/dateUtils';
 import { appendInternalNote } from '@/lib/utils/internalNotes';
+import { logFieldEdits, logNoteAdded, type FieldChange } from '@/lib/api/fieldEditLog';
 
 // ============================================================================
 // TYPES
@@ -143,6 +144,16 @@ export async function bookInspection(
     // internal_notes is APPEND-ONLY here — fetch the current log, prepend the new
     // (booking call) entry. If no booking-time note was supplied, the column is
     // not touched at all (existing log preserved).
+    // We fetch the lead row up front (including the diffable columns) so the
+    // activity-log writer can record `from` values verbatim, not just `to`.
+    const { data: leadBefore } = await supabase
+      .from('leads')
+      .select(
+        'status, inspection_scheduled_date, scheduled_time, assigned_to, internal_notes',
+      )
+      .eq('id', leadId)
+      .single();
+
     const leadUpdate: Record<string, unknown> = {
       status: 'inspection_waiting',
       inspection_scheduled_date: inspectionDate,
@@ -151,14 +162,8 @@ export async function bookInspection(
     };
 
     if (internalNotes && internalNotes.trim()) {
-      const { data: currentLead } = await supabase
-        .from('leads')
-        .select('internal_notes')
-        .eq('id', leadId)
-        .single();
-
       leadUpdate.internal_notes = appendInternalNote(
-        currentLead?.internal_notes ?? null,
+        leadBefore?.internal_notes ?? null,
         internalNotes,
         { authorName: authorName || 'Unknown user', context: 'booking call' },
       );
@@ -176,7 +181,36 @@ export async function bookInspection(
       throw new Error(`Failed to update lead: ${leadError.message}`);
     }
 
-    // 3. Create activity log entry
+    // 3a. Field-edit row covering the structured diff (status + schedule fields).
+    //     internal_notes append is excluded here — it gets its own note_added row below.
+    const diffChanges: FieldChange[] = [
+      { field: 'status', old: (leadBefore?.status as string) ?? null, new: 'inspection_waiting' },
+      { field: 'inspection_scheduled_date', old: leadBefore?.inspection_scheduled_date ?? null, new: inspectionDate },
+      { field: 'scheduled_time', old: leadBefore?.scheduled_time ?? null, new: inspectionTime },
+      { field: 'assigned_to', old: leadBefore?.assigned_to ?? null, new: technicianId },
+    ].filter((c) => c.old !== c.new);
+
+    if (diffChanges.length > 0) {
+      await logFieldEdits({
+        leadId,
+        entityType: 'lead',
+        entityId: leadId,
+        changes: diffChanges,
+      });
+    }
+
+    // 3b. Append-only internal_notes entry → distinct note_added row.
+    if (internalNotes && internalNotes.trim()) {
+      await logNoteAdded({
+        leadId,
+        noteText: internalNotes,
+        authorName: authorName || 'Unknown user',
+      });
+    }
+
+    // 3c. Keep the high-level human-readable inspection_booked row alongside the
+    //     diff. The diff row gives the structured change history; this row gives
+    //     the scannable timeline title with technician + datetime context.
     const { error: activityError } = await supabase.from('activities').insert({
       lead_id: leadId,
       activity_type: 'inspection_booked',
@@ -196,6 +230,7 @@ export async function bookInspection(
     queryClient.invalidateQueries({ queryKey: ['schedule-calendar'] });
     queryClient.invalidateQueries({ queryKey: ['unscheduled-leads'] });
     queryClient.invalidateQueries({ queryKey: ['leads-to-schedule'] });
+    queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
 
     // 5. Fire-and-forget notifications
     const displayDate = formatDateForDisplay(inspectionDate);
