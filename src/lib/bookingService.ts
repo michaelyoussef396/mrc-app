@@ -241,6 +241,7 @@ export async function bookInspection(
       leadId,
       leadName: customerName,
       propertyAddress,
+      technicianName,
       bookingDate: `${displayDate} at ${displayTime}`,
     });
 
