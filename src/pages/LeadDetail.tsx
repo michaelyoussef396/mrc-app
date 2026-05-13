@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,6 +65,7 @@ import { InlineEditField } from "@/components/leads/InlineEditField";
 import { InlineEditAddress, type AddressFields } from "@/components/leads/InlineEditAddress";
 import { BookJobSheet } from "@/components/leads/BookJobSheet";
 import { useLeadUpdate } from "@/hooks/useLeadUpdate";
+import { logFieldEdits, type FieldChange } from "@/lib/api/fieldEditLog";
 import { formatPhoneNumber, leadSourceOptions } from "@/lib/leadUtils";
 import { JobBookingDetails } from "@/components/leads/JobBookingDetails";
 import { JobCompletionSummary } from "@/components/leads/JobCompletionSummary";
@@ -132,6 +133,7 @@ export default function LeadDetail() {
   const isAdmin = hasRole('admin');
   const isTechnician = hasRole('technician');
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { updateLead } = useLeadUpdate(id || '');
   const [regeneratingPdf, setRegeneratingPdf] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -449,26 +451,36 @@ export default function LeadDetail() {
       cancelledBookingIds = (cancelledRows ?? []).map((b) => b.id);
     }
 
-    // Activity log — clean copy in description, full forensic detail in metadata.
-    const description = isReversion
-      ? `Lead moved from ${currentConfig.shortTitle} to ${STATUS_FLOW[status].shortTitle} (reverted)`
-      : `Lead moved from ${currentConfig.shortTitle} to ${STATUS_FLOW[status].shortTitle}`;
-
-    const activityRow: Record<string, unknown> = {
-      lead_id: lead.id,
-      activity_type: 'status_change',
-      title: `Status changed to ${STATUS_FLOW[status].shortTitle}`,
-      description,
-    };
-    if (isReversion) {
-      activityRow.metadata = {
-        reverted: true,
-        cleared_fields: clearedFields,
-        cancelled_booking_ids: cancelledBookingIds,
-        preserved_booking_ids: preservedBookingIds,
-      };
+    // Activity log — one canonical 'field_edit' row covering the status diff plus
+    // any reversion-cleared columns. The reversion-specific metadata
+    // (cancelled/preserved booking ids) rides as extraMetadata on the same row.
+    const changes: FieldChange[] = [
+      { field: 'status', old: lead.status as string, new: status as string },
+    ];
+    for (const f of clearedFields) {
+      const before = (lead as unknown as Record<string, unknown>)[f] ?? null;
+      changes.push({
+        field: f,
+        old: before as FieldChange['old'],
+        new: null,
+      });
     }
-    await supabase.from('activities').insert(activityRow);
+
+    const extraMetadata = isReversion
+      ? {
+          reverted: true,
+          cancelled_booking_ids: cancelledBookingIds,
+          preserved_booking_ids: preservedBookingIds,
+        }
+      : undefined;
+
+    await logFieldEdits({
+      leadId: lead.id,
+      entityType: 'lead',
+      entityId: lead.id,
+      changes,
+      extraMetadata,
+    });
 
     const fullAddr = [lead.property_address_street, lead.property_address_suburb, lead.property_address_state, lead.property_address_postcode].filter(Boolean).join(', ');
     sendSlackNotification({
@@ -481,6 +493,8 @@ export default function LeadDetail() {
       oldStatusLabel: currentConfig.shortTitle,
       newStatusLabel: STATUS_FLOW[status].shortTitle,
     });
+
+    queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
 
     toast.success(`Status updated to ${STATUS_FLOW[status].shortTitle}`);
     refetch();

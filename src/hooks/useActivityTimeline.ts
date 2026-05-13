@@ -42,6 +42,8 @@ function getActivityIcon(type: string): { iconName: string; iconColor: string } 
       return { iconName: 'Archive', iconColor: 'text-gray-600 bg-gray-100' };
     case 'field_edit':
       return { iconName: 'PencilLine', iconColor: 'text-blue-600 bg-blue-100' };
+    case 'note_added':
+      return { iconName: 'StickyNote', iconColor: 'text-amber-600 bg-amber-100' };
     default:
       return { iconName: 'Activity', iconColor: 'text-gray-600 bg-gray-100' };
   }
@@ -202,6 +204,10 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
       events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       return events.slice(0, limit);
     },
-    refetchInterval: 30000,
+    // Primary refresh path is query invalidation on writer (see Wave 3 writers in
+    // useLeadUpdate, LeadDetail.handleChangeStatus, bookingService.bookInspection).
+    // Polling is a safety net for cases where invalidation can't reach the timeline
+    // (e.g. background tab on another browser updating activity rows server-side).
+    refetchInterval: 5000,
   });
 }
