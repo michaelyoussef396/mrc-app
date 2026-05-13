@@ -26,6 +26,10 @@ export interface InspectionArea {
   moistureReadings: MoistureReading[];
   externalMoisture: string;
   internalNotes: string;
+  /** Free-text field for anything specific about this area. Written to inspection_areas.extra_notes. */
+  extraNotes: string;
+  /** ID of the photo the technician designated as the primary cover photo for this area. Written to inspection_areas.primary_photo_id. */
+  primaryPhotoId: string | null;
   roomViewPhotos: Photo[];
   infraredEnabled: boolean;
   infraredPhoto: Photo | null;

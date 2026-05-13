@@ -54,6 +54,7 @@ import {
   Receipt,
   Save,
   StickyNote,
+  Star,
   Sun,
   Thermometer,
   Trash2,
@@ -265,6 +266,8 @@ function createEmptyArea(): InspectionArea {
     ],
     externalMoisture: '',
     internalNotes: '',
+    extraNotes: '',
+    primaryPhotoId: null,
     roomViewPhotos: [],
     infraredEnabled: false,
     infraredPhoto: null,
@@ -596,29 +599,53 @@ function PhotoUploadButton({ onClick, label, count = 0, maxCount }: PhotoUploadB
 interface PhotoGridProps {
   photos: Photo[];
   onRemove: (photoId: string) => void;
+  primaryPhotoId?: string | null;
+  onPrimaryToggle?: (photoId: string) => void;
 }
 
-function PhotoGrid({ photos, onRemove }: PhotoGridProps) {
+function PhotoGrid({ photos, onRemove, primaryPhotoId, onPrimaryToggle }: PhotoGridProps) {
   if (photos.length === 0) return null;
 
   return (
     <div className="grid grid-cols-2 gap-3 mt-3">
-      {photos.map((photo) => (
-        <div key={photo.id} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-          <img
-            src={photo.url}
-            alt={photo.name}
-            className="w-full h-full object-cover"
-          />
-          <button
-            type="button"
-            onClick={() => onRemove(photo.id)}
-            className="absolute top-2 right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      ))}
+      {photos.map((photo) => {
+        const isPrimary = primaryPhotoId === photo.id;
+        return (
+          <div key={photo.id} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+            <img
+              src={photo.url}
+              alt={photo.name}
+              className="w-full h-full object-cover"
+            />
+            {/* Delete button — top-right corner */}
+            <button
+              type="button"
+              onClick={() => onRemove(photo.id)}
+              className="absolute top-2 right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            {/* Primary photo star — bottom-right corner, only shown when onPrimaryToggle is provided */}
+            {onPrimaryToggle && (
+              <button
+                type="button"
+                onClick={() => onPrimaryToggle(photo.id)}
+                aria-label={isPrimary ? 'Primary cover photo' : 'Set as primary cover photo'}
+                className="absolute bottom-2 right-2 flex items-center justify-center p-2"
+                style={{ minWidth: '48px', minHeight: '48px' }}
+              >
+                <Star
+                  className={`h-6 w-6 drop-shadow ${
+                    isPrimary
+                      ? 'fill-yellow-400 stroke-yellow-500'
+                      : 'fill-transparent stroke-gray-200'
+                  }`}
+                />
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1118,6 +1145,18 @@ function Section3AreaInspection({
                 />
               </FormField>
 
+              {/* Extra Notes */}
+              <FormField label="Extra Notes">
+                <textarea
+                  id={`extra-notes-${area.id}`}
+                  rows={3}
+                  value={area.extraNotes}
+                  onChange={(e) => onAreaChange?.(area.id, 'extraNotes', e.target.value)}
+                  placeholder="Anything specific about this area worth noting?"
+                  className="w-full bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#007AFF] focus:border-transparent resize-none min-h-[120px]"
+                />
+              </FormField>
+
               {/* ── PHOTO GALLERY ── */}
               <div className="space-y-4">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#86868b] ml-1">
@@ -1131,6 +1170,12 @@ function Section3AreaInspection({
                     <span className="text-sm font-semibold text-[#1d1d1f]">Room View Photos</span>
                     <span className="text-xs text-[#86868b] ml-auto">{area.roomViewPhotos.length}/4</span>
                   </div>
+                  {area.roomViewPhotos.length > 0 && (
+                    <p className="text-xs text-[#86868b] flex items-center gap-1">
+                      <Star className="h-3 w-3 fill-yellow-400 stroke-yellow-500" />
+                      Tap a star to set the primary cover photo for this area.
+                    </p>
+                  )}
                   {area.roomViewPhotos.length < 4 && (
                     <PhotoUploadButton
                       onClick={() => onPhotoCapture?.('roomView', area.id)}
@@ -1142,6 +1187,10 @@ function Section3AreaInspection({
                   <PhotoGrid
                     photos={area.roomViewPhotos}
                     onRemove={(photoId) => onPhotoRemove?.('roomView', photoId, area.id)}
+                    primaryPhotoId={area.primaryPhotoId}
+                    onPrimaryToggle={(photoId) =>
+                      onAreaChange?.(area.id, 'primaryPhotoId', photoId === area.primaryPhotoId ? null : photoId)
+                    }
                   />
                 </div>
 
@@ -2678,6 +2727,8 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
               internalMoisture: area.internal_moisture != null ? String(area.internal_moisture) : '',
               externalMoisture: area.external_moisture != null ? String(area.external_moisture) : '',
               internalNotes: area.internal_office_notes || '',
+              extraNotes: area.extra_notes ?? '',
+              primaryPhotoId: area.primary_photo_id ?? null,
               roomViewPhotos,
               infraredEnabled: area.infrared_enabled || false,
               infraredPhoto: infraredPhoto ? { id: infraredPhoto.id, name: infraredPhoto.file_name || '', url: infraredPhoto.signed_url, timestamp: infraredPhoto.created_at } : null,
@@ -3294,7 +3345,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       let saveOption1Equipment: number | null = null;
 
       if (formData.optionSelected === 3) {
-        // "Both" mode: Option 1 has its own labour/equipment
+        // "Both" mode: Option 1 has its own labour/equipment (surface only — no demo/subfloor)
         const opt1AutoResult = calculateCostEstimate({
           nonDemoHours: saveNonDemoHours,
           demolitionHours: 0,
@@ -3310,10 +3361,24 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         saveOption1Labour = o1Labour;
         saveOption1Equipment = o1Equipment;
         saveOption2Total = saveTotal;
+
+        // Dual-write guard: both totals must be non-zero and finite before persisting.
+        // A zero or NaN total here means the form has no hours entered yet — saving
+        // would write a blank price to the customer PDF for one option.
+        if (!saveOption1Total || !isFinite(saveOption1Total) || saveOption1Total <= 0) {
+          throw new Error('Option 1 total could not be computed — ensure surface treatment hours are entered before saving in Both-options mode.');
+        }
+        if (!saveOption2Total || !isFinite(saveOption2Total) || saveOption2Total <= 0) {
+          throw new Error('Option 2 total could not be computed — ensure all labour hours are entered before saving in Both-options mode.');
+        }
       } else if (formData.optionSelected === 1) {
         saveOption1Total = saveTotal;
+        // Null-clear option 2 so stale DB values do not survive a mode switch
+        saveOption2Total = null;
       } else if (formData.optionSelected === 2) {
         saveOption2Total = saveTotal;
+        // Null-clear option 1 so stale DB values do not survive a mode switch
+        saveOption1Total = null;
       }
 
       // 1. Upsert inspections row
@@ -3459,6 +3524,8 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           internal_moisture: area.moistureReadings[0]?.reading ? parseFloat(area.moistureReadings[0].reading) : null,
           external_moisture: area.moistureReadings[1]?.reading ? parseFloat(area.moistureReadings[1].reading) : null,
           internal_office_notes: area.internalNotes || null,
+          extra_notes: area.extraNotes || null,
+          primary_photo_id: area.primaryPhotoId || null,
           infrared_enabled: area.infraredEnabled,
           ...mapInfraredToBooleans(area.infraredObservations || []),
           job_time_minutes: Math.round((area.timeWithoutDemo || 0) * 60),
