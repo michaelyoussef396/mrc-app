@@ -26,7 +26,7 @@ import type {
   Photo,
 } from '@/types/inspection';
 import { validateInspectionCompletion } from '@/lib/schemas/inspectionSchema';
-import { captureBusinessError } from '@/lib/sentry';
+import { addBusinessBreadcrumb, captureBusinessError } from '@/lib/sentry';
 import { logFieldEdits, logSectionMilestone, diffPayload, type FieldChange } from '@/lib/api/fieldEditLog';
 import {
   AlertCircle,
@@ -3616,12 +3616,26 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
 
             // Link photo to this moisture reading (photo was uploaded without moisture_reading_id).
             // Stage 4.3: guard against resurrecting soft-deleted rows.
+            // BUG-026: breadcrumbs track success/failure so Sentry can surface orphaned photos.
             if (reading.photo) {
-              await supabase
+              const { error: linkError } = await supabase
                 .from('photos')
                 .update({ moisture_reading_id: reading.id })
                 .eq('id', reading.photo.id)
                 .is('deleted_at', null);
+
+              if (linkError) {
+                addBusinessBreadcrumb('photo_moisture_link_failed', {
+                  photo_id: reading.photo.id,
+                  moisture_reading_id: reading.id,
+                  error_message: linkError.message,
+                });
+              } else {
+                addBusinessBreadcrumb('photo_moisture_link', {
+                  photo_id: reading.photo.id,
+                  moisture_reading_id: reading.id,
+                });
+              }
             }
           }
         }

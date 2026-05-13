@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import { syncManager, resizePhoto } from '@/lib/offline'
-import { captureBusinessError } from '@/lib/sentry'
+import { addBusinessBreadcrumb, captureBusinessError } from '@/lib/sentry'
 import { recordPhotoHistory } from '@/lib/utils/photoHistory'
 
 export interface PhotoUploadResult {
@@ -125,6 +125,14 @@ export async function uploadInspectionPhoto(
       fileSize: resizedBlob.size,
       error: uploadError.message,
     })
+    addBusinessBreadcrumb('photo_upload_failed', {
+      error_message: uploadError.message,
+      file_size: resizedBlob.size,
+      mime_type: 'image/jpeg',
+      photo_type: metadata.photo_type,
+      inspection_id: metadata.inspection_id,
+      has_moisture_reading_id: !!metadata.moisture_reading_id,
+    })
     throw new Error(`Failed to upload photo: ${uploadError.message}`)
   }
 
@@ -192,6 +200,16 @@ export async function uploadInspectionPhoto(
       caption: metadata.caption.trim(),
       photo_category: metadata.photo_category ?? null,
     },
+  })
+
+  addBusinessBreadcrumb('photo_uploaded', {
+    photo_id: photoData.id,
+    caption_truthy: !!metadata.caption.trim(),
+    has_moisture_reading_id: !!metadata.moisture_reading_id,
+    photo_type: metadata.photo_type,
+    inspection_id: metadata.inspection_id,
+    area_id: metadata.area_id ?? null,
+    file_size: resizedBlob.size,
   })
 
   return {
