@@ -133,19 +133,6 @@ export const notesSchema = z
   .optional();
 
 /**
- * Booking urgency validator
- */
-export const bookingUrgencySchema = z.enum([
-  'ASAP',
-  'within_week',
-  'couple_weeks',
-  'within_month',
-  'couple_months',
-], {
-  errorMap: () => ({ message: 'Please select an urgency level' }),
-});
-
-/**
  * Property type validator (optional)
  */
 export const propertyTypeSchema = z
@@ -224,7 +211,6 @@ export type HiPagesLeadSchemaType = z.infer<typeof hiPagesLeadSchema>;
  * - street: Street address
  * - suburb: Melbourne suburb
  * - postcode: Victorian postcode (3XXX)
- * - urgency: Booking urgency level
  * - issue_description: Detailed problem description (20-1000 chars)
  *
  * Optional fields:
@@ -244,7 +230,6 @@ export const normalLeadSchema = z.object({
   postcode: victorianPostcodeSchema,
 
   // Issue details
-  urgency: bookingUrgencySchema.optional(),
   issue_description: issueDescriptionSchema,
 
   // Optional fields

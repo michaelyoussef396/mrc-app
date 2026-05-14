@@ -27,7 +27,6 @@ interface LeadUpdatePayload {
   property_type?: string | null;
   lead_source?: string | null;
   lead_source_other?: string | null;
-  urgency?: string | null;
   issue_description?: string | null;
   internal_notes?: string | null;
   access_instructions?: string | null;

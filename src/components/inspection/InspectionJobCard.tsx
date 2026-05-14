@@ -11,7 +11,6 @@ import {
   Phone,
   Mail
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import type { InspectionLead } from '@/hooks/useInspectionLeads';
 
 interface InspectionJobCardProps {
@@ -25,7 +24,6 @@ interface InspectionJobCardProps {
  * to select for inspection. Optimized for touch interactions with ≥48px targets.
  *
  * Features:
- * - Urgency badge with color coding
  * - Lead details: name, address, property type, issue
  * - Contact information
  * - "Start Inspection" button with navigation
@@ -34,62 +32,9 @@ interface InspectionJobCardProps {
 export function InspectionJobCard({ lead }: InspectionJobCardProps) {
   const navigate = useNavigate();
 
-  /**
-   * Get urgency badge color and label
-   * Returns Tailwind classes for badge styling
-   */
-  const getUrgencyBadge = () => {
-    const urgencyLower = lead.urgency?.toLowerCase() || '';
-
-    if (urgencyLower === 'asap' || urgencyLower === 'urgent') {
-      return {
-        variant: 'destructive' as const,
-        className: 'bg-red-600 hover:bg-red-700',
-        label: urgencyLower.toUpperCase(),
-      };
-    }
-
-    if (urgencyLower === 'high') {
-      return {
-        variant: 'default' as const,
-        className: 'bg-orange-600 hover:bg-orange-700 text-white',
-        label: 'High',
-      };
-    }
-
-    if (urgencyLower === 'medium') {
-      return {
-        variant: 'secondary' as const,
-        className: 'bg-yellow-500 hover:bg-yellow-600 text-white',
-        label: 'Medium',
-      };
-    }
-
-    if (urgencyLower === 'low') {
-      return {
-        variant: 'outline' as const,
-        className: 'bg-green-600 hover:bg-green-700 text-white',
-        label: 'Low',
-      };
-    }
-
-    // Default for within_week or other values
-    return {
-      variant: 'secondary' as const,
-      className: 'bg-blue-600 hover:bg-blue-700 text-white',
-      label: 'Within Week',
-    };
-  };
-
-  /**
-   * Handle "Start Inspection" button click
-   * Navigates to inspection form with lead ID as query parameter
-   */
   const handleStartInspection = () => {
     navigate(`/technician/inspection?leadId=${lead.id}`);
   };
-
-  const urgencyBadge = getUrgencyBadge();
 
   // Format address for display
   const fullAddress = [
@@ -109,24 +54,15 @@ export function InspectionJobCard({ lead }: InspectionJobCardProps) {
   return (
     <Card className="w-full hover:shadow-md transition-shadow duration-200">
       <CardHeader className="pb-3">
-        {/* Header: Lead Number + Urgency Badge */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-mono text-muted-foreground">
-              {lead.lead_number}
-            </span>
-            {lead.lead_source === 'hipages' && (
-              <Badge variant="outline" className="text-xs">
-                HiPages
-              </Badge>
-            )}
-          </div>
-          <Badge
-            variant={urgencyBadge.variant}
-            className={cn('text-xs font-semibold', urgencyBadge.className)}
-          >
-            {urgencyBadge.label}
-          </Badge>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-mono text-muted-foreground">
+            {lead.lead_number}
+          </span>
+          {lead.lead_source === 'hipages' && (
+            <Badge variant="outline" className="text-xs">
+              HiPages
+            </Badge>
+          )}
         </div>
       </CardHeader>
 

@@ -124,16 +124,6 @@ export const propertyTypeOptions = [
 ];
 
 /**
- * Urgency level options
- */
-export const urgencyOptions = [
-  { label: 'Low (Can wait weeks)', value: 'low' },
-  { label: 'Medium (Within days)', value: 'medium' },
-  { label: 'High (ASAP)', value: 'high' },
-  { label: 'Emergency (Same day)', value: 'emergency' },
-];
-
-/**
  * Australian states
  */
 export const stateOptions = [

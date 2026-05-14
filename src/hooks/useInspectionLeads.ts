@@ -17,7 +17,6 @@ export interface InspectionLead {
   property_address_postcode: string;
   property_address_state: string;
   property_type: string;
-  urgency: string;
   issue_description: string;
   inspection_scheduled_date: string | null;
   created_at: string;
@@ -27,9 +26,7 @@ export interface InspectionLead {
 /**
  * Hook: Fetch leads ready for inspection
  *
- * Returns leads with status 'inspection_waiting' sorted by:
- * 1. Urgency priority (ASAP → urgent → high → within_week → medium → low)
- * 2. Creation date (oldest first - FIFO)
+ * Returns leads with status 'inspection_waiting' sorted FIFO (oldest first).
  *
  * Includes real-time subscription for automatic updates when:
  * - New leads become inspection-ready
@@ -45,7 +42,6 @@ export function useInspectionLeads() {
     queryFn: async () => {
       if (!user) return [];
 
-      // Query for inspection-ready leads with optimized sorting
       const { data, error } = await supabase
         .from('leads')
         .select(`
@@ -61,7 +57,6 @@ export function useInspectionLeads() {
           property_address_postcode,
           property_address_state,
           property_type,
-          urgency,
           issue_description,
           inspection_scheduled_date,
           created_at,
@@ -73,33 +68,7 @@ export function useInspectionLeads() {
 
       if (error) throw error;
 
-      // Client-side sorting by urgency priority then FIFO
-      // Note: Supabase doesn't support CASE expressions in orderBy
-      const sortedData = (data as InspectionLead[]).sort((a, b) => {
-        // Urgency priority map
-        const urgencyPriority: Record<string, number> = {
-          'asap': 1,
-          'ASAP': 1,
-          'urgent': 2,
-          'high': 3,
-          'within_week': 4,
-          'medium': 5,
-          'low': 6,
-        };
-
-        const priorityA = urgencyPriority[a.urgency] || 7;
-        const priorityB = urgencyPriority[b.urgency] || 7;
-
-        // Sort by urgency priority first
-        if (priorityA !== priorityB) {
-          return priorityA - priorityB;
-        }
-
-        // Then by created_at (oldest first - FIFO)
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      });
-
-      return sortedData;
+      return data as InspectionLead[];
     },
     enabled: !!user,
     refetchInterval: 30000, // Refetch every 30 seconds as fallback

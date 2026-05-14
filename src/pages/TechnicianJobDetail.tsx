@@ -42,7 +42,6 @@ interface LeadData {
   issue_description: string | null;
   notes: string | null;
   internal_notes: string | null;
-  urgency: string | null;
   property_type: string | null;
   access_instructions: string | null;
   status: string;
@@ -839,16 +838,6 @@ export default function TechnicianJobDetail() {
                     <p className="text-xs text-muted-foreground">Lead source channel</p>
                   </div>
                 </div>
-                {lead.urgency && (
-                  <div className="mt-4 pt-4 border-t">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Urgency</span>
-                      <Badge variant="secondary" className="capitalize text-xs">
-                        {lead.urgency}
-                      </Badge>
-                    </div>
-                  </div>
-                )}
               </>
             )}
           </div>
