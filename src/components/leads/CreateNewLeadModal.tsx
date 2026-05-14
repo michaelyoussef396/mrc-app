@@ -3,8 +3,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
 import { sendSlackNotification } from '@/lib/api/notifications';
-import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
-import { leadSourceSchema } from '@/lib/validators/lead-creation.schemas';
+import { calculatePropertyZone, leadSourceOptions, stateOptions } from '@/lib/leadUtils';
+import {
+  isValidAustralianState,
+  isValidVictorianPostcode,
+  leadSourceSchema,
+} from '@/lib/validators/lead-creation.schemas';
 import { captureBusinessError } from '@/lib/sentry';
 import {
   AlertCircle,
@@ -50,6 +54,8 @@ interface FormErrors {
   email?: string;
   propertyAddress?: string;
   suburb?: string;
+  state?: string;
+  postcode?: string;
   preferredDate?: string;
   preferredTime?: string;
   issueDescription?: string;
@@ -334,6 +340,16 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
       newErrors.suburb = 'Suburb is required';
     }
 
+    if (!isValidAustralianState(formData.state)) {
+      newErrors.state = 'Please select a state';
+    }
+
+    if (!formData.postcode.trim()) {
+      newErrors.postcode = 'Postcode is required';
+    } else if (!isValidVictorianPostcode(formData.postcode)) {
+      newErrors.postcode = 'Must be a 4-digit Victorian postcode (3XXX)';
+    }
+
     if (!formData.preferredDate) {
       newErrors.preferredDate = 'Preferred date is required';
     } else if (formData.preferredDate < minDate) {
@@ -406,7 +422,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         email: formData.email.toLowerCase().trim(),
         property_address_street: sanitizeInput(formData.propertyAddress),
         property_address_suburb: sanitizeInput(formData.suburb),
-        property_address_postcode: formData.postcode || undefined,
+        property_address_postcode: formData.postcode,
         property_address_state: formData.state,
         issue_description: sanitizeInput(formData.issueDescription),
         lead_source: sourceParseResult.data,
@@ -733,7 +749,61 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                 )}
               </div>
 
-              {/* 7. Email Address */}
+              {/* 7. State (auto-filled from Places, editable) */}
+              <div className="flex flex-col">
+                <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
+                  State *
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.state}
+                    onChange={e => handleInputChange('state', e.target.value)}
+                    className={`w-full rounded-xl h-12 px-4 pr-10 text-base transition-all bg-white appearance-none cursor-pointer ${
+                      errors.state
+                        ? 'border-2 border-[#FF3B30] focus:border-[#FF3B30] focus:ring-2 focus:ring-[#FF3B30]/20'
+                        : 'border border-gray-200 focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20'
+                    }`}
+                    style={{ outline: 'none', color: '#1d1d1f' }}
+                  >
+                    {stateOptions.map(opt => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="h-5 w-5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#617589' }} />
+                </div>
+                {errors.state && (
+                  <p className="text-xs mt-1 ml-1" style={{ color: '#FF3B30' }}>{errors.state}</p>
+                )}
+              </div>
+
+              {/* 8. Postcode (auto-filled from Places, editable) */}
+              <div className="flex flex-col">
+                <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
+                  Postcode *
+                </label>
+                <input
+                  type="text"
+                  value={formData.postcode}
+                  onChange={e => handleInputChange('postcode', e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="e.g. 3000"
+                  inputMode="numeric"
+                  pattern="[0-9]{4}"
+                  maxLength={4}
+                  className={`w-full rounded-xl h-12 p-4 text-base transition-all ${
+                    errors.postcode
+                      ? 'border-2 border-[#FF3B30] focus:border-[#FF3B30] focus:ring-2 focus:ring-[#FF3B30]/20'
+                      : 'border border-gray-200 focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20'
+                  }`}
+                  style={{ outline: 'none' }}
+                />
+                {errors.postcode && (
+                  <p className="text-xs mt-1 ml-1" style={{ color: '#FF3B30' }}>{errors.postcode}</p>
+                )}
+              </div>
+
+              {/* 9. Email Address */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
                   Email Address *
@@ -755,7 +825,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                 )}
               </div>
 
-              {/* 8. Brief Description */}
+              {/* 10. Brief Description */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
                   Brief Description *
@@ -784,7 +854,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                 </div>
               </div>
 
-              {/* 9. Lead Source */}
+              {/* 11. Lead Source */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
                   Lead Source *
