@@ -24,6 +24,30 @@ Items that need a decision from you, not engineering work. Resolving these unblo
 
 ---
 
+## Wave 6.1 — Cleanup PR (post-Wave-6 deploy, target: within 48h)
+
+Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocking nits surfaced by the Phase 8 audit pass.
+
+- **W6.1-A — Enum render parity** — `property_occupation` displays differently across surfaces. `LeadDetail.tsx` Card 8 (~:1820) uses an explicit label map ("Owner Occupied", "Tenants Vacating"). `TechnicianJobDetail.tsx:530-541` uses `replace(/_/g, ' ')` + lowercase capitalize ("Owner occupied", "Tenants vacating"). Extract shared helper or copy the map for consistency. Source: Phase 8f code-reviewer.
+
+- **W6.1-B — Defensive `old` status in FinishLeadSection** — `LeadDetail.tsx:2430` hardcodes `old: 'google_review'` in the `logFieldEdits` call. Section gated on `lead.status === 'google_review'` upstream so it's correct in practice, but if the gate ever changes the audit log will lie. Read from `lead.status` instead. Source: Phase 8f code-reviewer.
+
+- **W6.1-C — Performance: `Promise.all` snapshot fetches** — Two opportunities surfaced by Phase 8e performance-reviewer:
+  - `TechnicianInspectionForm.tsx:3392-3420` — three sequential `await`s for inspection/areas/subfloor snapshots before each section save. Wrap as `Promise.all` → saves ~300ms per autosave (autosave fires every 30s during multi-hour inspections). **Highest impact.**
+  - `TechnicianJobDetail.tsx:198-213` — `subfloor_data.maybeSingle()` + `inspection_areas` fetch are sequential. Wrap as `Promise.all` → saves ~100-200ms per Tech Job Detail open on van WiFi.
+
+- **W6.1-D — Misleading test name** — `pricing.test.ts:154` test is named "should null-clear option2..." but actually validates `calculateCostEstimate` returns a finite positive total (null-clear lives in TIF, not pricing.ts). Rename to "should produce a finite positive total for the option1-only path". Source: Phase 8f code-reviewer.
+
+- **W6.1-E — Ugly inline cast** — `ViewReportPDF.tsx:1015` has a huge inline cast `(lead as { id: string; full_name: string; email?: string; ... }).status`. Extract a small typed local interface or narrow to `(lead as { status?: string }).status`. Cosmetic. Source: Phase 8f code-reviewer.
+
+- **W6.1-F — Caption regex anchor (orphan EF)** — `supabase/functions/check-photo-moisture-orphans/index.ts` regex `/^moisture$|\d+(\.\d+)?%/i` lacks a `$` anchor after the percent group, so `"42%abc"` matches. Tighten to `/^moisture$|^\d+(\.\d+)?%$/i`. False positives are cheap warnings only; this is optional polish. Source: Phase 8f code-reviewer.
+
+- **W6.1-G — Migration filename time-suffix convention** — `supabase/migrations/20260513_phase5_dead_column_drop.sql` lacks the 6-digit `HHMMSS` suffix that all other recent migrations use. Sort order is fine (sorts before `20260513122754_...`); this is cosmetic only. Source: Phase 8f code-reviewer.
+
+- **W6.1-H — EF `details` leakage** — `check-photo-moisture-orphans/index.ts:92` returns `details: queryError.message` to the caller. Per error-handling rules, never expose raw DB errors. Function is service-role-only (not user-facing) so impact is minimal, but scrub to a generic message. Source: Phase 8d security-reviewer (LOW severity).
+
+---
+
 ## Launch Blockers (MUST fix before Glen + Clayton + customers start using)
 
 ### L1 — Equipment pricing audit + AFD rate
