@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/integrations/supabase/client'
+import { captureBusinessError } from '@/lib/sentry'
 
 // Types
 export interface TravelTimeResult {
@@ -250,7 +251,10 @@ export function useLoadGoogleMaps() {
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
 
     if (!apiKey) {
-      setError('Google Maps API key not configured')
+      const msg = 'Google Maps API key not configured'
+      console.error('[useGoogleMaps]', msg, '— VITE_GOOGLE_MAPS_API_KEY missing at build time')
+      captureBusinessError(msg, { source: 'useLoadGoogleMaps', cause: 'env_var_missing' })
+      setError(msg)
       return
     }
 
@@ -271,8 +275,15 @@ export function useLoadGoogleMaps() {
       setIsLoaded(true)
     }
 
-    script.onerror = () => {
-      setError('Failed to load Google Maps')
+    script.onerror = (event) => {
+      const msg = 'Failed to load Google Maps'
+      console.error('[useGoogleMaps]', msg, '— check API key restrictions, Places API enabled, billing, and HTTP referrer allowlist in Google Cloud Console', event)
+      captureBusinessError(msg, {
+        source: 'useLoadGoogleMaps',
+        cause: 'script_load_failed',
+        scriptSrc: script.src.replace(apiKey, '<redacted>'),
+      })
+      setError(msg)
     }
 
     document.head.appendChild(script)
