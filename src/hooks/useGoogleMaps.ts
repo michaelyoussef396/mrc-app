@@ -169,7 +169,13 @@ export function useAddressAutocomplete(_inputRef: React.RefObject<HTMLInputEleme
       setPredictions(mapped)
       return mapped
     } catch (err) {
-      console.error('Autocomplete suggestions error:', err)
+      console.error('[useAddressAutocomplete] Autocomplete suggestions error:', err)
+      captureBusinessError('Google Places autocomplete failed', {
+        source: 'useAddressAutocomplete.getPlacePredictions',
+        cause: 'autocomplete_request_failed',
+        error: err instanceof Error ? err.message : String(err),
+        inputLength: input.length,
+      })
       setPredictions([])
       return []
     } finally {
@@ -215,7 +221,13 @@ export function useAddressAutocomplete(_inputRef: React.RefObject<HTMLInputEleme
 
       return details
     } catch (err) {
-      console.error('Place details error:', err)
+      console.error('[useAddressAutocomplete] Place details error:', err)
+      captureBusinessError('Google Places details fetch failed', {
+        source: 'useAddressAutocomplete.getPlaceDetails',
+        cause: 'place_details_request_failed',
+        error: err instanceof Error ? err.message : String(err),
+        placeId,
+      })
       return null
     }
   }, [ensureInitialized])
