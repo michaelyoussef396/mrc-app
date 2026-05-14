@@ -1,5 +1,11 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
   UserPlus,
   ArrowRight,
@@ -14,6 +20,9 @@ import {
   Clock,
   PencilLine,
   StickyNote,
+  Layers,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { TimelineEvent, FieldEditMetadata } from '@/hooks/useActivityTimeline';
 import { formatDateTimeAU } from '@/lib/dateUtils';
@@ -33,6 +42,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Bell,
   PencilLine,
   StickyNote,
+  Layers,
 };
 
 const MAX_DIFF_STRING_LENGTH = 60;
@@ -61,6 +71,58 @@ function getFieldEditMetadata(
   const changes = metadata.changes;
   if (!Array.isArray(changes)) return null;
   return metadata as unknown as FieldEditMetadata;
+}
+
+interface SectionMilestoneChange {
+  field: string;
+  old: unknown;
+  new: unknown;
+}
+
+function getSectionMilestoneChanges(
+  metadata: Record<string, unknown> | undefined
+): SectionMilestoneChange[] | null {
+  if (!metadata) return null;
+  const changes = metadata.changes;
+  if (!Array.isArray(changes)) return null;
+  return changes as SectionMilestoneChange[];
+}
+
+interface SectionMilestoneRowProps {
+  changes: SectionMilestoneChange[];
+}
+
+function SectionMilestoneRow({ changes }: SectionMilestoneRowProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 transition-colors mt-0.5"
+          aria-expanded={isOpen}
+        >
+          {isOpen ? (
+            <ChevronUp className="h-3 w-3" />
+          ) : (
+            <ChevronDown className="h-3 w-3" />
+          )}
+          {isOpen ? 'Hide' : 'Show'} {changes.length} field{changes.length === 1 ? '' : 's'}
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul className="mt-1 space-y-0.5">
+          {changes.map((change, i) => (
+            <li key={i} className="text-xs text-muted-foreground">
+              <span className="font-medium">{getFieldLabel(change.field)}:</span>{' '}
+              {formatDiffValue(change.old)} → {formatDiffValue(change.new)}
+            </li>
+          ))}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
+  );
 }
 
 // Relative time formatting (Australian)
@@ -198,6 +260,10 @@ export function ActivityTimeline({
           event.type === 'note_added' && event.metadata && typeof event.metadata.note_text === 'string'
             ? (event.metadata as { note_text: string; author?: string })
             : null;
+        const sectionMilestoneChanges =
+          event.type === 'section_milestone'
+            ? getSectionMilestoneChanges(event.metadata)
+            : null;
 
         return (
           <div
@@ -216,6 +282,11 @@ export function ActivityTimeline({
                     v{fieldEdit.version}
                   </span>
                 )}
+                {sectionMilestoneChanges && (
+                  <span className="inline-flex items-center rounded-full bg-indigo-100 text-indigo-700 px-2 py-0.5 text-xs font-medium">
+                    Section Save
+                  </span>
+                )}
                 <p className="text-sm font-medium">{event.title}</p>
                 {sourceBadge && (
                   <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${sourceBadge.className}`}>
@@ -232,6 +303,8 @@ export function ActivityTimeline({
                     </li>
                   ))}
                 </ul>
+              ) : sectionMilestoneChanges ? (
+                <SectionMilestoneRow changes={sectionMilestoneChanges} />
               ) : noteAdded ? (
                 <blockquote className="text-xs text-gray-700 border-l-2 border-gray-300 pl-2 whitespace-pre-wrap">
                   {noteAdded.note_text}

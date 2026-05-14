@@ -91,14 +91,14 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   invoicing_sent: { label: 'Invoice Sent', color: '#EC4899' },
 };
 
-// Source display configuration
+// Source display configuration — canonical 8 values (Phase 7 / BUG-011)
 const sourceConfig: Record<string, string> = {
   website: 'Website',
-  referral: 'Referral',
-  google: 'Google',
   hipages: 'HiPages',
+  google: 'Google',
+  referral: 'Referral',
+  repeat: 'Repeat Customer',
   facebook: 'Facebook',
-  phone: 'Phone',
   instagram: 'Instagram',
   other: 'Other',
 };

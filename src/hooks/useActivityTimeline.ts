@@ -44,6 +44,8 @@ function getActivityIcon(type: string): { iconName: string; iconColor: string } 
       return { iconName: 'PencilLine', iconColor: 'text-blue-600 bg-blue-100' };
     case 'note_added':
       return { iconName: 'StickyNote', iconColor: 'text-amber-600 bg-amber-100' };
+    case 'section_milestone':
+      return { iconName: 'Layers', iconColor: 'text-indigo-600 bg-indigo-100' };
     default:
       return { iconName: 'Activity', iconColor: 'text-gray-600 bg-gray-100' };
   }

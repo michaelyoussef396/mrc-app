@@ -36,16 +36,18 @@ export function useTodaysSchedule(): TodaysScheduleResult {
       const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' }).format(new Date());
 
 
-      // Fetch inspections for today with lead details
+      // Fetch inspections for today with lead details.
+      // NOTE: inspection_start_time + selected_job_type columns dropped in
+      // Phase 5 dead-column drop migration. Schedule shows 'TBD' for time
+      // and a generic 'Inspection' label until a replacement schedule
+      // model is built.
       const { data, error: fetchError } = await supabase
         .from('inspections')
         .select(`
           id,
           inspection_date,
-          inspection_start_time,
           inspector_name,
           inspector_id,
-          selected_job_type,
           lead:leads (
             id,
             full_name,
@@ -55,7 +57,7 @@ export function useTodaysSchedule(): TodaysScheduleResult {
           )
         `)
         .eq('inspection_date', today)
-        .order('inspection_start_time', { ascending: true });
+        .order('inspection_date', { ascending: true });
 
       if (fetchError) {
         console.error('[Schedule] Fetch error:', fetchError);
@@ -70,13 +72,13 @@ export function useTodaysSchedule(): TodaysScheduleResult {
 
         return {
           id: inspection.id,
-          time: formatTime(inspection.inspection_start_time),
+          time: 'TBD',
           clientName: lead?.full_name || 'Unknown Client',
           address: lead?.property_address_street || '',
           suburb: lead?.property_address_suburb || '',
           technicianName: techName,
           technicianInitial: techName.charAt(0).toUpperCase(),
-          inspectionType: formatJobType(inspection.selected_job_type),
+          inspectionType: 'Inspection',
           leadStatus: lead?.status || 'unknown',
           leadId: lead?.id || '',
         };
@@ -95,28 +97,3 @@ export function useTodaysSchedule(): TodaysScheduleResult {
   return { schedule, isLoading, error };
 }
 
-// Helper to format time from "09:00:00" to "9:00 AM"
-function formatTime(time: string | null): string {
-  if (!time) return 'TBD';
-
-  try {
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
-  } catch {
-    return time;
-  }
-}
-
-// Helper to format job type
-function formatJobType(jobType: string | null): string {
-  if (!jobType) return 'Inspection';
-
-  // Convert snake_case to Title Case
-  return jobType
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-}

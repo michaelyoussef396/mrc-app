@@ -526,7 +526,6 @@ export type Database = {
           area_name: string
           area_order: number | null
           comments: string | null
-          comments_approved: boolean | null
           created_at: string | null
           demolition_description: string | null
           demolition_required: boolean | null
@@ -546,22 +545,9 @@ export type Database = {
           internal_moisture: number | null
           internal_office_notes: string | null
           job_time_minutes: number
-          moisture_readings_enabled: boolean | null
-          mould_ceiling: boolean | null
-          mould_contents: boolean | null
-          mould_cornice: boolean | null
-          mould_cupboard: boolean | null
           mould_description: string | null
-          mould_flooring: boolean | null
-          mould_grout_silicone: boolean | null
-          mould_none_visible: boolean | null
-          mould_skirting: boolean | null
           mould_visible_custom: string | null
           mould_visible_locations: Json | null
-          mould_walls: boolean | null
-          mould_wardrobe: boolean | null
-          mould_window_furnishings: boolean | null
-          mould_windows: boolean | null
           primary_photo_id: string | null
           temperature: number | null
           updated_at: string | null
@@ -570,7 +556,6 @@ export type Database = {
           area_name: string
           area_order?: number | null
           comments?: string | null
-          comments_approved?: boolean | null
           created_at?: string | null
           demolition_description?: string | null
           demolition_required?: boolean | null
@@ -590,22 +575,9 @@ export type Database = {
           internal_moisture?: number | null
           internal_office_notes?: string | null
           job_time_minutes: number
-          moisture_readings_enabled?: boolean | null
-          mould_ceiling?: boolean | null
-          mould_contents?: boolean | null
-          mould_cornice?: boolean | null
-          mould_cupboard?: boolean | null
           mould_description?: string | null
-          mould_flooring?: boolean | null
-          mould_grout_silicone?: boolean | null
-          mould_none_visible?: boolean | null
-          mould_skirting?: boolean | null
           mould_visible_custom?: string | null
           mould_visible_locations?: Json | null
-          mould_walls?: boolean | null
-          mould_wardrobe?: boolean | null
-          mould_window_furnishings?: boolean | null
-          mould_windows?: boolean | null
           primary_photo_id?: string | null
           temperature?: number | null
           updated_at?: string | null
@@ -614,7 +586,6 @@ export type Database = {
           area_name?: string
           area_order?: number | null
           comments?: string | null
-          comments_approved?: boolean | null
           created_at?: string | null
           demolition_description?: string | null
           demolition_required?: boolean | null
@@ -634,22 +605,9 @@ export type Database = {
           internal_moisture?: number | null
           internal_office_notes?: string | null
           job_time_minutes?: number
-          moisture_readings_enabled?: boolean | null
-          mould_ceiling?: boolean | null
-          mould_contents?: boolean | null
-          mould_cornice?: boolean | null
-          mould_cupboard?: boolean | null
           mould_description?: string | null
-          mould_flooring?: boolean | null
-          mould_grout_silicone?: boolean | null
-          mould_none_visible?: boolean | null
-          mould_skirting?: boolean | null
           mould_visible_custom?: string | null
           mould_visible_locations?: Json | null
-          mould_walls?: boolean | null
-          mould_wardrobe?: boolean | null
-          mould_window_furnishings?: boolean | null
-          mould_windows?: boolean | null
           primary_photo_id?: string | null
           temperature?: number | null
           updated_at?: string | null
@@ -671,33 +629,80 @@ export type Database = {
           },
         ]
       }
+      inspection_areas_dead_col_drop_backup_20260513: {
+        Row: {
+          comments_approved: boolean | null
+          id: string | null
+          moisture_readings_enabled: boolean | null
+          mould_ceiling: boolean | null
+          mould_contents: boolean | null
+          mould_cornice: boolean | null
+          mould_cupboard: boolean | null
+          mould_flooring: boolean | null
+          mould_grout_silicone: boolean | null
+          mould_none_visible: boolean | null
+          mould_skirting: boolean | null
+          mould_walls: boolean | null
+          mould_wardrobe: boolean | null
+          mould_window_furnishings: boolean | null
+          mould_windows: boolean | null
+          snapshot_at: string | null
+        }
+        Insert: {
+          comments_approved?: boolean | null
+          id?: string | null
+          moisture_readings_enabled?: boolean | null
+          mould_ceiling?: boolean | null
+          mould_contents?: boolean | null
+          mould_cornice?: boolean | null
+          mould_cupboard?: boolean | null
+          mould_flooring?: boolean | null
+          mould_grout_silicone?: boolean | null
+          mould_none_visible?: boolean | null
+          mould_skirting?: boolean | null
+          mould_walls?: boolean | null
+          mould_wardrobe?: boolean | null
+          mould_window_furnishings?: boolean | null
+          mould_windows?: boolean | null
+          snapshot_at?: string | null
+        }
+        Update: {
+          comments_approved?: boolean | null
+          id?: string | null
+          moisture_readings_enabled?: boolean | null
+          mould_ceiling?: boolean | null
+          mould_contents?: boolean | null
+          mould_cornice?: boolean | null
+          mould_cupboard?: boolean | null
+          mould_flooring?: boolean | null
+          mould_grout_silicone?: boolean | null
+          mould_none_visible?: boolean | null
+          mould_skirting?: boolean | null
+          mould_walls?: boolean | null
+          mould_wardrobe?: boolean | null
+          mould_window_furnishings?: boolean | null
+          mould_windows?: boolean | null
+          snapshot_at?: string | null
+        }
+        Relationships: []
+      }
       inspections: {
         Row: {
           additional_equipment_comments: string | null
           additional_info_technician: string | null
-          air_mover_rate: number | null
-          air_movers_enabled: boolean | null
           air_movers_qty: number | null
           antimicrobial: boolean | null
           attention_to: string | null
           cause_of_mould: string | null
-          commercial_dehumidifier_enabled: boolean | null
           commercial_dehumidifier_qty: number | null
-          construction_hours: number | null
           contributing_factors: string | null
           created_at: string | null
-          dehumidifier_rate: number | null
-          demo_labour_rate: number | null
           demolition_hours: number | null
           direction_photos_enabled: boolean | null
           discount_percent: number | null
-          drying_equipment_enabled: boolean | null
           dwelling_type: Database["public"]["Enums"]["dwelling_type"] | null
           equipment_cost_ex_gst: number | null
-          equipment_cost_inc_gst: number | null
           equipment_days: number | null
-          estimated_cost_ex_gst: number | null
-          estimated_cost_inc_gst: number | null
           gst_amount: number | null
           hepa_vac: boolean | null
           home_sanitation_fogging: boolean | null
@@ -705,7 +710,6 @@ export type Database = {
           identified_causes: string | null
           immediate_actions: string | null
           inspection_date: string
-          inspection_start_time: string | null
           inspector_id: string
           inspector_name: string | null
           job_number: string | null
@@ -715,10 +719,8 @@ export type Database = {
           lead_id: string
           long_term_protection: string | null
           manual_labour_override: boolean | null
-          manual_price_override: boolean | null
           manual_total_inc_gst: number | null
           no_demolition_hours: number | null
-          non_demo_labour_rate: number | null
           option_1_equipment_ex_gst: number | null
           option_1_labour_ex_gst: number | null
           option_1_total_inc_gst: number | null
@@ -736,23 +738,17 @@ export type Database = {
           pdf_generated_at: string | null
           pdf_url: string | null
           pdf_version: number | null
-          property_address_snapshot: string | null
           property_occupation:
             | Database["public"]["Enums"]["property_occupation"]
             | null
-          rcd_box_enabled: boolean | null
           rcd_box_qty: number | null
-          rcd_rate: number | null
           recommended_dehumidifier: string | null
           report_generated: boolean | null
           report_pdf_url: string | null
           report_sent_date: string | null
           requested_by: string | null
-          selected_job_type: Database["public"]["Enums"]["job_type"] | null
           stain_removing_antimicrobial: boolean | null
           subfloor_hours: number | null
-          subfloor_labour_rate: number | null
-          subfloor_required: boolean | null
           subtotal_ex_gst: number | null
           timeline_text: string | null
           total_inc_gst: number | null
@@ -770,29 +766,19 @@ export type Database = {
         Insert: {
           additional_equipment_comments?: string | null
           additional_info_technician?: string | null
-          air_mover_rate?: number | null
-          air_movers_enabled?: boolean | null
           air_movers_qty?: number | null
           antimicrobial?: boolean | null
           attention_to?: string | null
           cause_of_mould?: string | null
-          commercial_dehumidifier_enabled?: boolean | null
           commercial_dehumidifier_qty?: number | null
-          construction_hours?: number | null
           contributing_factors?: string | null
           created_at?: string | null
-          dehumidifier_rate?: number | null
-          demo_labour_rate?: number | null
           demolition_hours?: number | null
           direction_photos_enabled?: boolean | null
           discount_percent?: number | null
-          drying_equipment_enabled?: boolean | null
           dwelling_type?: Database["public"]["Enums"]["dwelling_type"] | null
           equipment_cost_ex_gst?: number | null
-          equipment_cost_inc_gst?: number | null
           equipment_days?: number | null
-          estimated_cost_ex_gst?: number | null
-          estimated_cost_inc_gst?: number | null
           gst_amount?: number | null
           hepa_vac?: boolean | null
           home_sanitation_fogging?: boolean | null
@@ -800,7 +786,6 @@ export type Database = {
           identified_causes?: string | null
           immediate_actions?: string | null
           inspection_date: string
-          inspection_start_time?: string | null
           inspector_id: string
           inspector_name?: string | null
           job_number?: string | null
@@ -810,10 +795,8 @@ export type Database = {
           lead_id: string
           long_term_protection?: string | null
           manual_labour_override?: boolean | null
-          manual_price_override?: boolean | null
           manual_total_inc_gst?: number | null
           no_demolition_hours?: number | null
-          non_demo_labour_rate?: number | null
           option_1_equipment_ex_gst?: number | null
           option_1_labour_ex_gst?: number | null
           option_1_total_inc_gst?: number | null
@@ -831,23 +814,17 @@ export type Database = {
           pdf_generated_at?: string | null
           pdf_url?: string | null
           pdf_version?: number | null
-          property_address_snapshot?: string | null
           property_occupation?:
             | Database["public"]["Enums"]["property_occupation"]
             | null
-          rcd_box_enabled?: boolean | null
           rcd_box_qty?: number | null
-          rcd_rate?: number | null
           recommended_dehumidifier?: string | null
           report_generated?: boolean | null
           report_pdf_url?: string | null
           report_sent_date?: string | null
           requested_by?: string | null
-          selected_job_type?: Database["public"]["Enums"]["job_type"] | null
           stain_removing_antimicrobial?: boolean | null
           subfloor_hours?: number | null
-          subfloor_labour_rate?: number | null
-          subfloor_required?: boolean | null
           subtotal_ex_gst?: number | null
           timeline_text?: string | null
           total_inc_gst?: number | null
@@ -865,29 +842,19 @@ export type Database = {
         Update: {
           additional_equipment_comments?: string | null
           additional_info_technician?: string | null
-          air_mover_rate?: number | null
-          air_movers_enabled?: boolean | null
           air_movers_qty?: number | null
           antimicrobial?: boolean | null
           attention_to?: string | null
           cause_of_mould?: string | null
-          commercial_dehumidifier_enabled?: boolean | null
           commercial_dehumidifier_qty?: number | null
-          construction_hours?: number | null
           contributing_factors?: string | null
           created_at?: string | null
-          dehumidifier_rate?: number | null
-          demo_labour_rate?: number | null
           demolition_hours?: number | null
           direction_photos_enabled?: boolean | null
           discount_percent?: number | null
-          drying_equipment_enabled?: boolean | null
           dwelling_type?: Database["public"]["Enums"]["dwelling_type"] | null
           equipment_cost_ex_gst?: number | null
-          equipment_cost_inc_gst?: number | null
           equipment_days?: number | null
-          estimated_cost_ex_gst?: number | null
-          estimated_cost_inc_gst?: number | null
           gst_amount?: number | null
           hepa_vac?: boolean | null
           home_sanitation_fogging?: boolean | null
@@ -895,7 +862,6 @@ export type Database = {
           identified_causes?: string | null
           immediate_actions?: string | null
           inspection_date?: string
-          inspection_start_time?: string | null
           inspector_id?: string
           inspector_name?: string | null
           job_number?: string | null
@@ -905,10 +871,8 @@ export type Database = {
           lead_id?: string
           long_term_protection?: string | null
           manual_labour_override?: boolean | null
-          manual_price_override?: boolean | null
           manual_total_inc_gst?: number | null
           no_demolition_hours?: number | null
-          non_demo_labour_rate?: number | null
           option_1_equipment_ex_gst?: number | null
           option_1_labour_ex_gst?: number | null
           option_1_total_inc_gst?: number | null
@@ -926,23 +890,17 @@ export type Database = {
           pdf_generated_at?: string | null
           pdf_url?: string | null
           pdf_version?: number | null
-          property_address_snapshot?: string | null
           property_occupation?:
             | Database["public"]["Enums"]["property_occupation"]
             | null
-          rcd_box_enabled?: boolean | null
           rcd_box_qty?: number | null
-          rcd_rate?: number | null
           recommended_dehumidifier?: string | null
           report_generated?: boolean | null
           report_pdf_url?: string | null
           report_sent_date?: string | null
           requested_by?: string | null
-          selected_job_type?: Database["public"]["Enums"]["job_type"] | null
           stain_removing_antimicrobial?: boolean | null
           subfloor_hours?: number | null
-          subfloor_labour_rate?: number | null
-          subfloor_required?: boolean | null
           subtotal_ex_gst?: number | null
           timeline_text?: string | null
           total_inc_gst?: number | null
@@ -966,6 +924,96 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      inspections_dead_col_drop_backup_20260513: {
+        Row: {
+          air_mover_rate: number | null
+          air_movers_enabled: boolean | null
+          commercial_dehumidifier_enabled: boolean | null
+          construction_hours: number | null
+          dehumidifier_rate: number | null
+          demo_labour_rate: number | null
+          drying_equipment_enabled: boolean | null
+          equipment_cost_inc_gst: number | null
+          estimated_cost_ex_gst: number | null
+          estimated_cost_inc_gst: number | null
+          id: string | null
+          inspection_start_time: string | null
+          manual_price_override: boolean | null
+          non_demo_labour_rate: number | null
+          property_address_snapshot: string | null
+          rcd_box_enabled: boolean | null
+          rcd_rate: number | null
+          selected_job_type: string | null
+          snapshot_at: string | null
+          subfloor_labour_rate: number | null
+          subfloor_required: boolean | null
+        }
+        Insert: {
+          air_mover_rate?: number | null
+          air_movers_enabled?: boolean | null
+          commercial_dehumidifier_enabled?: boolean | null
+          construction_hours?: number | null
+          dehumidifier_rate?: number | null
+          demo_labour_rate?: number | null
+          drying_equipment_enabled?: boolean | null
+          equipment_cost_inc_gst?: number | null
+          estimated_cost_ex_gst?: number | null
+          estimated_cost_inc_gst?: number | null
+          id?: string | null
+          inspection_start_time?: string | null
+          manual_price_override?: boolean | null
+          non_demo_labour_rate?: number | null
+          property_address_snapshot?: string | null
+          rcd_box_enabled?: boolean | null
+          rcd_rate?: number | null
+          selected_job_type?: string | null
+          snapshot_at?: string | null
+          subfloor_labour_rate?: number | null
+          subfloor_required?: boolean | null
+        }
+        Update: {
+          air_mover_rate?: number | null
+          air_movers_enabled?: boolean | null
+          commercial_dehumidifier_enabled?: boolean | null
+          construction_hours?: number | null
+          dehumidifier_rate?: number | null
+          demo_labour_rate?: number | null
+          drying_equipment_enabled?: boolean | null
+          equipment_cost_inc_gst?: number | null
+          estimated_cost_ex_gst?: number | null
+          estimated_cost_inc_gst?: number | null
+          id?: string | null
+          inspection_start_time?: string | null
+          manual_price_override?: boolean | null
+          non_demo_labour_rate?: number | null
+          property_address_snapshot?: string | null
+          rcd_box_enabled?: boolean | null
+          rcd_rate?: number | null
+          selected_job_type?: string | null
+          snapshot_at?: string | null
+          subfloor_labour_rate?: number | null
+          subfloor_required?: boolean | null
+        }
+        Relationships: []
+      }
+      inspections_discount_backfill_backup_20260513: {
+        Row: {
+          discount_percent: number | null
+          id: string | null
+          snapshot_at: string | null
+        }
+        Insert: {
+          discount_percent?: number | null
+          id?: string | null
+          snapshot_at?: string | null
+        }
+        Update: {
+          discount_percent?: number | null
+          id?: string | null
+          snapshot_at?: string | null
+        }
+        Relationships: []
       }
       invoices: {
         Row: {
@@ -1380,7 +1428,6 @@ export type Database = {
           special_requests: string | null
           status: Database["public"]["Enums"]["lead_status"]
           updated_at: string | null
-          urgency: string | null
         }
         Insert: {
           access_instructions?: string | null
@@ -1426,7 +1473,6 @@ export type Database = {
           special_requests?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string | null
-          urgency?: string | null
         }
         Update: {
           access_instructions?: string | null
@@ -1472,7 +1518,6 @@ export type Database = {
           special_requests?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string | null
-          urgency?: string | null
         }
         Relationships: [
           {
@@ -1615,6 +1660,24 @@ export type Database = {
           special_requests?: string | null
           status?: Database["public"]["Enums"]["lead_status"] | null
           updated_at?: string | null
+          urgency?: string | null
+        }
+        Relationships: []
+      }
+      leads_dead_col_drop_backup_20260513: {
+        Row: {
+          id: string | null
+          snapshot_at: string | null
+          urgency: string | null
+        }
+        Insert: {
+          id?: string | null
+          snapshot_at?: string | null
+          urgency?: string | null
+        }
+        Update: {
+          id?: string | null
+          snapshot_at?: string | null
           urgency?: string | null
         }
         Relationships: []
@@ -1829,7 +1892,6 @@ export type Database = {
           created_at: string | null
           id: string
           moisture_percentage: number
-          moisture_status: Database["public"]["Enums"]["moisture_status"] | null
           reading_order: number | null
           title: string | null
         }
@@ -1838,9 +1900,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           moisture_percentage: number
-          moisture_status?:
-            | Database["public"]["Enums"]["moisture_status"]
-            | null
           reading_order?: number | null
           title?: string | null
         }
@@ -1849,9 +1908,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           moisture_percentage?: number
-          moisture_status?:
-            | Database["public"]["Enums"]["moisture_status"]
-            | null
           reading_order?: number | null
           title?: string | null
         }
@@ -1864,6 +1920,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      moisture_readings_dead_col_drop_backup_20260513: {
+        Row: {
+          id: string | null
+          moisture_status: string | null
+          snapshot_at: string | null
+        }
+        Insert: {
+          id?: string | null
+          moisture_status?: string | null
+          snapshot_at?: string | null
+        }
+        Update: {
+          id?: string | null
+          moisture_status?: string | null
+          snapshot_at?: string | null
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -2006,6 +2080,7 @@ export type Database = {
           area_id: string | null
           caption: string | null
           created_at: string | null
+          deleted_at: string | null
           file_name: string | null
           file_size: number | null
           id: string
@@ -2024,6 +2099,7 @@ export type Database = {
           area_id?: string | null
           caption?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           file_name?: string | null
           file_size?: number | null
           id?: string
@@ -2042,6 +2118,7 @@ export type Database = {
           area_id?: string | null
           caption?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           file_name?: string | null
           file_size?: number | null
           id?: string
@@ -2163,7 +2240,6 @@ export type Database = {
           inspection_id: string
           landscape: Database["public"]["Enums"]["subfloor_landscape"] | null
           observations: string | null
-          racking_required: boolean | null
           sanitation_required: boolean | null
           treatment_time_minutes: number | null
           updated_at: string | null
@@ -2176,7 +2252,6 @@ export type Database = {
           inspection_id: string
           landscape?: Database["public"]["Enums"]["subfloor_landscape"] | null
           observations?: string | null
-          racking_required?: boolean | null
           sanitation_required?: boolean | null
           treatment_time_minutes?: number | null
           updated_at?: string | null
@@ -2189,7 +2264,6 @@ export type Database = {
           inspection_id?: string
           landscape?: Database["public"]["Enums"]["subfloor_landscape"] | null
           observations?: string | null
-          racking_required?: boolean | null
           sanitation_required?: boolean | null
           treatment_time_minutes?: number | null
           updated_at?: string | null
@@ -2203,6 +2277,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      subfloor_data_dead_col_drop_backup_20260513: {
+        Row: {
+          id: string | null
+          racking_required: boolean | null
+          snapshot_at: string | null
+        }
+        Insert: {
+          id?: string | null
+          racking_required?: boolean | null
+          snapshot_at?: string | null
+        }
+        Update: {
+          id?: string | null
+          racking_required?: boolean | null
+          snapshot_at?: string | null
+        }
+        Relationships: []
       }
       subfloor_readings: {
         Row: {
@@ -2539,10 +2631,6 @@ export type Database = {
         Returns: number
       }
       calculate_gst: { Args: { amount_ex_gst: number }; Returns: number }
-      calculate_moisture_status: {
-        Args: { percentage: number }
-        Returns: Database["public"]["Enums"]["moisture_status"]
-      }
       calculate_total_inc_gst: {
         Args: { amount_ex_gst: number }
         Returns: number
@@ -2575,7 +2663,6 @@ export type Database = {
         | "construction"
         | "industrial"
       invoice_status: "draft" | "sent" | "overdue" | "paid" | "cancelled"
-      job_type: "no_demolition_surface" | "demo" | "construction" | "subfloor"
       lead_status:
         | "hipages_lead"
         | "new_lead"
@@ -2597,7 +2684,6 @@ export type Database = {
         | "finished"
         | "closed"
         | "not_landed"
-      moisture_status: "dry" | "elevated" | "wet" | "very_wet"
       payment_method: "bank_transfer" | "credit_card" | "cash" | "cheque"
       property_occupation:
         | "tenanted"
@@ -2753,7 +2839,6 @@ export const Constants = {
         "industrial",
       ],
       invoice_status: ["draft", "sent", "overdue", "paid", "cancelled"],
-      job_type: ["no_demolition_surface", "demo", "construction", "subfloor"],
       lead_status: [
         "hipages_lead",
         "new_lead",
@@ -2776,7 +2861,6 @@ export const Constants = {
         "closed",
         "not_landed",
       ],
-      moisture_status: ["dry", "elevated", "wet", "very_wet"],
       payment_method: ["bank_transfer", "credit_card", "cash", "cheque"],
       property_occupation: [
         "tenanted",
@@ -2791,3 +2875,4 @@ export const Constants = {
     },
   },
 } as const
+<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />

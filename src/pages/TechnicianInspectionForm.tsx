@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,8 +26,8 @@ import type {
   Photo,
 } from '@/types/inspection';
 import { validateInspectionCompletion } from '@/lib/schemas/inspectionSchema';
-import { captureBusinessError } from '@/lib/sentry';
-import { logFieldEdits, type FieldChange } from '@/lib/api/fieldEditLog';
+import { addBusinessBreadcrumb, captureBusinessError } from '@/lib/sentry';
+import { logFieldEdits, logSectionMilestone, diffPayload, type FieldChange } from '@/lib/api/fieldEditLog';
 import {
   AlertCircle,
   ArrowLeft,
@@ -54,6 +55,7 @@ import {
   Receipt,
   Save,
   StickyNote,
+  Star,
   Sun,
   Thermometer,
   Trash2,
@@ -185,6 +187,7 @@ interface LeadData {
   property_lng: number | null;
   issue_description: string | null;
   internal_notes: string | null;
+  status: string;
 }
 
 interface BookingData {
@@ -265,6 +268,8 @@ function createEmptyArea(): InspectionArea {
     ],
     externalMoisture: '',
     internalNotes: '',
+    extraNotes: '',
+    primaryPhotoId: null,
     roomViewPhotos: [],
     infraredEnabled: false,
     infraredPhoto: null,
@@ -596,29 +601,53 @@ function PhotoUploadButton({ onClick, label, count = 0, maxCount }: PhotoUploadB
 interface PhotoGridProps {
   photos: Photo[];
   onRemove: (photoId: string) => void;
+  primaryPhotoId?: string | null;
+  onPrimaryToggle?: (photoId: string) => void;
 }
 
-function PhotoGrid({ photos, onRemove }: PhotoGridProps) {
+function PhotoGrid({ photos, onRemove, primaryPhotoId, onPrimaryToggle }: PhotoGridProps) {
   if (photos.length === 0) return null;
 
   return (
     <div className="grid grid-cols-2 gap-3 mt-3">
-      {photos.map((photo) => (
-        <div key={photo.id} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
-          <img
-            src={photo.url}
-            alt={photo.name}
-            className="w-full h-full object-cover"
-          />
-          <button
-            type="button"
-            onClick={() => onRemove(photo.id)}
-            className="absolute top-2 right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      ))}
+      {photos.map((photo) => {
+        const isPrimary = primaryPhotoId === photo.id;
+        return (
+          <div key={photo.id} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+            <img
+              src={photo.url}
+              alt={photo.name}
+              className="w-full h-full object-cover"
+            />
+            {/* Delete button — top-right corner */}
+            <button
+              type="button"
+              onClick={() => onRemove(photo.id)}
+              className="absolute top-2 right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            {/* Primary photo star — bottom-right corner, only shown when onPrimaryToggle is provided */}
+            {onPrimaryToggle && (
+              <button
+                type="button"
+                onClick={() => onPrimaryToggle(photo.id)}
+                aria-label={isPrimary ? 'Primary cover photo' : 'Set as primary cover photo'}
+                className="absolute bottom-2 right-2 flex items-center justify-center p-2"
+                style={{ minWidth: '48px', minHeight: '48px' }}
+              >
+                <Star
+                  className={`h-6 w-6 drop-shadow ${
+                    isPrimary
+                      ? 'fill-yellow-400 stroke-yellow-500'
+                      : 'fill-transparent stroke-gray-200'
+                  }`}
+                />
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1118,6 +1147,18 @@ function Section3AreaInspection({
                 />
               </FormField>
 
+              {/* Extra Notes */}
+              <FormField label="Extra Notes">
+                <textarea
+                  id={`extra-notes-${area.id}`}
+                  rows={3}
+                  value={area.extraNotes}
+                  onChange={(e) => onAreaChange?.(area.id, 'extraNotes', e.target.value)}
+                  placeholder="Anything specific about this area worth noting?"
+                  className="w-full bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#007AFF] focus:border-transparent resize-none min-h-[120px]"
+                />
+              </FormField>
+
               {/* ── PHOTO GALLERY ── */}
               <div className="space-y-4">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#86868b] ml-1">
@@ -1131,6 +1172,12 @@ function Section3AreaInspection({
                     <span className="text-sm font-semibold text-[#1d1d1f]">Room View Photos</span>
                     <span className="text-xs text-[#86868b] ml-auto">{area.roomViewPhotos.length}/4</span>
                   </div>
+                  {area.roomViewPhotos.length > 0 && (
+                    <p className="text-xs text-[#86868b] flex items-center gap-1">
+                      <Star className="h-3 w-3 fill-yellow-400 stroke-yellow-500" />
+                      Tap a star to set the primary cover photo for this area.
+                    </p>
+                  )}
                   {area.roomViewPhotos.length < 4 && (
                     <PhotoUploadButton
                       onClick={() => onPhotoCapture?.('roomView', area.id)}
@@ -1142,6 +1189,10 @@ function Section3AreaInspection({
                   <PhotoGrid
                     photos={area.roomViewPhotos}
                     onRemove={(photoId) => onPhotoRemove?.('roomView', photoId, area.id)}
+                    primaryPhotoId={area.primaryPhotoId}
+                    onPrimaryToggle={(photoId) =>
+                      onAreaChange?.(area.id, 'primaryPhotoId', photoId === area.primaryPhotoId ? null : photoId)
+                    }
                   />
                 </div>
 
@@ -2417,6 +2468,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   const leadId = adminMode ? routeParams.leadId ?? null : searchParams.get('leadId');
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Capture the initial inspection row when adminMode loads so we can diff on unmount
   const initialInspectionRef = useRef<Record<string, unknown> | null>(null);
@@ -2537,7 +2589,8 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             property_lat,
             property_lng,
             issue_description,
-            internal_notes
+            internal_notes,
+            status
           `
           )
           .eq('id', leadId)
@@ -2675,8 +2728,11 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
                 }
                 return mapped.slice(0, 2);
               })(),
+              internalMoisture: area.internal_moisture != null ? String(area.internal_moisture) : '',
               externalMoisture: area.external_moisture != null ? String(area.external_moisture) : '',
               internalNotes: area.internal_office_notes || '',
+              extraNotes: area.extra_notes ?? '',
+              primaryPhotoId: area.primary_photo_id ?? null,
               roomViewPhotos,
               infraredEnabled: area.infrared_enabled || false,
               infraredPhoto: infraredPhoto ? { id: infraredPhoto.id, name: infraredPhoto.file_name || '', url: infraredPhoto.signed_url, timestamp: infraredPhoto.created_at } : null,
@@ -2743,22 +2799,26 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             selectedTreatmentMethods: (ins.treatment_methods && ins.treatment_methods.length > 0)
               ? ins.treatment_methods
               : [
-                  // Backward compat: derive from old boolean columns
+                  // Backward compat: derive treatment methods from surviving boolean columns
+                  // for old inspections that predate the treatment_methods array column.
+                  // NOTE: drying_equipment_enabled removed in Phase 5c (column being dropped).
+                  // Legacy records that used only that boolean will show no Drying Equipment
+                  // selection — acceptable given treatment_methods array has been canonical
+                  // since Phase 2 and all active inspections use it.
                   ...(ins.hepa_vac ? ['HEPA Vacuuming'] : []),
                   ...(ins.antimicrobial ? ['Surface Remediation Treatment'] : []),
                   ...(ins.home_sanitation_fogging ? ['ULV Fogging - Property'] : []),
-                  ...(ins.drying_equipment_enabled ? ['Drying Equipment'] : []),
                 ],
             hepaVac: ins.hepa_vac || false,
             antimicrobial: ins.antimicrobial || false,
             stainRemovingAntimicrobial: ins.stain_removing_antimicrobial || false,
             homeSanitationFogging: ins.home_sanitation_fogging || false,
-            dryingEquipmentEnabled: ins.drying_equipment_enabled || false,
-            commercialDehumidifierEnabled: ins.commercial_dehumidifier_enabled || false,
+            dryingEquipmentEnabled: (ins.treatment_methods ?? []).includes('Drying Equipment'),
+            commercialDehumidifierEnabled: (ins.commercial_dehumidifier_qty ?? 0) > 0,
             commercialDehumidifierQty: ins.commercial_dehumidifier_qty || 0,
-            airMoversEnabled: ins.air_movers_enabled || false,
+            airMoversEnabled: (ins.air_movers_qty ?? 0) > 0,
             airMoversQty: ins.air_movers_qty || 0,
-            rcdBoxEnabled: ins.rcd_box_enabled || false,
+            rcdBoxEnabled: (ins.rcd_box_qty ?? 0) > 0,
             rcdBoxQty: ins.rcd_box_qty || 0,
             recommendDehumidifier: ins.recommended_dehumidifier != null,
             dehumidifierSize: ins.recommended_dehumidifier || '',
@@ -2770,10 +2830,12 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             demolitionHours: ins.demolition_hours ? Number(ins.demolition_hours) : 0,
             subfloorHours: ins.subfloor_hours ? Number(ins.subfloor_hours) : 0,
             equipmentCost: ins.equipment_cost_ex_gst ? Number(ins.equipment_cost_ex_gst) : 0,
-            manualPriceOverride: ins.manual_price_override || false,
+            manualPriceOverride: ins.manual_labour_override || false,
             manualTotal: ins.manual_total_inc_gst ? Number(ins.manual_total_inc_gst) : 0,
             laborCost: ins.labour_cost_ex_gst ? Number(ins.labour_cost_ex_gst) : 0,
-            discountPercent: ins.discount_percent ? Number(ins.discount_percent) : 0,
+            // NOTE: DB stores percent scale (0–13); form state uses decimal (0–0.13).
+            // Divide here to keep in-form calculations on decimal scale.
+            discountPercent: ins.discount_percent ? Number(ins.discount_percent) / 100 : 0,
             subtotalExGst: ins.subtotal_ex_gst ? Number(ins.subtotal_ex_gst) : 0,
             gstAmount: ins.gst_amount ? Number(ins.gst_amount) : 0,
             totalIncGst: ins.total_inc_gst ? Number(ins.total_inc_gst) : 0,
@@ -3291,7 +3353,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       let saveOption1Equipment: number | null = null;
 
       if (formData.optionSelected === 3) {
-        // "Both" mode: Option 1 has its own labour/equipment
+        // "Both" mode: Option 1 has its own labour/equipment (surface only — no demo/subfloor)
         const opt1AutoResult = calculateCostEstimate({
           nonDemoHours: saveNonDemoHours,
           demolitionHours: 0,
@@ -3307,11 +3369,55 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         saveOption1Labour = o1Labour;
         saveOption1Equipment = o1Equipment;
         saveOption2Total = saveTotal;
+
+        // Dual-write guard: both totals must be non-zero and finite before persisting.
+        // A zero or NaN total here means the form has no hours entered yet — saving
+        // would write a blank price to the customer PDF for one option.
+        if (!saveOption1Total || !isFinite(saveOption1Total) || saveOption1Total <= 0) {
+          throw new Error('Option 1 total could not be computed — ensure surface treatment hours are entered before saving in Both-options mode.');
+        }
+        if (!saveOption2Total || !isFinite(saveOption2Total) || saveOption2Total <= 0) {
+          throw new Error('Option 2 total could not be computed — ensure all labour hours are entered before saving in Both-options mode.');
+        }
       } else if (formData.optionSelected === 1) {
         saveOption1Total = saveTotal;
+        // Null-clear option 2 so stale DB values do not survive a mode switch
+        saveOption2Total = null;
       } else if (formData.optionSelected === 2) {
         saveOption2Total = saveTotal;
+        // Null-clear option 1 so stale DB values do not survive a mode switch
+        saveOption1Total = null;
       }
+
+      // Snapshot existing DB state for milestone diff — fetch before any write.
+      // If the inspection doesn't exist yet (first save) these return null/empty,
+      // and diffPayload treats null oldRow as no changes (new-row inserts do not
+      // produce a milestone — the initial save has no "old" to diff against).
+      const existingInspectionSnap = currentInspectionId
+        ? await supabase
+            .from('inspections')
+            .select('*')
+            .eq('id', currentInspectionId)
+            .maybeSingle()
+            .then((r) => r.data ?? null)
+        : null;
+
+      const existingAreasSnap = currentInspectionId
+        ? await supabase
+            .from('inspection_areas')
+            .select('*')
+            .eq('inspection_id', currentInspectionId)
+            .then((r) => r.data ?? [])
+        : [];
+
+      const existingSubfloorSnap = currentInspectionId
+        ? await supabase
+            .from('subfloor_data')
+            .select('*')
+            .eq('inspection_id', currentInspectionId)
+            .maybeSingle()
+            .then((r) => r.data ?? null)
+        : null;
 
       // 1. Upsert inspections row
       const inspectionRow: Record<string, any> = {
@@ -3341,28 +3447,35 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         antimicrobial: formData.selectedTreatmentMethods.includes('Surface Remediation Treatment'),
         stain_removing_antimicrobial: formData.stainRemovingAntimicrobial,
         home_sanitation_fogging: formData.selectedTreatmentMethods.includes('ULV Fogging - Property'),
-        drying_equipment_enabled: formData.selectedTreatmentMethods.includes('Drying Equipment'),
-        commercial_dehumidifier_enabled: formData.commercialDehumidifierEnabled,
         commercial_dehumidifier_qty: formData.commercialDehumidifierQty || 0,
-        air_movers_enabled: formData.airMoversEnabled,
         air_movers_qty: formData.airMoversQty || 0,
-        rcd_box_enabled: formData.rcdBoxEnabled,
         rcd_box_qty: formData.rcdBoxQty || 0,
         recommended_dehumidifier: formData.recommendDehumidifier ? (formData.dehumidifierSize || null) : null,
         cause_of_mould: formData.causeOfMould || null,
         additional_info_technician: formData.additionalInfoForTech || null,
         additional_equipment_comments: formData.additionalEquipmentComments || null,
         parking_option: formData.parkingOptions || null,
-        subfloor_required: formData.subfloorEnabled,
         no_demolition_hours: saveNonDemoHours,
         demolition_hours: saveDemoHours,
         subfloor_hours: saveSubfloorHours,
         equipment_cost_ex_gst: saveEquipment || 0,
         labour_cost_ex_gst: saveLabour || 0,
-        discount_percent: saveFullResult.discountPercent || 0,
+        // NOTE: pricing.ts keeps discountPercent on decimal scale (0–0.13 max).
+        // DB column discount_percent uses percent scale (0–13). Convert at the
+        // persistence boundary so the CHECK constraint (0–13) is satisfied and
+        // InspectionDataDisplay renders the correct human-readable value.
+        discount_percent: (saveFullResult.discountPercent || 0) * 100,
         subtotal_ex_gst: saveSubtotal || 0,
         gst_amount: saveGst || 0,
         total_inc_gst: saveTotal || 0,
+        // BUG-021: persist manual override state so reload restores the override
+        // correctly. manual_labour_override mirrors manualPriceOverride at the DB
+        // boundary (the form field is named manualPriceOverride; both boolean
+        // columns track the same user intent — one for the labour calc, one for
+        // the overall price gate). manual_total_inc_gst is cleared when not in
+        // override mode to avoid stale totals misleading the invoice generation.
+        manual_labour_override: formData.manualPriceOverride,
+        manual_total_inc_gst: formData.manualPriceOverride ? parseFloat(String(formData.manualTotal)) : null,
         option_1_labour_ex_gst: saveOption1Labour,
         option_1_equipment_ex_gst: saveOption1Equipment,
         option_1_total_inc_gst: saveOption1Total,
@@ -3437,9 +3550,14 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           temperature: area.temperature ? parseFloat(area.temperature) : null,
           humidity: area.humidity ? parseFloat(area.humidity) : null,
           dew_point: area.dewPoint ? parseFloat(area.dewPoint) : null,
-          moisture_readings_enabled: true,
+          // moistureReadings array convention: index 0 = internal, index 1 = external.
+          // Both columns must be written so PDF placeholder {{internal_moisture}}
+          // and {{external_moisture}} render correctly per area.
+          internal_moisture: area.moistureReadings[0]?.reading ? parseFloat(area.moistureReadings[0].reading) : null,
           external_moisture: area.moistureReadings[1]?.reading ? parseFloat(area.moistureReadings[1].reading) : null,
           internal_office_notes: area.internalNotes || null,
+          extra_notes: area.extraNotes || null,
+          primary_photo_id: area.primaryPhotoId || null,
           infrared_enabled: area.infraredEnabled,
           ...mapInfraredToBooleans(area.infraredObservations || []),
           job_time_minutes: Math.round((area.timeWithoutDemo || 0) * 60),
@@ -3498,12 +3616,26 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
 
             // Link photo to this moisture reading (photo was uploaded without moisture_reading_id).
             // Stage 4.3: guard against resurrecting soft-deleted rows.
+            // BUG-026: breadcrumbs track success/failure so Sentry can surface orphaned photos.
             if (reading.photo) {
-              await supabase
+              const { error: linkError } = await supabase
                 .from('photos')
                 .update({ moisture_reading_id: reading.id })
                 .eq('id', reading.photo.id)
                 .is('deleted_at', null);
+
+              if (linkError) {
+                addBusinessBreadcrumb('photo_moisture_link_failed', {
+                  photo_id: reading.photo.id,
+                  moisture_reading_id: reading.id,
+                  error_message: linkError.message,
+                });
+              } else {
+                addBusinessBreadcrumb('photo_moisture_link', {
+                  photo_id: reading.photo.id,
+                  moisture_reading_id: reading.id,
+                });
+              }
             }
           }
         }
@@ -3573,6 +3705,71 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             }
           }
         }
+      }
+
+      // Compute union diff across all 5 tables and emit one milestone row.
+      // Each call to diffPayload returns raw DB column names as FieldChange.field
+      // so the timeline resolves human labels via getFieldLabel().
+      if (inspectionId) {
+        const allChanges: FieldChange[] = [];
+
+        // inspections diff — compare the payload we just wrote against the snapshot
+        if (existingInspectionSnap) {
+          allChanges.push(
+            ...diffPayload(existingInspectionSnap as Record<string, unknown>, inspectionRow as Record<string, unknown>)
+          );
+        }
+
+        // inspection_areas diff — per-area against the pre-save snapshots
+        const areaSnapMap = new Map(
+          (existingAreasSnap as Array<Record<string, unknown>>).map((a) => [a.id as string, a])
+        );
+        for (let i = 0; i < formData.areas.length; i++) {
+          const area = formData.areas[i];
+          const oldArea = areaSnapMap.get(area.id) ?? null;
+          if (oldArea) {
+            const areaPayload: Record<string, unknown> = {
+              area_name: area.areaName || `Area ${i + 1}`,
+              comments: area.commentsForReport || null,
+              temperature: area.temperature ? parseFloat(area.temperature) : null,
+              humidity: area.humidity ? parseFloat(area.humidity) : null,
+              dew_point: area.dewPoint ? parseFloat(area.dewPoint) : null,
+              internal_moisture: area.moistureReadings[0]?.reading ? parseFloat(area.moistureReadings[0].reading) : null,
+              external_moisture: area.moistureReadings[1]?.reading ? parseFloat(area.moistureReadings[1].reading) : null,
+              internal_office_notes: area.internalNotes || null,
+              extra_notes: area.extraNotes || null,
+              infrared_enabled: area.infraredEnabled,
+              job_time_minutes: Math.round((area.timeWithoutDemo || 0) * 60),
+              demolition_required: area.demolitionRequired,
+              demolition_time_minutes: Math.round((area.demolitionTime || 0) * 60),
+              demolition_description: area.demolitionDescription || null,
+              mould_visible_custom: area.mouldVisibleCustom || null,
+            };
+            allChanges.push(...diffPayload(oldArea, areaPayload));
+          }
+        }
+
+        // subfloor_data diff
+        if (existingSubfloorSnap) {
+          const subfloorPayload: Record<string, unknown> = {
+            observations: formData.subfloorObservations || null,
+            comments: formData.subfloorComments || null,
+            landscape: formData.subfloorLandscape || null,
+            sanitation_required: formData.subfloorSanitation,
+            treatment_time_minutes: Math.round((formData.subfloorTreatmentTime || 0) * 60),
+          };
+          allChanges.push(
+            ...diffPayload(existingSubfloorSnap as Record<string, unknown>, subfloorPayload)
+          );
+        }
+
+        void logSectionMilestone({
+          leadId,
+          inspectionId,
+          sectionNumber: currentSection,
+          sectionName: SECTION_TITLES[currentSection - 1] ?? `Section ${currentSection}`,
+          changes: allChanges,
+        });
       }
 
       setHasUnsavedChanges(false);
@@ -3742,12 +3939,14 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         // 4. Update lead status to inspection_ai_summary
         if (leadId) {
           await supabase.from('leads').update({ status: 'inspection_ai_summary' }).eq('id', leadId);
-          await supabase.from('activities').insert({
-            lead_id: leadId,
-            activity_type: 'status_change',
-            title: 'Inspection completed',
-            description: 'Technician completed inspection. AI summary generated for admin review.',
+          await logFieldEdits({
+            leadId,
+            entityType: 'lead',
+            entityId: leadId,
+            changes: [{ field: 'status', old: lead?.status ?? null, new: 'inspection_ai_summary' }],
+            extraMetadata: { trigger: 'inspection_completed', ai_generated: !aiError },
           });
+          queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
         }
 
         // 5. Navigate back to technician home

@@ -86,7 +86,7 @@ export default function InspectionDataDisplay({ data }: InspectionDataDisplayPro
         </AccordionSection>
       ))}
 
-      {(insp.subfloor_required || subfloor) && (
+      {subfloor && (
         <AccordionSection title="Subfloor Assessment" icon={Building2}>
           <SubfloorSection subfloor={subfloor} />
         </AccordionSection>
@@ -437,13 +437,13 @@ function WorkProcedureSection({ inspection: i }: { inspection: Record<string, an
       <div>
         <p className="text-xs text-slate-500 mb-2">Equipment</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {i.commercial_dehumidifier_enabled && (
+          {(i.commercial_dehumidifier_qty || 0) > 0 && (
             <MetricCard label="Dehumidifiers" value={`${i.commercial_dehumidifier_qty || 0}`} />
           )}
-          {i.air_movers_enabled && (
+          {(i.air_movers_qty || 0) > 0 && (
             <MetricCard label="Air Movers" value={`${i.air_movers_qty || 0}`} />
           )}
-          {i.rcd_box_enabled && (
+          {(i.rcd_box_qty || 0) > 0 && (
             <MetricCard label="RCD Boxes" value={`${i.rcd_box_qty || 0}`} />
           )}
         </div>
@@ -533,7 +533,7 @@ function CostEstimateSection({ inspection: i }: { inspection: Record<string, any
         </div>
       </div>
 
-      {i.manual_price_override && (
+      {i.manual_labour_override && (
         <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
           <p className="text-xs font-medium text-amber-700">
             Manual price override applied — {fmtCurrency(i.manual_total_inc_gst)}

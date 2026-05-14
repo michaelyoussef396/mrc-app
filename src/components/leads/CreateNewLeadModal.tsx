@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
 import { sendSlackNotification } from '@/lib/api/notifications';
 import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
+import { leadSourceSchema } from '@/lib/validators/lead-creation.schemas';
 import { captureBusinessError } from '@/lib/sentry';
 import {
   AlertCircle,
@@ -390,6 +391,13 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
     recordAttempt();
 
     try {
+      const sourceParseResult = leadSourceSchema.safeParse(formData.source);
+      if (!sourceParseResult.success) {
+        setErrors({ source: 'Invalid lead source — please select a valid option' });
+        setModalState('idle');
+        return;
+      }
+
       const zone = calculatePropertyZone(formData.suburb);
 
       const insertData: Record<string, unknown> = {
@@ -401,7 +409,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         property_address_postcode: formData.postcode || undefined,
         property_address_state: formData.state,
         issue_description: sanitizeInput(formData.issueDescription),
-        lead_source: formData.source,
+        lead_source: sourceParseResult.data,
         status: 'new_lead',
         created_by: user.id,
         property_zone: zone,

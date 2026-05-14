@@ -119,6 +119,59 @@ export async function logNoteAdded(opts: LogNoteAddedOpts): Promise<void> {
   }
 }
 
+interface LogSectionMilestoneOpts {
+  leadId: string;
+  inspectionId: string;
+  sectionNumber: number;
+  sectionName: string;
+  changes: FieldChange[];
+}
+
+/**
+ * Writes one activities row summarising all field changes across the 5 tables
+ * touched by TechnicianInspectionForm.handleSave for a single section save.
+ *
+ * One row per save — not one row per field — so the admin timeline gets a
+ * scannable "Section 3 saved — 7 fields changed" entry rather than dozens of
+ * individual rows that would flood the view.
+ *
+ * The full per-field diff lives in metadata.changes for drill-down in the UI.
+ * No-op when changes is empty (nothing actually changed during this save).
+ * Errors are swallowed to Sentry — the save itself already succeeded.
+ */
+export async function logSectionMilestone(opts: LogSectionMilestoneOpts): Promise<void> {
+  if (opts.changes.length === 0) return;
+
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id ?? null;
+
+    const title = `Section ${opts.sectionNumber} (${opts.sectionName}) saved — ${opts.changes.length} field${opts.changes.length === 1 ? '' : 's'} changed`;
+
+    await supabase.from('activities').insert({
+      lead_id: opts.leadId,
+      activity_type: 'section_milestone',
+      title,
+      description: title,
+      user_id: userId,
+      metadata: {
+        entity_type: 'inspection',
+        entity_id: opts.inspectionId,
+        section_number: opts.sectionNumber,
+        section_name: opts.sectionName,
+        changes: opts.changes,
+      },
+    });
+  } catch (err) {
+    captureBusinessError('Failed to log section milestone', {
+      leadId: opts.leadId,
+      inspectionId: opts.inspectionId,
+      sectionNumber: opts.sectionNumber,
+      error: (err as Error).message,
+    });
+  }
+}
+
 function buildDescription(changes: FieldChange[]): string {
   if (changes.length === 1) {
     const c = changes[0];
