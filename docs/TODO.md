@@ -46,8 +46,6 @@ Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocki
 
 - **W6.1-H — EF `details` leakage** — `check-photo-moisture-orphans/index.ts:92` returns `details: queryError.message` to the caller. Per error-handling rules, never expose raw DB errors. Function is service-role-only (not user-facing) so impact is minimal, but scrub to a generic message. Source: Phase 8d security-reviewer (LOW severity).
 
-- **BUG-035 — Google Places autocomplete broken in Create New Lead modal** — Surface: `/admin` → "Create New Lead" → Street Name & Number field. Repro: typing in the Street field produces no suggestion dropdown. Expected: Places suggests addresses and auto-populates Suburb/State/Postcode on selection. **Probable cause:** Google Maps Platform API key domain restriction — `mrcsystem.com` not allowlisted on the key's HTTP referrer list (Vercel preview domains may also be missing). Verify first against Google Cloud Console → APIs & Services → Credentials → the Maps API key → "Application restrictions" / "API restrictions". May also need to confirm "Places API (New)" + "Maps JavaScript API" are both enabled on the project. Severity: MEDIUM (admin can still type address manually, but the lookup convenience is broken). Source: Michael user-reported 2026-05-14.
-
 ---
 
 ## Launch Blockers (MUST fix before Glen + Clayton + customers start using)
