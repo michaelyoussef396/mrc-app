@@ -24,7 +24,6 @@ export const FIELD_LABELS: Record<string, string> = {
   // leads — lead details
   lead_source: 'Lead Source',
   lead_source_other: 'Other Source',
-  urgency: 'Urgency',
   issue_description: 'Issue Description',
 
   // leads — customer requests

@@ -1823,6 +1823,24 @@ export type Database = {
         }
         Relationships: []
       }
+      leads_source_backfill_backup_20260514: {
+        Row: {
+          id: string | null
+          lead_source: string | null
+          snapshot_at: string | null
+        }
+        Insert: {
+          id?: string | null
+          lead_source?: string | null
+          snapshot_at?: string | null
+        }
+        Update: {
+          id?: string | null
+          lead_source?: string | null
+          snapshot_at?: string | null
+        }
+        Relationships: []
+      }
       login_activity: {
         Row: {
           browser: string | null
@@ -2234,7 +2252,6 @@ export type Database = {
       subfloor_data: {
         Row: {
           comments: string | null
-          comments_approved: boolean | null
           created_at: string | null
           id: string
           inspection_id: string
@@ -2246,7 +2263,6 @@ export type Database = {
         }
         Insert: {
           comments?: string | null
-          comments_approved?: boolean | null
           created_at?: string | null
           id?: string
           inspection_id: string
@@ -2258,7 +2274,6 @@ export type Database = {
         }
         Update: {
           comments?: string | null
-          comments_approved?: boolean | null
           created_at?: string | null
           id?: string
           inspection_id?: string
@@ -2875,4 +2890,3 @@ export const Constants = {
     },
   },
 } as const
-<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />

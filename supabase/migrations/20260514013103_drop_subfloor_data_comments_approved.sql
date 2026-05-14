@@ -1,0 +1,12 @@
+-- BUG-028 (Wave 6.1) — drop subfloor_data.comments_approved
+--
+-- The Phase 5 dead-column drop campaign intended to drop `comments_approved`
+-- but ran ALTER TABLE inspection_areas (where the column never lived) and the
+-- IF EXISTS clause silently no-op'd. The column actually exists on
+-- subfloor_data. Live verification via information_schema confirmed the
+-- column is still present post-Phase-5 deploy.
+--
+-- Data backup: the Phase 5 backup row for this column lives in
+-- inspection_areas_dead_col_drop_backup_20260513 (named for the original
+-- intended target table — still a valid data snapshot for recovery).
+ALTER TABLE subfloor_data DROP COLUMN IF EXISTS comments_approved;

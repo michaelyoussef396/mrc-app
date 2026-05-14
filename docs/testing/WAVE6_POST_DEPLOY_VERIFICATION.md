@@ -10,15 +10,23 @@
 
 ## Summary
 
-**Verdict:** Deploy is structurally sound for Wave 6 in production, BUT has **2 launch-affecting gaps + 5 cleanup nits** requiring Wave 6.1 follow-up. The two material gaps are not breaking customer flows today but will surface as visible bugs the moment a technician hits the affected screens.
+**Verdict (initial audit, 2026-05-14):** Deploy is structurally sound for Wave 6 in production, BUT has **2 launch-affecting gaps + 5 cleanup nits** requiring Wave 6.1 follow-up.
 
-**Totals (out of 18):**
+**Wave 6.1 emergency PR shipped 2026-05-14** resolved BUG-027 + BUG-028 + BUG-034 (the runtime-breaking `urgency` references + stowaway `subfloor_data.comments_approved` + stale types). BUG-031 reclassified as NOT-A-BUG (`primary_photo_id` is per-area layout, cover photo uses a separate caption-fallback chain intentionally). Updated totals below reflect the post-Wave-6.1 structural state.
 
-- PASS: **11**
-- FAIL: **2** (Checkpoint 1, Checkpoint 4)
-- RISK: **5** (Checkpoints 6, 13, 14, 15, 18)
+**Totals (out of 18) — post-Wave-6.1:**
 
-The two FAILs both stem from incomplete cleanup of *application-side* references to dropped columns (Checkpoint 1) and to the legacy `activity_type='status_change'` write path (Checkpoint 4). The RISKs are defense-in-depth gaps or minor structural drift — none are breaking flows but all are surface-area for the next bug.
+- PASS: **14** (Checkpoints 1, 2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 16, 17, 18)
+- FAIL: **1** (Checkpoint 4 — partial: BUG-027 half resolved, BUG-029 + BUG-029b still queued)
+- RISK: **3** (Checkpoints 6, 14, 15)
+
+The remaining FAIL (Checkpoint 4) is a follow-up cleanup PR scoped to BUG-029 + BUG-029b — 3 legacy `status_change` writers + `approvePDF` activity gap. None block Run 6 browser testing. RISKs are defense-in-depth gaps (Zod gate, regex ordering, breadcrumb sanitization) — also follow-up scope.
+
+**Original totals at audit time (2026-05-14, pre-Wave-6.1):**
+
+- PASS: 11
+- FAIL: 2 (Checkpoint 1, Checkpoint 4)
+- RISK: 5 (Checkpoints 6, 13, 14, 15, 18)
 
 ---
 
@@ -26,10 +34,10 @@ The two FAILs both stem from incomplete cleanup of *application-side* references
 
 | # | Checkpoint | Verdict | Evidence (file:line) | Notes |
 |---|-----------|---------|---------------------|-------|
-| 1 | Orphan reads — 35 dropped columns | **FAIL** | `src/hooks/useInspectionLeads.ts:64`, `:80-91`; `src/hooks/useLeadUpdate.ts:30`; `src/components/inspection/InspectionJobCard.tsx:42-82`; `src/pages/TechnicianJobDetail.tsx:45,842-847`; **DB:** `subfloor_data.comments_approved` still live | Active SELECT of dropped `urgency` column → PostgREST 400 in production for the inspection-ready leads list. `subfloor_data.comments_approved` survived the drop because the migration text mis-located the column on `inspection_areas`. |
+| 1 | Orphan reads — 35 dropped columns | **PASS** (was FAIL — resolved Wave 6.1) | Live state confirmed via `information_schema`: zero application-code `urgency` references (BUG-027 resolved); `subfloor_data.comments_approved` dropped via migration `20260514013103_drop_subfloor_data_comments_approved.sql` (BUG-028 resolved). Backup-table type entries are immutable history. |
 | 2 | LeadView Bucket-2 cards | **PASS** | `src/pages/LeadDetail.tsx:1802-2053` | All 10 Bucket-2 fields read from real `inspections.*`, `inspection_areas.*`, and `subfloor_data.*` columns. No placeholders. |
 | 3 | TechJobDetail field-source parity | **PASS** | `src/pages/TechnicianJobDetail.tsx:159-213` | Site-Info card reads from `inspections.{waste_disposal_*, recommended_dehumidifier, parking_option, additional_info_technician, cause_of_mould, property_occupation, outdoor_comments}` + `subfloor_data.sanitation_required` + `inspection_areas.internal_office_notes` — exactly the same canonical columns LeadDetail uses. |
-| 4 | Canonical writer conversion (status transitions) | **FAIL** | `src/pages/ViewReportPDF.tsx:851-856`; `src/pages/LeadsManagement.tsx:300-305`, `:560-565`; `src/lib/api/pdfGeneration.ts:241-283` | Three sites still write parallel legacy `activity_type='status_change'` rows: ViewReportPDF job-completion approve, LeadsManagement `updateLeadStatus` and `handleApproveJobReport`. Separately, `approvePDF()` (the inspection-PDF approval path) writes no activity row at all — silent transition. |
+| 4 | Canonical writer conversion (status transitions) | **FAIL** (still active post-Wave-6.1 — BUG-029 + BUG-029b queued for follow-up cleanup PR) | `src/pages/ViewReportPDF.tsx:851-856`; `src/pages/LeadsManagement.tsx:300-305`, `:560-565`; `src/lib/api/pdfGeneration.ts:241-283` | Three sites still write parallel legacy `activity_type='status_change'` rows: ViewReportPDF job-completion approve, LeadsManagement `updateLeadStatus` and `handleApproveJobReport`. Separately, `approvePDF()` (the inspection-PDF approval path) writes no activity row at all — silent transition. |
 | 5 | TIF per-section milestone wiring | **PASS** | `src/lib/api/fieldEditLog.ts:142-173`; `src/pages/TechnicianInspectionForm.tsx:3713-3772` | One `logSectionMilestone` per save consolidates diffs across `inspections` + `inspection_areas` + `subfloor_data` snapshots. `moisture_readings` / `subfloor_readings` are not diffed against snapshots — acceptable per the milestone-row design (parent-table diff captures the meaningful section change). |
 | 6 | lead_source vocabulary | **RISK** | `src/lib/leadUtils.ts:103-112`; `src/lib/validators/lead-creation.schemas.ts:166-177`; `src/components/leads/CreateNewLeadModal.tsx:394`; `supabase/functions/receive-framer-lead/index.ts:689`; `src/components/schedule/LeadBookingCard.tsx:153`; `src/hooks/useLeadUpdate.ts:30,77-80` | 8 canonical values present in both `leadSourceOptions` and `leadSourceSchema`. `CreateNewLeadModal` and `receive-framer-lead` validate. `LeadDetail` inline edit + `LeadBookingCard` write through `useLeadUpdate` which does NOT call `leadSourceSchema.safeParse` — UI dropdown is the only gate, no server-side schema gate. |
 | 7 | Equipment enabled derivation | **PASS** | `src/pages/TechnicianInspectionForm.tsx:2816-2821` | `dryingEquipmentEnabled = treatment_methods.includes('Drying Equipment')`, qty-based booleans for the other three. No persistence — confirmed grep of save payload has no `*_enabled` writes. |
@@ -38,12 +46,33 @@ The two FAILs both stem from incomplete cleanup of *application-side* references
 | 10 | Internal moisture wiring | **PASS** | `src/pages/TechnicianInspectionForm.tsx:3556,3737`; EF `:1085` | TIF writes `internal_moisture` mirroring `external_moisture`. EF replaces `{{internal_moisture}}` placeholder using moisture-readings lookup with `'-'` fallback. |
 | 11 | Both-option pricing dual-write | **PASS** | `src/pages/TechnicianInspectionForm.tsx:3355-3390`, `:3479-3482` | When `optionSelected === 3`, both `option_1_total_inc_gst` and `option_2_total_inc_gst` are computed and written. Validation throws (lines 3376-3381) if either is null/non-finite/≤0. Modes 1 and 2 null-clear the unused option. |
 | 12 | Per-area extra notes | **PASS** | `src/pages/TechnicianInspectionForm.tsx:1155-1156` (input) → `:3559, :3740` (save) → `:2734` (load); EF `:1053, :1104` (read) | Form state, save payload, load payload all wired. PDF EF replaces `{{extra_notes}}` placeholder. |
-| 13 | Primary photo cover feature | **RISK** | `src/pages/TechnicianInspectionForm.tsx:1192-1194, 3560, 2735`; EF `:1063-1070, :1280-1285` | `primary_photo_id` writes/loads PASS. Per-area placement PASS — primary photo gets reordered to first slot. **However**, the cover-photo lookup at EF :1280-1285 does NOT consult `primary_photo_id` — it falls back through `front_house` → `general` → `firstOutdoor`. The brief implied primary_photo_id should drive the cover. Either the brief over-specified (cover ≠ per-area primary) or this is a feature-incomplete state. |
+| 13 | Primary photo cover feature | **PASS** (was RISK — reclassified Wave 6.1: NOT A BUG) | `primary_photo_id` is intentionally per-area-only (controls per-area photo grid ordering at EF :1063-1070). Customer-PDF cover photo (Page 1) uses a separate caption/photo_type fallback chain (`front_house` → `general` → `firstOutdoor`) by design. Original Wave 6 brief covered per-area primary only. EF cover-photo logic is working as intended. |
 | 14 | PDF placeholder safety net | **RISK** | `supabase/functions/generate-inspection-pdf/index.ts:1507`, then `:1510` color-fix, return at `:1515`; storage upload at `:1857` | Safety net regex is `/\{\{[^}]+\}\}/g` (broader than the brief's `/\{\{[a-zA-Z_]+\}\}/g`) and IS present. Placement: it is the last placeholder-replace in `generateReportHtml`, BUT a `color: #121D73` style-replace runs AFTER it (line 1510). The style replace cannot resurrect placeholders, so this is structurally safe — flagging as RISK only because the brief's "LAST step before storage upload" wording is not literally true (the very last call before upload is the color fix). |
 | 15 | Sentry photo-moisture breadcrumb | **RISK** | `src/lib/utils/photoUpload.ts:128-135, 205-213`; `src/pages/TechnicianInspectionForm.tsx:3628-3638` | Breadcrumb fires at both required sites. **PII assessment:** payload contains `inspection_id`, `area_id`, `photo_id`, `moisture_reading_id`, `file_size`, `mime_type`, `photo_type` (booleans/UUIDs/numerics — SAFE). The upload-failed breadcrumb at :128-135 also contains `error_message: uploadError.message` — Supabase Storage error messages are generally PII-safe but could in rare edge cases leak a path that includes inspection UUIDs. Acceptable but worth a follow-up audit. |
 | 16 | Orphan-check EF wiring | **PASS** | `supabase/functions/check-photo-moisture-orphans/index.ts:42, 81-87, 105-128` | EF exists. Caption regex `/^moisture$|\d+(\.\d+)?%/i` matches both the literal `'moisture'` sentinel and percentage patterns. Query gates: `moisture_reading_id IS NULL` ✓, `deleted_at IS NULL` ✓, age > 1 hour ✓. Alert path: `console.warn` with structured JSON payload (NOT Slack/Sentry-direct — runs via Supabase function logs, expected to be drained by a separate log integration; matches the Phase 6 plan). |
 | 17 | Admin cost breakdown card | **PASS** | `src/pages/LeadDetail.tsx:2008-2053` | Reads `inspection.labour_cost_ex_gst`, `inspection.equipment_cost_ex_gst`, `inspection.subtotal_ex_gst`, `inspection.gst_amount` — all 4 pricing columns. Comment at :2008-2009 documents the source. |
-| 18 | TypeScript types canonical | **RISK** | `src/integrations/supabase/types.ts:535-997, 1409-1822, 1927-1937, 2237-2294`; `src/types/supabase.ts` does not exist; `tsc --noEmit` exit code = 0 | `src/types/supabase.ts` correctly deleted. All imports route to `@/integrations/supabase/...` (no `@/types/supabase` survivors). **Typecheck is clean.** BUT `src/integrations/supabase/types.ts` is **STALE** — still contains all 35 dropped columns (urgency, mould_*, subfloor_required, moisture_status, racking_required, manual_price_override, drying_equipment_enabled, commercial_dehumidifier_enabled, air_movers_enabled, rcd_box_enabled, dehumidifier_rate, air_mover_rate, rcd_rate, non_demo_labour_rate, demo_labour_rate, subfloor_labour_rate, construction_hours, equipment_cost_inc_gst, estimated_cost_ex_gst, estimated_cost_inc_gst, inspection_start_time, property_address_snapshot, selected_job_type, moisture_readings_enabled, comments_approved). The over-permissive types are why typecheck still passes despite the live writers/readers at Checkpoint 1 being broken. |
+| 18 | TypeScript types canonical | **PASS** (was RISK — resolved Wave 6.1) | `src/integrations/supabase/types.ts` regenerated from live schema 2026-05-14 (BUG-034 resolved). Live `leads` table block has zero `urgency`; live `subfloor_data` block has zero `comments_approved`. All 35 dropped Phase-5 columns absent from live-table types (backup-table entries are immutable history). `tsc --noEmit` clean. |
+
+---
+
+## Wave 6.1 emergency PR — resolution log (2026-05-14)
+
+Same-PR cleanup shipped after this audit. Status of each finding:
+
+- **BUG-027 — RESOLVED.** All application-code `urgency` references removed: `useInspectionLeads.ts` (interface field + SELECT + client-side urgency-priority sort → FIFO via existing server-side `.order('created_at')`), `InspectionJobCard.tsx` (badge function + render + unused `cn` import deleted), `TechnicianJobDetail.tsx` (LeadData field + badge render block), `useLeadUpdate.ts` (payload type), `lead-creation.schemas.ts` (`bookingUrgencySchema` + `normalLeadSchema.urgency` removed), `fieldLabels.ts` (mapping), `leadUtils.ts` (`urgencyOptions` constant — had zero importers). Validation: `tsc --noEmit` clean, 154/154 Vitest tests pass, `npm run build` clean.
+
+- **BUG-028 — RESOLVED.** Migration `supabase/migrations/20260514013103_drop_subfloor_data_comments_approved.sql` applied via Supabase MCP. Post-apply `information_schema.columns` query returns 0 rows for `subfloor_data.comments_approved`. Phase 5 backup row remains in `inspection_areas_dead_col_drop_backup_20260513` (named for original target table — still valid as data snapshot).
+
+- **BUG-031 — NOT A BUG.** `primary_photo_id` is a per-area page-layout concept (controls per-area photo grid ordering at EF `:1063-1070`). The customer-PDF cover photo (Page 1) intentionally uses a separate caption/photo_type fallback chain (`front_house` → `general` → `firstOutdoor`). Original Wave 6 brief Q16/Q18 covered per-area primary only. EF cover-photo logic is working as intended. No code change required.
+
+- **BUG-034 — RESOLVED.** `src/integrations/supabase/types.ts` regenerated via `mcp__plugin_supabase_supabase__generate_typescript_types` against live project `ecyivrxjpsmjmexqatym`. Live `leads` table block has zero `urgency` field; live `subfloor_data` block has zero `comments_approved` field. The 35 Phase-5 dropped columns are no longer present in live-table types — only in `*_dead_col_drop_backup_20260513` types (immutable history). The over-permissive types that masked BUG-027 from typecheck are gone.
+
+**Still queued for follow-up Wave 6.1 cleanup PR** (do NOT block Run 6 browser testing):
+- BUG-029 — 3 legacy `status_change` write sites (ViewReportPDF, LeadsManagement × 2)
+- BUG-029b — `approvePDF()` activity-row coverage gap
+- BUG-030 — `useLeadUpdate.ts` Zod gate for `lead_source`
+- BUG-032 — color-fix ordering vs placeholder safety net in `generate-inspection-pdf` EF
+- BUG-033 — Sentry breadcrumb `error_message` sanitization in `photoUpload.ts`
 
 ---
 
