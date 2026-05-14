@@ -73,6 +73,7 @@ Same-PR cleanup shipped after this audit. Status of each finding:
 - BUG-030 — `useLeadUpdate.ts` Zod gate for `lead_source`
 - BUG-032 — color-fix ordering vs placeholder safety net in `generate-inspection-pdf` EF
 - BUG-033 — Sentry breadcrumb `error_message` sanitization in `photoUpload.ts`
+- BUG-035 — Google Places autocomplete broken on `/admin` → "Create New Lead" Street field (user-reported 2026-05-14). Probable cause: Maps API key referrer restriction missing `mrcsystem.com`. MEDIUM severity — admin can type manually. Full entry in `docs/TODO.md`.
 
 ---
 
