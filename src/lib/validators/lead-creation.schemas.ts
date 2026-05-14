@@ -163,6 +163,30 @@ export const leadSourceSchema = z
   ])
   .default('website');
 
+/**
+ * Australian state / territory code validator
+ * Accepts the 8 canonical codes used across the app's address pickers.
+ */
+export const australianStateSchema = z.enum([
+  'VIC',
+  'NSW',
+  'QLD',
+  'SA',
+  'WA',
+  'TAS',
+  'NT',
+  'ACT',
+]);
+
+export type AustralianStateCode = z.infer<typeof australianStateSchema>;
+
+/**
+ * Type guard — admin Create New Lead modal uses this for inline validation.
+ */
+export function isValidAustralianState(value: string): value is AustralianStateCode {
+  return australianStateSchema.safeParse(value).success;
+}
+
 // ============================================================================
 // HIPAGES LEAD SCHEMA (QUICK ENTRY)
 // ============================================================================
