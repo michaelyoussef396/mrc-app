@@ -1335,8 +1335,11 @@ function Section4Subfloor({
   onSubfloorReadingRemove,
   onSubfloorReadingChange,
 }: SectionProps) {
-  // B3: subfloorRequired has 3 states — null (undetermined), true (yes), false (no).
-  // The rest of the section only renders when subfloorRequired !== false.
+  // B3: subfloorRequired is a 2-button selector (Yes / No) with null as the
+  // un-selected default. "Not yet determined" is the absence of a selection,
+  // surfaced via the inline amber warning + submit-time validation — NOT a
+  // third button. Internal value is tristate (null | true | false) so the
+  // save path can distinguish "tech hasn't decided yet" from explicit false.
   const subfloorRequired = formData.subfloorRequired;
 
   return (
@@ -1354,7 +1357,8 @@ function Section4Subfloor({
         </div>
       </div>
 
-      {/* B3: 3-state subfloor presence toggle */}
+      {/* B3: 2-button subfloor presence selector (Yes / No). Null default surfaces
+          as the un-selected state + amber warning; submit validation enforces a choice. */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
         <div>
           <span className="text-sm font-medium text-[#1d1d1f]">Does the property have a subfloor?</span>
