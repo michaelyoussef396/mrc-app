@@ -1335,6 +1335,10 @@ function Section4Subfloor({
   onSubfloorReadingRemove,
   onSubfloorReadingChange,
 }: SectionProps) {
+  // B3: subfloorRequired has 3 states — null (undetermined), true (yes), false (no).
+  // The rest of the section only renders when subfloorRequired !== false.
+  const subfloorRequired = formData.subfloorRequired;
+
   return (
     <section className="space-y-5">
       {/* Section Header */}
@@ -1349,6 +1353,44 @@ function Section4Subfloor({
           </div>
         </div>
       </div>
+
+      {/* B3: 3-state subfloor presence toggle */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+        <div>
+          <span className="text-sm font-medium text-[#1d1d1f]">Does the property have a subfloor?</span>
+          {subfloorRequired === null && (
+            <p className="text-xs text-amber-600 mt-1">Please confirm before submitting the inspection.</p>
+          )}
+        </div>
+        <div className="flex gap-3">
+          {([
+            [true, 'Yes'] as const,
+            [false, 'No'] as const,
+          ]).map(([value, label]) => (
+            <button
+              key={String(value)}
+              type="button"
+              onClick={() => onChange('subfloorRequired', value)}
+              className={`flex-1 h-12 rounded-lg font-medium transition-colors ${
+                subfloorRequired === value
+                  ? value
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-[#86868b] text-white'
+                  : 'bg-white border border-gray-200 text-[#1d1d1f]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {subfloorRequired === false && (
+          <p className="text-sm text-[#86868b] italic">No subfloor — section skipped.</p>
+        )}
+      </div>
+
+      {/* Remainder of section only shows when subfloor is present or undetermined */}
+      {subfloorRequired !== false && (
+      <div className={`space-y-5 ${subfloorRequired === null ? 'opacity-50 pointer-events-none' : ''}`}>
 
       {/* Observations */}
       <FormField label="Subfloor Observation">
@@ -1499,6 +1541,9 @@ function Section4Subfloor({
           />
         </FormField>
       </div>
+
+      </div>
+      )}
     </section>
   );
 }
@@ -2176,9 +2221,16 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
           const o1Gst = o1Subtotal * 0.1;
           const o1Total = o1Subtotal + o1Gst;
 
-          // Option 2 values: use form values if set, else auto-calc
-          const o2Labour = formData.laborCost || costResult.labourAfterDiscount;
-          const o2Equipment = formData.equipmentCost || costResult.equipmentCost;
+          // Option 2 values: honour manual override when set, else use live auto-calc.
+          // BUG-047: prior `formData.laborCost || ...` short-circuit treated any non-zero
+          // stale DB value as an intentional override, suppressing live recalc when
+          // subfloor hours were added after a partial save.
+          const o2Labour = formData.manualPriceOverride
+            ? formData.laborCost
+            : costResult.labourAfterDiscount;
+          const o2Equipment = formData.manualPriceOverride
+            ? formData.equipmentCost
+            : costResult.equipmentCost;
           const o2Subtotal = o2Labour + o2Equipment;
           const o2Gst = o2Subtotal * 0.1;
           const o2Total = o2Subtotal + o2Gst;
@@ -2255,7 +2307,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#86868b] text-sm">$</span>
                         <input
                           type="number"
-                          value={o2Labour || ''}
+                          value={o2Labour ? Number(o2Labour).toFixed(2) : ''}
                           onChange={(e) => onChange('laborCost', parseFloat(e.target.value) || 0)}
                           step={0.01}
                           className="w-full h-10 bg-white text-[#1d1d1f] text-sm rounded-lg border border-[#007AFF]/20 pl-6 pr-2"
@@ -2306,8 +2358,13 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
       ) : (
         /* Single option — editable estimate */
         (() => {
-          const labour = formData.laborCost || costResult.labourAfterDiscount;
-          const equipment = formData.equipmentCost || costResult.equipmentCost;
+          // BUG-047: gate on manualPriceOverride, not on the field being non-zero.
+          const labour = formData.manualPriceOverride
+            ? formData.laborCost
+            : costResult.labourAfterDiscount;
+          const equipment = formData.manualPriceOverride
+            ? formData.equipmentCost
+            : costResult.equipmentCost;
           const subtotal = labour + equipment;
           const gst = subtotal * 0.1;
           const total = subtotal + gst;
@@ -2328,7 +2385,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#86868b]">$</span>
                     <input
                       type="number"
-                      value={labour || ''}
+                      value={labour ? Number(labour).toFixed(2) : ''}
                       onChange={(e) => onChange('laborCost', parseFloat(e.target.value) || 0)}
                       step={0.01}
                       className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 pl-8 pr-4"
@@ -2498,6 +2555,8 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
     dwellingType: '',
     areas: [createEmptyArea()],
     subfloorEnabled: true,
+    // B3: null = undetermined (must confirm before submit), true = has subfloor, false = no subfloor
+    subfloorRequired: null as boolean | null,
     subfloorObservations: '',
     subfloorLandscape: '',
     subfloorComments: '',
@@ -2776,6 +2835,8 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             dwellingType: ins.dwelling_type || '',
             areas: mappedAreas.length > 0 ? mappedAreas : [createEmptyArea()],
             subfloorEnabled: true,
+            // B3: hydrate from DB; null if column not yet set (legacy rows).
+            subfloorRequired: ins.subfloor_required ?? null,
             subfloorObservations: subfloorData?.observations || '',
             subfloorLandscape: subfloorData?.landscape || '',
             subfloorComments: subfloorData?.comments || '',
@@ -3339,9 +3400,15 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         rcdQty: formData.rcdBoxQty || 0,
       });
 
-      // Use form values (editable inputs) if set, else fall back to auto-calc
-      const saveLabour = formData.laborCost || saveFullResult.labourAfterDiscount;
-      const saveEquipment = formData.equipmentCost || saveFullResult.equipmentCost;
+      // BUG-047: gate on manualPriceOverride rather than field non-zero check.
+      // A non-zero laborCost/equipmentCost from a prior partial save is stale state,
+      // not a deliberate override — the flag is the canonical signal.
+      const saveLabour = formData.manualPriceOverride
+        ? formData.laborCost
+        : saveFullResult.labourAfterDiscount;
+      const saveEquipment = formData.manualPriceOverride
+        ? formData.equipmentCost
+        : saveFullResult.equipmentCost;
       const saveSubtotal = saveLabour + saveEquipment;
       const saveGst = saveSubtotal * 0.1;
       const saveTotal = saveSubtotal + saveGst;
@@ -3486,6 +3553,8 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         // ai_summary_versions, populated by generate-inspection-summary EF
         // (initial / regeneration) and InspectionAIReview.handleSave (manual_edit).
         // Dropped per audit gate sign-off 2026-05-01.
+        // B4: write subfloor_required toggle state. Agent C adds the column via migration.
+        subfloor_required: formData.subfloorRequired ?? null,
         updated_at: new Date().toISOString(),
       };
 
@@ -3641,8 +3710,9 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         }
       }
 
-      // 4. Upsert subfloor_data (always saved — no toggle gate)
-      {
+      // 4. Upsert subfloor_data — skip when subfloor is explicitly absent.
+      // B4: `!== false` preserves writes for legacy null rows (undetermined state).
+      if (formData.subfloorRequired !== false) {
         const subfloorRow = {
           inspection_id: inspectionId,
           observations: formData.subfloorObservations || null,
@@ -3903,6 +3973,17 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
 
   const handleNext = async () => {
     if (currentSection === TOTAL_SECTIONS) {
+      // B6: subfloorRequired must be explicitly set before submission.
+      if (formData.subfloorRequired === null || formData.subfloorRequired === undefined) {
+        toast({
+          title: 'Subfloor confirmation required',
+          description: 'Please confirm whether the property has a subfloor (Section 4) before submitting.',
+          variant: 'destructive',
+        });
+        setCurrentSection(4);
+        return;
+      }
+
       // Validate before completing
       const errors = validateForm();
       if (errors.length > 0) {

@@ -68,6 +68,12 @@ export interface InspectionFormData {
 
   // Section 4: Subfloor
   subfloorEnabled: boolean;
+  /**
+   * Tristate Section 4 toggle: null = not yet determined; true = subfloor present;
+   * false = no subfloor. Restored in Wave 6.1 PR #4 (BUG-040) — column was
+   * erroneously dropped in Wave 6 Phase 5.
+   */
+  subfloorRequired: boolean | null;
   subfloorObservations: string;
   subfloorLandscape: string;
   subfloorComments: string;
