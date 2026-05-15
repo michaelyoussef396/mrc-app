@@ -2214,9 +2214,16 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
       {formData.optionSelected === 3 && option1Result ? (
         /* Dual editable pricing for "Both" mode */
         (() => {
-          // Option 1 values: use form values if set, else auto-calc
-          const o1Labour = formData.option1LabourCost || option1Result.labourAfterDiscount;
-          const o1Equipment = formData.option1EquipmentCost || option1Result.equipmentCost;
+          // Option 1 values: honour manual override; otherwise use live calc.
+          // BUG-047 follow-up: prior `||` short-circuit treated any non-zero
+          // stale DB value as an override, freezing the display on yesterday's
+          // tier when nonDemoHours changed between saves.
+          const o1Labour = formData.manualPriceOverride
+            ? formData.option1LabourCost
+            : option1Result.labourAfterDiscount;
+          const o1Equipment = formData.manualPriceOverride
+            ? formData.option1EquipmentCost
+            : option1Result.equipmentCost;
           const o1Subtotal = o1Labour + o1Equipment;
           const o1Gst = o1Subtotal * 0.1;
           const o1Total = o1Subtotal + o1Gst;
@@ -3429,8 +3436,14 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           airMoverQty: formData.airMoversQty || 0,
           rcdQty: formData.rcdBoxQty || 0,
         });
-        const o1Labour = formData.option1LabourCost || opt1AutoResult.labourAfterDiscount;
-        const o1Equipment = formData.option1EquipmentCost || opt1AutoResult.equipmentCost;
+        // BUG-047 follow-up: gate on manualPriceOverride, not field non-zero.
+        // Save path mirror of the render-side fix at the Option 1 Both-mode block.
+        const o1Labour = formData.manualPriceOverride
+          ? formData.option1LabourCost
+          : opt1AutoResult.labourAfterDiscount;
+        const o1Equipment = formData.manualPriceOverride
+          ? formData.option1EquipmentCost
+          : opt1AutoResult.equipmentCost;
         const o1Subtotal = o1Labour + o1Equipment;
         saveOption1Total = o1Subtotal + o1Subtotal * 0.1;
         saveOption1Labour = o1Labour;
