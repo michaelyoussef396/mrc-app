@@ -2268,7 +2268,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#86868b] text-sm">$</span>
                         <input
                           type="number"
-                          value={o1Labour || ''}
+                          value={o1Labour ? Number(o1Labour).toFixed(2) : ''}
                           onChange={(e) => onChange('option1LabourCost', parseFloat(e.target.value) || 0)}
                           step={0.01}
                           className="w-full h-10 bg-white text-[#1d1d1f] text-sm rounded-lg border border-blue-200 pl-6 pr-2"
@@ -2281,7 +2281,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#86868b] text-sm">$</span>
                         <input
                           type="number"
-                          value={o1Equipment || ''}
+                          value={o1Equipment ? Number(o1Equipment).toFixed(2) : ''}
                           onChange={(e) => onChange('option1EquipmentCost', parseFloat(e.target.value) || 0)}
                           step={0.01}
                           className="w-full h-10 bg-white text-[#1d1d1f] text-sm rounded-lg border border-blue-200 pl-6 pr-2"
@@ -2331,7 +2331,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#86868b] text-sm">$</span>
                         <input
                           type="number"
-                          value={o2Equipment || ''}
+                          value={o2Equipment ? Number(o2Equipment).toFixed(2) : ''}
                           onChange={(e) => onChange('equipmentCost', parseFloat(e.target.value) || 0)}
                           step={0.01}
                           className="w-full h-10 bg-white text-[#1d1d1f] text-sm rounded-lg border border-[#007AFF]/20 pl-6 pr-2"
@@ -2411,7 +2411,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#86868b]">$</span>
                     <input
                       type="number"
-                      value={equipment || ''}
+                      value={equipment ? Number(equipment).toFixed(2) : ''}
                       onChange={(e) => onChange('equipmentCost', parseFloat(e.target.value) || 0)}
                       step={0.01}
                       className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 pl-8 pr-4"
