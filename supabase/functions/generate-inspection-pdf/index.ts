@@ -1375,7 +1375,14 @@ function generateReportHtml(
   html = html.replace(/\{\{outdoor_photo_3\}\}/g, outdoorPhotos[2]?.storage_path ? getPhotoUrl(outdoorPhotos[2].storage_path) : '')
 
   // ===== PAGE 7: SUBFLOOR (conditional) =====
-  html = handleSubfloorPage(html, inspection, subfloorData, subfloorReadings, subfloorPhotos)
+  // Gate: suppress when explicitly set to false. null = legacy rows → render (back-compat).
+  if (inspection.subfloor_required !== false) {
+    html = handleSubfloorPage(html, inspection, subfloorData, subfloorReadings, subfloorPhotos)
+  } else {
+    // subfloor_required === false: strip the Subfloor page block entirely (template page + photo grid).
+    const subfloorPageRegex = /\s*<!-- Page 5: Subfloor[\s\S]*?<\/div>\s*<\/div>\s*(?=\s*<!-- Page 6)/
+    html = html.replace(subfloorPageRegex, '\n\n')
+  }
 
   // ===== PAGE 8: PROBLEM ANALYSIS (multi-page overflow) =====
   // Override sections with individual column values when user has edited them
@@ -1682,8 +1689,9 @@ Deno.serve(async (req) => {
     let subfloorReadings: SubfloorReading[] = []
     let subfloorPhotos: Photo[] = []
 
-    // Always attempt subfloor fetch — page renders when data exists, removed when null.
-    // Gating on subfloor_required column removed in Phase 5c (column being dropped).
+    // Always fetch subfloor data regardless of subfloor_required; the render gate
+    // at generateReportHtml handles suppression when subfloor_required === false.
+    // Fetching unconditionally avoids a DB round-trip ordering dependency.
     console.log('Fetching subfloor data...')
 
     const { data: sfData } = await supabase

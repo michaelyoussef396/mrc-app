@@ -422,16 +422,39 @@ function WasteDisposalSection({ inspection: i }: { inspection: Record<string, an
 // SECTION 7: WORK PROCEDURE & EQUIPMENT
 // ============================================================================
 
+// NOTE: canonical 11-method labels mirror TechnicianInspectionForm treatment_methods array values
+const TREATMENT_METHOD_LABELS: string[] = [
+  'HEPA Vacuuming',
+  'Surface Mould Remediation',
+  'ULV Fogging - Property',
+  'ULV Fogging - Subfloor',
+  'Subfloor Remediation',
+  'AFD Installation',
+  'Drying Equipment',
+  'Containment and Prep',
+  'Material Demolition',
+  'Cavity Treatment',
+  'Debris Removal',
+];
+
 function WorkProcedureSection({ inspection: i }: { inspection: Record<string, any> }) {
+  const treatmentMethods: string[] = Array.isArray(i.treatment_methods) ? i.treatment_methods : [];
+
   return (
     <div className="space-y-4">
-      {/* Procedure items */}
-      <div className="space-y-1 divide-y divide-slate-100">
-        <KV label="HEPA Vacuum" value={fmtBool(i.hepa_vac)} />
-        <KV label="Antimicrobial" value={fmtBool(i.antimicrobial)} />
-        <KV label="Stain Removing Antimicrobial" value={fmtBool(i.stain_removing_antimicrobial)} />
-        <KV label="Home Sanitation Fogging" value={fmtBool(i.home_sanitation_fogging)} />
-      </div>
+      {/* Treatment methods — canonical array (supersedes legacy bool rows) */}
+      {treatmentMethods.length > 0 ? (
+        <div>
+          <p className="text-xs text-slate-500 mb-2">Treatment Methods</p>
+          <div className="flex flex-wrap gap-1.5">
+            {TREATMENT_METHOD_LABELS.filter(m => treatmentMethods.includes(m)).map(m => (
+              <Tag key={m} color="green">{m}</Tag>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-slate-400 italic">No treatment methods recorded.</p>
+      )}
 
       {/* Equipment */}
       <div>
@@ -450,7 +473,7 @@ function WorkProcedureSection({ inspection: i }: { inspection: Record<string, an
       </div>
 
       {i.recommended_dehumidifier && (
-        <KV label="Recommended Dehumidifier" value={<span className="capitalize">{i.recommended_dehumidifier}</span>} />
+        <KV label="Recommended Dehumidifier Size" value={<span className="capitalize">{i.recommended_dehumidifier}</span>} />
       )}
     </div>
   );
@@ -502,8 +525,21 @@ function JobSummarySection({ inspection: i }: { inspection: Record<string, any> 
 // ============================================================================
 
 function CostEstimateSection({ inspection: i }: { inspection: Record<string, any> }) {
+  const OPTION_LABELS: Record<number, string> = {
+    1: 'Quote shown: Option 1 (Surface Treatment)',
+    2: 'Quote shown: Option 2 (Comprehensive)',
+    3: 'Quote shown: Both options',
+  };
+
   return (
     <div className="space-y-4">
+      {/* Option selected label */}
+      {i.option_selected != null && OPTION_LABELS[i.option_selected as number] && (
+        <div className="bg-blue-50 rounded-lg px-3 py-2 border border-blue-100">
+          <p className="text-xs font-medium text-blue-700">{OPTION_LABELS[i.option_selected as number]}</p>
+        </div>
+      )}
+
       {/* Hours breakdown */}
       <div>
         <p className="text-xs text-slate-500 mb-2">Labour Hours</p>
@@ -527,10 +563,42 @@ function CostEstimateSection({ inspection: i }: { inspection: Record<string, any
         )}
         <KV label="Subtotal (ex GST)" value={fmtCurrency(i.subtotal_ex_gst)} />
         <KV label="GST (10%)" value={fmtCurrency(i.gst_amount)} />
-        <div className="flex items-center justify-between py-2">
-          <span className="text-sm font-bold text-slate-800">Total (inc GST)</span>
-          <span className="text-base font-bold text-emerald-700">{fmtCurrency(i.total_inc_gst)}</span>
-        </div>
+
+        {/* Per-option dual pricing — only when both options were quoted */}
+        {i.option_selected === 3 ? (
+          <div className="pt-2">
+            <p className="text-xs text-slate-500 mb-2">Per-Option Totals</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-slate-600 mb-1">Option 1 (Surface)</p>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Labour</span>
+                  <span className="font-medium">{fmtCurrency(i.option_1_labour_ex_gst)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Equipment</span>
+                  <span className="font-medium">{fmtCurrency(i.option_1_equipment_ex_gst)}</span>
+                </div>
+                <div className="flex justify-between text-xs border-t border-slate-200 pt-1.5">
+                  <span className="text-slate-700 font-semibold">Total inc GST</span>
+                  <span className="font-bold text-emerald-700">{fmtCurrency(i.option_1_total_inc_gst)}</span>
+                </div>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-slate-600 mb-1">Option 2 (Comprehensive)</p>
+                <div className="flex justify-between text-xs border-t border-slate-200 pt-1.5 mt-auto">
+                  <span className="text-slate-700 font-semibold">Total inc GST</span>
+                  <span className="font-bold text-emerald-700">{fmtCurrency(i.option_2_total_inc_gst)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between py-2">
+            <span className="text-sm font-bold text-slate-800">Total (inc GST)</span>
+            <span className="text-base font-bold text-emerald-700">{fmtCurrency(i.total_inc_gst)}</span>
+          </div>
+        )}
       </div>
 
       {i.manual_labour_override && (
@@ -702,6 +770,21 @@ function PhotoGrid({ photos, label }: { photos: PhotoWithUrl[]; label: string })
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <ImageOff className="h-5 w-5 text-slate-400" />
+              </div>
+            )}
+            {/* Infrared type badge — distinguishes thermal from natural-light from standard */}
+            {photo.photo_type === 'infrared' && (
+              <div className="absolute top-1 left-1">
+                <span className="px-1 py-0.5 rounded text-[9px] font-semibold bg-violet-700/90 text-white">
+                  Infrared
+                </span>
+              </div>
+            )}
+            {photo.photo_type === 'naturalInfrared' && (
+              <div className="absolute top-1 left-1">
+                <span className="px-1 py-0.5 rounded text-[9px] font-semibold bg-sky-700/90 text-white">
+                  Natural-Light
+                </span>
               </div>
             )}
             <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1">

@@ -169,3 +169,84 @@ describe('both-option dual-write', () => {
     expect(option2Total).toBeGreaterThan(noEquip2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// BUG-047: Regression locks for the canonical 47h / 37h progressive-save scenario.
+// Documented in docs/testing/section9_verification_MRC-2026-0144.md. The bug
+// was at the TIF consumption layer (formData.laborCost || costResult.labourAfterDiscount
+// short-circuit, fixed in PR #4). The pricing engine itself always produced the
+// correct values; these tests lock the dollar-level invariants so any future
+// regression in pricing.ts is caught immediately.
+// ---------------------------------------------------------------------------
+
+describe('BUG-047 canonical inputs — pricing engine invariants', () => {
+  it('should produce $9,223.92 labour after 13% cap for full 47h scope', () => {
+    // 15h nonDemo + 22h demo + 10h subfloor = 47h total → 33+h tier (13% cap).
+    const result = calculateCostEstimate({
+      nonDemoHours: 15,
+      demolitionHours: 22,
+      subfloorHours: 10,
+      dehumidifierQty: 2,
+      airMoverQty: 3,
+      rcdQty: 1,
+    });
+    expect(result.labourAfterDiscount).toBeCloseTo(9223.92, 2);
+  });
+
+  it('should produce labour subtotal of $10,602.21 before discount for 47h scope', () => {
+    const result = calculateCostEstimate({
+      nonDemoHours: 15,
+      demolitionHours: 22,
+      subfloorHours: 10,
+    });
+    expect(result.labourSubtotal).toBeCloseTo(10602.21, 2);
+  });
+
+  it('should produce $6,409.74 labour after 13% cap for 37h partial-save scope (BUG-047 stale-state value)', () => {
+    // 15h nonDemo + 22h demo + 0h subfloor = 37h total → still 33+h tier.
+    // This is the value that got persisted via the (now-fixed) || short-circuit
+    // when a tech progressively saved without subfloor hours.
+    const result = calculateCostEstimate({
+      nonDemoHours: 15,
+      demolitionHours: 22,
+      subfloorHours: 0,
+    });
+    expect(result.labourAfterDiscount).toBeCloseTo(6409.74, 2);
+  });
+
+  it('should produce 6 equipment days for 47h labour at standard rates', () => {
+    const result = calculateCostEstimate({
+      nonDemoHours: 15,
+      demolitionHours: 22,
+      subfloorHours: 10,
+      dehumidifierQty: 2,
+      airMoverQty: 3,
+      rcdQty: 1,
+    });
+    expect(result.equipment.days).toBe(6);
+  });
+
+  it('should produce $2,442 equipment cost for 6 days at canonical quantities', () => {
+    // (2×132 + 3×46 + 1×5) × 6 = 407 × 6 = 2,442
+    const result = calculateCostEstimate({
+      nonDemoHours: 15,
+      demolitionHours: 22,
+      subfloorHours: 10,
+      dehumidifierQty: 2,
+      airMoverQty: 3,
+      rcdQty: 1,
+    });
+    expect(result.equipment.total).toBe(2442);
+  });
+
+  it('should preserve manualTotal as totalIncGst when manualOverride is true', () => {
+    const result = calculateCostEstimate({
+      nonDemoHours: 15,
+      demolitionHours: 22,
+      subfloorHours: 10,
+      manualOverride: true,
+      manualTotal: 5000,
+    });
+    expect(result.totalIncGst).toBe(5000);
+  });
+});
