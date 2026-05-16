@@ -2763,7 +2763,14 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             const areaReadings = moistureReadingsData.filter((r: any) => r.area_id === area.id);
             const areaPhotos = photosData.filter((p: any) => p.area_id === area.id);
             const roomViewPhotos = areaPhotos
-              .filter((p: any) => p.photo_type === 'area')
+              .filter(
+                (p: any) =>
+                  p.photo_type === 'area' &&
+                  p.caption !== 'infrared' &&
+                  p.caption !== 'natural_infrared' &&
+                  p.caption !== 'moisture' &&
+                  !p.moisture_reading_id,
+              )
               .map((p: any) => ({ id: p.id, name: p.file_name || '', url: p.signed_url, timestamp: p.created_at }));
             const infraredPhoto = areaPhotos.find((p: any) => p.photo_type === 'area' && p.caption === 'infrared');
             const naturalInfraredPhoto = areaPhotos.find((p: any) => p.photo_type === 'area' && p.caption === 'natural_infrared');
