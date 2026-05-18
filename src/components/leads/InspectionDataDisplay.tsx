@@ -478,9 +478,14 @@ function SubfloorAssessmentBody({
 // lives in `caption` (snake_case). See TechnicianInspectionForm.tsx:3216-3222.
 const OUTDOOR_SLOT_ORDER = ['front_door', 'front_house', 'mailbox', 'street', 'direction'] as const;
 
+// Maps every possible slot identifier — snake_case (canonical save shape:
+// caption='front_door' etc.) AND camelCase (legacy shape: photo_type='frontDoor'
+// etc.) — to the same display label.
 const OUTDOOR_SLOT_LABELS: Record<string, string> = {
   front_door: 'Front Door',
+  frontDoor: 'Front Door',
   front_house: 'Front House',
+  frontHouse: 'Front House',
   mailbox: 'Mailbox',
   street: 'Street',
   direction: 'Direction',
@@ -490,8 +495,20 @@ function OutdoorSection({ inspection: i, photos }: { inspection: Record<string, 
   // Build slot-ordered list, skip empty slots (no placeholders). Upstream
   // generalPhotos filter (line 66) already excludes area/subfloor-scoped
   // photos, so caption-based matching is sufficient and canonical.
+  // Match each slot against either caption (canonical snake_case) or
+  // photo_type (legacy camelCase shape). Skip empty slots — no placeholders.
   const outdoorPhotos = OUTDOOR_SLOT_ORDER
-    .map(slot => photos.find(p => p.caption === slot))
+    .map(slot => {
+      const camelKey =
+        slot === 'front_door' ? 'frontDoor' :
+        slot === 'front_house' ? 'frontHouse' :
+        null;
+      return photos.find(p =>
+        p.caption === slot ||
+        p.photo_type === slot ||
+        (camelKey != null && p.photo_type === camelKey)
+      );
+    })
     .filter((p): p is PhotoWithUrl => p != null);
 
   return (
@@ -515,7 +532,11 @@ function OutdoorSection({ inspection: i, photos }: { inspection: Record<string, 
         <PhotoGrid
           photos={outdoorPhotos}
           label="Outdoor Photos"
-          getLabel={p => OUTDOOR_SLOT_LABELS[p.caption ?? ''] ?? 'Outdoor'}
+          getLabel={p =>
+            OUTDOOR_SLOT_LABELS[p.caption ?? ''] ??
+            OUTDOOR_SLOT_LABELS[p.photo_type ?? ''] ??
+            'Outdoor'
+          }
         />
       )}
     </div>
