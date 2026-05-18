@@ -86,11 +86,12 @@ export default function InspectionDataDisplay({ data }: InspectionDataDisplayPro
         </AccordionSection>
       ))}
 
-      {subfloor && (
-        <AccordionSection title="Subfloor Assessment" icon={Building2}>
-          <SubfloorSection subfloor={subfloor} />
-        </AccordionSection>
-      )}
+      <AccordionSection title="Subfloor Assessment" icon={Building2}>
+        <SubfloorAssessmentBody
+          subfloorRequired={insp.subfloor_required}
+          subfloor={subfloor}
+        />
+      </AccordionSection>
 
       <AccordionSection title="Outdoor Environment" icon={Sun}>
         <OutdoorSection inspection={insp} photos={generalPhotos} />
@@ -419,6 +420,51 @@ function SubfloorSection({ subfloor }: { subfloor: SubfloorWithDetails | null })
       {/* Photos */}
       {subfloor.photos.length > 0 && (
         <PhotoGrid photos={subfloor.photos} label="Subfloor Photos" />
+      )}
+    </div>
+  );
+}
+
+function SubfloorAssessmentBody({
+  subfloorRequired,
+  subfloor,
+}: {
+  subfloorRequired: boolean | null | undefined;
+  subfloor: SubfloorWithDetails | null;
+}) {
+  let pillLabel: string;
+  let pillClass: string;
+  if (subfloorRequired === true) {
+    pillLabel = 'Subfloor Required: Yes';
+    pillClass = 'bg-violet-100 text-violet-800';
+  } else if (subfloorRequired === false) {
+    pillLabel = 'Subfloor Required: No';
+    pillClass = 'bg-slate-100 text-slate-600';
+  } else {
+    pillLabel = 'Subfloor: Not Yet Determined';
+    pillClass = 'bg-amber-100 text-amber-700';
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-end">
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${pillClass}`}
+        >
+          {pillLabel}
+        </span>
+      </div>
+
+      {subfloorRequired === true ? (
+        <SubfloorSection subfloor={subfloor} />
+      ) : subfloorRequired === false ? (
+        <p className="text-sm text-slate-600">
+          No subfloor present at this property.
+        </p>
+      ) : (
+        <p className="text-sm text-slate-600">
+          Subfloor status has not been determined yet.
+        </p>
       )}
     </div>
   );
