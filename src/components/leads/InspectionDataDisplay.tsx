@@ -28,6 +28,12 @@ import type {
   MoistureReadingData,
 } from '@/lib/api/inspections';
 import { formatDateAU } from '@/lib/dateUtils';
+import {
+  LABOUR_RATES,
+  EQUIPMENT_RATES,
+  calculateCostEstimate,
+  type CostEstimateResult,
+} from '@/lib/calculations/pricing';
 
 // ============================================================================
 // FORMATTERS
@@ -110,7 +116,7 @@ export default function InspectionDataDisplay({ data }: InspectionDataDisplayPro
       </AccordionSection>
 
       <AccordionSection title="Cost Estimate" icon={DollarSign}>
-        <CostEstimateSection inspection={insp} />
+        <CostEstimateSection inspection={insp} areas={areas} subfloor={subfloor} />
       </AccordionSection>
 
       {(insp.what_we_found_text || insp.problem_analysis_content || insp.what_we_will_do_text || insp.demolition_content) && (
@@ -681,7 +687,48 @@ function JobSummarySection({ inspection: i }: { inspection: Record<string, any> 
 // SECTION 9: COST ESTIMATE
 // ============================================================================
 
-function CostEstimateSection({ inspection: i }: { inspection: Record<string, any> }) {
+function CostEstimateSection({
+  inspection: i,
+  areas,
+  subfloor,
+}: {
+  inspection: Record<string, any>;
+  areas: AreaWithDetails[];
+  subfloor: SubfloorWithDetails | null;
+}) {
+  const fmtHours = (h: number) =>
+    Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`;
+
+  const calculatedNonDemoHours = areas.reduce(
+    (sum, a) => sum + ((a.job_time_minutes || 0) / 60),
+    0,
+  );
+  const calculatedDemoHours = areas.reduce(
+    (sum, a) => a.demolition_required ? sum + ((a.demolition_time_minutes || 0) / 60) : sum,
+    0,
+  );
+  const calculatedSubfloorHours = (subfloor?.treatment_time_minutes || 0) / 60;
+
+  const costResult: CostEstimateResult = calculateCostEstimate({
+    nonDemoHours: calculatedNonDemoHours,
+    demolitionHours: calculatedDemoHours,
+    subfloorHours: calculatedSubfloorHours,
+    dehumidifierQty: i.commercial_dehumidifier_qty || 0,
+    airMoverQty: i.air_movers_qty || 0,
+    rcdQty: i.rcd_box_qty || 0,
+  });
+
+  const option1Result: CostEstimateResult | null = i.option_selected === 3
+    ? calculateCostEstimate({
+        nonDemoHours: calculatedNonDemoHours,
+        demolitionHours: 0,
+        subfloorHours: 0,
+        dehumidifierQty: i.commercial_dehumidifier_qty || 0,
+        airMoverQty: i.air_movers_qty || 0,
+        rcdQty: i.rcd_box_qty || 0,
+      })
+    : null;
+
   const OPTION_LABELS: Record<number, string> = {
     1: 'Quote shown: Option 1 (Surface Treatment)',
     2: 'Quote shown: Option 2 (Comprehensive)',
@@ -690,74 +737,224 @@ function CostEstimateSection({ inspection: i }: { inspection: Record<string, any
 
   return (
     <div className="space-y-4">
-      {/* Option selected label */}
+      {/* Block 1 — Treatment option banner */}
       {i.option_selected != null && OPTION_LABELS[i.option_selected as number] && (
         <div className="bg-blue-50 rounded-lg px-3 py-2 border border-blue-100">
           <p className="text-xs font-medium text-blue-700">{OPTION_LABELS[i.option_selected as number]}</p>
         </div>
       )}
 
-      {/* Hours breakdown */}
+      {/* Block 2 — Per-area Labour Hours */}
       <div>
         <p className="text-xs text-slate-500 mb-2">Labour Hours</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <MetricCard label="No Demo" value={`${i.no_demolition_hours || 0}h`} />
-          <MetricCard label="Demolition" value={`${i.demolition_hours || 0}h`} />
-          <MetricCard label="Subfloor" value={`${i.subfloor_hours || 0}h`} />
-          <MetricCard
-            label="Total"
-            value={`${(Number(i.no_demolition_hours || 0) + Number(i.demolition_hours || 0) + Number(i.subfloor_hours || 0))}h`}
-          />
+        <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
+          {areas.map((area, idx) => {
+            const surfaceHours = (area.job_time_minutes || 0) / 60;
+            const demoHours = area.demolition_required ? (area.demolition_time_minutes || 0) / 60 : 0;
+            const areaLabel = area.area_name ? `Area ${idx + 1}: ${area.area_name}` : `Area ${idx + 1}`;
+            return (
+              <div key={area.id} className="flex justify-between text-sm">
+                <span className="text-slate-700">
+                  {areaLabel}
+                  {demoHours > 0 && (
+                    <span className="text-slate-500 ml-1">
+                      — Surface {fmtHours(surfaceHours)} • Demolition {fmtHours(demoHours)}
+                    </span>
+                  )}
+                </span>
+                <span className="font-medium text-slate-800">
+                  {demoHours > 0 ? fmtHours(surfaceHours + demoHours) : fmtHours(surfaceHours)}
+                </span>
+              </div>
+            );
+          })}
+          {calculatedSubfloorHours > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-700">Subfloor</span>
+              <span className="font-medium text-slate-800">{fmtHours(calculatedSubfloorHours)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm border-t border-slate-200 pt-2 mt-1">
+            <span className="font-semibold text-slate-800">Total Labour Hours: {fmtHours(costResult.totalLabourHours)}</span>
+            <span className="font-semibold text-slate-800">
+              <span className="font-normal text-xs text-slate-500">
+                ({fmtHours(calculatedNonDemoHours)} surface + {fmtHours(calculatedDemoHours)} demolition + {fmtHours(calculatedSubfloorHours)} subfloor)
+              </span>
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Cost breakdown */}
-      <div className="space-y-1 divide-y divide-slate-100">
-        <KV label="Labour (ex GST)" value={fmtCurrency(i.labour_cost_ex_gst)} />
-        <KV label="Equipment (ex GST)" value={fmtCurrency(i.equipment_cost_ex_gst)} />
-        {Number(i.discount_percent) > 0 && (
-          <KV label="Discount" value={`${i.discount_percent}%`} />
-        )}
-        <KV label="Subtotal (ex GST)" value={fmtCurrency(i.subtotal_ex_gst)} />
-        <KV label="GST (10%)" value={fmtCurrency(i.gst_amount)} />
+      {/* Block 3 — Labour Rate Reference table */}
+      <div>
+        <p className="text-xs text-slate-500 mb-2">Labour Rate Reference</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-slate-500 border-b">
+                <th className="pb-2 pr-4">Type</th>
+                <th className="pb-2 pr-4 text-right">2h Rate</th>
+                <th className="pb-2 text-right">8h Rate</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              <tr>
+                <td className="py-1.5 pr-4 font-medium text-slate-700">Surface Treatment</td>
+                <td className="py-1.5 pr-4 text-right">{fmtCurrency(LABOUR_RATES.nonDemo.tier2h)}</td>
+                <td className="py-1.5 text-right">{fmtCurrency(LABOUR_RATES.nonDemo.tier8h)}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 pr-4 font-medium text-slate-700">Demolition</td>
+                <td className="py-1.5 pr-4 text-right">{fmtCurrency(LABOUR_RATES.demolition.tier2h)}</td>
+                <td className="py-1.5 text-right">{fmtCurrency(LABOUR_RATES.demolition.tier8h)}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 pr-4 font-medium text-slate-700">Subfloor</td>
+                <td className="py-1.5 pr-4 text-right">{fmtCurrency(LABOUR_RATES.subfloor.tier2h)}</td>
+                <td className="py-1.5 text-right">{fmtCurrency(LABOUR_RATES.subfloor.tier8h)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[11px] text-slate-400 mt-1.5">2h minimum charge • Linear interpolation 2-8h • Day blocks for 8h+</p>
+      </div>
 
-        {/* Per-option dual pricing — only when both options were quoted */}
-        {i.option_selected === 3 ? (
-          <div className="pt-2">
-            <p className="text-xs text-slate-500 mb-2">Per-Option Totals</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
-                <p className="text-xs font-semibold text-slate-600 mb-1">Option 1 (Surface)</p>
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-500">Labour</span>
-                  <span className="font-medium">{fmtCurrency(i.option_1_labour_ex_gst)}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-500">Equipment</span>
-                  <span className="font-medium">{fmtCurrency(i.option_1_equipment_ex_gst)}</span>
-                </div>
-                <div className="flex justify-between text-xs border-t border-slate-200 pt-1.5">
-                  <span className="text-slate-700 font-semibold">Total inc GST</span>
-                  <span className="font-bold text-emerald-700">{fmtCurrency(i.option_1_total_inc_gst)}</span>
-                </div>
+      {/* Block 4 — Labour Breakdown (day-by-day) */}
+      <div>
+        <p className="text-xs text-slate-500 mb-2">Labour Breakdown</p>
+        <div className="space-y-3 text-sm">
+          {costResult.nonDemoBreakdown.length > 0 && (
+            <div>
+              <div className="flex justify-between font-medium text-slate-800">
+                <span>Surface Treatment ({fmtHours(calculatedNonDemoHours)})</span>
+                <span>{fmtCurrency(costResult.nonDemoCost)}</span>
               </div>
-              <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
-                <p className="text-xs font-semibold text-slate-600 mb-1">Option 2 (Comprehensive)</p>
-                <div className="flex justify-between text-xs border-t border-slate-200 pt-1.5 mt-auto">
-                  <span className="text-slate-700 font-semibold">Total inc GST</span>
-                  <span className="font-bold text-emerald-700">{fmtCurrency(i.option_2_total_inc_gst)}</span>
-                </div>
+              <ul className="pl-3 mt-1 space-y-0.5 text-xs text-slate-500">
+                {costResult.nonDemoBreakdown.map(item => (
+                  <li key={item.day}>{item.description}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {costResult.demolitionBreakdown.length > 0 && (
+            <div>
+              <div className="flex justify-between font-medium text-slate-800">
+                <span>Demolition ({fmtHours(calculatedDemoHours)})</span>
+                <span>{fmtCurrency(costResult.demolitionCost)}</span>
+              </div>
+              <ul className="pl-3 mt-1 space-y-0.5 text-xs text-slate-500">
+                {costResult.demolitionBreakdown.map(item => (
+                  <li key={item.day}>{item.description}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {costResult.subfloorBreakdown.length > 0 && (
+            <div>
+              <div className="flex justify-between font-medium text-slate-800">
+                <span>Subfloor ({fmtHours(calculatedSubfloorHours)})</span>
+                <span>{fmtCurrency(costResult.subfloorCost)}</span>
+              </div>
+              <ul className="pl-3 mt-1 space-y-0.5 text-xs text-slate-500">
+                {costResult.subfloorBreakdown.map(item => (
+                  <li key={item.day}>{item.description}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="flex justify-between font-semibold text-slate-800 border-t border-slate-200 pt-2">
+            <span>Labour Subtotal</span>
+            <span>{fmtCurrency(costResult.labourSubtotal)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Block 5 — Equipment Breakdown */}
+      <div>
+        <p className="text-xs text-slate-500 mb-2">Equipment ({costResult.equipment.days} day{costResult.equipment.days === 1 ? '' : 's'})</p>
+        <div className="space-y-1.5 text-sm">
+          {costResult.equipment.dehumidifier.qty > 0 && (
+            <div className="flex justify-between">
+              <span className="text-slate-700">
+                Dehumidifier — {costResult.equipment.dehumidifier.qty} × {fmtCurrency(EQUIPMENT_RATES.dehumidifier)}/day × {costResult.equipment.days} day{costResult.equipment.days === 1 ? '' : 's'}
+              </span>
+              <span className="font-medium text-slate-800">{fmtCurrency(costResult.equipment.dehumidifier.cost)}</span>
+            </div>
+          )}
+          {costResult.equipment.airMover.qty > 0 && (
+            <div className="flex justify-between">
+              <span className="text-slate-700">
+                Air Movers — {costResult.equipment.airMover.qty} × {fmtCurrency(EQUIPMENT_RATES.airMover)}/day × {costResult.equipment.days} day{costResult.equipment.days === 1 ? '' : 's'}
+              </span>
+              <span className="font-medium text-slate-800">{fmtCurrency(costResult.equipment.airMover.cost)}</span>
+            </div>
+          )}
+          {costResult.equipment.rcd.qty > 0 && (
+            <div className="flex justify-between">
+              <span className="text-slate-700">
+                RCD Box — {costResult.equipment.rcd.qty} × {fmtCurrency(EQUIPMENT_RATES.rcd)}/day × {costResult.equipment.days} day{costResult.equipment.days === 1 ? '' : 's'}
+              </span>
+              <span className="font-medium text-slate-800">{fmtCurrency(costResult.equipment.rcd.cost)}</span>
+            </div>
+          )}
+          <div className="flex justify-between font-semibold text-slate-800 border-t border-slate-200 pt-2">
+            <span>Equipment Total</span>
+            <span>{fmtCurrency(costResult.equipment.total)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Block 6 — Estimate cards */}
+      <div>
+        <p className="text-xs text-slate-500 mb-2">{i.option_selected === 3 ? 'Both Options' : 'Estimate'}</p>
+        {i.option_selected === 3 && option1Result != null ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-50 rounded-lg p-3 space-y-1.5 border border-slate-200">
+              <p className="text-xs font-semibold text-slate-700">Option 1 (Surface Treatment)</p>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">Labour</span><span className="font-medium">{fmtCurrency(option1Result.labourAfterDiscount)}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">Equipment</span><span className="font-medium">{fmtCurrency(option1Result.equipmentCost)}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">Subtotal (ex GST)</span><span className="font-medium">{fmtCurrency(option1Result.subtotalExGst)}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">GST (10%)</span><span className="font-medium">{fmtCurrency(option1Result.gstAmount)}</span></div>
+              <div className="flex justify-between text-xs border-t border-slate-200 pt-1.5">
+                <span className="text-slate-700 font-semibold">Total (inc GST)</span>
+                <span className="font-bold text-emerald-700">{fmtCurrency(option1Result.totalIncGst)}</span>
+              </div>
+            </div>
+            <div className="bg-slate-50 rounded-lg p-3 space-y-1.5 border border-slate-200">
+              <p className="text-xs font-semibold text-slate-700">Option 2 (Comprehensive)</p>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">Labour</span><span className="font-medium">{fmtCurrency(costResult.labourAfterDiscount)}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">Equipment</span><span className="font-medium">{fmtCurrency(costResult.equipmentCost)}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">Subtotal (ex GST)</span><span className="font-medium">{fmtCurrency(costResult.subtotalExGst)}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">GST (10%)</span><span className="font-medium">{fmtCurrency(costResult.gstAmount)}</span></div>
+              <div className="flex justify-between text-xs border-t border-slate-200 pt-1.5">
+                <span className="text-slate-700 font-semibold">Total (inc GST)</span>
+                <span className="font-bold text-emerald-700">{fmtCurrency(costResult.totalIncGst)}</span>
               </div>
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-between py-2">
-            <span className="text-sm font-bold text-slate-800">Total (inc GST)</span>
-            <span className="text-base font-bold text-emerald-700">{fmtCurrency(i.total_inc_gst)}</span>
+          <div className="bg-slate-50 rounded-lg p-3 space-y-1.5 border border-slate-200">
+            <p className="text-xs font-semibold text-slate-700">Estimate</p>
+            <div className="flex justify-between text-xs"><span className="text-slate-500">Labour</span><span className="font-medium">{fmtCurrency(costResult.labourAfterDiscount)}</span></div>
+            <div className="flex justify-between text-xs"><span className="text-slate-500">Equipment</span><span className="font-medium">{fmtCurrency(costResult.equipmentCost)}</span></div>
+            <div className="flex justify-between text-xs"><span className="text-slate-500">Subtotal (ex GST)</span><span className="font-medium">{fmtCurrency(costResult.subtotalExGst)}</span></div>
+            <div className="flex justify-between text-xs"><span className="text-slate-500">GST (10%)</span><span className="font-medium">{fmtCurrency(costResult.gstAmount)}</span></div>
+            <div className="flex justify-between text-xs border-t border-slate-200 pt-1.5">
+              <span className="text-slate-700 font-semibold">Total (inc GST)</span>
+              <span className="font-bold text-emerald-700">{fmtCurrency(costResult.totalIncGst)}</span>
+            </div>
           </div>
         )}
       </div>
 
+      {/* Block 7 — Footer */}
+      <div className="bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+        <p className="text-[11px] text-slate-500">
+          {costResult.discountTierDescription} • Total Hours: {fmtHours(costResult.totalLabourHours)} • Work Days: {costResult.totalDays}
+        </p>
+      </div>
+
+      {/* Block 8 — Manual override banner */}
       {i.manual_labour_override && (
         <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
           <p className="text-xs font-medium text-amber-700">
