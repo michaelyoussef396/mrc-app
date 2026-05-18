@@ -1834,13 +1834,13 @@ export default function LeadDetail() {
           </Card>
         )}
 
-        {/* Card 3 — Dehumidifier Recommendation (admin only) */}
+        {/* Card 3 — Recommended Dehumidifier Size (admin only) */}
         {isAdmin && inspection && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Wrench className="h-4 w-4" />
-                Dehumidifier Recommendation
+                Recommended Dehumidifier Size
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -2022,6 +2022,11 @@ export default function LeadDetail() {
             </CardHeader>
             <CardContent>
               <dl className="space-y-2">
+                {inspection.option_selected === 3 && (
+                  <div className="pt-1 pb-1">
+                    <dt className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Option 2 (Comprehensive Treatment)</dt>
+                  </div>
+                )}
                 {inspection.labour_cost_ex_gst != null && (
                   <div className="flex items-center justify-between">
                     <dt className="text-sm text-gray-500">Labour Subtotal Ex-GST</dt>
@@ -2038,6 +2043,38 @@ export default function LeadDetail() {
                     </dd>
                   </div>
                 )}
+
+                {/* Option 1 sub-quote — only when both options were quoted and Option 1 data exists */}
+                {inspection.option_selected === 3 && (inspection.option_1_total_inc_gst ?? 0) > 0 && (
+                  <>
+                    <div className="pt-2 pb-1">
+                      <dt className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Option 1 (Surface Treatment)</dt>
+                    </div>
+                    {inspection.option_1_labour_ex_gst != null && (
+                      <div className="flex items-center justify-between">
+                        <dt className="text-sm text-gray-500 pl-3">Labour Ex-GST</dt>
+                        <dd className="text-sm font-medium tabular-nums">
+                          {formatCurrency(inspection.option_1_labour_ex_gst)}
+                        </dd>
+                      </div>
+                    )}
+                    {inspection.option_1_equipment_ex_gst != null && (
+                      <div className="flex items-center justify-between">
+                        <dt className="text-sm text-gray-500 pl-3">Equipment Ex-GST</dt>
+                        <dd className="text-sm font-medium tabular-nums">
+                          {formatCurrency(inspection.option_1_equipment_ex_gst)}
+                        </dd>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {inspection.option_selected === 3 && (
+                  <div className="pt-2 pb-1">
+                    <dt className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Option 2 (Comprehensive Treatment)</dt>
+                  </div>
+                )}
+
                 {inspection.subtotal_ex_gst != null && (
                   <div className="flex items-center justify-between">
                     <dt className="text-sm text-gray-500">Subtotal Ex-GST</dt>
