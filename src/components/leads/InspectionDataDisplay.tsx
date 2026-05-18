@@ -210,14 +210,31 @@ function PropertyDetailsSection({ inspection: i }: { inspection: Record<string, 
 // ============================================================================
 
 function AreaSection({ area }: { area: AreaWithDetails }) {
+  // Photo grouping: room photos vs the two infrared variants (which use dedicated photo_types)
+  const roomPhotos = area.photos.filter(p => p.photo_type !== 'infrared' && p.photo_type !== 'naturalInfrared');
+  const infraredPhotos = area.photos.filter(p => p.photo_type === 'infrared');
+  const naturalInfraredPhotos = area.photos.filter(p => p.photo_type === 'naturalInfrared');
+
   return (
     <div className="space-y-4">
+      {/* Infrared Inspection toggle status */}
+      <div className="flex items-center justify-end">
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+            area.infrared_enabled
+              ? 'bg-violet-100 text-violet-800'
+              : 'bg-slate-100 text-slate-600'
+          }`}
+        >
+          Infrared Inspection: {area.infrared_enabled ? 'ON' : 'OFF'}
+        </span>
+      </div>
+
       {/* Environment */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <MetricCard label="Temp" value={fmtNum(area.temperature, '°C')} />
         <MetricCard label="Humidity" value={fmtNum(area.humidity, '%')} />
         <MetricCard label="Dew Point" value={fmtNum(area.dew_point, '°C')} />
-        <MetricCard label="Ext. Moisture" value={fmtNum(area.external_moisture, '%')} />
       </div>
 
       {/* Visible Mould */}
@@ -255,11 +272,31 @@ function AreaSection({ area }: { area: AreaWithDetails }) {
         </div>
       )}
 
-      {/* Infrared */}
+      {/* Internal Office Notes */}
+      {area.internal_office_notes && (
+        <div>
+          <p className="text-xs text-slate-500 mb-1">Internal Office Notes</p>
+          <p className="text-sm text-slate-700 whitespace-pre-line bg-slate-50 rounded-lg p-3">
+            {area.internal_office_notes}
+          </p>
+        </div>
+      )}
+
+      {/* Extra Notes */}
+      {area.extra_notes && (
+        <div>
+          <p className="text-xs text-slate-500 mb-1">Extra Notes</p>
+          <p className="text-sm text-slate-700 whitespace-pre-line bg-slate-50 rounded-lg p-3">
+            {area.extra_notes}
+          </p>
+        </div>
+      )}
+
+      {/* Infrared Observations */}
       {area.infrared_enabled && (
         <div>
           <p className="text-xs text-slate-500 mb-1">Infrared Observations</p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 bg-slate-50 rounded-lg p-3">
             {area.infrared_observation_no_active && <Tag>No Active Water</Tag>}
             {area.infrared_observation_water_infiltration && <Tag color="red">Water Infiltration</Tag>}
             {area.infrared_observation_past_ingress && <Tag color="amber">Past Water Ingress</Tag>}
@@ -290,9 +327,15 @@ function AreaSection({ area }: { area: AreaWithDetails }) {
         <MoistureReadingsTable readings={area.moisture_readings} />
       )}
 
-      {/* Photos */}
-      {area.photos.length > 0 && (
-        <PhotoGrid photos={area.photos} label="Area Photos" />
+      {/* Photos — split into Room / Infrared / Natural-Light subgroups */}
+      {roomPhotos.length > 0 && (
+        <PhotoGrid photos={roomPhotos} label="Room Photos" />
+      )}
+      {area.infrared_enabled && infraredPhotos.length > 0 && (
+        <PhotoGrid photos={infraredPhotos} label="Infrared Photo" />
+      )}
+      {area.infrared_enabled && naturalInfraredPhotos.length > 0 && (
+        <PhotoGrid photos={naturalInfraredPhotos} label="Natural Light Comparison" />
       )}
     </div>
   );
@@ -709,7 +752,14 @@ function MoistureReadingsTable({ readings }: { readings: MoistureReadingData[] }
             {readings.map((r, i) => (
               <tr key={r.id}>
                 <td className="py-2 pr-4 text-slate-400">{i + 1}</td>
-                <td className="py-2 pr-4 font-medium text-slate-700">{r.title || '—'}</td>
+                <td className="py-2 pr-4 font-medium text-slate-700">
+                  {i < 2 && (
+                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold mr-2 bg-slate-200 text-slate-700 uppercase tracking-wide align-middle">
+                      {i === 0 ? 'Internal' : 'External'}
+                    </span>
+                  )}
+                  {r.title || '—'}
+                </td>
                 <td className="py-2 pr-4">
                   <MoistureValue value={r.moisture_percentage} />
                 </td>
