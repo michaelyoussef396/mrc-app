@@ -580,8 +580,25 @@ const TREATMENT_METHOD_LABELS: string[] = [
 function WorkProcedureSection({ inspection: i }: { inspection: Record<string, any> }) {
   const treatmentMethods: string[] = Array.isArray(i.treatment_methods) ? i.treatment_methods : [];
 
+  // Mirrors Section 9 (Cost Estimate) banner at lines 668-681. Different
+  // prefix — reader's context here is work procedure, not pricing.
+  const TREATMENT_OPTION_LABELS: Record<number, string> = {
+    1: 'Treatment option: Option 1 (Surface Treatment)',
+    2: 'Treatment option: Option 2 (Comprehensive Treatment)',
+    3: 'Treatment option: Both',
+  };
+
   return (
     <div className="space-y-4">
+      {/* Treatment option banner — mirrors Section 9 Cost Estimate styling */}
+      {i.option_selected != null && TREATMENT_OPTION_LABELS[i.option_selected as number] && (
+        <div className="bg-blue-50 rounded-lg px-3 py-2 border border-blue-100">
+          <p className="text-xs font-medium text-blue-700">
+            {TREATMENT_OPTION_LABELS[i.option_selected as number]}
+          </p>
+        </div>
+      )}
+
       {/* Treatment methods — canonical array (supersedes legacy bool rows) */}
       {treatmentMethods.length > 0 ? (
         <div>
@@ -612,9 +629,6 @@ function WorkProcedureSection({ inspection: i }: { inspection: Record<string, an
         </div>
       </div>
 
-      {i.recommended_dehumidifier && (
-        <KV label="Recommended Dehumidifier Size" value={<span className="capitalize">{i.recommended_dehumidifier}</span>} />
-      )}
     </div>
   );
 }
@@ -654,6 +668,9 @@ function JobSummarySection({ inspection: i }: { inspection: Record<string, any> 
       )}
 
       <div className="space-y-1 divide-y divide-slate-100">
+        {i.recommended_dehumidifier && (
+          <KV label="Recommended Dehumidifier Size" value={<span className="capitalize">{i.recommended_dehumidifier}</span>} />
+        )}
         <KV label="Parking" value={<span className="capitalize">{(i.parking_option || '').replace(/_/g, ' ') || '—'}</span>} />
       </div>
     </div>
