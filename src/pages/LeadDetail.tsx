@@ -2022,6 +2022,11 @@ export default function LeadDetail() {
             </CardHeader>
             <CardContent>
               <dl className="space-y-2">
+                {inspection.option_selected === 3 && (
+                  <div className="pt-1 pb-1">
+                    <dt className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Option 2 (Comprehensive Treatment)</dt>
+                  </div>
+                )}
                 {inspection.labour_cost_ex_gst != null && (
                   <div className="flex items-center justify-between">
                     <dt className="text-sm text-gray-500">Labour Subtotal Ex-GST</dt>
@@ -2062,6 +2067,12 @@ export default function LeadDetail() {
                       </div>
                     )}
                   </>
+                )}
+
+                {inspection.option_selected === 3 && (
+                  <div className="pt-2 pb-1">
+                    <dt className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Option 2 (Comprehensive Treatment)</dt>
+                  </div>
                 )}
 
                 {inspection.subtotal_ex_gst != null && (

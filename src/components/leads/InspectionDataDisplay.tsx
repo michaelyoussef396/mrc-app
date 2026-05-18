@@ -239,7 +239,7 @@ function AreaSection({ area }: { area: AreaWithDetails }) {
             </div>
           ) : (
             <p className="text-sm text-slate-700 whitespace-pre-line bg-slate-50 rounded-lg p-3">
-              {area.mould_description}
+              {area.mould_visible_custom || area.mould_description}
             </p>
           )}
         </div>
@@ -425,7 +425,7 @@ function WasteDisposalSection({ inspection: i }: { inspection: Record<string, an
 // NOTE: canonical 11-method labels mirror TechnicianInspectionForm treatment_methods array values
 const TREATMENT_METHOD_LABELS: string[] = [
   'HEPA Vacuuming',
-  'Surface Mould Remediation',
+  'Surface Remediation Treatment',
   'ULV Fogging - Property',
   'ULV Fogging - Subfloor',
   'Subfloor Remediation',
