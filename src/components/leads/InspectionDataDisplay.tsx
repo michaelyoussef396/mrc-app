@@ -474,10 +474,25 @@ function SubfloorAssessmentBody({
 // SECTION 5: OUTDOOR
 // ============================================================================
 
+// Outdoor save shape: photo_type='outdoor' for all 5 slots; slot identity
+// lives in `caption` (snake_case). See TechnicianInspectionForm.tsx:3216-3222.
+const OUTDOOR_SLOT_ORDER = ['front_door', 'front_house', 'mailbox', 'street', 'direction'] as const;
+
+const OUTDOOR_SLOT_LABELS: Record<string, string> = {
+  front_door: 'Front Door',
+  front_house: 'Front House',
+  mailbox: 'Mailbox',
+  street: 'Street',
+  direction: 'Direction',
+};
+
 function OutdoorSection({ inspection: i, photos }: { inspection: Record<string, any>; photos: PhotoWithUrl[] }) {
-  const outdoorPhotos = photos.filter(p =>
-    ['outdoor', 'frontDoor', 'frontHouse', 'mailbox', 'street', 'direction'].includes(p.photo_type)
-  );
+  // Build slot-ordered list, skip empty slots (no placeholders). Upstream
+  // generalPhotos filter (line 66) already excludes area/subfloor-scoped
+  // photos, so caption-based matching is sufficient and canonical.
+  const outdoorPhotos = OUTDOOR_SLOT_ORDER
+    .map(slot => photos.find(p => p.caption === slot))
+    .filter((p): p is PhotoWithUrl => p != null);
 
   return (
     <div className="space-y-4">
@@ -497,7 +512,11 @@ function OutdoorSection({ inspection: i, photos }: { inspection: Record<string, 
       )}
 
       {outdoorPhotos.length > 0 && (
-        <PhotoGrid photos={outdoorPhotos} label="Outdoor Photos" />
+        <PhotoGrid
+          photos={outdoorPhotos}
+          label="Outdoor Photos"
+          getLabel={p => OUTDOOR_SLOT_LABELS[p.caption ?? ''] ?? 'Outdoor'}
+        />
       )}
     </div>
   );
@@ -852,7 +871,7 @@ function MoistureReadingsTable({ readings }: { readings: MoistureReadingData[] }
 // PHOTO GRID
 // ============================================================================
 
-function PhotoGrid({ photos, label }: { photos: PhotoWithUrl[]; label: string }) {
+function PhotoGrid({ photos, label, getLabel }: { photos: PhotoWithUrl[]; label: string; getLabel?: (photo: PhotoWithUrl) => string }) {
   const [lightbox, setLightbox] = useState<{ photos: PhotoWithUrl[]; index: number } | null>(null);
 
   if (photos.length === 0) return null;
@@ -896,7 +915,7 @@ function PhotoGrid({ photos, label }: { photos: PhotoWithUrl[]; label: string })
             )}
             <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1">
               <p className="text-[10px] text-white truncate capitalize">
-                {photo.photo_type?.replace(/([A-Z])/g, ' $1').trim() || 'Photo'}
+                {getLabel ? getLabel(photo) : (photo.photo_type?.replace(/([A-Z])/g, ' $1').trim() || 'Photo')}
               </p>
             </div>
           </div>
