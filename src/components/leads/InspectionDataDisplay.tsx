@@ -210,10 +210,21 @@ function PropertyDetailsSection({ inspection: i }: { inspection: Record<string, 
 // ============================================================================
 
 function AreaSection({ area }: { area: AreaWithDetails }) {
-  // Photo grouping: room photos vs the two infrared variants (which use dedicated photo_types)
-  const roomPhotos = area.photos.filter(p => p.photo_type !== 'infrared' && p.photo_type !== 'naturalInfrared');
-  const infraredPhotos = area.photos.filter(p => p.photo_type === 'infrared');
-  const naturalInfraredPhotos = area.photos.filter(p => p.photo_type === 'naturalInfrared');
+  // Photo grouping: mirrors the canonical caption-based predicate from
+  // TechnicianInspectionForm.tsx:2765-2776. All four area-scope photo
+  // subcategories share photo_type='area' and differentiate by caption
+  // (filtered photos here already exclude moisture readings via the
+  // upstream !p.moisture_reading_id filter in fetchCompleteInspectionData).
+  const roomPhotos = area.photos.filter(
+    p =>
+      p.photo_type === 'area' &&
+      p.caption !== 'infrared' &&
+      p.caption !== 'natural_infrared' &&
+      p.caption !== 'moisture' &&
+      !p.moisture_reading_id,
+  );
+  const infraredPhotos = area.photos.filter(p => p.photo_type === 'area' && p.caption === 'infrared');
+  const naturalInfraredPhotos = area.photos.filter(p => p.photo_type === 'area' && p.caption === 'natural_infrared');
 
   return (
     <div className="space-y-4">
