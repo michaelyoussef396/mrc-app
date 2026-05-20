@@ -946,9 +946,12 @@ function buildEdgeFunctionPayload(
       })(),
       mouldVisibility: a.mould_visible_locations || [],
       commentsForReport: a.comments || '',
-      temperature: a.temperature,
-      humidity: a.humidity,
-      dewPoint: a.dew_point,
+      // DB numeric columns come back as JS numbers via supabase-js/PostgREST. Tech-form
+      // hydration String()-converts these (TechnicianInspectionForm.tsx:2789-2813) before
+      // payload assembly; mirror that here so the EF's sanitizeField always sees strings.
+      temperature: a.temperature != null ? String(a.temperature) : '',
+      humidity: a.humidity != null ? String(a.humidity) : '',
+      dewPoint: a.dew_point != null ? String(a.dew_point) : '',
       timeWithoutDemo: a.job_time_minutes ? a.job_time_minutes / 60 : 0,
       demolitionRequired: a.demolition_required,
       demolitionTime: a.demolition_time_minutes ? a.demolition_time_minutes / 60 : 0,
@@ -957,7 +960,7 @@ function buildEdgeFunctionPayload(
         title: r.title,
         reading: r.moisture_percentage?.toString(),
       })),
-      externalMoisture: a.external_moisture,
+      externalMoisture: a.external_moisture != null ? String(a.external_moisture) : '',
       extraNotes: a.extra_notes,
       infraredEnabled: a.infrared_enabled,
       infraredObservations: reconstructInfraredObservations(a),
