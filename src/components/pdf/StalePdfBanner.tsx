@@ -52,7 +52,7 @@ export function StalePdfBanner({ inspectionId, isRegenerating, onRegenerate }: S
       }
 
       if (!pdfAt) {
-        setIsStale(true)
+        setIsStale(false)
         return
       }
 
