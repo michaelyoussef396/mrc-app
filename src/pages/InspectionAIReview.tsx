@@ -5,9 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { captureBusinessError } from '@/lib/sentry';
 import { logFieldEdits } from '@/lib/api/fieldEditLog';
-import { generateInspectionPDF } from '@/lib/api/pdfGeneration';
 import AdminSidebar from '@/components/admin/AdminSidebar';
-import { StalePdfBanner } from '@/components/pdf/StalePdfBanner';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -85,6 +83,25 @@ interface AreaData {
   demolition_required: boolean;
 }
 
+type SectionKey = 'whatWeFound' | 'whatWeWillDo' | 'detailedAnalysis' | 'demolitionDetails';
+
+const SECTION_LABELS: Record<SectionKey, string> = {
+  whatWeFound: 'What We Found',
+  detailedAnalysis: 'Problem Analysis & Recommendations',
+  whatWeWillDo: "What We're Going To Do",
+  demolitionDetails: 'Demolition Details',
+};
+
+// Maps the in-form section key to the ai_summary_versions content column it represents.
+// Used as the FieldChange.field for activity logs so the existing timeline label
+// resolver (title-cased snake_case) produces a readable label.
+const SECTION_TO_DB_FIELD: Record<SectionKey, string> = {
+  whatWeFound: 'what_we_found_text',
+  detailedAnalysis: 'problem_analysis_content',
+  whatWeWillDo: 'what_we_will_do_text',
+  demolitionDetails: 'demolition_content',
+};
+
 export default function InspectionAIReview() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -107,8 +124,15 @@ export default function InspectionAIReview() {
   // Regeneration state
   const [regeneratingSection, setRegeneratingSection] = useState<string | null>(null);
   const [regeneratingAll, setRegeneratingAll] = useState(false);
-  const [regeneratingPdf, setRegeneratingPdf] = useState(false);
+  // Global feedback applies to Regenerate All Sections only.
   const [feedbackText, setFeedbackText] = useState('');
+  // Per-section feedback applies to that section's Regenerate button only.
+  const [sectionFeedback, setSectionFeedback] = useState<Record<SectionKey, string>>({
+    whatWeFound: '',
+    detailedAnalysis: '',
+    whatWeWillDo: '',
+    demolitionDetails: '',
+  });
 
   // Track dirty state
   const [isDirty, setIsDirty] = useState(false);
@@ -383,8 +407,6 @@ export default function InspectionAIReview() {
     }
   };
 
-  type SectionKey = 'whatWeFound' | 'whatWeWillDo' | 'detailedAnalysis' | 'demolitionDetails';
-
   const handleRegenerateSection = async (section: SectionKey) => {
     if (!inspection) return;
     setRegeneratingSection(section);
@@ -395,6 +417,7 @@ export default function InspectionAIReview() {
         detailedAnalysis: problemAnalysis,
         demolitionDetails: demolitionContent,
       };
+      const previousContent = contentMap[section];
 
       const { data: fullInspection } = await supabase
         .from('inspections')
@@ -410,59 +433,56 @@ export default function InspectionAIReview() {
 
       const payload = buildEdgeFunctionPayload(fullInspection, fullAreas || [], lead);
       const { data: { session: regenSession } } = await supabase.auth.getSession();
-      const trimmedFeedback = feedbackText.trim();
+      const trimmedFeedback = sectionFeedback[section].trim();
 
       const { data, error } = await invokeEdgeFunction('generate-inspection-summary', {
         formData: payload,
         inspectionId: inspection.id,
         userId: regenSession?.user?.id,
         section,
-        currentContent: contentMap[section],
+        currentContent: previousContent,
         regenerationFeedback: trimmedFeedback || undefined,
       });
 
       if (error) throw error;
 
-      const newContent = data?.summary || contentMap[section];
+      const newContent = data?.summary || previousContent;
       if (section === 'whatWeFound') setWhatWeFound(newContent);
       else if (section === 'whatWeWillDo') setWhatWeWillDo(newContent);
       else if (section === 'detailedAnalysis') setProblemAnalysis(newContent);
       else if (section === 'demolitionDetails') setDemolitionContent(newContent);
 
       setIsDirty(true);
-      setFeedbackText('');
-      toast({ title: 'Section Regenerated', description: 'Content updated. Remember to save.' });
+      setSectionFeedback((prev) => ({ ...prev, [section]: '' }));
+
+      if (leadId) {
+        await logFieldEdits({
+          leadId,
+          entityType: 'inspection',
+          entityId: inspection.id,
+          changes: [{
+            field: SECTION_TO_DB_FIELD[section],
+            old: previousContent || null,
+            new: newContent || null,
+          }],
+          extraMetadata: {
+            action: 'ai_section_regenerated',
+            section_key: section,
+            section_label: SECTION_LABELS[section],
+            instruction_text: trimmedFeedback || null,
+            version_id: data?.version_id ?? null,
+            version_number: data?.version_number ?? null,
+            generation_type: data?.generation_type ?? null,
+          },
+        });
+        queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
+      }
+
+      toast({ title: 'Section Regenerated', description: `Regenerated ${SECTION_LABELS[section]} section. Remember to save.` });
     } catch (err: any) {
       toast({ title: 'Failed', description: err?.message || 'Failed to regenerate section', variant: 'destructive' });
     } finally {
       setRegeneratingSection(null);
-    }
-  };
-
-  const handleRegeneratePdf = async () => {
-    if (!inspection?.id) return;
-    if (isDirty) {
-      toast({
-        title: 'Unsaved changes',
-        description: 'Save the AI summary before regenerating the PDF.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    setRegeneratingPdf(true);
-    try {
-      const result = await generateInspectionPDF(inspection.id, { regenerate: true });
-      if (!result.success) throw new Error(result.error || 'PDF generation failed');
-      toast({ title: 'PDF regenerated', description: 'A new version was created.' });
-    } catch (err: any) {
-      captureBusinessError('Regenerate PDF failed', { inspectionId: inspection.id, error: err?.message });
-      toast({
-        title: 'Failed to regenerate PDF',
-        description: err?.message || 'Unknown error',
-        variant: 'destructive',
-      });
-    } finally {
-      setRegeneratingPdf(false);
     }
   };
 
@@ -537,19 +557,6 @@ export default function InspectionAIReview() {
                 {saving ? 'Saving...' : 'Save Draft'}
               </button>
               <button
-                onClick={handleRegeneratePdf}
-                disabled={regeneratingPdf || isDirty}
-                title={isDirty ? 'Save the AI summary first' : 'Regenerate the PDF report'}
-                className="h-10 px-4 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors flex items-center gap-2 disabled:opacity-50"
-              >
-                {regeneratingPdf ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-5 w-5" />
-                )}
-                {regeneratingPdf ? 'Regenerating PDF...' : 'Regenerate PDF'}
-              </button>
-              <button
                 onClick={handleApprove}
                 className="h-10 px-4 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm"
               >
@@ -563,13 +570,6 @@ export default function InspectionAIReview() {
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-[1440px] mx-auto p-4 md:p-6 lg:p-8">
-            <div className="mb-4">
-              <StalePdfBanner
-                inspectionId={inspection?.id}
-                isRegenerating={regeneratingPdf}
-                onRegenerate={handleRegeneratePdf}
-              />
-            </div>
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
               {/* Left Column — Context Card */}
@@ -663,7 +663,8 @@ export default function InspectionAIReview() {
                   )}
                 </div>
 
-                {/* Regeneration feedback (optional) */}
+                {/* Regenerate-All feedback (optional). Per-section instructions live
+                    inside each SectionCard. */}
                 <div className="space-y-2">
                   <label htmlFor="ai-regen-feedback" className="text-sm font-medium text-slate-700">
                     Tell the AI what to change <span className="text-slate-400 font-normal">(optional)</span>
@@ -678,7 +679,7 @@ export default function InspectionAIReview() {
                     className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 resize-y min-h-[72px]"
                   />
                   <p className="text-xs text-slate-500">
-                    {feedbackText.length}/2000 — applies to the next regeneration (whole or section)
+                    {feedbackText.length}/2000 — applies to Regenerate All Sections
                   </p>
                 </div>
 
@@ -723,6 +724,8 @@ export default function InspectionAIReview() {
                   onChange={(v) => { setWhatWeFound(v); setIsDirty(true); }}
                   onRegenerate={() => handleRegenerateSection('whatWeFound')}
                   isRegenerating={regeneratingSection === 'whatWeFound'}
+                  feedback={sectionFeedback.whatWeFound}
+                  onFeedbackChange={(v) => setSectionFeedback((prev) => ({ ...prev, whatWeFound: v }))}
                   rows={4}
                 />
 
@@ -734,6 +737,8 @@ export default function InspectionAIReview() {
                   onChange={(v) => { setProblemAnalysis(v); setIsDirty(true); }}
                   onRegenerate={() => handleRegenerateSection('detailedAnalysis')}
                   isRegenerating={regeneratingSection === 'detailedAnalysis'}
+                  feedback={sectionFeedback.detailedAnalysis}
+                  onFeedbackChange={(v) => setSectionFeedback((prev) => ({ ...prev, detailedAnalysis: v }))}
                   rows={16}
                 />
 
@@ -745,6 +750,8 @@ export default function InspectionAIReview() {
                   onChange={(v) => { setWhatWeWillDo(v); setIsDirty(true); }}
                   onRegenerate={() => handleRegenerateSection('whatWeWillDo')}
                   isRegenerating={regeneratingSection === 'whatWeWillDo'}
+                  feedback={sectionFeedback.whatWeWillDo}
+                  onFeedbackChange={(v) => setSectionFeedback((prev) => ({ ...prev, whatWeWillDo: v }))}
                   rows={8}
                 />
 
@@ -757,6 +764,8 @@ export default function InspectionAIReview() {
                     onChange={(v) => { setDemolitionContent(v); setIsDirty(true); }}
                     onRegenerate={() => handleRegenerateSection('demolitionDetails')}
                     isRegenerating={regeneratingSection === 'demolitionDetails'}
+                    feedback={sectionFeedback.demolitionDetails}
+                    onFeedbackChange={(v) => setSectionFeedback((prev) => ({ ...prev, demolitionDetails: v }))}
                     rows={6}
                   />
                 )}
@@ -806,6 +815,8 @@ function SectionCard({
   onChange,
   onRegenerate,
   isRegenerating,
+  feedback,
+  onFeedbackChange,
   rows = 6,
 }: {
   title: string;
@@ -814,6 +825,8 @@ function SectionCard({
   onChange: (value: string) => void;
   onRegenerate: () => void;
   isRegenerating: boolean;
+  feedback: string;
+  onFeedbackChange: (value: string) => void;
   rows?: number;
 }) {
   return (
@@ -838,7 +851,21 @@ function SectionCard({
           )}
         </button>
       </div>
-      <div className="p-5">
+      <div className="px-5 pt-4 pb-2 space-y-1">
+        <label className="text-xs font-medium text-slate-600 block">
+          Tell the AI what to change for this section <span className="text-slate-400 font-normal">(optional)</span>
+        </label>
+        <textarea
+          value={feedback}
+          onChange={(e) => onFeedbackChange(e.target.value.slice(0, 2000))}
+          placeholder="e.g. Add more detail about the bedroom moisture readings"
+          rows={2}
+          maxLength={2000}
+          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 resize-y min-h-[60px]"
+        />
+        <p className="text-xs text-slate-400">{feedback.length}/2000 — applies only to this section</p>
+      </div>
+      <div className="px-5 pb-5 pt-2">
         <textarea
           rows={rows}
           value={value}
