@@ -2470,9 +2470,12 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
     dwellingType: formData.dwellingType,
     areas: formData.areas.map((a) => ({
       areaName: a.areaName,
-      mouldDescription: a.mouldVisibleLocations?.length
-        ? a.mouldVisibleLocations.join(', ') + (a.mouldVisibleCustom ? '. ' + a.mouldVisibleCustom : '')
-        : a.mouldDescription,
+      mouldDescription: (() => {
+        const parts: string[] = [];
+        if (a.mouldVisibleLocations?.length) parts.push(a.mouldVisibleLocations.join(', '));
+        if (a.mouldVisibleCustom) parts.push(a.mouldVisibleCustom);
+        return parts.length ? parts.join('. ') : a.mouldDescription;
+      })(),
       mouldVisibility: a.mouldVisibleLocations || [],
       commentsForReport: a.commentsForReport,
       temperature: a.temperature,
@@ -2484,6 +2487,7 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
       demolitionDescription: a.demolitionDescription,
       moistureReadings: a.moistureReadings.map((r) => ({ title: r.title, reading: r.reading })),
       externalMoisture: a.externalMoisture,
+      extraNotes: a.extraNotes,
       infraredEnabled: a.infraredEnabled,
       infraredObservations: a.infraredObservations,
     })),

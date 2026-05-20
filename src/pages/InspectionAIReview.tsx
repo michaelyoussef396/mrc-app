@@ -102,6 +102,25 @@ const SECTION_TO_DB_FIELD: Record<SectionKey, string> = {
   demolitionDetails: 'demolition_content',
 };
 
+// Verbatim copy of TechnicianInspectionForm reconstruct helper (source of truth at
+// src/pages/TechnicianInspectionForm.tsx:2751-2759). The two surfaces must stay in
+// lockstep so AI Review regens and tech-form regens produce identical prompts.
+function reconstructInfraredObservations(area: {
+  infrared_observation_no_active?: boolean | null;
+  infrared_observation_water_infiltration?: boolean | null;
+  infrared_observation_past_ingress?: boolean | null;
+  infrared_observation_condensation?: boolean | null;
+  infrared_observation_missing_insulation?: boolean | null;
+}): string[] {
+  const obs: string[] = [];
+  if (area.infrared_observation_no_active) obs.push('No Active Water Intrusion Detected');
+  if (area.infrared_observation_water_infiltration) obs.push('Active Water Infiltration');
+  if (area.infrared_observation_past_ingress) obs.push('Past Water Ingress (Dried)');
+  if (area.infrared_observation_condensation) obs.push('Condensation Pattern');
+  if (area.infrared_observation_missing_insulation) obs.push('Missing/Inadequate Insulation');
+  return obs;
+}
+
 export default function InspectionAIReview() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -363,20 +382,26 @@ export default function InspectionAIReview() {
     if (!inspection) return;
     setRegeneratingAll(true);
     try {
-      // Build a minimal payload from what we have — the edge function mainly needs the inspection data
-      const { data: fullInspection } = await supabase
-        .from('inspections')
-        .select('*')
-        .eq('id', inspection.id)
-        .single();
+      const [inspectionRes, areasRes, subfloorRes] = await Promise.all([
+        supabase.from('inspections').select('*').eq('id', inspection.id).single(),
+        supabase.from('inspection_areas').select('*, moisture_readings(*)').eq('inspection_id', inspection.id).order('area_order'),
+        supabase.from('subfloor_data').select('*').eq('inspection_id', inspection.id).maybeSingle(),
+      ]);
+      const fullInspection = inspectionRes.data;
+      const fullAreas = areasRes.data;
+      const subfloorData = subfloorRes.data;
 
-      const { data: fullAreas } = await supabase
-        .from('inspection_areas')
-        .select('*, moisture_readings(*)')
-        .eq('inspection_id', inspection.id)
-        .order('area_order');
+      let subfloorReadings: any[] = [];
+      if (subfloorData) {
+        const { data: srData } = await supabase
+          .from('subfloor_readings')
+          .select('*')
+          .eq('subfloor_id', subfloorData.id)
+          .order('reading_order', { ascending: true });
+        subfloorReadings = srData || [];
+      }
 
-      const payload = buildEdgeFunctionPayload(fullInspection, fullAreas || [], lead);
+      const payload = buildEdgeFunctionPayload(fullInspection, fullAreas || [], lead, subfloorData, subfloorReadings);
       const { data: { session: regenSession } } = await supabase.auth.getSession();
       const trimmedFeedback = feedbackText.trim();
 
@@ -419,19 +444,26 @@ export default function InspectionAIReview() {
       };
       const previousContent = contentMap[section];
 
-      const { data: fullInspection } = await supabase
-        .from('inspections')
-        .select('*')
-        .eq('id', inspection.id)
-        .single();
+      const [inspectionRes, areasRes, subfloorRes] = await Promise.all([
+        supabase.from('inspections').select('*').eq('id', inspection.id).single(),
+        supabase.from('inspection_areas').select('*, moisture_readings(*)').eq('inspection_id', inspection.id).order('area_order'),
+        supabase.from('subfloor_data').select('*').eq('inspection_id', inspection.id).maybeSingle(),
+      ]);
+      const fullInspection = inspectionRes.data;
+      const fullAreas = areasRes.data;
+      const subfloorData = subfloorRes.data;
 
-      const { data: fullAreas } = await supabase
-        .from('inspection_areas')
-        .select('*, moisture_readings(*)')
-        .eq('inspection_id', inspection.id)
-        .order('area_order');
+      let subfloorReadings: any[] = [];
+      if (subfloorData) {
+        const { data: srData } = await supabase
+          .from('subfloor_readings')
+          .select('*')
+          .eq('subfloor_id', subfloorData.id)
+          .order('reading_order', { ascending: true });
+        subfloorReadings = srData || [];
+      }
 
-      const payload = buildEdgeFunctionPayload(fullInspection, fullAreas || [], lead);
+      const payload = buildEdgeFunctionPayload(fullInspection, fullAreas || [], lead, subfloorData, subfloorReadings);
       const { data: { session: regenSession } } = await supabase.auth.getSession();
       const trimmedFeedback = sectionFeedback[section].trim();
 
@@ -882,7 +914,16 @@ function SectionCard({
 // HELPER: Build edge function payload from DB data
 // ============================================================================
 
-function buildEdgeFunctionPayload(inspection: any, areas: any[], lead: LeadData | null) {
+// Mirrors TechnicianInspectionForm.tsx:2458-2522 (buildAIPayload). Both surfaces must
+// produce identical payload shapes so a regen from either AI Review or the tech form
+// feeds the model the same prompt.
+function buildEdgeFunctionPayload(
+  inspection: any,
+  areas: any[],
+  lead: LeadData | null,
+  subfloorData: any | null,
+  subfloorReadings: any[],
+) {
   return {
     propertyAddress: lead?.property_address_street,
     clientName: lead?.full_name,
@@ -897,40 +938,49 @@ function buildEdgeFunctionPayload(inspection: any, areas: any[], lead: LeadData 
     dwellingType: inspection?.dwelling_type,
     areas: areas.map((a: any) => ({
       areaName: a.area_name,
-      mouldDescription: a.mould_description,
-      mouldVisibility: [],
-      commentsForReport: a.comments_for_report,
+      mouldDescription: (() => {
+        const parts: string[] = [];
+        if (a.mould_visible_locations?.length) parts.push(a.mould_visible_locations.join(', '));
+        if (a.mould_visible_custom) parts.push(a.mould_visible_custom);
+        return parts.length ? parts.join('. ') : a.mould_description;
+      })(),
+      mouldVisibility: a.mould_visible_locations || [],
+      commentsForReport: a.comments || '',
       temperature: a.temperature,
       humidity: a.humidity,
       dewPoint: a.dew_point,
-      timeWithoutDemo: a.time_without_demo,
+      timeWithoutDemo: a.job_time_minutes ? a.job_time_minutes / 60 : 0,
       demolitionRequired: a.demolition_required,
-      demolitionTime: a.demolition_time,
+      demolitionTime: a.demolition_time_minutes ? a.demolition_time_minutes / 60 : 0,
       demolitionDescription: a.demolition_description,
       moistureReadings: (a.moisture_readings || []).map((r: any) => ({
-        title: r.location_title,
+        title: r.title,
         reading: r.moisture_percentage?.toString(),
       })),
       externalMoisture: a.external_moisture,
+      extraNotes: a.extra_notes,
       infraredEnabled: a.infrared_enabled,
-      infraredObservations: [],
+      infraredObservations: reconstructInfraredObservations(a),
     })),
-    subfloorObservations: inspection?.subfloor_observations,
-    subfloorComments: inspection?.subfloor_comments,
-    subfloorLandscape: inspection?.subfloor_landscape,
-    subfloorSanitation: inspection?.subfloor_sanitation,
-    subfloorTreatmentTime: inspection?.subfloor_treatment_time,
-    subfloorReadings: [],
+    subfloorObservations: subfloorData?.observations || '',
+    subfloorComments: subfloorData?.comments || '',
+    subfloorLandscape: subfloorData?.landscape || '',
+    subfloorSanitation: subfloorData?.sanitation_required || false,
+    subfloorTreatmentTime: subfloorData?.treatment_time_minutes
+      ? subfloorData.treatment_time_minutes / 60
+      : 0,
+    subfloorReadings: subfloorReadings.map((r: any) => ({
+      reading: r.moisture_percentage?.toString(),
+      location: r.location,
+    })),
     outdoorTemperature: inspection?.outdoor_temperature?.toString(),
     outdoorHumidity: inspection?.outdoor_humidity?.toString(),
     outdoorDewPoint: inspection?.outdoor_dew_point?.toString(),
     outdoorComments: inspection?.outdoor_comments,
     wasteDisposalEnabled: inspection?.waste_disposal_required,
     wasteDisposalAmount: inspection?.waste_disposal_amount,
-    hepaVac: inspection?.hepa_vac,
-    antimicrobial: inspection?.antimicrobial,
-    stainRemovingAntimicrobial: inspection?.stain_removing_antimicrobial,
-    homeSanitationFogging: inspection?.home_sanitation_fogging,
+    optionSelected: inspection?.option_selected,
+    treatmentMethods: inspection?.treatment_methods,
     commercialDehumidifierEnabled: (inspection?.commercial_dehumidifier_qty ?? 0) > 0,
     commercialDehumidifierQty: inspection?.commercial_dehumidifier_qty,
     airMoversEnabled: (inspection?.air_movers_qty ?? 0) > 0,
