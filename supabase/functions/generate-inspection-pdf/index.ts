@@ -403,7 +403,7 @@ function stripMarkdown(text: string | null | undefined): string {
 // ===================================================================
 
 interface ContentBlock {
-  type: 'heading' | 'paragraph' | 'spacing' | 'whatyouget'
+  type: 'heading' | 'paragraph' | 'spacing'
   html?: string
   text?: string
   height: number
@@ -569,14 +569,6 @@ function fillPage(blocks: ContentBlock[], maxHeight: number): { pageBlocks: Cont
   return { pageBlocks, leftover: [] }
 }
 
-// "WHAT YOU GET" fixed content block
-function whatYouGetHtml(): string {
-  return `<div style="margin-top: 20px;">
-                <div style="color: #000000; font-size: 33px; font-family: 'Garet Heavy'; font-weight: 800; line-height: normal; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px;">WHAT YOU GET</div>
-                <div style="color: #252525; font-size: 19px; font-family: 'Galvji'; font-weight: 400; line-height: 28px; letter-spacing: 0.5px;">12 MONTH WARRANTY on all treated areas<br />Professional material removal where required<br />Complete airborne spore elimination<br />Detailed documentation for insurance / resale</div>
-            </div>`
-}
-
 // Generate multi-page Value Proposition HTML
 function generateValuePropositionPages(
   whatWeFoundHtml: string,
@@ -594,7 +586,6 @@ function generateValuePropositionPages(
 
   const HEADING_HEIGHT = 55    // Section heading (33px font + margins)
   const SECTION_SPACING = 25   // Space between sections
-  const WHAT_YOU_GET_HEIGHT = 170 // Fixed "WHAT YOU GET" section height
 
   // Build all content blocks in order
   const allBlocks: ContentBlock[] = []
@@ -613,12 +604,6 @@ function generateValuePropositionPages(
   for (const block of splitIntoBlocks(whatWeWillDoHtml)) {
     allBlocks.push({ type: 'paragraph', html: block, height: estimateBlockHeight(block) })
   }
-
-  // Spacing before WHAT YOU GET
-  allBlocks.push({ type: 'spacing', height: SECTION_SPACING })
-
-  // "WHAT YOU GET" section
-  allBlocks.push({ type: 'whatyouget', height: WHAT_YOU_GET_HEIGHT })
 
   // Paginate using fillPage (splits paragraphs to fill pages completely)
   const pages: ContentBlock[][] = []
@@ -655,9 +640,6 @@ function generateValuePropositionPages(
           break
         case 'spacing':
           contentHtml += `\n                <div style="height: ${block.height}px;"></div>`
-          break
-        case 'whatyouget':
-          contentHtml += `\n                ${whatYouGetHtml()}`
           break
       }
     }
