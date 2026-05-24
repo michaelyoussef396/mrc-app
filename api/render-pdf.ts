@@ -18,7 +18,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
-import { hashHtml } from './_shared/reportHash';
+// Vercel nodejs24.x compiles api/**/*.ts and runs the output as ESM, where
+// relative imports require the explicit `.js` extension that resolves to the
+// emitted file at runtime. Local `tsc` is fine without it; Vercel is not.
+import { hashHtml } from './_shared/reportHash.js';
 
 export const config = { runtime: 'nodejs' } as const;
 
