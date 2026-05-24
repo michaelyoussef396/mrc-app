@@ -1740,8 +1740,6 @@ function Section7WorkProcedure({ formData, onChange }: SectionProps) {
     ? [...SHARED_TREATMENT_METHODS, ...OPTION_2_ONLY_METHODS]
     : SHARED_TREATMENT_METHODS;
 
-  const dryingEquipmentEnabled = selected.includes('Drying Equipment');
-
   return (
     <section className="space-y-5">
       {/* Option Selector */}
@@ -1809,11 +1807,16 @@ function Section7WorkProcedure({ formData, onChange }: SectionProps) {
         </div>
       )}
 
-      {/* Drying Equipment Details — shown when "Drying Equipment" is selected */}
-      {dryingEquipmentEnabled && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* Equipment & Drying — always visible. Equipment qty + per-item toggles
+          are independent of the 'Drying Equipment' treatment method selection;
+          the data layer saves/loads/prices these fields unconditionally (see
+          pricing.ts calculateEquipmentCost). Previously this section was
+          gated behind dryingEquipmentEnabled which made equipment unreachable
+          on inspections where 'Drying Equipment' wasn't in treatment_methods —
+          even though the qty values existed in the DB. */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-4 bg-gray-50 border-b border-gray-100">
-            <h3 className="font-semibold text-[#1d1d1f]">Drying Equipment Details</h3>
+            <h3 className="font-semibold text-[#1d1d1f]">Equipment & Drying</h3>
           </div>
           <div className="p-4 space-y-4">
             {/* Commercial Dehumidifier */}
@@ -1901,7 +1904,6 @@ function Section7WorkProcedure({ formData, onChange }: SectionProps) {
             </div>
           </div>
         </div>
-      )}
     </section>
   );
 }
