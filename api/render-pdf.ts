@@ -29,8 +29,10 @@ interface SupabaseEnv {
 }
 
 function readEnv(): SupabaseEnv | { error: string } {
-  const url = process.env.SUPABASE_URL;
-  const anonKey = process.env.SUPABASE_ANON_KEY;
+  // VITE_-prefixed names are the project's existing public vars in Vercel; don't rename to
+  // non-prefixed — they don't exist there. SERVICE_ROLE stays non-prefixed (secret).
+  const url = process.env.VITE_SUPABASE_URL;
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !anonKey || !serviceKey) {
     return { error: 'Server misconfigured: missing Supabase env vars' };
