@@ -200,7 +200,11 @@ function getMouldDescription(area: InspectionArea): string {
     return area.mould_description.trim()
   }
 
-  return ''
+  // Bug B: the template has a literal "VISIBLE MOULD: {{visible_mould}}" label
+  // (inspection-report-template-final.html, around the per-area navy pane).
+  // Returning '' rendered as "VISIBLE MOULD: " with no value — a blank box.
+  // 'None observed' reads cleanly alongside the existing label.
+  return 'None observed'
 }
 
 // Get valid value - filters out placeholder text and empty values
@@ -1081,15 +1085,52 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
       page = page.replace(new RegExp(`\\{\\{area_photo_${i}\\}\\}`, 'g'), url)
     }
 
-    // Infrared photos
+    // Bug C — infrared photos & EXTRA NOTES bottom row.
+    //
+    // Previously a falsy storage_path was substituted into <img src="">, which
+    // the browser renders as a broken-image icon, AND the EXTRA NOTES block
+    // (only ever the "Thermal imaging reveals…" explainer — no path
+    // populates it with user notes) was emitted alongside an empty bottom-left
+    // half-page.
+    //
+    // Template anchors (verified against pdf-templates/inspection-report-template-final.html):
+    //   <!-- Extra photos grid (bottom left) -->  div: left:35  top:856  width:416  height:167
+    //   <!-- EXTRA NOTES heading -->              div: left:482 top:864  width:134
+    //   <!-- EXTRA NOTES content -->              div: left:483 top:893  width:260
+    //   AREA NOTES content above ends at top:817 — 47px clearance, no collision.
+    //
+    // Behaviour:
+    //   - Both infrared photos missing  → strip grid + EXTRA NOTES heading + EXTRA NOTES content
+    //   - One missing, one present      → strip only the missing <img> tag (full tag, not just src)
+    //   - Both present                  → unchanged
+    //
+    // The both-missing branch is UNVERIFIED until the rendered PDF is visually
+    // confirmed post-deploy. Needs eyeball-check on a test inspection with
+    // zero infrared photos before this case is considered "done".
     const infraredPhoto = areaPhotos.find(p => p.caption === 'infrared')
     const naturalInfraredPhoto = areaPhotos.find(p => p.caption === 'natural_infrared')
-    page = page.replace(/\{\{area_infrared_photo\}\}/g, infraredPhoto?.storage_path ? getPhotoUrl(infraredPhoto.storage_path) : '')
-    page = page.replace(/\{\{area_natural_infrared_photo\}\}/g, naturalInfraredPhoto?.storage_path ? getPhotoUrl(naturalInfraredPhoto.storage_path) : '')
+    const hasInfrared = !!infraredPhoto?.storage_path
+    const hasNatural = !!naturalInfraredPhoto?.storage_path
+
+    if (!hasInfrared && !hasNatural) {
+      page = page.replace(/<!-- Extra photos grid \(bottom left\)[\s\S]*?<\/div>\s*\n/, '')
+      page = page.replace(/<!-- EXTRA NOTES heading -->[\s\S]*?<\/div>\s*\n/, '')
+      page = page.replace(/<!-- EXTRA NOTES content -->[\s\S]*?<\/div>\s*\n/, '')
+    } else {
+      if (!hasInfrared) {
+        page = page.replace(/<img[^>]*src="\{\{area_infrared_photo\}\}"[^>]*\/>/, '')
+      }
+      if (!hasNatural) {
+        page = page.replace(/<img[^>]*src="\{\{area_natural_infrared_photo\}\}"[^>]*\/>/, '')
+      }
+    }
+
+    page = page.replace(/\{\{area_infrared_photo\}\}/g, hasInfrared ? getPhotoUrl(infraredPhoto!.storage_path) : '')
+    page = page.replace(/\{\{area_natural_infrared_photo\}\}/g, hasNatural ? getPhotoUrl(naturalInfraredPhoto!.storage_path) : '')
 
     // Notes
     page = page.replace(/\{\{area_notes\}\}/g, escapeHtml(area.comments || 'No notes recorded for this area.'))
-    page = page.replace(/\{\{extra_notes\}\}/g, infraredPhoto || naturalInfraredPhoto
+    page = page.replace(/\{\{extra_notes\}\}/g, hasInfrared || hasNatural
       ? 'Thermal imaging reveals moisture patterns not visible to the naked eye.'
       : '')
 
