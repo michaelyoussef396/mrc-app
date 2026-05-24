@@ -42,6 +42,9 @@ import {
   getPDFVersionHistory,
 } from '@/lib/api/pdfGeneration'
 import { StalePdfBanner } from '@/components/pdf/StalePdfBanner'
+import { hardSaveReport, downloadBlobAs, HardSaveError, checkSendMismatch, downloadVersionPdfAsBase64, markVersionEmailed, type HardSaveVersionRow } from '@/lib/api/reportPipeline'
+import { MismatchSendDialog, type MismatchChoice } from '@/components/pdf/MismatchSendDialog'
+import { ReportVersionHistory } from '@/components/pdf/ReportVersionHistory'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
 import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
@@ -312,6 +315,10 @@ export default function ViewReportPDF() {
   const [emailBody, setEmailBody] = useState('')
   const [emailRecipient, setEmailRecipient] = useState('')
   const [sendingEmail, setSendingEmail] = useState(false)
+  // Phase 5: mismatch dialog state. When set, the dialog is open and the
+  // user must pick send_as_is, hard_save_fresh, or cancel before the send
+  // can proceed.
+  const [mismatchVersion, setMismatchVersion] = useState<HardSaveVersionRow | null>(null)
 
   function prefillEmailAndOpenStage() {
     if (reportType === 'job' && jobCompletion) {
@@ -1054,58 +1061,52 @@ export default function ViewReportPDF() {
       return
     }
 
-    if (!inspection.pdf_url) {
-      toast.error('No PDF report available')
-      return
-    }
-
     setSendingEmail(true)
-    toast.loading('Converting report to PDF...', { id: 'send-email' })
+    toast.loading('Checking for content changes...', { id: 'send-email' })
+
+    try {
+      const mismatch = await checkSendMismatch(inspection.id)
+
+      if (mismatch.kind === 'no_hard_save') {
+        toast.error('Please click Download first to save a reviewed version, then Send.', { id: 'send-email' })
+        setSendingEmail(false)
+        return
+      }
+
+      if (mismatch.kind === 'mismatch') {
+        // Open the dialog — the user picks send_as_is or hard_save_fresh.
+        // sendingEmail stays true so the Send button shows busy state.
+        setMismatchVersion(mismatch.version)
+        toast.dismiss('send-email')
+        return
+      }
+
+      // Clean match: attach the stored PDF and send.
+      await performInspectionSend(mismatch.version, recipient)
+    } catch (err) {
+      console.error('Send email pre-check failed:', err)
+      const msg = err instanceof Error ? err.message : 'Failed to start send'
+      toast.error(msg, { id: 'send-email' })
+      setSendingEmail(false)
+    }
+  }
+
+  // Phase 5: post-mismatch-resolution send. Called for the match path
+  // directly, and from handleMismatchChoice after the user picks
+  // send_as_is or hard_save_fresh. Caller is responsible for setting
+  // sendingEmail=true before invoking and false on terminal error;
+  // success path navigates away.
+  async function performInspectionSend(version: HardSaveVersionRow, recipient: string) {
+    if (!inspection?.id) return
+    const lead = inspection.lead
+    if (!lead) return
 
     try {
       const address = [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ')
 
-      // 1. Get PDF content as base64
-      let base64Content: string
+      toast.loading(`Attaching v${version.version_number} PDF...`, { id: 'send-email' })
+      const base64Content = await downloadVersionPdfAsBase64(version.pdf_storage_path)
 
-      if (inspection.pdf_blob_url) {
-        // Use stored browser-rendered PDF (perfect quality)
-        toast.loading('Preparing PDF attachment...', { id: 'send-email' })
-        const { data: pdfData, error: pdfError } = await supabase.storage
-          .from('report-pdfs')
-          .download(inspection.pdf_blob_url)
-        if (pdfError || !pdfData) throw new Error('Failed to download stored PDF')
-        const arrayBuffer = await pdfData.arrayBuffer()
-        base64Content = btoa(
-          new Uint8Array(arrayBuffer).reduce((s, b) => s + String.fromCharCode(b), '')
-        )
-      } else {
-        // Fallback: client-side conversion (lower quality — user should upload PDF first)
-        toast.loading('Generating PDF (upload saved PDF for better quality)...', { id: 'send-email' })
-        let htmlContent: string
-        const pathMatch = inspection.pdf_url!.match(/inspection-reports\/(.+)$/)
-        if (pathMatch) {
-          const { data, error } = await supabase.storage
-            .from('inspection-reports')
-            .download(pathMatch[1])
-          if (error || !data) throw new Error('Failed to download report file')
-          htmlContent = await data.text()
-        } else {
-          const response = await fetch(inspection.pdf_url!)
-          if (!response.ok) throw new Error('Failed to fetch report file')
-          htmlContent = await response.text()
-        }
-        const { convertHtmlToPdf } = await import('@/lib/utils/htmlToPdf')
-        const pdfBlob = await convertHtmlToPdf(htmlContent)
-        base64Content = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve((reader.result as string).split(',')[1])
-          reader.onerror = reject
-          reader.readAsDataURL(pdfBlob)
-        })
-      }
-
-      // 2. Build branded HTML email body (include custom message if provided)
       toast.loading('Sending email...', { id: 'send-email' })
       const emailHtml = buildReportApprovedHtml({
         customerName: lead.full_name,
@@ -1114,11 +1115,9 @@ export default function ViewReportPDF() {
         customMessage: emailBody.trim() || undefined,
       })
 
-      // 5. Build filename
       const jobNumber = inspection.job_number || 'Report'
-      const filename = `MRC-${jobNumber}-Inspection-Report.pdf`
+      const filename = `MRC-${jobNumber}-Inspection-Report-v${version.version_number}.pdf`
 
-      // 6. Send email with PDF attachment
       await sendEmail({
         to: recipient,
         subject: emailSubject,
@@ -1126,14 +1125,11 @@ export default function ViewReportPDF() {
         leadId: lead.id,
         inspectionId: inspection.id,
         templateName: 'report-approved',
-        attachments: [{
-          filename,
-          content: base64Content,
-          content_type: 'application/pdf',
-        }],
+        attachments: [{ filename, content: base64Content, content_type: 'application/pdf' }],
       })
 
-      // 7. Send Slack notification
+      await markVersionEmailed(version.id)
+
       sendSlackNotification({
         event: 'report_approved',
         leadId: lead.id,
@@ -1141,22 +1137,57 @@ export default function ViewReportPDF() {
         propertyAddress: address,
       })
 
-      // 8. Update lead status to closed
-      await supabase
-        .from('leads')
-        .update({ status: 'closed' })
-        .eq('id', lead.id)
+      await supabase.from('leads').update({ status: 'closed' }).eq('id', lead.id)
 
-      toast.success(`Email sent to ${recipient} with PDF attached!`, { id: 'send-email' })
-
-      // 9. Redirect to Lead View
+      toast.success(`Email sent to ${recipient} with v${version.version_number} attached!`, { id: 'send-email' })
       navigate(`/leads/${lead.id}`)
     } catch (error) {
       console.error('Send email error:', error)
       const msg = error instanceof Error ? error.message : 'Failed to send email'
       toast.error(msg, { id: 'send-email' })
-    } finally {
       setSendingEmail(false)
+    }
+  }
+
+  async function handleMismatchChoice(choice: MismatchChoice) {
+    if (!inspection?.id) return
+    const recipient = emailRecipient.trim()
+
+    if (choice === 'cancel') {
+      setMismatchVersion(null)
+      setSendingEmail(false)
+      toast.dismiss('send-email')
+      return
+    }
+
+    if (choice === 'send_as_is') {
+      const versionToSend = mismatchVersion
+      setMismatchVersion(null)
+      if (versionToSend) await performInspectionSend(versionToSend, recipient)
+      return
+    }
+
+    // hard_save_fresh: render a brand-new version, then send IT.
+    toast.loading('Hard-saving fresh version...', { id: 'send-email' })
+    try {
+      const fresh = await hardSaveReport(inspection.id)
+      const freshVersion: HardSaveVersionRow = {
+        id: fresh.versionId,
+        version_number: fresh.versionNumber,
+        pdf_storage_path: fresh.pdfStoragePath,
+        html_storage_path: fresh.htmlStoragePath,
+        html_hash: fresh.htmlHash,
+        created_at: new Date().toISOString(),
+      }
+      queryClient.invalidateQueries({ queryKey: ['pdf-versions', inspection.id] })
+      setMismatchVersion(null)
+      await performInspectionSend(freshVersion, recipient)
+    } catch (err) {
+      console.error('Hard-save during mismatch failed:', err)
+      const msg = err instanceof HardSaveError ? err.message : 'Failed to hard-save fresh version'
+      toast.error(msg, { id: 'send-email' })
+      setSendingEmail(false)
+      setMismatchVersion(null)
     }
   }
 
@@ -1204,61 +1235,30 @@ export default function ViewReportPDF() {
       return
     }
 
-    if (!inspection?.pdf_url) {
-      toast.error('PDF not yet generated')
+    if (!inspection?.id) {
+      toast.error('Inspection not loaded')
       return
     }
 
-    toast.loading('Preparing PDF...', { id: 'download' })
-
+    // Phase 4b: Download = HARD SAVE. The server renders the PDF, persists
+    // PDF + HTML to report-pdfs, writes a pdf_versions row, and streams the
+    // file back. Replaces the print-window dance. The manual upload fallback
+    // (handlePdfUpload) is still available for emergencies but no longer
+    // auto-prompted after each Download.
+    toast.loading('Hard-saving report — this may take ~10 seconds...', { id: 'download' })
     try {
-      // Fetch the HTML report from Supabase Storage
-      let html: string
-      const pathMatch = inspection.pdf_url.match(/inspection-reports\/(.+)$/)
-
-      if (pathMatch) {
-        const storagePath = pathMatch[1]
-        const { data, error } = await supabase.storage
-          .from('inspection-reports')
-          .download(storagePath)
-
-        if (error || !data) throw new Error('Failed to download report')
-        html = await data.text()
-      } else {
-        const response = await fetch(inspection.pdf_url)
-        if (!response.ok) throw new Error('Failed to fetch report')
-        html = await response.text()
-      }
-
-      // Build filename from job number
-      const jobNumber = inspection.job_number || 'report'
-      const title = `MRC-${jobNumber}`
-
-      // Inject <title> for PDF filename and auto-print script
-      const modifiedHtml = html.replace(
-        /<head>/i,
-        `<head><title>${title}</title>`
-      ) + '\n<script>window.onload=function(){setTimeout(function(){window.print()},600)}</script>'
-
-      // Create blob URL and open in new tab
-      const blob = new Blob([modifiedHtml], { type: 'text/html' })
-      const blobUrl = URL.createObjectURL(blob)
-
-      const printWindow = window.open(blobUrl, '_blank')
-      if (!printWindow) {
-        toast.error('Pop-up blocked — please allow pop-ups for this site', { id: 'download' })
-        URL.revokeObjectURL(blobUrl)
-        return
-      }
-
-      toast.success('Print dialog opening — select "Save as PDF"', { id: 'download' })
-      setShowPdfUpload(true)
-
-      // Clean up blob URL after 60s
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+      const result = await hardSaveReport(inspection.id)
+      const jobNumber = inspection.job_number || 'Report'
+      downloadBlobAs(result.pdfBlob, `MRC-${jobNumber}-v${result.versionNumber}.pdf`)
+      toast.success(`Downloaded v${result.versionNumber} — saved to history`, { id: 'download' })
+      // Refresh anything that reads pdf_versions (Stale banner, history panel).
+      queryClient.invalidateQueries({ queryKey: ['pdf-versions', inspection.id] })
     } catch (error) {
-      console.error('Download failed:', error)
-      toast.error('Failed to prepare PDF', { id: 'download' })
+      console.error('Hard-save download failed:', error)
+      const msg = error instanceof HardSaveError
+        ? `Hard-save failed: ${error.message}`
+        : 'Hard-save failed. Try the manual upload fallback below.'
+      toast.error(msg, { id: 'download' })
     }
   }
 
@@ -1266,19 +1266,63 @@ export default function ViewReportPDF() {
     if (!inspection?.id) return
     setPdfUploading(true)
     try {
-      const path = `${inspection.id}/report-v${inspection.pdf_version || 1}.pdf`
+      // Phase 6: every manual upload becomes a NEW pdf_versions row tagged
+      // 'manual_upload_fallback'. Path includes a timestamp suffix so we
+      // never overwrite an earlier fallback (audit retention). Legacy
+      // inspections.pdf_blob_url still gets updated for back-compat with
+      // any code still reading it; tracked for deprecation post-launch.
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      const timestamp = Date.now()
+      const path = `${inspection.id}/manual-v-${timestamp}.pdf`
       const { error: uploadError } = await supabase.storage
         .from('report-pdfs')
-        .upload(path, file, { contentType: 'application/pdf', upsert: true })
+        .upload(path, file, { contentType: 'application/pdf', upsert: false })
       if (uploadError) throw uploadError
 
-      await supabase.from('inspections')
-        .update({ pdf_blob_url: path })
-        .eq('id', inspection.id)
+      // Insert pdf_versions row. Race-safe: SELECT max + INSERT, retry on
+      // 23505 unique_violation up to 3x.
+      let versionNumber: number | null = null
+      for (let attempt = 1; attempt <= 3 && versionNumber === null; attempt++) {
+        const { data: maxRow } = await supabase
+          .from('pdf_versions')
+          .select('version_number')
+          .eq('inspection_id', inspection.id)
+          .order('version_number', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        const next = (maxRow?.version_number ?? 0) + 1
+        const { error: insertError } = await supabase
+          .from('pdf_versions')
+          .insert({
+            inspection_id: inspection.id,
+            version_number: next,
+            pdf_storage_path: path,
+            generation_type: 'manual_upload_fallback',
+            created_by: user.id,
+          })
+        if (!insertError) {
+          versionNumber = next
+          break
+        }
+        const code = (insertError as { code?: string }).code
+        if (code !== '23505') {
+          throw insertError
+        }
+      }
+      if (versionNumber === null) {
+        throw new Error('Failed to allocate a version_number after 3 retries')
+      }
+
+      // Back-compat: keep pdf_blob_url pointing at the latest manual upload
+      // until everything reads from pdf_versions directly.
+      await supabase.from('inspections').update({ pdf_blob_url: path }).eq('id', inspection.id)
 
       setInspection(prev => prev ? { ...prev, pdf_blob_url: path } : null)
       setShowPdfUpload(false)
-      toast.success('PDF uploaded — ready to send as email attachment')
+      queryClient.invalidateQueries({ queryKey: ['pdf-versions', inspection.id] })
+      toast.success(`PDF uploaded as v${versionNumber} (manual fallback)`)
     } catch (err) {
       console.error('PDF upload failed:', err)
       toast.error('Failed to upload PDF')
@@ -2610,24 +2654,29 @@ export default function ViewReportPDF() {
       )}
 
       {/* Version History Panel */}
-      {showVersions && displayVersions.length > 0 && (
+      {showVersions && reportType === 'inspection' && inspection?.id && (
         <div className="bg-white border-b border-gray-200 px-4 py-3 z-30">
           <div className="max-w-6xl mx-auto">
             <h3 className="text-sm font-semibold mb-2">Version History</h3>
+            <ReportVersionHistory
+              inspectionId={inspection.id}
+              jobNumber={inspection.job_number ?? null}
+            />
+          </div>
+        </div>
+      )}
+      {showVersions && reportType === 'job' && displayVersions.length > 0 && (
+        <div className="bg-white border-b border-gray-200 px-4 py-3 z-30">
+          <div className="max-w-6xl mx-auto">
+            <h3 className="text-sm font-semibold mb-2">Version History (Job Report)</h3>
             <div className="flex gap-2 overflow-x-auto pb-2">
               {displayVersions.map((v) => {
-                const currentPdfUrl = reportType === 'job' ? (jobPdfUrlOverride || jobCompletion?.pdf_url) : inspection?.pdf_url
+                const currentPdfUrl = jobPdfUrlOverride || jobCompletion?.pdf_url
                 const isActive = currentPdfUrl === v.pdf_url
                 return (
                 <button
                   key={v.id}
-                  onClick={() => {
-                    if (reportType === 'inspection') {
-                      setInspection(prev => prev ? { ...prev, pdf_url: v.pdf_url } : null)
-                    } else if (reportType === 'job') {
-                      setJobPdfUrlOverride(v.pdf_url)
-                    }
-                  }}
+                  onClick={() => setJobPdfUrlOverride(v.pdf_url)}
                   className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm border min-h-[48px] ${
                     isActive
                       ? 'bg-orange-100 border-orange-500'
@@ -2823,6 +2872,14 @@ export default function ViewReportPDF() {
         }
         onConfirm={handleCaptionPromptConfirm}
         onCancel={handleCaptionPromptCancel}
+      />
+
+      {/* Phase 5: send-time mismatch guard */}
+      <MismatchSendDialog
+        open={mismatchVersion !== null}
+        versionNumber={mismatchVersion?.version_number ?? 0}
+        busy={sendingEmail && mismatchVersion === null}
+        onChoose={(choice) => { void handleMismatchChoice(choice) }}
       />
 
       {/* Job Report Edit Dialog */}

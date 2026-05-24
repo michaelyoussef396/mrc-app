@@ -146,6 +146,12 @@ const RequestBodySchema = z.object({
   inspectionId: z.string().uuid(),
   regenerate: z.boolean().optional().default(false),
   returnHtml: z.boolean().optional().default(false),
+  // previewOnly: render HTML and return it with ZERO persistence side
+  // effects — no inspections UPDATE, no inspection-reports bucket upload, no
+  // pdf_versions INSERT. Used by the send-time mismatch guard and by
+  // /api/render-pdf's hard_save mode to fetch fresh HTML without bumping the
+  // legacy version counter. Implies returnHtml=true.
+  previewOnly: z.boolean().optional().default(false),
 })
 type RequestBody = z.infer<typeof RequestBodySchema>
 
@@ -1575,9 +1581,44 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { inspectionId, regenerate, returnHtml } = parsed.data
+    const { inspectionId, regenerate, returnHtml: returnHtmlRaw, previewOnly } = parsed.data
+    // previewOnly is the dominant flag — it implies returnHtml semantically.
+    const returnHtml = returnHtmlRaw || previewOnly
 
-    console.log(`Generating PDF for inspection: ${inspectionId}, regenerate: ${regenerate}`)
+    // previewOnly bypasses ALL persistence (no inspections UPDATE, no audit
+    // trail), so it must be gated on admin role. Without this, any JWT
+    // holder (technician etc.) could exfiltrate full inspection HTML for any
+    // inspection UUID with zero forensic trace. Default path keeps its
+    // existing posture (JWT verified, audit trail written via supabaseAudited).
+    if (previewOnly) {
+      const { data: { user: previewCaller }, error: previewAuthError } = await supabaseAudited.auth.getUser()
+      if (previewAuthError || !previewCaller) {
+        return new Response(
+          JSON.stringify({ error: 'previewOnly requires an authenticated caller' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      const { data: isAdmin, error: roleError } = await supabaseAudited.rpc('has_role', {
+        _user_id: previewCaller.id,
+        _role_name: 'admin',
+      })
+      if (roleError) {
+        console.error('[generate-inspection-pdf] previewOnly has_role lookup failed', { callerId: previewCaller.id, err: roleError })
+        return new Response(
+          JSON.stringify({ error: 'Role lookup failed' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      if (!isAdmin) {
+        console.warn('[generate-inspection-pdf] previewOnly blocked — non-admin caller', { callerId: previewCaller.id, inspectionId })
+        return new Response(
+          JSON.stringify({ error: 'Admin role required for previewOnly' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    console.log(`Generating PDF for inspection: ${inspectionId}, regenerate: ${regenerate}, previewOnly: ${previewOnly}`)
 
     // ===== STEP 1: Fetch inspection data with all related tables =====
     // Stage 4.3: photos are fetched via a separate query so we can filter
@@ -1816,6 +1857,23 @@ Deno.serve(async (req) => {
 
     // ===== STEP 6: Save and return =====
     const newVersion = regenerate ? (inspection.pdf_version || 0) + 1 : (inspection.pdf_version || 1)
+
+    // previewOnly: render HTML and return it with ZERO persistence side
+    // effects — no inspections UPDATE, no bucket upload, no pdf_versions
+    // INSERT. version + generatedAt are nulled to signal "not persisted".
+    if (previewOnly) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          html: populatedHtml,
+          version: null,
+          inspectionId,
+          generatedAt: null,
+          previewOnly: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     if (returnHtml) {
       await supabaseAudited
