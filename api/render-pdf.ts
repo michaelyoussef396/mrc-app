@@ -181,6 +181,7 @@ async function insertHardSaveVersion(
   pdfStoragePath: string,
   htmlStoragePath: string,
   htmlHash: string,
+  fileSizeBytes: number,
   callerId: string,
 ): Promise<InsertedVersion | { error: string }> {
   for (let attempt = 1; attempt <= MAX_VERSION_INSERT_ATTEMPTS; attempt++) {
@@ -204,6 +205,7 @@ async function insertHardSaveVersion(
         pdf_storage_path: pdfStoragePath,
         html_storage_path: htmlStoragePath,
         html_hash: htmlHash,
+        file_size_bytes: fileSizeBytes,
         generation_type: 'hard_save',
         created_by: callerId,
       })
@@ -396,6 +398,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     pdfStorageKey,
     htmlStorageKey,
     htmlHash,
+    pdf.length,
     callerId,
   );
   if ('error' in inserted) {
