@@ -1169,7 +1169,14 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
     // divs were stripped above).
     page = page.replace(/\{\{area_infrared_photo\}\}/g, infraredPhoto?.storage_path ? getPhotoUrl(infraredPhoto.storage_path) : '')
     page = page.replace(/\{\{area_natural_infrared_photo\}\}/g, naturalInfraredPhoto?.storage_path ? getPhotoUrl(naturalInfraredPhoto.storage_path) : '')
-    page = page.replace(/\{\{infrared_observations_block\}\}/g, irOn ? buildInfraredObservationsBlock(area) : '')
+    // INFRARED OBSERVATIONS rendering is temporarily disabled by product decision.
+    // The template still has the {{infrared_observations_block}} container (added
+    // alongside the EF in ba366f9), and buildInfraredObservationsBlock() is kept
+    // intact below — to re-enable, change the '' here to
+    // `irOn ? buildInfraredObservationsBlock(area) : ''`. No template / Storage
+    // upload needed. The OFF-path container strip above still runs (so the
+    // empty div doesn't sit in the rendered HTML when infrared is off).
+    page = page.replace(/\{\{infrared_observations_block\}\}/g, '')
 
     // Notes — AREA NOTES (area.comments) is the right-column block above the
     // infrared band; EXTRA NOTES (area.extra_notes) is the inspector's per-area
