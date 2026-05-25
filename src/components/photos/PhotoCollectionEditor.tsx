@@ -28,7 +28,7 @@ interface PhotoCollectionEditorProps {
   loading?: boolean
   inspectionId: string
   association: PhotoAssociation
-  onPhotoAdded: () => void
+  onPhotoAdded: () => void | Promise<void>
   onPhotoDeleted: () => void
   primaryPhotoId?: string | null
   onSetPrimary?: (photoId: string) => void
@@ -183,7 +183,7 @@ export function PhotoCollectionEditor({
       }
 
       toast.success(replacing ? 'Photo replaced' : 'Photo added')
-      onPhotoAdded()
+      await onPhotoAdded()
     } catch (err) {
       console.error('Pick existing photo failed:', err)
       toast.error(replacing ? 'Failed to replace photo' : 'Failed to add photo')

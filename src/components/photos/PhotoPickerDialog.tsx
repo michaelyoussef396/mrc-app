@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -7,7 +7,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Loader2 } from 'lucide-react'
+import { ImageOff, Loader2 } from 'lucide-react'
 import { loadInspectionPhotos } from '@/lib/utils/photoUpload'
 
 interface PickerPhoto {
@@ -37,13 +37,16 @@ export function PhotoPickerDialog({
   const [photos, setPhotos] = useState<PickerPhoto[]>([])
   const [loading, setLoading] = useState(false)
 
+  const excludeKey = useMemo(() => [...excludePhotoIds].sort().join(','), [excludePhotoIds])
+
   useEffect(() => {
     if (!isOpen) return
     setLoading(true)
+    const excludeSet = new Set(excludeKey.split(','))
     loadInspectionPhotos(inspectionId)
       .then((all) => {
         const available = all
-          .filter((p) => !excludePhotoIds.includes(p.id) && p.signed_url)
+          .filter((p) => !excludeSet.has(p.id))
           .map((p) => ({
             id: p.id,
             signed_url: p.signed_url,
@@ -56,7 +59,7 @@ export function PhotoPickerDialog({
       })
       .catch(() => setPhotos([]))
       .finally(() => setLoading(false))
-  }, [isOpen, inspectionId, excludePhotoIds])
+  }, [isOpen, inspectionId, excludeKey])
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel() }}>
@@ -81,12 +84,18 @@ export function PhotoPickerDialog({
                 onClick={() => onSelect(photo)}
                 className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-500 focus:border-blue-500 focus:outline-none transition-colors"
               >
-                <img
-                  src={photo.signed_url}
-                  alt={photo.caption || 'Inspection photo'}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
+                {photo.signed_url ? (
+                  <img
+                    src={photo.signed_url}
+                    alt={photo.caption || 'Inspection photo'}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                    <ImageOff className="h-6 w-6 text-gray-400" />
+                  </div>
+                )}
                 {photo.caption && (
                   <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5">
                     <span className="text-[10px] text-white line-clamp-1">{photo.caption}</span>

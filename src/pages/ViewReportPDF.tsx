@@ -2540,7 +2540,7 @@ export default function ViewReportPDF() {
                   photos={photos}
                   inspectionId={jobCompletion?.inspection_id || ''}
                   association={{ type: 'job', jobCompletionId: jobCompletion?.id || '', photoCategory: category }}
-                  onPhotoAdded={() => refetchJobPhotos()}
+                  onPhotoAdded={async () => { await refetchJobPhotos() }}
                   onPhotoDeleted={() => refetchJobPhotos()}
                   maxCount={10}
                 />
@@ -2810,7 +2810,7 @@ export default function ViewReportPDF() {
                       loading={areaPhotosLoading}
                       inspectionId={inspection?.id || ''}
                       association={{ type: 'area', areaId: editingAreaId! }}
-                      onPhotoAdded={() => loadAreaPhotos(editingAreaId!)}
+                      onPhotoAdded={async () => { await loadAreaPhotos(editingAreaId!) }}
                       onPhotoDeleted={() => loadAreaPhotos(editingAreaId!)}
                       primaryPhotoId={primaryPhotoId}
                       onSetPrimary={handleSetAreaPrimary}
@@ -2916,7 +2916,7 @@ export default function ViewReportPDF() {
             loading={subfloorPhotosLoading}
             inspectionId={inspection?.id || ''}
             association={{ type: 'subfloor' }}
-            onPhotoAdded={() => loadSubfloorPhotos()}
+            onPhotoAdded={async () => { await loadSubfloorPhotos() }}
             onPhotoDeleted={() => loadSubfloorPhotos()}
             maxCount={20}
           />
