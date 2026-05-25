@@ -1414,6 +1414,7 @@ export default function ViewReportPDF() {
     ai_summary_text?: string | null
     what_we_found_text?: string | null
     what_we_will_do_text?: string | null
+    what_you_get_text?: string | null
     problem_analysis_content?: string | null
     demolition_content?: string | null
   }) {
@@ -1426,7 +1427,7 @@ export default function ViewReportPDF() {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       const { data: latest, error: latestErr } = await supabase
         .from('ai_summary_versions')
-        .select('version_number, ai_summary_text, what_we_found_text, what_we_will_do_text, problem_analysis_content, demolition_content')
+        .select('version_number, ai_summary_text, what_we_found_text, what_we_will_do_text, what_you_get_text, problem_analysis_content, demolition_content')
         .eq('inspection_id', inspection.id)
         .order('version_number', { ascending: false })
         .limit(1)
@@ -1441,6 +1442,7 @@ export default function ViewReportPDF() {
         ai_summary_text: updates.ai_summary_text !== undefined ? updates.ai_summary_text : (latest?.ai_summary_text ?? null),
         what_we_found_text: updates.what_we_found_text !== undefined ? updates.what_we_found_text : (latest?.what_we_found_text ?? null),
         what_we_will_do_text: updates.what_we_will_do_text !== undefined ? updates.what_we_will_do_text : (latest?.what_we_will_do_text ?? null),
+        what_you_get_text: updates.what_you_get_text !== undefined ? updates.what_you_get_text : (latest?.what_you_get_text ?? null),
         problem_analysis_content: updates.problem_analysis_content !== undefined ? updates.problem_analysis_content : (latest?.problem_analysis_content ?? null),
         demolition_content: updates.demolition_content !== undefined ? updates.demolition_content : (latest?.demolition_content ?? null),
       }
