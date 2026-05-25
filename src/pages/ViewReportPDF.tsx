@@ -444,6 +444,12 @@ export default function ViewReportPDF() {
     }
   }, [effectiveId])
 
+  useEffect(() => {
+    if (subfloorData?.id) {
+      loadSubfloorPhotos()
+    }
+  }, [subfloorData?.id])
+
   // Auto-open email stage if navigated with ?action=send-email
   useEffect(() => {
     if (inspection && !loading && searchParams.get('action') === 'send-email') {
