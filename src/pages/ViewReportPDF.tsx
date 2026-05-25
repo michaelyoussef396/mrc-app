@@ -31,7 +31,6 @@ import {
   Check,
   Plus,
   Camera,
-  Trash2,
   Mail,
   X,
   FileText,
@@ -48,9 +47,8 @@ import { ReportVersionHistory } from '@/components/pdf/ReportVersionHistory'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
 import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
-import { recordPhotoHistory } from '@/lib/utils/photoHistory'
 import { logFieldEdits } from '@/lib/api/fieldEditLog'
-import { PhotoCaptionPromptDialog } from '@/components/photos/PhotoCaptionPromptDialog'
+import { PhotoCollectionEditor } from '@/components/photos/PhotoCollectionEditor'
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { resizePhoto } from '@/lib/offline/photoResizer'
 import { formatDateAU } from '@/lib/dateUtils'
@@ -364,22 +362,6 @@ export default function ViewReportPDF() {
   const [jobEditValue, setJobEditValue] = useState('')
   const [jobEditSaving, setJobEditSaving] = useState(false)
 
-  // Job report photo editing
-  const [jobPhotoPickerOpen, setJobPhotoPickerOpen] = useState(false)
-  const [jobPhotoPickerCategory, setJobPhotoPickerCategory] = useState<'before' | 'after' | 'demolition'>('before')
-  const [jobReplacingPhotoId, setJobReplacingPhotoId] = useState<string | null>(null)
-  const [jobPhotoPool, setJobPhotoPool] = useState<Array<{ key: string; label: string; photos: Array<{ id: string; signed_url: string }> }>>([])
-  const [jobPhotoPoolLoading, setJobPhotoPoolLoading] = useState(false)
-  const jobUploadRef = useRef<HTMLInputElement>(null)
-  const areaUploadRef = useRef<HTMLInputElement>(null)
-  const [jobPhotoUploading, setJobPhotoUploading] = useState(false)
-
-  // Stage 4.1: caption-required prompt for the two admin photo-replace flows
-  // (handleJobPhotoUpload, handleUploadNewAreaPhoto). Captured before the file
-  // picker opens, then attached to the upload metadata.
-  const [captionPromptOpen, setCaptionPromptOpen] = useState(false)
-  const [captionPromptKind, setCaptionPromptKind] = useState<'job' | 'area'>('area')
-  const pendingCaptionRef = useRef<string>('')
 
   // Edit modal state (Pages 2+)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -407,14 +389,8 @@ export default function ViewReportPDF() {
 
   // Area photos
   const [areaPhotos, setAreaPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption: string | null }>>([])
-  const [areaPhotoUploading, setAreaPhotoUploading] = useState(false)
   const [primaryPhotoId, setPrimaryPhotoId] = useState<string | null>(null)
   const [areaPhotosLoading, setAreaPhotosLoading] = useState(false)
-
-  // Area photo picker (select from all inspection photos)
-  const [areaPhotoPickerOpen, setAreaPhotoPickerOpen] = useState(false)
-  const [areaPhotoPickerLoading, setAreaPhotoPickerLoading] = useState(false)
-  const [allInspectionPhotos, setAllInspectionPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption: string | null; photo_type: string; area_id: string | null }>>([])
 
   // Add new area
   const [addingArea, setAddingArea] = useState(false)
@@ -424,12 +400,9 @@ export default function ViewReportPDF() {
   // Subfloor data + photos
   const [subfloorData, setSubfloorData] = useState<{ id: string; observations: string; comments: string; landscape: string } | null>(null)
   const [subfloorReadings, setSubfloorReadings] = useState<Array<{ id: string; location: string; moisture_percentage: number; reading_order: number }>>([])
-  const [subfloorPhotos, setSubfloorPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string }>>([])
+  const [subfloorPhotos, setSubfloorPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption?: string | null }>>([])
   const [subfloorPhotosLoading, setSubfloorPhotosLoading] = useState(false)
   const [subfloorEditOpen, setSubfloorEditOpen] = useState(false)
-  const [subfloorPhotoPickerOpen, setSubfloorPhotoPickerOpen] = useState(false)
-  const [subfloorPhotoPickerLoading, setSubfloorPhotoPickerLoading] = useState(false)
-  const [replacingSubfloorPhotoId, setReplacingSubfloorPhotoId] = useState<string | null>(null)
 
   // Page 1 photo picker
   const [photoUploading, setPhotoUploading] = useState(false)
@@ -492,13 +465,14 @@ export default function ViewReportPDF() {
   })
 
   // Job report photos for edit panel
-  const { data: jobPhotos = { before: [] as Array<{ id: string; signed_url: string }>, after: [] as Array<{ id: string; signed_url: string }>, demolition: [] as Array<{ id: string; signed_url: string }> }, refetch: refetchJobPhotos } = useQuery({
+  type JobPhoto = { id: string; storage_path: string; signed_url: string; caption?: string | null }
+  const { data: jobPhotos = { before: [] as JobPhoto[], after: [] as JobPhoto[], demolition: [] as JobPhoto[] }, refetch: refetchJobPhotos } = useQuery({
     queryKey: ['job-report-photos', jobCompletion?.id, editMode],
     queryFn: async () => {
-      if (!jobCompletion?.id) return { before: [], after: [], demolition: [] }
+      if (!jobCompletion?.id) return { before: [] as JobPhoto[], after: [] as JobPhoto[], demolition: [] as JobPhoto[] }
       const { data } = await supabase
         .from('photos')
-        .select('id, storage_path, photo_category')
+        .select('id, storage_path, photo_category, caption')
         .eq('job_completion_id', jobCompletion.id)
         .in('photo_category', ['before', 'after', 'demolition'])
         .is('deleted_at', null)
@@ -508,7 +482,7 @@ export default function ViewReportPDF() {
         const { data: urlData } = await supabase.storage
           .from('inspection-photos')
           .createSignedUrl(p.storage_path, 3600)
-        return { id: p.id, photo_category: p.photo_category, signed_url: urlData?.signedUrl || '' }
+        return { id: p.id, storage_path: p.storage_path, photo_category: p.photo_category, signed_url: urlData?.signedUrl || '', caption: p.caption }
       }))
 
       const valid = withUrls.filter(p => p.signed_url)
@@ -708,157 +682,6 @@ export default function ViewReportPDF() {
       console.error(err)
     } finally {
       setJobEditSaving(false)
-    }
-  }
-
-  async function openJobPhotoPicker(replacingId: string, category: 'before' | 'after' | 'demolition') {
-    setJobReplacingPhotoId(replacingId)
-    setJobPhotoPickerCategory(category)
-    setJobPhotoPickerOpen(true)
-    setJobPhotoPoolLoading(true)
-
-    try {
-      const inspectionId = jobCompletion?.inspection_id
-      if (!inspectionId) { setJobPhotoPoolLoading(false); return }
-
-      const [photosResult, areasResult] = await Promise.all([
-        supabase
-          .from('photos')
-          .select('id, storage_path, photo_type, photo_category, area_id')
-          .eq('inspection_id', inspectionId)
-          .is('deleted_at', null)
-          .order('order_index', { ascending: true }),
-        supabase
-          .from('inspection_areas')
-          .select('id, area_name')
-          .eq('inspection_id', inspectionId),
-      ])
-
-      const areaNameMap = new Map<string, string>()
-      if (areasResult.data) {
-        for (const a of areasResult.data) areaNameMap.set(a.id, a.area_name)
-      }
-
-      const withUrls = await Promise.all((photosResult.data || []).map(async (p) => {
-        const { data: urlData } = await supabase.storage
-          .from('inspection-photos')
-          .createSignedUrl(p.storage_path, 3600)
-        return { ...p, signed_url: urlData?.signedUrl || '' }
-      }))
-
-      const valid = withUrls.filter(p => p.signed_url)
-
-      const areaGroups = new Map<string, Array<{ id: string; signed_url: string }>>()
-      const subfloor: Array<{ id: string; signed_url: string }> = []
-      const outdoor: Array<{ id: string; signed_url: string }> = []
-      const general: Array<{ id: string; signed_url: string }> = []
-      const after: Array<{ id: string; signed_url: string }> = []
-      const demolition: Array<{ id: string; signed_url: string }> = []
-
-      for (const p of valid) {
-        if (p.photo_category === 'after') { after.push(p); continue }
-        if (p.photo_category === 'demolition') { demolition.push(p); continue }
-        const type = p.photo_type ?? 'general'
-        if (type === 'area' && p.area_id) {
-          if (!areaGroups.has(p.area_id)) areaGroups.set(p.area_id, [])
-          areaGroups.get(p.area_id)!.push(p)
-        } else if (type === 'subfloor') { subfloor.push(p) }
-        else if (type === 'outdoor') { outdoor.push(p) }
-        else { general.push(p) }
-      }
-
-      const groups: Array<{ key: string; label: string; photos: Array<{ id: string; signed_url: string }> }> = []
-      for (const [areaId, photos] of areaGroups) {
-        groups.push({ key: `area-${areaId}`, label: areaNameMap.get(areaId) ?? 'Area', photos })
-      }
-      if (subfloor.length > 0) groups.push({ key: 'subfloor', label: 'Subfloor', photos: subfloor })
-      if (outdoor.length > 0) groups.push({ key: 'outdoor', label: 'Outdoor / External', photos: outdoor })
-      if (general.length > 0) groups.push({ key: 'general', label: 'General', photos: general })
-      if (after.length > 0) groups.push({ key: 'after', label: 'After Photos', photos: after })
-      if (demolition.length > 0) groups.push({ key: 'demolition', label: 'Demolition Photos', photos: demolition })
-
-      setJobPhotoPool(groups)
-    } catch {
-      setJobPhotoPool([])
-    } finally {
-      setJobPhotoPoolLoading(false)
-    }
-  }
-
-  async function handleJobPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (jobUploadRef.current) jobUploadRef.current.value = ''
-    if (!file || !jobCompletion?.inspection_id) return
-
-    const caption = pendingCaptionRef.current.trim()
-    if (!caption) {
-      toast.error('Caption required — please try uploading again')
-      return
-    }
-
-    setJobPhotoUploading(true)
-    try {
-      const { uploadInspectionPhoto: upload } = await import('@/lib/utils/photoUpload')
-      const result = await upload(file, {
-        inspection_id: jobCompletion.inspection_id,
-        photo_type: 'general',
-        caption,
-      })
-      toast.success('Photo uploaded')
-      await handleJobPhotoSwap(result.photo_id)
-    } catch (err) {
-      console.error('Upload failed:', err)
-      toast.error(err instanceof Error ? err.message : 'Failed to upload photo')
-    } finally {
-      pendingCaptionRef.current = ''
-      setJobPhotoUploading(false)
-    }
-  }
-
-  async function handleJobPhotoSwap(newPhotoId: string) {
-    if (!jobReplacingPhotoId || !jobCompletion?.id) return
-    setJobPhotoPickerOpen(false)
-
-    try {
-      // The original if/else passed the same category in both branches
-      // (the 'before' branch and the else fall-through with 'before' as
-      // jobPhotoPickerCategory both wrote 'before'). Collapsed to one path.
-      const swapCategory = jobPhotoPickerCategory
-
-      // Stage 4.3: guard against resurrecting soft-deleted rows
-      await supabase.from('photos')
-        .update({ job_completion_id: null, photo_category: null })
-        .eq('id', jobReplacingPhotoId)
-        .is('deleted_at', null)
-      await supabase.from('photos')
-        .update({ job_completion_id: jobCompletion.id, photo_category: swapCategory })
-        .eq('id', newPhotoId)
-        .is('deleted_at', null)
-
-      // Stage 4.2: domain-level history for both ends of the swap.
-      // Non-blocking — never throws.
-      await recordPhotoHistory({
-        photo_id: jobReplacingPhotoId,
-        inspection_id: jobCompletion.inspection_id,
-        action: 'category_changed',
-        before: { photo_category: swapCategory, job_completion_id: jobCompletion.id },
-        after: { photo_category: null, job_completion_id: null },
-      })
-      await recordPhotoHistory({
-        photo_id: newPhotoId,
-        inspection_id: jobCompletion.inspection_id,
-        action: 'category_changed',
-        before: { photo_category: null, job_completion_id: null },
-        after: { photo_category: swapCategory, job_completion_id: jobCompletion.id },
-      })
-
-      toast.success('Photo swapped')
-      setJobReplacingPhotoId(null)
-      setJobPdfUrlOverride(null)
-      refetchJobPhotos()
-    } catch (err) {
-      console.error('Photo swap failed:', err)
-      toast.error('Failed to swap photo')
     }
   }
 
@@ -1772,7 +1595,7 @@ export default function ViewReportPDF() {
     try {
       const { data: photos } = await supabase
         .from('photos')
-        .select('id, storage_path')
+        .select('id, storage_path, caption')
         .eq('inspection_id', inspection.id)
         .eq('photo_type', 'subfloor')
         .is('deleted_at', null)
@@ -1783,9 +1606,9 @@ export default function ViewReportPDF() {
           photos.map(async (p) => {
             try {
               const signed_url = await getPhotoSignedUrl(p.storage_path)
-              return { id: p.id, storage_path: p.storage_path, signed_url }
+              return { id: p.id, storage_path: p.storage_path, signed_url, caption: p.caption }
             } catch {
-              return { id: p.id, storage_path: p.storage_path, signed_url: '' }
+              return { id: p.id, storage_path: p.storage_path, signed_url: '', caption: p.caption }
             }
           })
         )
@@ -1797,60 +1620,6 @@ export default function ViewReportPDF() {
       console.warn('Failed to load subfloor photos:', err)
     } finally {
       setSubfloorPhotosLoading(false)
-    }
-  }
-
-  async function openSubfloorPhotoPicker(replacingPhotoId: string) {
-    if (!inspection?.id) return
-    setReplacingSubfloorPhotoId(replacingPhotoId)
-    setSubfloorPhotoPickerOpen(true)
-    setSubfloorPhotoPickerLoading(true)
-    try {
-      const photos = await loadInspectionPhotos(inspection.id)
-      setAllInspectionPhotos(
-        photos
-          .filter(p => p.signed_url)
-          .map(p => ({
-            id: p.id,
-            storage_path: p.storage_path,
-            signed_url: p.signed_url,
-            caption: p.caption,
-            photo_type: p.photo_type,
-            area_id: p.area_id,
-          }))
-      )
-    } catch {
-      setAllInspectionPhotos([])
-    } finally {
-      setSubfloorPhotoPickerLoading(false)
-    }
-  }
-
-  async function handleSwapSubfloorPhoto(newPhotoId: string) {
-    if (!replacingSubfloorPhotoId || !subfloorData?.id) return
-    setSubfloorPhotoPickerOpen(false)
-    try {
-      // Remove subfloor_id from old photo. Stage 4.3: guard against
-      // resurrecting soft-deleted rows.
-      await supabase
-        .from('photos')
-        .update({ subfloor_id: null })
-        .eq('id', replacingSubfloorPhotoId)
-        .is('deleted_at', null)
-
-      // Set subfloor_id on new photo
-      await supabase
-        .from('photos')
-        .update({ subfloor_id: subfloorData.id })
-        .eq('id', newPhotoId)
-        .is('deleted_at', null)
-
-      toast.success('Subfloor photo swapped')
-      setReplacingSubfloorPhotoId(null)
-      await loadSubfloorPhotos()
-    } catch (err) {
-      console.error('Swap subfloor photo failed:', err)
-      toast.error('Failed to swap photo')
     }
   }
 
@@ -1998,120 +1767,19 @@ export default function ViewReportPDF() {
     }
   }
 
-  async function handleDeleteAreaPhoto(photoId: string) {
+  async function handleSetAreaPrimary(photoId: string) {
+    if (!editingAreaId) return
     try {
-      await deleteInspectionPhoto(photoId)
-      setAreaPhotos(prev => prev.filter(p => p.id !== photoId))
-      toast.success('Photo deleted')
-    } catch (err) {
-      console.error('Delete area photo failed:', err)
-      toast.error('Failed to delete photo')
-    }
-  }
-
-  async function openAreaPhotoPicker() {
-    if (!inspection?.id) return
-    setAreaPhotoPickerOpen(true)
-    setAreaPhotoPickerLoading(true)
-    try {
-      const photos = await loadInspectionPhotos(inspection.id)
-      setAllInspectionPhotos(
-        photos
-          .filter(p => p.signed_url)
-          .map(p => ({
-            id: p.id,
-            storage_path: p.storage_path,
-            signed_url: p.signed_url,
-            caption: p.caption,
-            photo_type: p.photo_type,
-            area_id: p.area_id,
-          }))
-      )
-    } catch {
-      setAllInspectionPhotos([])
-    } finally {
-      setAreaPhotoPickerLoading(false)
-    }
-  }
-
-  async function handleSelectPhotoForArea(photoId: string) {
-    if (!editingAreaId || !inspection?.id) return
-    setAreaPhotoUploading(true)
-    setAreaPhotoPickerOpen(false)
-    try {
-      // Only update primary_photo_id on the area — never touch other photos' area_id
       await supabase
         .from('inspection_areas')
         .update({ primary_photo_id: photoId })
         .eq('id', editingAreaId)
-
-      // Update primary state — keeps all area photos visible
       setPrimaryPhotoId(photoId)
-
-      toast.success('Area photo updated')
+      toast.success('Primary photo set')
     } catch (error) {
-      console.error('Failed to set area photo:', error)
-      toast.error('Failed to set area photo')
-    } finally {
-      setAreaPhotoUploading(false)
+      console.error('Failed to set primary photo:', error)
+      toast.error('Failed to set primary photo')
     }
-  }
-
-  async function handleUploadNewAreaPhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !editingAreaId || !inspection?.id) {
-      e.target.value = ''
-      return
-    }
-    e.target.value = ''
-
-    const caption = pendingCaptionRef.current.trim()
-    if (!caption) {
-      toast.error('Caption required — please try uploading again')
-      return
-    }
-
-    setAreaPhotoUploading(true)
-    try {
-      const resized = await resizePhoto(file)
-      // Upload to inspection pool only — NO area assignment, NO primary_photo_id
-      await uploadInspectionPhoto(resized, {
-        inspection_id: inspection.id,
-        photo_type: 'area',
-        order_index: 0,
-        caption,
-      })
-
-      toast.success('Photo uploaded — select it from the grid')
-      // Reopen picker with refreshed photos so user can select the new one
-      await openAreaPhotoPicker()
-    } catch (err) {
-      console.error('Area photo upload failed:', err)
-      toast.error(err instanceof Error ? err.message : 'Failed to upload photo')
-    } finally {
-      pendingCaptionRef.current = ''
-      setAreaPhotoUploading(false)
-    }
-  }
-
-  function openCaptionPrompt(kind: 'job' | 'area') {
-    setCaptionPromptKind(kind)
-    setCaptionPromptOpen(true)
-  }
-
-  function handleCaptionPromptConfirm(caption: string) {
-    pendingCaptionRef.current = caption
-    setCaptionPromptOpen(false)
-    if (captionPromptKind === 'job') {
-      jobUploadRef.current?.click()
-    } else {
-      areaUploadRef.current?.click()
-    }
-  }
-
-  function handleCaptionPromptCancel() {
-    setCaptionPromptOpen(false)
-    pendingCaptionRef.current = ''
   }
 
   async function handleAddArea() {
@@ -2857,44 +2525,29 @@ export default function ViewReportPDF() {
           </div>
 
           {/* Photo sections */}
-          {([
-            { key: 'before' as const, label: 'Before Photos', photos: jobPhotos.before },
-            { key: 'after' as const, label: 'After Photos', photos: jobPhotos.after },
-            { key: 'demolition' as const, label: 'Demolition Photos', photos: jobPhotos.demolition },
-          ]).map(section => (
-            section.photos.length > 0 && (
-              <div key={section.key} className="p-3 border-t border-gray-200">
+          {(['before', 'after', 'demolition'] as const).map(category => {
+            const photos = jobPhotos[category]
+            const label = category === 'before' ? 'Before Photos'
+              : category === 'after' ? 'After Photos'
+              : 'Demolition Photos'
+            return (
+              <div key={category} className="p-3 border-t border-gray-200">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">
-                  {section.label} ({section.photos.length})
+                  {label} ({photos.length})
                 </h4>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {section.photos.map(p => (
-                    <button
-                      key={p.id}
-                      onClick={() => openJobPhotoPicker(p.id, section.key)}
-                      className="aspect-square rounded-md overflow-hidden border border-gray-200 hover:border-orange-400 transition-colors"
-                    >
-                      <img src={p.signed_url} alt="" loading="lazy" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                </div>
+                <PhotoCollectionEditor
+                  photos={photos}
+                  inspectionId={jobCompletion?.inspection_id || ''}
+                  association={{ type: 'job', jobCompletionId: jobCompletion?.id || '', photoCategory: category }}
+                  onPhotoAdded={() => refetchJobPhotos()}
+                  onPhotoDeleted={() => refetchJobPhotos()}
+                  maxCount={10}
+                />
               </div>
             )
-          ))}
+          })}
         </div>
       )}
-
-      <PhotoCaptionPromptDialog
-        isOpen={captionPromptOpen}
-        title={captionPromptKind === 'job' ? 'Replace Photo' : 'Upload New Area Photo'}
-        description={
-          captionPromptKind === 'job'
-            ? 'Describe what this replacement photo shows'
-            : 'Describe what this area photo shows'
-        }
-        onConfirm={handleCaptionPromptConfirm}
-        onCancel={handleCaptionPromptCancel}
-      />
 
       {/* Phase 5: send-time mismatch guard */}
       <MismatchSendDialog
@@ -2950,75 +2603,6 @@ export default function ViewReportPDF() {
               Save & Regenerate
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Job Photo Picker Dialog */}
-      <Dialog open={jobPhotoPickerOpen} onOpenChange={setJobPhotoPickerOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Select Replacement Photo</DialogTitle>
-            <DialogDescription>
-              Pick any photo or upload a new one to replace the current {jobPhotoPickerCategory} photo.
-            </DialogDescription>
-          </DialogHeader>
-
-          <input ref={jobUploadRef} type="file" accept="image/*" className="hidden" onChange={handleJobPhotoUpload} />
-
-          <Button
-            variant="outline"
-            onClick={() => openCaptionPrompt('job')}
-            disabled={jobPhotoUploading}
-            className="w-full h-12 mb-3"
-          >
-            {jobPhotoUploading ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</>
-            ) : (
-              <><Upload className="h-4 w-4 mr-2" />Upload New Photo</>
-            )}
-          </Button>
-
-          {jobPhotoPoolLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
-            </div>
-          ) : jobPhotoPool.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-6">No photos found for this lead.</p>
-          ) : (
-            <div className="space-y-4">
-              {jobPhotoPool.map(group => (
-                <div key={group.key}>
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">
-                    {group.label} ({group.photos.length})
-                  </h4>
-                  <div className="grid grid-cols-4 gap-2">
-                    {group.photos.map(p => {
-                      const isCurrent = p.id === jobReplacingPhotoId
-                      return (
-                        <button
-                          key={p.id}
-                          onClick={() => !isCurrent && handleJobPhotoSwap(p.id)}
-                          disabled={isCurrent}
-                          className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
-                            isCurrent
-                              ? 'border-orange-500 ring-2 ring-orange-300 opacity-60'
-                              : 'border-gray-200 hover:border-orange-500'
-                          }`}
-                        >
-                          <img src={p.signed_url} alt="" loading="lazy" className="w-full h-full object-cover" />
-                          {isCurrent && (
-                            <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
-                              <Check className="w-3 h-3 text-white" />
-                            </div>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </DialogContent>
       </Dialog>
 
@@ -3212,75 +2796,22 @@ export default function ViewReportPDF() {
                 />
               </div>
 
-              {/* Area Photos — max 6 in clean grid */}
+              {/* Area Photos — max 6 (4 regular + IR + NIR) */}
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-2">
                   Area Photos{areaPhotos.length > 0 && <span className="text-gray-400 font-normal ml-1">({areaPhotos.length} in PDF)</span>}
                 </label>
-                {areaPhotosLoading && (
-                  <div className="flex items-center justify-center py-6 mb-3">
-                    <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
-                    <span className="ml-2 text-sm text-gray-500">Loading area photos...</span>
-                  </div>
-                )}
-                {!areaPhotosLoading && areaPhotos.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2 mb-3">
-                    {areaPhotos.map((photo, idx) => {
-                      const isPrimary = photo.id === primaryPhotoId
-                      const slotLabel = photo.caption === 'infrared' ? 'IR'
-                        : photo.caption === 'natural_infrared' ? 'NIR'
-                        : `${idx + 1}`
-                      return (
-                        <div key={photo.id} className="relative group aspect-square">
-                          <button
-                            onClick={() => openAreaPhotoPicker()}
-                            className={`w-full h-full cursor-pointer rounded-lg overflow-hidden border-2 transition-all hover:border-orange-500 hover:shadow-md ${
-                              isPrimary ? 'border-orange-500 ring-2 ring-orange-300' : 'border-gray-200'
-                            }`}
-                          >
-                            {photo.signed_url ? (
-                              <img
-                                src={photo.signed_url}
-                                alt={photo.caption || 'Area photo'}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
-                                No preview
-                              </div>
-                            )}
-                          </button>
-                          {isPrimary && (
-                            <div className="absolute top-1 left-1 bg-orange-600 text-white rounded-full p-0.5 z-10">
-                              <Check className="w-3 h-3" />
-                            </div>
-                          )}
-                          <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded z-10">{slotLabel}</div>
-                          <button
-                            onClick={() => handleDeleteAreaPhoto(photo.id)}
-                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity min-w-[28px] min-h-[28px] flex items-center justify-center z-10"
-                            title="Delete photo"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => openAreaPhotoPicker()}
-                  disabled={areaPhotoUploading}
-                  className="w-full min-h-[48px] border-dashed"
-                >
-                  {areaPhotoUploading ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</>
-                  ) : (
-                    <><Camera className="h-4 w-4 mr-2" />Select or Upload Photo</>
-                  )}
-                </Button>
+                <PhotoCollectionEditor
+                  photos={areaPhotos}
+                  loading={areaPhotosLoading}
+                  inspectionId={inspection?.id || ''}
+                  association={{ type: 'area', areaId: editingAreaId! }}
+                  onPhotoAdded={() => loadAreaPhotos(editingAreaId!)}
+                  onPhotoDeleted={() => loadAreaPhotos(editingAreaId!)}
+                  primaryPhotoId={primaryPhotoId}
+                  onSetPrimary={handleSetAreaPrimary}
+                  maxCount={6}
+                />
               </div>
 
               {/* Save / Cancel */}
@@ -3364,167 +2895,25 @@ export default function ViewReportPDF() {
         />
       )}
 
-      {/* Area Photo Picker Dialog */}
-      <Dialog open={areaPhotoPickerOpen} onOpenChange={setAreaPhotoPickerOpen}>
-        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Select Area Photo</DialogTitle>
-            <DialogDescription>
-              Choose an existing photo or upload a new one
-            </DialogDescription>
-          </DialogHeader>
-
-          {areaPhotoPickerLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
-            </div>
-          ) : (
-            <>
-              {allInspectionPhotos.length > 0 ? (
-                <div className="grid grid-cols-3 gap-2">
-                  {allInspectionPhotos.map((photo) => {
-                    const isCurrent = photo.id === primaryPhotoId
-                    return (
-                      <button
-                        key={photo.id}
-                        onClick={() => handleSelectPhotoForArea(photo.id)}
-                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:border-orange-500 hover:shadow-md ${
-                          isCurrent ? 'border-orange-500 ring-2 ring-orange-300' : 'border-gray-200'
-                        }`}
-                      >
-                        <img
-                          src={photo.signed_url}
-                          alt={photo.caption || photo.photo_type}
-                          className="w-full h-full object-cover"
-                        />
-                        {isCurrent && (
-                          <div className="absolute top-1 right-1 bg-orange-600 text-white rounded-full p-0.5">
-                            <Check className="w-3 h-3" />
-                          </div>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p className="text-center text-gray-500 py-4">No photos found for this inspection</p>
-              )}
-
-              <input
-                ref={areaUploadRef}
-                type="file"
-                accept="image/*"
-                onChange={handleUploadNewAreaPhoto}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => openCaptionPrompt('area')}
-                className="flex items-center justify-center w-full h-12 min-h-[48px] mt-2 border border-input bg-background rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
-              >
-                <Upload className="h-5 w-5 mr-2" />
-                Upload New Photo
-              </button>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
       {/* Subfloor Photos Dialog */}
       <Dialog open={subfloorEditOpen} onOpenChange={setSubfloorEditOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Subfloor Photos</DialogTitle>
             <DialogDescription>
-              Click any photo to replace it with a different one
+              Upload, pick from existing, or delete subfloor photos
             </DialogDescription>
           </DialogHeader>
 
-          {subfloorPhotosLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-              <span className="ml-2 text-sm text-gray-500">Loading subfloor photos...</span>
-            </div>
-          ) : subfloorPhotos.length > 0 ? (
-            <div className="grid grid-cols-4 gap-2">
-              {subfloorPhotos.map((photo, idx) => (
-                <button
-                  key={photo.id}
-                  onClick={() => openSubfloorPhotoPicker(photo.id)}
-                  className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer group"
-                >
-                  {photo.signed_url ? (
-                    <img
-                      src={photo.signed_url}
-                      alt={`Subfloor photo ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
-                      No preview
-                    </div>
-                  )}
-                  <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded z-10">
-                    {idx + 1}
-                  </div>
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                    <Edit className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-gray-500 py-4">No subfloor photos found</p>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Subfloor Photo Picker (swap photo) */}
-      <Dialog open={subfloorPhotoPickerOpen} onOpenChange={setSubfloorPhotoPickerOpen}>
-        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Replace Subfloor Photo</DialogTitle>
-            <DialogDescription>
-              Select a photo to replace the current one
-            </DialogDescription>
-          </DialogHeader>
-
-          {subfloorPhotoPickerLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-            </div>
-          ) : (
-            <>
-              {allInspectionPhotos.length > 0 ? (
-                <div className="grid grid-cols-3 gap-2">
-                  {allInspectionPhotos.map((photo) => {
-                    const isCurrent = photo.id === replacingSubfloorPhotoId
-                    return (
-                      <button
-                        key={photo.id}
-                        onClick={() => handleSwapSubfloorPhoto(photo.id)}
-                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:border-blue-500 hover:shadow-md ${
-                          isCurrent ? 'border-blue-500 ring-2 ring-blue-300' : 'border-gray-200'
-                        }`}
-                      >
-                        <img
-                          src={photo.signed_url}
-                          alt={photo.caption || photo.photo_type}
-                          className="w-full h-full object-cover"
-                        />
-                        {isCurrent && (
-                          <div className="absolute top-1 right-1 bg-blue-600 text-white rounded-full p-0.5">
-                            <Check className="w-3 h-3" />
-                          </div>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p className="text-center text-gray-500 py-4">No photos found</p>
-              )}
-            </>
-          )}
+          <PhotoCollectionEditor
+            photos={subfloorPhotos}
+            loading={subfloorPhotosLoading}
+            inspectionId={inspection?.id || ''}
+            association={{ type: 'subfloor' }}
+            onPhotoAdded={() => loadSubfloorPhotos()}
+            onPhotoDeleted={() => loadSubfloorPhotos()}
+            maxCount={20}
+          />
         </DialogContent>
       </Dialog>
 
