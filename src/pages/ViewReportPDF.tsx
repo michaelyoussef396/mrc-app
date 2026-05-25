@@ -445,10 +445,8 @@ export default function ViewReportPDF() {
   }, [effectiveId])
 
   useEffect(() => {
-    if (subfloorData?.id) {
-      loadSubfloorPhotos()
-    }
-  }, [subfloorData?.id])
+    if (inspection?.id && subfloorData?.id) loadSubfloorPhotos()
+  }, [inspection?.id, subfloorData?.id])
 
   // Auto-open email stage if navigated with ?action=send-email
   useEffect(() => {
@@ -1752,13 +1750,14 @@ export default function ViewReportPDF() {
   }
 
   async function loadSubfloorPhotos() {
-    if (!subfloorData?.id) return
+    if (!inspection?.id) return
     setSubfloorPhotosLoading(true)
     try {
       const { data: photos } = await supabase
         .from('photos')
         .select('id, storage_path')
-        .eq('subfloor_id', subfloorData.id)
+        .eq('inspection_id', inspection.id)
+        .eq('photo_type', 'subfloor')
         .is('deleted_at', null)
         .order('created_at', { ascending: true })
 
