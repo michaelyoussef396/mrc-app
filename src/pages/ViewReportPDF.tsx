@@ -296,6 +296,11 @@ export default function ViewReportPDF() {
   const [showVersions, setShowVersions] = useState(false)
   const [jobPdfUrlOverride, setJobPdfUrlOverride] = useState<string | null>(null)
   const [versions, setVersions] = useState<PDFVersion[]>([])
+  // Tracks whether any inline edit has saved without a subsequent regen.
+  // StalePdfBanner covers ai_summary_versions edits (VP/PA/Demo); this flag
+  // covers the rest (Outdoor/Subfloor/Page1/Cost) so the user always knows
+  // the preview won't reflect their edit until they click Regenerate.
+  const [previewStale, setPreviewStale] = useState(false)
 
   // PDF upload for email attachment
   const [showPdfUpload, setShowPdfUpload] = useState(false)
@@ -609,6 +614,7 @@ export default function ViewReportPDF() {
         await generateJobReportPdf(jobCompletion.id)
         toast.success('Job report regenerated')
         refetchJobCompletion()
+        setPreviewStale(false)
       } catch (err) {
         toast.error('Failed to regenerate job report')
         console.error(err)
@@ -628,7 +634,14 @@ export default function ViewReportPDF() {
 
       if (result.success && result.pdfUrl) {
         toast.success('Report generated successfully!', { id: 'pdf-gen' })
+        // loadInspection() refetches inspection.pdf_url to the new timestamped
+        // filename minted by the EF (generate-inspection-pdf index.ts:1843),
+        // which propagates as the htmlUrl prop and triggers ReportPreviewHTML's
+        // fetch effect — so the preview reloads the fresh HTML, not a cached
+        // copy. Clearing previewStale after the refetch so the indicator
+        // accurately reflects the post-regen state.
         await loadInspection()
+        setPreviewStale(false)
       } else {
         toast.error(result.error || 'Failed to generate report', { id: 'pdf-gen' })
       }
@@ -1506,7 +1519,10 @@ export default function ViewReportPDF() {
       }
 
       await persistManualEdit(updates)
-      toast.success(`${key === 'what_we_found' ? 'What We Found' : "What We're Going To Do"} updated`)
+      setPreviewStale(true)
+      toast.success(`${key === 'what_we_found' ? 'What We Found' : "What We're Going To Do"} saved`, {
+        description: 'Click Regenerate to update the preview.',
+      })
     } catch (error) {
       console.error('VP save failed:', error)
       toast.error('Failed to save')
@@ -1519,7 +1535,10 @@ export default function ViewReportPDF() {
 
     try {
       await persistManualEdit({ problem_analysis_content: value || null })
-      toast.success('Problem Analysis updated')
+      setPreviewStale(true)
+      toast.success('Problem Analysis saved', {
+        description: 'Click Regenerate to update the preview.',
+      })
     } catch (error) {
       console.error('PA save failed:', error)
       toast.error('Failed to save')
@@ -1532,7 +1551,10 @@ export default function ViewReportPDF() {
 
     try {
       await persistManualEdit({ demolition_content: value || null })
-      toast.success('Demolition content updated')
+      setPreviewStale(true)
+      toast.success('Demolition content saved', {
+        description: 'Click Regenerate to update the preview.',
+      })
     } catch (error) {
       console.error('Demolition save failed:', error)
       toast.error('Failed to save')
@@ -1556,7 +1578,10 @@ export default function ViewReportPDF() {
         outdoor_humidity: 'Humidity',
         outdoor_dew_point: 'Dew Point',
       }
-      toast.success(`${labelMap[key] || key} updated`)
+      setPreviewStale(true)
+      toast.success(`${labelMap[key] || key} saved`, {
+        description: 'Click Regenerate to update the preview.',
+      })
     } catch (error) {
       console.error('Outdoor save failed:', error)
       toast.error('Failed to save')
@@ -1589,7 +1614,10 @@ export default function ViewReportPDF() {
       // Update local state
       setSubfloorData(prev => prev ? { ...prev, [column]: value } : prev)
 
-      toast.success(`Subfloor ${field} updated`)
+      setPreviewStale(true)
+      toast.success(`Subfloor ${field} saved`, {
+        description: 'Click Regenerate to update the preview.',
+      })
     } catch (error) {
       console.error('Subfloor save failed:', error)
       toast.error('Failed to save')
@@ -1611,7 +1639,10 @@ export default function ViewReportPDF() {
         prev.map(r => r.id === readingId ? { ...r, moisture_percentage: moisturePercentage, location: location.trim() } : r)
       )
 
-      toast.success('Moisture reading updated')
+      setPreviewStale(true)
+      toast.success('Moisture reading saved', {
+        description: 'Click Regenerate to update the preview.',
+      })
     } catch (error) {
       console.error('Subfloor reading save failed:', error)
       toast.error('Failed to save reading')
@@ -1659,7 +1690,10 @@ export default function ViewReportPDF() {
         option_2_total_inc_gst: costs.option_2_total_inc_gst,
       } : null)
 
-      toast.success('Estimate updated')
+      setPreviewStale(true)
+      toast.success('Estimate saved', {
+        description: 'Click Regenerate to update the preview.',
+      })
     } catch (error) {
       console.error('Cost save failed:', error)
       toast.error('Failed to save estimate')
@@ -2109,6 +2143,11 @@ export default function ViewReportPDF() {
           }
         }
       }
+
+      setPreviewStale(true)
+      toast.success('Saved', {
+        description: 'Click Regenerate to update the preview.',
+      })
     } catch (error) {
       console.error('Page 1 save failed:', error)
       toast.error('Failed to save')
@@ -2507,9 +2546,21 @@ export default function ViewReportPDF() {
                   <><Edit className="h-4 w-4 mr-2" />Edit Mode</>
                 )}
               </Button>
-              <Button variant="outline" onClick={handleGeneratePDF} disabled={generating}>
+              <Button
+                variant="outline"
+                onClick={handleGeneratePDF}
+                disabled={generating}
+                className={previewStale && !generating ? 'relative border-orange-500 text-orange-700 hover:bg-orange-50' : 'relative'}
+                title={previewStale && !generating ? 'Preview is out of date — click to update' : undefined}
+              >
                 {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                 Regenerate
+                {previewStale && !generating && (
+                  <span className="absolute -top-1 -right-1 flex h-3 w-3" aria-hidden="true">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
+                    <span className="relative inline-flex h-3 w-3 rounded-full bg-orange-500" />
+                  </span>
+                )}
               </Button>
               <Button variant="outline" onClick={handleDownload}>
                 <Download className="h-4 w-4 mr-2" />
