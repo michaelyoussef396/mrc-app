@@ -212,12 +212,17 @@ export async function updateInspectionField(
  * Get PDF version history for an inspection
  * @param inspectionId - The UUID of the inspection
  * @returns Array of PDF versions
+ *
+ * Phase 1 schema additions: the new pipeline columns
+ * (pdf_storage_path, html_storage_path, html_hash, was_emailed, emailed_at,
+ * generation_type) are returned alongside the legacy columns. Rows from
+ * before the new pipeline have all-NULL new columns and generation_type IS NULL.
  */
 export async function getPDFVersionHistory(inspectionId: string) {
   try {
     const { data, error } = await supabase
       .from('pdf_versions')
-      .select('*')
+      .select('id, version_number, pdf_url, created_at, file_size_bytes, created_by, pdf_storage_path, html_storage_path, html_hash, was_emailed, emailed_at, generation_type')
       .eq('inspection_id', inspectionId)
       .order('version_number', { ascending: false })
 
