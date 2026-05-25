@@ -297,7 +297,12 @@ export function ReportPreviewHTML({
         }
 
         if (!html) {
-          const response = await fetch(htmlUrl, { mode: 'cors', credentials: 'omit' })
+          // cache: 'no-store' is belt-and-suspenders. The EF already mints a
+          // unique timestamped filename per regen (see generate-inspection-pdf
+          // index.ts:1843), so the URL changes every time and the browser HTTP
+          // cache has never seen it. This still defends against any future
+          // path where the same URL might be re-fetched.
+          const response = await fetch(htmlUrl, { mode: 'cors', credentials: 'omit', cache: 'no-store' })
           if (!response.ok) throw new Error(`Failed to fetch report: ${response.status}`)
           html = await response.text()
         }
