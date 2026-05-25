@@ -18,7 +18,7 @@ interface PhotoDeleteConfirmProps {
 
 export function PhotoDeleteConfirm({ isOpen, onConfirm, onCancel, deleting }: PhotoDeleteConfirmProps) {
   return (
-    <AlertDialog open={isOpen} onOpenChange={(open) => { if (!open) onCancel() }}>
+    <AlertDialog open={isOpen} onOpenChange={(open) => { if (!open && !deleting) onCancel() }}>
       <AlertDialogContent className="max-w-sm">
         <AlertDialogHeader>
           <AlertDialogTitle>Delete photo?</AlertDialogTitle>
@@ -29,7 +29,7 @@ export function PhotoDeleteConfirm({ isOpen, onConfirm, onCancel, deleting }: Ph
         <AlertDialogFooter>
           <AlertDialogCancel disabled={deleting} className="min-h-[48px]">Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={(e) => { e.preventDefault(); onConfirm() }}
             disabled={deleting}
             className="min-h-[48px] bg-red-600 hover:bg-red-700 text-white"
           >

@@ -1770,10 +1770,11 @@ export default function ViewReportPDF() {
   async function handleSetAreaPrimary(photoId: string) {
     if (!editingAreaId) return
     try {
-      await supabase
+      const { error } = await supabase
         .from('inspection_areas')
         .update({ primary_photo_id: photoId })
         .eq('id', editingAreaId)
+      if (error) throw error
       setPrimaryPhotoId(photoId)
       toast.success('Primary photo set')
     } catch (error) {
@@ -2796,22 +2797,27 @@ export default function ViewReportPDF() {
                 />
               </div>
 
-              {/* Area Photos — max 6 (4 regular + IR + NIR) */}
+              {/* Area Photos — 4 room-view slots + IR + NIR (thermals don't count against cap) */}
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-2">
                   Area Photos{areaPhotos.length > 0 && <span className="text-gray-400 font-normal ml-1">({areaPhotos.length} in PDF)</span>}
                 </label>
-                <PhotoCollectionEditor
-                  photos={areaPhotos}
-                  loading={areaPhotosLoading}
-                  inspectionId={inspection?.id || ''}
-                  association={{ type: 'area', areaId: editingAreaId! }}
-                  onPhotoAdded={() => loadAreaPhotos(editingAreaId!)}
-                  onPhotoDeleted={() => loadAreaPhotos(editingAreaId!)}
-                  primaryPhotoId={primaryPhotoId}
-                  onSetPrimary={handleSetAreaPrimary}
-                  maxCount={6}
-                />
+                {(() => {
+                  const thermalCount = areaPhotos.filter(p => p.caption === 'infrared' || p.caption === 'natural_infrared').length
+                  return (
+                    <PhotoCollectionEditor
+                      photos={areaPhotos}
+                      loading={areaPhotosLoading}
+                      inspectionId={inspection?.id || ''}
+                      association={{ type: 'area', areaId: editingAreaId! }}
+                      onPhotoAdded={() => loadAreaPhotos(editingAreaId!)}
+                      onPhotoDeleted={() => loadAreaPhotos(editingAreaId!)}
+                      primaryPhotoId={primaryPhotoId}
+                      onSetPrimary={handleSetAreaPrimary}
+                      maxCount={4 + thermalCount}
+                    />
+                  )
+                })()}
               </div>
 
               {/* Save / Cancel */}

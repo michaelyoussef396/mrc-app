@@ -141,11 +141,6 @@ export function PhotoCollectionEditor({
     setSelectedId(null)
 
     try {
-      // If replacing, soft-delete the old photo first (1-for-1 swap)
-      if (replacing) {
-        await deleteInspectionPhoto(replacing)
-      }
-
       // Fetch the source photo's storage_path + metadata for the copy
       const { data: source, error: fetchErr } = await supabase
         .from('photos')
@@ -155,7 +150,7 @@ export function PhotoCollectionEditor({
         .single()
       if (fetchErr || !source) throw new Error('Failed to read source photo')
 
-      // COPY: insert a new photos row pointing to the same storage file
+      // Insert copy BEFORE deleting old — if insert fails, no data lost
       const cols = associationColumns(association)
       const { data: newRow, error: insertErr } = await supabase
         .from('photos')
@@ -172,6 +167,11 @@ export function PhotoCollectionEditor({
         .select('id')
         .single()
       if (insertErr) throw new Error(insertErr.message)
+
+      // Soft-delete old photo AFTER copy succeeded (1-for-1 swap)
+      if (replacing) {
+        await deleteInspectionPhoto(replacing)
+      }
 
       if (newRow) {
         await recordPhotoHistory({
@@ -192,17 +192,19 @@ export function PhotoCollectionEditor({
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return
+    const photoId = deleteTarget
     setDeleting(true)
     try {
-      await deleteInspectionPhoto(deleteTarget)
-      toast.success('Photo deleted')
+      await deleteInspectionPhoto(photoId)
       setDeleteTarget(null)
       setSelectedId(null)
+      setDeleting(false)
+      toast.success('Photo deleted')
       onPhotoDeleted()
     } catch (err) {
       console.error('Delete photo failed:', err)
       toast.error('Failed to delete photo')
-    } finally {
+      setDeleteTarget(null)
       setDeleting(false)
     }
   }
