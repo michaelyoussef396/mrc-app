@@ -1141,7 +1141,24 @@ export default function ViewReportPDF() {
         propertyAddress: address,
       })
 
-      await supabase.from('leads').update({ status: 'closed' }).eq('id', lead.id)
+      const { error: statusErr } = await supabase
+        .from('leads')
+        .update({ status: 'inspection_email_approval' })
+        .eq('id', lead.id)
+      if (statusErr) {
+        console.error('Lead status update failed:', statusErr)
+      }
+
+      await logFieldEdits({
+        leadId: lead.id,
+        entityType: 'lead',
+        entityId: lead.id,
+        changes: [{ field: 'status', old: (lead as { status?: string }).status ?? null, new: 'inspection_email_approval' }],
+        extraMetadata: { trigger: 'inspection_report_emailed', recipient },
+      }).catch(err => console.error('Activity log failed:', err))
+
+      queryClient.invalidateQueries({ queryKey: ['lead', lead.id] })
+      queryClient.invalidateQueries({ queryKey: ['activity-timeline'] })
 
       toast.success(`Email sent to ${recipient} with v${version.version_number} attached!`, { id: 'send-email' })
       navigate(`/leads/${lead.id}`)

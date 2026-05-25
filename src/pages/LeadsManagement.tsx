@@ -736,15 +736,27 @@ const LeadsManagement = () => {
         description: `Subject: ${emailSubject} (with report attached)`,
       });
 
-      // 8. Update lead status to closed
-      await supabase
+      // 8. Update lead status to inspection_email_approval (next pipeline step)
+      const { error: statusErr } = await supabase
         .from('leads')
-        .update({ status: 'closed' })
+        .update({ status: 'inspection_email_approval' })
         .eq('id', emailTargetLead.id);
+      if (statusErr) {
+        console.error('Lead status update failed:', statusErr);
+      }
+
+      // 9. Log the status transition
+      await supabase.from('activities').insert({
+        lead_id: String(emailTargetLead.id),
+        activity_type: 'field_edit',
+        title: `Status changed: '${emailTargetLead.status}' → 'inspection_email_approval'`,
+        description: 'Status advanced after inspection report emailed',
+        metadata: { trigger: 'inspection_report_emailed', old_status: emailTargetLead.status, new_status: 'inspection_email_approval' },
+      });
 
       // Update local state
       setLeads(prev => prev.map(l =>
-        l.id === emailTargetLead.id ? { ...l, status: 'closed' } : l
+        l.id === emailTargetLead.id ? { ...l, status: 'inspection_email_approval' } : l
       ));
 
       toast({ title: 'Email sent', description: `Report emailed to ${emailTargetLead.email} with attachment.` });
