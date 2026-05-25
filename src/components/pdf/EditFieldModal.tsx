@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label'
 import { Loader2, Save, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { updateInspectionField } from '@/lib/api/pdfGeneration'
+import type { DispatchOpts } from '@/lib/api/inReportEditDispatch'
 
 interface EditableField {
   field_key: string
@@ -52,6 +53,13 @@ interface EditFieldModalProps {
   onClose: () => void
   /** Callback when field is successfully updated */
   onSuccess: () => void
+  /**
+   * Class B (ai_summary_version_insert) writes route through this callback —
+   * the component-scoped race-safe `persistManualEdit` in ViewReportPDF. The
+   * dispatch invokes this for ai_summary fields; the modal itself doesn't
+   * branch on strategy. See src/lib/api/inReportEditDispatch.ts.
+   */
+  persistManualEdit: DispatchOpts['persistManualEdit']
 }
 
 export function EditFieldModal({
@@ -60,7 +68,8 @@ export function EditFieldModal({
   currentValue,
   isOpen,
   onClose,
-  onSuccess
+  onSuccess,
+  persistManualEdit,
 }: EditFieldModalProps) {
   const [value, setValue] = useState<string>('')
   const [saving, setSaving] = useState(false)
@@ -161,16 +170,31 @@ export function EditFieldModal({
       const result = await updateInspectionField(
         inspectionId,
         field.field_key,
-        finalValue
+        finalValue,
+        { persistManualEdit },
       )
 
       if (result.success) {
-        toast.success('Field updated successfully!', { id: 'field-update' })
+        // Label-in-toast for clarity (was generic 'Field updated successfully!').
+        toast.success(`${field.field_label} saved`, { id: 'field-update' })
         onSuccess()
         onClose()
       } else {
-        toast.error(result.error || 'Failed to update field', { id: 'field-update' })
-        setError(result.error || 'Failed to update field')
+        // Honest failure: surface the real error AND reset the modal's local
+        // `value` back to currentValue so the input doesn't display the
+        // typed-but-unsaved value as if it were the new saved state
+        // (no optimistic divergence).
+        const message = result.error || 'Failed to update field'
+        toast.error(message, { id: 'field-update' })
+        setError(message)
+        if (field.field_type === 'currency') {
+          setValue(String(currentValue ?? '').replace(/[$,]/g, ''))
+        } else if (field.field_type === 'date' && typeof currentValue === 'string' && currentValue.includes('/')) {
+          const [day, month, year] = currentValue.split('/')
+          setValue(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`)
+        } else {
+          setValue(String(currentValue ?? ''))
+        }
       }
     } catch (err) {
       console.error('Save error:', err)

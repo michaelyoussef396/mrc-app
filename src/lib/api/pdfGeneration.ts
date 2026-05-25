@@ -8,6 +8,7 @@
 
 import { supabase } from '@/integrations/supabase/client'
 import { addBusinessBreadcrumb, captureBusinessError } from '@/lib/sentry'
+import { dispatchInReportEdit, type DispatchOpts } from './inReportEditDispatch'
 
 export interface PDFGenerationResult {
   success: boolean
@@ -123,87 +124,35 @@ export async function generateInspectionPDF(
 }
 
 /**
- * Update a single editable field on inspections or leads, looked up via
- * the editable_fields table. Does NOT regenerate the PDF — regen is
+ * Update a single editable field via the code-resident in-report edit
+ * dispatch (Phase B1). Replaces the dead `editable_fields` table lookup that
+ * pointed at renamed/dropped columns. The caller MUST inject
+ * `opts.persistManualEdit` so Class B fields (ai_summary) can route through
+ * the component-scoped version-on-write helper without duplicating
+ * race-safe insert logic. Does NOT regenerate the PDF — regen is
  * user-explicit (see file header).
  */
 export async function updateInspectionField(
   inspectionId: string,
   fieldKey: string,
-  newValue: string | number | boolean
+  newValue: string | number | boolean,
+  opts: DispatchOpts
 ): Promise<PDFGenerationResult> {
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-
-    if (!session) {
-      return {
-        success: false,
-        error: 'Not authenticated'
-      }
-    }
-
-    const { data: fieldMeta, error: metaError } = await supabase
-      .from('editable_fields')
-      .select('field_table, field_column')
-      .eq('field_key', fieldKey)
-      .single()
-
-    if (metaError || !fieldMeta) {
-      return {
-        success: false,
-        error: `Field ${fieldKey} not found in editable_fields`
-      }
-    }
-
-    if (fieldMeta.field_table === 'inspections') {
-      const { error: updateError } = await supabase
-        .from('inspections')
-        .update({
-          [fieldMeta.field_column]: newValue,
-          last_edited_at: new Date().toISOString(),
-          last_edited_by: session.user.id
-        })
-        .eq('id', inspectionId)
-
-      if (updateError) {
-        return {
-          success: false,
-          error: `Failed to update field: ${updateError.message}`
-        }
-      }
-    } else if (fieldMeta.field_table === 'leads') {
-      const { data: inspection, error: inspError } = await supabase
-        .from('inspections')
-        .select('lead_id')
-        .eq('id', inspectionId)
-        .single()
-
-      if (inspError || !inspection?.lead_id) {
-        return {
-          success: false,
-          error: 'Could not find associated lead'
-        }
-      }
-
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update({ [fieldMeta.field_column]: newValue })
-        .eq('id', inspection.lead_id)
-
-      if (updateError) {
-        return {
-          success: false,
-          error: `Failed to update lead field: ${updateError.message}`
-        }
-      }
-    }
-
-    return { success: true }
+    const result = await dispatchInReportEdit(
+      inspectionId,
+      fieldKey,
+      newValue as string | number,
+      opts,
+    )
+    return result.success
+      ? { success: true }
+      : { success: false, error: result.error }
   } catch (error) {
     console.error('Update inspection field error:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     }
   }
 }

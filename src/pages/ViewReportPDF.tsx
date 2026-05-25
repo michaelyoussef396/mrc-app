@@ -41,6 +41,7 @@ import {
   approvePDF,
   getPDFVersionHistory,
 } from '@/lib/api/pdfGeneration'
+import { IN_REPORT_FIELD_MAP } from '@/lib/api/inReportEditDispatch'
 import { StalePdfBanner } from '@/components/pdf/StalePdfBanner'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
@@ -1303,16 +1304,31 @@ export default function ViewReportPDF() {
         currentUrl: undefined,
       })
       setImageModalOpen(true)
-    } else {
-      const currentValue = getFieldValue(field.key)
-      setEditingField({
-        key: field.key,
-        label: field.label,
-        type: field.type === 'currency' ? 'currency' : field.type === 'number' ? 'number' : field.type === 'textarea' ? 'textarea' : 'text',
-        currentValue,
-      })
-      setEditModalOpen(true)
+      return
     }
+
+    // Phase B1 read-only gate. Pricing/equipment fields are read-only by
+    // explicit product decision (editing here would bypass the 13% discount
+    // cap in src/lib/calculations/pricing.ts). client_name + property_address
+    // are read-only in B1 (leads-table writes deferred). Unknown keys also
+    // default-deny — if a new field ever appears in the click surface
+    // without a dispatch entry, the modal refuses rather than appearing to
+    // save. See src/lib/api/inReportEditDispatch.ts.
+    const descriptor = IN_REPORT_FIELD_MAP[field.key]
+    if (!descriptor || descriptor.writeStrategy === 'read_only') {
+      const label = descriptor?.label ?? field.label
+      toast.info(`${label} is read-only here — edit via the inspection form.`)
+      return
+    }
+
+    const currentValue = getFieldValue(field.key)
+    setEditingField({
+      key: field.key,
+      label: field.label,
+      type: field.type === 'currency' ? 'currency' : field.type === 'number' ? 'number' : field.type === 'textarea' ? 'textarea' : 'text',
+      currentValue,
+    })
+    setEditModalOpen(true)
   }
 
   function getFieldValue(fieldKey: string): string | number {
@@ -3213,6 +3229,11 @@ export default function ViewReportPDF() {
           onSuccess={async () => {
             await loadInspection()
           }}
+          // Phase B1: Class B (ai_summary_version_insert) writes route through
+          // the component-scoped race-safe persistManualEdit instead of a
+          // direct UPDATE — those columns were dropped from inspections in
+          // migration 20260502100119 and now live only on ai_summary_versions.
+          persistManualEdit={persistManualEdit}
         />
       )}
 
