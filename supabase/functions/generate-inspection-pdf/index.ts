@@ -45,6 +45,7 @@ interface InspectionArea {
   mould_visible_locations: string[]
   mould_visible_custom: string
   comments: string
+  extra_notes: string | null
   temperature: number
   humidity: number
   dew_point: number
@@ -55,6 +56,14 @@ interface InspectionArea {
   moisture_readings?: MoistureReading[]
   external_moisture: number | null
   primary_photo_id?: string | null
+  // Infrared block — single toggle gates both photos AND observations
+  // (matches lead view InspectionDataDisplay.tsx:247, :314, :352).
+  infrared_enabled: boolean | null
+  infrared_observation_no_active: boolean | null
+  infrared_observation_water_infiltration: boolean | null
+  infrared_observation_past_ingress: boolean | null
+  infrared_observation_condensation: boolean | null
+  infrared_observation_missing_insulation: boolean | null
 }
 
 interface Photo {
@@ -189,21 +198,23 @@ function formatDate(dateString: string | null | undefined): string {
 
 // Get mould description - returns comma-separated locations for PDF template
 // Template already has "VISIBLE MOULD: " prefix, so we only return the value part
+// Mirrors the lead-view fallback shape at
+// src/components/leads/InspectionDataDisplay.tsx:259-280:
+//   locations (badges) → custom (italic under badges OR sole value) → description.
+// 4c4ca0c missed the mould_visible_custom tier entirely, so areas with only
+// a custom location (e.g. "Under the ceiling", no checkboxes, no legacy
+// description) rendered "VISIBLE MOULD: None observed" while the lead view
+// correctly showed the custom text.
 function getMouldDescription(area: InspectionArea): string {
-  // Priority 1: JSONB array (new checkbox system)
   if (area.mould_visible_locations?.length > 0) {
     return area.mould_visible_locations.join(', ')
   }
-
-  // Priority 2: Text field (legacy)
+  if (area.mould_visible_custom?.trim()) {
+    return area.mould_visible_custom.trim()
+  }
   if (area.mould_description?.trim()) {
     return area.mould_description.trim()
   }
-
-  // Bug B: the template has a literal "VISIBLE MOULD: {{visible_mould}}" label
-  // (inspection-report-template-final.html, around the per-area navy pane).
-  // Returning '' rendered as "VISIBLE MOULD: " with no value — a blank box.
-  // 'None observed' reads cleanly alongside the existing label.
   return 'None observed'
 }
 
@@ -1013,6 +1024,24 @@ function rebuildProblemAnalysisMarkdown(sections: Record<string, string>): strin
 // TEMPLATE POPULATION FUNCTIONS
 // ===================================================================
 
+// Build the INFRARED OBSERVATIONS server-side block. Mirrors the lead-view
+// tag set + label mapping at InspectionDataDisplay.tsx:318-322.
+// Returns '' when toggle is on but no observations checked, OR when toggle
+// is off (caller handles the off path by stripping the container div).
+function buildInfraredObservationsBlock(area: InspectionArea): string {
+  const tags: { label: string; bg: string; fg: string }[] = []
+  if (area.infrared_observation_no_active)          tags.push({ label: 'No Active Water',     bg: '#f1f5f9', fg: '#334155' })
+  if (area.infrared_observation_water_infiltration) tags.push({ label: 'Water Infiltration',  bg: '#fee2e2', fg: '#991b1b' })
+  if (area.infrared_observation_past_ingress)       tags.push({ label: 'Past Water Ingress',  bg: '#fef3c7', fg: '#92400e' })
+  if (area.infrared_observation_condensation)       tags.push({ label: 'Condensation',        bg: '#dbeafe', fg: '#1e40af' })
+  if (area.infrared_observation_missing_insulation) tags.push({ label: 'Missing Insulation',  bg: '#ffedd5', fg: '#9a3412' })
+  if (tags.length === 0) return ''
+  const tagSpans = tags.map(t =>
+    `<span style="display:inline-block; padding:3px 9px; border-radius:9999px; background:${t.bg}; color:${t.fg}; font-size:11px; font-family:'Galvji',sans-serif; margin-right:4px; margin-bottom:4px;">${escapeHtml(t.label)}</span>`
+  ).join('')
+  return `<div style="color:#111; font-size:13px; font-family:'Garet Heavy',sans-serif; font-weight:400; margin-bottom:6px;">INFRARED OBSERVATIONS</div><div style="display:flex; flex-wrap:wrap;">${tagSpans}</div>`
+}
+
 // Extract the Areas Inspected page block from the template
 // The template has a single Area page with {{area_*}} placeholders
 // We duplicate it once per inspected area
@@ -1041,6 +1070,7 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
       .replace(/\{\{area_photo_[1-4]\}\}/g, '')
       .replace(/\{\{area_infrared_photo\}\}/g, '')
       .replace(/\{\{area_natural_infrared_photo\}\}/g, '')
+      .replace(/\{\{infrared_observations_block\}\}/g, '')
       .replace(/\{\{area_notes\}\}/g, 'No areas were inspected during this assessment.')
       .replace(/\{\{extra_notes\}\}/g, '')
 
@@ -1085,54 +1115,68 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
       page = page.replace(new RegExp(`\\{\\{area_photo_${i}\\}\\}`, 'g'), url)
     }
 
-    // Bug C — infrared photos & EXTRA NOTES bottom row.
-    //
-    // Previously a falsy storage_path was substituted into <img src="">, which
-    // the browser renders as a broken-image icon, AND the EXTRA NOTES block
-    // (only ever the "Thermal imaging reveals…" explainer — no path
-    // populates it with user notes) was emitted alongside an empty bottom-left
-    // half-page.
+    // Infrared block — single toggle `area.infrared_enabled` gates BOTH the
+    // photo grid AND the new INFRARED OBSERVATIONS block (matches lead view
+    // InspectionDataDisplay.tsx where the same flag gates :247 badge, :314
+    // observations, :352/:355 photo grids). EXTRA NOTES is completely
+    // decoupled — it ALWAYS renders the real `area.extra_notes` DB column
+    // (the inspector's free-text), never the hardcoded thermal-imaging
+    // sentence that 4c4ca0c was emitting.
     //
     // Template anchors (verified against pdf-templates/inspection-report-template-final.html):
-    //   <!-- Extra photos grid (bottom left) -->  div: left:35  top:856  width:416  height:167
-    //   <!-- EXTRA NOTES heading -->              div: left:482 top:864  width:134
-    //   <!-- EXTRA NOTES content -->              div: left:483 top:893  width:260
-    //   AREA NOTES content above ends at top:817 — 47px clearance, no collision.
+    //   <!-- Extra photos grid (bottom left) -->          div: left:35  top:856  width:416  height:167
+    //   <!-- INFRARED OBSERVATIONS -->                    div: left:35  top:1030 width:416  (added in this commit)
+    //   <!-- EXTRA NOTES heading -->                      div: left:482 top:864  width:134
+    //   <!-- EXTRA NOTES content -->                      div: left:483 top:893  width:260
+    //   AREA NOTES content above ends at top:817.
     //
     // Behaviour:
-    //   - Both infrared photos missing  → strip grid + EXTRA NOTES heading + EXTRA NOTES content
-    //   - One missing, one present      → strip only the missing <img> tag (full tag, not just src)
-    //   - Both present                  → unchanged
+    //   irOn = true,  has both photos → photo grid + observations + (right-side) EXTRA NOTES
+    //   irOn = true,  one photo only  → strip the missing <img> tag, keep grid + observations
+    //   irOn = true,  no obs ticked   → observations container renders empty (no heading, no tags)
+    //   irOn = false                  → strip photo grid + observations container + original
+    //                                   EXTRA NOTES heading/content, then emit a full-width
+    //                                   EXTRA NOTES at left:35 width:730 occupying the freed band.
     //
-    // The both-missing branch is UNVERIFIED until the rendered PDF is visually
-    // confirmed post-deploy. Needs eyeball-check on a test inspection with
-    // zero infrared photos before this case is considered "done".
+    // UNVERIFIED — coordinate math + regex strips need visual confirmation on a
+    // rendered PDF (preferred via local `supabase functions serve` previewOnly
+    // before any deploy; otherwise post-deploy previewOnly grep).
+    const irOn = !!area.infrared_enabled
     const infraredPhoto = areaPhotos.find(p => p.caption === 'infrared')
     const naturalInfraredPhoto = areaPhotos.find(p => p.caption === 'natural_infrared')
-    const hasInfrared = !!infraredPhoto?.storage_path
-    const hasNatural = !!naturalInfraredPhoto?.storage_path
 
-    if (!hasInfrared && !hasNatural) {
+    if (!irOn) {
+      // Toggle OFF — strip the infrared block AND the original EXTRA NOTES
+      // divs, then emit a fresh full-width EXTRA NOTES at the freed location.
       page = page.replace(/<!-- Extra photos grid \(bottom left\)[\s\S]*?<\/div>\s*\n/, '')
+      page = page.replace(/<!-- INFRARED OBSERVATIONS[\s\S]*?<\/div>\s*\n/, '')
       page = page.replace(/<!-- EXTRA NOTES heading -->[\s\S]*?<\/div>\s*\n/, '')
       page = page.replace(/<!-- EXTRA NOTES content -->[\s\S]*?<\/div>\s*\n/, '')
+      const widenedExtraNotes = `<!-- EXTRA NOTES heading (full-width, infrared OFF) -->\n            <div style="width: 730px; left: 35px; top: 856px; position: absolute; color: black; font-size: 17px; font-family: 'Garet Heavy', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0372px;">EXTRA NOTES</div>\n            <!-- EXTRA NOTES content (full-width, infrared OFF) -->\n            <div style="width: 730px; left: 35px; top: 885px; position: absolute; color: black; font-size: 13px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0197px; word-wrap: break-word; white-space: pre-wrap;">${escapeHtml(area.extra_notes || '')}</div>\n`
+      // Inject the widened block before the closing </div></div> of the area page.
+      page = page.replace(/(\s*<\/div>\s*<\/div>\s*)$/, `\n            ${widenedExtraNotes}$1`)
     } else {
-      if (!hasInfrared) {
+      // Toggle ON — photo-slot safety net + render the observations block.
+      if (!infraredPhoto?.storage_path) {
         page = page.replace(/<img[^>]*src="\{\{area_infrared_photo\}\}"[^>]*\/>/, '')
       }
-      if (!hasNatural) {
+      if (!naturalInfraredPhoto?.storage_path) {
         page = page.replace(/<img[^>]*src="\{\{area_natural_infrared_photo\}\}"[^>]*\/>/, '')
       }
     }
 
-    page = page.replace(/\{\{area_infrared_photo\}\}/g, hasInfrared ? getPhotoUrl(infraredPhoto!.storage_path) : '')
-    page = page.replace(/\{\{area_natural_infrared_photo\}\}/g, hasNatural ? getPhotoUrl(naturalInfraredPhoto!.storage_path) : '')
+    // Placeholder substitutions — no-ops on the OFF path (their containing
+    // divs were stripped above).
+    page = page.replace(/\{\{area_infrared_photo\}\}/g, infraredPhoto?.storage_path ? getPhotoUrl(infraredPhoto.storage_path) : '')
+    page = page.replace(/\{\{area_natural_infrared_photo\}\}/g, naturalInfraredPhoto?.storage_path ? getPhotoUrl(naturalInfraredPhoto.storage_path) : '')
+    page = page.replace(/\{\{infrared_observations_block\}\}/g, irOn ? buildInfraredObservationsBlock(area) : '')
 
-    // Notes
+    // Notes — AREA NOTES (area.comments) is the right-column block above the
+    // infrared band; EXTRA NOTES (area.extra_notes) is the inspector's per-area
+    // free-text, rendered in the bottom-right on the ON path or in the widened
+    // block on the OFF path.
     page = page.replace(/\{\{area_notes\}\}/g, escapeHtml(area.comments || 'No notes recorded for this area.'))
-    page = page.replace(/\{\{extra_notes\}\}/g, hasInfrared || hasNatural
-      ? 'Thermal imaging reveals moisture patterns not visible to the naked eye.'
-      : '')
+    page = page.replace(/\{\{extra_notes\}\}/g, escapeHtml(area.extra_notes || ''))
 
     return page
   }).join('\n\n')
