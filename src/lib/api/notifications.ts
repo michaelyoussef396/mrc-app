@@ -322,7 +322,12 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
 
   if (error) {
     console.error('[Notifications] Email edge function error:', error);
-    throw new Error(error.message || 'Email edge function error');
+    // FunctionsHttpError sets context to the parsed response body.
+    // Extract the server's human-readable message (e.g. rate-limit explanation)
+    // instead of the generic "Edge Function returned a non-2xx status code".
+    const ctx = (error as { context?: Record<string, unknown> }).context;
+    const serverMessage = typeof ctx?.error === 'string' ? ctx.error : undefined;
+    throw new Error(serverMessage || error.message || 'Email edge function error');
   }
 
   if (data && !data.success) {
