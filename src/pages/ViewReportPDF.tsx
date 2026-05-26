@@ -391,6 +391,7 @@ export default function ViewReportPDF() {
   const [areaPhotos, setAreaPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption: string | null }>>([])
   const [primaryPhotoId, setPrimaryPhotoId] = useState<string | null>(null)
   const [areaPhotosLoading, setAreaPhotosLoading] = useState(false)
+  const areaLoadIdRef = useRef<string | null>(null)
 
   // Add new area
   const [addingArea, setAddingArea] = useState(false)
@@ -1685,31 +1686,31 @@ export default function ViewReportPDF() {
   }
 
   async function loadAreaPhotos(areaId: string) {
+    areaLoadIdRef.current = areaId
     setAreaPhotosLoading(true)
     try {
-      // Get primary_photo_id for this area
       const { data: area } = await supabase
         .from('inspection_areas')
         .select('primary_photo_id')
         .eq('id', areaId)
         .single()
 
+      if (areaLoadIdRef.current !== areaId) return
+
       const primaryId = area?.primary_photo_id || null
       setPrimaryPhotoId(primaryId)
 
-      // Load ALL photos assigned to this area. Stage 4.3: filter soft-deleted.
-      const { data: photos, error } = await supabase
+      const { data: photos } = await supabase
         .from('photos')
         .select('id, storage_path, file_name, caption')
         .eq('area_id', areaId)
         .is('deleted_at', null)
         .order('created_at', { ascending: true })
 
+      if (areaLoadIdRef.current !== areaId) return
+
       let allAreaPhotos = photos || []
 
-      // If primary_photo_id photo isn't in area_id results, fetch and include it.
-      // Stage 4.3: deleteInspectionPhoto NULLs primary_photo_id before soft-delete,
-      // but defense-in-depth — still filter soft-deleted here.
       if (primaryId && !allAreaPhotos.some(p => p.id === primaryId)) {
         const { data: primaryPhoto } = await supabase
           .from('photos')
@@ -1721,6 +1722,8 @@ export default function ViewReportPDF() {
           allAreaPhotos = [primaryPhoto, ...allAreaPhotos]
         }
       }
+
+      if (areaLoadIdRef.current !== areaId) return
 
       // Build the EXACT same 6 photos the PDF template uses:
       // Step 1: primary first, then others (same as duplicateAreaPages)
@@ -1744,6 +1747,7 @@ export default function ViewReportPDF() {
       if (infraredPhoto) pdfPhotos.push(infraredPhoto)
       if (naturalInfraredPhoto) pdfPhotos.push(naturalInfraredPhoto)
 
+      if (areaLoadIdRef.current !== areaId) return
 
       if (pdfPhotos.length > 0) {
         const withUrls = await Promise.all(
@@ -1764,7 +1768,9 @@ export default function ViewReportPDF() {
       console.warn('Failed to load area photos:', err)
       throw err
     } finally {
-      setAreaPhotosLoading(false)
+      if (areaLoadIdRef.current === areaId) {
+        setAreaPhotosLoading(false)
+      }
     }
   }
 
@@ -2616,7 +2622,7 @@ export default function ViewReportPDF() {
       </Dialog>
 
       {/* Area Edit Dialog */}
-      <Dialog open={areaEditOpen} onOpenChange={setAreaEditOpen}>
+      <Dialog open={areaEditOpen} onOpenChange={(open) => { setAreaEditOpen(open); if (!open) setEditingAreaId(null) }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Area Readings</DialogTitle>
