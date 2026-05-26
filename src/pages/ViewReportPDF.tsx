@@ -1919,18 +1919,28 @@ export default function ViewReportPDF() {
     setPhotoUploading(true)
     setPhotoPickerOpen(false)
     try {
-      // Set selected photo as front_house. Previously-marked photos retain
-      // their caption — clearing it would destroy human-entered descriptions
-      // when the caption column is later repurposed for free-form text.
-      await supabase
+      const { error: setError } = await supabase
         .from('photos')
-        .update({ caption: 'front_house', photo_type: 'outdoor' })
+        .update({ caption: 'front_house' })
         .eq('id', photoId)
+      if (setError) throw new Error(`Failed to set cover: ${setError.message}`)
 
-      toast.success('Cover photo updated')
+      const { error: clearError } = await supabase
+        .from('photos')
+        .update({ caption: null })
+        .eq('inspection_id', inspection.id)
+        .eq('caption', 'front_house')
+        .neq('id', photoId)
+        .is('deleted_at', null)
+      if (clearError) throw new Error(`Failed to clear old covers: ${clearError.message}`)
+
+      setPreviewStale(true)
+      toast.success('Cover photo updated', {
+        description: 'Click Regenerate to update the preview.',
+      })
     } catch (error) {
       console.error('Failed to set cover photo:', error)
-      toast.error('Failed to set cover photo')
+      toast.error(error instanceof Error ? error.message : 'Failed to set cover photo')
     } finally {
       setPhotoUploading(false)
     }
@@ -1945,16 +1955,17 @@ export default function ViewReportPDF() {
       const resizedBlob = await resizePhoto(file)
       const resizedFile = new File([resizedBlob], file.name, { type: 'image/jpeg' })
 
-      // Delete existing front_house photo
-      const { data: existing } = await supabase
+      const { data: existing, error: fetchError } = await supabase
         .from('photos')
         .select('id')
         .eq('inspection_id', inspection.id)
         .eq('caption', 'front_house')
+        .is('deleted_at', null)
+      if (fetchError) throw new Error(`Failed to find existing covers: ${fetchError.message}`)
 
       if (existing) {
         for (const p of existing) {
-          try { await deleteInspectionPhoto(p.id) } catch { /* ignore */ }
+          await deleteInspectionPhoto(p.id)
         }
       }
 
@@ -1965,10 +1976,13 @@ export default function ViewReportPDF() {
         order_index: 0,
       })
 
-      toast.success('Photo updated')
+      setPreviewStale(true)
+      toast.success('Cover photo uploaded', {
+        description: 'Click Regenerate to update the preview.',
+      })
     } catch (error) {
       console.error('Photo upload failed:', error)
-      toast.error('Failed to upload photo')
+      toast.error(error instanceof Error ? error.message : 'Failed to upload photo')
     } finally {
       setPhotoUploading(false)
       if (photoInputRef.current) photoInputRef.current.value = ''
