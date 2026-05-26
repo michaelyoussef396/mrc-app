@@ -978,7 +978,7 @@ export default function ViewReportPDF() {
 
       const { error: statusErr } = await supabase
         .from('leads')
-        .update({ status: 'inspection_email_approval' })
+        .update({ status: 'job_waiting' })
         .eq('id', lead.id)
       if (statusErr) {
         console.error('Lead status update failed:', statusErr)
@@ -988,7 +988,7 @@ export default function ViewReportPDF() {
         leadId: lead.id,
         entityType: 'lead',
         entityId: lead.id,
-        changes: [{ field: 'status', old: (lead as { status?: string }).status ?? null, new: 'inspection_email_approval' }],
+        changes: [{ field: 'status', old: (lead as { status?: string }).status ?? null, new: 'job_waiting' }],
         extraMetadata: { trigger: 'inspection_report_emailed', recipient },
       }).catch(err => console.error('Activity log failed:', err))
 
