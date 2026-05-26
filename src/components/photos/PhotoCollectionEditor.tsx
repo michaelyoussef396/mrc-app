@@ -29,7 +29,7 @@ interface PhotoCollectionEditorProps {
   inspectionId: string
   association: PhotoAssociation
   onPhotoAdded: () => void | Promise<void>
-  onPhotoDeleted: () => void
+  onPhotoDeleted: (deletedId: string) => void
   primaryPhotoId?: string | null
   onSetPrimary?: (photoId: string) => void
   maxCount?: number
@@ -150,6 +150,19 @@ export function PhotoCollectionEditor({
         .single()
       if (fetchErr || !source) throw new Error('Failed to read source photo')
 
+      // HACK(michael): order_index is unpopulated (all 0/NULL) so grids order by created_at.
+      // Inherit the target's created_at so the copy stays in the same position.
+      // Proper fix: populate order_index and switch all loaders to order by it.
+      let preservedCreatedAt: string | undefined
+      if (replacing) {
+        const { data: target } = await supabase
+          .from('photos')
+          .select('created_at')
+          .eq('id', replacing)
+          .single()
+        if (target?.created_at) preservedCreatedAt = target.created_at
+      }
+
       // Insert copy BEFORE deleting old — if insert fails, no data lost
       const cols = associationColumns(association)
       const { data: newRow, error: insertErr } = await supabase
@@ -163,6 +176,7 @@ export function PhotoCollectionEditor({
           caption: source.caption,
           uploaded_by: source.uploaded_by,
           ...cols,
+          ...(preservedCreatedAt ? { created_at: preservedCreatedAt } : {}),
         })
         .select('id')
         .single()
@@ -200,7 +214,7 @@ export function PhotoCollectionEditor({
       setSelectedId(null)
       setDeleting(false)
       toast.success('Photo deleted')
-      onPhotoDeleted()
+      onPhotoDeleted(photoId)
     } catch (err) {
       console.error('Delete photo failed:', err)
       toast.error('Failed to delete photo')

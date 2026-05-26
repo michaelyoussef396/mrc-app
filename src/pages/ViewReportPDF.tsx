@@ -418,7 +418,7 @@ export default function ViewReportPDF() {
   }, [effectiveId])
 
   useEffect(() => {
-    if (inspection?.id && subfloorData?.id) loadSubfloorPhotos()
+    if (inspection?.id && subfloorData?.id) loadSubfloorPhotos().catch(() => {})
   }, [inspection?.id, subfloorData?.id])
 
   // Auto-open email stage if navigated with ?action=send-email
@@ -1618,6 +1618,7 @@ export default function ViewReportPDF() {
       }
     } catch (err) {
       console.warn('Failed to load subfloor photos:', err)
+      throw err
     } finally {
       setSubfloorPhotosLoading(false)
     }
@@ -1637,8 +1638,7 @@ export default function ViewReportPDF() {
     })
     setAreaPhotos([])
     setAreaEditOpen(true)
-    // Load photos for this area
-    loadAreaPhotos(area.id)
+    loadAreaPhotos(area.id).catch(() => {})
   }
 
   async function saveAreaForm() {
@@ -1762,6 +1762,7 @@ export default function ViewReportPDF() {
       }
     } catch (err) {
       console.warn('Failed to load area photos:', err)
+      throw err
     } finally {
       setAreaPhotosLoading(false)
     }
@@ -2493,7 +2494,7 @@ export default function ViewReportPDF() {
       {/* Floating Edit Subfloor Photos Button — only show if subfloor is required (inspection only) */}
       {reportType === 'inspection' && subfloorData && (
         <button
-          onClick={() => { setSubfloorEditOpen(true); loadSubfloorPhotos() }}
+          onClick={() => { setSubfloorEditOpen(true); loadSubfloorPhotos().catch(() => {}) }}
           className="fixed bottom-40 md:bottom-20 right-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 z-50 min-h-[48px] transition-colors animate-pulse"
         >
           <Camera className="h-5 w-5" />
@@ -2541,7 +2542,14 @@ export default function ViewReportPDF() {
                   inspectionId={jobCompletion?.inspection_id || ''}
                   association={{ type: 'job', jobCompletionId: jobCompletion?.id || '', photoCategory: category }}
                   onPhotoAdded={async () => { await refetchJobPhotos() }}
-                  onPhotoDeleted={() => refetchJobPhotos()}
+                  onPhotoDeleted={(id) => {
+                    queryClient.setQueryData(['job-report-photos', jobCompletion?.id, editMode], (old: typeof jobPhotos | undefined) => {
+                      if (!old) return old
+                      const remove = (arr: JobPhoto[]) => arr.filter(p => p.id !== id)
+                      return { before: remove(old.before), after: remove(old.after), demolition: remove(old.demolition) }
+                    })
+                    refetchJobPhotos().catch(() => toast.warning('Photo deleted — couldn\'t refresh the grid'))
+                  }}
                   maxCount={10}
                 />
               </div>
@@ -2811,7 +2819,7 @@ export default function ViewReportPDF() {
                       inspectionId={inspection?.id || ''}
                       association={{ type: 'area', areaId: editingAreaId! }}
                       onPhotoAdded={async () => { await loadAreaPhotos(editingAreaId!) }}
-                      onPhotoDeleted={() => loadAreaPhotos(editingAreaId!)}
+                      onPhotoDeleted={(id) => { setAreaPhotos(prev => prev.filter(p => p.id !== id)); loadAreaPhotos(editingAreaId!).catch(() => toast.warning('Photo deleted — couldn\'t refresh the grid')) }}
                       primaryPhotoId={primaryPhotoId}
                       onSetPrimary={handleSetAreaPrimary}
                       maxCount={4 + thermalCount}
@@ -2917,7 +2925,7 @@ export default function ViewReportPDF() {
             inspectionId={inspection?.id || ''}
             association={{ type: 'subfloor' }}
             onPhotoAdded={async () => { await loadSubfloorPhotos() }}
-            onPhotoDeleted={() => loadSubfloorPhotos()}
+            onPhotoDeleted={(id) => { setSubfloorPhotos(prev => prev.filter(p => p.id !== id)); loadSubfloorPhotos().catch(() => toast.warning('Photo deleted — couldn\'t refresh the grid')) }}
             maxCount={20}
           />
         </DialogContent>
