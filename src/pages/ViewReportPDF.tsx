@@ -46,10 +46,11 @@ import { MismatchSendDialog, type MismatchChoice } from '@/components/pdf/Mismat
 import { ReportVersionHistory } from '@/components/pdf/ReportVersionHistory'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
-import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl, unplacePhoto, loadUnplacedPhotos } from '@/lib/utils/photoUpload'
+import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
 import { logFieldEdits } from '@/lib/api/fieldEditLog'
 import { PhotoCollectionEditor } from '@/components/photos/PhotoCollectionEditor'
 import { AreaPhotoSlotGrid } from '@/components/photos/AreaPhotoSlotGrid'
+import { SubfloorPhotoSlotGrid } from '@/components/photos/SubfloorPhotoSlotGrid'
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { resizePhoto } from '@/lib/offline/photoResizer'
 import { formatDateAU } from '@/lib/dateUtils'
@@ -2922,17 +2923,13 @@ export default function ViewReportPDF() {
             </DialogDescription>
           </DialogHeader>
 
-          <PhotoCollectionEditor
+          <SubfloorPhotoSlotGrid
             photos={subfloorPhotos}
-            loading={subfloorPhotosLoading}
+            subfloorId={subfloorData?.id || ''}
             inspectionId={inspection?.id || ''}
-            association={{ type: 'subfloor', subfloorId: subfloorData?.id || '' }}
-            onPhotoAdded={async () => { await loadSubfloorPhotos() }}
-            onPhotoDeleted={(id) => { setSubfloorPhotos(prev => prev.filter(p => p.id !== id)); setPreviewStale(true) }}
-            maxCount={20}
-            removeAction={unplacePhoto}
-            pickBehavior="reassign"
-            loadPickerPhotos={loadUnplacedPhotos}
+            onPhotosChanged={async () => { await loadSubfloorPhotos() }}
+            onPreviewStale={() => setPreviewStale(true)}
+            loading={subfloorPhotosLoading}
           />
         </DialogContent>
       </Dialog>
