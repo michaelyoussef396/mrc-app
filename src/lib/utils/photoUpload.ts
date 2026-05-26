@@ -422,6 +422,50 @@ export async function unplacePhoto(photoId: string): Promise<void> {
 }
 
 /**
+ * Unplace an outdoor photo — flip photo_type from 'outdoor' back to 'general'
+ * so it returns to the unplaced pool. Unlike area/subfloor photos where
+ * placement is via FK columns, outdoor placement is solely via photo_type.
+ */
+export async function unplaceOutdoorPhoto(photoId: string): Promise<void> {
+  const { data: photo, error: fetchError } = await supabase
+    .from('photos')
+    .select('id, inspection_id, photo_type, caption')
+    .eq('id', photoId)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (fetchError) {
+    throw new Error(`Failed to read photo before unplace: ${fetchError.message}`)
+  }
+  if (!photo) {
+    throw new Error('Photo not found or already deleted')
+  }
+  if (photo.photo_type !== 'outdoor') {
+    throw new Error(`Expected outdoor photo, got photo_type='${photo.photo_type}'`)
+  }
+
+  const { error: updateError } = await supabase
+    .from('photos')
+    .update({ photo_type: 'general' })
+    .eq('id', photoId)
+    .is('deleted_at', null)
+
+  if (updateError) {
+    throw new Error(`Failed to unplace outdoor photo: ${updateError.message}`)
+  }
+
+  if (photo.inspection_id) {
+    await recordPhotoHistory({
+      photo_id: photoId,
+      inspection_id: photo.inspection_id,
+      action: 'category_changed',
+      before: { photo_type: 'outdoor', caption: photo.caption ?? null },
+      after: { photo_type: 'general', caption: photo.caption ?? null },
+    })
+  }
+}
+
+/**
  * Load all photos for an inspection
  * @param inspectionId The inspection ID
  * @returns Promise with array of photos with signed URLs
@@ -500,6 +544,7 @@ export async function loadUnplacedPhotos(
     .is('area_id', null)
     .is('subfloor_id', null)
     .is('deleted_at', null)
+    .neq('photo_type', 'outdoor')
     .order('created_at', { ascending: true })
 
   if (error) throw new Error(`Failed to load unplaced photos: ${error.message}`)
@@ -512,6 +557,44 @@ export async function loadUnplacedPhotos(
         return { id: p.id, signed_url, caption: p.caption, photo_type: p.photo_type, area_id: p.area_id, subfloor_id: p.subfloor_id }
       } catch {
         return { id: p.id, signed_url: '', caption: p.caption, photo_type: p.photo_type, area_id: p.area_id, subfloor_id: p.subfloor_id }
+      }
+    })
+  )
+}
+
+/**
+ * Load outdoor photos for an inspection — photos with photo_type='outdoor'.
+ * These are the 3 photos that render on the PDF outdoor environment page.
+ */
+export async function loadOutdoorPhotos(
+  inspectionId: string
+): Promise<Array<{
+  id: string
+  storage_path: string
+  signed_url: string
+  caption: string | null
+  photo_type: string
+  area_id: string | null
+  subfloor_id: string | null
+}>> {
+  const { data: photos, error } = await supabase
+    .from('photos')
+    .select('id, storage_path, caption, photo_type, area_id, subfloor_id')
+    .eq('inspection_id', inspectionId)
+    .eq('photo_type', 'outdoor')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(`Failed to load outdoor photos: ${error.message}`)
+  if (!photos || photos.length === 0) return []
+
+  return Promise.all(
+    photos.map(async (p) => {
+      try {
+        const signed_url = await getPhotoSignedUrl(p.storage_path)
+        return { id: p.id, storage_path: p.storage_path, signed_url, caption: p.caption, photo_type: p.photo_type, area_id: p.area_id, subfloor_id: p.subfloor_id }
+      } catch {
+        return { id: p.id, storage_path: p.storage_path, signed_url: '', caption: p.caption, photo_type: p.photo_type, area_id: p.area_id, subfloor_id: p.subfloor_id }
       }
     })
   )

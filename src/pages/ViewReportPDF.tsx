@@ -46,11 +46,12 @@ import { MismatchSendDialog, type MismatchChoice } from '@/components/pdf/Mismat
 import { ReportVersionHistory } from '@/components/pdf/ReportVersionHistory'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
-import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
+import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, loadOutdoorPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
 import { logFieldEdits } from '@/lib/api/fieldEditLog'
 import { PhotoCollectionEditor } from '@/components/photos/PhotoCollectionEditor'
 import { AreaPhotoSlotGrid } from '@/components/photos/AreaPhotoSlotGrid'
 import { SubfloorPhotoSlotGrid } from '@/components/photos/SubfloorPhotoSlotGrid'
+import { OutdoorPhotoSlotGrid } from '@/components/photos/OutdoorPhotoSlotGrid'
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { resizePhoto } from '@/lib/offline/photoResizer'
 import { formatDateAU } from '@/lib/dateUtils'
@@ -407,6 +408,10 @@ export default function ViewReportPDF() {
   const [subfloorPhotosLoading, setSubfloorPhotosLoading] = useState(false)
   const [subfloorEditOpen, setSubfloorEditOpen] = useState(false)
 
+  const [outdoorPhotos, setOutdoorPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption?: string | null }>>([])
+  const [outdoorPhotosLoading, setOutdoorPhotosLoading] = useState(false)
+  const [outdoorEditOpen, setOutdoorEditOpen] = useState(false)
+
   // Page 1 photo picker
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false)
@@ -423,6 +428,10 @@ export default function ViewReportPDF() {
   useEffect(() => {
     if (inspection?.id && subfloorData?.id) loadSubfloorPhotos().catch(() => {})
   }, [inspection?.id, subfloorData?.id])
+
+  useEffect(() => {
+    if (inspection?.id) loadOutdoorPhotosLocal().catch(() => {})
+  }, [inspection?.id])
 
   // Auto-open email stage if navigated with ?action=send-email
   useEffect(() => {
@@ -1626,6 +1635,20 @@ export default function ViewReportPDF() {
     }
   }
 
+  async function loadOutdoorPhotosLocal() {
+    if (!inspection?.id) return
+    setOutdoorPhotosLoading(true)
+    try {
+      const photos = await loadOutdoorPhotos(inspection.id)
+      setOutdoorPhotos(photos)
+    } catch (err) {
+      console.warn('Failed to load outdoor photos:', err)
+      throw err
+    } finally {
+      setOutdoorPhotosLoading(false)
+    }
+  }
+
   function openAreaEdit(area: AreaRecord) {
     setEditingAreaId(area.id)
     setAreaForm({
@@ -2525,6 +2548,17 @@ export default function ViewReportPDF() {
         </button>
       )}
 
+      {/* Floating Edit Outdoor Photos Button — inspection only */}
+      {reportType === 'inspection' && (
+        <button
+          onClick={() => { setOutdoorEditOpen(true); loadOutdoorPhotosLocal().catch(() => {}) }}
+          className="fixed bottom-56 md:bottom-20 md:right-48 right-4 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 z-50 min-h-[48px] transition-colors"
+        >
+          <Camera className="h-5 w-5" />
+          <span className="font-medium text-sm">Outdoor Photos</span>
+        </button>
+      )}
+
       {/* Job Report Edit Panel */}
       {reportType === 'job' && editMode && (
         <div className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 bg-white border border-orange-200 rounded-xl shadow-lg z-50 max-h-[60vh] overflow-y-auto">
@@ -2944,6 +2978,26 @@ export default function ViewReportPDF() {
             onPhotosChanged={async () => { await loadSubfloorPhotos() }}
             onPreviewStale={() => setPreviewStale(true)}
             loading={subfloorPhotosLoading}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Outdoor Photos Dialog */}
+      <Dialog open={outdoorEditOpen} onOpenChange={setOutdoorEditOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Outdoor Photos</DialogTitle>
+            <DialogDescription>
+              Upload, pick from existing, or remove outdoor environment photos (max 3)
+            </DialogDescription>
+          </DialogHeader>
+
+          <OutdoorPhotoSlotGrid
+            photos={outdoorPhotos}
+            inspectionId={inspection?.id || ''}
+            onPhotosChanged={async () => { await loadOutdoorPhotosLocal() }}
+            onPreviewStale={() => setPreviewStale(true)}
+            loading={outdoorPhotosLoading}
           />
         </DialogContent>
       </Dialog>
