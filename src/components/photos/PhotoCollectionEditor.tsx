@@ -155,48 +155,59 @@ export function PhotoCollectionEditor({
         .single()
       if (fetchErr || !source) throw new Error('Failed to read source photo')
 
-      // HACK(michael): order_index is unpopulated (all 0/NULL) so grids order by created_at.
-      // Inherit the target's created_at so the copy stays in the same position.
-      // Proper fix: populate order_index and switch all loaders to order by it.
-      let preservedCreatedAt: string | undefined
       if (replacing) {
-        const { data: target } = await supabase
+        // In-place swap: update the slot's image, keep its identity
+        // (id, area_id, photo_type, caption, created_at, order_index, primary flag)
+        const { data: oldRow } = await supabase
           .from('photos')
-          .select('created_at')
+          .select('storage_path, file_name')
           .eq('id', replacing)
           .single()
-        if (target?.created_at) preservedCreatedAt = target.created_at
-      }
 
-      const cols = associationColumns(association)
-      const { data: newRow, error: insertErr } = await supabase
-        .from('photos')
-        .insert({
-          inspection_id: inspectionId,
-          storage_path: source.storage_path,
-          file_name: source.file_name,
-          file_size: source.file_size,
-          mime_type: source.mime_type,
-          caption: source.caption,
-          uploaded_by: source.uploaded_by,
-          ...cols,
-          ...(preservedCreatedAt ? { created_at: preservedCreatedAt } : {}),
-        })
-        .select('id')
-        .single()
-      if (insertErr) throw new Error(insertErr.message)
+        const { error: updateErr } = await supabase
+          .from('photos')
+          .update({
+            storage_path: source.storage_path,
+            file_name: source.file_name,
+            file_size: source.file_size,
+            mime_type: source.mime_type,
+          })
+          .eq('id', replacing)
+        if (updateErr) throw new Error(updateErr.message)
 
-      if (replacing) {
-        await deleteInspectionPhoto(replacing)
-      }
-
-      if (newRow) {
         await recordPhotoHistory({
-          photo_id: newRow.id,
+          photo_id: replacing,
           inspection_id: inspectionId,
-          action: 'added',
-          after: { photo_type: (cols as Record<string, unknown>).photo_type as string, ...cols },
+          action: 'reattached',
+          before: { storage_path: oldRow?.storage_path ?? null, file_name: oldRow?.file_name ?? null },
+          after: { storage_path: source.storage_path, file_name: source.file_name },
         })
+      } else {
+        const cols = associationColumns(association)
+        const { data: newRow, error: insertErr } = await supabase
+          .from('photos')
+          .insert({
+            inspection_id: inspectionId,
+            storage_path: source.storage_path,
+            file_name: source.file_name,
+            file_size: source.file_size,
+            mime_type: source.mime_type,
+            caption: source.caption,
+            uploaded_by: source.uploaded_by,
+            ...cols,
+          })
+          .select('id')
+          .single()
+        if (insertErr) throw new Error(insertErr.message)
+
+        if (newRow) {
+          await recordPhotoHistory({
+            photo_id: newRow.id,
+            inspection_id: inspectionId,
+            action: 'added',
+            after: { photo_type: (cols as Record<string, unknown>).photo_type as string, ...cols },
+          })
+        }
       }
 
       toast.success(replacing ? 'Photo replaced' : 'Photo added')
