@@ -28,6 +28,12 @@ import type {
   MoistureReadingData,
 } from '@/lib/api/inspections';
 import { formatDateAU } from '@/lib/dateUtils';
+import {
+  LABOUR_RATES,
+  EQUIPMENT_RATES,
+  calculateCostEstimate,
+  type CostEstimateResult,
+} from '@/lib/calculations/pricing';
 
 // ============================================================================
 // FORMATTERS
@@ -86,11 +92,12 @@ export default function InspectionDataDisplay({ data }: InspectionDataDisplayPro
         </AccordionSection>
       ))}
 
-      {subfloor && (
-        <AccordionSection title="Subfloor Assessment" icon={Building2}>
-          <SubfloorSection subfloor={subfloor} />
-        </AccordionSection>
-      )}
+      <AccordionSection title="Subfloor Assessment" icon={Building2}>
+        <SubfloorAssessmentBody
+          subfloorRequired={insp.subfloor_required}
+          subfloor={subfloor}
+        />
+      </AccordionSection>
 
       <AccordionSection title="Outdoor Environment" icon={Sun}>
         <OutdoorSection inspection={insp} photos={generalPhotos} />
@@ -109,7 +116,7 @@ export default function InspectionDataDisplay({ data }: InspectionDataDisplayPro
       </AccordionSection>
 
       <AccordionSection title="Cost Estimate" icon={DollarSign}>
-        <CostEstimateSection inspection={insp} />
+        <CostEstimateSection inspection={insp} areas={areas} subfloor={subfloor} />
       </AccordionSection>
 
       {(insp.what_we_found_text || insp.problem_analysis_content || insp.what_we_will_do_text || insp.demolition_content) && (
@@ -210,14 +217,42 @@ function PropertyDetailsSection({ inspection: i }: { inspection: Record<string, 
 // ============================================================================
 
 function AreaSection({ area }: { area: AreaWithDetails }) {
+  // Photo grouping: mirrors the canonical caption-based predicate from
+  // TechnicianInspectionForm.tsx:2765-2776. All four area-scope photo
+  // subcategories share photo_type='area' and differentiate by caption
+  // (filtered photos here already exclude moisture readings via the
+  // upstream !p.moisture_reading_id filter in fetchCompleteInspectionData).
+  const roomPhotos = area.photos.filter(
+    p =>
+      p.photo_type === 'area' &&
+      p.caption !== 'infrared' &&
+      p.caption !== 'natural_infrared' &&
+      p.caption !== 'moisture' &&
+      !p.moisture_reading_id,
+  );
+  const infraredPhotos = area.photos.filter(p => p.photo_type === 'area' && p.caption === 'infrared');
+  const naturalInfraredPhotos = area.photos.filter(p => p.photo_type === 'area' && p.caption === 'natural_infrared');
+
   return (
     <div className="space-y-4">
+      {/* Infrared Inspection toggle status */}
+      <div className="flex items-center justify-end">
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+            area.infrared_enabled
+              ? 'bg-violet-100 text-violet-800'
+              : 'bg-slate-100 text-slate-600'
+          }`}
+        >
+          Infrared Inspection: {area.infrared_enabled ? 'ON' : 'OFF'}
+        </span>
+      </div>
+
       {/* Environment */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <MetricCard label="Temp" value={fmtNum(area.temperature, '°C')} />
         <MetricCard label="Humidity" value={fmtNum(area.humidity, '%')} />
         <MetricCard label="Dew Point" value={fmtNum(area.dew_point, '°C')} />
-        <MetricCard label="Ext. Moisture" value={fmtNum(area.external_moisture, '%')} />
       </div>
 
       {/* Visible Mould */}
@@ -239,7 +274,7 @@ function AreaSection({ area }: { area: AreaWithDetails }) {
             </div>
           ) : (
             <p className="text-sm text-slate-700 whitespace-pre-line bg-slate-50 rounded-lg p-3">
-              {area.mould_description}
+              {area.mould_visible_custom || area.mould_description}
             </p>
           )}
         </div>
@@ -255,11 +290,31 @@ function AreaSection({ area }: { area: AreaWithDetails }) {
         </div>
       )}
 
-      {/* Infrared */}
+      {/* Internal Office Notes */}
+      {area.internal_office_notes && (
+        <div>
+          <p className="text-xs text-slate-500 mb-1">Internal Office Notes</p>
+          <p className="text-sm text-slate-700 whitespace-pre-line bg-slate-50 rounded-lg p-3">
+            {area.internal_office_notes}
+          </p>
+        </div>
+      )}
+
+      {/* Extra Notes */}
+      {area.extra_notes && (
+        <div>
+          <p className="text-xs text-slate-500 mb-1">Extra Notes</p>
+          <p className="text-sm text-slate-700 whitespace-pre-line bg-slate-50 rounded-lg p-3">
+            {area.extra_notes}
+          </p>
+        </div>
+      )}
+
+      {/* Infrared Observations */}
       {area.infrared_enabled && (
         <div>
           <p className="text-xs text-slate-500 mb-1">Infrared Observations</p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 bg-slate-50 rounded-lg p-3">
             {area.infrared_observation_no_active && <Tag>No Active Water</Tag>}
             {area.infrared_observation_water_infiltration && <Tag color="red">Water Infiltration</Tag>}
             {area.infrared_observation_past_ingress && <Tag color="amber">Past Water Ingress</Tag>}
@@ -290,9 +345,15 @@ function AreaSection({ area }: { area: AreaWithDetails }) {
         <MoistureReadingsTable readings={area.moisture_readings} />
       )}
 
-      {/* Photos */}
-      {area.photos.length > 0 && (
-        <PhotoGrid photos={area.photos} label="Area Photos" />
+      {/* Photos — split into Room / Infrared / Natural-Light subgroups */}
+      {roomPhotos.length > 0 && (
+        <PhotoGrid photos={roomPhotos} label="Room Photos" />
+      )}
+      {area.infrared_enabled && infraredPhotos.length > 0 && (
+        <PhotoGrid photos={infraredPhotos} label="Infrared Photo" />
+      )}
+      {area.infrared_enabled && naturalInfraredPhotos.length > 0 && (
+        <PhotoGrid photos={naturalInfraredPhotos} label="Natural Light Comparison" />
       )}
     </div>
   );
@@ -370,14 +431,91 @@ function SubfloorSection({ subfloor }: { subfloor: SubfloorWithDetails | null })
   );
 }
 
+function SubfloorAssessmentBody({
+  subfloorRequired,
+  subfloor,
+}: {
+  subfloorRequired: boolean | null | undefined;
+  subfloor: SubfloorWithDetails | null;
+}) {
+  let pillLabel: string;
+  let pillClass: string;
+  if (subfloorRequired === true) {
+    pillLabel = 'Subfloor Required: Yes';
+    pillClass = 'bg-violet-100 text-violet-800';
+  } else if (subfloorRequired === false) {
+    pillLabel = 'Subfloor Required: No';
+    pillClass = 'bg-slate-100 text-slate-600';
+  } else {
+    pillLabel = 'Subfloor: Not Yet Determined';
+    pillClass = 'bg-amber-100 text-amber-700';
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-end">
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${pillClass}`}
+        >
+          {pillLabel}
+        </span>
+      </div>
+
+      {subfloorRequired === true ? (
+        <SubfloorSection subfloor={subfloor} />
+      ) : subfloorRequired === false ? (
+        <p className="text-sm text-slate-600">
+          No subfloor present at this property.
+        </p>
+      ) : (
+        <p className="text-sm text-slate-600">
+          Subfloor status has not been determined yet.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ============================================================================
 // SECTION 5: OUTDOOR
 // ============================================================================
 
+// Outdoor save shape: photo_type='outdoor' for all 5 slots; slot identity
+// lives in `caption` (snake_case). See TechnicianInspectionForm.tsx:3216-3222.
+const OUTDOOR_SLOT_ORDER = ['front_door', 'front_house', 'mailbox', 'street', 'direction'] as const;
+
+// Maps every possible slot identifier — snake_case (canonical save shape:
+// caption='front_door' etc.) AND camelCase (legacy shape: photo_type='frontDoor'
+// etc.) — to the same display label.
+const OUTDOOR_SLOT_LABELS: Record<string, string> = {
+  front_door: 'Front Door',
+  frontDoor: 'Front Door',
+  front_house: 'Front House',
+  frontHouse: 'Front House',
+  mailbox: 'Mailbox',
+  street: 'Street',
+  direction: 'Direction',
+};
+
 function OutdoorSection({ inspection: i, photos }: { inspection: Record<string, any>; photos: PhotoWithUrl[] }) {
-  const outdoorPhotos = photos.filter(p =>
-    ['outdoor', 'frontDoor', 'frontHouse', 'mailbox', 'street', 'direction'].includes(p.photo_type)
-  );
+  // Build slot-ordered list, skip empty slots (no placeholders). Upstream
+  // generalPhotos filter (line 66) already excludes area/subfloor-scoped
+  // photos, so caption-based matching is sufficient and canonical.
+  // Match each slot against either caption (canonical snake_case) or
+  // photo_type (legacy camelCase shape). Skip empty slots — no placeholders.
+  const outdoorPhotos = OUTDOOR_SLOT_ORDER
+    .map(slot => {
+      const camelKey =
+        slot === 'front_door' ? 'frontDoor' :
+        slot === 'front_house' ? 'frontHouse' :
+        null;
+      return photos.find(p =>
+        p.caption === slot ||
+        p.photo_type === slot ||
+        (camelKey != null && p.photo_type === camelKey)
+      );
+    })
+    .filter((p): p is PhotoWithUrl => p != null);
 
   return (
     <div className="space-y-4">
@@ -397,7 +535,15 @@ function OutdoorSection({ inspection: i, photos }: { inspection: Record<string, 
       )}
 
       {outdoorPhotos.length > 0 && (
-        <PhotoGrid photos={outdoorPhotos} label="Outdoor Photos" />
+        <PhotoGrid
+          photos={outdoorPhotos}
+          label="Outdoor Photos"
+          getLabel={p =>
+            OUTDOOR_SLOT_LABELS[p.caption ?? ''] ??
+            OUTDOOR_SLOT_LABELS[p.photo_type ?? ''] ??
+            'Outdoor'
+          }
+        />
       )}
     </div>
   );
@@ -422,16 +568,56 @@ function WasteDisposalSection({ inspection: i }: { inspection: Record<string, an
 // SECTION 7: WORK PROCEDURE & EQUIPMENT
 // ============================================================================
 
+// NOTE: canonical 11-method labels mirror TechnicianInspectionForm treatment_methods array values
+const TREATMENT_METHOD_LABELS: string[] = [
+  'HEPA Vacuuming',
+  'Surface Remediation Treatment',
+  'ULV Fogging - Property',
+  'ULV Fogging - Subfloor',
+  'Subfloor Remediation',
+  'AFD Installation',
+  'Drying Equipment',
+  'Containment and Prep',
+  'Material Demolition',
+  'Cavity Treatment',
+  'Debris Removal',
+];
+
 function WorkProcedureSection({ inspection: i }: { inspection: Record<string, any> }) {
+  const treatmentMethods: string[] = Array.isArray(i.treatment_methods) ? i.treatment_methods : [];
+
+  // Mirrors Section 9 (Cost Estimate) banner at lines 668-681. Different
+  // prefix — reader's context here is work procedure, not pricing.
+  const TREATMENT_OPTION_LABELS: Record<number, string> = {
+    1: 'Treatment option: Option 1 (Surface Treatment)',
+    2: 'Treatment option: Option 2 (Comprehensive Treatment)',
+    3: 'Treatment option: Both',
+  };
+
   return (
     <div className="space-y-4">
-      {/* Procedure items */}
-      <div className="space-y-1 divide-y divide-slate-100">
-        <KV label="HEPA Vacuum" value={fmtBool(i.hepa_vac)} />
-        <KV label="Antimicrobial" value={fmtBool(i.antimicrobial)} />
-        <KV label="Stain Removing Antimicrobial" value={fmtBool(i.stain_removing_antimicrobial)} />
-        <KV label="Home Sanitation Fogging" value={fmtBool(i.home_sanitation_fogging)} />
-      </div>
+      {/* Treatment option banner — mirrors Section 9 Cost Estimate styling */}
+      {i.option_selected != null && TREATMENT_OPTION_LABELS[i.option_selected as number] && (
+        <div className="bg-blue-50 rounded-lg px-3 py-2 border border-blue-100">
+          <p className="text-xs font-medium text-blue-700">
+            {TREATMENT_OPTION_LABELS[i.option_selected as number]}
+          </p>
+        </div>
+      )}
+
+      {/* Treatment methods — canonical array (supersedes legacy bool rows) */}
+      {treatmentMethods.length > 0 ? (
+        <div>
+          <p className="text-xs text-slate-500 mb-2">Treatment Methods</p>
+          <div className="flex flex-wrap gap-1.5">
+            {TREATMENT_METHOD_LABELS.filter(m => treatmentMethods.includes(m)).map(m => (
+              <Tag key={m} color="green">{m}</Tag>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-slate-400 italic">No treatment methods recorded.</p>
+      )}
 
       {/* Equipment */}
       <div>
@@ -449,9 +635,6 @@ function WorkProcedureSection({ inspection: i }: { inspection: Record<string, an
         </div>
       </div>
 
-      {i.recommended_dehumidifier && (
-        <KV label="Recommended Dehumidifier" value={<span className="capitalize">{i.recommended_dehumidifier}</span>} />
-      )}
     </div>
   );
 }
@@ -491,6 +674,9 @@ function JobSummarySection({ inspection: i }: { inspection: Record<string, any> 
       )}
 
       <div className="space-y-1 divide-y divide-slate-100">
+        {i.recommended_dehumidifier && (
+          <KV label="Recommended Dehumidifier Size" value={<span className="capitalize">{i.recommended_dehumidifier}</span>} />
+        )}
         <KV label="Parking" value={<span className="capitalize">{(i.parking_option || '').replace(/_/g, ' ') || '—'}</span>} />
       </div>
     </div>
@@ -501,38 +687,274 @@ function JobSummarySection({ inspection: i }: { inspection: Record<string, any> 
 // SECTION 9: COST ESTIMATE
 // ============================================================================
 
-function CostEstimateSection({ inspection: i }: { inspection: Record<string, any> }) {
+function CostEstimateSection({
+  inspection: i,
+  areas,
+  subfloor,
+}: {
+  inspection: Record<string, any>;
+  areas: AreaWithDetails[];
+  subfloor: SubfloorWithDetails | null;
+}) {
+  const fmtHours = (h: number) =>
+    Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`;
+
+  const calculatedNonDemoHours = areas.reduce(
+    (sum, a) => sum + ((a.job_time_minutes || 0) / 60),
+    0,
+  );
+  const calculatedDemoHours = areas.reduce(
+    (sum, a) => a.demolition_required ? sum + ((a.demolition_time_minutes || 0) / 60) : sum,
+    0,
+  );
+  const calculatedSubfloorHours = (subfloor?.treatment_time_minutes || 0) / 60;
+
+  const costResult: CostEstimateResult = calculateCostEstimate({
+    nonDemoHours: calculatedNonDemoHours,
+    demolitionHours: calculatedDemoHours,
+    subfloorHours: calculatedSubfloorHours,
+    dehumidifierQty: i.commercial_dehumidifier_qty || 0,
+    airMoverQty: i.air_movers_qty || 0,
+    rcdQty: i.rcd_box_qty || 0,
+  });
+
+  const option1Result: CostEstimateResult | null = i.option_selected === 3
+    ? calculateCostEstimate({
+        nonDemoHours: calculatedNonDemoHours,
+        demolitionHours: 0,
+        subfloorHours: 0,
+        dehumidifierQty: i.commercial_dehumidifier_qty || 0,
+        airMoverQty: i.air_movers_qty || 0,
+        rcdQty: i.rcd_box_qty || 0,
+      })
+    : null;
+
+  const OPTION_LABELS: Record<number, string> = {
+    1: 'Quote shown: Option 1 (Surface Treatment)',
+    2: 'Quote shown: Option 2 (Comprehensive)',
+    3: 'Quote shown: Both options',
+  };
+
   return (
     <div className="space-y-4">
-      {/* Hours breakdown */}
+      {/* Block 1 — Treatment option banner */}
+      {i.option_selected != null && OPTION_LABELS[i.option_selected as number] && (
+        <div className="bg-blue-50 rounded-lg px-3 py-2 border border-blue-100">
+          <p className="text-xs font-medium text-blue-700">{OPTION_LABELS[i.option_selected as number]}</p>
+        </div>
+      )}
+
+      {/* Block 2 — Per-area Labour Hours */}
       <div>
         <p className="text-xs text-slate-500 mb-2">Labour Hours</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <MetricCard label="No Demo" value={`${i.no_demolition_hours || 0}h`} />
-          <MetricCard label="Demolition" value={`${i.demolition_hours || 0}h`} />
-          <MetricCard label="Subfloor" value={`${i.subfloor_hours || 0}h`} />
-          <MetricCard
-            label="Total"
-            value={`${(Number(i.no_demolition_hours || 0) + Number(i.demolition_hours || 0) + Number(i.subfloor_hours || 0))}h`}
-          />
+        <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
+          {areas.map((area, idx) => {
+            const surfaceHours = (area.job_time_minutes || 0) / 60;
+            const demoHours = area.demolition_required ? (area.demolition_time_minutes || 0) / 60 : 0;
+            const areaLabel = area.area_name ? `Area ${idx + 1}: ${area.area_name}` : `Area ${idx + 1}`;
+            return (
+              <div key={area.id} className="flex justify-between text-sm">
+                <span className="text-slate-700">
+                  {areaLabel}
+                  {demoHours > 0 && (
+                    <span className="text-slate-500 ml-1">
+                      — Surface {fmtHours(surfaceHours)} • Demolition {fmtHours(demoHours)}
+                    </span>
+                  )}
+                </span>
+                <span className="font-medium text-slate-800">
+                  {demoHours > 0 ? fmtHours(surfaceHours + demoHours) : fmtHours(surfaceHours)}
+                </span>
+              </div>
+            );
+          })}
+          {calculatedSubfloorHours > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-700">Subfloor</span>
+              <span className="font-medium text-slate-800">{fmtHours(calculatedSubfloorHours)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm border-t border-slate-200 pt-2 mt-1">
+            <span className="font-semibold text-slate-800">Total Labour Hours: {fmtHours(costResult.totalLabourHours)}</span>
+            <span className="font-semibold text-slate-800">
+              <span className="font-normal text-xs text-slate-500">
+                ({fmtHours(calculatedNonDemoHours)} surface + {fmtHours(calculatedDemoHours)} demolition + {fmtHours(calculatedSubfloorHours)} subfloor)
+              </span>
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Cost breakdown */}
-      <div className="space-y-1 divide-y divide-slate-100">
-        <KV label="Labour (ex GST)" value={fmtCurrency(i.labour_cost_ex_gst)} />
-        <KV label="Equipment (ex GST)" value={fmtCurrency(i.equipment_cost_ex_gst)} />
-        {Number(i.discount_percent) > 0 && (
-          <KV label="Discount" value={`${i.discount_percent}%`} />
+      {/* Block 3 — Labour Rate Reference table */}
+      <div>
+        <p className="text-xs text-slate-500 mb-2">Labour Rate Reference</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-slate-500 border-b">
+                <th className="pb-2 pr-4">Type</th>
+                <th className="pb-2 pr-4 text-right">2h Rate</th>
+                <th className="pb-2 text-right">8h Rate</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              <tr>
+                <td className="py-1.5 pr-4 font-medium text-slate-700">Surface Treatment</td>
+                <td className="py-1.5 pr-4 text-right">{fmtCurrency(LABOUR_RATES.nonDemo.tier2h)}</td>
+                <td className="py-1.5 text-right">{fmtCurrency(LABOUR_RATES.nonDemo.tier8h)}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 pr-4 font-medium text-slate-700">Demolition</td>
+                <td className="py-1.5 pr-4 text-right">{fmtCurrency(LABOUR_RATES.demolition.tier2h)}</td>
+                <td className="py-1.5 text-right">{fmtCurrency(LABOUR_RATES.demolition.tier8h)}</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 pr-4 font-medium text-slate-700">Subfloor</td>
+                <td className="py-1.5 pr-4 text-right">{fmtCurrency(LABOUR_RATES.subfloor.tier2h)}</td>
+                <td className="py-1.5 text-right">{fmtCurrency(LABOUR_RATES.subfloor.tier8h)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[11px] text-slate-400 mt-1.5">2h minimum charge • Linear interpolation 2-8h • Day blocks for 8h+</p>
+      </div>
+
+      {/* Block 4 — Labour Breakdown (day-by-day) */}
+      <div>
+        <p className="text-xs text-slate-500 mb-2">Labour Breakdown</p>
+        <div className="space-y-3 text-sm">
+          {costResult.nonDemoBreakdown.length > 0 && (
+            <div>
+              <div className="flex justify-between font-medium text-slate-800">
+                <span>Surface Treatment ({fmtHours(calculatedNonDemoHours)})</span>
+                <span>{fmtCurrency(costResult.nonDemoCost)}</span>
+              </div>
+              <ul className="pl-3 mt-1 space-y-0.5 text-xs text-slate-500">
+                {costResult.nonDemoBreakdown.map(item => (
+                  <li key={item.day}>{item.description}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {costResult.demolitionBreakdown.length > 0 && (
+            <div>
+              <div className="flex justify-between font-medium text-slate-800">
+                <span>Demolition ({fmtHours(calculatedDemoHours)})</span>
+                <span>{fmtCurrency(costResult.demolitionCost)}</span>
+              </div>
+              <ul className="pl-3 mt-1 space-y-0.5 text-xs text-slate-500">
+                {costResult.demolitionBreakdown.map(item => (
+                  <li key={item.day}>{item.description}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {costResult.subfloorBreakdown.length > 0 && (
+            <div>
+              <div className="flex justify-between font-medium text-slate-800">
+                <span>Subfloor ({fmtHours(calculatedSubfloorHours)})</span>
+                <span>{fmtCurrency(costResult.subfloorCost)}</span>
+              </div>
+              <ul className="pl-3 mt-1 space-y-0.5 text-xs text-slate-500">
+                {costResult.subfloorBreakdown.map(item => (
+                  <li key={item.day}>{item.description}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="flex justify-between font-semibold text-slate-800 border-t border-slate-200 pt-2">
+            <span>Labour Subtotal</span>
+            <span>{fmtCurrency(costResult.labourSubtotal)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Block 5 — Equipment Breakdown */}
+      <div>
+        <p className="text-xs text-slate-500 mb-2">Equipment ({costResult.equipment.days} day{costResult.equipment.days === 1 ? '' : 's'})</p>
+        <div className="space-y-1.5 text-sm">
+          {costResult.equipment.dehumidifier.qty > 0 && (
+            <div className="flex justify-between">
+              <span className="text-slate-700">
+                Dehumidifier — {costResult.equipment.dehumidifier.qty} × {fmtCurrency(EQUIPMENT_RATES.dehumidifier)}/day × {costResult.equipment.days} day{costResult.equipment.days === 1 ? '' : 's'}
+              </span>
+              <span className="font-medium text-slate-800">{fmtCurrency(costResult.equipment.dehumidifier.cost)}</span>
+            </div>
+          )}
+          {costResult.equipment.airMover.qty > 0 && (
+            <div className="flex justify-between">
+              <span className="text-slate-700">
+                Air Movers — {costResult.equipment.airMover.qty} × {fmtCurrency(EQUIPMENT_RATES.airMover)}/day × {costResult.equipment.days} day{costResult.equipment.days === 1 ? '' : 's'}
+              </span>
+              <span className="font-medium text-slate-800">{fmtCurrency(costResult.equipment.airMover.cost)}</span>
+            </div>
+          )}
+          {costResult.equipment.rcd.qty > 0 && (
+            <div className="flex justify-between">
+              <span className="text-slate-700">
+                RCD Box — {costResult.equipment.rcd.qty} × {fmtCurrency(EQUIPMENT_RATES.rcd)}/day × {costResult.equipment.days} day{costResult.equipment.days === 1 ? '' : 's'}
+              </span>
+              <span className="font-medium text-slate-800">{fmtCurrency(costResult.equipment.rcd.cost)}</span>
+            </div>
+          )}
+          <div className="flex justify-between font-semibold text-slate-800 border-t border-slate-200 pt-2">
+            <span>Equipment Total</span>
+            <span>{fmtCurrency(costResult.equipment.total)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Block 6 — Estimate cards */}
+      <div>
+        <p className="text-xs text-slate-500 mb-2">{i.option_selected === 3 ? 'Both Options' : 'Estimate'}</p>
+        {i.option_selected === 3 && option1Result != null ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-50 rounded-lg p-3 space-y-1.5 border border-slate-200">
+              <p className="text-xs font-semibold text-slate-700">Option 1 (Surface Treatment)</p>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">Labour</span><span className="font-medium">{fmtCurrency(option1Result.labourAfterDiscount)}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">Equipment</span><span className="font-medium">{fmtCurrency(option1Result.equipmentCost)}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">Subtotal (ex GST)</span><span className="font-medium">{fmtCurrency(option1Result.subtotalExGst)}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">GST (10%)</span><span className="font-medium">{fmtCurrency(option1Result.gstAmount)}</span></div>
+              <div className="flex justify-between text-xs border-t border-slate-200 pt-1.5">
+                <span className="text-slate-700 font-semibold">Total (inc GST)</span>
+                <span className="font-bold text-emerald-700">{fmtCurrency(option1Result.totalIncGst)}</span>
+              </div>
+            </div>
+            <div className="bg-slate-50 rounded-lg p-3 space-y-1.5 border border-slate-200">
+              <p className="text-xs font-semibold text-slate-700">Option 2 (Comprehensive)</p>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">Labour</span><span className="font-medium">{fmtCurrency(costResult.labourAfterDiscount)}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">Equipment</span><span className="font-medium">{fmtCurrency(costResult.equipmentCost)}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">Subtotal (ex GST)</span><span className="font-medium">{fmtCurrency(costResult.subtotalExGst)}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-500">GST (10%)</span><span className="font-medium">{fmtCurrency(costResult.gstAmount)}</span></div>
+              <div className="flex justify-between text-xs border-t border-slate-200 pt-1.5">
+                <span className="text-slate-700 font-semibold">Total (inc GST)</span>
+                <span className="font-bold text-emerald-700">{fmtCurrency(costResult.totalIncGst)}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-50 rounded-lg p-3 space-y-1.5 border border-slate-200">
+            <p className="text-xs font-semibold text-slate-700">Estimate</p>
+            <div className="flex justify-between text-xs"><span className="text-slate-500">Labour</span><span className="font-medium">{fmtCurrency(costResult.labourAfterDiscount)}</span></div>
+            <div className="flex justify-between text-xs"><span className="text-slate-500">Equipment</span><span className="font-medium">{fmtCurrency(costResult.equipmentCost)}</span></div>
+            <div className="flex justify-between text-xs"><span className="text-slate-500">Subtotal (ex GST)</span><span className="font-medium">{fmtCurrency(costResult.subtotalExGst)}</span></div>
+            <div className="flex justify-between text-xs"><span className="text-slate-500">GST (10%)</span><span className="font-medium">{fmtCurrency(costResult.gstAmount)}</span></div>
+            <div className="flex justify-between text-xs border-t border-slate-200 pt-1.5">
+              <span className="text-slate-700 font-semibold">Total (inc GST)</span>
+              <span className="font-bold text-emerald-700">{fmtCurrency(costResult.totalIncGst)}</span>
+            </div>
+          </div>
         )}
-        <KV label="Subtotal (ex GST)" value={fmtCurrency(i.subtotal_ex_gst)} />
-        <KV label="GST (10%)" value={fmtCurrency(i.gst_amount)} />
-        <div className="flex items-center justify-between py-2">
-          <span className="text-sm font-bold text-slate-800">Total (inc GST)</span>
-          <span className="text-base font-bold text-emerald-700">{fmtCurrency(i.total_inc_gst)}</span>
-        </div>
       </div>
 
+      {/* Block 7 — Footer */}
+      <div className="bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+        <p className="text-[11px] text-slate-500">
+          {costResult.discountTierDescription} • Total Hours: {fmtHours(costResult.totalLabourHours)} • Work Days: {costResult.totalDays}
+        </p>
+      </div>
+
+      {/* Block 8 — Manual override banner */}
       {i.manual_labour_override && (
         <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
           <p className="text-xs font-medium text-amber-700">
@@ -641,7 +1063,14 @@ function MoistureReadingsTable({ readings }: { readings: MoistureReadingData[] }
             {readings.map((r, i) => (
               <tr key={r.id}>
                 <td className="py-2 pr-4 text-slate-400">{i + 1}</td>
-                <td className="py-2 pr-4 font-medium text-slate-700">{r.title || '—'}</td>
+                <td className="py-2 pr-4 font-medium text-slate-700">
+                  {i < 2 && (
+                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold mr-2 bg-slate-200 text-slate-700 uppercase tracking-wide align-middle">
+                      {i === 0 ? 'Internal' : 'External'}
+                    </span>
+                  )}
+                  {r.title || '—'}
+                </td>
                 <td className="py-2 pr-4">
                   <MoistureValue value={r.moisture_percentage} />
                 </td>
@@ -677,7 +1106,7 @@ function MoistureReadingsTable({ readings }: { readings: MoistureReadingData[] }
 // PHOTO GRID
 // ============================================================================
 
-function PhotoGrid({ photos, label }: { photos: PhotoWithUrl[]; label: string }) {
+function PhotoGrid({ photos, label, getLabel }: { photos: PhotoWithUrl[]; label: string; getLabel?: (photo: PhotoWithUrl) => string }) {
   const [lightbox, setLightbox] = useState<{ photos: PhotoWithUrl[]; index: number } | null>(null);
 
   if (photos.length === 0) return null;
@@ -704,9 +1133,24 @@ function PhotoGrid({ photos, label }: { photos: PhotoWithUrl[]; label: string })
                 <ImageOff className="h-5 w-5 text-slate-400" />
               </div>
             )}
+            {/* Infrared type badge — distinguishes thermal from natural-light from standard */}
+            {photo.photo_type === 'infrared' && (
+              <div className="absolute top-1 left-1">
+                <span className="px-1 py-0.5 rounded text-[9px] font-semibold bg-violet-700/90 text-white">
+                  Infrared
+                </span>
+              </div>
+            )}
+            {photo.photo_type === 'naturalInfrared' && (
+              <div className="absolute top-1 left-1">
+                <span className="px-1 py-0.5 rounded text-[9px] font-semibold bg-sky-700/90 text-white">
+                  Natural-Light
+                </span>
+              </div>
+            )}
             <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1">
               <p className="text-[10px] text-white truncate capitalize">
-                {photo.photo_type?.replace(/([A-Z])/g, ' $1').trim() || 'Photo'}
+                {getLabel ? getLabel(photo) : (photo.photo_type?.replace(/([A-Z])/g, ' $1').trim() || 'Photo')}
               </p>
             </div>
           </div>

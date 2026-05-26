@@ -14,7 +14,8 @@ import { captureBusinessError } from '@/lib/sentry'
 import { checkBookingConflict } from '@/lib/bookingService'
 import { formatCurrency, EQUIPMENT_RATES } from '@/lib/calculations/pricing'
 import { sendEmail, buildJobBookingConfirmationHtml } from '@/lib/api/notifications'
-import { logFieldEdits, type FieldChange } from '@/lib/api/fieldEditLog'
+import { logFieldEdits, logNoteAdded, type FieldChange } from '@/lib/api/fieldEditLog'
+import { appendInternalNote } from '@/lib/utils/internalNotes'
 
 // ============================================================================
 // CONSTANTS
@@ -198,7 +199,7 @@ export function BookJobSheet({
   onBooked,
 }: BookJobSheetProps) {
   const queryClient = useQueryClient()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
 
   // Form state (editable)
   const [technicians, setTechnicians] = useState<TechnicianUser[]>([])
@@ -212,6 +213,7 @@ export function BookJobSheet({
   const [loading, setLoading] = useState(false)
   const [isPrefilling, setIsPrefilling] = useState(true)
   const [inspection, setInspection] = useState<InspectionSummary | null>(null)
+  const [inspectionId, setInspectionId] = useState<string | null>(null)
   const [conflictMap, setConflictMap] = useState<Record<string, string>>({})
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false)
   const [isReschedule, setIsReschedule] = useState(false)
@@ -244,7 +246,7 @@ export function BookJobSheet({
           supabase
             .from('inspections')
             .select(
-              'no_demolition_hours, demolition_hours, subfloor_hours, commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty, option_selected, total_inc_gst, treatment_methods'
+              'id, no_demolition_hours, demolition_hours, subfloor_hours, commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty, option_selected, total_inc_gst, treatment_methods'
             )
             .eq('lead_id', leadId)
             .order('created_at', { ascending: false })
@@ -300,6 +302,7 @@ export function BookJobSheet({
             treatmentMethods: (inspectionResult.data.treatment_methods as string[] | null) ?? [],
           }
           setInspection(summary)
+          setInspectionId(inspectionResult.data.id)
           setTotalHours(total > 0 ? total : 8)
         }
       } catch (err) {
@@ -413,6 +416,7 @@ export function BookJobSheet({
       // 2. Insert one row per day
       const insertRows = schedule.map((day) => ({
         lead_id: leadId,
+        inspection_id: inspectionId,
         event_type: 'job',
         title:
           schedule.length > 1
@@ -432,17 +436,39 @@ export function BookJobSheet({
         .select('id, start_datetime, end_datetime, assigned_to')
       if (insertError) throw insertError
 
-      // 3. Update lead
+      // 3. Update lead — mirror bookingService.ts append-only internal_notes pattern
+      const leadUpdate: Record<string, unknown> = {
+        status: 'job_scheduled',
+        job_scheduled_date: schedule[0].dateStr,
+        scheduled_time: startTime,
+        assigned_to: assignedTo,
+      }
+
+      const authorName = profile?.full_name ?? user?.email ?? 'Unknown user'
+
+      if (notes.trim()) {
+        const { data: leadBefore } = await supabase
+          .from('leads')
+          .select('internal_notes')
+          .eq('id', leadId)
+          .single()
+
+        leadUpdate.internal_notes = appendInternalNote(
+          leadBefore?.internal_notes ?? null,
+          notes,
+          { authorName, context: 'job booking call' },
+        )
+      }
+
       const { error: leadError } = await supabase
         .from('leads')
-        .update({
-          status: 'job_scheduled',
-          job_scheduled_date: schedule[0].dateStr,
-          scheduled_time: startTime,
-          assigned_to: assignedTo,
-        })
+        .update(leadUpdate)
         .eq('id', leadId)
       if (leadError) throw leadError
+
+      if (notes.trim()) {
+        await logNoteAdded({ leadId, noteText: notes, authorName })
+      }
 
       // 4. Activity log
       const firstLabel = formatDayLabel(schedule[0].dateStr)

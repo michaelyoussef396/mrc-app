@@ -686,6 +686,27 @@ export type Database = {
         }
         Relationships: []
       }
+      inspection_areas_dew_point_backfill_backup: {
+        Row: {
+          dew_point: number | null
+          humidity: number | null
+          id: string | null
+          temperature: number | null
+        }
+        Insert: {
+          dew_point?: number | null
+          humidity?: number | null
+          id?: string | null
+          temperature?: number | null
+        }
+        Update: {
+          dew_point?: number | null
+          humidity?: number | null
+          id?: string | null
+          temperature?: number | null
+        }
+        Relationships: []
+      }
       inspections: {
         Row: {
           additional_equipment_comments: string | null
@@ -749,6 +770,7 @@ export type Database = {
           requested_by: string | null
           stain_removing_antimicrobial: boolean | null
           subfloor_hours: number | null
+          subfloor_required: boolean | null
           subtotal_ex_gst: number | null
           timeline_text: string | null
           total_inc_gst: number | null
@@ -825,6 +847,7 @@ export type Database = {
           requested_by?: string | null
           stain_removing_antimicrobial?: boolean | null
           subfloor_hours?: number | null
+          subfloor_required?: boolean | null
           subtotal_ex_gst?: number | null
           timeline_text?: string | null
           total_inc_gst?: number | null
@@ -901,6 +924,7 @@ export type Database = {
           requested_by?: string | null
           stain_removing_antimicrobial?: boolean | null
           subfloor_hours?: number | null
+          subfloor_required?: boolean | null
           subtotal_ex_gst?: number | null
           timeline_text?: string | null
           total_inc_gst?: number | null
@@ -1012,6 +1036,42 @@ export type Database = {
           discount_percent?: number | null
           id?: string | null
           snapshot_at?: string | null
+        }
+        Relationships: []
+      }
+      inspections_outdoor_dew_point_backup: {
+        Row: {
+          id: string | null
+          outdoor_dew_point: number | null
+          outdoor_humidity: number | null
+          outdoor_temperature: number | null
+        }
+        Insert: {
+          id?: string | null
+          outdoor_dew_point?: number | null
+          outdoor_humidity?: number | null
+          outdoor_temperature?: number | null
+        }
+        Update: {
+          id?: string | null
+          outdoor_dew_point?: number | null
+          outdoor_humidity?: number | null
+          outdoor_temperature?: number | null
+        }
+        Relationships: []
+      }
+      inspections_subfloor_required_restore_backup: {
+        Row: {
+          created_at: string | null
+          id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
         }
         Relationships: []
       }

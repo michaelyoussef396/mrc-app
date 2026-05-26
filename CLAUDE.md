@@ -56,6 +56,7 @@ React 18 + TypeScript + Supabase + Vite + Tailwind + shadcn/ui | PWA with offlin
 - Phase 2: COMPLETE — job completion workflow (2 known gaps tracked as L1 + L2 in TODO.md)
 - Phase 3: COMPLETE — AI summary versioning (Stages 3.1-3.5 shipped 2026-05-02)
 - Phase 4: PARTIAL — photo integrity Stages 4.1/4.1.5/4.2/4.3 shipped (2026-05-05 to 2026-05-11); Stages 4.4-4.7 deferred post-launch
+- PDF Pipeline Rebuild: CODE COMPLETE (2026-05-24) — server-rendered hard-save via api/render-pdf with html_hash mismatch guard at send time + ReportVersionHistory UI. Migration applied + EF deployed in same wave. See @docs/PDF_PIPELINE_PLAN.md. Post-launch cleanup tracked as PDF-CL1..7 in TODO.md.
 - Pre-launch hardening underway. See @docs/TODO.md for current tasks (Launch Model + L/S/T sections)
 - See @docs/PHASE_2_EXECUTION.md for build plan
 - See @docs/JOB_COMPLETION_PRD.md for full spec
@@ -71,6 +72,7 @@ React 18 + TypeScript + Supabase + Vite + Tailwind + shadcn/ui | PWA with offlin
 - docs/DEPLOYMENT.md — deployment guide
 - docs/COST_CALCULATION_SYSTEM.md — pricing logic
 - docs/database_technical_audit.md — schema reference
+- docs/PDF_PIPELINE_PLAN.md — PDF pipeline rebuild execution tracker (2026-05-24)
 
 ## Key Principles
 
@@ -123,7 +125,7 @@ React 18 + TypeScript + Supabase + Vite + Tailwind + shadcn/ui | PWA with offlin
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mrc-app** (8408 symbols, 12202 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mrc-app** (8422 symbols, 12230 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

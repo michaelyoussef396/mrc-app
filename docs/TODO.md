@@ -24,6 +24,18 @@ Items that need a decision from you, not engineering work. Resolving these unblo
 
 ---
 
+## PDF Pipeline Rebuild — Post-Launch Cleanup (added 2026-05-24)
+
+After the PDF Pipeline Rebuild (server-render + versioning + mismatch guard) lands and is proven in preview/production, these consolidation items should be addressed. Tracked here, not blocking launch.
+
+- **PDF-CL1 — Repurpose / rename misleading `pdf_versions.pdf_url`.** Column currently holds the HTML URL written by the legacy `generate-inspection-pdf` EF (since 2024-12-21). The new pipeline writes `pdf_storage_path` for the actual PDF. Two columns now coexist with related-but-different semantics. Action: rename `pdf_url` to `html_public_url` (its actual content) and update consumers; legacy rows preserved.
+- **PDF-CL2 — Decommission legacy EF write to `pdf_versions`.** `supabase/functions/generate-inspection-pdf/index.ts:1881-1894` still inserts a row on every render. Once the new pipeline is proven, remove this insert — `pdf_versions` should have one source of truth (the hard-save and manual-upload paths).
+- **PDF-CL3 — Mirror the pipeline to job-completion reports.** `job_completion_pdf_versions` already exists; the `if (reportType === 'job')` branches in `handleDownload` / `handleSendEmail` still use the old print-window + client-side conversion pattern. Apply the same hard-save / mismatch-guard / version-history design.
+- **PDF-CL4 — Deprecate `inspections.pdf_blob_url`.** Once nothing reads it (handleSendEmail no longer uses it post-Phase 5; only `handlePdfUpload` writes for back-compat), drop the column. Verify with grep across `src/` first.
+- **PDF-CL5 — Consider adding audit trigger on `pdf_versions`.** Not currently in the canonical audit-table list (per CLAUDE.md). Adding one would require explicit approval per the Phase-2-audit-foundation lock. Worth doing for the full picture of who hard-saved / uploaded when.
+- **PDF-CL6 — Add Vercel deploy-time delete of `SUPABASE_SERVICE_ROLE_KEY` (Preview scope).** Phase 2 removed all reads of this env var from `api/render-pdf.ts`. After preview deploys prove the renderer doesn't need it, delete the Preview-scoped secret from Vercel so the god-key isn't sitting on the edge waiting for the next callsite to add it back.
+- **PDF-CL7 — `previewOnly` calls should leave an audit row.** Phase 4a security-review (LOW finding) — the previewOnly EF branch makes zero writes, so an admin (or compromised admin) can repeatedly exfiltrate inspection HTML with no forensic trail beyond `console.log`. Consider a `pdf_preview_log` table or a `pdf_versions` row with a `preview_only` generation_type.
+
 ## Wave 6.1 — Cleanup PR (post-Wave-6 deploy, target: within 48h)
 
 Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocking nits surfaced by the Phase 8 audit pass.

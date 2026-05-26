@@ -62,6 +62,7 @@ interface InspectionFormData {
     infraredEnabled?: boolean
     infraredObservations?: string[]
     externalMoisture?: string
+    extraNotes?: string
   }>
 
   // Subfloor
@@ -228,6 +229,7 @@ function buildUserPrompt(formData: InspectionFormData): string {
 
       if (area.externalMoisture) lines.push(`- External Moisture: ${sanitizeField(area.externalMoisture)}%`)
       if (area.commentsForReport) lines.push(`- Comments: ${sanitizeField(area.commentsForReport)}`)
+      if (area.extraNotes) lines.push(`- Extra Notes: ${sanitizeField(area.extraNotes)}`)
       lines.push(`- Demolition Required: ${area.demolitionRequired ? 'YES' : 'NO'}`)
       lines.push(`- Time Without Demolition: ${area.timeWithoutDemo} hours`)
 

@@ -46,6 +46,8 @@ const TechnicianJobDetail = lazy(() => import("./pages/TechnicianJobDetail"));
 const JobCompletionForm = lazy(() => import("./pages/JobCompletionForm"));
 const InspectionAIReview = lazy(() => import("./pages/InspectionAIReview"));
 // ViewJobReportPDF deleted — unified into ViewReportPDF with reportType detection
+// Phase 1 server-side PDF render fidelity test — not linked from anywhere.
+const RenderPdfTest = lazy(() => import("./pages/RenderPdfTest"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -199,6 +201,20 @@ const AppContent = () => {
                   <RoleProtectedRoute allowedRoles={["admin"]}>
                     <Suspense fallback={<GlobalLoader />}>
                       <Settings />
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Phase 1 — server-side PDF render fidelity test. Hidden route, no nav links. */}
+            <Route
+              path="/admin/render-test"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <RenderPdfTest />
                     </Suspense>
                   </RoleProtectedRoute>
                 </ProtectedRoute>
