@@ -2929,7 +2929,7 @@ export default function ViewReportPDF() {
             photos={subfloorPhotos}
             loading={subfloorPhotosLoading}
             inspectionId={inspection?.id || ''}
-            association={{ type: 'subfloor' }}
+            association={{ type: 'subfloor', subfloorId: subfloorData?.id || '' }}
             onPhotoAdded={async () => { await loadSubfloorPhotos() }}
             onPhotoDeleted={(id) => { setSubfloorPhotos(prev => prev.filter(p => p.id !== id)) }}
             maxCount={20}

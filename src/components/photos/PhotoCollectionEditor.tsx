@@ -19,7 +19,7 @@ export interface CollectionPhoto {
 
 export type PhotoAssociation =
   | { type: 'area'; areaId: string }
-  | { type: 'subfloor' }
+  | { type: 'subfloor'; subfloorId: string }
   | { type: 'general' }
   | { type: 'job'; jobCompletionId: string; photoCategory: 'before' | 'after' | 'demolition' }
 
@@ -61,7 +61,7 @@ function associationColumns(association: PhotoAssociation): Record<string, unkno
     case 'area':
       return { area_id: association.areaId, photo_type: 'area', subfloor_id: null }
     case 'subfloor':
-      return { photo_type: 'subfloor', area_id: null, subfloor_id: null }
+      return { photo_type: 'subfloor', area_id: null, subfloor_id: association.subfloorId }
     case 'general':
       return { photo_type: 'general', area_id: null, subfloor_id: null }
     case 'job':
