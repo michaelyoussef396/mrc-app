@@ -1077,6 +1077,8 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
     return html.replace(areaPageRegex, emptyPage + '\n\n')
   }
 
+  const EMPTY_CELL = '<div style="width: 100%; height: 100%; background: #f3f4f6; border-radius: 8px;"></div>'
+
   // Generate one page per area
   const areaPages = areas.map(area => {
     let page = areaTemplate
@@ -1114,7 +1116,7 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
       if (photo?.storage_path) {
         page = page.replace(new RegExp(`\\{\\{area_photo_${i}\\}\\}`, 'g'), getPhotoUrl(photo.storage_path))
       } else {
-        page = page.replace(new RegExp(`<img[^>]*src="\\{\\{area_photo_${i}\\}\\}"[^>]*\\/>`, ''), '')
+        page = page.replace(new RegExp(`<img[^>]*src="\\{\\{area_photo_${i}\\}\\}"[^>]*\\/>`, ''), EMPTY_CELL)
       }
     }
 
@@ -1161,10 +1163,10 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
     } else {
       // Toggle ON — photo-slot safety net + render the observations block.
       if (!infraredPhoto?.storage_path) {
-        page = page.replace(/<img[^>]*src="\{\{area_infrared_photo\}\}"[^>]*\/>/, '')
+        page = page.replace(/<img[^>]*src="\{\{area_infrared_photo\}\}"[^>]*\/>/, EMPTY_CELL)
       }
       if (!naturalInfraredPhoto?.storage_path) {
-        page = page.replace(/<img[^>]*src="\{\{area_natural_infrared_photo\}\}"[^>]*\/>/, '')
+        page = page.replace(/<img[^>]*src="\{\{area_natural_infrared_photo\}\}"[^>]*\/>/, EMPTY_CELL)
       }
     }
 
