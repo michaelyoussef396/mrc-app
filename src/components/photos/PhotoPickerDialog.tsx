@@ -22,7 +22,7 @@ interface PickerPhoto {
 interface PhotoPickerDialogProps {
   isOpen: boolean
   inspectionId: string
-  excludePhotoIds: string[]
+  excludePhotoIds?: string[]
   onSelect: (photo: PickerPhoto) => void
   onCancel: () => void
 }
@@ -30,7 +30,7 @@ interface PhotoPickerDialogProps {
 export function PhotoPickerDialog({
   isOpen,
   inspectionId,
-  excludePhotoIds,
+  excludePhotoIds = [],
   onSelect,
   onCancel,
 }: PhotoPickerDialogProps) {
@@ -42,11 +42,10 @@ export function PhotoPickerDialog({
   useEffect(() => {
     if (!isOpen) return
     setLoading(true)
-    const excludeSet = new Set(excludeKey.split(','))
+    const excludeSet = excludeKey ? new Set(excludeKey.split(',')) : new Set<string>()
     loadInspectionPhotos(inspectionId)
       .then((all) => {
-        const available = all
-          .filter((p) => !excludeSet.has(p.id))
+        const available = (excludeSet.size > 0 ? all.filter((p) => !excludeSet.has(p.id)) : all)
           .map((p) => ({
             id: p.id,
             signed_url: p.signed_url,

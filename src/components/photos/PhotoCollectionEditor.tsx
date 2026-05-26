@@ -35,6 +35,13 @@ interface PhotoCollectionEditorProps {
   maxCount?: number
 }
 
+type EditorMode =
+  | { step: 'idle' }
+  | { step: 'selected'; photoId: string }
+  | { step: 'replacing'; photoId: string }
+  | { step: 'deleting'; photoId: string }
+  | { step: 'picking-to-add' }
+
 function buildMetadata(inspectionId: string, association: PhotoAssociation, caption: string): PhotoMetadata {
   const base = { inspection_id: inspectionId, caption }
   switch (association.type) {
@@ -75,36 +82,37 @@ export function PhotoCollectionEditor({
 }: PhotoCollectionEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
+  const [mode, setMode] = useState<EditorMode>({ step: 'idle' })
   const [captionOpen, setCaptionOpen] = useState(false)
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [replaceTarget, setReplaceTarget] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  const pickerOpen = mode.step === 'replacing' || mode.step === 'picking-to-add'
+  const deleteConfirmOpen = mode.step === 'deleting'
+  const selectedId = mode.step === 'selected' ? mode.photoId : null
+  const hasSelection = mode.step === 'selected'
+
   const handleClickOutside = useCallback((e: MouseEvent) => {
-    if (!selectedId || !gridRef.current) return
+    if (mode.step !== 'selected' || !gridRef.current) return
     const target = e.target as Node
     if (gridRef.current.contains(target)) return
-    // Don't deselect when clicking dialog overlays, headers, or action dialogs
     const el = target instanceof Element ? target : target.parentElement
     if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
-    setSelectedId(null)
-  }, [selectedId])
+    setMode({ step: 'idle' })
+  }, [mode])
 
   useEffect(() => {
-    if (selectedId) {
+    if (mode.step === 'selected') {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [selectedId, handleClickOutside])
+  }, [mode, handleClickOutside])
 
   useEffect(() => {
-    if (selectedId && !photos.some((p) => p.id === selectedId)) {
-      setSelectedId(null)
+    if (mode.step === 'selected' && !photos.some((p) => p.id === mode.photoId)) {
+      setMode({ step: 'idle' })
     }
-  }, [photos, selectedId])
+  }, [photos, mode])
 
   async function handleUploadWithCaption(caption: string) {
     setCaptionOpen(false)
@@ -135,13 +143,10 @@ export function PhotoCollectionEditor({
   }
 
   async function handlePickExisting(photo: { id: string; signed_url: string; caption: string | null; photo_type: string; area_id: string | null; subfloor_id: string | null }) {
-    const replacing = replaceTarget
-    setPickerOpen(false)
-    setReplaceTarget(null)
-    setSelectedId(null)
+    const replacing = mode.step === 'replacing' ? mode.photoId : null
+    setMode({ step: 'idle' })
 
     try {
-      // Fetch the source photo's storage_path + metadata for the copy
       const { data: source, error: fetchErr } = await supabase
         .from('photos')
         .select('storage_path, file_name, file_size, mime_type, caption, uploaded_by')
@@ -163,7 +168,6 @@ export function PhotoCollectionEditor({
         if (target?.created_at) preservedCreatedAt = target.created_at
       }
 
-      // Insert copy BEFORE deleting old — if insert fails, no data lost
       const cols = associationColumns(association)
       const { data: newRow, error: insertErr } = await supabase
         .from('photos')
@@ -182,7 +186,6 @@ export function PhotoCollectionEditor({
         .single()
       if (insertErr) throw new Error(insertErr.message)
 
-      // Soft-delete old photo AFTER copy succeeded (1-for-1 swap)
       if (replacing) {
         await deleteInspectionPhoto(replacing)
       }
@@ -210,20 +213,19 @@ export function PhotoCollectionEditor({
   }
 
   async function handleConfirmDelete() {
-    if (!deleteTarget) return
-    const photoId = deleteTarget
+    if (mode.step !== 'deleting') return
+    const photoId = mode.photoId
     setDeleting(true)
     try {
       await deleteInspectionPhoto(photoId)
-      setDeleteTarget(null)
-      setSelectedId(null)
+      setMode({ step: 'idle' })
       setDeleting(false)
       toast.success('Photo deleted')
       onPhotoDeleted(photoId)
     } catch (err) {
       console.error('Delete photo failed:', err)
       toast.error('Failed to delete photo')
-      setDeleteTarget(null)
+      setMode({ step: 'idle' })
       setDeleting(false)
     }
   }
@@ -237,7 +239,6 @@ export function PhotoCollectionEditor({
     )
   }
 
-  const hasSelection = selectedId !== null
   const isAtCap = maxCount !== undefined && photos.length >= maxCount
 
   return (
@@ -251,7 +252,7 @@ export function PhotoCollectionEditor({
             <div key={photo.id}>
               <button
                 type="button"
-                onClick={() => setSelectedId(isSelected ? null : photo.id)}
+                onClick={() => setMode(isSelected ? { step: 'idle' } : { step: 'selected', photoId: photo.id })}
                 className={`relative w-full aspect-square rounded-lg overflow-hidden transition-all focus:outline-none ${
                   isSelected
                     ? 'border-4 border-blue-500 ring-[6px] ring-blue-400/60 shadow-xl shadow-blue-500/25'
@@ -289,7 +290,7 @@ export function PhotoCollectionEditor({
               {isSelected && (
                 <div className="flex items-center justify-center gap-1.5 mt-2 flex-wrap">
                   <button
-                    onClick={() => { setReplaceTarget(photo.id); setPickerOpen(true) }}
+                    onClick={() => setMode({ step: 'replacing', photoId: photo.id })}
                     className="h-10 min-w-[48px] px-3 flex items-center justify-center gap-1 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300 text-xs font-medium transition-colors"
                     aria-label="Replace photo"
                   >
@@ -298,7 +299,7 @@ export function PhotoCollectionEditor({
                   </button>
                   {onSetPrimary && !isPrimary && (
                     <button
-                      onClick={() => { onSetPrimary(photo.id); setSelectedId(null) }}
+                      onClick={() => { onSetPrimary(photo.id); setMode({ step: 'idle' }) }}
                       className="h-10 min-w-[48px] px-3 flex items-center justify-center gap-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 active:bg-amber-200 text-xs font-medium transition-colors"
                       aria-label="Set as primary photo"
                     >
@@ -307,7 +308,7 @@ export function PhotoCollectionEditor({
                     </button>
                   )}
                   <button
-                    onClick={() => setDeleteTarget(photo.id)}
+                    onClick={() => setMode({ step: 'deleting', photoId: photo.id })}
                     className="h-10 min-w-[48px] px-3 flex items-center justify-center gap-1 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-200 text-xs font-medium transition-colors"
                     aria-label="Delete photo"
                   >
@@ -328,7 +329,7 @@ export function PhotoCollectionEditor({
             ) : (
               <>
                 <button
-                  onClick={() => { setSelectedId(null); setCaptionOpen(true) }}
+                  onClick={() => { setMode({ step: 'idle' }); setCaptionOpen(true) }}
                   className="h-12 w-12 flex items-center justify-center rounded-full bg-[#121D73] text-white hover:bg-[#0f1860] active:bg-[#0d1450] transition-colors"
                   title="Upload new photo"
                   aria-label="Upload new photo"
@@ -336,7 +337,7 @@ export function PhotoCollectionEditor({
                   <Camera className="h-5 w-5" />
                 </button>
                 <button
-                  onClick={() => { setSelectedId(null); setReplaceTarget(null); setPickerOpen(true) }}
+                  onClick={() => setMode({ step: 'picking-to-add' })}
                   className="h-12 w-12 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300 transition-colors"
                   title="Pick from existing"
                   aria-label="Pick from existing photos"
@@ -369,15 +370,15 @@ export function PhotoCollectionEditor({
       <PhotoPickerDialog
         isOpen={pickerOpen}
         inspectionId={inspectionId}
-        excludePhotoIds={photos.map((p) => p.id)}
+        excludePhotoIds={[]}
         onSelect={handlePickExisting}
-        onCancel={() => setPickerOpen(false)}
+        onCancel={() => setMode({ step: 'idle' })}
       />
 
       <PhotoDeleteConfirm
-        isOpen={!!deleteTarget}
+        isOpen={deleteConfirmOpen}
         onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteTarget(null)}
+        onCancel={() => setMode({ step: 'idle' })}
         deleting={deleting}
       />
     </>
