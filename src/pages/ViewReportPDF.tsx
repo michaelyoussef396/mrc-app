@@ -1598,8 +1598,7 @@ export default function ViewReportPDF() {
       const { data: photos } = await supabase
         .from('photos')
         .select('id, storage_path, caption')
-        .eq('inspection_id', inspection.id)
-        .eq('photo_type', 'subfloor')
+        .eq('subfloor_id', subfloorData!.id)
         .is('deleted_at', null)
         .order('created_at', { ascending: true })
 

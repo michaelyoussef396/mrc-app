@@ -51,7 +51,7 @@ function buildMetadata(inspectionId: string, association: PhotoAssociation, capt
     case 'area':
       return { ...base, photo_type: 'area', area_id: association.areaId }
     case 'subfloor':
-      return { ...base, photo_type: 'subfloor' }
+      return { ...base, photo_type: 'subfloor', subfloor_id: association.subfloorId }
     case 'general':
       return { ...base, photo_type: 'general' }
     case 'job':
