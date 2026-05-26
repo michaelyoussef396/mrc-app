@@ -1677,6 +1677,8 @@ export default function ViewReportPDF() {
         .eq('inspection_id', inspection.id)
         .order('area_order', { ascending: true })
       setAreasData((areas || []) as AreaRecord[])
+
+      handleGeneratePDF()
     } catch (error) {
       console.error('Area save failed:', error)
       toast.error('Failed to save area')
@@ -2825,7 +2827,7 @@ export default function ViewReportPDF() {
                       inspectionId={inspection?.id || ''}
                       association={{ type: 'area', areaId: editingAreaId! }}
                       onPhotoAdded={async () => { await loadAreaPhotos(editingAreaId!) }}
-                      onPhotoDeleted={(id) => { setAreaPhotos(prev => prev.filter(p => p.id !== id)) }}
+                      onPhotoDeleted={(id) => { setAreaPhotos(prev => prev.filter(p => p.id !== id)); setPreviewStale(true) }}
                       primaryPhotoId={primaryPhotoId}
                       onSetPrimary={handleSetAreaPrimary}
                       maxCount={4 + thermalCount}
