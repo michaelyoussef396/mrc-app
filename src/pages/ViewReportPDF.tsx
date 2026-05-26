@@ -2931,7 +2931,7 @@ export default function ViewReportPDF() {
             inspectionId={inspection?.id || ''}
             association={{ type: 'subfloor' }}
             onPhotoAdded={async () => { await loadSubfloorPhotos() }}
-            onPhotoDeleted={(id) => { setSubfloorPhotos(prev => prev.filter(p => p.id !== id)); loadSubfloorPhotos().catch(() => toast.warning('Photo deleted — couldn\'t refresh the grid')) }}
+            onPhotoDeleted={(id) => { setSubfloorPhotos(prev => prev.filter(p => p.id !== id)) }}
             maxCount={20}
           />
         </DialogContent>
