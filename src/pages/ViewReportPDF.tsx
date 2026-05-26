@@ -1971,7 +1971,7 @@ export default function ViewReportPDF() {
 
       await uploadInspectionPhoto(resizedFile, {
         inspection_id: inspection.id,
-        photo_type: 'outdoor',
+        photo_type: 'general',
         caption: 'front_house',
         order_index: 0,
       })
