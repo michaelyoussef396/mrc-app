@@ -887,7 +887,10 @@ export default function ViewReportPDF() {
       return
     }
 
-    if (!inspection?.id) return
+    if (!inspection?.id) {
+      toast.error('Inspection data not loaded — please refresh and try again')
+      return
+    }
 
     const lead = inspection.lead
     if (!lead) {
@@ -936,9 +939,17 @@ export default function ViewReportPDF() {
   // sendingEmail=true before invoking and false on terminal error;
   // success path navigates away.
   async function performInspectionSend(version: HardSaveVersionRow, recipient: string) {
-    if (!inspection?.id) return
+    if (!inspection?.id) {
+      toast.error('Inspection data not loaded — please refresh and try again', { id: 'send-email' })
+      setSendingEmail(false)
+      return
+    }
     const lead = inspection.lead
-    if (!lead) return
+    if (!lead) {
+      toast.error('Lead not found — please refresh and try again', { id: 'send-email' })
+      setSendingEmail(false)
+      return
+    }
 
     try {
       const address = [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ')
