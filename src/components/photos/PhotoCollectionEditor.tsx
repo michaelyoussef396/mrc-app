@@ -197,7 +197,12 @@ export function PhotoCollectionEditor({
       }
 
       toast.success(replacing ? 'Photo replaced' : 'Photo added')
-      await onPhotoAdded()
+
+      try {
+        await onPhotoAdded()
+      } catch {
+        toast.warning('Photo updated — couldn\'t refresh the grid, reload to see it')
+      }
     } catch (err) {
       console.error('Pick existing photo failed:', err)
       toast.error(replacing ? 'Failed to replace photo' : 'Failed to add photo')
