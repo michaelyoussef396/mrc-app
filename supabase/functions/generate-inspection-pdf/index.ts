@@ -1111,8 +1111,11 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
     const regularPhotos = areaPhotos.filter(p => p.caption !== 'infrared' && p.caption !== 'natural_infrared')
     for (let i = 1; i <= 4; i++) {
       const photo = regularPhotos[i - 1]
-      const url = photo?.storage_path ? getPhotoUrl(photo.storage_path) : ''
-      page = page.replace(new RegExp(`\\{\\{area_photo_${i}\\}\\}`, 'g'), url)
+      if (photo?.storage_path) {
+        page = page.replace(new RegExp(`\\{\\{area_photo_${i}\\}\\}`, 'g'), getPhotoUrl(photo.storage_path))
+      } else {
+        page = page.replace(new RegExp(`<img[^>]*src="\\{\\{area_photo_${i}\\}\\}"[^>]*\\/>`, ''), '')
+      }
     }
 
     // Infrared block — single toggle `area.infrared_enabled` gates BOTH the

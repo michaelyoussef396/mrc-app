@@ -1741,9 +1741,9 @@ export default function ViewReportPDF() {
       const infraredPhoto = ordered.find(p => p.caption === 'infrared')
       const naturalInfraredPhoto = ordered.find(p => p.caption === 'natural_infrared')
 
-      // Step 3: Take first 4 regular + infrared + natural_infrared = max 6
-      // This matches PDF template slots: area_photo_1-4, area_infrared_photo, area_natural_infrared_photo
-      const pdfPhotos: typeof ordered = regularPhotos.slice(0, 4)
+      // Show all regular photos — the editor is the source of truth.
+      // The PDF template has 4 regular slots; the EF caps independently.
+      const pdfPhotos: typeof ordered = [...regularPhotos]
       if (infraredPhoto) pdfPhotos.push(infraredPhoto)
       if (naturalInfraredPhoto) pdfPhotos.push(naturalInfraredPhoto)
 
@@ -2825,7 +2825,7 @@ export default function ViewReportPDF() {
                       inspectionId={inspection?.id || ''}
                       association={{ type: 'area', areaId: editingAreaId! }}
                       onPhotoAdded={async () => { await loadAreaPhotos(editingAreaId!) }}
-                      onPhotoDeleted={(id) => { setAreaPhotos(prev => prev.filter(p => p.id !== id)); loadAreaPhotos(editingAreaId!).catch(() => toast.warning('Photo deleted — couldn\'t refresh the grid')) }}
+                      onPhotoDeleted={(id) => { setAreaPhotos(prev => prev.filter(p => p.id !== id)) }}
                       primaryPhotoId={primaryPhotoId}
                       onSetPrimary={handleSetAreaPrimary}
                       maxCount={4 + thermalCount}
