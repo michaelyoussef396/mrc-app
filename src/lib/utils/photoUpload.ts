@@ -366,6 +366,62 @@ export async function deleteInspectionPhoto(photoId: string): Promise<void> {
 }
 
 /**
+ * Unplace a photo — clear its area/subfloor assignment so it returns to the
+ * unplaced pool. The photo stays alive (deleted_at untouched) and keeps its
+ * inspection_id, photo_type, storage_path, and caption intact.
+ */
+export async function unplacePhoto(photoId: string): Promise<void> {
+  const { data: photo, error: fetchError } = await supabase
+    .from('photos')
+    .select('id, inspection_id, area_id, subfloor_id, photo_type, caption')
+    .eq('id', photoId)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (fetchError) {
+    throw new Error(`Failed to read photo before unplace: ${fetchError.message}`)
+  }
+  if (!photo) {
+    throw new Error('Photo not found or already deleted')
+  }
+
+  const { error: primaryNullError } = await supabase
+    .from('inspection_areas')
+    .update({ primary_photo_id: null })
+    .eq('primary_photo_id', photoId)
+
+  if (primaryNullError) {
+    throw new Error(`Failed to clear primary_photo_id refs: ${primaryNullError.message}`)
+  }
+
+  const { error: updateError } = await supabase
+    .from('photos')
+    .update({ area_id: null, subfloor_id: null })
+    .eq('id', photoId)
+    .is('deleted_at', null)
+
+  if (updateError) {
+    throw new Error(`Failed to unplace photo: ${updateError.message}`)
+  }
+
+  if (photo.inspection_id) {
+    await recordPhotoHistory({
+      photo_id: photoId,
+      inspection_id: photo.inspection_id,
+      action: 'category_changed',
+      before: {
+        area_id: photo.area_id ?? null,
+        subfloor_id: photo.subfloor_id ?? null,
+      },
+      after: {
+        area_id: null,
+        subfloor_id: null,
+      },
+    })
+  }
+}
+
+/**
  * Load all photos for an inspection
  * @param inspectionId The inspection ID
  * @returns Promise with array of photos with signed URLs
@@ -421,4 +477,42 @@ export async function loadInspectionPhotos(
   )
 
   return photosWithUrls
+}
+
+/**
+ * Load unplaced photos for an inspection — photos not assigned to any area,
+ * subfloor, or job. These form the "pool" that the area/subfloor picker draws from.
+ */
+export async function loadUnplacedPhotos(
+  inspectionId: string
+): Promise<Array<{
+  id: string
+  signed_url: string
+  caption: string | null
+  photo_type: string
+  area_id: string | null
+  subfloor_id: string | null
+}>> {
+  const { data: photos, error } = await supabase
+    .from('photos')
+    .select('id, storage_path, caption, photo_type, area_id, subfloor_id')
+    .eq('inspection_id', inspectionId)
+    .is('area_id', null)
+    .is('subfloor_id', null)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(`Failed to load unplaced photos: ${error.message}`)
+  if (!photos || photos.length === 0) return []
+
+  return Promise.all(
+    photos.map(async (p) => {
+      try {
+        const signed_url = await getPhotoSignedUrl(p.storage_path)
+        return { id: p.id, signed_url, caption: p.caption, photo_type: p.photo_type, area_id: p.area_id, subfloor_id: p.subfloor_id }
+      } catch {
+        return { id: p.id, signed_url: '', caption: p.caption, photo_type: p.photo_type, area_id: p.area_id, subfloor_id: p.subfloor_id }
+      }
+    })
+  )
 }

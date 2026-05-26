@@ -136,6 +136,7 @@ export interface AreaRecord {
   mould_visible_locations: string[] | null
   comments: string | null
   extra_notes: string | null
+  infrared_enabled: boolean | null
 }
 
 export interface SubfloorEditData {

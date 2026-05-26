@@ -25,6 +25,7 @@ interface PhotoPickerDialogProps {
   excludePhotoIds?: string[]
   onSelect: (photo: PickerPhoto) => void
   onCancel: () => void
+  loadPhotos?: (inspectionId: string) => Promise<PickerPhoto[]>
 }
 
 export function PhotoPickerDialog({
@@ -33,6 +34,7 @@ export function PhotoPickerDialog({
   excludePhotoIds = [],
   onSelect,
   onCancel,
+  loadPhotos,
 }: PhotoPickerDialogProps) {
   const [photos, setPhotos] = useState<PickerPhoto[]>([])
   const [loading, setLoading] = useState(false)
@@ -43,17 +45,12 @@ export function PhotoPickerDialog({
     if (!isOpen) return
     setLoading(true)
     const excludeSet = excludeKey ? new Set(excludeKey.split(',')) : new Set<string>()
-    loadInspectionPhotos(inspectionId)
+    const loader = loadPhotos ?? ((id: string) => loadInspectionPhotos(id).then(all => all.map(p => ({
+      id: p.id, signed_url: p.signed_url, caption: p.caption, photo_type: p.photo_type, area_id: p.area_id, subfloor_id: p.subfloor_id,
+    }))))
+    loader(inspectionId)
       .then((all) => {
-        const available = (excludeSet.size > 0 ? all.filter((p) => !excludeSet.has(p.id)) : all)
-          .map((p) => ({
-            id: p.id,
-            signed_url: p.signed_url,
-            caption: p.caption,
-            photo_type: p.photo_type,
-            area_id: p.area_id,
-            subfloor_id: p.subfloor_id,
-          }))
+        const available = excludeSet.size > 0 ? all.filter((p) => !excludeSet.has(p.id)) : all
         setPhotos(available)
       })
       .catch(() => setPhotos([]))

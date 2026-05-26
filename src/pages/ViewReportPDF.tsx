@@ -46,9 +46,10 @@ import { MismatchSendDialog, type MismatchChoice } from '@/components/pdf/Mismat
 import { ReportVersionHistory } from '@/components/pdf/ReportVersionHistory'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
-import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
+import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, getPhotoSignedUrl, unplacePhoto, loadUnplacedPhotos } from '@/lib/utils/photoUpload'
 import { logFieldEdits } from '@/lib/api/fieldEditLog'
 import { PhotoCollectionEditor } from '@/components/photos/PhotoCollectionEditor'
+import { AreaPhotoSlotGrid } from '@/components/photos/AreaPhotoSlotGrid'
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { resizePhoto } from '@/lib/offline/photoResizer'
 import { formatDateAU } from '@/lib/dateUtils'
@@ -549,7 +550,7 @@ export default function ViewReportPDF() {
       // Fetch inspection_areas for inline editing
       const { data: areas, error: areasError } = await supabase
         .from('inspection_areas')
-        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes')
+        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes, infrared_enabled')
         .eq('inspection_id', inspId)
         .order('area_order', { ascending: true })
 
@@ -1673,7 +1674,7 @@ export default function ViewReportPDF() {
       // Refresh areas data
       const { data: areas } = await supabase
         .from('inspection_areas')
-        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes')
+        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes, infrared_enabled')
         .eq('inspection_id', inspection.id)
         .order('area_order', { ascending: true })
       setAreasData((areas || []) as AreaRecord[])
@@ -1814,7 +1815,7 @@ export default function ViewReportPDF() {
           external_moisture: 0,
           internal_moisture: 0,
         })
-        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes')
+        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes, infrared_enabled')
         .single()
 
       if (error) throw error
@@ -1822,7 +1823,7 @@ export default function ViewReportPDF() {
       // Refresh areas list
       const { data: areas } = await supabase
         .from('inspection_areas')
-        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes')
+        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes, infrared_enabled')
         .eq('inspection_id', inspection.id)
         .order('area_order', { ascending: true })
       setAreasData((areas || []) as AreaRecord[])
@@ -2813,27 +2814,22 @@ export default function ViewReportPDF() {
                 />
               </div>
 
-              {/* Area Photos — 4 room-view slots + IR + NIR (thermals don't count against cap) */}
+              {/* Area Photos — fixed 2×3 slot grid: 4 regular + IR + NIR */}
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-2">
-                  Area Photos{areaPhotos.length > 0 && <span className="text-gray-400 font-normal ml-1">({areaPhotos.length} in PDF)</span>}
+                  Area Photos{areaPhotos.length > 0 && <span className="text-gray-400 font-normal ml-1">({areaPhotos.length} placed)</span>}
                 </label>
-                {(() => {
-                  const thermalCount = areaPhotos.filter(p => p.caption === 'infrared' || p.caption === 'natural_infrared').length
-                  return (
-                    <PhotoCollectionEditor
-                      photos={areaPhotos}
-                      loading={areaPhotosLoading}
-                      inspectionId={inspection?.id || ''}
-                      association={{ type: 'area', areaId: editingAreaId! }}
-                      onPhotoAdded={async () => { await loadAreaPhotos(editingAreaId!) }}
-                      onPhotoDeleted={(id) => { setAreaPhotos(prev => prev.filter(p => p.id !== id)); setPreviewStale(true) }}
-                      primaryPhotoId={primaryPhotoId}
-                      onSetPrimary={handleSetAreaPrimary}
-                      maxCount={4 + thermalCount}
-                    />
-                  )
-                })()}
+                <AreaPhotoSlotGrid
+                  areaPhotos={areaPhotos}
+                  loading={areaPhotosLoading}
+                  areaId={editingAreaId!}
+                  inspectionId={inspection?.id || ''}
+                  infraredEnabled={!!(areasData.find(a => a.id === editingAreaId)?.infrared_enabled)}
+                  primaryPhotoId={primaryPhotoId}
+                  onSetPrimary={handleSetAreaPrimary}
+                  onPhotosChanged={async () => { await loadAreaPhotos(editingAreaId!) }}
+                  onPreviewStale={() => setPreviewStale(true)}
+                />
               </div>
 
               {/* Save / Cancel */}
@@ -2923,7 +2919,7 @@ export default function ViewReportPDF() {
           <DialogHeader>
             <DialogTitle>Subfloor Photos</DialogTitle>
             <DialogDescription>
-              Upload, pick from existing, or delete subfloor photos
+              Upload, pick from existing, or remove subfloor photos
             </DialogDescription>
           </DialogHeader>
 
@@ -2933,8 +2929,11 @@ export default function ViewReportPDF() {
             inspectionId={inspection?.id || ''}
             association={{ type: 'subfloor', subfloorId: subfloorData?.id || '' }}
             onPhotoAdded={async () => { await loadSubfloorPhotos() }}
-            onPhotoDeleted={(id) => { setSubfloorPhotos(prev => prev.filter(p => p.id !== id)) }}
+            onPhotoDeleted={(id) => { setSubfloorPhotos(prev => prev.filter(p => p.id !== id)); setPreviewStale(true) }}
             maxCount={20}
+            removeAction={unplacePhoto}
+            pickBehavior="reassign"
+            loadPickerPhotos={loadUnplacedPhotos}
           />
         </DialogContent>
       </Dialog>

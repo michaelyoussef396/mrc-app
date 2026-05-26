@@ -33,6 +33,9 @@ interface PhotoCollectionEditorProps {
   primaryPhotoId?: string | null
   onSetPrimary?: (photoId: string) => void
   maxCount?: number
+  removeAction?: (photoId: string) => Promise<void>
+  pickBehavior?: 'copy' | 'reassign'
+  loadPickerPhotos?: (inspectionId: string) => Promise<Array<{ id: string; signed_url: string; caption: string | null; photo_type: string; area_id: string | null; subfloor_id: string | null }>>
 }
 
 type EditorMode =
@@ -79,6 +82,9 @@ export function PhotoCollectionEditor({
   primaryPhotoId,
   onSetPrimary,
   maxCount,
+  removeAction,
+  pickBehavior = 'copy',
+  loadPickerPhotos,
 }: PhotoCollectionEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -182,6 +188,22 @@ export function PhotoCollectionEditor({
           before: { storage_path: oldRow?.storage_path ?? null, file_name: oldRow?.file_name ?? null },
           after: { storage_path: source.storage_path, file_name: source.file_name },
         })
+      } else if (pickBehavior === 'reassign') {
+        const cols = associationColumns(association)
+        const { error: updateErr } = await supabase
+          .from('photos')
+          .update(cols)
+          .eq('id', photo.id)
+          .is('deleted_at', null)
+        if (updateErr) throw new Error(updateErr.message)
+
+        await recordPhotoHistory({
+          photo_id: photo.id,
+          inspection_id: inspectionId,
+          action: 'category_changed',
+          before: { area_id: photo.area_id, subfloor_id: photo.subfloor_id, photo_type: photo.photo_type },
+          after: cols,
+        })
       } else {
         const cols = associationColumns(association)
         const { data: newRow, error: insertErr } = await supabase
@@ -228,14 +250,15 @@ export function PhotoCollectionEditor({
     const photoId = mode.photoId
     setDeleting(true)
     try {
-      await deleteInspectionPhoto(photoId)
+      const action = removeAction ?? deleteInspectionPhoto
+      await action(photoId)
       setMode({ step: 'idle' })
       setDeleting(false)
-      toast.success('Photo deleted')
+      toast.success(removeAction ? 'Photo removed' : 'Photo deleted')
       onPhotoDeleted(photoId)
     } catch (err) {
-      console.error('Delete photo failed:', err)
-      toast.error('Failed to delete photo')
+      console.error('Remove photo failed:', err)
+      toast.error('Failed to remove photo')
       setMode({ step: 'idle' })
       setDeleting(false)
     }
@@ -384,6 +407,7 @@ export function PhotoCollectionEditor({
         excludePhotoIds={[]}
         onSelect={handlePickExisting}
         onCancel={() => setMode({ step: 'idle' })}
+        loadPhotos={loadPickerPhotos}
       />
 
       <PhotoDeleteConfirm
