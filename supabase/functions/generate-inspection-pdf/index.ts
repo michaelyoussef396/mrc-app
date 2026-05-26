@@ -1742,6 +1742,7 @@ Deno.serve(async (req) => {
       .select('*')
       .eq('inspection_id', inspectionId)
       .is('deleted_at', null)
+      .order('created_at', { ascending: true })
 
     if (photosError) {
       console.error('Failed to fetch photos:', photosError)
