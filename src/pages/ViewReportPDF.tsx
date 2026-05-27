@@ -480,6 +480,24 @@ export default function ViewReportPDF() {
     enabled: reportType === 'job' && !!jobCompletion?.id,
   })
 
+  const { data: latestHardSave } = useQuery({
+    queryKey: ['pdf-versions', inspection?.id, 'latest-hard-save'],
+    queryFn: async () => {
+      if (!inspection?.id) return null
+      const { data } = await supabase
+        .from('pdf_versions')
+        .select('id, version_number, pdf_storage_path')
+        .eq('inspection_id', inspection.id)
+        .eq('generation_type', 'hard_save')
+        .not('pdf_storage_path', 'is', null)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      return data ?? null
+    },
+    enabled: reportType === 'inspection' && !!inspection?.id,
+  })
+
   // Job report photos for edit panel
   type JobPhoto = { id: string; storage_path: string; signed_url: string; caption?: string | null }
   const { data: jobPhotos = { before: [] as JobPhoto[], after: [] as JobPhoto[], demolition: [] as JobPhoto[] }, refetch: refetchJobPhotos } = useQuery({
@@ -2253,6 +2271,43 @@ export default function ViewReportPDF() {
                       <Upload className="h-4 w-4 mr-1" />
                       Upload PDF
                     </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Hard-save preview — inspection reports only */}
+            {reportType === 'inspection' && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">PDF Attachment</label>
+                {latestHardSave ? (
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-md border border-green-200">
+                    <FileText className="h-8 w-8 text-green-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        MRC-{emailJobNumber || 'Report'}-Inspection-Report-v{latestHardSave.version_number}.pdf
+                      </p>
+                      <p className="text-xs text-green-600">v{latestHardSave.version_number} ready to send</p>
+                    </div>
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={async () => {
+                        const { data } = await supabase.storage
+                          .from('report-pdfs')
+                          .createSignedUrl(latestHardSave.pdf_storage_path, 300)
+                        if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+                        else toast.error('Could not generate preview link')
+                      }}
+                      className="min-h-[40px] flex-shrink-0"
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      Preview
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-md border border-gray-200">
+                    <AlertCircle className="h-6 w-6 text-gray-400 flex-shrink-0" />
+                    <p className="text-sm text-gray-500">Click Download on the report page first</p>
                   </div>
                 )}
               </div>
