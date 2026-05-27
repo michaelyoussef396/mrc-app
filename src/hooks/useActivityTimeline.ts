@@ -53,12 +53,17 @@ function getActivityIcon(type: string): { iconName: string; iconColor: string } 
 
 function getEmailIcon(status: string | null): { iconName: string; iconColor: string } {
   switch (status) {
+    case 'failed':
     case 'bounced':
+    case 'soft_bounce':
       return { iconName: 'MailX', iconColor: 'text-red-600 bg-red-100' };
+    case 'spam':
+    case 'unsubscribed':
+      return { iconName: 'MailWarning', iconColor: 'text-amber-600 bg-amber-100' };
     case 'delivered':
       return { iconName: 'MailCheck', iconColor: 'text-teal-600 bg-teal-100' };
     default:
-      return { iconName: 'MailCheck', iconColor: 'text-teal-600 bg-teal-100' };
+      return { iconName: 'Mail', iconColor: 'text-green-600 bg-green-100' };
   }
 }
 
@@ -168,7 +173,7 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
             type: e.template_name || 'email',
             iconName: icon.iconName,
             iconColor: icon.iconColor,
-            title: `${templateLabel} sent`,
+            title: e.status === 'failed' ? `${templateLabel} — FAILED` : `${templateLabel} sent`,
             description: e.subject,
             leadId: e.lead_id,
             leadName: lead?.full_name || null,

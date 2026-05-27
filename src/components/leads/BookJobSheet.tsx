@@ -567,15 +567,6 @@ export function BookJobSheet({
             html,
             leadId,
             templateName: 'job-booking-confirmation',
-          }).then(() => {
-            // Log the email send as a separate activity
-            return supabase.from('activities').insert({
-              lead_id: leadId,
-              activity_type: 'email_sent',
-              title: 'Job Booking Confirmation sent',
-              description: `Sent to ${leadData.email} — "${subject}"`,
-              user_id: user?.id,
-            })
           }).catch((err) => {
             console.error('[BookJobSheet] Failed to send confirmation email:', err)
           })

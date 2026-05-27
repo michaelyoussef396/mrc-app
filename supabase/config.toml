@@ -4,3 +4,9 @@ project_id = "ecyivrxjpsmjmexqatym"
 # Framer posts unauthenticated requests, so JWT verification must be disabled.
 [functions.receive-framer-lead]
 verify_jwt = false
+
+# Internal notifier — called by DB trigger (pg_net) and client (supabase.functions.invoke).
+# JWT gateway disabled; dual-path auth inside the function (shared secret for trigger,
+# JWT verification for client callers).
+[functions.send-slack-notification]
+verify_jwt = false

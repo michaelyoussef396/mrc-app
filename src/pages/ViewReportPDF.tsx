@@ -45,7 +45,7 @@ import { hardSaveReport, downloadBlobAs, HardSaveError, checkSendMismatch, downl
 import { MismatchSendDialog, type MismatchChoice } from '@/components/pdf/MismatchSendDialog'
 import { DuplicateSendDialog } from '@/components/pdf/DuplicateSendDialog'
 import { ReportVersionHistory } from '@/components/pdf/ReportVersionHistory'
-import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
+import { sendEmail, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
 import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, loadOutdoorPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
 import { logFieldEdits } from '@/lib/api/fieldEditLog'
@@ -851,15 +851,7 @@ export default function ViewReportPDF() {
           }],
         })
 
-        // 5. Slack notification
-        sendSlackNotification({
-          event: 'report_approved',
-          leadId: lead.id,
-          leadName: lead.full_name,
-          propertyAddress: address,
-        })
-
-        // 6. Update lead status + activity log (surface errors — do not swallow)
+        // 5. Update lead status + activity log (surface errors — do not swallow)
         const { error: statusErr } = await supabase
           .from('leads')
           .update({ status: 'job_report_pdf_sent' })
@@ -1014,13 +1006,6 @@ export default function ViewReportPDF() {
       })
 
       await markVersionEmailed(version.id)
-
-      sendSlackNotification({
-        event: 'report_approved',
-        leadId: lead.id,
-        leadName: lead.full_name,
-        propertyAddress: address,
-      })
 
       const { error: statusErr } = await supabase
         .from('leads')
