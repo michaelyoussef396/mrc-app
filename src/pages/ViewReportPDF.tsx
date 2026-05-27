@@ -914,6 +914,7 @@ export default function ViewReportPDF() {
     }
 
     if (priorSends && priorSends.length > 0) {
+      toast.dismiss('send-email')
       setDuplicateSendInfo({
         recipientEmail: priorSends[0].recipient_email,
         sentDate: formatDateTimeAU(priorSends[0].sent_at),
@@ -2276,6 +2277,22 @@ export default function ViewReportPDF() {
             </div>
           </div>
         </div>
+
+        {/* Phase 5: send-time mismatch guard */}
+        <MismatchSendDialog
+          open={mismatchVersion !== null}
+          versionNumber={mismatchVersion?.version_number ?? 0}
+          busy={sendingEmail && mismatchVersion === null}
+          onChoose={(choice) => { void handleMismatchChoice(choice) }}
+        />
+
+        {/* Duplicate-send guard */}
+        <DuplicateSendDialog
+          open={duplicateSendInfo !== null}
+          recipientEmail={duplicateSendInfo?.recipientEmail ?? ''}
+          sentDate={duplicateSendInfo?.sentDate ?? ''}
+          onChoose={handleDuplicateSendChoice}
+        />
       </div>
     )
   }
@@ -2645,22 +2662,6 @@ export default function ViewReportPDF() {
           })}
         </div>
       )}
-
-      {/* Phase 5: send-time mismatch guard */}
-      <MismatchSendDialog
-        open={mismatchVersion !== null}
-        versionNumber={mismatchVersion?.version_number ?? 0}
-        busy={sendingEmail && mismatchVersion === null}
-        onChoose={(choice) => { void handleMismatchChoice(choice) }}
-      />
-
-      {/* Duplicate-send guard */}
-      <DuplicateSendDialog
-        open={duplicateSendInfo !== null}
-        recipientEmail={duplicateSendInfo?.recipientEmail ?? ''}
-        sentDate={duplicateSendInfo?.sentDate ?? ''}
-        onChoose={handleDuplicateSendChoice}
-      />
 
       {/* Job Report Edit Dialog */}
       <Dialog open={jobEditOpen} onOpenChange={setJobEditOpen}>
