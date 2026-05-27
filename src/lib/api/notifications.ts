@@ -22,6 +22,7 @@ interface SendEmailParams {
     content: string;
     content_type: string;
   }>;
+  bypassRecipientRateLimit?: boolean;
 }
 
 interface SendSlackNewLeadParams {

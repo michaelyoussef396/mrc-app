@@ -43,6 +43,7 @@ const EmailRequestSchema = z.object({
     content: z.string(),
     content_type: z.string().max(100),
   })).optional(),
+  bypassRecipientRateLimit: z.boolean().optional(),
 })
 
 interface SendResult {
@@ -148,31 +149,35 @@ Deno.serve(async (req) => {
       templateName,
       userId,
       attachments,
+      bypassRecipientRateLimit,
     } = parsed.data
 
     if (!userId) {
       console.warn('[send-email] No userId in payload — email_logs.sent_by will be NULL')
     }
 
-    // Rate limiting: max 1 email to same recipient per 5 minutes
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
-    const { data: recentToRecipient } = await supabase
-      .from('email_logs')
-      .select('id')
-      .eq('recipient_email', to)
-      .eq('status', 'sent')
-      .gt('sent_at', fiveMinutesAgo)
-      .limit(1)
+    // Rate limiting: max 1 email to same recipient per 5 minutes
+    // Skipped when admin explicitly confirms a resend via DuplicateSendDialog
+    if (!bypassRecipientRateLimit) {
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+      const { data: recentToRecipient } = await supabase
+        .from('email_logs')
+        .select('id')
+        .eq('recipient_email', to)
+        .eq('status', 'sent')
+        .gt('sent_at', fiveMinutesAgo)
+        .limit(1)
 
-    if (recentToRecipient && recentToRecipient.length > 0) {
-      return new Response(
-        JSON.stringify({ error: 'Rate limit: wait 5 minutes before resending to same recipient' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      if (recentToRecipient && recentToRecipient.length > 0) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit: wait 5 minutes before resending to same recipient' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     // Global rate limit: max 100 emails per hour

@@ -398,6 +398,7 @@ export default function ViewReportPDF() {
   const [areaPhotos, setAreaPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption: string | null }>>([])
   const [primaryPhotoId, setPrimaryPhotoId] = useState<string | null>(null)
   const [areaPhotosLoading, setAreaPhotosLoading] = useState(false)
+  const bypassRateLimitRef = useRef(false)
   const areaLoadIdRef = useRef<string | null>(null)
 
   // Add new area
@@ -778,6 +779,7 @@ export default function ViewReportPDF() {
   }
 
   async function handleSendEmail() {
+    bypassRateLimitRef.current = false
     if (reportType === 'job' && jobCompletion) {
       const lead = jobCompletion.lead as { id: string; full_name: string; email?: string; property_address_street?: string; property_address_suburb?: string; property_address_state?: string; property_address_postcode?: string } | null
       if (!lead) {
@@ -952,6 +954,7 @@ export default function ViewReportPDF() {
     if (choice === 'cancel') return
     const recipient = emailRecipient.trim()
     if (!recipient) return
+    bypassRateLimitRef.current = true
     proceedWithInspectionSend(recipient)
   }
 
@@ -1026,7 +1029,9 @@ export default function ViewReportPDF() {
         inspectionId: inspection.id,
         templateName: 'report-approved',
         attachments: [{ filename, content: base64Content, content_type: 'application/pdf' }],
+        bypassRecipientRateLimit: bypassRateLimitRef.current || undefined,
       })
+      bypassRateLimitRef.current = false
 
       await markVersionEmailed(version.id)
 
@@ -1055,6 +1060,7 @@ export default function ViewReportPDF() {
       console.error('Send email error:', error)
       const msg = error instanceof Error ? error.message : 'Failed to send email'
       toast.error(msg, { id: 'send-email' })
+      bypassRateLimitRef.current = false
       setSendingEmail(false)
     }
   }
