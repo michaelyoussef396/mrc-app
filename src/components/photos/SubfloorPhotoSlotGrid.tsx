@@ -63,12 +63,12 @@ export function SubfloorPhotoSlotGrid({
     }
   }, [mode, handleClickOutside])
 
-  async function handleUploadWithCaption(caption: string) {
-    setMode({ step: 'idle' })
+  function handleUploadWithCaption(caption: string) {
     const input = fileInputRef.current
     if (!input) return
     input.dataset.caption = caption
     input.click()
+    setMode({ step: 'idle' })
   }
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
