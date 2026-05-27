@@ -103,6 +103,7 @@ interface Inspection {
   subtotal_ex_gst?: number
   gst_amount?: number
   total_inc_gst?: number
+  subfloor_required?: boolean | null
   option_selected?: number | null
   treatment_methods?: string[] | null
   option_1_labour_ex_gst?: number | null
@@ -171,6 +172,7 @@ const INSPECTION_SELECT = `
   subtotal_ex_gst,
   gst_amount,
   total_inc_gst,
+  subfloor_required,
   option_selected,
   treatment_methods,
   option_1_labour_ex_gst,
@@ -572,30 +574,32 @@ export default function ViewReportPDF() {
       }
       setAreasData((areas || []) as AreaRecord[])
 
-      // Load subfloor data (Phase 5 — subfloor_required column dropped;
-      // subfloor section now renders when subfloor_data row exists)
+      // Load subfloor data when the technician toggle is on (true) or
+      // legacy (null). Explicit false = subfloor toggled off.
       {
-        const { data: sfData } = await supabase
-          .from('subfloor_data')
-          .select('id, observations, comments, landscape')
-          .eq('inspection_id', inspId)
-          .single()
+        const subfloorOff = (merged as unknown as { subfloor_required?: boolean | null }).subfloor_required === false
 
-        if (sfData) {
-          setSubfloorData(sfData)
+        if (!subfloorOff) {
+          const { data: sfData } = await supabase
+            .from('subfloor_data')
+            .select('id, observations, comments, landscape')
+            .eq('inspection_id', inspId)
+            .single()
 
-          // Load subfloor readings
-          const { data: sfReadings } = await supabase
-            .from('subfloor_readings')
-            .select('id, location, moisture_percentage, reading_order')
-            .eq('subfloor_id', sfData.id)
-            .order('reading_order', { ascending: true })
+          if (sfData) {
+            setSubfloorData(sfData)
 
-          setSubfloorReadings((sfReadings || []).map(r => ({
-            ...r,
-            moisture_percentage: parseFloat(String(r.moisture_percentage)) || 0,
-          })))
+            const { data: sfReadings } = await supabase
+              .from('subfloor_readings')
+              .select('id, location, moisture_percentage, reading_order')
+              .eq('subfloor_id', sfData.id)
+              .order('reading_order', { ascending: true })
 
+            setSubfloorReadings((sfReadings || []).map(r => ({
+              ...r,
+              moisture_percentage: parseFloat(String(r.moisture_percentage)) || 0,
+            })))
+          }
         }
       }
     } catch (error) {
@@ -2586,8 +2590,8 @@ export default function ViewReportPDF() {
       </button>
       )}
 
-      {/* Floating Edit Subfloor Photos Button — only show if subfloor is required (inspection only) */}
-      {reportType === 'inspection' && subfloorData && (
+      {/* Floating Edit Subfloor Photos Button — hidden when subfloor_required === false */}
+      {reportType === 'inspection' && subfloorData && inspection?.subfloor_required !== false && (
         <button
           onClick={() => { setSubfloorEditOpen(true); loadSubfloorPhotos().catch(() => {}) }}
           className="fixed bottom-40 md:bottom-20 right-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 z-50 min-h-[48px] transition-colors animate-pulse"
