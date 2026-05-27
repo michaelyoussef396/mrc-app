@@ -1,9 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { timingSafeEqual } from 'node:crypto'
 import { z } from 'https://esm.sh/zod@3.22.4'
 
 const SlackNotificationSchema = z.object({
-  event: z.enum(['new_lead', 'inspection_booked', 'report_ready', 'report_approved', 'status_changed', 'lead_updated']),
-  leadId: z.string().max(500).optional(),
+  event: z.enum(['new_lead', 'inspection_booked', 'report_ready', 'report_approved', 'status_changed', 'lead_updated', 'custom']),
+  leadId: z.string().max(500).nullable().optional(),
   full_name: z.string().max(500).optional(),
   phone: z.string().max(500).optional(),
   email: z.string().max(500).optional(),
@@ -25,6 +26,7 @@ const SlackNotificationSchema = z.object({
   oldStatusLabel: z.string().max(500).optional(),
   newStatusLabel: z.string().max(500).optional(),
   changedFields: z.string().max(500).optional(),
+  message: z.string().max(1000).optional(),
 })
 
 const corsHeaders = {
@@ -317,6 +319,43 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  // Dual-path auth: internal trigger (shared secret) or client (JWT).
+  // verify_jwt is disabled in config.toml so both paths reach this handler.
+  const INTERNAL_SECRET = Deno.env.get('INTERNAL_WEBHOOK_SECRET')
+  const internalToken = req.headers.get('x-internal-secret')
+
+  if (internalToken && INTERNAL_SECRET) {
+    const encoder = new TextEncoder()
+    const a = encoder.encode(internalToken)
+    const b = encoder.encode(INTERNAL_SECRET)
+    if (a.byteLength !== b.byteLength || !timingSafeEqual(a, b)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid internal secret' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+  } else {
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    const jwt = authHeader.split(' ')[1]
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
+    const sb = createClient(supabaseUrl, supabaseKey)
+    const { error: authError } = await sb.auth.getUser(jwt)
+    if (authError) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+  }
+
   // Rate limiting
   const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   if (isRateLimited(clientIp)) {
@@ -358,6 +397,9 @@ Deno.serve(async (req) => {
         break
       case 'lead_updated':
         payload = formatLeadUpdated(notification as LeadUpdatedPayload)
+        break
+      case 'custom':
+        payload = { text: (notification as { message?: string }).message || 'Custom notification' }
         break
       default:
         payload = formatGenericMessage(notification as GenericNotification)

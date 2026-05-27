@@ -43,8 +43,9 @@ import {
 import { StalePdfBanner } from '@/components/pdf/StalePdfBanner'
 import { hardSaveReport, downloadBlobAs, HardSaveError, checkSendMismatch, downloadVersionPdfAsBase64, markVersionEmailed, type HardSaveVersionRow } from '@/lib/api/reportPipeline'
 import { MismatchSendDialog, type MismatchChoice } from '@/components/pdf/MismatchSendDialog'
+import { DuplicateSendDialog } from '@/components/pdf/DuplicateSendDialog'
 import { ReportVersionHistory } from '@/components/pdf/ReportVersionHistory'
-import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
+import { sendEmail, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
 import { uploadInspectionPhoto, deleteInspectionPhoto, loadInspectionPhotos, loadOutdoorPhotos, getPhotoSignedUrl } from '@/lib/utils/photoUpload'
 import { logFieldEdits } from '@/lib/api/fieldEditLog'
@@ -54,7 +55,7 @@ import { SubfloorPhotoSlotGrid } from '@/components/photos/SubfloorPhotoSlotGrid
 import { OutdoorPhotoSlotGrid } from '@/components/photos/OutdoorPhotoSlotGrid'
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { resizePhoto } from '@/lib/offline/photoResizer'
-import { formatDateAU } from '@/lib/dateUtils'
+import { formatDateAU, formatDateTimeAU } from '@/lib/dateUtils'
 import {
   Dialog,
   DialogContent,
@@ -102,6 +103,7 @@ interface Inspection {
   subtotal_ex_gst?: number
   gst_amount?: number
   total_inc_gst?: number
+  subfloor_required?: boolean | null
   option_selected?: number | null
   treatment_methods?: string[] | null
   option_1_labour_ex_gst?: number | null
@@ -170,6 +172,7 @@ const INSPECTION_SELECT = `
   subtotal_ex_gst,
   gst_amount,
   total_inc_gst,
+  subfloor_required,
   option_selected,
   treatment_methods,
   option_1_labour_ex_gst,
@@ -320,6 +323,7 @@ export default function ViewReportPDF() {
   // user must pick send_as_is, hard_save_fresh, or cancel before the send
   // can proceed.
   const [mismatchVersion, setMismatchVersion] = useState<HardSaveVersionRow | null>(null)
+  const [duplicateSendInfo, setDuplicateSendInfo] = useState<{ recipientEmail: string; sentDate: string } | null>(null)
 
   function prefillEmailAndOpenStage() {
     if (reportType === 'job' && jobCompletion) {
@@ -394,6 +398,7 @@ export default function ViewReportPDF() {
   const [areaPhotos, setAreaPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption: string | null }>>([])
   const [primaryPhotoId, setPrimaryPhotoId] = useState<string | null>(null)
   const [areaPhotosLoading, setAreaPhotosLoading] = useState(false)
+  const bypassRateLimitRef = useRef(false)
   const areaLoadIdRef = useRef<string | null>(null)
 
   // Add new area
@@ -474,6 +479,24 @@ export default function ViewReportPDF() {
       return data || []
     },
     enabled: reportType === 'job' && !!jobCompletion?.id,
+  })
+
+  const { data: latestHardSave } = useQuery({
+    queryKey: ['pdf-versions', inspection?.id, 'latest-hard-save'],
+    queryFn: async () => {
+      if (!inspection?.id) return null
+      const { data } = await supabase
+        .from('pdf_versions')
+        .select('id, version_number, pdf_storage_path')
+        .eq('inspection_id', inspection.id)
+        .eq('generation_type', 'hard_save')
+        .not('pdf_storage_path', 'is', null)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      return data ?? null
+    },
+    enabled: reportType === 'inspection' && !!inspection?.id,
   })
 
   // Job report photos for edit panel
@@ -570,30 +593,32 @@ export default function ViewReportPDF() {
       }
       setAreasData((areas || []) as AreaRecord[])
 
-      // Load subfloor data (Phase 5 — subfloor_required column dropped;
-      // subfloor section now renders when subfloor_data row exists)
+      // Load subfloor data when the technician toggle is on (true) or
+      // legacy (null). Explicit false = subfloor toggled off.
       {
-        const { data: sfData } = await supabase
-          .from('subfloor_data')
-          .select('id, observations, comments, landscape')
-          .eq('inspection_id', inspId)
-          .single()
+        const subfloorOff = (merged as unknown as { subfloor_required?: boolean | null }).subfloor_required === false
 
-        if (sfData) {
-          setSubfloorData(sfData)
+        if (!subfloorOff) {
+          const { data: sfData } = await supabase
+            .from('subfloor_data')
+            .select('id, observations, comments, landscape')
+            .eq('inspection_id', inspId)
+            .single()
 
-          // Load subfloor readings
-          const { data: sfReadings } = await supabase
-            .from('subfloor_readings')
-            .select('id, location, moisture_percentage, reading_order')
-            .eq('subfloor_id', sfData.id)
-            .order('reading_order', { ascending: true })
+          if (sfData) {
+            setSubfloorData(sfData)
 
-          setSubfloorReadings((sfReadings || []).map(r => ({
-            ...r,
-            moisture_percentage: parseFloat(String(r.moisture_percentage)) || 0,
-          })))
+            const { data: sfReadings } = await supabase
+              .from('subfloor_readings')
+              .select('id, location, moisture_percentage, reading_order')
+              .eq('subfloor_id', sfData.id)
+              .order('reading_order', { ascending: true })
 
+            setSubfloorReadings((sfReadings || []).map(r => ({
+              ...r,
+              moisture_percentage: parseFloat(String(r.moisture_percentage)) || 0,
+            })))
+          }
         }
       }
     } catch (error) {
@@ -754,6 +779,7 @@ export default function ViewReportPDF() {
   }
 
   async function handleSendEmail() {
+    bypassRateLimitRef.current = false
     if (reportType === 'job' && jobCompletion) {
       const lead = jobCompletion.lead as { id: string; full_name: string; email?: string; property_address_street?: string; property_address_suburb?: string; property_address_state?: string; property_address_postcode?: string } | null
       if (!lead) {
@@ -849,15 +875,7 @@ export default function ViewReportPDF() {
           }],
         })
 
-        // 5. Slack notification
-        sendSlackNotification({
-          event: 'report_approved',
-          leadId: lead.id,
-          leadName: lead.full_name,
-          propertyAddress: address,
-        })
-
-        // 6. Update lead status + activity log (surface errors — do not swallow)
+        // 5. Update lead status + activity log (surface errors — do not swallow)
         const { error: statusErr } = await supabase
           .from('leads')
           .update({ status: 'job_report_pdf_sent' })
@@ -888,13 +906,13 @@ export default function ViewReportPDF() {
     }
 
     if (!inspection?.id) {
-      toast.error('Inspection data not loaded — please refresh and try again')
+      toast.error('Inspection data not loaded — please refresh and try again', { duration: Infinity })
       return
     }
 
     const lead = inspection.lead
     if (!lead) {
-      toast.error('Lead not found')
+      toast.error('Lead not found — please refresh and try again', { duration: Infinity })
       return
     }
     const recipient = emailRecipient.trim()
@@ -903,27 +921,62 @@ export default function ViewReportPDF() {
       return
     }
 
+    // Duplicate-send guard: warn if this report was already emailed
+    const { data: priorSends, error: priorSendsError } = await supabase
+      .from('email_logs')
+      .select('sent_at, recipient_email')
+      .eq('lead_id', lead.id)
+      .eq('template_name', 'report-approved')
+      .in('status', ['sent', 'delivered'])
+      .order('sent_at', { ascending: false })
+      .limit(1)
+
+    if (priorSendsError) {
+      console.error('Duplicate-send check failed:', priorSendsError)
+      toast.error('Could not verify prior sends — please try again', { id: 'send-email' })
+      return
+    }
+
+    if (priorSends && priorSends.length > 0) {
+      toast.dismiss('send-email')
+      setDuplicateSendInfo({
+        recipientEmail: priorSends[0].recipient_email,
+        sentDate: formatDateTimeAU(priorSends[0].sent_at),
+      })
+      return
+    }
+
+    proceedWithInspectionSend(recipient)
+  }
+
+  function handleDuplicateSendChoice(choice: 'send_anyway' | 'cancel') {
+    setDuplicateSendInfo(null)
+    if (choice === 'cancel') return
+    const recipient = emailRecipient.trim()
+    if (!recipient) return
+    bypassRateLimitRef.current = true
+    proceedWithInspectionSend(recipient)
+  }
+
+  async function proceedWithInspectionSend(recipient: string) {
     setSendingEmail(true)
     toast.loading('Checking for content changes...', { id: 'send-email' })
 
     try {
-      const mismatch = await checkSendMismatch(inspection.id)
+      const mismatch = await checkSendMismatch(inspection!.id)
 
       if (mismatch.kind === 'no_hard_save') {
-        toast.error('Please click Download first to save a reviewed version, then Send.', { id: 'send-email' })
+        toast.error('Please click Download first to save a reviewed version, then Send.', { id: 'send-email', duration: Infinity })
         setSendingEmail(false)
         return
       }
 
       if (mismatch.kind === 'mismatch') {
-        // Open the dialog — the user picks send_as_is or hard_save_fresh.
-        // sendingEmail stays true so the Send button shows busy state.
         setMismatchVersion(mismatch.version)
         toast.dismiss('send-email')
         return
       }
 
-      // Clean match: attach the stored PDF and send.
       await performInspectionSend(mismatch.version, recipient)
     } catch (err) {
       console.error('Send email pre-check failed:', err)
@@ -976,16 +1029,11 @@ export default function ViewReportPDF() {
         inspectionId: inspection.id,
         templateName: 'report-approved',
         attachments: [{ filename, content: base64Content, content_type: 'application/pdf' }],
+        bypassRecipientRateLimit: bypassRateLimitRef.current || undefined,
       })
+      bypassRateLimitRef.current = false
 
       await markVersionEmailed(version.id)
-
-      sendSlackNotification({
-        event: 'report_approved',
-        leadId: lead.id,
-        leadName: lead.full_name,
-        propertyAddress: address,
-      })
 
       const { error: statusErr } = await supabase
         .from('leads')
@@ -1012,6 +1060,7 @@ export default function ViewReportPDF() {
       console.error('Send email error:', error)
       const msg = error instanceof Error ? error.message : 'Failed to send email'
       toast.error(msg, { id: 'send-email' })
+      bypassRateLimitRef.current = false
       setSendingEmail(false)
     }
   }
@@ -2190,29 +2239,30 @@ export default function ViewReportPDF() {
               </div>
             </div>
 
-            {/* Report attachment preview */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">PDF Attachment</label>
-              {(reportType === 'job' ? (jobPdfUrlOverride || jobCompletion?.pdf_url) : inspection?.pdf_blob_url) ? (
-                <div className="flex items-center gap-3 p-3 bg-green-50 rounded-md border border-green-200">
-                  <FileText className="h-8 w-8 text-green-600 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">
-                      MRC-{emailJobNumber || 'Report'}-{reportType === 'job' ? 'Job-Report' : 'Inspection-Report'}.pdf
-                    </p>
-                    <p className="text-xs text-green-600">{reportType === 'job' ? 'PDF ready' : 'Browser-quality PDF ready'}</p>
+            {/* Report attachment preview — job reports only (inspection reports
+                auto-attach the latest hard-save via the send guards) */}
+            {reportType === 'job' && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">PDF Attachment</label>
+                {(jobPdfUrlOverride || jobCompletion?.pdf_url) ? (
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-md border border-green-200">
+                    <FileText className="h-8 w-8 text-green-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        MRC-{emailJobNumber || 'Report'}-Job-Report.pdf
+                      </p>
+                      <p className="text-xs text-green-600">PDF ready</p>
+                    </div>
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={handleDownload}
+                      className="min-h-[40px] flex-shrink-0"
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      Preview
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline" size="sm"
-                    onClick={handleDownload}
-                    className="min-h-[40px] flex-shrink-0"
-                  >
-                    <Eye className="h-4 w-4 mr-1" />
-                    Preview
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-2">
+                ) : (
                   <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-md border border-orange-200">
                     <AlertCircle className="h-8 w-8 text-orange-500 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -2228,9 +2278,46 @@ export default function ViewReportPDF() {
                       Upload PDF
                     </Button>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
+
+            {/* Hard-save preview — inspection reports only */}
+            {reportType === 'inspection' && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">PDF Attachment</label>
+                {latestHardSave ? (
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-md border border-green-200">
+                    <FileText className="h-8 w-8 text-green-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        MRC-{emailJobNumber || 'Report'}-Inspection-Report-v{latestHardSave.version_number}.pdf
+                      </p>
+                      <p className="text-xs text-green-600">v{latestHardSave.version_number} ready to send</p>
+                    </div>
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={async () => {
+                        const { data } = await supabase.storage
+                          .from('report-pdfs')
+                          .createSignedUrl(latestHardSave.pdf_storage_path, 300)
+                        if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+                        else toast.error('Could not generate preview link')
+                      }}
+                      className="min-h-[40px] flex-shrink-0"
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      Preview
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-md border border-gray-200">
+                    <AlertCircle className="h-6 w-6 text-gray-400 flex-shrink-0" />
+                    <p className="text-sm text-gray-500">Click Download on the report page first</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex flex-col gap-3 pb-8">
@@ -2256,6 +2343,22 @@ export default function ViewReportPDF() {
             </div>
           </div>
         </div>
+
+        {/* Phase 5: send-time mismatch guard */}
+        <MismatchSendDialog
+          open={mismatchVersion !== null}
+          versionNumber={mismatchVersion?.version_number ?? 0}
+          busy={sendingEmail && mismatchVersion === null}
+          onChoose={(choice) => { void handleMismatchChoice(choice) }}
+        />
+
+        {/* Duplicate-send guard */}
+        <DuplicateSendDialog
+          open={duplicateSendInfo !== null}
+          recipientEmail={duplicateSendInfo?.recipientEmail ?? ''}
+          sentDate={duplicateSendInfo?.sentDate ?? ''}
+          onChoose={handleDuplicateSendChoice}
+        />
       </div>
     )
   }
@@ -2548,8 +2651,8 @@ export default function ViewReportPDF() {
       </button>
       )}
 
-      {/* Floating Edit Subfloor Photos Button — only show if subfloor is required (inspection only) */}
-      {reportType === 'inspection' && subfloorData && (
+      {/* Floating Edit Subfloor Photos Button — hidden when subfloor_required === false */}
+      {reportType === 'inspection' && subfloorData && inspection?.subfloor_required !== false && (
         <button
           onClick={() => { setSubfloorEditOpen(true); loadSubfloorPhotos().catch(() => {}) }}
           className="fixed bottom-40 md:bottom-20 right-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 z-50 min-h-[48px] transition-colors animate-pulse"
@@ -2625,14 +2728,6 @@ export default function ViewReportPDF() {
           })}
         </div>
       )}
-
-      {/* Phase 5: send-time mismatch guard */}
-      <MismatchSendDialog
-        open={mismatchVersion !== null}
-        versionNumber={mismatchVersion?.version_number ?? 0}
-        busy={sendingEmail && mismatchVersion === null}
-        onChoose={(choice) => { void handleMismatchChoice(choice) }}
-      />
 
       {/* Job Report Edit Dialog */}
       <Dialog open={jobEditOpen} onOpenChange={setJobEditOpen}>

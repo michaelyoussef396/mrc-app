@@ -59,6 +59,9 @@ supabase/.temp/
 # Email preview screenshots in repo root — local-only, not committed
 /email-preview-*.png
 
+# Claude Code local state — machine-local, not committed
+.claude/scheduled_tasks.lock
+
 # GitNexus local index (KuzuDB graph database, machine-local, regenerable)
 .gitnexus/
 

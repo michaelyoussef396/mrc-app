@@ -728,15 +728,7 @@ const LeadsManagement = () => {
         }],
       });
 
-      // 7. Log activity
-      await supabase.from('activities').insert({
-        lead_id: emailTargetLead.id,
-        activity_type: 'email_sent',
-        title: 'Inspection report emailed to client',
-        description: `Subject: ${emailSubject} (with report attached)`,
-      });
-
-      // 8. Update lead status to inspection_email_approval (next pipeline step)
+      // 7. Update lead status to inspection_email_approval (next pipeline step)
       const { error: statusErr } = await supabase
         .from('leads')
         .update({ status: 'inspection_email_approval' })

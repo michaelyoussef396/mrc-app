@@ -2403,13 +2403,6 @@ function GoogleReviewSection({
         .from('leads').update({ status: 'google_review' }).eq('id', lead.id);
       if (statusErr) throw statusErr;
 
-      await supabase.from('activities').insert({
-        lead_id: lead.id,
-        activity_type: 'email_sent',
-        title: 'Google review email sent',
-        description: `Requested a Google review from ${lead.email}`,
-      });
-
       toast.success('Review request sent to customer');
       onRefresh();
     } catch (err) {

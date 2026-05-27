@@ -115,13 +115,13 @@ export function AreaPhotoSlotGrid({
 
   const activeSlotDef = (mode.step !== 'idle' ? allSlotDefs[mode.slotIndex] : null) ?? null
 
-  async function handleUploadWithCaption(caption: string) {
-    setMode({ step: 'idle' })
+  function handleUploadWithCaption(caption: string) {
     if (!activeSlotDef) return
     const input = fileInputRef.current
     if (!input) return
     input.dataset.caption = caption
     input.click()
+    setMode({ step: 'idle' })
   }
 
   function handleAddUpload(slotIndex: number) {

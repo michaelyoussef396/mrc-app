@@ -756,8 +756,20 @@ Deno.serve(async (req) => {
             reply_to: 'admin@mrcsystem.com',
           }),
         })
-        if (!res.ok) { console.error('Resend error:', await res.json()) }
-        else {
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}))
+          console.error('Resend error:', errBody)
+          await supabase.from('email_logs').insert({
+            recipient_email: email,
+            subject: 'Thank you for your enquiry - Mould & Restoration Co',
+            template_name: 'framer_lead_confirmation',
+            status: 'failed',
+            error_message: JSON.stringify(errBody).slice(0, 500),
+            lead_id: leadData?.id ?? null,
+            sent_by: systemUserUuid || null,
+            sent_at: new Date().toISOString(),
+          }).catch(() => {})
+        } else {
           const emailData = await res.json()
           await supabase.from('email_logs').insert({
             recipient_email: email,
@@ -765,11 +777,24 @@ Deno.serve(async (req) => {
             template_name: 'framer_lead_confirmation',
             status: 'sent', provider: 'resend',
             provider_message_id: emailData?.id || null,
+            lead_id: leadData?.id ?? null,
             sent_by: systemUserUuid || null,
             sent_at: new Date().toISOString(),
-          })
+          }).catch(() => {})
         }
-      } catch (err) { console.error('Confirmation email failed:', err) }
+      } catch (err) {
+        console.error('Confirmation email failed:', err)
+        await supabase.from('email_logs').insert({
+          recipient_email: email,
+          subject: 'Thank you for your enquiry - Mould & Restoration Co',
+          template_name: 'framer_lead_confirmation',
+          status: 'failed',
+          error_message: String(err),
+          lead_id: leadData?.id ?? null,
+          sent_by: systemUserUuid || null,
+          sent_at: new Date().toISOString(),
+        }).catch(() => {})
+      }
     })()
 
     await Promise.allSettled([slackPromise, emailPromise])

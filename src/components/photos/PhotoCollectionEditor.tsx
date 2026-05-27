@@ -120,12 +120,12 @@ export function PhotoCollectionEditor({
     }
   }, [photos, mode])
 
-  async function handleUploadWithCaption(caption: string) {
-    setCaptionOpen(false)
+  function handleUploadWithCaption(caption: string) {
     const input = fileInputRef.current
     if (!input) return
     input.dataset.caption = caption
     input.click()
+    setCaptionOpen(false)
   }
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
