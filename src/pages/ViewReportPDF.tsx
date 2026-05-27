@@ -43,6 +43,7 @@ import {
 import { StalePdfBanner } from '@/components/pdf/StalePdfBanner'
 import { hardSaveReport, downloadBlobAs, HardSaveError, checkSendMismatch, downloadVersionPdfAsBase64, markVersionEmailed, type HardSaveVersionRow } from '@/lib/api/reportPipeline'
 import { MismatchSendDialog, type MismatchChoice } from '@/components/pdf/MismatchSendDialog'
+import { DuplicateSendDialog } from '@/components/pdf/DuplicateSendDialog'
 import { ReportVersionHistory } from '@/components/pdf/ReportVersionHistory'
 import { sendEmail, sendSlackNotification, buildReportApprovedHtml, buildJobReportEmailHtml } from '@/lib/api/notifications'
 import { generateJobReportPdf } from '@/lib/api/jobReportPdf'
@@ -54,7 +55,7 @@ import { SubfloorPhotoSlotGrid } from '@/components/photos/SubfloorPhotoSlotGrid
 import { OutdoorPhotoSlotGrid } from '@/components/photos/OutdoorPhotoSlotGrid'
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { resizePhoto } from '@/lib/offline/photoResizer'
-import { formatDateAU } from '@/lib/dateUtils'
+import { formatDateAU, formatDateTimeAU } from '@/lib/dateUtils'
 import {
   Dialog,
   DialogContent,
@@ -320,6 +321,7 @@ export default function ViewReportPDF() {
   // user must pick send_as_is, hard_save_fresh, or cancel before the send
   // can proceed.
   const [mismatchVersion, setMismatchVersion] = useState<HardSaveVersionRow | null>(null)
+  const [duplicateSendInfo, setDuplicateSendInfo] = useState<{ recipientEmail: string; sentDate: string } | null>(null)
 
   function prefillEmailAndOpenStage() {
     if (reportType === 'job' && jobCompletion) {
@@ -888,13 +890,13 @@ export default function ViewReportPDF() {
     }
 
     if (!inspection?.id) {
-      toast.error('Inspection data not loaded — please refresh and try again')
+      toast.error('Inspection data not loaded — please refresh and try again', { duration: Infinity })
       return
     }
 
     const lead = inspection.lead
     if (!lead) {
-      toast.error('Lead not found')
+      toast.error('Lead not found — please refresh and try again', { duration: Infinity })
       return
     }
     const recipient = emailRecipient.trim()
@@ -903,27 +905,60 @@ export default function ViewReportPDF() {
       return
     }
 
+    // Duplicate-send guard: warn if this report was already emailed
+    const { data: priorSends, error: priorSendsError } = await supabase
+      .from('email_logs')
+      .select('sent_at, recipient_email')
+      .eq('lead_id', lead.id)
+      .eq('template_name', 'report-approved')
+      .in('status', ['sent', 'delivered'])
+      .order('sent_at', { ascending: false })
+      .limit(1)
+
+    if (priorSendsError) {
+      console.error('Duplicate-send check failed:', priorSendsError)
+      toast.error('Could not verify prior sends — please try again', { id: 'send-email' })
+      return
+    }
+
+    if (priorSends && priorSends.length > 0) {
+      setDuplicateSendInfo({
+        recipientEmail: priorSends[0].recipient_email,
+        sentDate: formatDateTimeAU(priorSends[0].sent_at),
+      })
+      return
+    }
+
+    proceedWithInspectionSend(recipient)
+  }
+
+  function handleDuplicateSendChoice(choice: 'send_anyway' | 'cancel') {
+    setDuplicateSendInfo(null)
+    if (choice === 'cancel') return
+    const recipient = emailRecipient.trim()
+    if (!recipient) return
+    proceedWithInspectionSend(recipient)
+  }
+
+  async function proceedWithInspectionSend(recipient: string) {
     setSendingEmail(true)
     toast.loading('Checking for content changes...', { id: 'send-email' })
 
     try {
-      const mismatch = await checkSendMismatch(inspection.id)
+      const mismatch = await checkSendMismatch(inspection!.id)
 
       if (mismatch.kind === 'no_hard_save') {
-        toast.error('Please click Download first to save a reviewed version, then Send.', { id: 'send-email' })
+        toast.error('Please click Download first to save a reviewed version, then Send.', { id: 'send-email', duration: Infinity })
         setSendingEmail(false)
         return
       }
 
       if (mismatch.kind === 'mismatch') {
-        // Open the dialog — the user picks send_as_is or hard_save_fresh.
-        // sendingEmail stays true so the Send button shows busy state.
         setMismatchVersion(mismatch.version)
         toast.dismiss('send-email')
         return
       }
 
-      // Clean match: attach the stored PDF and send.
       await performInspectionSend(mismatch.version, recipient)
     } catch (err) {
       console.error('Send email pre-check failed:', err)
@@ -2632,6 +2667,14 @@ export default function ViewReportPDF() {
         versionNumber={mismatchVersion?.version_number ?? 0}
         busy={sendingEmail && mismatchVersion === null}
         onChoose={(choice) => { void handleMismatchChoice(choice) }}
+      />
+
+      {/* Duplicate-send guard */}
+      <DuplicateSendDialog
+        open={duplicateSendInfo !== null}
+        recipientEmail={duplicateSendInfo?.recipientEmail ?? ''}
+        sentDate={duplicateSendInfo?.sentDate ?? ''}
+        onChoose={handleDuplicateSendChoice}
       />
 
       {/* Job Report Edit Dialog */}
