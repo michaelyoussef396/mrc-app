@@ -126,6 +126,18 @@
         background-color: transparent !important;
     }
 
+    /* Contact page: left-align titles during PDF render */
+    div[style*="background-image: url('/pages/page-9-contact/background.png')"] > div[style*="font-size: 59px"],
+    div[style*="background-image: url('/pages/page-9-contact/background.png')"] > div[style*="font-size: 53px"] {
+        text-align: left !important;
+        padding-left: 38px !important;
+    }
+
+    /* Contact page: white icon filter during PDF render */
+    img[src*="page-9-contact/icon-"] {
+        filter: brightness(0) invert(1) !important;
+    }
+
     /* Remove text-shadow that might render as gray */
     div[style*="text-shadow"] {
         text-shadow: none !important;
@@ -717,14 +729,14 @@
         <div style="width: 794px; height: 1123px; position: relative; background-image: url('/pages/page-9-contact/background.png'); background-size: cover; background-position: center; background-repeat: no-repeat;">
 
             <!-- Title - REMEMBER US FOR (black) -->
-            <div style="width: 100%; left: 0; top: 70px; position: absolute; text-align: center; color: black; font-size: 59px; font-family: 'Garet Heavy', sans-serif; font-weight: 400; line-height: 65px; letter-spacing: 0.25px; word-wrap: break-word; z-index: 5;">REMEMBER US FOR</div>
+            <div style="width: 100%; left: 0; top: 70px; position: absolute; text-align: left; padding-left: 38px; color: black; font-size: 59px; font-family: 'Garet Heavy', sans-serif; font-weight: 400; line-height: 65px; letter-spacing: 0.25px; word-wrap: break-word; z-index: 5;">REMEMBER US FOR</div>
 
             <!-- Title - MOULD REMEDIATION (blue) -->
-            <div style="width: 100%; left: 0; top: 140px; position: absolute; text-align: center; color: #150DB8; font-size: 53px; font-family: 'Garet Heavy', sans-serif; font-weight: 400; line-height: 60px; letter-spacing: 0.22px; word-wrap: break-word; z-index: 5;">MOULD REMEDIATION</div>
+            <div style="width: 100%; left: 0; top: 140px; position: absolute; text-align: left; padding-left: 38px; color: #150DB8; font-size: 53px; font-family: 'Garet Heavy', sans-serif; font-weight: 400; line-height: 60px; letter-spacing: 0.22px; word-wrap: break-word; z-index: 5;">MOULD REMEDIATION</div>
 
             <!-- BUSINESS HOURS row -->
             <div style="position: absolute; left: 38px; top: 309px; z-index: 100;">
-                <img style="width: 72px; height: 72px; display: block;" src="/pages/page-9-contact/icon-clock-page9.png" alt="Business hours icon" />
+                <img style="width: 72px; height: 72px; display: block; filter: brightness(0) invert(1);" src="/pages/page-9-contact/icon-clock-page9.png" alt="Business hours icon" />
             </div>
             <div style="position: absolute; left: 147px; top: 309px; z-index: 100; width: 600px;">
                 <div style="color: #FFFFFF; font-size: 23px; font-family: 'Garet Heavy', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.069px; margin-bottom: 6px; text-shadow: 0 0 4px rgba(0,0,0,0.5);">BUSINESS HOURS</div>
@@ -733,7 +745,7 @@
 
             <!-- EMAIL row -->
             <div style="position: absolute; left: 42px; top: 430px; z-index: 100;">
-                <img style="width: 65px; height: 45px; display: block;" src="/pages/page-9-contact/icon-email-page9.png" alt="Email icon" />
+                <img style="width: 65px; height: 45px; display: block; filter: brightness(0) invert(1);" src="/pages/page-9-contact/icon-email-page9.png" alt="Email icon" />
             </div>
             <div style="position: absolute; left: 137px; top: 430px; z-index: 100; width: 600px;">
                 <div style="color: #FFFFFF; font-size: 23px; font-family: 'Garet Heavy', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.069px; margin-bottom: 10px; text-shadow: 0 0 4px rgba(0,0,0,0.5);">EMAIL</div>
@@ -742,7 +754,7 @@
 
             <!-- WEBSITE row -->
             <div style="position: absolute; left: 45px; top: 526px; z-index: 100;">
-                <img style="width: 59px; height: 57px; display: block;" src="/pages/page-9-contact/icon-web-page9.png" alt="Website icon" />
+                <img style="width: 59px; height: 57px; display: block; filter: brightness(0) invert(1);" src="/pages/page-9-contact/icon-web-page9.png" alt="Website icon" />
             </div>
             <div style="position: absolute; left: 142px; top: 526px; z-index: 100; width: 600px;">
                 <div style="color: #FFFFFF; font-size: 23px; font-family: 'Garet Heavy', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.069px; margin-bottom: 10px; text-shadow: 0 0 4px rgba(0,0,0,0.5);">WEBSITE</div>
@@ -751,7 +763,7 @@
 
             <!-- PHONE row -->
             <div style="position: absolute; left: 46px; top: 632px; z-index: 100;">
-                <img style="width: 59px; height: 59px; display: block;" src="/pages/page-9-contact/icon-phone-page9.png" alt="Phone icon" />
+                <img style="width: 59px; height: 59px; display: block; filter: brightness(0) invert(1);" src="/pages/page-9-contact/icon-phone-page9.png" alt="Phone icon" />
             </div>
             <div style="position: absolute; left: 139px; top: 632px; z-index: 100; width: 600px;">
                 <div style="color: #FFFFFF; font-size: 23px; font-family: 'Garet Heavy', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.069px; margin-bottom: 10px; text-shadow: 0 0 4px rgba(0,0,0,0.5);">PHONE</div>
