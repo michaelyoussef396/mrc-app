@@ -2211,29 +2211,30 @@ export default function ViewReportPDF() {
               </div>
             </div>
 
-            {/* Report attachment preview */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">PDF Attachment</label>
-              {(reportType === 'job' ? (jobPdfUrlOverride || jobCompletion?.pdf_url) : inspection?.pdf_blob_url) ? (
-                <div className="flex items-center gap-3 p-3 bg-green-50 rounded-md border border-green-200">
-                  <FileText className="h-8 w-8 text-green-600 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">
-                      MRC-{emailJobNumber || 'Report'}-{reportType === 'job' ? 'Job-Report' : 'Inspection-Report'}.pdf
-                    </p>
-                    <p className="text-xs text-green-600">{reportType === 'job' ? 'PDF ready' : 'Browser-quality PDF ready'}</p>
+            {/* Report attachment preview — job reports only (inspection reports
+                auto-attach the latest hard-save via the send guards) */}
+            {reportType === 'job' && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">PDF Attachment</label>
+                {(jobPdfUrlOverride || jobCompletion?.pdf_url) ? (
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-md border border-green-200">
+                    <FileText className="h-8 w-8 text-green-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        MRC-{emailJobNumber || 'Report'}-Job-Report.pdf
+                      </p>
+                      <p className="text-xs text-green-600">PDF ready</p>
+                    </div>
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={handleDownload}
+                      className="min-h-[40px] flex-shrink-0"
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      Preview
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline" size="sm"
-                    onClick={handleDownload}
-                    className="min-h-[40px] flex-shrink-0"
-                  >
-                    <Eye className="h-4 w-4 mr-1" />
-                    Preview
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-2">
+                ) : (
                   <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-md border border-orange-200">
                     <AlertCircle className="h-8 w-8 text-orange-500 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -2249,9 +2250,9 @@ export default function ViewReportPDF() {
                       Upload PDF
                     </Button>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex flex-col gap-3 pb-8">
