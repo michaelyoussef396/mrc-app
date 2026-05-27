@@ -1782,7 +1782,7 @@ Deno.serve(async (req) => {
     const validPdfStatuses = [
       'inspection_completed', 'inspection_ai_summary', 'approve_inspection_report',
       'inspection_report_pdf_completed', 'inspection_email_approval',
-      'job_waiting', 'job_completed', 'job_report_pdf_sent',
+      'job_scheduled', 'job_waiting', 'job_completed', 'job_report_pdf_sent',
       'invoicing_sent', 'paid', 'google_review', 'finished',
       'closed', 'not_landed',
     ]
