@@ -143,6 +143,74 @@ function extractDate(datetime: string): string {
   }
 }
 
+/**
+ * Collapse multi-day remediation jobs into a single TechnicianJob per series.
+ *
+ * Each day of a multi-day job is its own calendar_bookings row, so the raw
+ * transform produces N items for an N-day job. The technician view should
+ * surface one card per series, anchored to today's position in the series.
+ *
+ * Series key: `${leadId}|${inspectionId}|${eventType}` — matches what
+ * BookJobSheet.tsx writes for a single booking call. Single-day jobs (no
+ * `dayLabel` parsed from the title) pass through unchanged.
+ *
+ * Pure function — exported for unit testing.
+ */
+export function collapseMultiDayJobs(
+  jobs: TechnicianJob[],
+  todayDate: string,
+): TechnicianJob[] {
+  const singleDay: TechnicianJob[] = [];
+  const multiDayByKey = new Map<string, TechnicianJob[]>();
+
+  for (const job of jobs) {
+    if (!job.dayLabel) {
+      singleDay.push(job);
+      continue;
+    }
+    const key = `${job.leadId}|${job.inspectionId ?? ''}|${job.eventType}`;
+    const group = multiDayByKey.get(key);
+    if (group) {
+      group.push(job);
+    } else {
+      multiDayByKey.set(key, [job]);
+    }
+  }
+
+  const collapsed: TechnicianJob[] = [];
+  for (const group of multiDayByKey.values()) {
+    const sorted = [...group].sort((a, b) =>
+      a.startDatetime.localeCompare(b.startDatetime),
+    );
+    const totalDays = sorted.length;
+
+    let activeIndex: number;
+    if (todayDate < sorted[0].date) {
+      activeIndex = 0;
+    } else if (todayDate > sorted[totalDays - 1].date) {
+      activeIndex = totalDays - 1;
+    } else {
+      const todayIndex = sorted.findIndex((j) => j.date === todayDate);
+      activeIndex = todayIndex >= 0 ? todayIndex : 0;
+    }
+
+    const anyInProgress = sorted.some((j) => j.status === 'in_progress');
+    const active = sorted[activeIndex];
+
+    collapsed.push({
+      ...active,
+      status: anyInProgress ? 'in_progress' : active.status,
+      dayNumber: activeIndex + 1,
+      totalDays,
+      dayLabel: `Day ${activeIndex + 1} of ${totalDays}`,
+    });
+  }
+
+  const combined = [...singleDay, ...collapsed];
+  combined.sort((a, b) => a.startDatetime.localeCompare(b.startDatetime));
+  return combined;
+}
+
 // ============================================================================
 // HOOK
 // ============================================================================
@@ -269,7 +337,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
         };
       });
 
-      setAllJobs(transformedJobs);
+      setAllJobs(collapseMultiDayJobs(transformedJobs, getTodayDate()));
       isInitialLoad.current = false;
     } catch (err) {
       console.error('[TechnicianJobs] Error:', err);
