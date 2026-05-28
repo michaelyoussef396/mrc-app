@@ -3467,7 +3467,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           ? formData.option1EquipmentCost
           : opt1AutoResult.equipmentCost;
         saveOption1Total = formData.manualPriceOverride
-          ? (o1Labour + o1Equipment) + (o1Labour + o1Equipment) * 0.1
+          ? round2((o1Labour + o1Equipment) + (o1Labour + o1Equipment) * 0.1)
           : opt1AutoResult.totalIncGst;
         saveOption1Labour = o1Labour;
         saveOption1Equipment = o1Equipment;
