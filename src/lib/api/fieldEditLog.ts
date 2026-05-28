@@ -8,6 +8,26 @@ export type FieldChange = {
   new: string | number | boolean | null;
 };
 
+const DENYLIST_COLUMNS = new Set([
+  'updated_at',
+  'created_at',
+  'last_edited_at',
+  'last_edited_by',
+  'version',
+]);
+
+function normaliseEmpty(value: unknown): unknown {
+  if (value === undefined || value === null || value === '') return null;
+  return value;
+}
+
+export function filterNoiseChanges(changes: FieldChange[]): FieldChange[] {
+  return changes.filter((c) => {
+    if (DENYLIST_COLUMNS.has(c.field)) return false;
+    return normaliseEmpty(c.old) !== normaliseEmpty(c.new);
+  });
+}
+
 // 'lead' covers field edits on the leads row itself (LeadDetail saveField,
 // saveAddress, handleChangeStatus, bookInspection deltas). The other scopes
 // are entity-scoped writes against tables attached to a lead.
@@ -38,7 +58,9 @@ interface LogFieldEditsOpts {
  * Empty changes → no-op. Errors swallowed to Sentry — the save already succeeded.
  */
 export async function logFieldEdits(opts: LogFieldEditsOpts): Promise<void> {
-  if (opts.changes.length === 0) return;
+  const cleaned = filterNoiseChanges(opts.changes);
+  if (cleaned.length === 0) return;
+  opts = { ...opts, changes: cleaned };
 
   try {
     const { count } = await supabase
@@ -140,7 +162,9 @@ interface LogSectionMilestoneOpts {
  * Errors are swallowed to Sentry — the save itself already succeeded.
  */
 export async function logSectionMilestone(opts: LogSectionMilestoneOpts): Promise<void> {
-  if (opts.changes.length === 0) return;
+  const cleaned = filterNoiseChanges(opts.changes);
+  if (cleaned.length === 0) return;
+  opts = { ...opts, changes: cleaned };
 
   try {
     const { data: userData } = await supabase.auth.getUser();
@@ -210,8 +234,9 @@ export function diffRows<T extends Record<string, unknown>>(
     const label = fieldMap[key];
     if (!label) continue;
     if (!(key in newRow)) continue;
-    const before = (oldRow[key] ?? null) as FieldChange['old'];
-    const after = (newRow[key] ?? null) as FieldChange['new'];
+    if (DENYLIST_COLUMNS.has(key as string)) continue;
+    const before = normaliseEmpty(oldRow[key]) as FieldChange['old'];
+    const after = normaliseEmpty(newRow[key]) as FieldChange['new'];
     if (before === after) continue;
     if (typeof before === 'object' || typeof after === 'object') {
       if (JSON.stringify(before) === JSON.stringify(after)) continue;
@@ -232,8 +257,9 @@ export function diffPayload<T extends Record<string, unknown>>(
   if (!oldRow) return [];
   const changes: FieldChange[] = [];
   for (const key of Object.keys(newRow)) {
-    const before = (oldRow[key] ?? null) as FieldChange['old'];
-    const after = (newRow[key as keyof T] ?? null) as FieldChange['new'];
+    if (DENYLIST_COLUMNS.has(key)) continue;
+    const before = normaliseEmpty(oldRow[key]) as FieldChange['old'];
+    const after = normaliseEmpty(newRow[key as keyof T]) as FieldChange['new'];
     if (before === after) continue;
     if (typeof before === 'object' || typeof after === 'object') {
       if (JSON.stringify(before) === JSON.stringify(after)) continue;

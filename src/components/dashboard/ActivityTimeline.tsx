@@ -28,6 +28,13 @@ import {
 import type { TimelineEvent, FieldEditMetadata } from '@/hooks/useActivityTimeline';
 import { formatDateTimeAU } from '@/lib/dateUtils';
 import { getFieldLabel } from '@/lib/utils/fieldLabels';
+import { STATUS_FLOW } from '@/lib/statusFlow';
+
+function humaniseEnumKey(key: string): string {
+  const statusConfig = STATUS_FLOW[key as keyof typeof STATUS_FLOW];
+  if (statusConfig) return statusConfig.title;
+  return key.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 // Icon component lookup
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -49,11 +56,13 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 
 const MAX_DIFF_STRING_LENGTH = 60;
 
-function formatDiffValue(value: unknown): string {
+function formatDiffValue(value: unknown, fieldName?: string): string {
   if (value === null || value === undefined || value === '') return '—';
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (typeof value === 'number') return String(value);
   if (typeof value === 'string') {
+    if (fieldName === 'status' || fieldName === 'Status') return humaniseEnumKey(value);
+    if (/^[a-z][a-z_]+$/.test(value) && value.includes('_')) return humaniseEnumKey(value);
     const truncated =
       value.length > MAX_DIFF_STRING_LENGTH
         ? `${value.slice(0, MAX_DIFF_STRING_LENGTH)}…`
@@ -118,7 +127,7 @@ function SectionMilestoneRow({ changes }: SectionMilestoneRowProps) {
           {changes.map((change, i) => (
             <li key={i} className="text-xs text-muted-foreground">
               <span className="font-medium">{getFieldLabel(change.field)}:</span>{' '}
-              {formatDiffValue(change.old)} → {formatDiffValue(change.new)}
+              {formatDiffValue(change.old, change.field)} → {formatDiffValue(change.new, change.field)}
             </li>
           ))}
         </ul>
@@ -301,7 +310,7 @@ export function ActivityTimeline({
                   {fieldEdit.changes.map((change, i) => (
                     <li key={i} className="text-xs text-muted-foreground">
                       <span className="font-medium">{getFieldLabel(change.field)}:</span>{' '}
-                      {formatDiffValue(change.old)} → {formatDiffValue(change.new)}
+                      {formatDiffValue(change.old, change.field)} → {formatDiffValue(change.new, change.field)}
                     </li>
                   ))}
                 </ul>
@@ -315,6 +324,11 @@ export function ActivityTimeline({
                 event.description && (
                   <p className="text-xs text-gray-500">{event.description}</p>
                 )
+              )}
+              {event.source === 'email' && typeof event.metadata?.recipient === 'string' && (
+                <p className="text-xs text-gray-500">
+                  To: {event.metadata.recipient}
+                </p>
               )}
               <p className="text-xs text-gray-400 flex items-center gap-1">
                 <Clock className="h-3 w-3" />
