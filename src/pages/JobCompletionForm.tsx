@@ -60,15 +60,22 @@ export default function JobCompletionForm() {
   const { data: sendBackActivity } = useQuery({
     queryKey: ['send-back-note', leadId],
     queryFn: async () => {
+      // The admin's typed note is stored in activities.metadata.send_back_note
+      // by logFieldEdits — title is auto-built (`v{n} — ...`) so don't filter on it.
       const { data } = await supabase
         .from('activities')
-        .select('description, created_at')
+        .select('metadata, created_at')
         .eq('lead_id', leadId!)
-        .eq('title', 'Job completion sent back to technician')
+        .eq('metadata->>trigger', 'sent_back_to_technician')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-      return data
+      if (!data) return null
+      const meta = data.metadata as { send_back_note?: string } | null
+      return {
+        description: meta?.send_back_note ?? null,
+        created_at: data.created_at,
+      }
     },
     enabled: isRevision && !!leadId,
   })

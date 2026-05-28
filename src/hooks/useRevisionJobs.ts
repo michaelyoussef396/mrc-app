@@ -55,17 +55,24 @@ export function useRevisionJobs() {
       let notesByLead: Record<string, { description: string | null; created_at: string }> = {}
 
       if (leadIds.length > 0) {
+        // Send-back activity is written by LeadDetail.handleSendBackToTechnician
+        // via logFieldEdits with extraMetadata: { trigger, send_back_note }.
+        // The note lives in the JSONB metadata column, not the auto-built title.
         const { data: activities } = await supabase
           .from('activities')
-          .select('lead_id, description, created_at')
+          .select('lead_id, metadata, created_at')
           .in('lead_id', leadIds)
-          .eq('title', 'Job completion sent back to technician')
+          .eq('metadata->>trigger', 'sent_back_to_technician')
           .order('created_at', { ascending: false })
 
         if (!cancelled && activities) {
           for (const a of activities) {
             if (!notesByLead[a.lead_id]) {
-              notesByLead[a.lead_id] = { description: a.description, created_at: a.created_at }
+              const meta = a.metadata as { send_back_note?: string } | null
+              notesByLead[a.lead_id] = {
+                description: meta?.send_back_note ?? null,
+                created_at: a.created_at,
+              }
             }
           }
         }
