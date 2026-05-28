@@ -38,11 +38,18 @@ export default function TechnicianDashboard() {
 
   const userName = profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Technician';
 
+  // Revision-state leads belong only in the Revisions Needed card. They share
+  // lead.status='job_scheduled' with the Next Up whitelist, so without this
+  // filter the same lead would render twice (once with a misleading
+  // "Start Inspection" CTA in Next Up).
+  const revisionLeadIds = new Set(revisions.map((r) => r.leadId));
+  const filteredTechJobs = techJobs.filter((tj) => !revisionLeadIds.has(tj.leadId));
+
   // Map Supabase data to the component Job type
-  const jobs: Job[] = techJobs.map(mapToJob);
+  const jobs: Job[] = filteredTechJobs.map(mapToJob);
 
   // Build a lookup from Job id → TechnicianJob for fields the components don't carry (leadId, travelTime)
-  const techJobMap = new Map(techJobs.map((tj) => [tj.id, tj]));
+  const techJobMap = new Map(filteredTechJobs.map((tj) => [tj.id, tj]));
 
   // Derive dashboard state
   const dashboardState = isLoading
@@ -170,7 +177,7 @@ export default function TechnicianDashboard() {
                 </p>
               )}
               <button
-                onClick={() => navigate(`/technician/job/${rev.leadId}`)}
+                onClick={() => navigate(`/technician/job-completion/${rev.leadId}`)}
                 className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-amber-500 text-white text-sm font-bold active:scale-[0.98] transition-all"
               >
                 Revise Job Completion
