@@ -86,7 +86,7 @@ import { TechnicianBottomNav } from "@/components/technician";
 import { useAuth } from "@/contexts/AuthContext";
 import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
 import { InspectionReportHistory } from "@/components/leads/InspectionReportHistory";
-import { generateInspectionPDF } from "@/lib/api/pdfGeneration";
+import { hardSaveReport } from "@/lib/api/reportPipeline";
 import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/api/inspections";
 import { getJobCompletionByLeadId } from "@/lib/api/jobCompletions";
 import { generateJobReportPdf } from "@/lib/api/jobReportPdf";
@@ -642,15 +642,13 @@ export default function LeadDetail() {
 
     setRegeneratingPdf(true);
     try {
-      const result = await generateInspectionPDF(inspection.id, { regenerate: true });
-      if (result.success) {
-        toast.success("PDF regenerated successfully!");
-        refetch();
-      } else {
-        toast.error("Failed to regenerate PDF");
-      }
+      await hardSaveReport(inspection.id);
+      await queryClient.invalidateQueries({ queryKey: ['pdf-versions', inspection.id] });
+      toast.success("PDF regenerated successfully!");
+      refetch();
     } catch (error) {
-      toast.error("Error regenerating PDF");
+      const message = error instanceof Error ? error.message : "Error regenerating PDF";
+      toast.error(message);
     } finally {
       setRegeneratingPdf(false);
     }

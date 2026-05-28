@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Loader2, RefreshCw, ExternalLink, Mail } from 'lucide-react';
+import { FileText, Loader2, RefreshCw, Download, Mail } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -24,7 +26,8 @@ interface PdfVersionRow {
   version_number: number;
   created_at: string | null;
   created_by: string | null;
-  pdf_url: string;
+  pdf_url: string | null;
+  pdf_storage_path: string | null;
 }
 
 interface EmailLogRow {
@@ -43,7 +46,7 @@ function formatDateTime(iso: string | null): string {
 async function fetchPdfVersions(inspectionId: string): Promise<PdfVersionRow[]> {
   const { data, error } = await supabase
     .from('pdf_versions')
-    .select('id, version_number, created_at, created_by, pdf_url')
+    .select('id, version_number, created_at, created_by, pdf_url, pdf_storage_path')
     .eq('inspection_id', inspectionId)
     .order('version_number', { ascending: false });
   if (error) throw error;
@@ -81,12 +84,31 @@ function statusBadgeClass(status: string): string {
   return 'bg-blue-100 text-blue-800 border-blue-200';
 }
 
+const REPORT_PDFS_BUCKET = 'report-pdfs';
+
 export function InspectionReportHistory({
   inspectionId,
   leadId,
   onRegenerate,
   isRegenerating,
 }: InspectionReportHistoryProps) {
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  async function handleViewPdf(row: PdfVersionRow) {
+    if (!row.pdf_storage_path) return;
+    setDownloadingId(row.id);
+    try {
+      const { data, error } = await supabase.storage
+        .from(REPORT_PDFS_BUCKET)
+        .createSignedUrl(row.pdf_storage_path, 300);
+      if (error || !data?.signedUrl) throw new Error(error?.message ?? 'Could not generate link');
+      window.open(data.signedUrl, '_blank');
+    } catch {
+      toast.error('Could not open PDF');
+    } finally {
+      setDownloadingId(null);
+    }
+  }
   const { data: versions = [], isLoading: versionsLoading } = useQuery({
     queryKey: ['pdf-versions', inspectionId],
     queryFn: () => fetchPdfVersions(inspectionId),
@@ -182,14 +204,23 @@ export function InspectionReportHistory({
                         </span>
                         <span className="text-xs text-[#86868b]">• by {generator}</span>
                       </div>
-                      <a
-                        href={v.pdf_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-medium text-[#007AFF] hover:underline"
-                      >
-                        View <ExternalLink className="h-3 w-3" />
-                      </a>
+                      {v.pdf_storage_path ? (
+                        <button
+                          type="button"
+                          onClick={() => handleViewPdf(v)}
+                          disabled={downloadingId === v.id}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-[#007AFF] hover:underline disabled:opacity-50"
+                        >
+                          {downloadingId === v.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Download className="h-3 w-3" />
+                          )}
+                          View
+                        </button>
+                      ) : (
+                        <span className="text-xs text-[#86868b]">Legacy</span>
+                      )}
                     </li>
                   );
                 })}
