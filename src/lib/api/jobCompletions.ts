@@ -241,18 +241,27 @@ export async function submitJobCompletion(id: string): Promise<void> {
     throw new Error(`Failed to submit: ${updateError.message}`)
   }
 
-  // Update lead status based on request_review flag
+  // Update lead status based on request_review flag.
+  // .select('id') + rows-affected guard mirrors updateJobCompletion above —
+  // without it, a silent RLS denial or missing lead_id would return success
+  // and the form's toast would lie about the lead actually advancing.
   const nextLeadStatus = jc.request_review ? 'pending_review' : 'job_completed'
 
-  const { error: leadError } = await supabase
+  const { data: leadResult, error: leadError } = await supabase
     .from('leads')
     .update({ status: nextLeadStatus })
     .eq('id', jc.lead_id)
+    .select('id')
 
   if (leadError) {
     captureBusinessError('Failed to update lead status after job submit', { leadId: jc.lead_id, error: leadError.message })
     throw new Error(`Failed to update lead status: ${leadError.message}`)
   }
+  if (!leadResult || leadResult.length === 0) {
+    captureBusinessError('Lead status update affected 0 rows', { leadId: jc.lead_id, nextLeadStatus })
+    throw new Error('Lead status update failed: no rows affected. Check permissions.')
+  }
+  addBusinessBreadcrumb('Lead status advanced', { leadId: jc.lead_id, newStatus: nextLeadStatus })
 
   // Fire-and-forget Slack notification — failure must not break the submit flow.
   try {
