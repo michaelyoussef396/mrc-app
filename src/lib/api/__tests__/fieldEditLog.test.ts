@@ -227,6 +227,107 @@ describe('logFieldEdits', () => {
   })
 })
 
+describe('filterNoiseChanges', () => {
+  it('should remove denylisted columns like updated_at', async () => {
+    const { filterNoiseChanges } = await import('../fieldEditLog')
+    const result = filterNoiseChanges([
+      { field: 'updated_at', old: '2026-01-01', new: '2026-01-02' },
+      { field: 'full_name', old: 'Alice', new: 'Bob' },
+    ])
+    expect(result).toHaveLength(1)
+    expect(result[0].field).toBe('full_name')
+  })
+
+  it('should remove entries where null and undefined are equivalent', async () => {
+    const { filterNoiseChanges } = await import('../fieldEditLog')
+    const result = filterNoiseChanges([
+      { field: 'notes', old: null, new: null },
+    ])
+    expect(result).toHaveLength(0)
+  })
+
+  it('should remove entries where null and empty string are equivalent', async () => {
+    const { filterNoiseChanges } = await import('../fieldEditLog')
+    const result = filterNoiseChanges([
+      { field: 'notes', old: null, new: '' },
+    ])
+    expect(result).toHaveLength(0)
+  })
+
+  it('should remove entries where empty string and null are equivalent', async () => {
+    const { filterNoiseChanges } = await import('../fieldEditLog')
+    const result = filterNoiseChanges([
+      { field: 'notes', old: '', new: null },
+    ])
+    expect(result).toHaveLength(0)
+  })
+
+  it('should keep genuine changes', async () => {
+    const { filterNoiseChanges } = await import('../fieldEditLog')
+    const result = filterNoiseChanges([
+      { field: 'full_name', old: 'Alice', new: 'Bob' },
+      { field: 'status', old: 'new_lead', new: 'inspection_waiting' },
+    ])
+    expect(result).toHaveLength(2)
+  })
+
+  it('should keep null-to-value transitions', async () => {
+    const { filterNoiseChanges } = await import('../fieldEditLog')
+    const result = filterNoiseChanges([
+      { field: 'phone', old: null, new: '0412345678' },
+    ])
+    expect(result).toHaveLength(1)
+  })
+
+  it('should remove all denylisted columns', async () => {
+    const { filterNoiseChanges } = await import('../fieldEditLog')
+    const result = filterNoiseChanges([
+      { field: 'created_at', old: 'a', new: 'b' },
+      { field: 'last_edited_at', old: 'a', new: 'b' },
+      { field: 'last_edited_by', old: 'a', new: 'b' },
+      { field: 'version', old: 1, new: 2 },
+    ])
+    expect(result).toHaveLength(0)
+  })
+
+  it('should handle logFieldEdits no-op when all changes are noise', async () => {
+    const { logFieldEdits } = await import('../fieldEditLog')
+    await logFieldEdits({
+      leadId: 'lead-1',
+      entityType: 'lead',
+      entityId: 'lead-1',
+      changes: [
+        { field: 'updated_at', old: '2026-01-01', new: '2026-01-02' },
+        { field: 'notes', old: null, new: '' },
+      ],
+    })
+    const insertCall = allCalls.flatMap((c) => c.calls).find((c) => c.method === 'insert')
+    expect(insertCall).toBeUndefined()
+  })
+})
+
+describe('diffPayload — normalisation', () => {
+  it('should skip null-to-empty-string diffs', async () => {
+    const { diffPayload } = await import('../fieldEditLog')
+    const result = diffPayload(
+      { notes: null, name: 'Alice' },
+      { notes: '', name: 'Bob' },
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].field).toBe('name')
+  })
+
+  it('should skip denylisted columns', async () => {
+    const { diffPayload } = await import('../fieldEditLog')
+    const result = diffPayload(
+      { updated_at: '2026-01-01', name: 'Alice' },
+      { updated_at: '2026-01-02', name: 'Bob' },
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].field).toBe('name')
+  })
+})
+
 describe('logNoteAdded', () => {
   it("writes activity_type 'note_added' with note_text in metadata, NOT a diff", async () => {
     const { logNoteAdded } = await import('../fieldEditLog')
