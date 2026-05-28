@@ -209,7 +209,26 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
 
       // Sort by timestamp descending, take top N
       events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      return events.slice(0, limit);
+
+      // Dedupe: when an email_logs entry and an activities entry describe the same
+      // send within 30 seconds for the same lead, keep the email_logs entry (richer
+      // metadata) and drop the activities duplicate.
+      const deduped: TimelineEvent[] = [];
+      const emailKeySet = new Set<string>();
+      for (const ev of events) {
+        if (ev.source === 'email' && ev.leadId) {
+          emailKeySet.add(`${ev.leadId}:${Math.floor(new Date(ev.timestamp).getTime() / 30_000)}`);
+        }
+      }
+      for (const ev of events) {
+        if (ev.source === 'activity' && ev.type === 'email_sent' && ev.leadId) {
+          const bucket = `${ev.leadId}:${Math.floor(new Date(ev.timestamp).getTime() / 30_000)}`;
+          if (emailKeySet.has(bucket)) continue;
+        }
+        deduped.push(ev);
+      }
+
+      return deduped.slice(0, limit);
     },
     // Primary refresh path is query invalidation on writer (see Wave 3 writers in
     // useLeadUpdate, LeadDetail.handleChangeStatus, bookingService.bookInspection).
