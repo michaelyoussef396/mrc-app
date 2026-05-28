@@ -147,9 +147,6 @@ export function Section2Summary({ formData, onChange, isReadOnly = false }: Sect
           placeholder="Name of the person who completed the work"
           className="w-full h-12 px-3 rounded-lg border border-gray-200 text-[15px] text-[#1d1d1f] bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF] focus:border-transparent disabled:bg-gray-50 disabled:text-[#86868b]"
         />
-        <p className="text-xs text-[#86868b] mt-1">
-          Defaults to the logged-in user. Change if someone else did the work.
-        </p>
       </div>
 
       {/* Completion Date */}
