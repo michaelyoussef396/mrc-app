@@ -46,6 +46,10 @@ export const GST_RATE = 0.10;
 // the 13% cap immediately (0.87 multiplier minimum).
 export const MAX_DISCOUNT = 0.13;
 
+export function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 export type LabourType = 'nonDemo' | 'demolition' | 'construction' | 'subfloor';
 
 interface LabourBreakdownItem {
@@ -315,8 +319,8 @@ export function calculateCostEstimate(input: CostEstimateInput): CostEstimateRes
 
   // Handle manual override
   if (input.manualOverride && input.manualTotal !== undefined && input.manualTotal > 0) {
-    const manualExGst = input.manualTotal / (1 + GST_RATE);
-    const manualGst = input.manualTotal - manualExGst;
+    const manualExGst = round2(input.manualTotal / (1 + GST_RATE));
+    const manualGst = round2(input.manualTotal - manualExGst);
 
     // Calculate equipment for display even in override mode
     const equipment = calculateEquipmentCost(
@@ -356,12 +360,12 @@ export function calculateCostEstimate(input: CostEstimateInput): CostEstimateRes
   const subfloorResult = calculateLabourCostWithBreakdown(input.subfloorHours, 'subfloor');
 
   // Labour subtotal before discount
-  const labourSubtotal = nonDemoResult.cost + demolitionResult.cost + subfloorResult.cost;
+  const labourSubtotal = round2(nonDemoResult.cost + demolitionResult.cost + subfloorResult.cost);
 
   // Calculate discount
   const discountPercent = calculateDiscount(totalLabourHours);
-  const discountAmount = labourSubtotal * discountPercent;
-  const labourAfterDiscount = labourSubtotal - discountAmount;
+  const discountAmount = round2(labourSubtotal * discountPercent);
+  const labourAfterDiscount = round2(labourSubtotal - discountAmount);
 
   // Calculate equipment
   const equipment = calculateEquipmentCost(
@@ -377,16 +381,16 @@ export function calculateCostEstimate(input: CostEstimateInput): CostEstimateRes
   const equipmentCost = input.equipmentCost !== undefined ? input.equipmentCost : equipment.total;
 
   // Calculate totals
-  const subtotalExGst = labourAfterDiscount + equipmentCost;
-  const gstAmount = subtotalExGst * GST_RATE;
-  const totalIncGst = subtotalExGst + gstAmount;
+  const subtotalExGst = round2(labourAfterDiscount + equipmentCost);
+  const gstAmount = round2(subtotalExGst * GST_RATE);
+  const totalIncGst = round2(subtotalExGst + gstAmount);
 
   return {
-    nonDemoCost: nonDemoResult.cost,
+    nonDemoCost: round2(nonDemoResult.cost),
     nonDemoBreakdown: nonDemoResult.breakdown,
-    demolitionCost: demolitionResult.cost,
+    demolitionCost: round2(demolitionResult.cost),
     demolitionBreakdown: demolitionResult.breakdown,
-    subfloorCost: subfloorResult.cost,
+    subfloorCost: round2(subfloorResult.cost),
     subfloorBreakdown: subfloorResult.breakdown,
     labourSubtotal,
     totalLabourHours,

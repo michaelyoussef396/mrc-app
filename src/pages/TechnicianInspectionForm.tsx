@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { calculateDewPoint } from '@/lib/inspectionUtils';
 import {
   calculateCostEstimate,
+  round2,
   LABOUR_RATES,
   EQUIPMENT_RATES,
   formatCurrency,
@@ -3431,9 +3432,15 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       const saveEquipment = formData.manualPriceOverride
         ? formData.equipmentCost
         : saveFullResult.equipmentCost;
-      const saveSubtotal = saveLabour + saveEquipment;
-      const saveGst = saveSubtotal * 0.1;
-      const saveTotal = saveSubtotal + saveGst;
+      const saveSubtotal = formData.manualPriceOverride
+        ? round2(saveLabour + saveEquipment)
+        : saveFullResult.subtotalExGst;
+      const saveGst = formData.manualPriceOverride
+        ? round2(saveSubtotal * 0.1)
+        : saveFullResult.gstAmount;
+      const saveTotal = formData.manualPriceOverride
+        ? round2(saveSubtotal + saveGst)
+        : saveFullResult.totalIncGst;
 
       // Per-option totals
       let saveOption1Total: number | null = null;
@@ -3459,8 +3466,9 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         const o1Equipment = formData.manualPriceOverride
           ? formData.option1EquipmentCost
           : opt1AutoResult.equipmentCost;
-        const o1Subtotal = o1Labour + o1Equipment;
-        saveOption1Total = o1Subtotal + o1Subtotal * 0.1;
+        saveOption1Total = formData.manualPriceOverride
+          ? (o1Labour + o1Equipment) + (o1Labour + o1Equipment) * 0.1
+          : opt1AutoResult.totalIncGst;
         saveOption1Labour = o1Labour;
         saveOption1Equipment = o1Equipment;
         saveOption2Total = saveTotal;

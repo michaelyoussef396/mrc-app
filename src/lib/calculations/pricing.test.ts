@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateCostEstimate, MAX_DISCOUNT } from './pricing';
+import { calculateCostEstimate, MAX_DISCOUNT, round2 } from './pricing';
 
 // ---------------------------------------------------------------------------
 // BUG-019: discount tier boundary values — decimal scale invariants
@@ -248,5 +248,75 @@ describe('BUG-047 canonical inputs — pricing engine invariants', () => {
       manualTotal: 5000,
     });
     expect(result.totalIncGst).toBe(5000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase A: all money values must be rounded to exactly 2 decimal places.
+// This prevents float noise like "3269.38 → 3269.378429166667" in activity
+// logs, PDFs, and any downstream consumer.
+// ---------------------------------------------------------------------------
+
+describe('round2 utility', () => {
+  it('should round 3269.378429166667 to 3269.38', () => {
+    expect(round2(3269.378429166667)).toBe(3269.38);
+  });
+
+  it('should round 0.005 up to 0.01', () => {
+    expect(round2(0.005)).toBe(0.01);
+  });
+
+  it('should leave exact 2dp values unchanged', () => {
+    expect(round2(1216.99)).toBe(1216.99);
+  });
+
+  it('should handle zero', () => {
+    expect(round2(0)).toBe(0);
+  });
+});
+
+describe('calculateCostEstimate — 2dp precision on all money fields', () => {
+  it('should return labourSubtotal with exactly 2 decimal places', () => {
+    const result = calculateCostEstimate({ nonDemoHours: 5, demolitionHours: 3, subfloorHours: 2 });
+    expect(result.labourSubtotal).toBe(round2(result.labourSubtotal));
+  });
+
+  it('should return discountAmount with exactly 2 decimal places', () => {
+    const result = calculateCostEstimate({ nonDemoHours: 10, demolitionHours: 5, subfloorHours: 2 });
+    expect(result.discountAmount).toBe(round2(result.discountAmount));
+  });
+
+  it('should return labourAfterDiscount with exactly 2 decimal places', () => {
+    const result = calculateCostEstimate({ nonDemoHours: 10, demolitionHours: 5, subfloorHours: 2 });
+    expect(result.labourAfterDiscount).toBe(round2(result.labourAfterDiscount));
+  });
+
+  it('should return subtotalExGst with exactly 2 decimal places', () => {
+    const result = calculateCostEstimate({ nonDemoHours: 10, demolitionHours: 5, subfloorHours: 2, dehumidifierQty: 1, airMoverQty: 2, rcdQty: 1 });
+    expect(result.subtotalExGst).toBe(round2(result.subtotalExGst));
+  });
+
+  it('should return gstAmount with exactly 2 decimal places', () => {
+    const result = calculateCostEstimate({ nonDemoHours: 10, demolitionHours: 5, subfloorHours: 2, dehumidifierQty: 1, airMoverQty: 2, rcdQty: 1 });
+    expect(result.gstAmount).toBe(round2(result.gstAmount));
+  });
+
+  it('should return totalIncGst with exactly 2 decimal places', () => {
+    const result = calculateCostEstimate({ nonDemoHours: 10, demolitionHours: 5, subfloorHours: 2, dehumidifierQty: 1, airMoverQty: 2, rcdQty: 1 });
+    expect(result.totalIncGst).toBe(round2(result.totalIncGst));
+  });
+
+  it('should return nonDemoCost with exactly 2 decimal places for interpolated hours', () => {
+    const result = calculateCostEstimate({ nonDemoHours: 5.5, demolitionHours: 0, subfloorHours: 0 });
+    expect(result.nonDemoCost).toBe(round2(result.nonDemoCost));
+  });
+
+  it('should produce stable values on repeated calculation (no float drift)', () => {
+    const input = { nonDemoHours: 15, demolitionHours: 22, subfloorHours: 10, dehumidifierQty: 2, airMoverQty: 3, rcdQty: 1 };
+    const r1 = calculateCostEstimate(input);
+    const r2 = calculateCostEstimate(input);
+    expect(r1.totalIncGst).toBe(r2.totalIncGst);
+    expect(r1.subtotalExGst).toBe(r2.subtotalExGst);
+    expect(r1.gstAmount).toBe(r2.gstAmount);
   });
 });
