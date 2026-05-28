@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Collapsible,
   CollapsibleContent,
@@ -175,6 +177,71 @@ function getSourceBadge(source: TimelineEvent['source']) {
   }
 }
 
+function EmailBodyExpander({ messageId, leadId }: { messageId: string; leadId: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [html, setHtml] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleToggle = useCallback(async () => {
+    if (isOpen) {
+      setIsOpen(false);
+      setHtml(null);
+      return;
+    }
+    setIsOpen(true);
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: efError } = await supabase.functions.invoke('fetch-resend-email', {
+        body: { messageId, leadId },
+      });
+      if (efError) throw new Error(efError.message);
+      if (data?.error) throw new Error(data.error);
+      setHtml(data?.html_body ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load email');
+    } finally {
+      setLoading(false);
+    }
+  }, [isOpen, messageId, leadId]);
+
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        onClick={handleToggle}
+        className="inline-flex items-center gap-1 text-xs text-teal-600 hover:text-teal-800 transition-colors min-h-[48px] min-w-[48px] px-1"
+      >
+        {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        {isOpen ? 'Hide email' : 'View email'}
+      </button>
+      {isOpen && (
+        <div className="mt-1.5">
+          {loading && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+              <div className="h-3 w-3 animate-spin rounded-full border-2 border-teal-400 border-t-transparent" />
+              Loading email content…
+            </div>
+          )}
+          {error && (
+            <p className="text-xs text-red-500 py-1">{error}</p>
+          )}
+          {html && !loading && (
+            <div
+              className="text-xs border border-gray-200 rounded-md p-3 bg-white max-h-60 overflow-y-auto"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
+            />
+          )}
+          {!html && !loading && !error && (
+            <p className="text-xs text-muted-foreground py-1">No email body available</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface ActivityTimelineProps {
   events: TimelineEvent[];
   isLoading: boolean;
@@ -324,6 +391,12 @@ export function ActivityTimeline({
                 event.description && (
                   <p className="text-xs text-gray-500">{event.description}</p>
                 )
+              )}
+              {event.source === 'email' && event.metadata?.provider_message_id && event.leadId && (
+                <EmailBodyExpander
+                  messageId={event.metadata.provider_message_id as string}
+                  leadId={event.leadId}
+                />
               )}
               <p className="text-xs text-gray-400 flex items-center gap-1">
                 <Clock className="h-3 w-3" />

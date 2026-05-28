@@ -96,7 +96,7 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
 
       let emailsQuery = supabase
         .from('email_logs')
-        .select('id, recipient_email, subject, template_name, status, sent_at, lead_id, leads(full_name, lead_number)')
+        .select('id, recipient_email, subject, template_name, status, sent_at, lead_id, provider_message_id, leads(full_name, lead_number)')
         .order('sent_at', { ascending: false })
         .limit(limit);
 
@@ -180,7 +180,7 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
             leadNumber: lead?.lead_number || null,
             actorName: null,
             timestamp: e.sent_at,
-            metadata: { recipient: e.recipient_email, status: e.status },
+            metadata: { recipient: e.recipient_email, status: e.status, provider_message_id: e.provider_message_id },
           });
         }
       }
