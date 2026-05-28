@@ -193,8 +193,13 @@ function EmailBodyExpander({ messageId, leadId }: { messageId: string; leadId: s
     setLoading(true);
     setError(null);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Session expired — please re-login');
+      }
       const { data, error: efError } = await supabase.functions.invoke('fetch-resend-email', {
         body: { messageId, leadId },
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (efError) throw new Error(efError.message);
       if (data?.error) throw new Error(data.error);
