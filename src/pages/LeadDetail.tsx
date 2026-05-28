@@ -643,6 +643,7 @@ export default function LeadDetail() {
     setRegeneratingPdf(true);
     try {
       await hardSaveReport(inspection.id);
+      await queryClient.invalidateQueries({ queryKey: ['pdf-versions', inspection.id] });
       toast.success("PDF regenerated successfully!");
       refetch();
     } catch (error) {
