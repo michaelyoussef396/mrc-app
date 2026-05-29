@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { supabase } from '@/integrations/supabase/client'
@@ -104,6 +105,13 @@ export interface UseJobCompletionFormReturn {
   setFormData: React.Dispatch<React.SetStateAction<JobCompletionFormData>>
   jobCompletionId: string | null
   submittedAt: string | null
+  /**
+   * Current status of the job_completions row. Needed so the form can derive
+   * `isRevision = !!submittedAt && jobCompletionStatus === 'draft'` rather than
+   * relying on `submittedAt` alone, which sticks around after a successful
+   * resubmit and would leave the amber "Admin requested changes" banner up.
+   */
+  jobCompletionStatus: string | null
   isLoading: boolean
   isSaving: boolean
   hasUnsavedChanges: boolean
@@ -126,9 +134,11 @@ export interface UseJobCompletionFormReturn {
  * @returns Form state and handlers consumed by TechnicianJobCompletionForm.
  */
 export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn {
+  const queryClient = useQueryClient()
   const [formData, setFormData] = useState<JobCompletionFormData>(DEFAULT_JOB_COMPLETION_FORM)
   const [jobCompletionId, setJobCompletionId] = useState<string | null>(null)
   const [submittedAt, setSubmittedAt] = useState<string | null>(null)
+  const [jobCompletionStatus, setJobCompletionStatus] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -171,6 +181,7 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
         if (existing) {
           setJobCompletionId(existing.id)
           setSubmittedAt(existing.submitted_at)
+          setJobCompletionStatus(existing.status)
           setFormData(rowToFormData(existing))
           return
         }
@@ -206,6 +217,7 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
           ''
 
         setJobCompletionId(row.id)
+        setJobCompletionStatus(row.status)
         setFormData({
           ...rowToFormData(row),
           remediationCompletedBy: defaultCompletedByName,
@@ -356,6 +368,20 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
     try {
       await submitJobCompletion(jobCompletionId)
 
+      // Flip local jc status + submitted_at so isRevision derivation in the form
+      // becomes false immediately — the amber "Admin requested changes" banner
+      // shouldn't re-render after a successful resubmit.
+      setJobCompletionStatus('submitted')
+      setSubmittedAt(new Date().toISOString())
+
+      // Invalidate LeadDetail's cached lead row + the activity timeline so the
+      // post-submit navigation lands on fresh data instead of the pre-resubmit
+      // status. Dashboard hooks (useTechnicianJobs / useRevisionJobs) are raw
+      // useState + useEffect and re-fetch on mount, so no extra invalidation
+      // is needed for those surfaces.
+      queryClient.invalidateQueries({ queryKey: ['lead', leadId] })
+      queryClient.invalidateQueries({ queryKey: ['activity-timeline'] })
+
       // Log activity: job completion submitted
       supabase.from('activities').insert({
         lead_id: leadId,
@@ -386,13 +412,14 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
       // Re-throw so the form page can decide whether to navigate.
       throw err
     }
-  }, [jobCompletionId, leadId, formData.requestReview, handleSave])
+  }, [jobCompletionId, leadId, formData.requestReview, handleSave, queryClient])
 
   return {
     formData,
     setFormData,
     jobCompletionId,
     submittedAt,
+    jobCompletionStatus,
     isLoading,
     isSaving,
     hasUnsavedChanges,

@@ -44,6 +44,7 @@ export default function JobCompletionForm() {
     formData,
     jobCompletionId,
     submittedAt,
+    jobCompletionStatus,
     isLoading,
     isSaving,
     hasUnsavedChanges,
@@ -55,7 +56,10 @@ export default function JobCompletionForm() {
     error,
   } = useJobCompletionForm(leadId || '')
 
-  const isRevision = !!submittedAt
+  // A row is in revision only while it has been submitted before AND is back
+  // in draft state (admin sent it back). `submitted_at` alone sticks after a
+  // successful resubmit, which would leave the amber banner up forever.
+  const isRevision = !!submittedAt && jobCompletionStatus === 'draft'
 
   const { data: sendBackActivity } = useQuery({
     queryKey: ['send-back-note', leadId],

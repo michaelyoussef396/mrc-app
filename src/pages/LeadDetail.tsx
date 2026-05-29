@@ -67,6 +67,7 @@ import {
   Leaf,
   Wrench,
   Calculator,
+  Home,
 } from "lucide-react";
 import { InlineEditField } from "@/components/leads/InlineEditField";
 import { InlineEditAddress, type AddressFields } from "@/components/leads/InlineEditAddress";
@@ -600,6 +601,15 @@ export default function LeadDetail() {
   const statusConfig = STATUS_FLOW[lead.status as LeadStatus];
   const fullAddress = `${lead.property_address_street}, ${lead.property_address_suburb} ${lead.property_address_state} ${lead.property_address_postcode}`;
 
+  // Reuses the discriminator from useRevisionJobs.ts. When the `revision_needed`
+  // enum lands (PR-T1), this collapses to `lead.status === 'revision_needed'`
+  // and the override JSX below can be deleted — statusConfig will render the
+  // amber pill on its own.
+  const isInRevision =
+    lead.status === 'job_scheduled' &&
+    jobCompletion?.status === 'draft' &&
+    !!jobCompletion?.submitted_at;
+
   // Action handlers
   // Note: Call + Email use direct anchor tags (`<a href="tel:…">` / `mailto:`) in JSX
   // so a missing OS handler leaves the page intact instead of navigating to about:blank.
@@ -1118,6 +1128,18 @@ export default function LeadDetail() {
               <span className="hidden sm:inline ml-2">Back</span>
             </Button>
 
+            {/* Home Button — role-aware: admins go to /admin, technicians to /technician */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate(hasRole('admin') ? '/admin' : '/technician')}
+              className="flex-shrink-0"
+              aria-label="Go home"
+            >
+              <Home className="h-5 w-5" />
+              <span className="hidden sm:inline ml-2">Home</span>
+            </Button>
+
             {/* Customer Name & Avatar */}
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <div
@@ -1129,17 +1151,26 @@ export default function LeadDetail() {
               <div className="min-w-0">
                 <h1 className="font-semibold text-base truncate">{lead.full_name}</h1>
                 <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                  <Badge
-                    variant="secondary"
-                    className="text-xs"
-                    style={{
-                      backgroundColor: `${statusConfig?.color}20`,
-                      color: statusConfig?.color,
-                      borderColor: statusConfig?.color,
-                    }}
-                  >
-                    {statusConfig?.shortTitle}
-                  </Badge>
+                  {isInRevision ? (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs bg-amber-100 text-amber-800 border-amber-200"
+                    >
+                      REVISION
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs"
+                      style={{
+                        backgroundColor: `${statusConfig?.color}20`,
+                        color: statusConfig?.color,
+                        borderColor: statusConfig?.color,
+                      }}
+                    >
+                      {statusConfig?.shortTitle}
+                    </Badge>
+                  )}
                   {isAdmin && lead.is_possible_duplicate && lead.possible_duplicate_of && (
                     <button
                       type="button"
@@ -1250,26 +1281,43 @@ export default function LeadDetail() {
       {/* Main Content */}
       <main className="p-4 pb-32 max-w-3xl mx-auto space-y-4">
         {/* Status Card */}
-        <Card
-          className="border-l-4"
-          style={{ borderLeftColor: statusConfig?.color }}
-        >
-          <CardContent className="pt-4">
-            <div className="flex items-start gap-3">
-              <div
-                className="h-12 w-12 rounded-full flex items-center justify-center text-white flex-shrink-0"
-                style={{ backgroundColor: statusConfig?.color }}
-              >
-                {statusConfig?.icon}
+        {isInRevision ? (
+          <Card className="border-l-4 border-l-amber-500 border-amber-200 bg-amber-50">
+            <CardContent className="pt-4">
+              <div className="flex items-start gap-3">
+                <div className="h-12 w-12 rounded-full flex items-center justify-center bg-amber-500 text-white flex-shrink-0">
+                  <AlertTriangle className="h-6 w-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-amber-700">Current Status</p>
+                  <h2 className="font-bold text-lg text-amber-900">Revision in Progress</h2>
+                  <p className="text-sm text-amber-800 mt-1">Awaiting technician to resubmit changes</p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-gray-500">Current Status</p>
-                <h2 className="font-bold text-lg">{statusConfig?.title}</h2>
-                <p className="text-sm text-gray-600 mt-1">{statusConfig?.nextAction}</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card
+            className="border-l-4"
+            style={{ borderLeftColor: statusConfig?.color }}
+          >
+            <CardContent className="pt-4">
+              <div className="flex items-start gap-3">
+                <div
+                  className="h-12 w-12 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                  style={{ backgroundColor: statusConfig?.color }}
+                >
+                  {statusConfig?.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-500">Current Status</p>
+                  <h2 className="font-bold text-lg">{statusConfig?.title}</h2>
+                  <p className="text-sm text-gray-600 mt-1">{statusConfig?.nextAction}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Primary CTA */}
         <Card>
