@@ -125,7 +125,8 @@ interface EquipmentRowData {
   label: string;
   actualQty: number;
   actualDays: number;
-  quotedQty: number | null; // null = no quoted data for this type
+  quotedQty: number | null;  // null = no quoted data for this type (AFD)
+  quotedDays: number | null; // null = no quoted data; tied to quoted_equipment_days
 }
 
 function EquipmentRow({ row }: { row: EquipmentRowData }) {
@@ -146,8 +147,13 @@ function EquipmentRow({ row }: { row: EquipmentRowData }) {
         </span>
         <span className="text-sm text-[#86868b]">
           Quoted:{' '}
-          {row.quotedQty !== null ? (
-            <strong>{row.quotedQty} qty</strong>
+          {row.quotedQty !== null &&
+          row.quotedQty > 0 &&
+          row.quotedDays !== null &&
+          row.quotedDays > 0 ? (
+            <strong>
+              {row.quotedQty} &times; {row.quotedDays} days
+            </strong>
           ) : (
             '—'
           )}
@@ -271,24 +277,28 @@ export function JobCompletionSummary({
       actualQty: jobCompletion.actual_dehumidifier_qty,
       actualDays: jobCompletion.actual_dehumidifier_days,
       quotedQty: jobCompletion.quoted_dehumidifier_qty,
+      quotedDays: jobCompletion.quoted_equipment_days ?? null,
     },
     {
       label: 'Air Mover',
       actualQty: jobCompletion.actual_air_mover_qty,
       actualDays: jobCompletion.actual_air_mover_days,
       quotedQty: jobCompletion.quoted_air_mover_qty,
+      quotedDays: jobCompletion.quoted_equipment_days ?? null,
     },
     {
       label: 'AFD',
       actualQty: jobCompletion.actual_afd_qty,
       actualDays: jobCompletion.actual_afd_days,
       quotedQty: null,
+      quotedDays: null,
     },
     {
       label: 'RCD',
       actualQty: jobCompletion.actual_rcd_qty,
       actualDays: jobCompletion.actual_rcd_days,
       quotedQty: jobCompletion.quoted_rcd_qty,
+      quotedDays: jobCompletion.quoted_equipment_days ?? null,
     },
   ];
 
