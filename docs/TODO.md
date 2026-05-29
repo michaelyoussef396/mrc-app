@@ -329,6 +329,26 @@ Tonight's deploy passed typecheck + unit tests + audit verification + programmat
 
 ---
 
+## Post-Launch (Deferred)
+
+### Revision Lifecycle — Tech Debt (deferred until dev DB exists)
+
+- [ ] PR-T1: `revision_needed` status enum cutover
+  - Replaces overloaded `job_scheduled` for sent-back jobs with a
+    first-class `revision_needed` status
+  - Eliminates the dashboard Next-Up Set-subtraction patch AND the
+    LeadDetail.tsx discriminator override
+  - 🔴 HIGH RISK: enum migration + data backfill on shared prod DB
+  - Sequence: migration in Studio (human) → npx supabase gen types →
+    backfill in Studio (human) → code merge → preview QA on tech
+    account → prod promote. /plan + manager agent required.
+  - BLOCKED until dev Supabase project exists (see Environment Separation)
+
+- [ ] PR-T2-cleanup: collapse the discriminator override JSX in
+  LeadDetail.tsx to a one-line statusConfig check. Only after PR-T1 lands.
+
+---
+
 ## Completed
 
 ### Phase 4 — Photo integrity (Stages 4.1-4.3)
