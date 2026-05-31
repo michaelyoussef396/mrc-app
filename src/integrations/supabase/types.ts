@@ -1186,27 +1186,48 @@ export type Database = {
       job_completion_pdf_versions: {
         Row: {
           created_at: string
+          emailed_at: string | null
+          file_size_bytes: number | null
           generated_by: string | null
+          generation_type: string | null
+          html_hash: string | null
+          html_storage_path: string | null
           id: string
           job_completion_id: string
-          pdf_url: string
+          pdf_storage_path: string | null
+          pdf_url: string | null
           version_number: number
+          was_emailed: boolean
         }
         Insert: {
           created_at?: string
+          emailed_at?: string | null
+          file_size_bytes?: number | null
           generated_by?: string | null
+          generation_type?: string | null
+          html_hash?: string | null
+          html_storage_path?: string | null
           id?: string
           job_completion_id: string
-          pdf_url: string
+          pdf_storage_path?: string | null
+          pdf_url?: string | null
           version_number?: number
+          was_emailed?: boolean
         }
         Update: {
           created_at?: string
+          emailed_at?: string | null
+          file_size_bytes?: number | null
           generated_by?: string | null
+          generation_type?: string | null
+          html_hash?: string | null
+          html_storage_path?: string | null
           id?: string
           job_completion_id?: string
-          pdf_url?: string
+          pdf_storage_path?: string | null
+          pdf_url?: string | null
           version_number?: number
+          was_emailed?: boolean
         }
         Relationships: [
           {
@@ -2084,31 +2105,49 @@ export type Database = {
           changes_made: Json | null
           created_at: string | null
           created_by: string | null
+          emailed_at: string | null
           file_size_bytes: number | null
+          generation_type: string | null
+          html_hash: string | null
+          html_storage_path: string | null
           id: string
           inspection_id: string
-          pdf_url: string
+          pdf_storage_path: string | null
+          pdf_url: string | null
           version_number: number
+          was_emailed: boolean
         }
         Insert: {
           changes_made?: Json | null
           created_at?: string | null
           created_by?: string | null
+          emailed_at?: string | null
           file_size_bytes?: number | null
+          generation_type?: string | null
+          html_hash?: string | null
+          html_storage_path?: string | null
           id?: string
           inspection_id: string
-          pdf_url: string
+          pdf_storage_path?: string | null
+          pdf_url?: string | null
           version_number: number
+          was_emailed?: boolean
         }
         Update: {
           changes_made?: Json | null
           created_at?: string | null
           created_by?: string | null
+          emailed_at?: string | null
           file_size_bytes?: number | null
+          generation_type?: string | null
+          html_hash?: string | null
+          html_storage_path?: string | null
           id?: string
           inspection_id?: string
-          pdf_url?: string
+          pdf_storage_path?: string | null
+          pdf_url?: string | null
           version_number?: number
+          was_emailed?: boolean
         }
         Relationships: [
           {
@@ -2248,6 +2287,99 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      photos_backup_20260526: {
+        Row: {
+          area_id: string | null
+          caption: string | null
+          created_at: string | null
+          deleted_at: string | null
+          file_name: string | null
+          file_size: number | null
+          id: string | null
+          inspection_id: string | null
+          job_completion_id: string | null
+          mime_type: string | null
+          moisture_reading_id: string | null
+          order_index: number | null
+          photo_category: string | null
+          photo_type: string | null
+          storage_path: string | null
+          subfloor_id: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          area_id?: string | null
+          caption?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string | null
+          inspection_id?: string | null
+          job_completion_id?: string | null
+          mime_type?: string | null
+          moisture_reading_id?: string | null
+          order_index?: number | null
+          photo_category?: string | null
+          photo_type?: string | null
+          storage_path?: string | null
+          subfloor_id?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          area_id?: string | null
+          caption?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string | null
+          inspection_id?: string | null
+          job_completion_id?: string | null
+          mime_type?: string | null
+          moisture_reading_id?: string | null
+          order_index?: number | null
+          photo_category?: string | null
+          photo_type?: string | null
+          storage_path?: string | null
+          subfloor_id?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      photos_subfloor_snapshot_20260527: {
+        Row: {
+          area_id: string | null
+          caption: string | null
+          created_at: string | null
+          deleted_at: string | null
+          id: string | null
+          inspection_id: string | null
+          photo_type: string | null
+          subfloor_id: string | null
+        }
+        Insert: {
+          area_id?: string | null
+          caption?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string | null
+          inspection_id?: string | null
+          photo_type?: string | null
+          subfloor_id?: string | null
+        }
+        Update: {
+          area_id?: string | null
+          caption?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string | null
+          inspection_id?: string | null
+          photo_type?: string | null
+          subfloor_id?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
