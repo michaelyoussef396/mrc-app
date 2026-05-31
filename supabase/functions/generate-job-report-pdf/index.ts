@@ -22,6 +22,12 @@ const RequestBodySchema = z.object({
   leadId: z.string().uuid().optional(),
   regenerate: z.boolean().optional().default(false),
   returnHtml: z.boolean().optional().default(false),
+  // previewOnly: render HTML and return it with ZERO persistence side
+  // effects — no job_completions UPDATE, no inspection-reports bucket upload,
+  // no job_completion_pdf_versions INSERT. Used by api/render-job-report-pdf's
+  // hard_save mode to fetch fresh HTML without bumping the legacy version
+  // counter. Implies returnHtml=true.
+  previewOnly: z.boolean().optional().default(false),
 }).refine(data => data.jobCompletionId || data.leadId, {
   message: 'Either jobCompletionId or leadId is required',
 })
@@ -109,9 +115,44 @@ Deno.serve(async (req) => {
       )
     }
 
-    const { regenerate, returnHtml } = parsed.data
+    const { regenerate, returnHtml: returnHtmlRaw, previewOnly, leadId } = parsed.data
     let { jobCompletionId } = parsed.data
-    const { leadId } = parsed.data
+    // previewOnly is the dominant flag — it implies returnHtml semantically.
+    const returnHtml = returnHtmlRaw || previewOnly
+
+    // previewOnly bypasses ALL persistence (no job_completions UPDATE, no
+    // audit trail, no version row), so it must be gated on admin role.
+    // Without this, any JWT holder (technician etc.) could exfiltrate full
+    // job-report HTML for any job_completion UUID with zero forensic trace.
+    // Default path keeps its existing posture (JWT verified, audit trail
+    // written via supabaseAudited). Mirrors inspection EF previewOnly gate.
+    if (previewOnly) {
+      const { data: { user: previewCaller }, error: previewAuthError } = await supabaseAudited.auth.getUser()
+      if (previewAuthError || !previewCaller) {
+        return new Response(
+          JSON.stringify({ error: 'previewOnly requires an authenticated caller' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
+      const { data: isAdmin, error: roleError } = await supabaseAudited.rpc('has_role', {
+        _user_id: previewCaller.id,
+        _role_name: 'admin',
+      })
+      if (roleError) {
+        console.error('[generate-job-report-pdf] previewOnly has_role lookup failed', { callerId: previewCaller.id, err: roleError })
+        return new Response(
+          JSON.stringify({ error: 'Role lookup failed' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
+      if (!isAdmin) {
+        console.warn('[generate-job-report-pdf] previewOnly blocked — non-admin caller', { callerId: previewCaller.id, jobCompletionId, leadId })
+        return new Response(
+          JSON.stringify({ error: 'Admin role required for previewOnly' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
+    }
 
     // ===== STEP 1: Resolve job completion =====
     if (!jobCompletionId && leadId) {
@@ -324,6 +365,24 @@ Deno.serve(async (req) => {
 
     // ===== STEP 6: Store and return =====
     const newVersion = regenerate ? (jc.pdf_version || 0) + 1 : (jc.pdf_version || 0) + 1
+
+    // previewOnly: render HTML and return it with ZERO persistence side
+    // effects — no job_completions UPDATE, no bucket upload, no
+    // job_completion_pdf_versions INSERT. version + generatedAt are nulled
+    // to signal "not persisted". Mirrors inspection EF previewOnly branch.
+    if (previewOnly) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          html,
+          version: null,
+          jobCompletionId,
+          generatedAt: null,
+          previewOnly: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
 
     if (returnHtml) {
       await supabaseAudited
