@@ -309,6 +309,19 @@ Deno.serve(async (req) => {
     html = html.replaceAll('{{contents_demolition_page}}', pad(demolitionPage))
     html = html.replaceAll('{{contents_terms_page}}', pad(termsPage))
 
+    // 5e. Strip <img> tags backed by the EMPTY_PHOTO fallback. Browsers paint
+    // their own placeholder fill (yellow/grey block) inside the <img> content
+    // area for tiny/empty images, which the .photo-slot CSS background cannot
+    // mask because it sits behind the content layer. Slots are absolutely
+    // positioned (template lines 269-282 + 320-327), so removing the tag does
+    // not shift surviving slots, and pagination math above is array-derived
+    // so it is unaffected.
+    const emptyImgPattern = new RegExp(
+      `<img\\s+src="${EMPTY_PHOTO.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*?/>`,
+      'g',
+    )
+    html = html.replace(emptyImgPattern, '')
+
     // ===== STEP 6: Store and return =====
     const newVersion = regenerate ? (jc.pdf_version || 0) + 1 : (jc.pdf_version || 0) + 1
 
