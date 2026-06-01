@@ -1603,7 +1603,7 @@ export default function LeadDetail() {
               )}
               {lead.invoice_sent_date && (
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Invoice Sent</span>
+                  <span className="text-sm text-gray-500">Invoice marked as sent</span>
                   <span className="text-sm font-medium">{formatDate(lead.invoice_sent_date)}</span>
                 </div>
               )}

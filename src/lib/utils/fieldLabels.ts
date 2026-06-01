@@ -42,7 +42,7 @@ export const FIELD_LABELS: Record<string, string> = {
   job_scheduled_date: 'Job Scheduled',
   job_completed_date: 'Job Completed',
   invoice_amount: 'Invoice Amount',
-  invoice_sent_date: 'Invoice Sent',
+  invoice_sent_date: 'Invoice marked as sent',
   payment_received_date: 'Payment Received',
   report_pdf_url: 'Report PDF',
   quoted_amount: 'Quoted Amount',

@@ -480,7 +480,7 @@ export function InvoicePaymentCard({ leadId, leadStatus, onRefresh }: Props) {
               disabled={isMarkingSent}
             >
               {isMarkingSent ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
-              Mark Sent
+              Mark invoice sent
             </Button>
           )}
           {isSent && (
@@ -496,6 +496,12 @@ export function InvoicePaymentCard({ leadId, leadStatus, onRefresh }: Props) {
           {isPaid && <div className="h-11" />}
           {isVoid && <div className="h-11" />}
         </div>
+
+        {isDraft && (
+          <p className="text-xs text-gray-500 text-center">
+            Logs the invoice for tracking; does not email the customer.
+          </p>
+        )}
 
         {!isPaid && !isVoid && (
           <Button

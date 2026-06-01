@@ -309,11 +309,14 @@ export function InvoiceSummaryCard({ leadId, onRefresh }: Props) {
           {starting ? (
             <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creating tracker…</>
           ) : (
-            <><Send className="h-4 w-4 mr-2" />I've sent the invoice — start tracking</>
+            <><Send className="h-4 w-4 mr-2" />Mark invoice sent</>
           )}
         </Button>
         <p className="text-xs text-gray-500 text-center">
           Creates a {formatCurrency(t.total_amount)} tracker due {formatDateAU(dueDateStr)}. You can edit after.
+        </p>
+        <p className="text-xs text-gray-500 text-center">
+          Logs the invoice for tracking; does not email the customer.
         </p>
       </div>
     </div>
