@@ -481,7 +481,7 @@ export async function notifyInvoiceSent(params: {
       event: 'custom',
       leadId: params.leadId,
       leadName: params.leadName,
-      message: `💰 Invoice ${params.invoiceNumber} sent to ${params.leadName} — $${params.totalAmount.toFixed(2)}`,
+      message: `💰 Invoice ${params.invoiceNumber} marked as sent for ${params.leadName} — $${params.totalAmount.toFixed(2)}`,
     });
   } catch (err) {
     console.error('[Notifications] notifyInvoiceSent failed:', err);
