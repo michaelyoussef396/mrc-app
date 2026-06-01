@@ -391,7 +391,7 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
   // Inspection (for quoted amount + labour)
   const { data: inspection } = await supabase
     .from('inspections')
-    .select('total_inc_gst, subtotal_ex_gst, labor_cost_ex_gst, equipment_cost_ex_gst, discount_percent')
+    .select('total_inc_gst, subtotal_ex_gst, labour_cost_ex_gst, equipment_cost_ex_gst, discount_percent')
     .eq('lead_id', leadId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -400,8 +400,8 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
   const lineItems: InvoiceLineItem[] = []
 
   // Labour line
-  if (inspection?.labor_cost_ex_gst && Number(inspection.labor_cost_ex_gst) > 0) {
-    const labour = Number(inspection.labor_cost_ex_gst)
+  if (inspection?.labour_cost_ex_gst && Number(inspection.labour_cost_ex_gst) > 0) {
+    const labour = Number(inspection.labour_cost_ex_gst)
     lineItems.push({
       description: 'Mould remediation labour',
       quantity: 1,
@@ -458,7 +458,10 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
     })
   }
 
-  const discountPct = Number(inspection?.discount_percent ?? 0)
+  // inspections.labour_cost_ex_gst is ALREADY net of the volume discount
+  // (inspection.discount_percent is baked-in metadata, not a re-applicable rate).
+  // Re-applying it here would double-discount the labour line and breach the 13% cap.
+  const discountPct = 0
 
   return {
     lead_id: leadId,
