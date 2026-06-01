@@ -18,9 +18,10 @@ interface DuplicateSendDialogProps {
   recipientEmail: string
   sentDate: string
   onChoose: (choice: DuplicateSendChoice) => void
+  reportLabel?: string
 }
 
-export function DuplicateSendDialog({ open, recipientEmail, sentDate, onChoose }: DuplicateSendDialogProps) {
+export function DuplicateSendDialog({ open, recipientEmail, sentDate, onChoose, reportLabel = 'An inspection report' }: DuplicateSendDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={(next) => { if (!next) onChoose('cancel') }}>
       <AlertDialogContent>
@@ -30,7 +31,7 @@ export function DuplicateSendDialog({ open, recipientEmail, sentDate, onChoose }
             Report already emailed
           </AlertDialogTitle>
           <AlertDialogDescription>
-            An inspection report was emailed to <strong className="text-foreground">{recipientEmail}</strong> on{' '}
+            {reportLabel} was emailed to <strong className="text-foreground">{recipientEmail}</strong> on{' '}
             <strong className="text-foreground">{sentDate}</strong>. Sending again will deliver a duplicate to the
             customer.
           </AlertDialogDescription>

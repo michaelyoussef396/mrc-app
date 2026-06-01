@@ -823,6 +823,31 @@ export default function ViewReportPDF() {
         toast.error('Please enter a valid recipient email')
         return
       }
+      // Duplicate-send guard: warn if this job report was already emailed
+      const { data: priorSends, error: priorSendsError } = await supabase
+        .from('email_logs')
+        .select('sent_at, recipient_email')
+        .eq('lead_id', lead.id)
+        .eq('template_name', 'job_report_sent')
+        .in('status', ['sent', 'delivered'])
+        .order('sent_at', { ascending: false })
+        .limit(1)
+
+      if (priorSendsError) {
+        console.error('Duplicate-send check failed:', priorSendsError)
+        toast.error('Could not verify prior sends — please try again', { id: 'send-email' })
+        return
+      }
+
+      if (priorSends && priorSends.length > 0) {
+        toast.dismiss('send-email')
+        setDuplicateSendInfo({
+          recipientEmail: priorSends[0].recipient_email,
+          sentDate: formatDateTimeAU(priorSends[0].sent_at),
+        })
+        return
+      }
+
       // The pdf_blob_url / convertHtmlToPdf forks are GONE. The send path now
       // always attaches the latest hard-saved PDF (mirrors inspection Phase 5).
       // proceedWithJobReportSend pre-checks via checkJobReportSendMismatch;
@@ -881,7 +906,11 @@ export default function ViewReportPDF() {
     const recipient = emailRecipient.trim()
     if (!recipient) return
     bypassRateLimitRef.current = true
-    proceedWithInspectionSend(recipient)
+    if (reportType === 'job') {
+      proceedWithJobReportSend(recipient)
+    } else {
+      proceedWithInspectionSend(recipient)
+    }
   }
 
   async function proceedWithInspectionSend(recipient: string) {
@@ -1113,7 +1142,9 @@ export default function ViewReportPDF() {
           content: base64Content,
           content_type: 'application/pdf',
         }],
+        bypassRecipientRateLimit: bypassRateLimitRef.current || undefined,
       })
+      bypassRateLimitRef.current = false
 
       await markJobVersionEmailed(version.id)
 
@@ -1126,13 +1157,15 @@ export default function ViewReportPDF() {
         toast.error(`Email sent but status update failed: ${statusErr.message}`, { id: 'send-email' })
       }
 
-      await logFieldEdits({
-        leadId: lead.id,
-        entityType: 'lead',
-        entityId: lead.id,
-        changes: [{ field: 'status', old: lead.status ?? null, new: 'job_report_pdf_sent' }],
-        extraMetadata: { trigger: 'job_report_emailed', recipient },
-      }).catch(err => console.error('Activity log failed:', err))
+      if (!statusErr) {
+        await logFieldEdits({
+          leadId: lead.id,
+          entityType: 'lead',
+          entityId: lead.id,
+          changes: [{ field: 'status', old: lead.status ?? null, new: 'job_report_pdf_sent' }],
+          extraMetadata: { trigger: 'job_report_emailed', recipient },
+        }).catch(err => console.error('Activity log failed:', err))
+      }
 
       queryClient.invalidateQueries({ queryKey: ['lead', lead.id] })
       queryClient.invalidateQueries({ queryKey: ['activity-timeline'] })
@@ -1145,6 +1178,7 @@ export default function ViewReportPDF() {
       const msg = err instanceof Error ? err.message : 'Failed to send email'
       toast.error(msg, { id: 'send-email' })
       setSendingEmail(false)
+      bypassRateLimitRef.current = false
     }
   }
 
@@ -2429,6 +2463,7 @@ export default function ViewReportPDF() {
           open={duplicateSendInfo !== null}
           recipientEmail={duplicateSendInfo?.recipientEmail ?? ''}
           sentDate={duplicateSendInfo?.sentDate ?? ''}
+          reportLabel={reportType === 'job' ? 'A job report' : 'An inspection report'}
           onChoose={handleDuplicateSendChoice}
         />
       </div>
