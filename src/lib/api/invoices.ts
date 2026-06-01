@@ -249,6 +249,54 @@ export async function updateInvoice(
   return data as InvoiceRow
 }
 
+/**
+ * Manual total override for a tracked invoice (Edit dialog).
+ *
+ * The admin types a GST-inclusive total that intentionally stops deriving from
+ * line items (e.g. an externally-agreed figure). We keep the row internally
+ * consistent — subtotal = total / (1 + GST), gst = the remainder — instead of
+ * stamping the same number onto three columns and leaving gst_amount stale.
+ * equipment_subtotal / discount_amount / line_items / discount_percentage are
+ * preserved as stored: an override means the total no longer derives from
+ * components, not that those components vanish.
+ */
+export async function applyManualInvoiceTotal(
+  invoiceId: string,
+  totalIncGst: number,
+  fields: { due_date?: string; payment_reference?: string | null; notes?: string | null },
+): Promise<InvoiceRow> {
+  if (totalIncGst <= 0) {
+    throw new Error('Invoice total must be greater than 0')
+  }
+
+  const subtotal = round2(totalIncGst / (1 + GST_RATE))
+  const total_amount = round2(totalIncGst)
+  const gst_amount = round2(total_amount - subtotal)
+
+  const patch: Record<string, unknown> = {
+    subtotal,
+    subtotal_after_discount: subtotal,
+    gst_amount,
+    total_amount,
+  }
+  if (fields.due_date !== undefined) patch.due_date = fields.due_date
+  if (fields.payment_reference !== undefined) patch.payment_reference = fields.payment_reference
+  if (fields.notes !== undefined) patch.notes = fields.notes
+
+  const { data, error } = await supabase
+    .from('invoices')
+    .update(patch)
+    .eq('id', invoiceId)
+    .select()
+    .single()
+
+  if (error) {
+    captureBusinessError('Failed to apply manual invoice total', { invoiceId, error: error.message })
+    throw new Error(`Failed to update invoice: ${error.message}`)
+  }
+  return data as InvoiceRow
+}
+
 export async function markInvoiceSent(invoiceId: string): Promise<void> {
   const { data, error } = await supabase
     .from('invoices')
@@ -286,19 +334,26 @@ export async function markInvoicePaid(
   invoiceId: string,
   paymentMethod: PaymentMethod,
   paymentReference?: string,
+  paymentDate?: string,
 ): Promise<void> {
   const current = await getInvoiceById(invoiceId)
   if (current.status === 'paid') return
 
-  const now = new Date()
+  // A custom payment_date records when payment actually landed; default to today.
+  // paid_at anchors a custom date to local midday to avoid timezone day-rollover.
+  const payment_date = paymentDate ?? new Date().toISOString().split('T')[0]
+  const paid_at = paymentDate
+    ? new Date(`${paymentDate}T12:00:00`).toISOString()
+    : new Date().toISOString()
+
   const { data, error } = await supabase
     .from('invoices')
     .update({
       status: 'paid',
       payment_method: paymentMethod,
       payment_reference: paymentReference ?? null,
-      payment_date: now.toISOString().split('T')[0],
-      paid_at: now.toISOString(),
+      payment_date,
+      paid_at,
     })
     .eq('id', invoiceId)
     .select('lead_id, customer_name, invoice_number, total_amount')

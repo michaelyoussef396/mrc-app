@@ -16,7 +16,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { usePaymentTracking } from '@/hooks/usePaymentTracking'
-import { voidInvoice, markInvoiceSent, type PaymentMethod } from '@/lib/api/invoices'
+import {
+  voidInvoice, markInvoiceSent, applyManualInvoiceTotal, calculateInvoiceTotals,
+  type PaymentMethod,
+} from '@/lib/api/invoices'
 import { formatCurrency } from '@/lib/calculations/pricing'
 import { formatDateAU } from '@/lib/dateUtils'
 
@@ -148,6 +151,11 @@ export function InvoicePaymentCard({ leadId, leadStatus, onRefresh }: Props) {
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0])
   const [paymentReference, setPaymentReference] = useState('')
 
+  // Edit override guardrail: when the typed total diverges from the pricing-engine
+  // total, require an explicit confirm before persisting a logged manual override.
+  const [overrideConfirmOpen, setOverrideConfirmOpen] = useState(false)
+  const [calcTotalForConfirm, setCalcTotalForConfirm] = useState<number | null>(null)
+
   // Sync form with loaded invoice when opening edit
   useEffect(() => {
     if (invoice && editOpen) {
@@ -230,28 +238,48 @@ export function InvoicePaymentCard({ leadId, leadStatus, onRefresh }: Props) {
     }
   }
 
-  async function handleEdit() {
+  function handleEdit() {
     if (!invoice) return
     if (amount <= 0) {
       toast.error('Invoice amount must be greater than 0')
       return
     }
+    // Compare the typed inc-GST total against the pricing-engine total derived
+    // from the stored line items + discount (which enforces the 13% cap). Any
+    // divergence is a deliberate manual override — confirm + log it explicitly.
+    const calcTotal = calculateInvoiceTotals(invoice.line_items, invoice.discount_percentage).total_amount
+    if (Math.abs(amount - calcTotal) > 0.01) {
+      setCalcTotalForConfirm(calcTotal)
+      setOverrideConfirmOpen(true)
+      return
+    }
+    void persistEdit(calcTotal)
+  }
+
+  async function persistEdit(calcTotal: number) {
+    if (!invoice) return
+    const isOverride = Math.abs(amount - calcTotal) > 0.01
     setSaving(true)
     try {
-      const { error } = await supabase
-        .from('invoices')
-        .update({
-          total_amount: amount,
-          subtotal: amount,
-          subtotal_after_discount: amount,
-          due_date: dueDate,
-          payment_reference: reference || null,
-          notes: notes || null,
-        })
-        .eq('id', invoice.id)
+      await applyManualInvoiceTotal(invoice.id, amount, {
+        due_date: dueDate,
+        payment_reference: reference || null,
+        notes: notes || null,
+      })
 
-      if (error) throw error
+      if (isOverride) {
+        await logFieldEdits({
+          leadId: invoice.lead_id ?? leadId,
+          entityType: 'lead',
+          entityId: invoice.lead_id ?? leadId,
+          changes: [{ field: 'invoice_total_amount', old: Number(invoice.total_amount), new: amount }],
+          extraMetadata: { manual_override: true, calculated_total: calcTotal },
+        })
+        queryClient.invalidateQueries({ queryKey: ['activity-timeline'] })
+      }
+
       toast.success('Invoice updated')
+      setOverrideConfirmOpen(false)
       setEditOpen(false)
       await refetch()
       onRefresh()
@@ -276,23 +304,10 @@ export function InvoicePaymentCard({ leadId, leadStatus, onRefresh }: Props) {
   async function handleMarkPaid() {
     if (!invoice) return
     try {
-      // Custom payment date support via direct update before calling markPaid
-      if (paymentDate && paymentDate !== new Date().toISOString().split('T')[0]) {
-        await supabase
-          .from('invoices')
-          .update({
-            payment_method: paymentMethod,
-            payment_reference: paymentReference || null,
-            payment_date: paymentDate,
-            paid_at: new Date(paymentDate + 'T12:00:00').toISOString(),
-            status: 'paid',
-          })
-          .eq('id', invoice.id)
-        // Still fire Slack + lead status update via the API helper
-        await supabase.from('leads').update({ status: 'paid' }).eq('id', invoice.lead_id ?? '')
-      } else {
-        await markPaid(paymentMethod, paymentReference || undefined)
-      }
+      // Single path through markInvoicePaid (via the hook) so status, payment
+      // fields, Slack notify and lead→paid fire identically regardless of date.
+      // The optional paymentDate records when payment actually landed.
+      await markPaid(paymentMethod, paymentReference || undefined, paymentDate)
       await logFieldEdits({
         leadId: invoice.lead_id ?? leadId,
         entityType: 'lead',
@@ -319,6 +334,14 @@ export function InvoicePaymentCard({ leadId, leadStatus, onRefresh }: Props) {
     if (!invoice) return
     try {
       await voidInvoice(invoice.id)
+      await logFieldEdits({
+        leadId: invoice.lead_id ?? leadId,
+        entityType: 'lead',
+        entityId: invoice.lead_id ?? leadId,
+        changes: [{ field: 'invoice_status', old: invoice.status, new: 'void' }],
+        extraMetadata: { invoice_number: invoice.invoice_number },
+      })
+      queryClient.invalidateQueries({ queryKey: ['activity-timeline'] })
       toast.success('Invoice voided')
       setVoidDialogOpen(false)
       await refetch()
@@ -550,6 +573,45 @@ export function InvoicePaymentCard({ leadId, leadStatus, onRefresh }: Props) {
             <Button onClick={handleEdit} disabled={saving} className="bg-purple-600 hover:bg-purple-700">
               {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual override confirm */}
+      <Dialog open={overrideConfirmOpen} onOpenChange={setOverrideConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm manual total override</DialogTitle>
+            <DialogDescription>
+              The amount entered differs from the calculated invoice total. This will be saved as a logged manual override.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Calculated total</span>
+              <span className="tabular-nums">{calcTotalForConfirm != null ? formatCurrency(calcTotalForConfirm) : '—'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Entered amount</span>
+              <span className="tabular-nums font-semibold">{formatCurrency(amount)}</span>
+            </div>
+            <div className="flex justify-between border-t border-amber-200 pt-1 text-amber-800">
+              <span>Difference</span>
+              <span className="tabular-nums font-semibold">
+                {calcTotalForConfirm != null ? formatCurrency(amount - calcTotalForConfirm) : '—'}
+              </span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOverrideConfirmOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => { if (calcTotalForConfirm != null) void persistEdit(calcTotalForConfirm) }}
+              disabled={saving}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              Save override
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -27,9 +27,9 @@ export function usePaymentTracking(leadId: string | null) {
   const invoice = invoiceQuery.data ?? null
 
   const markPaidMutation = useMutation({
-    mutationFn: async ({ method, reference }: { method: PaymentMethod; reference?: string }) => {
+    mutationFn: async ({ method, reference, paymentDate }: { method: PaymentMethod; reference?: string; paymentDate?: string }) => {
       if (!invoice) throw new Error('No invoice to mark paid')
-      await markInvoicePaid(invoice.id, method, reference)
+      await markInvoicePaid(invoice.id, method, reference, paymentDate)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoice-by-lead', leadId] })
@@ -69,8 +69,8 @@ export function usePaymentTracking(leadId: string | null) {
     isLoading: invoiceQuery.isLoading,
     error: invoiceQuery.error,
     refetch: invoiceQuery.refetch,
-    markPaid: (method: PaymentMethod, reference?: string) =>
-      markPaidMutation.mutateAsync({ method, reference }),
+    markPaid: (method: PaymentMethod, reference?: string, paymentDate?: string) =>
+      markPaidMutation.mutateAsync({ method, reference, paymentDate }),
     markSent: () => markSentMutation.mutateAsync(),
     isMarkingPaid: markPaidMutation.isPending,
     isMarkingSent: markSentMutation.isPending,
