@@ -42,6 +42,7 @@ import {
 } from '@/lib/api/pdfGeneration'
 import { StalePdfBanner } from '@/components/pdf/StalePdfBanner'
 import { hardSaveReport, downloadBlobAs, HardSaveError, checkSendMismatch, downloadVersionPdfAsBase64, markVersionEmailed, type HardSaveVersionRow } from '@/lib/api/reportPipeline'
+import { hardSaveJobReport, HardSaveJobReportError, checkJobReportSendMismatch, downloadJobVersionPdfAsBase64, markJobVersionEmailed, type HardSaveJobReportVersionRow } from '@/lib/api/jobReportPipeline'
 import { MismatchSendDialog, type MismatchChoice } from '@/components/pdf/MismatchSendDialog'
 import { DuplicateSendDialog } from '@/components/pdf/DuplicateSendDialog'
 import { ReportVersionHistory } from '@/components/pdf/ReportVersionHistory'
@@ -323,6 +324,9 @@ export default function ViewReportPDF() {
   // user must pick send_as_is, hard_save_fresh, or cancel before the send
   // can proceed.
   const [mismatchVersion, setMismatchVersion] = useState<HardSaveVersionRow | null>(null)
+  // Job-report mirror of mismatchVersion. Separate state because the two
+  // dialogs can theoretically be open at different times for different reports.
+  const [jobMismatchVersion, setJobMismatchVersion] = useState<HardSaveJobReportVersionRow | null>(null)
   const [duplicateSendInfo, setDuplicateSendInfo] = useState<{ recipientEmail: string; sentDate: string } | null>(null)
 
   function prefillEmailAndOpenStage() {
@@ -466,7 +470,13 @@ export default function ViewReportPDF() {
     enabled: reportType === 'job' && !!effectiveId,
   })
 
-  // Job report version history
+  // Job report version history (legacy HTML versions only).
+  // Hard-save rows (new pipeline) leave pdf_url NULL by design — they live
+  // at pdf_storage_path in report-pdfs bucket and are reachable via Download.
+  // The legacy version switcher in the JSX below renders pdf_url links, so
+  // we filter out NULL rows here. A unified job version-history UI is tracked
+  // as a post-launch follow-on (parallel to ReportVersionHistory for
+  // inspections); see docs/TODO.md PDF-CL items.
   const { data: jobVersions = [] } = useQuery({
     queryKey: ['job-report-versions', jobCompletion?.id],
     queryFn: async () => {
@@ -475,6 +485,7 @@ export default function ViewReportPDF() {
         .from('job_completion_pdf_versions')
         .select('id, version_number, pdf_url, created_at, generated_by')
         .eq('job_completion_id', jobCompletion.id)
+        .not('pdf_url', 'is', null)
         .order('version_number', { ascending: false })
       return data || []
     },
@@ -497,6 +508,27 @@ export default function ViewReportPDF() {
       return data ?? null
     },
     enabled: reportType === 'inspection' && !!inspection?.id,
+  })
+
+  // Job-report mirror of latestHardSave. Drives the Preview button in the
+  // Send Email screen — Preview must OPEN the existing hard-save PDF, not
+  // re-render. Same shape as the inspection query above.
+  const { data: latestJobHardSave } = useQuery({
+    queryKey: ['job-report-versions', jobCompletion?.id, 'latest-hard-save'],
+    queryFn: async () => {
+      if (!jobCompletion?.id) return null
+      const { data } = await supabase
+        .from('job_completion_pdf_versions')
+        .select('id, version_number, pdf_storage_path')
+        .eq('job_completion_id', jobCompletion.id)
+        .eq('generation_type', 'hard_save')
+        .not('pdf_storage_path', 'is', null)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      return data ?? null
+    },
+    enabled: reportType === 'job' && !!jobCompletion?.id,
   })
 
   // Job report photos for edit panel
@@ -791,117 +823,11 @@ export default function ViewReportPDF() {
         toast.error('Please enter a valid recipient email')
         return
       }
-      if (!jobCompletion.pdf_url) {
-        toast.error('No job report available')
-        return
-      }
-
-      setSendingEmail(true)
-      toast.loading('Converting report to PDF...', { id: 'send-email' })
-
-      try {
-        const address = [lead.property_address_street, lead.property_address_suburb, lead.property_address_state, lead.property_address_postcode].filter(Boolean).join(', ')
-
-        // 1. Get PDF content as base64 (match inspection pattern)
-        let base64Content: string
-
-        const jobBlobUrl = (jobCompletion as { pdf_blob_url?: string | null }).pdf_blob_url
-        if (jobBlobUrl) {
-          // Use stored browser-rendered PDF if available
-          toast.loading('Preparing PDF attachment...', { id: 'send-email' })
-          const { data: pdfData, error: pdfError } = await supabase.storage
-            .from('report-pdfs')
-            .download(jobBlobUrl)
-          if (pdfError || !pdfData) throw new Error('Failed to download stored PDF')
-          const arrayBuffer = await pdfData.arrayBuffer()
-          base64Content = btoa(
-            new Uint8Array(arrayBuffer).reduce((s, b) => s + String.fromCharCode(b), '')
-          )
-        } else {
-          // Fallback: fetch HTML from storage and convert client-side
-          toast.loading('Generating PDF from report HTML...', { id: 'send-email' })
-          let htmlContent: string
-          const pathMatch = jobCompletion.pdf_url.match(/inspection-reports\/(.+)$/)
-          if (pathMatch) {
-            const { data, error } = await supabase.storage
-              .from('inspection-reports')
-              .download(pathMatch[1])
-            if (error || !data) throw new Error('Failed to download report file')
-            htmlContent = await data.text()
-          } else {
-            const response = await fetch(jobCompletion.pdf_url)
-            if (!response.ok) throw new Error('Failed to fetch report file')
-            htmlContent = await response.text()
-          }
-          const { convertHtmlToPdf } = await import('@/lib/utils/htmlToPdf')
-          const pdfBlob = await convertHtmlToPdf(htmlContent)
-          base64Content = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader()
-            reader.onload = () => resolve((reader.result as string).split(',')[1])
-            reader.onerror = reject
-            reader.readAsDataURL(pdfBlob)
-          })
-        }
-
-        // 2. Build email HTML via the canonical branded builder.
-        // customMessage threads the admin's edited body into the branded shell
-        // (header + details box + CTA + signature + disclaimer all preserved).
-        toast.loading('Sending email...', { id: 'send-email' })
-        const completionDate = formatDateAU(jobCompletion.completion_date as string | null | undefined) || ''
-        const emailHtml = buildJobReportEmailHtml({
-          customerName: lead.full_name,
-          propertyAddress: address,
-          jobNumber: jobCompletion.job_number || '',
-          completionDate,
-          pdfUrl: jobCompletion.pdf_url,
-          customMessage: emailBody.trim() || undefined,
-        })
-
-        // 3. Filename
-        const jobNumber = jobCompletion.job_number || 'Report'
-        const filename = `MRC-${jobNumber}-Job-Report.pdf`
-
-        // 4. Send email with PDF attachment
-        await sendEmail({
-          to: recipient,
-          subject: emailSubject,
-          html: emailHtml,
-          leadId: lead.id,
-          templateName: 'job_report_sent',
-          attachments: [{
-            filename,
-            content: base64Content,
-            content_type: 'application/pdf',
-          }],
-        })
-
-        // 5. Update lead status + activity log (surface errors — do not swallow)
-        const { error: statusErr } = await supabase
-          .from('leads')
-          .update({ status: 'job_report_pdf_sent' })
-          .eq('id', lead.id)
-        if (statusErr) {
-          console.error('Lead status update failed:', statusErr)
-          toast.error(`Email sent but status update failed: ${statusErr.message}`, { id: 'send-email' })
-        }
-        await logFieldEdits({
-          leadId: lead.id,
-          entityType: 'lead',
-          entityId: lead.id,
-          changes: [{ field: 'status', old: (lead as { id: string; full_name: string; email?: string; property_address_street?: string; property_address_suburb?: string; property_address_state?: string; property_address_postcode?: string; status?: string }).status ?? null, new: 'job_report_pdf_sent' }],
-          extraMetadata: { trigger: 'job_report_emailed', recipient },
-        }).catch(err => console.error('Activity log failed:', err))
-        queryClient.invalidateQueries({ queryKey: ['activity-timeline'] })
-
-        toast.success(`Email sent to ${recipient} with PDF attached!`, { id: 'send-email' })
-        navigate(`/leads/${lead.id}`)
-      } catch (err) {
-        console.error('Job report send error:', err)
-        const msg = err instanceof Error ? err.message : 'Failed to send email'
-        toast.error(msg, { id: 'send-email' })
-      } finally {
-        setSendingEmail(false)
-      }
+      // The pdf_blob_url / convertHtmlToPdf forks are GONE. The send path now
+      // always attaches the latest hard-saved PDF (mirrors inspection Phase 5).
+      // proceedWithJobReportSend pre-checks via checkJobReportSendMismatch;
+      // on no_hard_save it tells the admin to click Download first.
+      proceedWithJobReportSend(recipient)
       return
     }
 
@@ -1107,46 +1033,187 @@ export default function ViewReportPDF() {
     }
   }
 
+  // ============================================================================
+  // Job-report send helpers (mirror inspection equivalents above)
+  // ============================================================================
+
+  async function proceedWithJobReportSend(recipient: string) {
+    if (!jobCompletion?.id) {
+      toast.error('Job completion not loaded')
+      return
+    }
+    setSendingEmail(true)
+    toast.loading('Checking for content changes...', { id: 'send-email' })
+
+    try {
+      const mismatch = await checkJobReportSendMismatch(jobCompletion.id)
+
+      if (mismatch.kind === 'no_hard_save') {
+        toast.error('Please click Download first to save a reviewed version, then Send.', { id: 'send-email', duration: Infinity })
+        setSendingEmail(false)
+        return
+      }
+
+      if (mismatch.kind === 'mismatch') {
+        setJobMismatchVersion(mismatch.version)
+        toast.dismiss('send-email')
+        return
+      }
+
+      await performJobReportSend(mismatch.version, recipient)
+    } catch (err) {
+      console.error('Job-report send pre-check failed:', err)
+      const msg = err instanceof Error ? err.message : 'Failed to start send'
+      toast.error(msg, { id: 'send-email' })
+      setSendingEmail(false)
+    }
+  }
+
+  async function performJobReportSend(version: HardSaveJobReportVersionRow, recipient: string) {
+    if (!jobCompletion) {
+      toast.error('Job completion not loaded — please refresh and try again', { id: 'send-email' })
+      setSendingEmail(false)
+      return
+    }
+    const lead = jobCompletion.lead as { id: string; full_name: string; email?: string; property_address_street?: string; property_address_suburb?: string; property_address_state?: string; property_address_postcode?: string; status?: string } | null
+    if (!lead) {
+      toast.error('Lead not found — please refresh and try again', { id: 'send-email' })
+      setSendingEmail(false)
+      return
+    }
+
+    try {
+      const address = [lead.property_address_street, lead.property_address_suburb, lead.property_address_state, lead.property_address_postcode].filter(Boolean).join(', ')
+
+      toast.loading(`Attaching v${version.version_number} PDF...`, { id: 'send-email' })
+      const base64Content = await downloadJobVersionPdfAsBase64(version.pdf_storage_path)
+
+      toast.loading('Sending email...', { id: 'send-email' })
+      const completionDate = formatDateAU(jobCompletion.completion_date as string | null | undefined) || ''
+      const emailHtml = buildJobReportEmailHtml({
+        customerName: lead.full_name,
+        propertyAddress: address,
+        jobNumber: jobCompletion.job_number || '',
+        completionDate,
+        pdfUrl: jobCompletion.pdf_url || '',
+        customMessage: emailBody.trim() || undefined,
+      })
+
+      const jobNumber = jobCompletion.job_number || 'Report'
+      const filename = `MRC-${jobNumber}-Job-Report-v${version.version_number}.pdf`
+
+      await sendEmail({
+        to: recipient,
+        subject: emailSubject,
+        html: emailHtml,
+        leadId: lead.id,
+        templateName: 'job_report_sent',
+        attachments: [{
+          filename,
+          content: base64Content,
+          content_type: 'application/pdf',
+        }],
+      })
+
+      await markJobVersionEmailed(version.id)
+
+      const { error: statusErr } = await supabase
+        .from('leads')
+        .update({ status: 'job_report_pdf_sent' })
+        .eq('id', lead.id)
+      if (statusErr) {
+        console.error('Lead status update failed:', statusErr)
+        toast.error(`Email sent but status update failed: ${statusErr.message}`, { id: 'send-email' })
+      }
+
+      await logFieldEdits({
+        leadId: lead.id,
+        entityType: 'lead',
+        entityId: lead.id,
+        changes: [{ field: 'status', old: lead.status ?? null, new: 'job_report_pdf_sent' }],
+        extraMetadata: { trigger: 'job_report_emailed', recipient },
+      }).catch(err => console.error('Activity log failed:', err))
+
+      queryClient.invalidateQueries({ queryKey: ['lead', lead.id] })
+      queryClient.invalidateQueries({ queryKey: ['activity-timeline'] })
+      queryClient.invalidateQueries({ queryKey: ['job-report-versions', jobCompletion.id] })
+
+      toast.success(`Email sent to ${recipient} with v${version.version_number} attached!`, { id: 'send-email' })
+      navigate(`/leads/${lead.id}`)
+    } catch (err) {
+      console.error('Job-report send error:', err)
+      const msg = err instanceof Error ? err.message : 'Failed to send email'
+      toast.error(msg, { id: 'send-email' })
+      setSendingEmail(false)
+    }
+  }
+
+  async function handleJobMismatchChoice(choice: MismatchChoice) {
+    if (!jobCompletion?.id) return
+    const recipient = emailRecipient.trim()
+
+    if (choice === 'cancel') {
+      setJobMismatchVersion(null)
+      setSendingEmail(false)
+      toast.dismiss('send-email')
+      return
+    }
+
+    if (choice === 'send_as_is') {
+      const versionToSend = jobMismatchVersion
+      setJobMismatchVersion(null)
+      if (versionToSend) await performJobReportSend(versionToSend, recipient)
+      return
+    }
+
+    // hard_save_fresh: render a brand-new version, then send IT.
+    toast.loading('Hard-saving fresh version...', { id: 'send-email' })
+    try {
+      const fresh = await hardSaveJobReport(jobCompletion.id)
+      const freshVersion: HardSaveJobReportVersionRow = {
+        id: fresh.versionId,
+        version_number: fresh.versionNumber,
+        pdf_storage_path: fresh.pdfStoragePath,
+        html_storage_path: fresh.htmlStoragePath,
+        html_hash: fresh.htmlHash,
+        created_at: new Date().toISOString(),
+      }
+      queryClient.invalidateQueries({ queryKey: ['job-report-versions', jobCompletion.id] })
+      setJobMismatchVersion(null)
+      await performJobReportSend(freshVersion, recipient)
+    } catch (err) {
+      console.error('Job-report hard-save during mismatch failed:', err)
+      const msg = err instanceof HardSaveJobReportError ? err.message : 'Failed to hard-save fresh version'
+      toast.error(msg, { id: 'send-email' })
+      setSendingEmail(false)
+      setJobMismatchVersion(null)
+    }
+  }
+
   async function handleDownload() {
     if (reportType === 'job') {
-      const pdfUrl = jobPdfUrlOverride || jobCompletion?.pdf_url
-      if (!pdfUrl) { toast.error('PDF not yet generated'); return }
-
-      toast.loading('Preparing PDF...', { id: 'download' })
+      if (!jobCompletion?.id) {
+        toast.error('Job completion not loaded')
+        return
+      }
+      // Mirrors inspection handleDownload (Phase 4b). Download = HARD SAVE.
+      // The server renders the PDF via Chromium, persists PDF + HTML to
+      // report-pdfs, writes a job_completion_pdf_versions row, and streams
+      // the file back. Replaces the print-window dance.
+      toast.loading('Hard-saving job report — this may take ~10 seconds...', { id: 'download' })
       try {
-        let html: string
-        const pathMatch = pdfUrl.match(/inspection-reports\/(.+)$/)
-        if (pathMatch) {
-          const { data, error } = await supabase.storage
-            .from('inspection-reports')
-            .download(pathMatch[1])
-          if (error || !data) throw new Error('Failed to download report')
-          html = await data.text()
-        } else {
-          const response = await fetch(pdfUrl)
-          if (!response.ok) throw new Error('Failed to fetch report')
-          html = await response.text()
-        }
-
-        const title = jobCompletion?.job_number || 'Job_Report'
-        const modifiedHtml = html.replace(
-          /<head>/i,
-          `<head><title>${title}</title>`
-        ) + '\n<script>window.onload=function(){setTimeout(function(){window.print()},600)}</script>'
-
-        const blob = new Blob([modifiedHtml], { type: 'text/html' })
-        const blobUrl = URL.createObjectURL(blob)
-        const printWindow = window.open(blobUrl, '_blank')
-        if (!printWindow) {
-          toast.error('Pop-up blocked — please allow pop-ups', { id: 'download' })
-          URL.revokeObjectURL(blobUrl)
-          return
-        }
-        toast.success('Print dialog opening — select "Save as PDF"', { id: 'download' })
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+        const result = await hardSaveJobReport(jobCompletion.id)
+        const jobNumber = jobCompletion.job_number || 'Report'
+        downloadBlobAs(result.pdfBlob, `MRC-${jobNumber}-v${result.versionNumber}.pdf`)
+        toast.success(`Downloaded v${result.versionNumber} — saved to history`, { id: 'download' })
+        // Refresh anything that reads job_completion_pdf_versions.
+        queryClient.invalidateQueries({ queryKey: ['job-report-versions', jobCompletion.id] })
       } catch (error) {
-        console.error('Job report download failed:', error)
-        toast.error('Failed to prepare PDF', { id: 'download' })
+        console.error('Job-report hard-save download failed:', error)
+        const msg = error instanceof HardSaveJobReportError
+          ? `Hard-save failed: ${error.message}`
+          : 'Hard-save failed. Please try again.'
+        toast.error(msg, { id: 'download' })
       }
       return
     }
@@ -2239,23 +2306,31 @@ export default function ViewReportPDF() {
               </div>
             </div>
 
-            {/* Report attachment preview — job reports only (inspection reports
-                auto-attach the latest hard-save via the send guards) */}
+            {/* Hard-save preview — job reports. Mirrors the inspection block
+                below: Preview opens the existing hard-save PDF in a new tab,
+                no re-render. The main Download button on the report page is
+                what actually creates a hard-save row. */}
             {reportType === 'job' && (
               <div className="bg-white rounded-lg border border-gray-200 p-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">PDF Attachment</label>
-                {(jobPdfUrlOverride || jobCompletion?.pdf_url) ? (
+                {latestJobHardSave ? (
                   <div className="flex items-center gap-3 p-3 bg-green-50 rounded-md border border-green-200">
                     <FileText className="h-8 w-8 text-green-600 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">
-                        MRC-{emailJobNumber || 'Report'}-Job-Report.pdf
+                        MRC-{emailJobNumber || 'Report'}-Job-Report-v{latestJobHardSave.version_number}.pdf
                       </p>
-                      <p className="text-xs text-green-600">PDF ready</p>
+                      <p className="text-xs text-green-600">v{latestJobHardSave.version_number} ready to send</p>
                     </div>
                     <Button
                       variant="outline" size="sm"
-                      onClick={handleDownload}
+                      onClick={async () => {
+                        const { data } = await supabase.storage
+                          .from('report-pdfs')
+                          .createSignedUrl(latestJobHardSave.pdf_storage_path, 300)
+                        if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+                        else toast.error('Could not generate preview link')
+                      }}
                       className="min-h-[40px] flex-shrink-0"
                     >
                       <Eye className="h-4 w-4 mr-1" />
@@ -2263,20 +2338,9 @@ export default function ViewReportPDF() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-md border border-orange-200">
-                    <AlertCircle className="h-8 w-8 text-orange-500 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm">No PDF uploaded</p>
-                      <p className="text-xs text-orange-600">Go back, click Download, save as PDF, then upload it</p>
-                    </div>
-                    <Button
-                      variant="outline" size="sm"
-                      onClick={() => { setStage('report'); setShowPdfUpload(true) }}
-                      className="min-h-[40px] flex-shrink-0 border-orange-300 text-orange-700 hover:bg-orange-50"
-                    >
-                      <Upload className="h-4 w-4 mr-1" />
-                      Upload PDF
-                    </Button>
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-md border border-gray-200">
+                    <AlertCircle className="h-6 w-6 text-gray-400 flex-shrink-0" />
+                    <p className="text-sm text-gray-500">Click Download on the report page first</p>
                   </div>
                 )}
               </div>
@@ -2344,12 +2408,20 @@ export default function ViewReportPDF() {
           </div>
         </div>
 
-        {/* Phase 5: send-time mismatch guard */}
+        {/* Phase 5: send-time mismatch guard (inspection) */}
         <MismatchSendDialog
           open={mismatchVersion !== null}
           versionNumber={mismatchVersion?.version_number ?? 0}
           busy={sendingEmail && mismatchVersion === null}
           onChoose={(choice) => { void handleMismatchChoice(choice) }}
+        />
+
+        {/* Send-time mismatch guard (job report) */}
+        <MismatchSendDialog
+          open={jobMismatchVersion !== null}
+          versionNumber={jobMismatchVersion?.version_number ?? 0}
+          busy={sendingEmail && jobMismatchVersion === null}
+          onChoose={(choice) => { void handleJobMismatchChoice(choice) }}
         />
 
         {/* Duplicate-send guard */}

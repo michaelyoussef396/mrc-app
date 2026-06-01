@@ -72,9 +72,12 @@
             letter-spacing: 0.2px;
         }
 
-        /* Photo slot placeholder (shown when no image) */
+        /* Photo slot placeholder (shown when no image).
+           Background must stay opaque (white matches the page wrapper bg on
+           pages 4+ and the demolition page). Transparent exposes a browser
+           empty-image fill on slots backed by the 1×1 EMPTY_PHOTO fallback. */
         .photo-slot {
-            background: #6e6e6e;
+            background: white;
             border-radius: 10px;
             width: 100%;
             height: 100%;
@@ -109,8 +112,8 @@
             div[style*="background:#2C05D4"] { background: #2C05D4 !important; }
             div[style*="background: #F3F3F8"],
             div[style*="background:#F3F3F8"] { background: #F3F3F8 !important; }
-            /* Photo placeholder block colour */
-            .photo-slot { background: #6e6e6e !important; }
+            /* Photo placeholder block colour — see base rule for why opaque */
+            .photo-slot { background: white !important; }
             img { box-shadow: none !important; }
             .report-page {
                 margin: 0;
