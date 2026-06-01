@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
-  autoPopulateFromLead, calculateInvoiceTotals, markInvoiceSent,
+  autoPopulateFromLead, calculateInvoiceTotals, createInvoice, markInvoiceSent,
   type CreateInvoiceInput, type InvoiceLineItem, type InvoiceTotals,
 } from '@/lib/api/invoices'
 import { formatCurrency } from '@/lib/calculations/pricing'
@@ -125,30 +125,10 @@ export function InvoiceSummaryCard({ leadId, onRefresh }: Props) {
 
     setStarting(true)
     try {
-      // 1. Insert invoice (draft)
-      const { data: inserted, error: insertErr } = await supabase
-        .from('invoices')
-        .insert({
-          lead_id: leadId,
-          job_completion_id: p.job_completion_id ?? null,
-          customer_name: p.customer_name,
-          customer_email: p.customer_email ?? null,
-          customer_phone: p.customer_phone ?? null,
-          property_address: p.property_address ?? null,
-          line_items: [],
-          subtotal: total,
-          discount_percentage: 0,
-          discount_amount: 0,
-          subtotal_after_discount: total,
-          equipment_subtotal: 0,
-          gst_amount: 0,
-          total_amount: total,
-          due_date: dueDate,
-          status: 'draft',
-        })
-        .select('id')
-        .single()
-      if (insertErr || !inserted) throw insertErr ?? new Error('Insert returned no id')
+      // 1. Create invoice (draft) — createInvoice computes full totals
+      //    (line items, equipment subtotal, GST, discount) so the tracker
+      //    row carries real figures instead of a zeroed shell.
+      const inserted = await createInvoice(p)
 
       // 2. Mark sent (also transitions lead.status → invoicing_sent)
       await markInvoiceSent(inserted.id)
