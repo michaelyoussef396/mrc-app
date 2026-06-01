@@ -510,6 +510,27 @@ export default function ViewReportPDF() {
     enabled: reportType === 'inspection' && !!inspection?.id,
   })
 
+  // Job-report mirror of latestHardSave. Drives the Preview button in the
+  // Send Email screen — Preview must OPEN the existing hard-save PDF, not
+  // re-render. Same shape as the inspection query above.
+  const { data: latestJobHardSave } = useQuery({
+    queryKey: ['job-report-versions', jobCompletion?.id, 'latest-hard-save'],
+    queryFn: async () => {
+      if (!jobCompletion?.id) return null
+      const { data } = await supabase
+        .from('job_completion_pdf_versions')
+        .select('id, version_number, pdf_storage_path')
+        .eq('job_completion_id', jobCompletion.id)
+        .eq('generation_type', 'hard_save')
+        .not('pdf_storage_path', 'is', null)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      return data ?? null
+    },
+    enabled: reportType === 'job' && !!jobCompletion?.id,
+  })
+
   // Job report photos for edit panel
   type JobPhoto = { id: string; storage_path: string; signed_url: string; caption?: string | null }
   const { data: jobPhotos = { before: [] as JobPhoto[], after: [] as JobPhoto[], demolition: [] as JobPhoto[] }, refetch: refetchJobPhotos } = useQuery({
@@ -2285,23 +2306,31 @@ export default function ViewReportPDF() {
               </div>
             </div>
 
-            {/* Report attachment preview — job reports only (inspection reports
-                auto-attach the latest hard-save via the send guards) */}
+            {/* Hard-save preview — job reports. Mirrors the inspection block
+                below: Preview opens the existing hard-save PDF in a new tab,
+                no re-render. The main Download button on the report page is
+                what actually creates a hard-save row. */}
             {reportType === 'job' && (
               <div className="bg-white rounded-lg border border-gray-200 p-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">PDF Attachment</label>
-                {(jobPdfUrlOverride || jobCompletion?.pdf_url) ? (
+                {latestJobHardSave ? (
                   <div className="flex items-center gap-3 p-3 bg-green-50 rounded-md border border-green-200">
                     <FileText className="h-8 w-8 text-green-600 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">
-                        MRC-{emailJobNumber || 'Report'}-Job-Report.pdf
+                        MRC-{emailJobNumber || 'Report'}-Job-Report-v{latestJobHardSave.version_number}.pdf
                       </p>
-                      <p className="text-xs text-green-600">PDF ready</p>
+                      <p className="text-xs text-green-600">v{latestJobHardSave.version_number} ready to send</p>
                     </div>
                     <Button
                       variant="outline" size="sm"
-                      onClick={handleDownload}
+                      onClick={async () => {
+                        const { data } = await supabase.storage
+                          .from('report-pdfs')
+                          .createSignedUrl(latestJobHardSave.pdf_storage_path, 300)
+                        if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+                        else toast.error('Could not generate preview link')
+                      }}
                       className="min-h-[40px] flex-shrink-0"
                     >
                       <Eye className="h-4 w-4 mr-1" />
@@ -2309,20 +2338,9 @@ export default function ViewReportPDF() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-md border border-orange-200">
-                    <AlertCircle className="h-8 w-8 text-orange-500 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm">No PDF uploaded</p>
-                      <p className="text-xs text-orange-600">Go back, click Download, save as PDF, then upload it</p>
-                    </div>
-                    <Button
-                      variant="outline" size="sm"
-                      onClick={() => { setStage('report'); setShowPdfUpload(true) }}
-                      className="min-h-[40px] flex-shrink-0 border-orange-300 text-orange-700 hover:bg-orange-50"
-                    >
-                      <Upload className="h-4 w-4 mr-1" />
-                      Upload PDF
-                    </Button>
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-md border border-gray-200">
+                    <AlertCircle className="h-6 w-6 text-gray-400 flex-shrink-0" />
+                    <p className="text-sm text-gray-500">Click Download on the report page first</p>
                   </div>
                 )}
               </div>
