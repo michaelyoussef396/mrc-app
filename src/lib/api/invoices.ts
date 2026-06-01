@@ -389,13 +389,23 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
     .maybeSingle()
 
   // Inspection (for quoted amount + labour)
-  const { data: inspection } = await supabase
+  const { data: inspection, error: inspectionError } = await supabase
     .from('inspections')
     .select('total_inc_gst, subtotal_ex_gst, labour_cost_ex_gst, equipment_cost_ex_gst, discount_percent')
     .eq('lead_id', leadId)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
+
+  // A null row (no inspection yet) is legitimate; only a real query error must throw.
+  // Swallowing it here previously dropped the labour line + discount silently.
+  if (inspectionError) {
+    captureBusinessError('Failed to fetch inspection for invoice auto-populate', {
+      leadId,
+      error: inspectionError.message,
+    })
+    throw new Error(`Failed to load inspection pricing: ${inspectionError.message}`)
+  }
 
   const lineItems: InvoiceLineItem[] = []
 
