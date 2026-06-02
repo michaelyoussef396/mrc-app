@@ -1,7 +1,18 @@
 import * as Sentry from "@sentry/react";
 
+// Build the Supabase REST trace-propagation target from the active env, so dev and prod
+// each propagate to their own project rather than a hardcoded prod ref.
+function supabaseRestTracePattern(): RegExp | null {
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  if (!url) return null;
+  const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^${escaped}/rest`);
+}
+
 export function initSentry() {
   if (!import.meta.env.VITE_SENTRY_DSN) return;
+
+  const supabaseRestPattern = supabaseRestTracePattern();
 
   Sentry.init({
     dsn: import.meta.env.VITE_SENTRY_DSN,
@@ -16,7 +27,7 @@ export function initSentry() {
     // NOTE: Edge Functions excluded — their CORS headers don't allow baggage/sentry-trace
     tracePropagationTargets: [
       "localhost",
-      /^https:\/\/ecyivrxjpsmjmexqatym\.supabase\.co\/rest/,
+      ...(supabaseRestPattern ? [supabaseRestPattern] : []),
     ],
 
     // Session Replay: 10% of sessions, 100% of error sessions
