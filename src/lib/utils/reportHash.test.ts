@@ -5,7 +5,7 @@ const TEMPLATE = (token: string) => `
 <html>
 <body>
   <h1>Inspection Report</h1>
-  <img src="https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/sign/inspection-photos/abc/cover.jpg?token=${token}&expires=1715000000" alt="cover">
+  <img src="https://example-ref.supabase.co/storage/v1/object/sign/inspection-photos/abc/cover.jpg?token=${token}&expires=1715000000" alt="cover">
   <p>Customer: Alice Example</p>
 </body>
 </html>
