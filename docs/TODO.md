@@ -6,6 +6,24 @@
 
 Backed by `docs/inspection-workflow-fix-plan-v2-2026-04-30.md` (48-stage execution map) and `docs/JOB_COMPLETION_PRD.md` (Phase 2 spec).
 
+---
+
+## Bugs & decisions found 2 Jun 2026
+
+Surfaced during the business-logic / flow audits (read-only investigations). Code fixes are each their own session — logged here, not yet actioned.
+
+1. **Manual-invoice GST = $0 is the DEFAULT path.** The GST-correct invoice create (auto-populate from the lead → `createInvoice`, which splits GST + discount) only fires at lead status `job_report_pdf_sent` when no invoice exists yet. Every other eligible status (`job_completed`, `invoicing_sent`, `paid`, etc.) AND any time an invoice already exists routes through `InvoicePaymentCard.handleCreate`, which inserts a lump sum with `gst_amount = 0` and empty `line_items`. **Owner decision: GST must always split.** Fix in own session. OPEN: should the `job_completed` create also auto-populate from the lead?
+
+2. **AFD not wired + not captured as billable equipment.** AFD is a method toggle only ("AFD Installation") — no qty×days line like dehumidifier/air mover/RCD in the quote engine. `$75` in `Section7Equipment.tsx` is a placeholder (only AFD number anywhere; usage qty/days IS captured on the job form via `actual_afd_qty`/`actual_afd_days` but never SELECTed in `autoPopulateFromLead`, no line emitted, absent from `pricing.ts`). Bills **$0**. **Decision: $75/unit/day ex GST provisional, flagged for Glen/Clayton, not applied yet.** Fix own session — confirm rate, ensure qty/days capturable through to billing, wire AFD through quote → invoice → PDF.
+
+3. **Section 7 save hard-fails on quote calc.** "Option 1 total could not be computed; ensure surface treatment hours are entered before saving in Both-options mode" blocks a section save. Data-loss risk on a 9-section auto-save form. Investigate own session: decouple section persistence from option-total computation.
+
+4. **`docs/COST_CALCULATION_SYSTEM.md` is stale.** Documents under-2h work as pro-rated and equipment as direct-total entry; live code charges a flat 2-hour minimum and equipment as qty×rate×days. Fix or retire — own session.
+
+5. **Waste disposal — billing decision needed.** Recorded as a size (Small/Medium/Large) for reporting context only; never a dollar amount, not billed, no rate set. Confirm with Glen/Clayton whether it should be charged to customers.
+
+---
+
 ## Launch Model
 
 Three-stage green flag.
