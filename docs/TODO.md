@@ -151,12 +151,18 @@ Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocki
 ### L4 — Environment separation (dev Supabase + Vercel preview env vars)
 - **Estimate:** 3-4h
 - **Scope:** Stop preview deploys hitting production DB. Stand up dev Supabase project; run all migrations; wire Vercel Preview env vars.
-- **Tasks:**
-  - [ ] Create dev Supabase project
-  - [ ] Run all migrations against dev project
-  - [ ] Add dev Supabase keys as Preview env vars in Vercel
-  - [ ] Verify a preview deploy hits dev DB, not prod
-  - [ ] Create test technician accounts in dev for walkthrough
+- **Runbook:** `docs/L4-environment-separation-plan.md` (Phases 1–5) + `docs/KEY_ROTATION.md` (Phase 6 full rotation). Tagged [HUMAN]/[CC] sequence agreed 2026-06-02.
+- **Progress (2026-06-02):**
+  - [x] **Phase 0 [CC] — env-aware refs (prod-safe, on `main`):** Supabase origin de-hardcoded — `sentry.ts` trace target derives from `VITE_SUPABASE_URL`; `vercel.json` CSP uses `https://*.supabase.co` + `wss://*.supabase.co`; PDF-viewer fonts bundled locally (`public/fonts/`, `index.css`); `reportHash.test.ts` fixture neutralised. Commits `734a2af` / `8ee3aec` / `942e9b5`. Only remaining hardcoded ref is the server-rendered PDF template (intentional — public read-only fonts).
+  - [x] **KEY_ROTATION.md added** (`e34dbec`) — secret inventory + Phase 6 runbook. Surfaced `INTERNAL_WEBHOOK_SECRET` (missing from the original L4 doc); confirmed `.env` git-history exposure (Oct–Dec 2025).
+  - [ ] **Phase 1 [HUMAN] — NEXT (deferred):** create `mrc-system-dev` Supabase project (same org, `ap-southeast-2`, free tier), enable `pg_cron` + `pg_net`, paste dev ref/URL/anon/service_role → [CC] verifies `public` schema empty.
+  - [ ] Phase 2 [HUMAN] apply 86 migrations (skip the 2 cron) + seed Storage; [CC] schema diff.
+  - [ ] Phase 3 [HUMAN] set dev EF secrets (incl. `INTERNAL_WEBHOOK_SECRET` + new Slack dev webhook) + deploy 12 EFs; [CC] smoke test.
+  - [ ] Phase 4 [HUMAN] 🔴 set Vercel **Preview-scope** env → dev (Preview only — the one prod-risk step).
+  - [ ] Phase 5 [CC] verify preview hits DEV + prod untouched.
+  - [ ] Phase 6 [HUMAN] full key rotation (new→verify→revoke; Supabase/GitHub PATs LAST) per KEY_ROTATION.md.
+  - [ ] Create test technician accounts in dev for walkthrough.
+- **Open input:** Q4 `ADMIN_FALLBACK_EMAIL` (dev) = current mrcsystem.com admin email — set literal at Phase 3.
 - **Blocking:** can't safely run Glen/Clayton walkthrough on prod data.
 
 ### L5 — Email domain switch to `mouldandrestoration.com.au`
