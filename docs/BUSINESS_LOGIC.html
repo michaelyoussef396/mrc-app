@@ -404,6 +404,75 @@
         padding: 20px 16px;
       }
     }
+
+    /* Print / PDF-optimised rules — screen + mobile rendering intentionally untouched */
+    @page {
+      size: A4;
+      margin: 16mm;
+    }
+
+    @media print {
+      html, body {
+        background: #ffffff;
+      }
+
+      body {
+        padding: 0;
+        font-size: 12pt;
+        background: #ffffff;
+      }
+
+      /* Force the brand colours to actually render in the exported PDF */
+      *,
+      *::before,
+      *::after {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .page-header,
+      .data-table th,
+      .flag,
+      .closing-box,
+      .charge-chart,
+      .charge-chart svg,
+      .worked-example,
+      .side-note,
+      .pipeline-step-num {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      /* Keep tables, the chart, callouts, and sections from splitting awkwardly */
+      .section,
+      .data-table,
+      .worked-example,
+      .flag,
+      .closing-box,
+      .closing-box .confirm-item,
+      .charge-chart {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      .charge-chart svg {
+        page-break-inside: avoid;
+        break-inside: avoid;
+        max-width: 100%;
+        height: auto;
+      }
+
+      /* Never leave a heading stranded at the foot of a page */
+      h1, h2, h3 {
+        page-break-after: avoid;
+        break-after: avoid;
+      }
+
+      /* Repeat table headers when a table runs across multiple pages */
+      .data-table thead {
+        display: table-header-group;
+      }
+    }
   </style>
 </head>
 <body>
