@@ -583,7 +583,7 @@ export default function ViewReportPDF() {
           .eq('lead_id', effectiveId)
           .order('created_at', { ascending: false })
           .limit(1)
-          .single()
+          .maybeSingle()
 
         if (leadError || !inspByLead) {
           throw new Error('Inspection not found')
@@ -593,6 +593,9 @@ export default function ViewReportPDF() {
       }
 
       const inspId = (data as unknown as Inspection).id
+      if (!inspId) {
+        throw new Error('Inspection not found')
+      }
 
       // Stage 3.4.5: AI summary text comes from latest_ai_summary view.
       const { data: latestSummary } = await supabase

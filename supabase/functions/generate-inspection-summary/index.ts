@@ -324,9 +324,9 @@ function buildUserPrompt(formData: InspectionFormData): string {
 // CALL OPENROUTER API (with model fallback)
 // ============================================================================
 const MODELS = [
-  'google/gemini-2.0-flash-001',
-  'google/gemini-2.5-flash-preview',
-  'google/gemini-2.0-flash-thinking-exp:free',
+  'google/gemini-2.5-flash-lite', // primary  — cheap, fast, ~cost-neutral vs old 2.0-flash
+  'google/gemini-2.5-flash',      // fallback 1 — same family, headroom if lite is rate-limited
+  'anthropic/claude-haiku-4.5',   // fallback 2 — different provider, survives a Google-wide outage
 ]
 
 async function callOpenRouter(
@@ -365,11 +365,9 @@ async function callOpenRouter(
 
       if (!response.ok) {
         const errorText = await response.text()
-        const isRateLimit = response.status === 429 || errorText.toLowerCase().includes('rate')
         console.warn(`Model ${model} failed (${response.status}): ${errorText.slice(0, 150)}`)
         errors.push(`${model}: ${response.status}`)
-        if (isRateLimit) continue // try next model
-        throw new Error(`OpenRouter API failed: ${errorText.slice(0, 200)}`)
+        continue // any failure (404 dead model, 429 rate-limit, 5xx outage) → try next model
       }
 
       const result = await response.json()
@@ -388,13 +386,12 @@ async function callOpenRouter(
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      if (msg.startsWith('OpenRouter API failed:')) throw err
       console.warn(`Model ${model} error: ${msg}`)
       errors.push(`${model}: ${msg}`)
     }
   }
 
-  throw new Error(`All models rate-limited: ${errors.join(' | ')}`)
+  throw new Error(`All models failed: ${errors.join(' | ')}`)
 }
 
 // SHA-256 hex hash. Used to identify the system prompt that produced a version.

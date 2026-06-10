@@ -182,9 +182,9 @@ export default function LeadDetail() {
         .from("inspections")
         .select("*")
         .eq("lead_id", id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== "PGRST116") throw error;
+      if (error) throw error;
       return data;
     },
   });
@@ -199,9 +199,9 @@ export default function LeadDetail() {
         .eq("lead_id", id)
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== "PGRST116") throw error;
+      if (error) throw error;
       return data;
     },
   });
@@ -215,7 +215,7 @@ export default function LeadDetail() {
         .from("leads")
         .select("id, lead_number")
         .eq("id", lead.possible_duplicate_of)
-        .single();
+        .maybeSingle();
       if (error) return null;
       return data;
     },
@@ -231,7 +231,7 @@ export default function LeadDetail() {
         .from("profiles")
         .select("full_name")
         .eq("id", lead.assigned_to)
-        .single();
+        .maybeSingle();
       if (error) return null;
       return data;
     },

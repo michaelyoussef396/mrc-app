@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mould &amp; Restoration Co. — Business Rules — Pricing &amp; Process</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      color: #1a1a1a;
+      background-color: #f5f6f8;
+      padding: 0 0 48px 0;
+    }
+
+    .page-header {
+      background-color: #121D73;
+      color: #ffffff;
+      padding: 32px 24px 28px 24px;
+      text-align: center;
+    }
+
+    .page-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+    }
+
+    .page-header .subtitle {
+      margin-top: 8px;
+      font-size: 15px;
+      opacity: 0.85;
+      font-weight: 400;
+    }
+
+    .page-header .last-reviewed {
+      margin-top: 12px;
+      font-size: 13px;
+      opacity: 0.65;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    .section {
+      background-color: #ffffff;
+      border-radius: 8px;
+      border: 1px solid #e0e3ea;
+      padding: 24px 20px;
+      margin-top: 20px;
+    }
+
+    .section h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #121D73;
+      margin-bottom: 14px;
+      line-height: 1.3;
+    }
+
+    .section p {
+      margin-bottom: 12px;
+    }
+
+    .section p:last-child {
+      margin-bottom: 0;
+    }
+
+    .section ul, .section ol {
+      padding-left: 22px;
+      margin-bottom: 12px;
+    }
+
+    .section ul li, .section ol li {
+      margin-bottom: 8px;
+    }
+
+    .section ol li:last-child,
+    .section ul li:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Worked example box */
+    .worked-example {
+      background-color: #f0f3ff;
+      border: 2px solid #c5cdf0;
+      border-radius: 8px;
+      padding: 20px 18px;
+      margin: 18px 0;
+    }
+
+    .worked-example h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #121D73;
+      margin-bottom: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .worked-example table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 15px;
+    }
+
+    .worked-example table td {
+      padding: 6px 4px;
+      vertical-align: top;
+    }
+
+    .worked-example table td:first-child {
+      color: #444;
+      width: 60%;
+      padding-right: 12px;
+    }
+
+    .worked-example table td:last-child {
+      font-weight: 600;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .worked-example .divider-row td {
+      border-top: 1px solid #c5cdf0;
+      padding-top: 10px;
+      margin-top: 4px;
+    }
+
+    .worked-example .total-row td {
+      border-top: 2px solid #121D73;
+      padding-top: 10px;
+      font-weight: 700;
+      color: #121D73;
+      font-size: 16px;
+    }
+
+    .worked-example .note {
+      margin-top: 14px;
+      font-size: 14px;
+      color: #444;
+      font-style: italic;
+      border-top: 1px dashed #c5cdf0;
+      padding-top: 12px;
+    }
+
+    /* Tables */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      font-size: 15px;
+    }
+
+    .data-table th {
+      background-color: #121D73;
+      color: #ffffff;
+      padding: 10px 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .data-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e0e3ea;
+      vertical-align: top;
+    }
+
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .data-table tr:nth-child(even) td {
+      background-color: #f8f9fc;
+    }
+
+    /* Flag / warning callout */
+    .flag {
+      background-color: #fffbea;
+      border: 2px solid #f0a500;
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin: 14px 0;
+      font-size: 15px;
+    }
+
+    .flag .flag-label {
+      font-weight: 700;
+      color: #8a5c00;
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .flag p {
+      margin-bottom: 0;
+      color: #5a3d00;
+    }
+
+    /* Closing confirmation box */
+    .closing-box {
+      background-color: #fff8e1;
+      border: 2px solid #f0a500;
+      border-radius: 8px;
+      padding: 24px 20px;
+      margin-top: 20px;
+    }
+
+    .closing-box h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #8a5c00;
+      margin-bottom: 16px;
+    }
+
+    .closing-box .confirm-item {
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px dashed #f0a500;
+    }
+
+    .closing-box .confirm-item:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .closing-box .confirm-item h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #5a3d00;
+      margin-bottom: 6px;
+    }
+
+    .closing-box .confirm-item p {
+      color: #5a3d00;
+      font-size: 15px;
+      margin-bottom: 6px;
+    }
+
+    .closing-box .confirm-item p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Pipeline list */
+    .pipeline-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      counter-reset: pipeline;
+    }
+
+    .pipeline-list li {
+      counter-increment: pipeline;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid #e0e3ea;
+    }
+
+    .pipeline-list li:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .pipeline-step-num {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      background-color: #121D73;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      margin-top: 1px;
+    }
+
+    .pipeline-step-body strong {
+      display: block;
+      font-weight: 700;
+      color: #121D73;
+      margin-bottom: 2px;
+    }
+
+    .pipeline-step-body span {
+      font-size: 15px;
+      color: #444;
+    }
+
+    .side-note {
+      background-color: #f0f3ff;
+      border-left: 4px solid #121D73;
+      border-radius: 0 6px 6px 0;
+      padding: 14px 16px;
+      margin-top: 18px;
+      font-size: 15px;
+      color: #333;
+    }
+
+    /* Labour charging-model chart */
+    .charge-chart {
+      margin-top: 18px;
+      background-color: #f8f9fc;
+      border: 1px solid #e0e3ea;
+      border-radius: 8px;
+      padding: 16px 14px 14px 14px;
+    }
+
+    .charge-chart h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #121D73;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+
+    .charge-chart .chart-sub {
+      font-size: 13px;
+      color: #617589;
+      font-style: italic;
+      margin-bottom: 12px;
+    }
+
+    .charge-chart svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .charge-chart .chart-legend {
+      list-style: none;
+      padding: 0;
+      margin: 12px 0 0 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+    }
+
+    .charge-chart .chart-legend li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #444;
+      margin-bottom: 0;
+    }
+
+    .charge-chart .chart-legend .swatch {
+      flex-shrink: 0;
+      width: 22px;
+      height: 0;
+      border-top-width: 3px;
+      border-top-style: solid;
+    }
+
+    .charge-chart .chart-legend .swatch-flat { border-top-color: #617589; }
+    .charge-chart .chart-legend .swatch-ramp { border-top-color: #f0a500; }
+    .charge-chart .chart-legend .swatch-steps { border-top-color: #121D73; }
+
+    /* Responsive adjustments */
+    @media (max-width: 480px) {
+      .page-header h1 {
+        font-size: 19px;
+      }
+
+      .section {
+        padding: 20px 16px;
+      }
+
+      .worked-example {
+        padding: 16px 14px;
+      }
+
+      .worked-example table td:first-child {
+        width: 55%;
+      }
+
+      .data-table th,
+      .data-table td {
+        padding: 9px 10px;
+        font-size: 14px;
+      }
+
+      .closing-box {
+        padding: 20px 16px;
+      }
+    }
+
+    /* Print / PDF-optimised rules — screen + mobile rendering intentionally untouched */
+    @page {
+      size: A4;
+      margin: 16mm;
+    }
+
+    @media print {
+      html, body {
+        background: #ffffff;
+      }
+
+      body {
+        padding: 0;
+        font-size: 12pt;
+        background: #ffffff;
+      }
+
+      /* Force the brand colours to actually render in the exported PDF */
+      *,
+      *::before,
+      *::after {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .page-header,
+      .data-table th,
+      .flag,
+      .closing-box,
+      .charge-chart,
+      .charge-chart svg,
+      .worked-example,
+      .side-note,
+      .pipeline-step-num {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      /* Keep only small atomic units whole: individual table rows and the chart */
+      .data-table tr,
+      .charge-chart,
+      .charge-chart svg {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      .charge-chart svg {
+        max-width: 100%;
+        height: auto;
+      }
+
+      /* Never leave a heading stranded at the foot of a page */
+      h1, h2, h3 {
+        page-break-after: avoid;
+        break-after: avoid;
+      }
+
+      /* Repeat table headers when a table runs across multiple pages */
+      .data-table thead {
+        display: table-header-group;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <h1>Mould &amp; Restoration Co. — Business Rules — Pricing &amp; Process</h1>
+    <p class="subtitle">A plain-English guide to our pricing and process rules.</p>
+    <p class="last-reviewed">Last reviewed: 2 June 2026</p>
+  </div>
+
+  <div class="container">
+
+    <!-- Section 1: How a job is priced -->
+    <div class="section">
+      <h2>1. How a job is priced</h2>
+
+      <p>Every quote is built in four steps:</p>
+      <ol>
+        <li><strong>Start with the labour cost</strong> — based on how many hours or days the team is on site.</li>
+        <li><strong>Apply a discount to the labour</strong> — bigger jobs get a bigger discount (up to the 13% ceiling). The discount only comes off the labour, never the equipment.</li>
+        <li><strong>Add the equipment hire</strong> — equipment is billed separately at a fixed daily rate and is never discounted.</li>
+        <li><strong>Add 10% GST</strong> — GST is calculated on the combined total (discounted labour + equipment) and added last. That's the price the customer pays.</li>
+      </ol>
+
+      <p>Any job under 2 hours is charged at our 2-hour minimum.</p>
+
+      <div class="worked-example">
+        <h3>Worked Example</h3>
+        <p style="font-size:15px; color:#444; margin-bottom:14px;">
+          Scenario: 3 full days of standard (non-demolition) work, with 2 dehumidifiers, 4 air movers, and 1 RCD hired for those 3 days.
+        </p>
+        <table>
+          <tbody>
+            <tr>
+              <td>Labour: 3 days × $1,216.99 per day</td>
+              <td>$3,650.97</td>
+            </tr>
+            <tr>
+              <td>24 labour hours → 10.25% discount: −$374.22</td>
+              <td style="color:#c0392b;">−$374.22</td>
+            </tr>
+            <tr class="divider-row">
+              <td>Labour after discount</td>
+              <td>$3,276.75</td>
+            </tr>
+            <tr>
+              <td style="padding-top:14px;">2 dehumidifiers × $132 × 3 days</td>
+              <td style="padding-top:14px;">$792.00</td>
+            </tr>
+            <tr>
+              <td>4 air movers × $46 × 3 days</td>
+              <td>$552.00</td>
+            </tr>
+            <tr>
+              <td>1 RCD × $5 × 3 days</td>
+              <td>$15.00</td>
+            </tr>
+            <tr class="divider-row">
+              <td>Total equipment hire</td>
+              <td>$1,359.00</td>
+            </tr>
+            <tr class="divider-row">
+              <td>Subtotal (before GST)</td>
+              <td>$4,635.75</td>
+            </tr>
+            <tr>
+              <td>GST (10%)</td>
+              <td>$463.58</td>
+            </tr>
+            <tr class="total-row">
+              <td>Final total (including GST)</td>
+              <td>$5,099.33</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note">Notice the discount only comes off the labour — never off the equipment.</p>
+      </div>
+    </div>
+
+    <!-- Section 1b: Labour rate card -->
+    <div class="section">
+      <h2>1b. Labour rate card</h2>
+
+      <p>Labour is charged based on the type of work and how long the team is on site. There are three active work types:</p>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Work type</th>
+            <th>2-hour minimum</th>
+            <th>Full day (8 hours)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Normal (non-demolition)</td>
+            <td>$612.00</td>
+            <td>$1,216.99</td>
+          </tr>
+          <tr>
+            <td>Demolition</td>
+            <td>$711.90</td>
+            <td>$1,798.90</td>
+          </tr>
+          <tr>
+            <td>Subfloor</td>
+            <td>$900.00</td>
+            <td>$2,334.69</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p style="margin-top:14px; color:#555; font-size:15px;">Construction is a planned future labour stream (provisional rates $661.96 two-hour minimum / $1,507.95 day) — not yet built or offered, and can't be quoted today.</p>
+
+      <p style="margin-top:16px;"><strong>How the charge is worked out:</strong></p>
+      <ul>
+        <li><strong>Under 2 hours</strong> — the job is charged a flat 2-hour minimum. There is no cheaper partial rate.</li>
+        <li><strong>Between 2 and 8 hours</strong> — the price scales smoothly between the 2-hour minimum and the full-day rate based on actual hours on site.</li>
+        <li><strong>Beyond 8 hours</strong> — charged in full-day blocks, plus a part-day remainder for any hours left over.</li>
+      </ul>
+
+      <div class="charge-chart">
+        <h3>The charging shape</h3>
+        <p class="chart-sub">Illustrative shape — see the table above for actual rates.</p>
+        <svg viewBox="0 0 360 300" role="img" aria-labelledby="chargeChartTitle chargeChartDesc" preserveAspectRatio="xMidYMid meet">
+          <title id="chargeChartTitle">Labour cost against hours worked</title>
+          <desc id="chargeChartDesc">A chart of cost versus hours worked showing three regimes. Below two hours the cost is a flat line at the two-hour minimum. From two to eight hours the cost rises in a straight line up to the one-day rate. Beyond eight hours the cost follows a sawtooth: each eight-hour block starts at a two-hour-minimum floor and then ramps up a full day, reaching the two-day rate at sixteen hours and the three-day rate at twenty-four hours.</desc>
+
+          <!-- Y reference levels (words only, no numbers) -->
+          <!-- y=250 = 2-hr min, y=200 = 1-day, y=130 = 2-day, y=60 = 3-day -->
+          <line x1="60" y1="250" x2="345" y2="250" stroke="#e0e3ea" stroke-width="1" stroke-dasharray="3 3"></line>
+          <line x1="60" y1="200" x2="345" y2="200" stroke="#e0e3ea" stroke-width="1" stroke-dasharray="3 3"></line>
+          <line x1="60" y1="130" x2="345" y2="130" stroke="#e0e3ea" stroke-width="1" stroke-dasharray="3 3"></line>
+          <line x1="60" y1="60" x2="345" y2="60" stroke="#e0e3ea" stroke-width="1" stroke-dasharray="3 3"></line>
+
+          <text x="56" y="253" text-anchor="end" font-size="11" fill="#617589">2-hr min</text>
+          <text x="56" y="203" text-anchor="end" font-size="11" fill="#617589">1-day rate</text>
+          <text x="56" y="133" text-anchor="end" font-size="11" fill="#617589">2-day rate</text>
+          <text x="56" y="63" text-anchor="end" font-size="11" fill="#617589">3-day rate</text>
+
+          <!-- Axes -->
+          <line x1="60" y1="20" x2="60" y2="265" stroke="#121D73" stroke-width="1.5"></line>
+          <line x1="60" y1="265" x2="345" y2="265" stroke="#121D73" stroke-width="1.5"></line>
+
+          <!-- X axis ticks/labels at 2, 8, 16, 24 -->
+          <!-- x mapping: 2h=92, 8h=158, 16h=246, 24h=334 (≈11px per hour) -->
+          <line x1="92" y1="265" x2="92" y2="270" stroke="#121D73" stroke-width="1.5"></line>
+          <line x1="158" y1="265" x2="158" y2="270" stroke="#121D73" stroke-width="1.5"></line>
+          <line x1="246" y1="265" x2="246" y2="270" stroke="#121D73" stroke-width="1.5"></line>
+          <line x1="334" y1="265" x2="334" y2="270" stroke="#121D73" stroke-width="1.5"></line>
+          <text x="92" y="283" text-anchor="middle" font-size="12" fill="#444">2</text>
+          <text x="158" y="283" text-anchor="middle" font-size="12" fill="#444">8</text>
+          <text x="246" y="283" text-anchor="middle" font-size="12" fill="#444">16</text>
+          <text x="334" y="283" text-anchor="middle" font-size="12" fill="#444">24</text>
+          <text x="202" y="297" text-anchor="middle" font-size="12" font-weight="700" fill="#121D73">Hours worked</text>
+
+          <!-- Y axis title -->
+          <text x="16" y="145" text-anchor="middle" font-size="12" font-weight="700" fill="#121D73" transform="rotate(-90 16 145)">Cost</text>
+
+          <!-- Regime 1: flat floor (0 to 2h) at 2-hr min level -->
+          <line x1="60" y1="250" x2="92" y2="250" stroke="#617589" stroke-width="3"></line>
+
+          <!-- Regime 2: linear ramp from 2h (2-hr min) to 8h (1-day rate) -->
+          <line x1="92" y1="250" x2="158" y2="200" stroke="#f0a500" stroke-width="3"></line>
+
+          <!-- Regime 3: sawtooth — each 8-hour block opens at a 2-hr-min floor then ramps a full day -->
+          <!-- Block A (8h to 16h): step up, flat shelf to 10h, ramp to 2-day at 16h -->
+          <line x1="158" y1="200" x2="158" y2="188" stroke="#121D73" stroke-width="3"></line>
+          <line x1="158" y1="188" x2="180" y2="188" stroke="#121D73" stroke-width="3"></line>
+          <line x1="180" y1="188" x2="246" y2="130" stroke="#121D73" stroke-width="3"></line>
+          <!-- Block B (16h to 24h): step up, flat shelf to 18h, ramp to 3-day at 24h -->
+          <line x1="246" y1="130" x2="246" y2="118" stroke="#121D73" stroke-width="3"></line>
+          <line x1="246" y1="118" x2="268" y2="118" stroke="#121D73" stroke-width="3"></line>
+          <line x1="268" y1="118" x2="334" y2="60" stroke="#121D73" stroke-width="3"></line>
+
+          <!-- Regime labels in words -->
+          <text x="76" y="240" text-anchor="middle" font-size="11" fill="#617589">2-hr min (flat)</text>
+          <text x="120" y="195" text-anchor="middle" font-size="11" fill="#a06f00">linear to</text>
+          <text x="120" y="207" text-anchor="middle" font-size="11" fill="#a06f00">the day rate</text>
+          <text x="250" y="42" text-anchor="middle" font-size="11" fill="#121D73">each 8-hr block: 2-hr min,</text>
+          <text x="250" y="54" text-anchor="middle" font-size="11" fill="#121D73">then ramps a full day</text>
+        </svg>
+        <ul class="chart-legend">
+          <li><span class="swatch swatch-flat" aria-hidden="true"></span>Under 2 hours: flat 2-hr minimum</li>
+          <li><span class="swatch swatch-ramp" aria-hidden="true"></span>2 to 8 hours: linear to day rate</li>
+          <li><span class="swatch swatch-steps" aria-hidden="true"></span>Beyond 8 hours: each block ramps up a day</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Section 2: The discount cap -->
+    <div class="section">
+      <h2>2. The discount cap</h2>
+
+      <p>The maximum discount is <strong>13%</strong>. This is a hard rule built into the app — a quote can never exceed it, even by accident.</p>
+
+      <p>The discount applies to <strong>labour and services only</strong>. Equipment hire is never discounted.</p>
+
+      <p>The discount grows with the size of the job, up to the 13% ceiling:</p>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Total labour hours</th>
+            <th>Discount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>0–8 hours (≈1 day)</td>
+            <td>0%</td>
+          </tr>
+          <tr>
+            <td>9–16 hours (≈2 days)</td>
+            <td>7.5%</td>
+          </tr>
+          <tr>
+            <td>17–24 hours (≈3 days)</td>
+            <td>10.25%</td>
+          </tr>
+          <tr>
+            <td>25–32 hours (≈4 days)</td>
+            <td>11.5%</td>
+          </tr>
+          <tr>
+            <td>33+ hours (≈5 days or more)</td>
+            <td>13% (maximum)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p style="margin-top:14px;">The 13% cap is not just a rule inside the quoting screen. The app enforces it, and separately, the database itself is set up to reject any figure above 13% — so the cap cannot be exceeded even if something goes wrong in the app, or if a coding mistake slips through. Both layers have to fail at once for the cap to be breached, which in practice means it cannot happen.</p>
+
+      <p>When an invoice is filled in automatically from a completed job, the labour figure it pulls in already has its discount included. For that reason, the system deliberately does not apply the discount again at invoice time. This prevents a job from being double-discounted by accident — the discount comes off once, at the quoting stage, and that is the final figure used on the invoice.</p>
+    </div>
+
+    <!-- Section 3: GST -->
+    <div class="section">
+      <h2>3. GST</h2>
+      <p>GST is always <strong>10%</strong>. It is added to the subtotal — that is, the discounted labour plus equipment — as the final step before the customer's total is shown. This is the amount the customer pays.</p>
+
+      <p>Every money figure is rounded to the nearest cent. GST is worked out and rounded on its own, then added to the subtotal — which is why, for example, a raw GST of $463.575 is shown as $463.58 on the customer's total. The rounding happens to the GST amount first, before the grand total is produced.</p>
+    </div>
+
+    <!-- Section 4: Equipment rates -->
+    <div class="section">
+      <h2>4. Equipment rates</h2>
+
+      <p>Equipment is billed as: <strong>quantity × daily rate × number of days</strong>. Equipment is never discounted.</p>
+
+      <p>Equipment is billed by whole days. The number of days is the job's labour time rounded up to the next full 8-hour day, with a minimum of one day — so even a short job is charged at least one day of equipment hire, and any part-day counts as a full day.</p>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Equipment</th>
+            <th>Daily rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Dehumidifier</td>
+            <td>$132 / day</td>
+          </tr>
+          <tr>
+            <td>Air Mover</td>
+            <td>$46 / day</td>
+          </tr>
+          <tr>
+            <td>RCD</td>
+            <td>$5 / day</td>
+          </tr>
+          <tr>
+            <td>Air Filtration Device (AFD)</td>
+            <td>$75 / unit / day <em>(provisional)</em></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="flag" style="margin-top:16px;">
+        <span class="flag-label">&#9888; AFD — provisional rate, not yet billed</span>
+        <p>The $75 per unit per day AFD rate is a placeholder, not a confirmed figure. AFD usage is recorded on every job (how many units, how many days), but that amount is <strong>not</strong> currently added to the invoice — it shows up as $0 on the bill. The rate needs to be confirmed with Glen and Clayton before it can be wired into invoices.</p>
+      </div>
+    </div>
+
+    <!-- Section 5: Waste disposal -->
+    <div class="section">
+      <h2>5. Waste disposal</h2>
+
+      <p>Waste disposal is recorded on the inspection form as a size — Small, Medium or Large — for reporting context only. It has never been a dollar amount, and it is not charged to customers today.</p>
+
+      <div class="flag">
+        <span class="flag-label">&#9888; Still being confirmed</span>
+        <p>To confirm with Glen/Clayton: should waste disposal be charged to customers? No rate is currently set.</p>
+      </div>
+    </div>
+
+    <!-- Section 6: The lead pipeline -->
+    <div class="section">
+      <h2>6. The lead pipeline</h2>
+      <p>The full step-by-step journey of a lead — from first contact through to finished — is covered in the separate "How It Works" guide.</p>
+    </div>
+
+    <!-- Section 7: Booking rules -->
+    <div class="section">
+      <h2>7. Booking rules</h2>
+
+      <ul>
+        <li>A technician cannot be double-booked. The system will block any booking that overlaps a job a technician already has.</li>
+        <li>When booking an inspection, the admin sets an estimated duration — anywhere from 30 minutes to 8 hours, in 15-minute steps — defaulting to 60 minutes.</li>
+        <li>Bookable times run on the hour from 7:00 AM to 7:00 PM.</li>
+        <li>There are two technicians in the system: Clayton and Glen.</li>
+        <li>When an inspection is booked, the lead moves to "Awaiting Inspection," the customer is automatically sent a booking confirmation email, and the team gets a notification. If the customer has no email on file, the system records that it couldn't send — nothing is silently dropped.</li>
+      </ul>
+    </div>
+
+    <!-- Section 8: Job completion -->
+    <div class="section">
+      <h2>8. Job completion</h2>
+
+      <p>When a technician finishes a job, they fill in the <strong>job completion form</strong>. It covers:</p>
+
+      <ul>
+        <li><strong>Work summary</strong> — the areas treated, the completion date, and whether it was a residential or commercial premises.</li>
+        <li><strong>Before photos</strong> — carried over automatically from the original inspection, plus any extras the technician took before starting.</li>
+        <li><strong>After photos</strong> — photos taken on site once the work is done, including demolition photos if relevant.</li>
+        <li><strong>Treatment methods</strong> — which methods were used (for example, HEPA vacuuming, ULV fogging, subfloor remediation).</li>
+        <li><strong>Chemicals used</strong> — which chemical treatments were applied.</li>
+        <li><strong>Equipment actually used</strong> — quantities and days for each piece of equipment, with a side-by-side comparison against what was quoted in the inspection.</li>
+        <li><strong>Variations</strong> — if the scope of work changed from the original quote, the technician records what changed and why.</li>
+        <li><strong>Job notes</strong> — including any damage or staining noticed on site.</li>
+      </ul>
+
+      <p>The form <strong>auto-saves as the technician works</strong> — about every 30 seconds — and keeps an on-device backup that can restore in-progress work after a crash or reload (once there's been at least one save). It does <strong>not</strong> work offline, though: the technician needs a connection for the form to save, so on-site they should make sure they have signal.</p>
+
+      <p>Once submitted:</p>
+      <ul>
+        <li>If the technician ticked "request review," the job goes to an admin first (Pending Review) before the report is sent.</li>
+        <li>Otherwise, it moves straight to Job Completed.</li>
+        <li>The admin reviews and approves the job report, which is then emailed to the customer.</li>
+        <li>The invoice is generated and sent, the customer pays, a Google review request goes out, and the lead is finished.</li>
+      </ul>
+    </div>
+
+    <!-- Section 9: Built-in checks -->
+    <div class="section">
+      <h2>9. Built-in checks</h2>
+
+      <p>Both the inspection form and the job-completion form have a number of built-in safeguards to protect the technician's work and the quality of what gets sent to customers. Here is what each one does and which form it applies to.</p>
+
+      <ul>
+        <li>
+          <strong>Auto-save — both forms.</strong>
+          Both forms save the technician's work to the system automatically, roughly every 30 seconds while they are working. There is no need to remember to hit a save button.
+        </li>
+
+        <li>
+          <strong>Device backup and crash recovery — both forms.</strong>
+          Separately from the auto-save, each form also keeps a backup copy on the device itself, refreshed about every 30 seconds. If the app closes unexpectedly, the browser reloads, or the device crashes, reopening the form within 24 hours will offer to restore the in-progress work so nothing typed is lost.
+          <div class="side-note" style="margin-top:10px;">
+            <strong>Honest caveat:</strong> the device backup only kicks in once the form's record has been created. On the inspection form, that happens after the first successful save. This means there is one edge case: a brand-new inspection that has never saved even once — if the device crashes before that first save, what was typed in that very first sitting could be lost. That is the only scenario where this protection does not apply. On the job-completion form this is not an issue because the record is created before the technician opens the form.<br><br>
+            Also important: this is an on-device backup that survives a reload or crash — it is not the same as working offline. The forms do not work offline; they need a connection to save to the system.
+          </div>
+        </li>
+
+        <li>
+          <strong>Blank or $0 price guard — inspection form only.</strong>
+          On the inspection form, when a job is quoted with two options, the form checks the price of both options — not just one. If it cannot work out a valid price for either option (for example, because the hours have not been entered), it will not save. This means a report cannot go to the customer with a blank or $0 price on either option, protecting the integrity of every quote.
+          <div class="flag" style="margin-top:10px;">
+            <span class="flag-label">&#9888; Currently a bit over-eager</span>
+            <p>This guard is intentional and correct in what it is protecting, but right now it can interrupt the auto-save and moving between sections, not just the final submit. That is being refined. No work is lost when this happens — the form simply asks for the missing information before it will continue. The job-completion form does not have this price guard.</p>
+          </div>
+        </li>
+
+        <li>
+          <strong>No stale price carry-over — inspection form only.</strong>
+          If a quote is switched between options, the system clears the saved price for the old option. An out-of-date price from a previous option can never carry over onto the customer's report — the form always works from the current, freshly calculated figure.
+        </li>
+
+        <li>
+          <strong>Photo caption requirement — both forms.</strong>
+          A photo cannot be added without a caption. The form asks for the caption first and will not accept the photo until one is provided. On the inspection form this applies to the area and subfloor photos. On the job-completion form it applies to the "after" photos taken on site. The before-photos on the job form are carried over from the inspection, so they already have their captions.
+        </li>
+
+        <li>
+          <strong>Finish-time checks — both forms, more detailed on the job form.</strong>
+          Moving between sections is not blocked, but a technician cannot submit or finish until the key details are filled in.
+          <ul style="margin-top:8px;">
+            <li><strong>Inspection form:</strong> the inspection date, at least one named area, at least one treatment method, and the work hours must all be entered before the form can be finished.</li>
+            <li><strong>Job-completion form:</strong> a broader set of requirements — the safe-work statement must be marked done, premises type and completion date filled in, at least one area treated and at least one treatment method selected. The photo record must also be consistent: after photos must match up with the before photos (one set of after photos for every before photo). If demolition work was carried out, the required justification and the demolition photos must be present. If the scope changed from the original quote, the what-and-why must be recorded before the form can be submitted.</li>
+          </ul>
+        </li>
+
+        <li>
+          <strong>Photo count consistency — job-completion form only.</strong>
+          The job-completion form keeps the photo record consistent throughout. There is a limit on how many before-photos can be included, after photos must match the number of before photos, and when demolition work applies there is a set number of demolition photos required. Photos that have been deleted do not count toward any of these checks — only photos that are currently live and active are counted. These rules prevent mismatched or incomplete photo records from going into the job report.
+        </li>
+
+        <li>
+          <strong>Warning when leaving with unsaved work — inspection form only.</strong>
+          If a technician tries to navigate away from the inspection form while there are unsaved changes, the form warns them before letting them leave. The job-completion form handles this differently — it saves and lets the technician leave without prompting.
+        </li>
+      </ul>
+    </div>
+
+    <!-- Section 10: Decisions needed + Known issues -->
+    <div class="closing-box">
+      <h2>&#9888; Decisions needed + Known issues</h2>
+      <p style="color:#5a3d00; margin-bottom:20px; font-size:15px;">These items are not yet fully settled. No one should treat them as confirmed business rules until they are signed off.</p>
+
+      <div class="confirm-item">
+        <h3>AFD — confirm the rate so it can be billed</h3>
+        <p>On the inspection, AFD is a simple on/off treatment-method tag — it gets saved, but no quantity is recorded at that stage. On the job-completion form, the technician records how many AFD units were used and for how many days.</p>
+        <p>However, the $75 per unit per day is a placeholder, not a confirmed rate, and AFD usage is not added to the invoice — it bills at $0 today regardless of how much was used.</p>
+        <p><strong>Decision needed:</strong> Confirm the per-day rate so that AFD can be quoted and billed from the units and days the technician records on the job-completion form.</p>
+      </div>
+
+      <div class="confirm-item">
+        <h3>Waste disposal — size recorded, nothing billed</h3>
+        <p>Waste disposal is recorded on the inspection form as a size — Small, Medium or Large — for reporting context only. It has never been a dollar amount, is not added to any total, and is not billed to customers today.</p>
+        <p><strong>Decision needed:</strong> Should waste disposal be charged to customers? No rate is currently set, and there is no billing path for it. If the answer is yes, both the rate and the billing logic would need to be built.</p>
+      </div>
+
+    </div>
+
+  </div><!-- end .container -->
+
+</body>
+</html>

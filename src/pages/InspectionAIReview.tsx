@@ -182,9 +182,14 @@ export default function InspectionAIReview() {
         .eq('lead_id', leadId)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (inspError) throw inspError;
+      if (!inspData?.id) {
+        setInspection(null);
+        toast({ title: 'No inspection yet', description: 'This lead has no inspection to review yet.' });
+        return;
+      }
       setInspection(inspData);
 
       // Load AI summary content from the latest_ai_summary compatibility view

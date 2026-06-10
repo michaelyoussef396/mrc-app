@@ -489,7 +489,7 @@ export async function fetchCompleteInspectionData(
     .eq('lead_id', leadId)
     .order('created_at', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
   if (inspError || !inspection) {
     console.error('[fetchCompleteInspectionData] No inspection found:', inspError)
