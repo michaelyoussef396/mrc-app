@@ -2682,7 +2682,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           .eq('lead_id', leadId)
           .order('start_datetime', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (bookingData) {
           setBooking(bookingData);
@@ -3404,8 +3404,8 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   }, [adminMode]);
 
   // Save handler - multi-table upsert to Supabase
-  const handleSave = async (options?: { silent?: boolean }) => {
-    if (!leadId || !user) return;
+  const handleSave = async (options?: { silent?: boolean }): Promise<string | null> => {
+    if (!leadId || !user) return null;
     setIsSaving(true);
 
     try {
@@ -3891,6 +3891,10 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           description: `Section ${currentSection} saved successfully`,
         });
       }
+      // Return the resolved inspection id so the Complete handler can pass a
+      // guaranteed-valid UUID to the AI Edge Function (currentInspectionId state
+      // is set async and is stale within the same render).
+      return inspectionId;
     } catch (err: any) {
       captureBusinessError('Inspection form save failed', {
         leadId,
@@ -3903,6 +3907,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         description: err?.message || 'Failed to save inspection data',
         variant: 'destructive',
       });
+      return currentInspectionId;
     } finally {
       setIsSaving(false);
     }
@@ -4031,18 +4036,30 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       // Final section — complete inspection, trigger AI generation, update status
       setIsCompleting(true);
       try {
-        // 1. Save all form data
-        await handleSave();
+        // 1. Save all form data — capture the resolved inspection id (handleSave
+        // sets currentInspectionId via async state, which is stale here on a
+        // brand-new inspection completed in a single render).
+        const savedInspectionId = await handleSave();
+        const effectiveInspectionId = savedInspectionId ?? currentInspectionId;
 
-        // 2. Generate AI summary via edge function
-        const payload = buildAIPayload(formData, lead);
-        const { data: { session: aiSession } } = await supabase.auth.getSession();
-        const { data: aiData, error: aiError } = await invokeEdgeFunction('generate-inspection-summary', {
-          formData: payload,
-          inspectionId: currentInspectionId,
-          userId: aiSession?.user?.id,
-          structured: true,
-        });
+        // 2. Generate AI summary via edge function. The EF requires a valid
+        // inspectionId (uuid); passing the stale null would 400 and skip the
+        // ai_summary_versions write.
+        let aiError: { message: string } | null = null;
+        if (!effectiveInspectionId) {
+          aiError = { message: 'Inspection id unavailable after save' };
+          console.error('[AI Generate on Complete] Missing inspection id; skipping AI generation');
+        } else {
+          const payload = buildAIPayload(formData, lead);
+          const { data: { session: aiSession } } = await supabase.auth.getSession();
+          const result = await invokeEdgeFunction('generate-inspection-summary', {
+            formData: payload,
+            inspectionId: effectiveInspectionId,
+            userId: aiSession?.user?.id,
+            structured: true,
+          });
+          aiError = result.error;
+        }
 
         // Stage 3.4.5: post-AI mirror write removed. The EF
         // (generate-inspection-summary) is now the canonical writer of
