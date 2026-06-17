@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { captureBusinessError } from '@/lib/sentry';
 import { logFieldEdits } from '@/lib/api/fieldEditLog';
+import { stripBadUnicode } from '@/lib/stripBadUnicode';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import {
   AlertTriangle,
@@ -259,11 +260,11 @@ export default function InspectionAIReview() {
             version_number: nextVersion,
             generation_type: 'manual_edit',
             generated_by: editorId,
-            ai_summary_text: whatWeFound || null,
-            what_we_found_text: whatWeFound || null,
-            what_we_will_do_text: whatWeWillDo || null,
-            problem_analysis_content: problemAnalysis || null,
-            demolition_content: demolitionContent || null,
+            ai_summary_text: whatWeFound ? stripBadUnicode(whatWeFound) : null,
+            what_we_found_text: whatWeFound ? stripBadUnicode(whatWeFound) : null,
+            what_we_will_do_text: whatWeWillDo ? stripBadUnicode(whatWeWillDo) : null,
+            problem_analysis_content: problemAnalysis ? stripBadUnicode(problemAnalysis) : null,
+            demolition_content: demolitionContent ? stripBadUnicode(demolitionContent) : null,
           })
           .select('id')
           .single();

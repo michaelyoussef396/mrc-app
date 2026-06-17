@@ -5,6 +5,7 @@
 
 import { z } from 'https://esm.sh/zod@3.22.4'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { stripBadUnicode } from '../_shared/stripBadUnicode.ts'
 
 const RequestBodySchema = z.object({
   formData: z.record(z.unknown()),
@@ -442,6 +443,11 @@ async function persistVersionRow(args: {
 }): Promise<{ versionId: string | null; versionNumber: number | null; generationType: 'initial' | 'regeneration' | null; error: string | null }> {
   const { client, inspectionId, userId, modelName, systemPromptHash, userPrompt, promptTokens, responseTokens, regenerationFeedback, content } = args
 
+  // Strip chars PostgREST's strict JSON decoder rejects (lone surrogates from
+  // truncated emoji, C0 controls) before insert — otherwise PGRST102. Covers
+  // every persistVersionRow caller (structured + per-section regeneration).
+  const clean = (v: string | null): string | null => (typeof v === 'string' ? stripBadUnicode(v) : v)
+
   const MAX_ATTEMPTS = 3
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const { data: maxRow, error: maxErr } = await client
@@ -473,11 +479,11 @@ async function persistVersionRow(args: {
         prompt_tokens: promptTokens,
         response_tokens: responseTokens,
         regeneration_feedback: regenerationFeedback,
-        ai_summary_text: content.aiSummaryText,
-        what_we_found_text: content.whatWeFoundText,
-        what_we_will_do_text: content.whatWeWillDoText,
-        problem_analysis_content: content.problemAnalysisContent,
-        demolition_content: content.demolitionContent,
+        ai_summary_text: clean(content.aiSummaryText),
+        what_we_found_text: clean(content.whatWeFoundText),
+        what_we_will_do_text: clean(content.whatWeWillDoText),
+        problem_analysis_content: clean(content.problemAnalysisContent),
+        demolition_content: clean(content.demolitionContent),
       })
       .select('id')
       .single()
@@ -679,6 +685,14 @@ Return ONLY the JSON object:`
 
         const cleanedText = extractJson(aiResult.text)
         const structuredData: StructuredSummary = JSON.parse(cleanedText)
+
+        // Sanitize at the source: a swapped/token-capped model can emit a lone
+        // surrogate (truncated emoji). Strip it here so neither the version insert
+        // nor the HTTP response (spread below) carries a body PostgREST rejects.
+        const sd = structuredData as Record<string, unknown>
+        for (const k of Object.keys(sd)) {
+          if (typeof sd[k] === 'string') sd[k] = stripBadUnicode(sd[k] as string)
+        }
 
         // Persist a new ai_summary_versions row (best-effort — never fails the request)
         let versionMeta: { versionId: string | null; versionNumber: number | null; generationType: string | null } = { versionId: null, versionNumber: null, generationType: null }
