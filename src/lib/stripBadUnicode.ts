@@ -14,6 +14,6 @@
  * relies on UTF-16 code-unit semantics.
  */
 export const stripBadUnicode = (s: string): string =>
-  s
+  (typeof s === 'string' ? s : '')
     .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
