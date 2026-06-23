@@ -1,11 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getInvoiceByLeadId,
+  getOutstandingInvoices,
   markInvoicePaid,
   markInvoiceSent,
   type InvoiceRow,
   type PaymentMethod,
 } from '@/lib/api/invoices'
+import { getDaysOverdue, getPenaltyTier, type PenaltyTier } from '@/lib/calculations/penaltyLadder'
 
 /**
  * Payment tracking hook for a lead.
@@ -77,5 +79,49 @@ export function usePaymentTracking(leadId: string | null) {
     isOverdue,
     daysUntilDue,
     daysPastDue,
+    // Penalty-ladder tier for the current invoice (DISPLAY ONLY). null when no invoice.
+    penaltyTier: invoice ? getPenaltyTier(getDaysOverdue(invoice)) : null,
+  }
+}
+
+/** One outstanding invoice enriched with its derived penalty-ladder position. */
+export interface OutstandingInvoice {
+  invoice: InvoiceRow
+  daysOverdue: number
+  penaltyTier: PenaltyTier
+}
+
+/**
+ * All issued-but-unpaid invoices for the admin Outstanding Invoices widget.
+ * `outstanding` = every sent/viewed/overdue invoice; `overdue` = the subset
+ * actually past its due_date (derived client-side, so it catches past-due rows
+ * the overdue-flagging cron hasn't touched yet). Totals use total_amount.
+ * Penalty fees/interest in each tier are DISPLAY ONLY — never charged by MRC.
+ */
+export function useOverdueInvoices() {
+  const query = useQuery({
+    queryKey: ['outstanding-invoices'],
+    queryFn: getOutstandingInvoices,
+  })
+
+  const outstanding: OutstandingInvoice[] = (query.data ?? []).map(invoice => {
+    const daysOverdue = getDaysOverdue(invoice)
+    return { invoice, daysOverdue, penaltyTier: getPenaltyTier(daysOverdue) }
+  })
+
+  const overdue = outstanding.filter(row => row.daysOverdue > 0)
+  const sumTotal = (rows: OutstandingInvoice[]) =>
+    rows.reduce((sum, row) => sum + Number(row.invoice.total_amount ?? 0), 0)
+
+  return {
+    outstanding,
+    overdue,
+    outstandingCount: outstanding.length,
+    outstandingTotal: sumTotal(outstanding),
+    overdueCount: overdue.length,
+    overdueTotal: sumTotal(overdue),
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
   }
 }

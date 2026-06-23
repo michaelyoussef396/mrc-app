@@ -13,6 +13,7 @@ import { useActivityTimeline } from '@/hooks/useActivityTimeline';
 import { ActivityTimeline } from '@/components/dashboard/ActivityTimeline';
 import { getTechnicianColor } from '@/hooks/useTechnicians';
 import { NeedsAttentionList } from '@/components/admin/NeedsAttentionList';
+import { OutstandingInvoicesWidget } from '@/components/dashboard/OutstandingInvoicesWidget';
 import {
   AlertCircle,
   AlertOctagon,
@@ -446,6 +447,9 @@ export default function AdminDashboard() {
 
           {/* Right Column */}
           <div className="w-full lg:flex-[2] space-y-6">
+            {/* Outstanding Invoices */}
+            <OutstandingInvoicesWidget />
+
             {/* Unassigned Leads */}
             <div
               className="bg-white rounded-2xl p-4 md:p-6 shadow-sm"
