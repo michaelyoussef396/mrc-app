@@ -144,6 +144,27 @@ export async function getInvoiceByLeadId(leadId: string): Promise<InvoiceRow | n
   return data as InvoiceRow | null
 }
 
+/**
+ * All issued-but-unpaid invoices (sent / viewed / overdue), ordered by soonest due.
+ * Used by the admin Outstanding Invoices widget. We include 'sent' and 'viewed'
+ * (not just persisted 'overdue') so a past-due invoice surfaces even if the
+ * overdue-flagging cron hasn't run yet — past-due is derived client-side from
+ * due_date via getDaysOverdue, not from the stored status.
+ */
+export async function getOutstandingInvoices(): Promise<InvoiceRow[]> {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('*')
+    .in('status', ['sent', 'viewed', 'overdue'])
+    .order('due_date', { ascending: true })
+
+  if (error) {
+    captureBusinessError('Failed to fetch outstanding invoices', { error: error.message })
+    throw new Error(`Failed to fetch outstanding invoices: ${error.message}`)
+  }
+  return (data ?? []) as InvoiceRow[]
+}
+
 export async function getInvoiceById(invoiceId: string): Promise<InvoiceRow> {
   const { data, error } = await supabase
     .from('invoices')
