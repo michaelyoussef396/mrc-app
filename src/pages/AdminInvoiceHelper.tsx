@@ -399,12 +399,15 @@ export default function AdminInvoiceHelper() {
           <Input
             id="equipmentCost"
             type="number"
+            inputMode="decimal"
             min={0}
             step="0.01"
             value={equipmentCost || ''}
             disabled={!isEditable}
             onChange={e => setEquipmentCost(Number(e.target.value) || 0)}
+            placeholder="0.00"
           />
+          <p className="text-[11px] text-gray-400 mt-1">Direct dollar amount — updates the totals below in real time.</p>
         </div>
 
         {/* Live labour readout from calculateCostEstimate() */}
@@ -432,10 +435,6 @@ export default function AdminInvoiceHelper() {
           <div className="flex justify-between border-t border-gray-200 pt-1">
             <span className="text-gray-600">Labour after discount</span>
             <span className="tabular-nums">{formatCurrency(estimate.labourAfterDiscount)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Equipment (ex GST)</span>
-            <span className="tabular-nums">{formatCurrency(equipmentCost)}</span>
           </div>
         </div>
       </section>
