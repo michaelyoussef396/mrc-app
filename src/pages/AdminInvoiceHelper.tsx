@@ -23,7 +23,7 @@ import {
   saveCalculatedInvoice, LABOUR_LINE_PREFIX, EQUIPMENT_LINE_PREFIX,
   type InvoiceLineItem, type InvoiceRow, type PaymentMethod,
 } from '@/lib/api/invoices'
-import { calculateCostEstimate, formatCurrency, GST_RATE, round2 } from '@/lib/calculations/pricing'
+import { calculateCostEstimate, formatCurrency, GST_RATE, round2, EQUIPMENT_RATES } from '@/lib/calculations/pricing'
 import { formatDateAU } from '@/lib/dateUtils'
 
 const TERM_OPTIONS = [7, 14, 30, 60] as const
@@ -57,6 +57,36 @@ function emptyCustomItem(): InvoiceLineItem {
   return { description: '', quantity: 1, unit_price: 0, total: 0, is_equipment: false }
 }
 
+type EquipmentKey = 'dehumidifier' | 'airMover' | 'rcd'
+interface EquipmentUsage {
+  qty: number
+  days: number
+}
+
+// Rate card is sacred (CLAUDE.md): dehumidifier $132/day, air mover $46/day, RCD $5/day.
+// Equipment is never volume-discounted — it feeds the engine as a flat ex-GST cost.
+const EQUIPMENT_ROWS: { key: EquipmentKey; label: string; rate: number }[] = [
+  { key: 'dehumidifier', label: 'Dehumidifier', rate: EQUIPMENT_RATES.dehumidifier },
+  { key: 'airMover', label: 'Air Mover', rate: EQUIPMENT_RATES.airMover },
+  { key: 'rcd', label: 'RCD Box', rate: EQUIPMENT_RATES.rcd },
+]
+
+/** Seed equipment qty/days from a job_completion row (actual equipment used). */
+function seedEquipment(jc: {
+  actual_dehumidifier_qty?: number | null
+  actual_dehumidifier_days?: number | null
+  actual_air_mover_qty?: number | null
+  actual_air_mover_days?: number | null
+  actual_rcd_qty?: number | null
+  actual_rcd_days?: number | null
+} | null): Record<EquipmentKey, EquipmentUsage> {
+  return {
+    dehumidifier: { qty: Number(jc?.actual_dehumidifier_qty ?? 0), days: Number(jc?.actual_dehumidifier_days ?? 0) },
+    airMover: { qty: Number(jc?.actual_air_mover_qty ?? 0), days: Number(jc?.actual_air_mover_days ?? 0) },
+    rcd: { qty: Number(jc?.actual_rcd_qty ?? 0), days: Number(jc?.actual_rcd_days ?? 0) },
+  }
+}
+
 function isAutoLine(item: InvoiceLineItem): boolean {
   return item.description.startsWith(LABOUR_LINE_PREFIX) || item.description.startsWith(EQUIPMENT_LINE_PREFIX)
 }
@@ -81,11 +111,11 @@ export default function AdminInvoiceHelper() {
   const [jobCompletionId, setJobCompletionId] = useState<string | null>(null)
   const [jobNumber, setJobNumber] = useState<string | null>(null)
 
-  // Labour (hour-based) + equipment
+  // Labour (hour-based) + equipment (per-item qty × days, seeded from the job completion)
   const [nonDemoHours, setNonDemoHours] = useState(0)
   const [demolitionHours, setDemolitionHours] = useState(0)
   const [subfloorHours, setSubfloorHours] = useState(0)
-  const [equipmentCost, setEquipmentCost] = useState(0)
+  const [equipment, setEquipment] = useState<Record<EquipmentKey, EquipmentUsage>>(() => seedEquipment(null))
 
   // Custom / variation line items (never volume-discounted)
   const [customItems, setCustomItems] = useState<InvoiceLineItem[]>([])
@@ -113,14 +143,14 @@ export default function AdminInvoiceHelper() {
         const [{ data: jc }, { data: inspection }] = await Promise.all([
           supabase
             .from('job_completions')
-            .select('id, job_number')
+            .select('id, job_number, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_rcd_qty, actual_rcd_days')
             .eq('lead_id', leadId)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
           supabase
             .from('inspections')
-            .select('no_demolition_hours, demolition_hours, subfloor_hours, equipment_cost_ex_gst')
+            .select('no_demolition_hours, demolition_hours, subfloor_hours')
             .eq('lead_id', leadId)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -129,6 +159,11 @@ export default function AdminInvoiceHelper() {
         if (cancelled) return
 
         setJobNumber(jc?.job_number ?? null)
+
+        // Equipment qty/days always re-seed from the job completion (actual equipment used).
+        // The invoice stores only the equipment subtotal, not the breakdown, so the job
+        // completion is the canonical per-item source — mirrors how hours re-seed from inspection.
+        setEquipment(seedEquipment(jc))
 
         // Customer/header — prefer the persisted invoice, fall back to auto-populate
         setCustomerName(existing?.customer_name ?? populated.customer_name)
@@ -142,7 +177,6 @@ export default function AdminInvoiceHelper() {
         setNonDemoHours(Number(inspection?.no_demolition_hours ?? 0))
         setDemolitionHours(Number(inspection?.demolition_hours ?? 0))
         setSubfloorHours(Number(inspection?.subfloor_hours ?? 0))
-        setEquipmentCost(Number(existing?.equipment_subtotal ?? inspection?.equipment_cost_ex_gst ?? 0))
 
         if (existing) {
           setInvoiceId(existing.id)
@@ -164,7 +198,30 @@ export default function AdminInvoiceHelper() {
     return () => { cancelled = true }
   }, [leadId])
 
-  // Labour + volume discount via the canonical pricing engine (13% cap enforced inside)
+  // Itemised equipment lines (qty × days × rate) — the source of truth for equipment cost.
+  // Zero-total rows are dropped so they never reach the saved invoice / PDF.
+  const equipmentLineItems = useMemo<InvoiceLineItem[]>(
+    () => EQUIPMENT_ROWS.map(row => {
+      const { qty, days } = equipment[row.key]
+      const total = round2(qty * days * row.rate)
+      return {
+        description: `${row.label} (${qty} × ${days} ${days === 1 ? 'day' : 'days'} @ ${formatCurrency(row.rate)}/day)`,
+        quantity: qty * days,
+        unit_price: row.rate,
+        total,
+        is_equipment: true,
+      }
+    }).filter(it => it.total > 0),
+    [equipment],
+  )
+
+  const equipmentCost = useMemo(
+    () => round2(equipmentLineItems.reduce((sum, it) => sum + it.total, 0)),
+    [equipmentLineItems],
+  )
+
+  // Labour + volume discount via the canonical pricing engine (13% cap enforced inside).
+  // Equipment enters as a flat ex-GST cost and is never discounted.
   const estimate = useMemo(
     () => calculateCostEstimate({ nonDemoHours, demolitionHours, subfloorHours, equipmentCost }),
     [nonDemoHours, demolitionHours, subfloorHours, equipmentCost],
@@ -184,6 +241,10 @@ export default function AdminInvoiceHelper() {
   const isEditable = status === 'draft'
   const isSentLike = status === 'sent' || status === 'viewed' || status === 'overdue'
   const isPaid = status === 'paid'
+
+  function updateEquipment(key: EquipmentKey, field: keyof EquipmentUsage, value: number) {
+    setEquipment(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }))
+  }
 
   function updateCustomItem(index: number, patch: { description?: string; amount?: number }) {
     setCustomItems(prev => prev.map((ci, i) => {
@@ -222,6 +283,7 @@ export default function AdminInvoiceHelper() {
         demolitionHours,
         subfloorHours,
         equipmentCost,
+        equipmentItems: equipmentLineItems,
         customItems,
         due_date: dueDate,
         notes: notes || null,
@@ -394,20 +456,64 @@ export default function AdminInvoiceHelper() {
           </div>
         </div>
 
-        <div>
-          <Label htmlFor="equipmentCost" className="text-xs text-gray-500">Equipment cost (ex GST, direct entry)</Label>
-          <Input
-            id="equipmentCost"
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="0.01"
-            value={equipmentCost || ''}
-            disabled={!isEditable}
-            onChange={e => setEquipmentCost(Number(e.target.value) || 0)}
-            placeholder="0.00"
-          />
-          <p className="text-[11px] text-gray-400 mt-1">Direct dollar amount — updates the totals below in real time.</p>
+        {/* Equipment used — per-item qty × days, seeded from the job completion. Never discounted. */}
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <Label className="text-xs text-gray-500">Equipment used (from job completion)</Label>
+            <span className="text-[11px] text-gray-400">qty × days × daily rate</span>
+          </div>
+          <div className="space-y-2">
+            {EQUIPMENT_ROWS.map(row => {
+              const { qty, days } = equipment[row.key]
+              const lineTotal = round2(qty * days * row.rate)
+              return (
+                <div key={row.key} className="rounded-lg border border-gray-200 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">{row.label}</span>
+                    <span className="text-xs text-gray-500">{formatCurrency(row.rate)}/day</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor={`${row.key}-qty`} className="text-xs text-gray-500">Qty</Label>
+                      <Input
+                        id={`${row.key}-qty`}
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        step="1"
+                        value={qty || ''}
+                        disabled={!isEditable}
+                        onChange={e => updateEquipment(row.key, 'qty', Number(e.target.value) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor={`${row.key}-days`} className="text-xs text-gray-500">Days</Label>
+                      <Input
+                        id={`${row.key}-days`}
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        step="1"
+                        value={days || ''}
+                        disabled={!isEditable}
+                        onChange={e => updateEquipment(row.key, 'days', Number(e.target.value) || 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-between border-t border-gray-100 pt-2 text-sm">
+                    <span className="text-gray-500">Line total</span>
+                    <span className="font-medium tabular-nums">{formatCurrency(lineTotal)}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="flex justify-between rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-sm">
+            <span className="text-gray-600 font-medium">Equipment subtotal (never discounted)</span>
+            <span className="font-semibold tabular-nums">{formatCurrency(equipmentCost)}</span>
+          </div>
         </div>
 
         {/* Live labour readout from calculateCostEstimate() */}

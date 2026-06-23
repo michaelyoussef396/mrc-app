@@ -289,6 +289,10 @@ export interface CalculatedInvoiceInput {
   subfloorHours: number
   // Equipment is a direct ex-GST dollar figure (matches the inspection pricing pattern)
   equipmentCost: number
+  // Itemised equipment rows (dehumidifier / air mover / RCD). When present these are the
+  // source of truth — their sum drives equipment_subtotal and the engine equipment cost,
+  // and each is persisted as its own line item. Equipment is NEVER volume-discounted.
+  equipmentItems?: InvoiceLineItem[]
   // Variations / miscellaneous — never volume-discounted
   customItems: InvoiceLineItem[]
   due_date: string
@@ -310,18 +314,27 @@ export interface CalculatedInvoiceInput {
  *   subtotal                = gross ex-GST before discount (labour + equipment + custom)
  *   discount_amount/_pct    = labour volume discount
  *   subtotal_after_discount = ex-GST after discount  (the "subtotal ex GST" figure)
- *   equipment_subtotal      = equipment cost
+ *   equipment_subtotal      = equipment cost (Σ of itemised equipment rows when provided)
  *   gst_amount              = 10% of subtotal_after_discount
  *   total_amount            = inc-GST total
  */
 export async function saveCalculatedInvoice(input: CalculatedInvoiceInput): Promise<InvoiceRow> {
   addBusinessBreadcrumb('Saving calculated invoice', { leadId: input.lead_id, invoiceId: input.invoiceId ?? null })
 
+  // Equipment is the sum of its itemised rows when provided (the source of truth), else the
+  // direct ex-GST figure. Either way it feeds the engine as a flat cost and is NEVER discounted.
+  const equipmentItems: InvoiceLineItem[] = (input.equipmentItems ?? [])
+    .filter(it => it.total > 0)
+    .map(it => ({ ...it, is_equipment: true }))
+  const equipment_subtotal = equipmentItems.length > 0
+    ? round2(equipmentItems.reduce((sum, it) => sum + it.total, 0))
+    : round2(input.equipmentCost)
+
   const est = calculateCostEstimate({
     nonDemoHours: input.nonDemoHours,
     demolitionHours: input.demolitionHours,
     subfloorHours: input.subfloorHours,
-    equipmentCost: input.equipmentCost,
+    equipmentCost: equipment_subtotal,
   })
 
   // calculateCostEstimate caps the volume discount at MAX_DISCOUNT (≤13%). Clamp again as
@@ -334,7 +347,6 @@ export async function saveCalculatedInvoice(input: CalculatedInvoiceInput): Prom
     .map(ci => ({ ...ci, is_equipment: false }))
   const customTotal = round2(cleanCustom.reduce((sum, ci) => sum + ci.total, 0))
 
-  const equipment_subtotal = round2(input.equipmentCost)
   const subtotal = round2(est.labourSubtotal + equipment_subtotal + customTotal)
   const subtotal_after_discount = round2(est.subtotalExGst + customTotal)
   const gst_amount = round2(subtotal_after_discount * GST_RATE)
@@ -352,7 +364,9 @@ export async function saveCalculatedInvoice(input: CalculatedInvoiceInput): Prom
       is_equipment: false,
     })
   }
-  if (equipment_subtotal > 0) {
+  if (equipmentItems.length > 0) {
+    line_items.push(...equipmentItems)
+  } else if (equipment_subtotal > 0) {
     line_items.push({
       description: EQUIPMENT_LINE_PREFIX,
       quantity: 1,
