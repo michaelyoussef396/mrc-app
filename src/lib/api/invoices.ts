@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import { captureBusinessError, addBusinessBreadcrumb } from '@/lib/sentry'
-import { GST_RATE, MAX_DISCOUNT, EQUIPMENT_RATES } from '@/lib/calculations/pricing'
+import { GST_RATE, MAX_DISCOUNT, EQUIPMENT_RATES, calculateCostEstimate } from '@/lib/calculations/pricing'
 import { notifyInvoiceSent, notifyPaymentReceived } from '@/lib/api/notifications'
 
 // ============================================================
@@ -266,6 +266,144 @@ export async function updateInvoice(
   if (error) {
     captureBusinessError('Failed to update invoice', { invoiceId, error: error.message })
     throw new Error(`Failed to update invoice: ${error.message}`)
+  }
+  return data as InvoiceRow
+}
+
+// Stable prefixes so the auto-generated labour/equipment lines can be told apart
+// from admin-entered custom lines when an invoice is reloaded for editing.
+export const LABOUR_LINE_PREFIX = 'Mould remediation labour'
+export const EQUIPMENT_LINE_PREFIX = 'Drying & remediation equipment'
+
+export interface CalculatedInvoiceInput {
+  lead_id: string
+  invoiceId?: string | null
+  job_completion_id?: string | null
+  customer_name: string
+  customer_email?: string | null
+  customer_phone?: string | null
+  property_address?: string | null
+  // Labour hours drive the pricing engine (volume discount is derived, never typed)
+  nonDemoHours: number
+  demolitionHours: number
+  subfloorHours: number
+  // Equipment is a direct ex-GST dollar figure (matches the inspection pricing pattern)
+  equipmentCost: number
+  // Variations / miscellaneous — never volume-discounted
+  customItems: InvoiceLineItem[]
+  due_date: string
+  notes?: string | null
+}
+
+/**
+ * Create or update an invoice from hour-based labour + direct equipment + custom lines,
+ * using the canonical pricing engine (calculateCostEstimate) for labour and the volume
+ * discount. The 13% cap is enforced by calculateCostEstimate's discount tiers AND the
+ * invoices.discount_percentage CHECK constraint — this function never overrides it.
+ *
+ * The volume discount applies ONLY to labour (as the engine computes it); equipment and
+ * custom items are never discounted. We persist the engine's derived figures directly so
+ * the stored row matches what the admin sees. line_items carry the final charged amounts
+ * (labour after discount, equipment, custom) for the invoice/PDF record.
+ *
+ * Column mapping (no labour_cost/total_inc_gst columns exist on this table):
+ *   subtotal                = gross ex-GST before discount (labour + equipment + custom)
+ *   discount_amount/_pct    = labour volume discount
+ *   subtotal_after_discount = ex-GST after discount  (the "subtotal ex GST" figure)
+ *   equipment_subtotal      = equipment cost
+ *   gst_amount              = 10% of subtotal_after_discount
+ *   total_amount            = inc-GST total
+ */
+export async function saveCalculatedInvoice(input: CalculatedInvoiceInput): Promise<InvoiceRow> {
+  addBusinessBreadcrumb('Saving calculated invoice', { leadId: input.lead_id, invoiceId: input.invoiceId ?? null })
+
+  const est = calculateCostEstimate({
+    nonDemoHours: input.nonDemoHours,
+    demolitionHours: input.demolitionHours,
+    subfloorHours: input.subfloorHours,
+    equipmentCost: input.equipmentCost,
+  })
+
+  // calculateCostEstimate caps the volume discount at MAX_DISCOUNT (≤13%). Clamp again as
+  // defence-in-depth before it reaches the discount_percentage CHECK (0–13) column.
+  const discount_percentage = Math.min(MAX_DISCOUNT * 100, Math.max(0, round2(est.discountPercent * 100)))
+  const discount_amount = round2(est.discountAmount)
+
+  const cleanCustom: InvoiceLineItem[] = input.customItems
+    .filter(ci => ci.description.trim().length > 0 && ci.total > 0)
+    .map(ci => ({ ...ci, is_equipment: false }))
+  const customTotal = round2(cleanCustom.reduce((sum, ci) => sum + ci.total, 0))
+
+  const equipment_subtotal = round2(input.equipmentCost)
+  const subtotal = round2(est.labourSubtotal + equipment_subtotal + customTotal)
+  const subtotal_after_discount = round2(est.subtotalExGst + customTotal)
+  const gst_amount = round2(subtotal_after_discount * GST_RATE)
+  const total_amount = round2(subtotal_after_discount + gst_amount)
+
+  const line_items: InvoiceLineItem[] = []
+  if (est.labourAfterDiscount > 0) {
+    const labour = round2(est.labourAfterDiscount)
+    const discountNote = est.discountPercent > 0 ? `, ${round2(est.discountPercent * 100)}% volume discount` : ''
+    line_items.push({
+      description: `${LABOUR_LINE_PREFIX} (${est.totalLabourHours}h${discountNote})`,
+      quantity: 1,
+      unit_price: labour,
+      total: labour,
+      is_equipment: false,
+    })
+  }
+  if (equipment_subtotal > 0) {
+    line_items.push({
+      description: EQUIPMENT_LINE_PREFIX,
+      quantity: 1,
+      unit_price: equipment_subtotal,
+      total: equipment_subtotal,
+      is_equipment: true,
+    })
+  }
+  line_items.push(...cleanCustom)
+
+  const payload = {
+    customer_name: input.customer_name,
+    customer_email: input.customer_email ?? null,
+    customer_phone: input.customer_phone ?? null,
+    property_address: input.property_address ?? null,
+    job_completion_id: input.job_completion_id ?? null,
+    line_items,
+    subtotal,
+    discount_percentage,
+    discount_amount,
+    subtotal_after_discount,
+    equipment_subtotal,
+    gst_amount,
+    total_amount,
+    due_date: input.due_date,
+    notes: input.notes ?? null,
+  }
+
+  if (input.invoiceId) {
+    const { data, error } = await supabase
+      .from('invoices')
+      .update(payload)
+      .eq('id', input.invoiceId)
+      .select()
+      .single()
+    if (error) {
+      captureBusinessError('Failed to update calculated invoice', { invoiceId: input.invoiceId, error: error.message })
+      throw new Error(`Failed to save invoice: ${error.message}`)
+    }
+    return data as InvoiceRow
+  }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data, error } = await supabase
+    .from('invoices')
+    .insert({ lead_id: input.lead_id, ...payload, created_by: user?.id ?? null })
+    .select()
+    .single()
+  if (error) {
+    captureBusinessError('Failed to create calculated invoice', { leadId: input.lead_id, error: error.message })
+    throw new Error(`Failed to create invoice: ${error.message}`)
   }
   return data as InvoiceRow
 }
