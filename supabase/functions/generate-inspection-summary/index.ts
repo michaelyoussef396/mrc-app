@@ -5,6 +5,7 @@
 
 import { z } from 'https://esm.sh/zod@3.22.4'
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { stripBadUnicode } from '../_shared/stripBadUnicode.ts'
 
 const RequestBodySchema = z.object({
   formData: z.record(z.unknown()),
@@ -442,6 +443,11 @@ async function persistVersionRow(args: {
 }): Promise<{ versionId: string | null; versionNumber: number | null; generationType: 'initial' | 'regeneration' | null; error: string | null }> {
   const { client, inspectionId, userId, modelName, systemPromptHash, userPrompt, promptTokens, responseTokens, regenerationFeedback, content } = args
 
+  // Strip chars PostgREST's strict JSON decoder rejects (lone surrogates from
+  // truncated emoji, C0 controls) before insert — otherwise PGRST102. Covers
+  // every persistVersionRow caller (structured + per-section regeneration).
+  const clean = (v: string | null): string | null => (typeof v === 'string' ? stripBadUnicode(v) : v)
+
   const MAX_ATTEMPTS = 3
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const { data: maxRow, error: maxErr } = await client
@@ -473,11 +479,11 @@ async function persistVersionRow(args: {
         prompt_tokens: promptTokens,
         response_tokens: responseTokens,
         regeneration_feedback: regenerationFeedback,
-        ai_summary_text: content.aiSummaryText,
-        what_we_found_text: content.whatWeFoundText,
-        what_we_will_do_text: content.whatWeWillDoText,
-        problem_analysis_content: content.problemAnalysisContent,
-        demolition_content: content.demolitionContent,
+        ai_summary_text: clean(content.aiSummaryText),
+        what_we_found_text: clean(content.whatWeFoundText),
+        what_we_will_do_text: clean(content.whatWeWillDoText),
+        problem_analysis_content: clean(content.problemAnalysisContent),
+        demolition_content: clean(content.demolitionContent),
       })
       .select('id')
       .single()
@@ -524,6 +530,9 @@ function buildFeedbackPreamble(feedback: string | undefined): string {
   return `Reviewer feedback to incorporate (apply to every section you generate):\n"${sanitizeField(feedback)}"\n\n`
 }
 
+// Characters that may legally follow a backslash in a JSON string escape.
+const LEGAL_JSON_ESCAPES = new Set(['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u'])
+
 // Helper: extract JSON from AI response that may include markdown fencing or preamble
 function extractJson(raw: string): string {
   let text = raw.trim()
@@ -556,8 +565,22 @@ function extractJson(raw: string): string {
     }
 
     if (ch === '\\' && inString) {
-      result.push(ch)
-      escaped = true
+      const next = text[i + 1]
+      let isLegalEscape = next !== undefined && LEGAL_JSON_ESCAPES.has(next)
+      // \u must be followed by exactly 4 hex digits; a truncated \uXX is illegal.
+      if (isLegalEscape && next === 'u') {
+        isLegalEscape = /^[0-9a-fA-F]{4}$/.test(text.slice(i + 2, i + 6))
+      }
+      if (isLegalEscape) {
+        result.push(ch)
+        escaped = true
+        continue
+      }
+      // Illegal escape (e.g. \( \% \space, truncated \u): the model emitted a
+      // literal backslash that isn't a valid JSON escape. Escape it to \\ so
+      // JSON.parse reads a literal backslash instead of throwing "bad escaped
+      // character". Don't set escaped — the following char stands on its own.
+      result.push('\\\\')
       continue
     }
 
@@ -583,6 +606,18 @@ function extractJson(raw: string): string {
   }
 
   return result.join('')
+}
+
+// Coerce an arbitrary model-emitted value to a string. The structured prompt
+// asks for string fields, but with no JSON-mode enforcement a model may return
+// a field as an array (paragraphs) or object. Flatten it rather than let a
+// non-string reach the version insert or the consumer's stripBadUnicode.
+function toText(v: unknown): string {
+  if (v == null) return ''
+  if (typeof v === 'string') return v
+  if (Array.isArray(v)) return v.map(toText).join('\n\n')
+  if (typeof v === 'object') return JSON.stringify(v)
+  return String(v)
 }
 
 // ============================================================================
@@ -673,12 +708,23 @@ Return ONLY the JSON object:`
 
       console.log('Calling OpenRouter API for STRUCTURED output...')
 
+      let cleanedText = ''
       try {
         const aiResult = await callOpenRouter(openrouterApiKey, MRC_SYSTEM_PROMPT, structuredUserPrompt, 5000)
-        console.log('Raw AI response (first 300 chars):', aiResult.text.slice(0, 300))
+        console.log('Raw AI response (first 1500 chars):', aiResult.text.slice(0, 1500))
 
-        const cleanedText = extractJson(aiResult.text)
+        cleanedText = extractJson(aiResult.text)
         const structuredData: StructuredSummary = JSON.parse(cleanedText)
+
+        // Normalize every field to a clean string before persist + response.
+        // toText flattens a non-string field (array/object the model may emit
+        // without JSON-mode) so the version insert doesn't choke and the
+        // consumer never calls .replace on a non-string; stripBadUnicode then
+        // removes lone surrogates / control chars PostgREST rejects.
+        const sd = structuredData as Record<string, unknown>
+        for (const k of Object.keys(sd)) {
+          sd[k] = stripBadUnicode(toText(sd[k]))
+        }
 
         // Persist a new ai_summary_versions row (best-effort — never fails the request)
         let versionMeta: { versionId: string | null; versionNumber: number | null; generationType: string | null } = { versionId: null, versionNumber: null, generationType: null }
@@ -723,6 +769,15 @@ Return ONLY the JSON object:`
       } catch (parseError) {
         const errMsg = parseError instanceof Error ? parseError.message : 'Unknown parse error'
         console.error('Structured generation failed:', errMsg)
+        // Surface the offending bytes so a future parse failure is diagnosable
+        // from EF logs (the raw output is persisted nowhere else).
+        const posMatch = errMsg.match(/position (\d+)/)
+        if (posMatch && cleanedText) {
+          const pos = parseInt(posMatch[1], 10)
+          const from = Math.max(0, pos - 120)
+          const to = Math.min(cleanedText.length, pos + 120)
+          console.error(`Parse failure window [${from}-${to}] around position ${pos}:`, JSON.stringify(cleanedText.slice(from, to)))
+        }
         return new Response(
           JSON.stringify({
             success: false,
