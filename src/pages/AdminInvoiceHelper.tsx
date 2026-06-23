@@ -19,9 +19,9 @@ import {
 } from '@/components/ui/select'
 import { PenaltyLadderWidget } from '@/components/invoices/PenaltyLadderWidget'
 import {
-  autoPopulateFromLead, getInvoiceByLeadId, markInvoicePaid, markInvoiceSent,
+  autoPopulateFromLead, getInvoiceByLeadId, logInvoiceActivity, markInvoicePaid, markInvoiceSent,
   saveCalculatedInvoice, LABOUR_LINE_PREFIX, EQUIPMENT_LINE_PREFIX,
-  type InvoiceLineItem, type InvoiceRow, type PaymentMethod,
+  type EquipmentKey, type InvoiceLineItem, type InvoiceRow, type PaymentMethod,
 } from '@/lib/api/invoices'
 import { calculateCostEstimate, formatCurrency, GST_RATE, round2, EQUIPMENT_RATES } from '@/lib/calculations/pricing'
 import { formatDateAU } from '@/lib/dateUtils'
@@ -57,7 +57,6 @@ function emptyCustomItem(): InvoiceLineItem {
   return { description: '', quantity: 1, unit_price: 0, total: 0, is_equipment: false }
 }
 
-type EquipmentKey = 'dehumidifier' | 'airMover' | 'rcd'
 interface EquipmentUsage {
   qty: number
   days: number
@@ -89,6 +88,44 @@ function seedEquipment(jc: {
 
 function isAutoLine(item: InvoiceLineItem): boolean {
   return item.description.startsWith(LABOUR_LINE_PREFIX) || item.description.startsWith(EQUIPMENT_LINE_PREFIX)
+}
+
+const EQUIPMENT_KEYS: EquipmentKey[] = ['dehumidifier', 'airMover', 'rcd']
+
+/**
+ * Reconstruct the per-item equipment breakdown from a saved invoice's line_items.
+ * Returns null when no structured equipment rows exist (legacy/lump rows or first open),
+ * which signals the caller to seed from the job completion instead.
+ */
+function equipmentFromLineItems(items: InvoiceLineItem[]): Record<EquipmentKey, EquipmentUsage> | null {
+  const rows = Array.isArray(items) ? items.filter(li => li.is_equipment && li.equipment_key) : []
+  if (rows.length === 0) return null
+  const result = seedEquipment(null)
+  for (const row of rows) {
+    const key = row.equipment_key as EquipmentKey
+    if (EQUIPMENT_KEYS.includes(key)) {
+      result[key] = { qty: Number(row.equipment_qty ?? 0), days: Number(row.equipment_days ?? 0) }
+    }
+  }
+  return result
+}
+
+/**
+ * Reconstruct the labour hours breakdown stamped on the saved labour line.
+ * Returns null when no labour line carries the breakdown (first open) so the caller
+ * seeds hours from the inspection instead.
+ */
+function hoursFromLineItems(items: InvoiceLineItem[]): { nonDemo: number; demolition: number; subfloor: number } | null {
+  if (!Array.isArray(items)) return null
+  const labour = items.find(li => li.labour_non_demo_hours !== undefined
+    || li.labour_demolition_hours !== undefined
+    || li.labour_subfloor_hours !== undefined)
+  if (!labour) return null
+  return {
+    nonDemo: Number(labour.labour_non_demo_hours ?? 0),
+    demolition: Number(labour.labour_demolition_hours ?? 0),
+    subfloor: Number(labour.labour_subfloor_hours ?? 0),
+  }
 }
 
 export default function AdminInvoiceHelper() {
@@ -160,11 +197,6 @@ export default function AdminInvoiceHelper() {
 
         setJobNumber(jc?.job_number ?? null)
 
-        // Equipment qty/days always re-seed from the job completion (actual equipment used).
-        // The invoice stores only the equipment subtotal, not the breakdown, so the job
-        // completion is the canonical per-item source — mirrors how hours re-seed from inspection.
-        setEquipment(seedEquipment(jc))
-
         // Customer/header — prefer the persisted invoice, fall back to auto-populate
         setCustomerName(existing?.customer_name ?? populated.customer_name)
         setCustomerEmail(existing?.customer_email ?? populated.customer_email ?? null)
@@ -172,11 +204,16 @@ export default function AdminInvoiceHelper() {
         setPropertyAddress(existing?.property_address ?? populated.property_address ?? null)
         setJobCompletionId(existing?.job_completion_id ?? populated.job_completion_id ?? null)
 
-        // Labour hours come from the inspection (the canonical hours source) — the invoice
-        // table stores no hours, so we always re-seed from inspection and let admin adjust.
-        setNonDemoHours(Number(inspection?.no_demolition_hours ?? 0))
-        setDemolitionHours(Number(inspection?.demolition_hours ?? 0))
-        setSubfloorHours(Number(inspection?.subfloor_hours ?? 0))
+        // Equipment + hours: prefer the breakdown persisted in the saved invoice's line_items so
+        // admin edits survive reload. Only seed from the job completion / inspection on first open,
+        // when no structured breakdown exists yet (new invoice or legacy lump row).
+        const savedEquipment = existing ? equipmentFromLineItems(existing.line_items) : null
+        setEquipment(savedEquipment ?? seedEquipment(jc))
+
+        const savedHours = existing ? hoursFromLineItems(existing.line_items) : null
+        setNonDemoHours(savedHours ? savedHours.nonDemo : Number(inspection?.no_demolition_hours ?? 0))
+        setDemolitionHours(savedHours ? savedHours.demolition : Number(inspection?.demolition_hours ?? 0))
+        setSubfloorHours(savedHours ? savedHours.subfloor : Number(inspection?.subfloor_hours ?? 0))
 
         if (existing) {
           setInvoiceId(existing.id)
@@ -210,6 +247,9 @@ export default function AdminInvoiceHelper() {
         unit_price: row.rate,
         total,
         is_equipment: true,
+        equipment_key: row.key,
+        equipment_qty: qty,
+        equipment_days: days,
       }
     }).filter(it => it.total > 0),
     [equipment],
@@ -238,7 +278,6 @@ export default function AdminInvoiceHelper() {
   const totalIncGst = round2(subtotalExGst + gstAmount)
 
   const dueDate = useMemo(() => addDaysISO(invoiceDate, termDays), [invoiceDate, termDays])
-  const isEditable = status === 'draft'
   const isSentLike = status === 'sent' || status === 'viewed' || status === 'overdue'
   const isPaid = status === 'paid'
 
@@ -302,7 +341,15 @@ export default function AdminInvoiceHelper() {
     setSaving(true)
     const id = await persist()
     setSaving(false)
-    if (id) toast.success('Draft saved')
+    if (id) {
+      void logInvoiceActivity(leadId as string, 'invoice_updated', {
+        invoice_id: id,
+        total_amount: totalIncGst,
+        status,
+        saved_at: new Date().toISOString(),
+      })
+      toast.success('Draft saved')
+    }
   }
 
   async function handleConfirmSent() {
@@ -311,6 +358,12 @@ export default function AdminInvoiceHelper() {
       const id = await persist()
       if (!id) return
       await markInvoiceSent(id)
+      void logInvoiceActivity(leadId as string, 'invoice_sent', {
+        invoice_id: id,
+        total_amount: totalIncGst,
+        due_date: dueDate,
+        sent_at: new Date().toISOString(),
+      })
       setStatus('sent')
       const refreshed = await getInvoiceByLeadId(leadId as string)
       setInvoiceRow(refreshed)
@@ -426,7 +479,7 @@ export default function AdminInvoiceHelper() {
               min={0}
               step="0.5"
               value={nonDemoHours || ''}
-              disabled={!isEditable}
+              disabled={saving}
               onChange={e => setNonDemoHours(Number(e.target.value) || 0)}
             />
           </div>
@@ -438,7 +491,7 @@ export default function AdminInvoiceHelper() {
               min={0}
               step="0.5"
               value={demolitionHours || ''}
-              disabled={!isEditable}
+              disabled={saving}
               onChange={e => setDemolitionHours(Number(e.target.value) || 0)}
             />
           </div>
@@ -450,7 +503,7 @@ export default function AdminInvoiceHelper() {
               min={0}
               step="0.5"
               value={subfloorHours || ''}
-              disabled={!isEditable}
+              disabled={saving}
               onChange={e => setSubfloorHours(Number(e.target.value) || 0)}
             />
           </div>
@@ -482,7 +535,7 @@ export default function AdminInvoiceHelper() {
                         min={0}
                         step="1"
                         value={qty || ''}
-                        disabled={!isEditable}
+                        disabled={saving}
                         onChange={e => updateEquipment(row.key, 'qty', Number(e.target.value) || 0)}
                         placeholder="0"
                       />
@@ -496,7 +549,7 @@ export default function AdminInvoiceHelper() {
                         min={0}
                         step="1"
                         value={days || ''}
-                        disabled={!isEditable}
+                        disabled={saving}
                         onChange={e => updateEquipment(row.key, 'days', Number(e.target.value) || 0)}
                         placeholder="0"
                       />
@@ -552,11 +605,9 @@ export default function AdminInvoiceHelper() {
             <h2 className="font-semibold">Custom Line Items</h2>
             <p className="text-xs text-gray-500">Variations &amp; miscellaneous — not volume-discounted.</p>
           </div>
-          {isEditable && (
-            <Button variant="outline" size="sm" className="h-9" onClick={addCustomItem}>
-              <Plus className="h-4 w-4 mr-1" />Add item
-            </Button>
-          )}
+          <Button variant="outline" size="sm" className="h-9" onClick={addCustomItem} disabled={saving}>
+            <Plus className="h-4 w-4 mr-1" />Add item
+          </Button>
         </div>
 
         {customItems.length === 0 ? (
@@ -570,22 +621,21 @@ export default function AdminInvoiceHelper() {
                     <Label className="text-xs text-gray-500">Description</Label>
                     <Input
                       value={ci.description}
-                      disabled={!isEditable}
+                      disabled={saving}
                       onChange={e => updateCustomItem(i, { description: e.target.value })}
                       placeholder="e.g. Variation — additional containment"
                     />
                   </div>
-                  {isEditable && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-10 w-10 mt-5 text-red-500 hover:text-red-600 hover:bg-red-50 flex-shrink-0"
-                      onClick={() => removeCustomItem(i)}
-                      aria-label="Remove custom item"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 mt-5 text-red-500 hover:text-red-600 hover:bg-red-50 flex-shrink-0"
+                    onClick={() => removeCustomItem(i)}
+                    disabled={saving}
+                    aria-label="Remove custom item"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
                 <div className="flex items-end justify-between gap-2">
                   <div className="w-40">
@@ -595,7 +645,7 @@ export default function AdminInvoiceHelper() {
                       min={0}
                       step="0.01"
                       value={ci.total || ''}
-                      disabled={!isEditable}
+                      disabled={saving}
                       onChange={e => updateCustomItem(i, { amount: Number(e.target.value) || 0 })}
                     />
                   </div>
@@ -645,7 +695,7 @@ export default function AdminInvoiceHelper() {
         <div className="flex items-center gap-3">
           <Select
             value={String(termDays)}
-            disabled={!isEditable}
+            disabled={saving}
             onValueChange={v => setTermDays(Number(v))}
           >
             <SelectTrigger className="w-40 h-11">
@@ -667,17 +717,18 @@ export default function AdminInvoiceHelper() {
         <Textarea
           id="notes"
           value={notes}
-          disabled={!isEditable}
+          disabled={saving}
           onChange={e => setNotes(e.target.value)}
           rows={3}
           placeholder="Internal notes for this invoice"
         />
       </section>
 
-      {/* Penalty ladder (sent/overdue only) */}
-      {isSentLike && invoiceRow && (
+      {/* Penalty ladder — shown whenever a due date exists (draft included) so the admin can
+          preview the upcoming timeline before sending. Fed from live state, not just the saved row. */}
+      {dueDate && (
         <section className="bg-white rounded-xl border border-gray-200 p-5">
-          <PenaltyLadderWidget invoice={invoiceRow} />
+          <PenaltyLadderWidget invoice={{ due_date: dueDate, status, sent_at: invoiceRow?.sent_at ?? null }} />
         </section>
       )}
 
@@ -695,41 +746,32 @@ export default function AdminInvoiceHelper() {
         </section>
       )}
 
-      {/* Sticky actions */}
+      {/* Sticky actions — invoice stays editable at every status (admin can correct + resend) */}
       <div className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white/95 backdrop-blur p-3 z-10">
-        <div className="max-w-3xl mx-auto flex items-center gap-2">
-          {isEditable && (
-            <>
-              <Button
-                variant="outline"
-                className="flex-1 h-12"
-                onClick={handleSaveDraft}
-                disabled={saving}
-              >
-                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                Save Draft
-              </Button>
-              <Button
-                className="flex-1 h-12 bg-orange-600 hover:bg-orange-700 text-white"
-                onClick={() => setSentConfirmOpen(true)}
-                disabled={saving || totalIncGst <= 0}
-              >
-                <Send className="h-4 w-4 mr-2" />Mark Invoice as Sent to Client
-              </Button>
-            </>
-          )}
+        <div className="max-w-3xl mx-auto flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            className="flex-1 min-w-[140px] h-12"
+            onClick={handleSaveDraft}
+            disabled={saving}
+          >
+            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            Save Draft
+          </Button>
+          <Button
+            className="flex-1 min-w-[140px] h-12 bg-orange-600 hover:bg-orange-700 text-white"
+            onClick={() => setSentConfirmOpen(true)}
+            disabled={saving || totalIncGst <= 0}
+          >
+            <Send className="h-4 w-4 mr-2" />Mark Invoice as Sent to Client
+          </Button>
           {isSentLike && (
             <Button
-              className="flex-1 h-12 bg-green-600 hover:bg-green-700 text-white"
+              className="flex-1 min-w-[140px] h-12 bg-green-600 hover:bg-green-700 text-white"
               onClick={() => setPaidOpen(true)}
               disabled={saving}
             >
               <CheckCircle2 className="h-4 w-4 mr-2" />Mark as Paid
-            </Button>
-          )}
-          {isPaid && (
-            <Button variant="outline" className="flex-1 h-12" onClick={() => navigate(-1)}>
-              Done
             </Button>
           )}
         </div>

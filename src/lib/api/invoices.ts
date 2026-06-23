@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client'
+import type { Json } from '@/integrations/supabase/types'
 import { captureBusinessError, addBusinessBreadcrumb } from '@/lib/sentry'
 import { GST_RATE, MAX_DISCOUNT, EQUIPMENT_RATES, calculateCostEstimate } from '@/lib/calculations/pricing'
 import { notifyInvoiceSent, notifyPaymentReceived } from '@/lib/api/notifications'
@@ -9,6 +10,7 @@ import { notifyInvoiceSent, notifyPaymentReceived } from '@/lib/api/notification
 
 export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'void'
 export type PaymentMethod = 'cash' | 'visa' | 'mastercard' | 'bank_transfer' | 'cheque'
+export type EquipmentKey = 'dehumidifier' | 'airMover' | 'rcd'
 
 export interface InvoiceLineItem {
   description: string
@@ -16,6 +18,14 @@ export interface InvoiceLineItem {
   unit_price: number
   total: number
   is_equipment: boolean
+  // --- optional breakdown persisted in line_items JSONB so the admin invoice page can
+  // reconstruct exact qty/days/hours on reload instead of re-seeding from source tables ---
+  equipment_key?: EquipmentKey   // present on equipment rows
+  equipment_qty?: number
+  equipment_days?: number
+  labour_non_demo_hours?: number // present on the single labour line
+  labour_demolition_hours?: number
+  labour_subfloor_hours?: number
 }
 
 export interface InvoiceTotals {
@@ -362,6 +372,9 @@ export async function saveCalculatedInvoice(input: CalculatedInvoiceInput): Prom
       unit_price: labour,
       total: labour,
       is_equipment: false,
+      labour_non_demo_hours: input.nonDemoHours,
+      labour_demolition_hours: input.demolitionHours,
+      labour_subfloor_hours: input.subfloorHours,
     })
   }
   if (equipmentItems.length > 0) {
@@ -576,6 +589,37 @@ export async function voidInvoice(invoiceId: string): Promise<void> {
   if (error) {
     captureBusinessError('Failed to void invoice', { invoiceId, error: error.message })
     throw new Error(`Failed to void: ${error.message}`)
+  }
+}
+
+const INVOICE_ACTIVITY_COPY: Record<'invoice_updated' | 'invoice_sent', { title: string; description: string }> = {
+  invoice_updated: { title: 'Invoice draft saved', description: 'Invoice draft saved by admin' },
+  invoice_sent: { title: 'Invoice sent to client', description: 'Invoice marked as sent to client' },
+}
+
+/**
+ * Record an invoice save / send on the lead activity timeline (best-effort).
+ * Mirrors the direct-insert pattern used for simple one-off activities elsewhere.
+ * Never throws — a logging failure must not fail the underlying save/send.
+ */
+export async function logInvoiceActivity(
+  leadId: string,
+  kind: 'invoice_updated' | 'invoice_sent',
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase.from('activities').insert({
+      lead_id: leadId,
+      activity_type: kind,
+      title: INVOICE_ACTIVITY_COPY[kind].title,
+      description: INVOICE_ACTIVITY_COPY[kind].description,
+      metadata: metadata as Json,
+      user_id: user?.id ?? null,
+    })
+    if (error) console.error('Activity log failed (non-fatal):', error.message)
+  } catch (err) {
+    console.error('Activity log failed (non-fatal):', err)
   }
 }
 
