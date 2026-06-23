@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,7 +73,7 @@ import { InlineEditField } from "@/components/leads/InlineEditField";
 import { InlineEditAddress, type AddressFields } from "@/components/leads/InlineEditAddress";
 import { BookJobSheet } from "@/components/leads/BookJobSheet";
 import { useLeadUpdate } from "@/hooks/useLeadUpdate";
-import { logFieldEdits, type FieldChange } from "@/lib/api/fieldEditLog";
+import { logFieldEdits, logContactAttempt, getContactAttemptCount, type FieldChange } from "@/lib/api/fieldEditLog";
 import { formatPhoneNumber, leadSourceOptions } from "@/lib/leadUtils";
 import { leadSourceSchema } from "@/lib/validators/lead-creation.schemas";
 import { formatTimeForDisplay } from "@/lib/bookingService";
@@ -173,6 +173,36 @@ export default function LeadDetail() {
 
   // Fetch unified activity timeline for this lead
   const { data: timelineEvents = [], isLoading: timelineLoading } = useActivityTimeline(50, id);
+
+  // Running count of admin contact attempts (accurate head-count, not capped by timeline)
+  const { data: contactAttemptCount = 0 } = useQuery({
+    queryKey: ['contact-attempt-count', id],
+    queryFn: () => getContactAttemptCount(id!),
+    enabled: !!id,
+  });
+
+  const logContactMutation = useMutation({
+    mutationFn: () =>
+      logContactAttempt({
+        leadId: lead!.id,
+        adminName: profile?.full_name?.trim() || user?.email || 'Unknown user',
+      }),
+    onMutate: async () => {
+      const key = ['contact-attempt-count', id];
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData<number>(key) ?? 0;
+      queryClient.setQueryData<number>(key, prev + 1);
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx) queryClient.setQueryData(['contact-attempt-count', id], ctx.prev);
+      toast.error('Could not log contact attempt — please try again');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['contact-attempt-count', id] });
+      queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
+    },
+  });
 
   // Fetch inspection data
   const { data: inspection } = useQuery({
@@ -2222,6 +2252,29 @@ export default function LeadDetail() {
         {lead && lead.status === 'finished' && (
           <LeadCompleteBanner lead={lead} />
         )}
+
+        {/* Contact Attempts */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Phone className="h-4 w-4" />
+              Contact Attempts
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between gap-4">
+            <span className="text-3xl font-bold tabular-nums" aria-live="polite">
+              {contactAttemptCount}
+            </span>
+            <Button
+              onClick={() => logContactMutation.mutate()}
+              disabled={logContactMutation.isPending}
+              className="min-h-[48px]"
+            >
+              <Phone className="h-4 w-4 mr-2" />
+              Log Contact
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Activity Log */}
         <Card>
