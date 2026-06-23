@@ -1105,6 +1105,8 @@ export type Database = {
           subtotal_after_discount: number
           total_amount: number
           updated_at: string
+          xero_contact_id: string | null
+          xero_invoice_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1135,6 +1137,8 @@ export type Database = {
           subtotal_after_discount?: number
           total_amount?: number
           updated_at?: string
+          xero_contact_id?: string | null
+          xero_invoice_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1165,6 +1169,8 @@ export type Database = {
           subtotal_after_discount?: number
           total_amount?: number
           updated_at?: string
+          xero_contact_id?: string | null
+          xero_invoice_id?: string | null
         }
         Relationships: [
           {
@@ -1509,6 +1515,7 @@ export type Database = {
           special_requests: string | null
           status: Database["public"]["Enums"]["lead_status"]
           updated_at: string | null
+          xero_contact_id: string | null
         }
         Insert: {
           access_instructions?: string | null
@@ -1554,6 +1561,7 @@ export type Database = {
           special_requests?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string | null
+          xero_contact_id?: string | null
         }
         Update: {
           access_instructions?: string | null
@@ -1599,6 +1607,7 @@ export type Database = {
           special_requests?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string | null
+          xero_contact_id?: string | null
         }
         Relationships: [
           {
