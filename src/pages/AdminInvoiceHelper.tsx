@@ -765,7 +765,7 @@ export default function AdminInvoiceHelper() {
           >
             <Send className="h-4 w-4 mr-2" />Mark Invoice as Sent to Client
           </Button>
-          {isSentLike && (
+          {invoiceId && !isPaid && (
             <Button
               className="flex-1 min-w-[140px] h-12 bg-green-600 hover:bg-green-700 text-white"
               onClick={() => setPaidOpen(true)}
