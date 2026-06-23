@@ -1,6 +1,16 @@
 import { supabase } from '@/integrations/supabase/client';
 
 // ============================================================================
+// CONSTANTS
+// ============================================================================
+
+/**
+ * Google review destination (g.page short link). Single source of truth for
+ * every email's review CTA — swap here if the business review URL changes.
+ */
+export const GOOGLE_REVIEW_URL = 'https://g.page/r/CSmcatb7uSq9EBM/review';
+
+// ============================================================================
 // TYPES
 // ============================================================================
 
@@ -157,7 +167,7 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
         </tr>
       </table>
       <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
-      <p class="sig-review">Write a Review: <a href="https://g.page/r/CSmcatb7uSq9EBM/review">Leave us a Google Review</a></p>
+      <p class="sig-review">Write a Review: <a href="${GOOGLE_REVIEW_URL}">Leave us a Google Review</a></p>
     </div>
     <div class="footer">
       <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it. Mould and Restoration Co. does not accept liability for any damage caused by this email or its attachments.</p>
@@ -443,7 +453,7 @@ export function buildGoogleReviewEmailHtml(params: GoogleReviewEmailParams): str
     <p>Thank you for trusting Mould &amp; Restoration Co with your remediation work (${params.jobNumber}). We hope you're thrilled with the result.</p>
     <p>Your feedback means the world to small businesses like ours. If you have 30 seconds, a quick Google review would genuinely make our day:</p>
     <p style="margin-top:24px;text-align:center;">
-      <a href="https://g.page/r/CSmcatb7uSq9EBM/review" class="cta-button">Leave a Google Review</a>
+      <a href="${GOOGLE_REVIEW_URL}" class="cta-button">Leave us a Google Review</a>
     </p>
     <p>If anything's not quite right, please reply to this email or call us on <strong>1800 954 117</strong> — we'll make it right.</p>
     <p>Thanks again,<br>The MRC Team</p>
@@ -459,7 +469,7 @@ export async function sendGoogleReviewEmail(params: {
   const html = buildGoogleReviewEmailHtml({ customerName: params.customerName, jobNumber: params.jobNumber });
   await sendEmail({
     to: params.customerEmail,
-    subject: `Thank you from Mould & Restoration Co`,
+    subject: `Thank you for choosing Mould & Restoration Co. — We'd love your feedback`,
     html,
     leadId: params.leadId,
     templateName: 'google_review_request',
