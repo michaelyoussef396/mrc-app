@@ -34,6 +34,7 @@ const LeadsManagement = lazy(() => import("./pages/LeadsManagement"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Settings = lazy(() => import("./pages/Settings"));
 const LeadDetail = lazy(() => import("./pages/LeadDetail"));
+const AdminInvoiceHelper = lazy(() => import("./pages/AdminInvoiceHelper"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const ViewReportPDF = lazy(() => import("./pages/ViewReportPDF"));
@@ -158,6 +159,22 @@ const AppContent = () => {
                     <Suspense fallback={<GlobalLoader />}>
                       <PageErrorBoundary name="ai-review">
                         <InspectionAIReview />
+                      </PageErrorBoundary>
+                    </Suspense>
+                  </RoleProtectedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin Invoice Helper (standalone layout - no AppLayout) */}
+            <Route
+              path="/admin/invoice/:leadId"
+              element={
+                <ProtectedRoute>
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
+                    <Suspense fallback={<GlobalLoader />}>
+                      <PageErrorBoundary name="invoice-helper">
+                        <AdminInvoiceHelper />
                       </PageErrorBoundary>
                     </Suspense>
                   </RoleProtectedRoute>

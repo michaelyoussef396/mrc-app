@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useQueryClient } from '@tanstack/react-query'
-import { ClipboardCopy, FileText, Loader2, Send } from 'lucide-react'
+import { ArrowRight, ClipboardCopy, FileText, Loader2 } from 'lucide-react'
 
 import { supabase } from '@/integrations/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
-  autoPopulateFromLead, calculateInvoiceTotals, createInvoice, markInvoiceSent,
+  autoPopulateFromLead, calculateInvoiceTotals,
   type CreateInvoiceInput, type InvoiceLineItem, type InvoiceTotals,
 } from '@/lib/api/invoices'
 import { formatCurrency } from '@/lib/calculations/pricing'
 import { formatDateAU } from '@/lib/dateUtils'
 
+// Invoice create/edit lives entirely in the AdminInvoiceHelper page (/admin/invoice/:leadId).
+// This card is a read-only preview of the auto-populated figures plus a button into that page.
 interface Props {
   leadId: string
   onRefresh: () => void
@@ -23,12 +25,6 @@ interface SummaryData {
   totals: InvoiceTotals
   jobNumber: string | null
   completionDate: string | null
-}
-
-function defaultDueDate(days = 14): string {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
 }
 
 function buildClipboardText(d: SummaryData): string {
@@ -60,12 +56,11 @@ function buildClipboardText(d: SummaryData): string {
   return lines.join('\n')
 }
 
-export function InvoiceSummaryCard({ leadId, onRefresh }: Props) {
-  const queryClient = useQueryClient()
+export function InvoiceSummaryCard({ leadId }: Props) {
+  const navigate = useNavigate()
   const [data, setData] = useState<SummaryData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [starting, setStarting] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -113,36 +108,8 @@ export function InvoiceSummaryCard({ leadId, onRefresh }: Props) {
     }
   }
 
-  async function handleStartTracking() {
-    if (!data) return
-    if (data.totals.total_amount <= 0) {
-      toast.error('Invoice total must be greater than 0')
-      return
-    }
-    const p = data.populated
-    const dueDate = p.due_date || defaultDueDate(14)
-    const total = data.totals.total_amount
-
-    setStarting(true)
-    try {
-      // 1. Create invoice (draft) — createInvoice computes full totals
-      //    (line items, equipment subtotal, GST, discount) so the tracker
-      //    row carries real figures instead of a zeroed shell.
-      const inserted = await createInvoice(p)
-
-      // 2. Mark sent (also transitions lead.status → invoicing_sent)
-      await markInvoiceSent(inserted.id)
-
-      // 3. Invalidate React Query caches — refresh invoice + lead views
-      await queryClient.invalidateQueries({ queryKey: ['invoice-by-lead', leadId] })
-
-      toast.success(`Tracker created for ${formatCurrency(total)} · due ${formatDateAU(dueDate)}`)
-      onRefresh()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to start tracking')
-    } finally {
-      setStarting(false)
-    }
+  function handleGenerate() {
+    navigate(`/admin/invoice/${leadId}`)
   }
 
   if (loading) {
@@ -171,7 +138,6 @@ export function InvoiceSummaryCard({ leadId, onRefresh }: Props) {
   const t = data.totals
   const servicesSubtotal = t.subtotal - t.equipment_subtotal
   const discountPct = p.discount_percentage ?? 0
-  const dueDateStr = p.due_date || defaultDueDate(14)
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
@@ -283,20 +249,12 @@ export function InvoiceSummaryCard({ leadId, onRefresh }: Props) {
       <div className="space-y-1.5">
         <Button
           className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white"
-          onClick={handleStartTracking}
-          disabled={starting || t.total_amount <= 0}
+          onClick={handleGenerate}
         >
-          {starting ? (
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creating tracker…</>
-          ) : (
-            <><Send className="h-4 w-4 mr-2" />Mark invoice sent</>
-          )}
+          <ArrowRight className="h-4 w-4 mr-2" />Generate Invoice
         </Button>
         <p className="text-xs text-gray-500 text-center">
-          Creates a {formatCurrency(t.total_amount)} tracker due {formatDateAU(dueDateStr)}. You can edit after.
-        </p>
-        <p className="text-xs text-gray-500 text-center">
-          Logs the invoice for tracking; does not email the customer.
+          Opens the invoice editor to review line items, set payment terms, and mark as sent.
         </p>
       </div>
     </div>

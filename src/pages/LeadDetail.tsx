@@ -2422,6 +2422,7 @@ function GoogleReviewSection({
   lead, onRefresh,
 }: { lead: { id: string; full_name: string; email: string | null; status: string }; onRefresh: () => void }) {
   const [sending, setSending] = useState(false);
+  const queryClient = useQueryClient();
 
   async function handleSend() {
     if (!lead.email) {
@@ -2438,16 +2439,34 @@ function GoogleReviewSection({
         .limit(1)
         .maybeSingle();
 
+      const jobNumber = jc?.job_number ?? 'MRC';
+
       await sendGoogleReviewEmail({
         leadId: lead.id,
         customerEmail: lead.email,
         customerName: lead.full_name,
-        jobNumber: jc?.job_number ?? 'MRC',
+        jobNumber,
       });
 
       const { error: statusErr } = await supabase
         .from('leads').update({ status: 'google_review' }).eq('id', lead.id);
       if (statusErr) throw statusErr;
+
+      // Best-effort timeline entry — a logging failure must not undo the send.
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        await supabase.from('activities').insert({
+          lead_id: lead.id,
+          activity_type: 'google_review_sent',
+          title: 'Google review request sent',
+          description: `Review request emailed to ${lead.email}`,
+          user_id: userData?.user?.id ?? null,
+          metadata: { recipient_email: lead.email, job_number: jobNumber },
+        });
+        queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
+      } catch (logErr) {
+        console.error('[LeadDetail] google_review_sent activity log failed (non-fatal):', logErr);
+      }
 
       toast.success('Review request sent to customer');
       onRefresh();
@@ -2490,6 +2509,7 @@ function FinishLeadSection({
   lead, onRefresh,
 }: { lead: { id: string }; onRefresh: () => void }) {
   const [finishing, setFinishing] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const queryClient = useQueryClient();
 
   async function handleFinish() {
@@ -2499,14 +2519,25 @@ function FinishLeadSection({
         .from('leads').update({ status: 'finished' }).eq('id', lead.id);
       if (statusErr) throw statusErr;
 
-      await logFieldEdits({
-        leadId: lead.id,
-        entityType: 'lead',
-        entityId: lead.id,
-        changes: [{ field: 'status', old: 'google_review', new: 'finished' }],
-        extraMetadata: { trigger: 'admin_close_after_review_request' },
-      });
-      queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
+      // Best-effort timeline entry — a logging failure must not undo the close.
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        await supabase.from('activities').insert({
+          lead_id: lead.id,
+          activity_type: 'lead_closed',
+          title: 'Lead closed',
+          description: 'Lead marked as finished',
+          user_id: userData?.user?.id ?? null,
+          metadata: {
+            old_status: 'google_review',
+            new_status: 'finished',
+            trigger: 'admin_close_after_review_request',
+          },
+        });
+        queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
+      } catch (logErr) {
+        console.error('[LeadDetail] lead_closed activity log failed (non-fatal):', logErr);
+      }
 
       toast.success('Lead marked as finished');
       onRefresh();
@@ -2528,12 +2559,32 @@ function FinishLeadSection({
       </p>
       <Button
         className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white"
-        onClick={handleFinish}
+        onClick={() => setShowConfirm(true)}
         disabled={finishing}
       >
         {finishing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-        Mark as Finished
+        Close Lead
       </Button>
+
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark this lead as finished?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={finishing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleFinish}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              Close Lead
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
