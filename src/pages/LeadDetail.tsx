@@ -1310,6 +1310,27 @@ export default function LeadDetail() {
 
       {/* Main Content */}
       <main className="p-4 pb-32 max-w-3xl mx-auto space-y-4">
+        {/* Contact Attempts — compact strip */}
+        <div className="flex items-center gap-3 -mx-4 px-4 py-2 border-b bg-muted/40">
+          <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="text-sm font-medium whitespace-nowrap">Contact Attempts</span>
+          <span
+            className="flex-1 text-center text-lg font-bold tabular-nums"
+            aria-live="polite"
+          >
+            {contactAttemptCount}
+          </span>
+          <Button
+            size="sm"
+            onClick={() => logContactMutation.mutate()}
+            disabled={logContactMutation.isPending}
+            className="min-h-[48px] shrink-0"
+          >
+            <Phone className="h-4 w-4 mr-2" />
+            Log Contact
+          </Button>
+        </div>
+
         {/* Status Card */}
         {isInRevision ? (
           <Card className="border-l-4 border-l-amber-500 border-amber-200 bg-amber-50">
@@ -2252,29 +2273,6 @@ export default function LeadDetail() {
         {lead && lead.status === 'finished' && (
           <LeadCompleteBanner lead={lead} />
         )}
-
-        {/* Contact Attempts */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              Contact Attempts
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between gap-4">
-            <span className="text-3xl font-bold tabular-nums" aria-live="polite">
-              {contactAttemptCount}
-            </span>
-            <Button
-              onClick={() => logContactMutation.mutate()}
-              disabled={logContactMutation.isPending}
-              className="min-h-[48px]"
-            >
-              <Phone className="h-4 w-4 mr-2" />
-              Log Contact
-            </Button>
-          </CardContent>
-        </Card>
 
         {/* Activity Log */}
         <Card>
