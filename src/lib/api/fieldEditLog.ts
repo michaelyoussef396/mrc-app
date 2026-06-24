@@ -175,6 +175,31 @@ export async function getContactAttemptCount(leadId: string): Promise<number> {
   return count ?? 0;
 }
 
+/**
+ * Deletes the single most recent contact-attempt row for a lead.
+ * PostgREST has no LIMIT on DELETE, so we resolve the newest row's id first,
+ * then delete by id. No-op when none exist. Rethrows on error so the
+ * optimistic UI counter can revert.
+ */
+export async function deleteLastContactAttempt(leadId: string): Promise<void> {
+  const { data, error: selectError } = await supabase
+    .from('activities')
+    .select('id')
+    .eq('lead_id', leadId)
+    .eq('activity_type', 'contact_attempt')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (selectError) throw selectError;
+  if (!data) return;
+
+  const { error: deleteError } = await supabase
+    .from('activities')
+    .delete()
+    .eq('id', data.id);
+  if (deleteError) throw deleteError;
+}
+
 interface LogSectionMilestoneOpts {
   leadId: string;
   inspectionId: string;
