@@ -1311,7 +1311,7 @@ export default function LeadDetail() {
       {/* Main Content */}
       <main className="p-4 pb-32 max-w-3xl mx-auto space-y-4">
         {/* Contact Attempts — compact strip */}
-        <div className="flex items-center gap-3 -mx-4 px-4 py-2 border-b bg-muted/40">
+        <div className="flex items-center gap-3 -mx-4 px-4 py-3 bg-white border-b shadow-sm">
           <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
           <span className="text-sm font-medium whitespace-nowrap">Contact Attempts</span>
           <span
