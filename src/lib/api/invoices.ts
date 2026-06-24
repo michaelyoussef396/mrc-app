@@ -18,6 +18,9 @@ export interface InvoiceLineItem {
   unit_price: number
   total: number
   is_equipment: boolean
+  // Waste disposal pass-through — non-discounted like equipment, but tracked
+  // separately so it never inflates equipment_subtotal.
+  is_waste?: boolean
   // --- optional breakdown persisted in line_items JSONB so the admin invoice page can
   // reconstruct exact qty/days/hours on reload instead of re-seeding from source tables ---
   equipment_key?: EquipmentKey   // present on equipment rows
@@ -31,6 +34,7 @@ export interface InvoiceLineItem {
 export interface InvoiceTotals {
   subtotal: number
   equipment_subtotal: number
+  waste_subtotal: number
   discount_amount: number
   subtotal_after_discount: number
   gst_amount: number
@@ -104,18 +108,21 @@ export function calculateInvoiceTotals(
   const discountDecimal = clampedPct / 100
 
   const equipmentItems = lineItems.filter(item => item.is_equipment)
-  const serviceItems = lineItems.filter(item => !item.is_equipment)
+  const wasteItems = lineItems.filter(item => item.is_waste && !item.is_equipment)
+  // Services = everything that is neither equipment nor waste — the only discountable lines.
+  const serviceItems = lineItems.filter(item => !item.is_equipment && !item.is_waste)
 
   const equipment_subtotal = equipmentItems.reduce((sum, item) => sum + item.total, 0)
+  const waste_subtotal = wasteItems.reduce((sum, item) => sum + item.total, 0)
   const serviceSubtotal = serviceItems.reduce((sum, item) => sum + item.total, 0)
 
-  const subtotal = serviceSubtotal + equipment_subtotal
+  const subtotal = serviceSubtotal + equipment_subtotal + waste_subtotal
 
-  // Discount applies only to services
+  // Discount applies only to services — equipment AND waste are pass-throughs
   const discount_amount = round2(serviceSubtotal * discountDecimal)
   const servicesAfterDiscount = round2(serviceSubtotal - discount_amount)
 
-  const subtotal_after_discount = round2(servicesAfterDiscount + equipment_subtotal)
+  const subtotal_after_discount = round2(servicesAfterDiscount + equipment_subtotal + waste_subtotal)
 
   const gst_amount = round2(subtotal_after_discount * GST_RATE)
   const total_amount = round2(subtotal_after_discount + gst_amount)
@@ -123,6 +130,7 @@ export function calculateInvoiceTotals(
   return {
     subtotal: round2(subtotal),
     equipment_subtotal: round2(equipment_subtotal),
+    waste_subtotal: round2(waste_subtotal),
     discount_amount,
     subtotal_after_discount,
     gst_amount,
@@ -305,6 +313,9 @@ export interface CalculatedInvoiceInput {
   equipmentItems?: InvoiceLineItem[]
   // Variations / miscellaneous — never volume-discounted
   customItems: InvoiceLineItem[]
+  // Confirmed waste disposal cost (ex GST) — non-discounted pass-through, tracked as
+  // its own line so it never inflates equipment_subtotal.
+  wasteDisposalCost?: number
   due_date: string
   notes?: string | null
 }
@@ -357,8 +368,12 @@ export async function saveCalculatedInvoice(input: CalculatedInvoiceInput): Prom
     .map(ci => ({ ...ci, is_equipment: false }))
   const customTotal = round2(cleanCustom.reduce((sum, ci) => sum + ci.total, 0))
 
-  const subtotal = round2(est.labourSubtotal + equipment_subtotal + customTotal)
-  const subtotal_after_discount = round2(est.subtotalExGst + customTotal)
+  // Waste disposal: non-discounted pass-through (like equipment), kept off
+  // equipment_subtotal and out of the volume discount.
+  const wasteCost = round2(Math.max(0, input.wasteDisposalCost ?? 0))
+
+  const subtotal = round2(est.labourSubtotal + equipment_subtotal + customTotal + wasteCost)
+  const subtotal_after_discount = round2(est.subtotalExGst + customTotal + wasteCost)
   const gst_amount = round2(subtotal_after_discount * GST_RATE)
   const total_amount = round2(subtotal_after_discount + gst_amount)
 
@@ -389,6 +404,16 @@ export async function saveCalculatedInvoice(input: CalculatedInvoiceInput): Prom
     })
   }
   line_items.push(...cleanCustom)
+  if (wasteCost > 0) {
+    line_items.push({
+      description: 'Waste disposal',
+      quantity: 1,
+      unit_price: wasteCost,
+      total: wasteCost,
+      is_equipment: false,
+      is_waste: true,
+    })
+  }
 
   const payload = {
     customer_name: input.customer_name,
@@ -663,7 +688,7 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
   // Inspection (for quoted amount + labour)
   const { data: inspection, error: inspectionError } = await supabase
     .from('inspections')
-    .select('total_inc_gst, subtotal_ex_gst, labour_cost_ex_gst, equipment_cost_ex_gst, discount_percent')
+    .select('total_inc_gst, subtotal_ex_gst, labour_cost_ex_gst, equipment_cost_ex_gst, discount_percent, waste_disposal_confirmed_cost')
     .eq('lead_id', leadId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -737,6 +762,19 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
       unit_price: equip,
       total: equip,
       is_equipment: true,
+    })
+  }
+
+  // Waste disposal — confirmed ex-GST pass-through (never discounted).
+  if (inspection?.waste_disposal_confirmed_cost && Number(inspection.waste_disposal_confirmed_cost) > 0) {
+    const wasteCost = round2(Number(inspection.waste_disposal_confirmed_cost))
+    lineItems.push({
+      description: 'Waste disposal',
+      quantity: 1,
+      unit_price: wasteCost,
+      total: wasteCost,
+      is_equipment: false,
+      is_waste: true,
     })
   }
 

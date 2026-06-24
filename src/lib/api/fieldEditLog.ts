@@ -141,6 +141,65 @@ export async function logNoteAdded(opts: LogNoteAddedOpts): Promise<void> {
   }
 }
 
+interface LogContactAttemptOpts {
+  leadId: string;
+  adminName: string;
+}
+
+/**
+ * Writes one immutable contact-attempt row. Permanent — no decrement, no update.
+ * Rethrows on error (unlike logNoteAdded) so the optimistic UI counter can revert.
+ */
+export async function logContactAttempt(opts: LogContactAttemptOpts): Promise<void> {
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData?.user?.id ?? null;
+
+  const { error } = await supabase.from('activities').insert({
+    lead_id: opts.leadId,
+    activity_type: 'contact_attempt',
+    title: 'Contact attempt',
+    description: `Contact attempt logged by ${opts.adminName}`,
+    user_id: userId,
+  });
+  if (error) throw error;
+}
+
+/** Total contact attempts for a lead. Lightweight count — returns no rows. */
+export async function getContactAttemptCount(leadId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('activities')
+    .select('id', { count: 'exact', head: true })
+    .eq('lead_id', leadId)
+    .eq('activity_type', 'contact_attempt');
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Deletes the single most recent contact-attempt row for a lead.
+ * PostgREST has no LIMIT on DELETE, so we resolve the newest row's id first,
+ * then delete by id. No-op when none exist. Rethrows on error so the
+ * optimistic UI counter can revert.
+ */
+export async function deleteLastContactAttempt(leadId: string): Promise<void> {
+  const { data, error: selectError } = await supabase
+    .from('activities')
+    .select('id')
+    .eq('lead_id', leadId)
+    .eq('activity_type', 'contact_attempt')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (selectError) throw selectError;
+  if (!data) return;
+
+  const { error: deleteError } = await supabase
+    .from('activities')
+    .delete()
+    .eq('id', data.id);
+  if (deleteError) throw deleteError;
+}
+
 interface LogSectionMilestoneOpts {
   leadId: string;
   inspectionId: string;

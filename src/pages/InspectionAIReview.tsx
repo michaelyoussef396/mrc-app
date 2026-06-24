@@ -988,6 +988,8 @@ function buildEdgeFunctionPayload(
     outdoorComments: inspection?.outdoor_comments,
     wasteDisposalEnabled: inspection?.waste_disposal_required,
     wasteDisposalAmount: inspection?.waste_disposal_amount,
+    wasteDisposalM3: inspection?.waste_disposal_m3 != null ? Number(inspection.waste_disposal_m3) : null,
+    wasteDisposalConfirmedCost: inspection?.waste_disposal_confirmed_cost != null ? Number(inspection.waste_disposal_confirmed_cost) : null,
     optionSelected: inspection?.option_selected,
     treatmentMethods: inspection?.treatment_methods,
     commercialDehumidifierEnabled: (inspection?.commercial_dehumidifier_qty ?? 0) > 0,

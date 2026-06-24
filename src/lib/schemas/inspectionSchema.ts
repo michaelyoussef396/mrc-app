@@ -10,6 +10,19 @@ const inspectionAreaSchema = z.object({
   areaName: z.string().min(1, 'Area name is required'),
 })
 
+/**
+ * Waste disposal cubic-metre pricing shape (Brief 1 foundation).
+ * Standalone — not wired into inspectionCompletionSchema (the completion gate).
+ * Brief 2 consumes this when the cubic-metre UI replaces the dropdown.
+ */
+export const wasteDisposalSchema = z.object({
+  enabled: z.boolean(),
+  cubicMeters: z.number().min(0).max(50).nullable(),
+  calculatedCost: z.number().min(0).nullable(),
+  confirmedCost: z.number().min(0).nullable(),
+  isOverridden: z.boolean(),
+})
+
 export const inspectionCompletionSchema = z.object({
   inspectionDate: z.string().min(1, 'Inspection date is required'),
 

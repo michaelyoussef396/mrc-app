@@ -156,6 +156,7 @@ export default function AdminInvoiceHelper() {
 
   // Custom / variation line items (never volume-discounted)
   const [customItems, setCustomItems] = useState<InvoiceLineItem[]>([])
+  const [wasteDisposalCost, setWasteDisposalCost] = useState(0)
 
   const [termDays, setTermDays] = useState<number>(14)
   const [invoiceDate, setInvoiceDate] = useState<string>(todayISO())
@@ -187,7 +188,7 @@ export default function AdminInvoiceHelper() {
             .maybeSingle(),
           supabase
             .from('inspections')
-            .select('no_demolition_hours, demolition_hours, subfloor_hours')
+            .select('no_demolition_hours, demolition_hours, subfloor_hours, waste_disposal_confirmed_cost')
             .eq('lead_id', leadId)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -215,6 +216,13 @@ export default function AdminInvoiceHelper() {
         setDemolitionHours(savedHours ? savedHours.demolition : Number(inspection?.demolition_hours ?? 0))
         setSubfloorHours(savedHours ? savedHours.subfloor : Number(inspection?.subfloor_hours ?? 0))
 
+        // Waste: reconstruct from the saved invoice's waste line(s) on reload, else
+        // seed from the inspection's confirmed cost on first open.
+        const savedWaste = existing
+          ? round2(existing.line_items.filter(li => li.is_waste).reduce((s, li) => s + (li.total || 0), 0))
+          : null
+        setWasteDisposalCost(savedWaste ?? Number(inspection?.waste_disposal_confirmed_cost ?? 0))
+
         if (existing) {
           setInvoiceId(existing.id)
           setInvoiceRow(existing)
@@ -223,7 +231,7 @@ export default function AdminInvoiceHelper() {
           setInvoiceDate(existing.invoice_date)
           const diff = daysBetween(existing.invoice_date, existing.due_date)
           setTermDays((TERM_OPTIONS as readonly number[]).includes(diff) ? diff : 14)
-          setCustomItems(existing.line_items.filter(li => !isAutoLine(li) && !li.is_equipment))
+          setCustomItems(existing.line_items.filter(li => !isAutoLine(li) && !li.is_equipment && !li.is_waste))
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load invoice')
@@ -272,8 +280,8 @@ export default function AdminInvoiceHelper() {
     [customItems],
   )
 
-  // Grand totals = labour/equipment estimate (engine) + undiscounted custom items
-  const subtotalExGst = round2(estimate.subtotalExGst + customTotal)
+  // Grand totals = labour/equipment estimate (engine) + undiscounted custom items + waste
+  const subtotalExGst = round2(estimate.subtotalExGst + customTotal + wasteDisposalCost)
   const gstAmount = round2(subtotalExGst * GST_RATE)
   const totalIncGst = round2(subtotalExGst + gstAmount)
 
@@ -324,6 +332,7 @@ export default function AdminInvoiceHelper() {
         equipmentCost,
         equipmentItems: equipmentLineItems,
         customItems,
+        wasteDisposalCost,
         due_date: dueDate,
         notes: notes || null,
       })
@@ -567,6 +576,24 @@ export default function AdminInvoiceHelper() {
             <span className="text-gray-600 font-medium">Equipment subtotal (never discounted)</span>
             <span className="font-semibold tabular-nums">{formatCurrency(equipmentCost)}</span>
           </div>
+          <div className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+            <Label htmlFor="wasteDisposalCost" className="text-sm text-gray-600 font-medium">
+              Waste disposal (ex GST, never discounted)
+            </Label>
+            <div className="flex items-center gap-1 w-40">
+              <span className="text-sm text-gray-400">$</span>
+              <Input
+                id="wasteDisposalCost"
+                type="number"
+                min={0}
+                step="0.01"
+                value={wasteDisposalCost || ''}
+                disabled={saving}
+                onChange={e => setWasteDisposalCost(round2(Number(e.target.value) || 0))}
+                className="text-right"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Live labour readout from calculateCostEstimate() */}
@@ -668,6 +695,12 @@ export default function AdminInvoiceHelper() {
             <span className="text-gray-600">Equipment</span>
             <span className="tabular-nums">{formatCurrency(equipmentCost)}</span>
           </div>
+          {wasteDisposalCost > 0 && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Waste disposal</span>
+              <span className="tabular-nums">{formatCurrency(wasteDisposalCost)}</span>
+            </div>
+          )}
           {customTotal > 0 && (
             <div className="flex justify-between">
               <span className="text-gray-600">Custom items</span>

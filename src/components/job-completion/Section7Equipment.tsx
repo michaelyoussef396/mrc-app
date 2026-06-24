@@ -10,6 +10,13 @@ const EQUIPMENT_RATES = {
   rcd: 5,            // $5/day
 } as const;
 
+// NOTE(waste-disposal): a waste-disposal row is DEFERRED from this section (Brief 2).
+// When added, mirror the equipment quoted-vs-actual pattern: read quoted waste from the
+// linked inspection (waste_disposal_m3 / waste_disposal_confirmed_cost), let the tech enter
+// actual m³ re-priced via calculateWasteDisposalCost from '@/lib/calculations/pricing' with
+// the same confirm/override flow as the inspection form, and persist actual_waste_disposal_*
+// on job_completions. Requires applying supabase/migrations/20260624113911_job_completion_waste.sql.
+
 const AUD = new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' });
 
 function formatCurrency(value: number): string {

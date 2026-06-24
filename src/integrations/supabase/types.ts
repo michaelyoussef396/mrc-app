@@ -779,7 +779,11 @@ export type Database = {
           triage_description: string | null
           updated_at: string | null
           waste_disposal_amount: string | null
+          waste_disposal_calculated_cost: number | null
+          waste_disposal_confirmed_cost: number | null
           waste_disposal_cost: number | null
+          waste_disposal_is_overridden: boolean | null
+          waste_disposal_m3: number | null
           waste_disposal_required: boolean | null
           what_success_looks_like: string | null
           what_we_discovered: string | null
@@ -856,7 +860,11 @@ export type Database = {
           triage_description?: string | null
           updated_at?: string | null
           waste_disposal_amount?: string | null
+          waste_disposal_calculated_cost?: number | null
+          waste_disposal_confirmed_cost?: number | null
           waste_disposal_cost?: number | null
+          waste_disposal_is_overridden?: boolean | null
+          waste_disposal_m3?: number | null
           waste_disposal_required?: boolean | null
           what_success_looks_like?: string | null
           what_we_discovered?: string | null
@@ -933,7 +941,11 @@ export type Database = {
           triage_description?: string | null
           updated_at?: string | null
           waste_disposal_amount?: string | null
+          waste_disposal_calculated_cost?: number | null
+          waste_disposal_confirmed_cost?: number | null
           waste_disposal_cost?: number | null
+          waste_disposal_is_overridden?: boolean | null
+          waste_disposal_m3?: number | null
           waste_disposal_required?: boolean | null
           what_success_looks_like?: string | null
           what_we_discovered?: string | null

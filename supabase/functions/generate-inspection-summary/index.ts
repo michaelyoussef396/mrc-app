@@ -86,6 +86,8 @@ interface InspectionFormData {
   // Waste Disposal
   wasteDisposalEnabled?: boolean
   wasteDisposalAmount?: string
+  wasteDisposalM3?: number | null
+  wasteDisposalConfirmedCost?: number | null
 
   // Work Procedure
   hepaVac?: boolean
@@ -295,9 +297,12 @@ function buildUserPrompt(formData: InspectionFormData): string {
     lines.push(`DRYING EQUIPMENT: ${equipment.join(', ')}`)
   }
 
-  // Waste
-  if (formData.wasteDisposalEnabled && formData.wasteDisposalAmount) {
-    lines.push(`WASTE DISPOSAL: ${formData.wasteDisposalAmount}`)
+  // Waste — prefer the cubic-metre detail; fall back to the legacy size string.
+  if (formData.wasteDisposalEnabled) {
+    const wasteDetail = formData.wasteDisposalM3
+      ? `${formData.wasteDisposalM3}m³ bin ($${(formData.wasteDisposalConfirmedCost ?? 0).toFixed(2)} ex GST)`
+      : (formData.wasteDisposalAmount ?? 'not specified')
+    lines.push(`WASTE DISPOSAL: ${wasteDetail}`)
   }
 
   // Cause

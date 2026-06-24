@@ -294,6 +294,7 @@ Tonight's deploy passed typecheck + unit tests + audit verification + programmat
 ### Customer-facing PDF changes (separate IP decision)
 - **Stage 4.6** — PDF embeds captions as visible text (S, Low) — moved from S-tier per Michael's design IP boundary. Defer until separate design IP decision.
 - **Stage 8.1 + 8.2** — PDF per-area env readings + subfloor landscape (S, Low) — moved from S-tier per Michael's design IP boundary. Defer until separate design IP decision.
+- **Waste disposal on customer PDF (Brief 2 follow-up)** (S, Medium) — the customer inspection PDF cost breakdown does not yet render the confirmed waste-disposal line. Wire it through the `generate-inspection-pdf` EF (`{{waste_disposal}}` placeholder) + the Storage template `inspection-report-template-final.html`. **Plus a "Both options" gap:** in Both-options mode the Option 1/Option 2 subtotals deliberately exclude waste (it's a single job-level cost billed once via the invoice), so a customer reading the report sees option totals without waste → possible invoicing surprise. Decide how to surface the job-level waste line in Both-options mode. In-app surfaces (Section 9 total, editable PDF preview, invoice) already include waste; this is customer-render only. Code NOTE left in `src/components/pdf/ReportPreviewHTML.tsx`. Defer until the PDF/design-IP sprint.
 
 ### Phase 3 polish (after launch, low priority)
 - **3.6** — Remove orphan AI Edge Functions (S, Low)

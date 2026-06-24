@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +34,7 @@ import {
 import {
   ArrowLeft,
   Phone,
+  Minus,
   Mail,
   MapPin,
   Calendar,
@@ -73,7 +74,7 @@ import { InlineEditField } from "@/components/leads/InlineEditField";
 import { InlineEditAddress, type AddressFields } from "@/components/leads/InlineEditAddress";
 import { BookJobSheet } from "@/components/leads/BookJobSheet";
 import { useLeadUpdate } from "@/hooks/useLeadUpdate";
-import { logFieldEdits, type FieldChange } from "@/lib/api/fieldEditLog";
+import { logFieldEdits, logContactAttempt, getContactAttemptCount, deleteLastContactAttempt, type FieldChange } from "@/lib/api/fieldEditLog";
 import { formatPhoneNumber, leadSourceOptions } from "@/lib/leadUtils";
 import { leadSourceSchema } from "@/lib/validators/lead-creation.schemas";
 import { formatTimeForDisplay } from "@/lib/bookingService";
@@ -173,6 +174,55 @@ export default function LeadDetail() {
 
   // Fetch unified activity timeline for this lead
   const { data: timelineEvents = [], isLoading: timelineLoading } = useActivityTimeline(50, id);
+
+  // Running count of admin contact attempts (accurate head-count, not capped by timeline)
+  const { data: contactAttemptCount = 0 } = useQuery({
+    queryKey: ['contact-attempt-count', id],
+    queryFn: () => getContactAttemptCount(id!),
+    enabled: !!id,
+  });
+
+  const logContactMutation = useMutation({
+    mutationFn: () =>
+      logContactAttempt({
+        leadId: lead!.id,
+        adminName: profile?.full_name?.trim() || user?.email || 'Unknown user',
+      }),
+    onMutate: async () => {
+      const key = ['contact-attempt-count', id];
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData<number>(key) ?? 0;
+      queryClient.setQueryData<number>(key, prev + 1);
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx) queryClient.setQueryData(['contact-attempt-count', id], ctx.prev);
+      toast.error('Could not log contact attempt — please try again');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['contact-attempt-count', id] });
+      queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
+    },
+  });
+
+  const deleteContactMutation = useMutation({
+    mutationFn: () => deleteLastContactAttempt(lead!.id),
+    onMutate: async () => {
+      const key = ['contact-attempt-count', id];
+      await queryClient.cancelQueries({ queryKey: key });
+      const prev = queryClient.getQueryData<number>(key) ?? 0;
+      queryClient.setQueryData<number>(key, Math.max(0, prev - 1));
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx) queryClient.setQueryData(['contact-attempt-count', id], ctx.prev);
+      toast.error('Could not remove contact attempt — please try again');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['contact-attempt-count', id] });
+      queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
+    },
+  });
 
   // Fetch inspection data
   const { data: inspection } = useQuery({
@@ -1280,6 +1330,40 @@ export default function LeadDetail() {
 
       {/* Main Content */}
       <main className="p-4 pb-32 max-w-3xl mx-auto space-y-4">
+        {/* Contact Attempts — compact strip */}
+        <div className="flex items-center gap-3 -mx-4 px-4 py-3 bg-white border-b shadow-sm">
+          <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="text-sm font-medium whitespace-nowrap">Contact Attempts</span>
+          <Button
+            size="sm"
+            aria-label="Remove last contact attempt"
+            onClick={() => deleteContactMutation.mutate()}
+            disabled={
+              contactAttemptCount === 0 ||
+              logContactMutation.isPending ||
+              deleteContactMutation.isPending
+            }
+            className="min-h-[48px] shrink-0"
+          >
+            <Minus className="h-4 w-4" />
+          </Button>
+          <span
+            className="flex-1 text-center text-lg font-bold tabular-nums"
+            aria-live="polite"
+          >
+            {contactAttemptCount}
+          </span>
+          <Button
+            size="sm"
+            onClick={() => logContactMutation.mutate()}
+            disabled={logContactMutation.isPending}
+            className="min-h-[48px] shrink-0"
+          >
+            <Phone className="h-4 w-4 mr-2" />
+            Log Contact
+          </Button>
+        </div>
+
         {/* Status Card */}
         {isInRevision ? (
           <Card className="border-l-4 border-l-amber-500 border-amber-200 bg-amber-50">

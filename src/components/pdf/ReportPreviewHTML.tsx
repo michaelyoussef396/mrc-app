@@ -152,6 +152,8 @@ export interface CostData {
   subtotal_ex_gst: number
   gst_amount: number
   total_inc_gst: number
+  // Confirmed waste disposal cost (ex GST) — pass-through, never discounted.
+  waste_disposal_cost: number
   // Per-option pricing (for "Both" mode)
   option_selected: number | null
   treatment_methods: string[]
@@ -268,7 +270,7 @@ export function ReportPreviewHTML({
 
   // Cleaning Estimate — cost editing state
   const [editingCost, setEditingCost] = useState(false)
-  const [costForm, setCostForm] = useState<CostData>({ labour_cost_ex_gst: 0, equipment_cost_ex_gst: 0, subtotal_ex_gst: 0, gst_amount: 0, total_inc_gst: 0, option_selected: null, treatment_methods: [], option_1_labour_ex_gst: 0, option_1_equipment_ex_gst: 0, option_1_total_inc_gst: 0, option_2_total_inc_gst: 0 })
+  const [costForm, setCostForm] = useState<CostData>({ labour_cost_ex_gst: 0, equipment_cost_ex_gst: 0, subtotal_ex_gst: 0, gst_amount: 0, total_inc_gst: 0, waste_disposal_cost: 0, option_selected: null, treatment_methods: [], option_1_labour_ex_gst: 0, option_1_equipment_ex_gst: 0, option_1_total_inc_gst: 0, option_2_total_inc_gst: 0 })
   const [savingCost, setSavingCost] = useState(false)
   const [costPageTop, setCostPageTop] = useState<number | null>(null)
 
@@ -777,8 +779,17 @@ export function ReportPreviewHTML({
 
   function recalcTotals(form: CostData): CostData {
     const next = { ...form }
+    // Waste disposal: confirmed pass-through, never discounted. Excluded in "Both"
+    // mode (option 3) to mirror the technician estimate — per-option totals stay
+    // labour+equipment only.
+    // NOTE: this updates the in-app editable preview + hard-save totals only. The
+    // customer-facing render (generate-inspection-pdf EF + Storage template
+    // `inspection-report-template-final.html`) does not yet show a waste line — that
+    // is a deferred follow-up (design-IP boundary; needs a `{{waste_disposal}}`
+    // placeholder + EF replacement + Storage template upload).
+    const waste = next.option_selected === 3 ? 0 : (next.waste_disposal_cost || 0)
     // Option 2 / single-option totals
-    next.subtotal_ex_gst = Math.round((next.labour_cost_ex_gst + next.equipment_cost_ex_gst) * 100) / 100
+    next.subtotal_ex_gst = Math.round((next.labour_cost_ex_gst + next.equipment_cost_ex_gst + waste) * 100) / 100
     next.gst_amount = Math.round(next.subtotal_ex_gst * 0.1 * 100) / 100
     next.total_inc_gst = Math.round((next.subtotal_ex_gst + next.gst_amount) * 100) / 100
     // Option 1 totals
@@ -1561,6 +1572,17 @@ export function ReportPreviewHTML({
                               <input type="number" step="0.01" min="0"
                                 value={costForm.equipment_cost_ex_gst || ''}
                                 onChange={(e) => updateCostField('equipment_cost_ex_gst', parseFloat(e.target.value) || 0)}
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <label className="text-sm text-gray-600 w-36 shrink-0">Waste Disposal (ex GST)</label>
+                            <div className="flex items-center gap-1 flex-1">
+                              <span className="text-sm text-gray-400">$</span>
+                              <input type="number" step="0.01" min="0"
+                                value={costForm.waste_disposal_cost || ''}
+                                onChange={(e) => updateCostField('waste_disposal_cost', parseFloat(e.target.value) || 0)}
                                 className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                               />
                             </div>

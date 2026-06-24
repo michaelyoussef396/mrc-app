@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { calculateDewPoint } from '@/lib/inspectionUtils';
 import {
   calculateCostEstimate,
+  calculateWasteDisposalCost,
   round2,
   LABOUR_RATES,
   EQUIPMENT_RATES,
@@ -124,13 +125,6 @@ const DWELLING_TYPE_OPTIONS = [
   { value: 'commercial', label: 'Commercial' },
   { value: 'construction', label: 'Construction' },
   { value: 'industrial', label: 'Industrial' },
-];
-
-const WASTE_DISPOSAL_OPTIONS = [
-  { value: 'small', label: 'Small' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'large', label: 'Large' },
-  { value: 'extra_large', label: 'Extra Large' },
 ];
 
 const DEHUMIDIFIER_SIZE_OPTIONS = [
@@ -1671,31 +1665,208 @@ function Section5OutdoorInfo({
   );
 }
 
-// Section 6: Waste Disposal
+// Section 6: Waste Disposal — cubic-metre pricing with explicit confirm/override.
 function Section6WasteDisposal({ formData, onChange }: SectionProps) {
+  const waste = formData.wasteDisposal ?? {
+    enabled: formData.wasteDisposalEnabled,
+    cubicMeters: null,
+    calculatedCost: null,
+    confirmedCost: null,
+    isOverridden: false,
+  };
+
+  const [isEditingOverride, setIsEditingOverride] = useState(false);
+  const [overrideDraft, setOverrideDraft] = useState<number>(waste.confirmedCost ?? 0);
+
+  const setWaste = (patch: Partial<NonNullable<InspectionFormData['wasteDisposal']>>) => {
+    onChange('wasteDisposal', { ...waste, ...patch });
+  };
+
+  const handleToggle = (enabled: boolean) => {
+    onChange('wasteDisposalEnabled', enabled); // keep legacy field in sync
+    setWaste({ enabled });
+  };
+
+  // Any m³ change re-derives the calculated price and resets confirmation —
+  // the tech must explicitly re-confirm so a stale price never reaches the total.
+  const applyM3 = (m3: number) => {
+    const rounded = m3 > 0 ? round2(m3) : 0;
+    setWaste({
+      cubicMeters: rounded > 0 ? rounded : null,
+      calculatedCost: rounded > 0 ? calculateWasteDisposalCost(rounded) : null,
+      confirmedCost: null,
+      isOverridden: false,
+    });
+    setIsEditingOverride(false);
+  };
+
+  const stepM3 = (delta: number) => {
+    const next = Math.min(50, Math.max(0, round2((waste.cubicMeters ?? 0) + delta)));
+    applyM3(next);
+  };
+
+  const m3 = waste.cubicMeters ?? 0;
+  const calculated = waste.calculatedCost ?? 0;
+  const confirmed = waste.confirmedCost;
+
   return (
     <section className="space-y-5">
       {/* Main Toggle */}
       <div className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-gray-100">
         <div>
           <span className="font-semibold text-[#1d1d1f]">Waste Disposal Required</span>
-          <p className="text-sm text-[#86868b]">Enable to specify disposal amount</p>
+          <p className="text-sm text-[#86868b]">Enter the bin size and confirm the price</p>
         </div>
-        <ToggleSwitch
-          checked={formData.wasteDisposalEnabled}
-          onChange={(checked) => onChange('wasteDisposalEnabled', checked)}
-        />
+        <ToggleSwitch checked={waste.enabled} onChange={handleToggle} />
       </div>
 
-      {formData.wasteDisposalEnabled && (
-        <FormField label="Waste Amount">
-          <SelectInput
-            value={formData.wasteDisposalAmount}
-            onChange={(value) => onChange('wasteDisposalAmount', value)}
-            options={WASTE_DISPOSAL_OPTIONS}
-            placeholder="Select amount..."
-          />
-        </FormField>
+      {waste.enabled && (
+        <div className="space-y-4 p-4 bg-white rounded-xl shadow-sm border border-gray-100">
+          {/* Bin size (m³) with steppers */}
+          <FormField label="Bin size (m³)">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => stepM3(-0.5)}
+                className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-[#007AFF] font-bold text-xl shrink-0"
+                style={{ minWidth: '48px', minHeight: '48px' }}
+                aria-label="Decrease bin size"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={m3 || ''}
+                onChange={(e) => applyM3(parseFloat(e.target.value) || 0)}
+                min={0.5}
+                max={50}
+                step={0.5}
+                placeholder="0.0"
+                className="w-full h-12 bg-white text-[#1d1d1f] text-base text-center rounded-lg border border-gray-200 px-2 focus:ring-2 focus:ring-[#007AFF] focus:border-transparent"
+                style={{ minHeight: '48px' }}
+              />
+              <button
+                type="button"
+                onClick={() => stepM3(0.5)}
+                className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-[#007AFF] font-bold text-xl shrink-0"
+                style={{ minWidth: '48px', minHeight: '48px' }}
+                aria-label="Increase bin size"
+              >
+                +
+              </button>
+            </div>
+          </FormField>
+
+          {m3 > 0 && (
+            <p className="text-sm text-[#86868b]">
+              Calculated:{' '}
+              <span className="font-medium text-[#1d1d1f]">{formatCurrency(calculated)}</span> ex GST
+            </p>
+          )}
+
+          {/* Legacy back-compat: surface the old dropdown value if no m³ recorded yet. */}
+          {waste.cubicMeters == null && formData.wasteDisposalAmount && (
+            <p className="text-sm text-[#86868b] italic">
+              Previously recorded as: {formData.wasteDisposalAmount}
+            </p>
+          )}
+
+          {/* Unconfirmed → require explicit confirmation */}
+          {m3 > 0 && confirmed == null && (
+            <div className="space-y-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium">
+                Price unconfirmed
+              </span>
+              <button
+                type="button"
+                onClick={() => setWaste({ confirmedCost: calculated, isOverridden: false })}
+                className="w-full h-12 bg-[#007AFF] text-white font-semibold rounded-lg flex items-center justify-center"
+                style={{ minHeight: '48px' }}
+              >
+                Confirm Price — {formatCurrency(calculated)}
+              </button>
+            </div>
+          )}
+
+          {/* Confirmed / overridden state */}
+          {confirmed != null && !isEditingOverride && (
+            <div className="space-y-2">
+              <span
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                  waste.isOverridden ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'
+                }`}
+              >
+                {waste.isOverridden
+                  ? `✓ Overridden — ${formatCurrency(confirmed)}`
+                  : `✓ Confirmed — ${formatCurrency(confirmed)}`}
+              </span>
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOverrideDraft(confirmed);
+                    setIsEditingOverride(true);
+                  }}
+                  className="text-sm text-[#007AFF] font-medium py-2"
+                >
+                  Edit price
+                </button>
+                {waste.isOverridden && (
+                  <button
+                    type="button"
+                    onClick={() => setWaste({ confirmedCost: calculated, isOverridden: false })}
+                    className="text-sm text-[#86868b] py-2"
+                  >
+                    Reset to calculated
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Inline override editor */}
+          {confirmed != null && isEditingOverride && (
+            <div className="space-y-2">
+              <FormField label="Override price (ex GST)">
+                <div className="relative flex items-center">
+                  <span className="absolute left-4 text-[#86868b]">$</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={overrideDraft || ''}
+                    onChange={(e) => setOverrideDraft(parseFloat(e.target.value) || 0)}
+                    min={0}
+                    step={0.01}
+                    className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 pl-8 pr-4 focus:ring-2 focus:ring-[#007AFF] focus:border-transparent"
+                    style={{ minHeight: '48px' }}
+                  />
+                </div>
+              </FormField>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWaste({ confirmedCost: round2(overrideDraft), isOverridden: true });
+                    setIsEditingOverride(false);
+                  }}
+                  className="flex-1 h-12 bg-[#007AFF] text-white font-semibold rounded-lg"
+                  style={{ minHeight: '48px' }}
+                >
+                  Save Override
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingOverride(false)}
+                  className="h-12 px-4 bg-gray-100 text-[#1d1d1f] rounded-lg"
+                  style={{ minHeight: '48px' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </section>
   );
@@ -2377,7 +2548,9 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
           const equipment = formData.manualPriceOverride
             ? formData.equipmentCost
             : costResult.equipmentCost;
-          const subtotal = labour + equipment;
+          // Waste disposal: confirmed, job-level pass-through — never discounted.
+          const waste = formData.wasteDisposal?.confirmedCost ?? 0;
+          const subtotal = labour + equipment + waste;
           const gst = subtotal * 0.1;
           const total = subtotal + gst;
 
@@ -2422,6 +2595,18 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
 
                 {/* Auto-calculated summary */}
                 <div className="border-t border-[#007AFF]/20 pt-3 space-y-2 text-sm">
+                  {waste > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-[#86868b]">Waste Disposal</span>
+                      <span className="font-medium">{formatCurrency(waste)}</span>
+                    </div>
+                  )}
+                  {formData.wasteDisposal?.enabled && formData.wasteDisposal?.confirmedCost == null && (
+                    <div className="flex justify-between text-amber-600">
+                      <span>Waste Disposal</span>
+                      <span className="font-medium">⚠ unconfirmed</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-[#1d1d1f] font-medium">Subtotal (ex GST)</span>
                     <span className="font-semibold">{formatCurrency(subtotal)}</span>
@@ -2502,8 +2687,10 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
     outdoorHumidity: formData.outdoorHumidity,
     outdoorDewPoint: formData.outdoorDewPoint,
     outdoorComments: formData.outdoorComments,
-    wasteDisposalEnabled: formData.wasteDisposalEnabled,
+    wasteDisposalEnabled: formData.wasteDisposal?.enabled ?? formData.wasteDisposalEnabled,
     wasteDisposalAmount: formData.wasteDisposalAmount,
+    wasteDisposalM3: formData.wasteDisposal?.cubicMeters ?? null,
+    wasteDisposalConfirmedCost: formData.wasteDisposal?.confirmedCost ?? null,
     optionSelected: formData.optionSelected,
     treatmentMethods: formData.selectedTreatmentMethods,
     commercialDehumidifierEnabled: formData.commercialDehumidifierEnabled,
@@ -2592,6 +2779,13 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
     directionPhoto: null,
     wasteDisposalEnabled: false,
     wasteDisposalAmount: '',
+    wasteDisposal: {
+      enabled: false,
+      cubicMeters: null,
+      calculatedCost: null,
+      confirmedCost: null,
+      isOverridden: false,
+    },
     optionSelected: null,
     selectedTreatmentMethods: [],
     hepaVac: false,
@@ -2879,6 +3073,13 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             directionPhoto: directionPhoto ? mapPhoto(directionPhoto) : null,
             wasteDisposalEnabled: ins.waste_disposal_required || false,
             wasteDisposalAmount: ins.waste_disposal_amount || '',
+            wasteDisposal: {
+              enabled: ins.waste_disposal_required || false,
+              cubicMeters: ins.waste_disposal_m3 != null ? Number(ins.waste_disposal_m3) : null,
+              calculatedCost: ins.waste_disposal_calculated_cost != null ? Number(ins.waste_disposal_calculated_cost) : null,
+              confirmedCost: ins.waste_disposal_confirmed_cost != null ? Number(ins.waste_disposal_confirmed_cost) : null,
+              isOverridden: ins.waste_disposal_is_overridden || false,
+            },
             optionSelected: ins.option_selected || null,
             selectedTreatmentMethods: (ins.treatment_methods && ins.treatment_methods.length > 0)
               ? ins.treatment_methods
@@ -3414,6 +3615,13 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       const saveDemoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
       const saveSubfloorHours = formData.subfloorTreatmentTime || 0;
 
+      // Waste disposal: confirmed, non-discounted pass-through. Excluded in "Both"
+      // mode (optionSelected === 3) so the per-option totals stay labour+equipment
+      // only; the invoice still reads waste_disposal_confirmed_cost directly.
+      const saveWaste = formData.optionSelected === 3
+        ? 0
+        : (formData.wasteDisposal?.confirmedCost ?? 0);
+
       const saveFullResult = calculateCostEstimate({
         nonDemoHours: saveNonDemoHours,
         demolitionHours: saveDemoHours,
@@ -3421,6 +3629,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         dehumidifierQty: formData.commercialDehumidifierQty || 0,
         airMoverQty: formData.airMoversQty || 0,
         rcdQty: formData.rcdBoxQty || 0,
+        wasteDisposalCost: saveWaste,
       });
 
       // BUG-047: gate on manualPriceOverride rather than field non-zero check.
@@ -3433,7 +3642,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         ? formData.equipmentCost
         : saveFullResult.equipmentCost;
       const saveSubtotal = formData.manualPriceOverride
-        ? round2(saveLabour + saveEquipment)
+        ? round2(saveLabour + saveEquipment + saveWaste)
         : saveFullResult.subtotalExGst;
       const saveGst = formData.manualPriceOverride
         ? round2(saveSubtotal * 0.1)
@@ -3539,8 +3748,12 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         outdoor_dew_point: formData.outdoorDewPoint ? parseFloat(formData.outdoorDewPoint) : null,
         outdoor_comments: formData.outdoorComments || null,
         direction_photos_enabled: formData.directionPhotosEnabled,
-        waste_disposal_required: formData.wasteDisposalEnabled,
+        waste_disposal_required: formData.wasteDisposal?.enabled ?? formData.wasteDisposalEnabled,
         waste_disposal_amount: formData.wasteDisposalAmount || null,
+        waste_disposal_m3: formData.wasteDisposal?.cubicMeters ?? null,
+        waste_disposal_calculated_cost: formData.wasteDisposal?.calculatedCost ?? null,
+        waste_disposal_confirmed_cost: formData.wasteDisposal?.confirmedCost ?? null,
+        waste_disposal_is_overridden: formData.wasteDisposal?.isOverridden ?? false,
         option_selected: formData.optionSelected,
         treatment_methods: formData.optionSelected === 1
           ? formData.selectedTreatmentMethods.filter((m) => !OPTION_2_ONLY_METHODS.includes(m))
@@ -4013,6 +4226,21 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   const [isCompleting, setIsCompleting] = useState(false);
 
   const handleNext = async () => {
+    // Section 6 gate: a confirmed waste price must exist before leaving the section,
+    // so a blank/unconfirmed price never reaches the cost estimate or invoice.
+    if (
+      currentSection === 6 &&
+      formData.wasteDisposal?.enabled &&
+      formData.wasteDisposal.confirmedCost == null
+    ) {
+      toast({
+        title: 'Confirm the waste disposal price',
+        description: 'Confirm or override the waste disposal price to continue.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (currentSection === TOTAL_SECTIONS) {
       // B6: subfloorRequired must be explicitly set before submission.
       if (formData.subfloorRequired === null || formData.subfloorRequired === undefined) {
@@ -4022,6 +4250,18 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           variant: 'destructive',
         });
         setCurrentSection(4);
+        return;
+      }
+
+      // Waste disposal: a confirmed price is required before completion so an
+      // enabled-but-unconfirmed waste charge can never reach the DB and bill $0.
+      if (formData.wasteDisposal?.enabled && formData.wasteDisposal.confirmedCost == null) {
+        toast({
+          title: 'Confirm the waste disposal price',
+          description: 'Confirm or override the waste disposal price (Section 6) before submitting.',
+          variant: 'destructive',
+        });
+        setCurrentSection(6);
         return;
       }
 
