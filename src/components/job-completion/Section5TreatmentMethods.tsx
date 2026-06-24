@@ -18,7 +18,7 @@ const TREATMENT_METHODS: Array<{
   { field: 'methodUlvFoggingProperty', label: 'ULV Fogging Property' },
   { field: 'methodUlvFoggingSubfloor', label: 'ULV Fogging Subfloor' },
   { field: 'methodSubfloorRemediation', label: 'Subfloor Remediation' },
-  { field: 'methodAfdInstallation', label: 'AFD Installation' },
+  { field: 'methodHepaAirScrubberInstallation', label: 'HEPA Air Scrubber Installation' },
   { field: 'methodDryingEquipment', label: 'Drying Equipment' },
   { field: 'methodContainmentPrv', label: 'Containment & PRV' },
   { field: 'methodMaterialDemolition', label: 'Material Demolition' },

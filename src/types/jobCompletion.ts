@@ -53,7 +53,7 @@ export interface JobCompletionFormData {
   methodUlvFoggingProperty: boolean;
   methodUlvFoggingSubfloor: boolean;
   methodSubfloorRemediation: boolean;
-  methodAfdInstallation: boolean;
+  methodHepaAirScrubberInstallation: boolean;
   methodDryingEquipment: boolean;
   methodContainmentPrv: boolean;
   methodMaterialDemolition: boolean;
@@ -72,8 +72,8 @@ export interface JobCompletionFormData {
   actualDehumidifierDays: number;
   actualAirMoverQty: number;
   actualAirMoverDays: number;
-  actualAfdQty: number;
-  actualAfdDays: number;
+  actualHepaAirScrubberQty: number;
+  actualHepaAirScrubberDays: number;
   actualRcdQty: number;
   actualRcdDays: number;
 
@@ -193,7 +193,7 @@ export const DEFAULT_JOB_COMPLETION_FORM: JobCompletionFormData = {
   methodUlvFoggingProperty: false,
   methodUlvFoggingSubfloor: false,
   methodSubfloorRemediation: false,
-  methodAfdInstallation: false,
+  methodHepaAirScrubberInstallation: false,
   methodDryingEquipment: false,
   methodContainmentPrv: false,
   methodMaterialDemolition: false,
@@ -208,8 +208,8 @@ export const DEFAULT_JOB_COMPLETION_FORM: JobCompletionFormData = {
   actualDehumidifierDays: 0,
   actualAirMoverQty: 0,
   actualAirMoverDays: 0,
-  actualAfdQty: 0,
-  actualAfdDays: 0,
+  actualHepaAirScrubberQty: 0,
+  actualHepaAirScrubberDays: 0,
   actualRcdQty: 0,
   actualRcdDays: 0,
   quotedDehumidifierQty: 0,

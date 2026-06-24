@@ -108,14 +108,14 @@ describe('calculateJobCost', () => {
   })
 
   describe('Equipment Costs', () => {
-    it('should calculate dehumidifier cost correctly ($132/day)', () => {
+    it('should calculate dehumidifier cost correctly ($119/day)', () => {
       const result = calculateJobCost({
         ...baseParams,
         dehumidifierQty: 2,
         estimatedDays: 3,
       })
-      // 2 dehu × $132 × 3 days = $792
-      expect(result.equipmentCost).toBe(792)
+      // 2 dehu × $119 × 3 days = $714
+      expect(result.equipmentCost).toBe(714)
     })
 
     it('should calculate air mover cost correctly ($46/day)', () => {
@@ -146,8 +146,8 @@ describe('calculateJobCost', () => {
         rcdQty: 1,
         estimatedDays: 2,
       })
-      // (2 × $132 + 3 × $46 + 1 × $5) × 2 = (264 + 138 + 5) × 2 = 814
-      expect(result.equipmentCost).toBe(814)
+      // (2 × $119 + 3 × $46 + 1 × $5) × 2 = (238 + 138 + 5) × 2 = 762
+      expect(result.equipmentCost).toBe(762)
     })
 
     it('should NOT apply discount to equipment costs', () => {
@@ -158,8 +158,8 @@ describe('calculateJobCost', () => {
         dehumidifierQty: 1,
         estimatedDays: 3,
       })
-      // Equipment should be $132 × 3 = $396 (no discount)
-      expect(resultWithDiscount.equipmentCost).toBe(396)
+      // Equipment should be $119 × 3 = $357 (no discount)
+      expect(resultWithDiscount.equipmentCost).toBe(357)
     })
   })
 
@@ -345,8 +345,8 @@ describe('calculateJobCost', () => {
       // 7.5% discount on labor
       expect(result.discountPercent).toBe(7.5)
 
-      // Equipment: (2×132 + 4×46 + 1×5) × 2 = (264 + 184 + 5) × 2 = 906
-      expect(result.equipmentCost).toBe(906)
+      // Equipment: (2×119 + 4×46 + 1×5) × 2 = (238 + 184 + 5) × 2 = 854
+      expect(result.equipmentCost).toBe(854)
 
       // All values should be rounded to 2 decimal places
       expect(Number.isFinite(result.laborCost)).toBe(true)
@@ -372,8 +372,8 @@ describe('calculateJobCost', () => {
       expect(result.discountPercent).toBe(13)
       expect(result.discountPercent).toBeLessThanOrEqual(13)
 
-      // Equipment: (4×132 + 8×46 + 2×5) × 5 = (528 + 368 + 10) × 5 = 4530
-      expect(result.equipmentCost).toBe(4530)
+      // Equipment: (4×119 + 8×46 + 2×5) × 5 = (476 + 368 + 10) × 5 = 4270
+      expect(result.equipmentCost).toBe(4270)
     })
   })
 })

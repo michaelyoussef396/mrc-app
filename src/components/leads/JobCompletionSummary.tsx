@@ -125,7 +125,7 @@ interface EquipmentRowData {
   label: string;
   actualQty: number;
   actualDays: number;
-  quotedQty: number | null;  // null = no quoted data for this type (AFD)
+  quotedQty: number | null;  // null = no quoted data for this type (HEPA Air Scrubber)
   quotedDays: number | null; // null = no quoted data; tied to quoted_equipment_days
 }
 
@@ -255,7 +255,7 @@ export function JobCompletionSummary({
     { field: 'method_ulv_fogging_property', label: 'ULV Fogging Property' },
     { field: 'method_ulv_fogging_subfloor', label: 'ULV Fogging Subfloor' },
     { field: 'method_subfloor_remediation', label: 'Subfloor Remediation' },
-    { field: 'method_afd_installation', label: 'AFD Installation' },
+    { field: 'method_afd_installation', label: 'HEPA Air Scrubber Installation' },
     { field: 'method_drying_equipment', label: 'Drying Equipment' },
     { field: 'method_containment_prv', label: 'Containment & PRV' },
     { field: 'method_material_demolition', label: 'Material Demolition' },
@@ -264,7 +264,7 @@ export function JobCompletionSummary({
   ];
 
   const chemicals: Array<{ field: keyof JobCompletionRow; label: string }> = [
-    { field: 'chemical_air_filtration', label: 'Air Filtration Device' },
+    { field: 'chemical_air_filtration', label: 'Air Filtration Treatment' },
     { field: 'chemical_water_based', label: 'Water Based Solution' },
     { field: 'chemical_sodium_hypochlorite', label: 'Sodium Hypochlorite' },
     { field: 'chemical_hepa_vacuumed', label: "HEPA Vac'd" },
@@ -287,7 +287,7 @@ export function JobCompletionSummary({
       quotedDays: jobCompletion.quoted_equipment_days ?? null,
     },
     {
-      label: 'AFD',
+      label: 'HEPA Air Scrubber',
       actualQty: jobCompletion.actual_afd_qty,
       actualDays: jobCompletion.actual_afd_days,
       quotedQty: null,

@@ -153,7 +153,7 @@ export default function JobCompletionForm() {
     // Section 5: Treatment — at least one method
     const treatmentFields = [
       formData.methodHepaVacuuming, formData.methodSurfaceMouldRemediation, formData.methodUlvFoggingProperty,
-      formData.methodUlvFoggingSubfloor, formData.methodSubfloorRemediation, formData.methodAfdInstallation,
+      formData.methodUlvFoggingSubfloor, formData.methodSubfloorRemediation, formData.methodHepaAirScrubberInstallation,
       formData.methodDryingEquipment, formData.methodContainmentPrv, formData.methodMaterialDemolition,
       formData.methodCavityTreatment, formData.methodDebrisRemoval,
     ]

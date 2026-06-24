@@ -40,7 +40,7 @@ function formDataToRow(data: Partial<JobCompletionFormData>): Record<string, unk
   if (data.methodUlvFoggingProperty !== undefined) row.method_ulv_fogging_property = data.methodUlvFoggingProperty
   if (data.methodUlvFoggingSubfloor !== undefined) row.method_ulv_fogging_subfloor = data.methodUlvFoggingSubfloor
   if (data.methodSubfloorRemediation !== undefined) row.method_subfloor_remediation = data.methodSubfloorRemediation
-  if (data.methodAfdInstallation !== undefined) row.method_afd_installation = data.methodAfdInstallation
+  if (data.methodHepaAirScrubberInstallation !== undefined) row.method_afd_installation = data.methodHepaAirScrubberInstallation
   if (data.methodDryingEquipment !== undefined) row.method_drying_equipment = data.methodDryingEquipment
   if (data.methodContainmentPrv !== undefined) row.method_containment_prv = data.methodContainmentPrv
   if (data.methodMaterialDemolition !== undefined) row.method_material_demolition = data.methodMaterialDemolition
@@ -59,8 +59,8 @@ function formDataToRow(data: Partial<JobCompletionFormData>): Record<string, unk
   if (data.actualDehumidifierDays !== undefined) row.actual_dehumidifier_days = data.actualDehumidifierDays
   if (data.actualAirMoverQty !== undefined) row.actual_air_mover_qty = data.actualAirMoverQty
   if (data.actualAirMoverDays !== undefined) row.actual_air_mover_days = data.actualAirMoverDays
-  if (data.actualAfdQty !== undefined) row.actual_afd_qty = data.actualAfdQty
-  if (data.actualAfdDays !== undefined) row.actual_afd_days = data.actualAfdDays
+  if (data.actualHepaAirScrubberQty !== undefined) row.actual_afd_qty = data.actualHepaAirScrubberQty
+  if (data.actualHepaAirScrubberDays !== undefined) row.actual_afd_days = data.actualHepaAirScrubberDays
   if (data.actualRcdQty !== undefined) row.actual_rcd_qty = data.actualRcdQty
   if (data.actualRcdDays !== undefined) row.actual_rcd_days = data.actualRcdDays
 

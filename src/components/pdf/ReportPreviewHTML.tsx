@@ -758,7 +758,7 @@ export function ReportPreviewHTML({
   // Treatment method constants (same as TechnicianInspectionForm)
   const SHARED_TREATMENT_METHODS = [
     'HEPA Vacuuming', 'Surface Remediation Treatment', 'ULV Fogging - Property',
-    'ULV Fogging - Subfloor', 'Subfloor Remediation', 'AFD Installation',
+    'ULV Fogging - Subfloor', 'Subfloor Remediation', 'HEPA Air Scrubber Installation',
     'Drying Equipment', 'Containment and Prep',
   ]
   const OPTION_2_ONLY_METHODS = ['Material Demolition', 'Cavity Treatment', 'Debris Removal']

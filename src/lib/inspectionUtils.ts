@@ -85,7 +85,7 @@ export const calculateJobCost = (params: {
   };
 
   const EQUIPMENT_RATES = {
-    dehumidifier: 132,
+    dehumidifier: 119,
     airMover: 46,
     rcd: 5
   };
