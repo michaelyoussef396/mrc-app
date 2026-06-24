@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateCostEstimate, MAX_DISCOUNT, round2 } from './pricing';
+import { calculateCostEstimate, calculateWasteDisposalCost, MAX_DISCOUNT, round2 } from './pricing';
 
 // ---------------------------------------------------------------------------
 // BUG-019: discount tier boundary values — decimal scale invariants
@@ -167,6 +167,71 @@ describe('both-option dual-write', () => {
     const noEquip2 = computeDualWriteTotals(4, 4, 0, 0, 0, 0).option2Total;
     expect(option1Total).toBeGreaterThan(noEquip1);
     expect(option2Total).toBeGreaterThan(noEquip2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Waste disposal cubic-metre pricing — interpolated price anchors.
+// Anchors at 2/4/6/8/10/12 m³; pro-rate below 2; extrapolate above 12 at $145/m³.
+// ---------------------------------------------------------------------------
+
+describe('calculateWasteDisposalCost', () => {
+  it('should return $0 for 0 m³', () => {
+    expect(calculateWasteDisposalCost(0)).toBe(0);
+  });
+
+  it('should pro-rate $175 for 1 m³ (below first anchor)', () => {
+    expect(calculateWasteDisposalCost(1)).toBe(175);
+  });
+
+  it('should return $350 at the 2 m³ anchor', () => {
+    expect(calculateWasteDisposalCost(2)).toBe(350);
+  });
+
+  it('should interpolate $400 for 3 m³ (between 2 and 4)', () => {
+    expect(calculateWasteDisposalCost(3)).toBe(400);
+  });
+
+  it('should return $450 at the 4 m³ anchor', () => {
+    expect(calculateWasteDisposalCost(4)).toBe(450);
+  });
+
+  it('should interpolate $626.50 for 7 m³ (between 6 and 8)', () => {
+    expect(calculateWasteDisposalCost(7)).toBe(626.5);
+  });
+
+  it('should return $1,190 at the 12 m³ anchor', () => {
+    expect(calculateWasteDisposalCost(12)).toBe(1190);
+  });
+
+  it('should extrapolate $1,480 for 14 m³ (above top anchor at $145/m³)', () => {
+    expect(calculateWasteDisposalCost(14)).toBe(1480);
+  });
+
+  it('should return $0 for negative m³', () => {
+    expect(calculateWasteDisposalCost(-5)).toBe(0);
+  });
+});
+
+describe('waste disposal cost flows into subtotal without being discounted', () => {
+  it('should add the confirmed waste cost on top of the 13%-capped labour subtotal', () => {
+    // 40h nonDemo → 33+h tier → 13% cap. Waste must be a pass-through add-on.
+    const base = { nonDemoHours: 40, demolitionHours: 0, subfloorHours: 0 };
+    const withoutWaste = calculateCostEstimate(base);
+    const withWaste = calculateCostEstimate({ ...base, wasteDisposalCost: 550 });
+
+    expect(withWaste.discountPercent).toBe(0.13);
+    expect(withWaste.wasteDisposalCost).toBe(550);
+    expect(withWaste.subtotalExGst).toBe(
+      round2(withWaste.labourAfterDiscount + withWaste.equipmentCost + 550)
+    );
+    // Waste is not discounted: the subtotal delta equals exactly the waste cost.
+    expect(round2(withWaste.subtotalExGst - withoutWaste.subtotalExGst)).toBe(550);
+  });
+
+  it('should default wasteDisposalCost to 0 when not provided (backward compatible)', () => {
+    const result = calculateCostEstimate({ nonDemoHours: 5, demolitionHours: 0, subfloorHours: 0 });
+    expect(result.wasteDisposalCost).toBe(0);
   });
 });
 

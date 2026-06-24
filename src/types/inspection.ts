@@ -97,6 +97,14 @@ export interface InspectionFormData {
   // Section 6: Waste Disposal
   wasteDisposalEnabled: boolean;
   wasteDisposalAmount: string;
+  // Cubic-metre pricing (Brief 2 wires the UI + save/load; optional until then)
+  wasteDisposal?: {
+    enabled: boolean;
+    cubicMeters: number | null;
+    calculatedCost: number | null;   // output of calculateWasteDisposalCost()
+    confirmedCost: number | null;    // user-confirmed; feeds the total
+    isOverridden: boolean;           // true if user manually edited the price
+  };
 
   // Section 7: Work Procedure
   optionSelected: number | null;           // 1 = Surface Treatment, 2 = Comprehensive Treatment

@@ -45,8 +45,11 @@ function buildClipboardText(d: SummaryData): string {
     lines.push(`  ${li.description}${tag} — ${formatCurrency(li.total)}`)
   }
   lines.push('')
-  lines.push(`Services subtotal:  ${formatCurrency(d.totals.subtotal - d.totals.equipment_subtotal)}`)
+  lines.push(`Services subtotal:  ${formatCurrency(d.totals.subtotal - d.totals.equipment_subtotal - d.totals.waste_subtotal)}`)
   lines.push(`Equipment subtotal: ${formatCurrency(d.totals.equipment_subtotal)}  (never discounted)`)
+  if (d.totals.waste_subtotal > 0) {
+    lines.push(`Waste disposal:     ${formatCurrency(d.totals.waste_subtotal)}  (never discounted)`)
+  }
   if (d.totals.discount_amount > 0) {
     lines.push(`Discount (${p.discount_percentage ?? 0}% on services): -${formatCurrency(d.totals.discount_amount)}`)
   }
@@ -136,7 +139,7 @@ export function InvoiceSummaryCard({ leadId }: Props) {
 
   const p = data.populated
   const t = data.totals
-  const servicesSubtotal = t.subtotal - t.equipment_subtotal
+  const servicesSubtotal = t.subtotal - t.equipment_subtotal - t.waste_subtotal
   const discountPct = p.discount_percentage ?? 0
 
   return (
@@ -226,6 +229,12 @@ export function InvoiceSummaryCard({ leadId }: Props) {
           <span className="text-gray-600">Equipment subtotal</span>
           <span className="tabular-nums">{formatCurrency(t.equipment_subtotal)}</span>
         </div>
+        {t.waste_subtotal > 0 && (
+          <div className="flex justify-between">
+            <span className="text-gray-600">Waste disposal</span>
+            <span className="tabular-nums">{formatCurrency(t.waste_subtotal)}</span>
+          </div>
+        )}
         {t.discount_amount > 0 && (
           <div className="flex justify-between text-emerald-700">
             <span>Discount ({discountPct}% on services)</span>

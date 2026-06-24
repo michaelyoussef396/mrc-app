@@ -111,6 +111,7 @@ interface Inspection {
   option_1_equipment_ex_gst?: number | null
   option_1_total_inc_gst?: number | null
   option_2_total_inc_gst?: number | null
+  waste_disposal_confirmed_cost?: number | null
   lead?: {
     id: string
     full_name: string
@@ -180,6 +181,7 @@ const INSPECTION_SELECT = `
   option_1_equipment_ex_gst,
   option_1_total_inc_gst,
   option_2_total_inc_gst,
+  waste_disposal_confirmed_cost,
   lead:leads(
     id,
     full_name,
@@ -1480,6 +1482,7 @@ export default function ViewReportPDF() {
     option_1_equipment_ex_gst: inspection.option_1_equipment_ex_gst ?? 0,
     option_1_total_inc_gst: inspection.option_1_total_inc_gst ?? 0,
     option_2_total_inc_gst: inspection.option_2_total_inc_gst ?? 0,
+    waste_disposal_cost: inspection.waste_disposal_confirmed_cost ?? 0,
   } : null
 
   // Stage 3.4.5: inline AI summary edits create a new ai_summary_versions row
@@ -1732,6 +1735,7 @@ export default function ViewReportPDF() {
           option_1_equipment_ex_gst: costs.option_1_equipment_ex_gst || null,
           option_1_total_inc_gst: costs.option_1_total_inc_gst || null,
           option_2_total_inc_gst: costs.option_2_total_inc_gst || null,
+          waste_disposal_confirmed_cost: costs.waste_disposal_cost,
           updated_at: new Date().toISOString(),
         })
         .eq('id', inspection.id)
@@ -1752,6 +1756,7 @@ export default function ViewReportPDF() {
         option_1_equipment_ex_gst: costs.option_1_equipment_ex_gst,
         option_1_total_inc_gst: costs.option_1_total_inc_gst,
         option_2_total_inc_gst: costs.option_2_total_inc_gst,
+        waste_disposal_confirmed_cost: costs.waste_disposal_cost,
       } : null)
 
       setPreviewStale(true)

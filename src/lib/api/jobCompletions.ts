@@ -136,6 +136,12 @@ export async function createJobCompletion(
       quotedRcdQty = inspection.rcd_box_qty ?? 0
       quotedEquipmentDays = inspection.equipment_days ?? 0
       attentionTo = inspection.attention_to ?? ''
+      // NOTE(waste-disposal): job-completion waste actuals are DEFERRED (Brief 2).
+      // When Section 7 gets a waste row, also SELECT waste_disposal_m3 /
+      // waste_disposal_confirmed_cost above and snapshot them into
+      // quoted_waste_disposal_m3 / quoted_waste_disposal_cost here, then persist the
+      // tech's actuals (actual_waste_disposal_*). Requires applying
+      // supabase/migrations/20260624113911_job_completion_waste.sql first.
     }
 
     // Pre-populate areas treated from inspection areas

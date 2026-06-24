@@ -175,6 +175,38 @@ equipmentCost = userEnteredAmount; // Direct input, no calculation
 
 ---
 
+## WASTE DISPOSAL COSTS
+
+Waste disposal is priced from the **cubic-metre (m³) bin size** via interpolated price
+anchors. The technician enters the bin size; the system calculates a price that the tech
+must explicitly **confirm** (or **override**). The confirmed cost (ex GST) is a
+**pass-through** — added to the subtotal after the labour discount and **never discounted**
+(same treatment as equipment).
+
+### Price Anchors (ex GST)
+
+| Bin size (m³) | Price   |
+|---------------|---------|
+| 2             | $350    |
+| 4             | $450    |
+| 6             | $550    |
+| 8             | $703    |
+| 10            | $900    |
+| 12            | $1,190  |
+
+### Interpolation Rules
+
+1. **Under 2 m³** — pro-rated from the first anchor: `(m3 / 2) × 350`
+2. **2–12 m³** — linear interpolation between the two surrounding anchors
+3. **Over 12 m³** — extrapolated from the 10→12 segment at **$145/m³**: `1190 + (m3 − 12) × 145`
+
+Result rounds to 2 decimal places. Implementation: `calculateWasteDisposalCost(m3)` in
+`/src/lib/calculations/pricing.ts`.
+
+**Examples:** 1 m³ → $175.00 · 3 m³ → $400.00 · 7 m³ → $626.50 · 14 m³ → $1,480.00
+
+---
+
 ## COMPLETE CALCULATION FLOW
 
 ### Step 1: Calculate Labour Costs (Before Discount)
@@ -209,10 +241,16 @@ labourAfterDiscount = labourSubtotal - discountAmount
 equipmentCost = userEnteredEquipmentTotal // Direct entry
 ```
 
+### Step 4.5: Add Waste Disposal (confirmed, never discounted)
+
+```javascript
+wasteDisposalCost = confirmedWasteCost // calculateWasteDisposalCost(m3), tech-confirmed
+```
+
 ### Step 5: Calculate Totals with GST
 
 ```javascript
-subtotalExGst = labourAfterDiscount + equipmentCost
+subtotalExGst = labourAfterDiscount + equipmentCost + wasteDisposalCost
 gstAmount = subtotalExGst * 0.10
 totalIncGst = subtotalExGst + gstAmount
 ```
@@ -273,6 +311,18 @@ Subtotal (Ex GST):        $4,575.85
 GST (10%):                  $457.59
 ──────────────────────────────────
 TOTAL (Inc GST):          $5,033.44
+```
+
+**With a 4 m³ waste bin ($450 ex GST, confirmed) added as a pass-through:**
+```
+Labour (after discount):  $3,585.85
+Equipment:                  $990.00
+Waste Disposal:             $450.00
+──────────────────────────────────
+Subtotal (Ex GST):        $5,025.85
+GST (10%):                  $502.59
+──────────────────────────────────
+TOTAL (Inc GST):          $5,528.44
 ```
 
 ---

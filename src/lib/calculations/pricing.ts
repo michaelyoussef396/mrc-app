@@ -25,6 +25,20 @@ export const EQUIPMENT_RATES = {
   rcd: 5,
 } as const;
 
+// Waste disposal price anchors (ex GST, AUD). Linear interpolation between
+// anchors; beyond 12m³ extrapolate from the 10→12 segment at $145/m³.
+export const WASTE_DISPOSAL_RATES = [
+  { m3: 2, price: 350 },
+  { m3: 4, price: 450 },
+  { m3: 6, price: 550 },
+  { m3: 8, price: 703 },    // midpoint of $657–$750
+  { m3: 10, price: 900 },   // midpoint of $850–$950
+  { m3: 12, price: 1190 },  // midpoint of $1,060–$1,320
+] as const;
+
+// $/m³ beyond the top anchor: (1190 − 900) / (12 − 10)
+const WASTE_EXTRAPOLATION_RATE = 145;
+
 // Volume discount tiers based on TOTAL labour hours
 export const DISCOUNT_TIERS = [
   { minHours: 0, maxHours: 8, discount: 0, days: 1 },
@@ -258,6 +272,42 @@ export function calculateEquipmentCost(
 }
 
 // ============================================================
+// WASTE DISPOSAL CALCULATION
+// ============================================================
+
+/**
+ * Calculate waste disposal cost from cubic metres using interpolated price anchors.
+ * - m3 <= 0: no charge
+ * - 0 < m3 < 2: pro-rated from the first anchor
+ * - 2 <= m3 <= 12: linear interpolation between surrounding anchors
+ * - m3 > 12: extrapolated from the 10→12 segment at WASTE_EXTRAPOLATION_RATE
+ */
+export function calculateWasteDisposalCost(m3: number): number {
+  if (m3 <= 0) return 0;
+
+  const first = WASTE_DISPOSAL_RATES[0];
+  const last = WASTE_DISPOSAL_RATES[WASTE_DISPOSAL_RATES.length - 1];
+
+  if (m3 < first.m3) {
+    return round2((m3 / first.m3) * first.price);
+  }
+  if (m3 > last.m3) {
+    return round2(last.price + (m3 - last.m3) * WASTE_EXTRAPOLATION_RATE);
+  }
+
+  for (let i = 0; i < WASTE_DISPOSAL_RATES.length - 1; i++) {
+    const lo = WASTE_DISPOSAL_RATES[i];
+    const hi = WASTE_DISPOSAL_RATES[i + 1];
+    if (m3 >= lo.m3 && m3 <= hi.m3) {
+      const ratio = (m3 - lo.m3) / (hi.m3 - lo.m3);
+      return round2(lo.price + ratio * (hi.price - lo.price));
+    }
+  }
+
+  return round2(last.price); // unreachable
+}
+
+// ============================================================
 // MAIN COST ESTIMATE CALCULATION
 // ============================================================
 
@@ -272,6 +322,9 @@ export interface CostEstimateInput {
   dehumidifierQty?: number;
   airMoverQty?: number;
   rcdQty?: number;
+
+  // Waste disposal — confirmed cost (ex GST), pass-through like equipment, never discounted
+  wasteDisposalCost?: number;
 
   // Manual override (optional)
   manualOverride?: boolean;
@@ -299,6 +352,9 @@ export interface CostEstimateResult {
   equipment: EquipmentResult;
   equipmentCost: number;
 
+  // Waste disposal (confirmed cost, ex GST)
+  wasteDisposalCost: number;
+
   // Totals
   subtotalExGst: number;
   gstAmount: number;
@@ -316,6 +372,9 @@ export function calculateCostEstimate(input: CostEstimateInput): CostEstimateRes
   // Calculate total hours first (needed for discount and equipment days)
   const totalLabourHours = input.nonDemoHours + input.demolitionHours + input.subfloorHours;
   const totalDays = calculateDays(totalLabourHours);
+
+  // Confirmed waste disposal cost — pass-through, never discounted (same as equipment)
+  const wasteDisposalCost = input.wasteDisposalCost ?? 0;
 
   // Handle manual override
   if (input.manualOverride && input.manualTotal !== undefined && input.manualTotal > 0) {
@@ -347,6 +406,7 @@ export function calculateCostEstimate(input: CostEstimateInput): CostEstimateRes
       labourAfterDiscount: 0,
       equipment,
       equipmentCost: input.equipmentCost || equipment.total,
+      wasteDisposalCost,
       subtotalExGst: manualExGst,
       gstAmount: manualGst,
       totalIncGst: input.manualTotal,
@@ -380,8 +440,8 @@ export function calculateCostEstimate(input: CostEstimateInput): CostEstimateRes
   // Use direct equipment cost if provided, otherwise use calculated
   const equipmentCost = input.equipmentCost !== undefined ? input.equipmentCost : equipment.total;
 
-  // Calculate totals
-  const subtotalExGst = round2(labourAfterDiscount + equipmentCost);
+  // Calculate totals (waste disposal added after discount — never discounted)
+  const subtotalExGst = round2(labourAfterDiscount + equipmentCost + wasteDisposalCost);
   const gstAmount = round2(subtotalExGst * GST_RATE);
   const totalIncGst = round2(subtotalExGst + gstAmount);
 
@@ -400,6 +460,7 @@ export function calculateCostEstimate(input: CostEstimateInput): CostEstimateRes
     labourAfterDiscount,
     equipment,
     equipmentCost,
+    wasteDisposalCost,
     subtotalExGst,
     gstAmount,
     totalIncGst,
