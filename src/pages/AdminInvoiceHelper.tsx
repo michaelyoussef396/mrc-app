@@ -62,26 +62,31 @@ interface EquipmentUsage {
   days: number
 }
 
-// Rate card is sacred (CLAUDE.md): dehumidifier $119/day, air mover $46/day, RCD $5/day.
+// Rate card is sacred (CLAUDE.md): dehumidifier $119/day, air mover $46/day, HEPA Air Scrubber $100/day, RCD $5/day.
 // Equipment is never volume-discounted — it feeds the engine as a flat ex-GST cost.
 const EQUIPMENT_ROWS: { key: EquipmentKey; label: string; rate: number }[] = [
   { key: 'dehumidifier', label: 'Dehumidifier', rate: EQUIPMENT_RATES.dehumidifier },
   { key: 'airMover', label: 'Air Mover', rate: EQUIPMENT_RATES.airMover },
+  { key: 'hepaAirScrubber', label: 'HEPA Air Scrubber', rate: EQUIPMENT_RATES.hepaAirScrubber },
   { key: 'rcd', label: 'RCD Box', rate: EQUIPMENT_RATES.rcd },
 ]
 
-/** Seed equipment qty/days from a job_completion row (actual equipment used). */
+/** Seed equipment qty/days from a job_completion row (actual equipment used).
+ * HEPA Air Scrubber maps to the DB's actual_afd_* columns (kept snake_case). */
 function seedEquipment(jc: {
   actual_dehumidifier_qty?: number | null
   actual_dehumidifier_days?: number | null
   actual_air_mover_qty?: number | null
   actual_air_mover_days?: number | null
+  actual_afd_qty?: number | null
+  actual_afd_days?: number | null
   actual_rcd_qty?: number | null
   actual_rcd_days?: number | null
 } | null): Record<EquipmentKey, EquipmentUsage> {
   return {
     dehumidifier: { qty: Number(jc?.actual_dehumidifier_qty ?? 0), days: Number(jc?.actual_dehumidifier_days ?? 0) },
     airMover: { qty: Number(jc?.actual_air_mover_qty ?? 0), days: Number(jc?.actual_air_mover_days ?? 0) },
+    hepaAirScrubber: { qty: Number(jc?.actual_afd_qty ?? 0), days: Number(jc?.actual_afd_days ?? 0) },
     rcd: { qty: Number(jc?.actual_rcd_qty ?? 0), days: Number(jc?.actual_rcd_days ?? 0) },
   }
 }
@@ -90,7 +95,7 @@ function isAutoLine(item: InvoiceLineItem): boolean {
   return item.description.startsWith(LABOUR_LINE_PREFIX) || item.description.startsWith(EQUIPMENT_LINE_PREFIX)
 }
 
-const EQUIPMENT_KEYS: EquipmentKey[] = ['dehumidifier', 'airMover', 'rcd']
+const EQUIPMENT_KEYS: EquipmentKey[] = ['dehumidifier', 'airMover', 'hepaAirScrubber', 'rcd']
 
 /**
  * Reconstruct the per-item equipment breakdown from a saved invoice's line_items.
@@ -181,7 +186,7 @@ export default function AdminInvoiceHelper() {
         const [{ data: jc }, { data: inspection }] = await Promise.all([
           supabase
             .from('job_completions')
-            .select('id, job_number, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_rcd_qty, actual_rcd_days')
+            .select('id, job_number, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_afd_qty, actual_afd_days, actual_rcd_qty, actual_rcd_days')
             .eq('lead_id', leadId)
             .order('created_at', { ascending: false })
             .limit(1)
