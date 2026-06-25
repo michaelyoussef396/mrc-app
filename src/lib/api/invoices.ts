@@ -10,7 +10,7 @@ import { notifyInvoiceSent, notifyPaymentReceived } from '@/lib/api/notification
 
 export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'void'
 export type PaymentMethod = 'cash' | 'visa' | 'mastercard' | 'bank_transfer' | 'cheque'
-export type EquipmentKey = 'dehumidifier' | 'airMover' | 'rcd'
+export type EquipmentKey = 'dehumidifier' | 'airMover' | 'hepaAirScrubber' | 'rcd'
 
 export interface InvoiceLineItem {
   description: string
