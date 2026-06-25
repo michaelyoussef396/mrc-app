@@ -1495,6 +1495,10 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          initial_photos: string[] | null
+          issue_type: string | null
+          preferred_day: string | null
+          urgency: string | null
           inspection_completed_date: string | null
           inspection_scheduled_date: string | null
           internal_notes: string | null
@@ -1541,6 +1545,10 @@ export type Database = {
           email: string
           full_name: string
           id?: string
+          initial_photos?: string[] | null
+          issue_type?: string | null
+          preferred_day?: string | null
+          urgency?: string | null
           inspection_completed_date?: string | null
           inspection_scheduled_date?: string | null
           internal_notes?: string | null
@@ -1587,6 +1595,10 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          initial_photos?: string[] | null
+          issue_type?: string | null
+          preferred_day?: string | null
+          urgency?: string | null
           inspection_completed_date?: string | null
           inspection_scheduled_date?: string | null
           internal_notes?: string | null

@@ -268,6 +268,45 @@ export const normalLeadSchema = z.object({
 export type NormalLeadSchemaType = z.infer<typeof normalLeadSchema>;
 
 // ============================================================================
+// PUBLIC REQUEST-INSPECTION SCHEMA (in-app /request-inspection form)
+// ============================================================================
+
+/**
+ * Validation schema for the public, anonymous in-app enquiry form.
+ *
+ * Distinct from normalLeadSchema (admin Create New Lead) — this form drops
+ * postcode, replaces the date/time pickers with day/time-of-day selects, and
+ * adds issue_type / urgency / property_type selects. Submitted values are
+ * POSTed to the receive-framer-lead Edge Function (not inserted directly).
+ *
+ * Required: name, phone, email, property address, suburb, preferred_day,
+ * preferred_time, issue_type, urgency, property_type.
+ * Optional: issue_description, initial_photos (Storage paths, private bucket).
+ */
+export const requestInspectionSchema = z.object({
+  full_name: fullNameSchema,
+  phone: australianPhoneSchema,
+  email: emailSchema,
+  property_address: streetAddressSchema,
+  suburb: suburbSchema,
+  preferred_day: z.string().min(1, 'Please choose a preferred day'),
+  preferred_time: z.string().min(1, 'Please choose a preferred time'),
+  issue_type: z.string().min(1, 'Please choose the type of issue'),
+  urgency: z.string().min(1, 'Please choose how urgent this is'),
+  property_type: z.string().min(1, 'Please choose a property type'),
+  issue_description: z
+    .string()
+    .max(2000, 'Message must be less than 2000 characters')
+    .optional(),
+  initial_photos: z.array(z.string()).max(5, 'Up to 5 photos').optional(),
+});
+
+/**
+ * TypeScript type inferred from requestInspectionSchema
+ */
+export type RequestInspectionSchemaType = z.infer<typeof requestInspectionSchema>;
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
