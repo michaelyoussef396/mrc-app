@@ -679,7 +679,7 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
   // Job completion (most recent)
   const { data: jc } = await supabase
     .from('job_completions')
-    .select('id, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_rcd_qty, actual_rcd_days')
+    .select('id, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_afd_qty, actual_afd_days, actual_rcd_qty, actual_rcd_days')
     .eq('lead_id', leadId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -739,6 +739,19 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
         quantity: qty * days,
         unit_price: EQUIPMENT_RATES.airMover,
         total: round2(qty * days * EQUIPMENT_RATES.airMover),
+        is_equipment: true,
+      })
+    }
+    // DB column is still actual_afd_* (job_completions columns kept snake_case);
+    // surfaced to the customer as "HEPA Air Scrubber".
+    if (jc.actual_afd_qty && jc.actual_afd_days) {
+      const qty = jc.actual_afd_qty
+      const days = jc.actual_afd_days
+      lineItems.push({
+        description: `HEPA Air Scrubber (${qty} units × ${days} days)`,
+        quantity: qty * days,
+        unit_price: EQUIPMENT_RATES.hepaAirScrubber,
+        total: round2(qty * days * EQUIPMENT_RATES.hepaAirScrubber),
         is_equipment: true,
       })
     }

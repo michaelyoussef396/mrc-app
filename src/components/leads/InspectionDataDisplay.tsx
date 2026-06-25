@@ -575,7 +575,7 @@ const TREATMENT_METHOD_LABELS: string[] = [
   'ULV Fogging - Property',
   'ULV Fogging - Subfloor',
   'Subfloor Remediation',
-  'AFD Installation',
+  'HEPA Air Scrubber Installation',
   'Drying Equipment',
   'Containment and Prep',
   'Material Demolition',
@@ -950,7 +950,7 @@ function CostEstimateSection({
       {/* Block 7 — Footer */}
       <div className="bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
         <p className="text-[11px] text-slate-500">
-          {costResult.discountTierDescription} • Total Hours: {fmtHours(costResult.totalLabourHours)} • Work Days: {costResult.totalDays}
+          Total Hours: {fmtHours(costResult.totalLabourHours)} • Work Days: {costResult.totalDays}
         </p>
       </div>
 

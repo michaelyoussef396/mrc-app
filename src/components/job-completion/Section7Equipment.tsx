@@ -4,10 +4,10 @@ import type { JobCompletionFormData } from '@/types/jobCompletion';
 
 // Daily equipment rates as per business rules (CLAUDE.md + PRD Section 7)
 const EQUIPMENT_RATES = {
-  dehumidifier: 132, // $132/day
-  airMover: 46,      // $46/day
-  afd: 75,           // $75/day
-  rcd: 5,            // $5/day
+  dehumidifier: 119,      // $119/day
+  airMover: 46,           // $46/day
+  hepaAirScrubber: 100,   // $100/day
+  rcd: 5,                 // $5/day
 } as const;
 
 // NOTE(waste-disposal): a waste-disposal row is DEFERRED from this section (Brief 2).
@@ -165,12 +165,10 @@ function EquipmentCard({
 /**
  * Section7Equipment — Records actual equipment used vs quoted, with cost calculation.
  *
- * Displays 4 equipment cards (Dehumidifier, Air Mover, AFD, RCD). Each card has
- * stepper inputs for quantity and days, auto-calculates a subtotal at the daily
+ * Displays 4 equipment cards (Dehumidifier, Air Mover, HEPA Air Scrubber, RCD). Each
+ * card has stepper inputs for quantity and days, auto-calculates a subtotal at the daily
  * rate, and shows an amber warning when actual usage exceeds the quoted amount.
  * A running total of all equipment costs is shown at the bottom.
- *
- * NOTE: AFD daily rate ($75) is a placeholder. Confirm with Michael before going live.
  *
  * @param formData - Full job completion form state
  * @param onChange - Field update callback
@@ -181,11 +179,11 @@ export function Section7Equipment({ formData, onChange, isReadOnly = false }: Se
     formData.actualDehumidifierQty * formData.actualDehumidifierDays * EQUIPMENT_RATES.dehumidifier;
   const airMoverSubtotal =
     formData.actualAirMoverQty * formData.actualAirMoverDays * EQUIPMENT_RATES.airMover;
-  const afdSubtotal =
-    formData.actualAfdQty * formData.actualAfdDays * EQUIPMENT_RATES.afd;
+  const hepaAirScrubberSubtotal =
+    formData.actualHepaAirScrubberQty * formData.actualHepaAirScrubberDays * EQUIPMENT_RATES.hepaAirScrubber;
   const rcdSubtotal =
     formData.actualRcdQty * formData.actualRcdDays * EQUIPMENT_RATES.rcd;
-  const totalEquipmentCost = dehumidifierSubtotal + airMoverSubtotal + afdSubtotal + rcdSubtotal;
+  const totalEquipmentCost = dehumidifierSubtotal + airMoverSubtotal + hepaAirScrubberSubtotal + rcdSubtotal;
 
   return (
     <section aria-labelledby="equipment-heading">
@@ -224,14 +222,14 @@ export function Section7Equipment({ formData, onChange, isReadOnly = false }: Se
         />
 
         <EquipmentCard
-          name="Air Filtration Device (AFD)"
-          dailyRate={EQUIPMENT_RATES.afd}
-          actualQty={formData.actualAfdQty}
-          actualDays={formData.actualAfdDays}
+          name="HEPA Air Scrubber"
+          dailyRate={EQUIPMENT_RATES.hepaAirScrubber}
+          actualQty={formData.actualHepaAirScrubberQty}
+          actualDays={formData.actualHepaAirScrubberDays}
           quotedQty={0}
           quotedDays={formData.quotedEquipmentDays}
-          qtyField="actualAfdQty"
-          daysField="actualAfdDays"
+          qtyField="actualHepaAirScrubberQty"
+          daysField="actualHepaAirScrubberDays"
           onChange={onChange}
           isReadOnly={isReadOnly}
         />

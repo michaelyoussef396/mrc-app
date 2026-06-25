@@ -62,7 +62,7 @@ interface EquipmentUsage {
   days: number
 }
 
-// Rate card is sacred (CLAUDE.md): dehumidifier $132/day, air mover $46/day, RCD $5/day.
+// Rate card is sacred (CLAUDE.md): dehumidifier $119/day, air mover $46/day, RCD $5/day.
 // Equipment is never volume-discounted — it feeds the engine as a flat ex-GST cost.
 const EQUIPMENT_ROWS: { key: EquipmentKey; label: string; rate: number }[] = [
   { key: 'dehumidifier', label: 'Dehumidifier', rate: EQUIPMENT_RATES.dehumidifier },
@@ -603,25 +603,10 @@ export default function AdminInvoiceHelper() {
             <span className="tabular-nums">{estimate.totalLabourHours}h</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600">Labour before discount</span>
-            <span className="tabular-nums">{formatCurrency(estimate.labourSubtotal)}</span>
-          </div>
-          <div className="flex justify-between text-emerald-700">
-            <span>
-              Volume discount
-              <span className="text-xs text-gray-400 ml-1">
-                ({(estimate.discountPercent * 100).toFixed(estimate.discountPercent === 0 ? 0 : 2)}% · auto)
-              </span>
-            </span>
-            <span className="tabular-nums">
-              {estimate.discountAmount > 0 ? `-${formatCurrency(estimate.discountAmount)}` : formatCurrency(0)}
-            </span>
-          </div>
-          <p className="text-[11px] text-gray-400">{estimate.discountTierDescription} — discount auto-calculated from hours, max 13%.</p>
-          <div className="flex justify-between border-t border-gray-200 pt-1">
-            <span className="text-gray-600">Labour after discount</span>
+            <span className="text-gray-600">Labour</span>
             <span className="tabular-nums">{formatCurrency(estimate.labourAfterDiscount)}</span>
           </div>
+          <p className="text-[11px] text-gray-400">Per-day rates applied automatically from hours worked.</p>
         </div>
       </section>
 

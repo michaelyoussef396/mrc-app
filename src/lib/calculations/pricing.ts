@@ -4,24 +4,30 @@
  * Follows COST_CALCULATION_SYSTEM.md specification exactly:
  * - Tier-based labour pricing with linear interpolation (2h-8h range)
  * - 2-hour minimum charge for under 2 hours
- * - Day block calculation for 8+ hours
- * - Volume discount based on total labour hours (max 13%)
+ * - Per-day rate table for 8+ hours (DAY_RATES — replaces the volume discount)
  * - Equipment calculated as qty × rate × days
  * - GST at 10%
  */
 
-// Labour rate tiers - Michael's exact pricing
+// Labour rate tiers — Michael's exact pricing (Glen + Clayton approved schedule).
+//
+// Per-day labour rates (dayRates). Day 1 is the full rate; each subsequent day is lower.
+// Day 5 = Day 6 (floor rate — the lowest MRC charges for consecutive days; days beyond 6
+// extrapolate at the Day-6 rate). The effective discount at Day 4 is ~12.3% vs Day 1, within
+// the historic 13% cap. This per-day model REPLACES the previous volume-discount tier system.
+// dayRates[0] === tier8h by construction — Day 1 is always the full 8h rate.
 export const LABOUR_RATES = {
-  nonDemo: { tier2h: 612.00, tier8h: 1216.99 },
-  demolition: { tier2h: 711.90, tier8h: 1798.90 },
-  construction: { tier2h: 661.96, tier8h: 1507.95 }, // Future use
-  subfloor: { tier2h: 900.00, tier8h: 2334.69 },
+  nonDemo: { tier2h: 1019.40, tier8h: 1245.33, dayRates: [1245.33, 1060.34, 1054.52, 1007.18, 921.57, 921.57] },
+  demolition: { tier2h: 1062.00, tier8h: 1825.87, dayRates: [1825.87, 1550.05, 1552.23, 1475.57, 1345.86, 1345.86] },
+  construction: { tier2h: 661.96, tier8h: 1507.95, dayRates: [1507.95, 1507.95, 1507.95, 1507.95, 1507.95, 1507.95] }, // placeholder — not in use
+  subfloor: { tier2h: 1322.62, tier8h: 2375.21, dayRates: [2375.21, 2015.47, 2025.15, 1917.76, 1743.59, 1743.59] },
 } as const;
 
 // Equipment daily rates
 export const EQUIPMENT_RATES = {
-  dehumidifier: 132,
+  dehumidifier: 119,
   airMover: 46,
+  hepaAirScrubber: 100,
   rcd: 5,
 } as const;
 
@@ -39,25 +45,13 @@ export const WASTE_DISPOSAL_RATES = [
 // $/m³ beyond the top anchor: (1190 − 900) / (12 − 10)
 const WASTE_EXTRAPOLATION_RATE = 145;
 
-// Volume discount tiers based on TOTAL labour hours
-export const DISCOUNT_TIERS = [
-  { minHours: 0, maxHours: 8, discount: 0, days: 1 },
-  { minHours: 9, maxHours: 16, discount: 0.075, days: 2 },
-  { minHours: 17, maxHours: 24, discount: 0.1025, days: 3 },
-  { minHours: 25, maxHours: 32, discount: 0.115, days: 4 },
-  { minHours: 33, maxHours: Infinity, discount: 0.13, days: 5 },
-] as const;
-
 // GST rate
 export const GST_RATE = 0.10;
 
-// Maximum discount cap - SACRED RULE - NEVER EXCEED
-// NOTE: All discount values inside this module (MAX_DISCOUNT, DISCOUNT_TIERS[].discount,
-// CostEstimateResult.discountPercent) are on DECIMAL scale (0.13 = 13%).
-// The persistence boundary in TechnicianInspectionForm.tsx multiplies by 100 before
-// writing to DB (inspections.discount_percent CHECK: 0–13 percent scale) and divides
-// by 100 on read. Never change this constant to percent scale — doing so would violate
-// the 13% cap immediately (0.87 multiplier minimum).
+// Maximum discount cap - SACRED RULE - NEVER EXCEED.
+// NOTE: This is no longer a volume-tier rate (the per-day DAY_RATES model replaced volume
+// discounting). MAX_DISCOUNT is retained as the cap for a MANUAL invoice discount applied in
+// src/lib/api/invoices.ts, on DECIMAL scale (0.13 = 13%). Never change to percent scale.
 export const MAX_DISCOUNT = 0.13;
 
 export function round2(n: number): number {
@@ -99,8 +93,12 @@ export function interpolateCost(hours: number, tier2h: number, tier8h: number): 
 }
 
 /**
- * Calculate labour cost with detailed day-by-day breakdown
- * Uses day blocks for hours > 8 (8h + 8h + remaining)
+ * Calculate labour cost with detailed day-by-day breakdown.
+ * - <= 8h: single block (2h minimum / interpolation) — UNCHANGED business rule.
+ * - > 8h: per-day DAY_RATES — each full day at its declining rate (Day 6 = floor),
+ *   partial remainder at a proportional fraction of the next day's rate.
+ * This is the real charging path used by calculateCostEstimate. For hours >= 2 its
+ * total equals calculateLabourCost(hours, labourType).
  */
 export function calculateLabourCostWithBreakdown(
   hours: number,
@@ -112,90 +110,82 @@ export function calculateLabourCostWithBreakdown(
 
   const rates = LABOUR_RATES[labourType];
   const breakdown: LabourBreakdownItem[] = [];
-  let totalCost = 0;
-  let remainingHours = hours;
-  let dayNum = 1;
 
-  // Process full 8-hour days
-  while (remainingHours > 8) {
-    const dayCost = rates.tier8h;
+  // <= 8h: single interpolated / 2h-minimum block (enforces the 2-hour minimum charge).
+  if (hours <= 8) {
+    const cost = round2(interpolateCost(hours, rates.tier2h, rates.tier8h));
+    const description = hours <= 2
+      ? `Day 1: ${hours.toFixed(1)}h → $${cost.toFixed(2)} (2h minimum)`
+      : hours === 8
+        ? `Day 1: 8h → $${cost.toFixed(2)}`
+        : `Day 1: ${hours.toFixed(1)}h → $${cost.toFixed(2)} (interpolated)`;
+    breakdown.push({ day: 1, hours, cost, description });
+    return { cost, breakdown };
+  }
+
+  // > 8h: per-day DAY_RATES model.
+  const fullDays = Math.floor(hours / 8);
+  const remaining = hours % 8;
+  let totalCost = 0;
+
+  for (let i = 0; i < fullDays; i++) {
+    const dayCost = round2(rates.dayRates[Math.min(i, 5)]);
     totalCost += dayCost;
     breakdown.push({
-      day: dayNum,
+      day: i + 1,
       hours: 8,
       cost: dayCost,
-      description: `Day ${dayNum}: 8h → $${dayCost.toFixed(2)}`
+      description: `Day ${i + 1}: 8h → $${dayCost.toFixed(2)}`
     });
-    remainingHours -= 8;
-    dayNum++;
   }
 
-  // Process remaining hours (0-8h)
-  if (remainingHours > 0) {
-    const remainderCost = interpolateCost(remainingHours, rates.tier2h, rates.tier8h);
+  if (remaining > 0) {
+    const nextDayRate = rates.dayRates[Math.min(fullDays, 5)];
+    const remainderCost = round2((remaining / 8) * nextDayRate);
     totalCost += remainderCost;
-
-    let description: string;
-    if (remainingHours <= 2) {
-      description = `Day ${dayNum}: ${remainingHours.toFixed(1)}h → $${remainderCost.toFixed(2)} (2h minimum)`;
-    } else if (remainingHours === 8) {
-      description = `Day ${dayNum}: 8h → $${remainderCost.toFixed(2)}`;
-    } else {
-      description = `Day ${dayNum}: ${remainingHours.toFixed(1)}h → $${remainderCost.toFixed(2)} (interpolated)`;
-    }
-
     breakdown.push({
-      day: dayNum,
-      hours: remainingHours,
+      day: fullDays + 1,
+      hours: remaining,
       cost: remainderCost,
-      description
+      description: `Day ${fullDays + 1}: ${remaining.toFixed(1)}h → $${remainderCost.toFixed(2)} (partial day)`
     });
   }
 
-  return { cost: totalCost, breakdown };
+  return { cost: round2(totalCost), breakdown };
 }
 
 /**
- * Calculate labour cost (simple version without breakdown)
+ * Calculate labour cost (simple version without breakdown).
+ * Mirrors the per-day DAY_RATES model. NOTE: for hours < 2 this pro-rates from the 2h
+ * tier (the chart "below 2-hour minimum" extrapolation); the real charging path
+ * (calculateLabourCostWithBreakdown) enforces the flat 2-hour minimum instead. The two
+ * agree for all hours >= 2.
  */
 export function calculateLabourCost(
   hours: number,
-  tier2h: number,
-  tier8h: number
+  labourType: LabourType
 ): number {
   if (hours <= 0) return 0;
 
-  if (hours <= 8) {
-    return interpolateCost(hours, tier2h, tier8h);
-  }
+  const { tier2h, tier8h, dayRates } = LABOUR_RATES[labourType];
 
-  // Day block calculation for 8+ hours
+  // Under 2h: pro-rate from the 2h tier
+  if (hours < 2) return round2((hours / 2) * tier2h);
+
+  // 2h to 8h: linear interpolation
+  if (hours <= 8) return round2(tier2h + ((hours - 2) / 6) * (tier8h - tier2h));
+
+  // 8h+: sum per-day rates for full blocks + proportional remainder (Day 6 = floor)
   const fullDays = Math.floor(hours / 8);
-  const remainingHours = hours % 8;
-
-  // Full days at 8h rate
-  const fullDayCost = fullDays * tier8h;
-
-  // Remaining hours interpolated
-  const remainingCost = remainingHours > 0
-    ? interpolateCost(remainingHours, tier2h, tier8h)
-    : 0;
-
-  return fullDayCost + remainingCost;
-}
-
-/**
- * Calculate volume discount based on TOTAL labour hours
- * Returns discount as decimal (e.g., 0.075 for 7.5%)
- */
-export function calculateDiscount(totalHours: number): number {
-  for (const tier of DISCOUNT_TIERS) {
-    if (totalHours >= tier.minHours && totalHours <= tier.maxHours) {
-      return tier.discount;
-    }
+  const remaining = hours % 8;
+  let cost = 0;
+  for (let i = 0; i < fullDays; i++) {
+    cost += dayRates[Math.min(i, 5)];
   }
-  // Fallback to max discount (should not reach here)
-  return MAX_DISCOUNT;
+  if (remaining > 0) {
+    cost += (remaining / 8) * dayRates[Math.min(fullDays, 5)];
+  }
+  return round2(cost);
 }
 
 /**
@@ -204,18 +194,6 @@ export function calculateDiscount(totalHours: number): number {
 export function calculateDays(totalHours: number): number {
   if (totalHours <= 0) return 0;
   return Math.ceil(totalHours / 8);
-}
-
-/**
- * Format discount tier for display
- */
-export function getDiscountTierDescription(totalHours: number): string {
-  if (totalHours <= 0) return 'No work';
-  if (totalHours <= 8) return 'No discount (1 day or less)';
-  if (totalHours <= 16) return '7.5% multi-day discount (2 days)';
-  if (totalHours <= 24) return '10.25% multi-day discount (3 days)';
-  if (totalHours <= 32) return '11.5% multi-day discount (4 days)';
-  return '13% maximum discount (5+ days)';
 }
 
 // ============================================================
@@ -341,12 +319,16 @@ export interface CostEstimateResult {
   subfloorBreakdown: LabourBreakdownItem[];
   labourSubtotal: number;
 
-  // Discount
   totalLabourHours: number;
   totalDays: number;
+  labourAfterDiscount: number;
+
+  // TODO(pricing): always 0 / '' — the volume-discount system was replaced by the per-day
+  // DAY_RATES model (the per-day decline encodes the discount). Kept (always-zero) so existing
+  // consumers compile unchanged; safe to remove once those reads are deleted.
   discountPercent: number;
   discountAmount: number;
-  labourAfterDiscount: number;
+  discountTierDescription: string;
 
   // Equipment
   equipment: EquipmentResult;
@@ -359,9 +341,6 @@ export interface CostEstimateResult {
   subtotalExGst: number;
   gstAmount: number;
   totalIncGst: number;
-
-  // Tier info for display
-  discountTierDescription: string;
 }
 
 /**
@@ -369,7 +348,7 @@ export interface CostEstimateResult {
  * Returns complete breakdown with all intermediate values
  */
 export function calculateCostEstimate(input: CostEstimateInput): CostEstimateResult {
-  // Calculate total hours first (needed for discount and equipment days)
+  // Calculate total hours first (needed for equipment days)
   const totalLabourHours = input.nonDemoHours + input.demolitionHours + input.subfloorHours;
   const totalDays = calculateDays(totalLabourHours);
 
@@ -414,18 +393,16 @@ export function calculateCostEstimate(input: CostEstimateInput): CostEstimateRes
     };
   }
 
+  // Per-day DAY_RATES already encode the multi-day discount — no separate volume discount.
+
   // Calculate individual labour costs with breakdown
   const nonDemoResult = calculateLabourCostWithBreakdown(input.nonDemoHours, 'nonDemo');
   const demolitionResult = calculateLabourCostWithBreakdown(input.demolitionHours, 'demolition');
   const subfloorResult = calculateLabourCostWithBreakdown(input.subfloorHours, 'subfloor');
 
-  // Labour subtotal before discount
+  // Labour subtotal — the per-day DAY_RATES already encode the multi-day discount.
   const labourSubtotal = round2(nonDemoResult.cost + demolitionResult.cost + subfloorResult.cost);
-
-  // Calculate discount
-  const discountPercent = calculateDiscount(totalLabourHours);
-  const discountAmount = round2(labourSubtotal * discountPercent);
-  const labourAfterDiscount = round2(labourSubtotal - discountAmount);
+  const labourAfterDiscount = labourSubtotal;
 
   // Calculate equipment
   const equipment = calculateEquipmentCost(
@@ -455,8 +432,8 @@ export function calculateCostEstimate(input: CostEstimateInput): CostEstimateRes
     labourSubtotal,
     totalLabourHours,
     totalDays,
-    discountPercent,
-    discountAmount,
+    discountPercent: 0,
+    discountAmount: 0,
     labourAfterDiscount,
     equipment,
     equipmentCost,
@@ -464,7 +441,7 @@ export function calculateCostEstimate(input: CostEstimateInput): CostEstimateRes
     subtotalExGst,
     gstAmount,
     totalIncGst,
-    discountTierDescription: getDiscountTierDescription(totalLabourHours),
+    discountTierDescription: '',
   };
 }
 
