@@ -171,6 +171,18 @@ function buildSlackBlocks(lead: FramerLeadPayload, createdAt: string, isPossible
           { type: 'mrkdwn', text: `*Preferred Time*\n${formattedTime}` },
         ],
       },
+      // In-app /request-inspection fields — only shown when present (Framer payloads omit them).
+      ...((lead.issue_type || lead.urgency)
+        ? [
+            {
+              type: 'section',
+              fields: [
+                ...(lead.issue_type ? [{ type: 'mrkdwn', text: `*Type of Issue*\n${lead.issue_type}` }] : []),
+                ...(lead.urgency ? [{ type: 'mrkdwn', text: `*Urgency*\n${lead.urgency}` }] : []),
+              ],
+            },
+          ]
+        : []),
       ...(lead.issue_description
         ? [
             {
