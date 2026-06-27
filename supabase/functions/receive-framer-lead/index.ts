@@ -107,6 +107,11 @@ interface FramerLeadPayload {
   preferred_date?: string
   preferred_time?: string
   issue_description?: string
+  // In-app /request-inspection form fields (absent on Framer payloads).
+  preferred_day?: string
+  issue_type?: string
+  property_type?: string
+  urgency?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -222,6 +227,10 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
     `<tr><td>Address</td><td>${lead.street}${lead.suburb ? ', ' + lead.suburb : ''}</td></tr>`,
     formattedDate ? `<tr><td>Preferred Date</td><td>${formattedDate}</td></tr>` : '',
     lead.preferred_time ? `<tr><td>Preferred Time</td><td>${lead.preferred_time}</td></tr>` : '',
+    lead.preferred_day ? `<tr><td>Preferred Day</td><td>${lead.preferred_day}</td></tr>` : '',
+    lead.issue_type ? `<tr><td>Type of Issue</td><td>${lead.issue_type}</td></tr>` : '',
+    lead.property_type ? `<tr><td>Property Type</td><td>${lead.property_type}</td></tr>` : '',
+    lead.urgency ? `<tr><td>Urgency</td><td>${lead.urgency}</td></tr>` : '',
   ].filter(Boolean).join('\n        ')
 
   const bodyHtml = `
@@ -421,7 +430,7 @@ Deno.serve(async (req) => {
   // --- Health check (GET) ---
   if (req.method === 'GET') {
     return new Response(
-      JSON.stringify({ status: 'ok', timestamp: new Date().toISOString(), version: 19 }),
+      JSON.stringify({ status: 'ok', timestamp: new Date().toISOString(), version: 20 }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
@@ -755,6 +764,10 @@ Deno.serve(async (req) => {
       preferred_date: preferredDate || undefined,
       preferred_time: preferredTime || undefined,
       issue_description: issueDescription || undefined,
+      preferred_day: preferredDay || undefined,
+      issue_type: issueType || undefined,
+      property_type: propertyType || undefined,
+      urgency: urgency || undefined,
     }
     const createdAt = new Date().toISOString()
 
