@@ -3,6 +3,22 @@
 Mould & Restoration Co. — mobile-first field tech app for mould inspection and remediation.
 React 18 + TypeScript + Supabase + Vite + Tailwind + shadcn/ui | PWA with offline support
 
+## SUPABASE PROJECT REFS — READ BEFORE ANY REF-SCOPED COMMAND
+
+Two near-identical projects live in the MRC org. The wrong ref is a production incident.
+
+| env      | ref                    | role                                          |
+|----------|------------------------|-----------------------------------------------|
+| **PROD** | `ecyivrxjpsmjmexqatym` | LIVE — mrcsystem.com. Real customer path.      |
+| **DEV**  | `ctppzqnysmzynkxjlzta` | Sandbox clone (ap-southeast-1). Safe to break. |
+
+**Rule:** Any command carrying `--project-ref` — EF deploy, `db dump`, secrets/Vault,
+type-gen, direct DB ops — MUST state the target ref AND its role in plain English and get
+Michael's explicit confirmation BEFORE running. Never infer the target. Never default to PROD.
+
+**Edge Functions:** CLI only, human-applied, global-immediate (no staging buffer). CC prepares
+the exact command; Michael runs it. Same discipline for migrations.
+
 ## Commands
 
 - `npm run dev` — local dev server
@@ -125,24 +141,25 @@ React 18 + TypeScript + Supabase + Vite + Tailwind + shadcn/ui | PWA with offlin
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mrc-app** (9647 symbols, 14261 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mrc-app** (6361 symbols, 11434 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
 ## Always Do
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
+- When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
+- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
 
 ## Never Do
 
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
+- NEVER edit a function, class, or method without first running `impact` on it.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
+- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
+- NEVER commit changes without running `detect_changes()` to check affected scope.
 
 ## Resources
 
@@ -163,5 +180,25 @@ This project is indexed by GitNexus as **mrc-app** (9647 symbols, 14261 relation
 | Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
 | Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+| Work in the Pages area (248 symbols) | `.claude/skills/generated/pages/SKILL.md` |
+| Work in the Api area (158 symbols) | `.claude/skills/generated/api/SKILL.md` |
+| Work in the Hooks area (130 symbols) | `.claude/skills/generated/hooks/SKILL.md` |
+| Work in the Leads area (124 symbols) | `.claude/skills/generated/leads/SKILL.md` |
+| Work in the Ui area (119 symbols) | `.claude/skills/generated/ui/SKILL.md` |
+| Work in the Scripts area (74 symbols) | `.claude/skills/generated/scripts/SKILL.md` |
+| Work in the Pdf area (41 symbols) | `.claude/skills/generated/pdf/SKILL.md` |
+| Work in the Job-completion area (34 symbols) | `.claude/skills/generated/job-completion/SKILL.md` |
+| Work in the Schedule area (32 symbols) | `.claude/skills/generated/schedule/SKILL.md` |
+| Work in the Generate-inspection-pdf area (32 symbols) | `.claude/skills/generated/generate-inspection-pdf/SKILL.md` |
+| Work in the Photos area (29 symbols) | `.claude/skills/generated/photos/SKILL.md` |
+| Work in the Calculations area (25 symbols) | `.claude/skills/generated/calculations/SKILL.md` |
+| Work in the Cluster_16 area (23 symbols) | `.claude/skills/generated/cluster-16/SKILL.md` |
+| Work in the Offline area (21 symbols) | `.claude/skills/generated/offline/SKILL.md` |
+| Work in the Testsprite_tests area (17 symbols) | `.claude/skills/generated/testsprite-tests/SKILL.md` |
+| Work in the Contexts area (16 symbols) | `.claude/skills/generated/contexts/SKILL.md` |
+| Work in the Technician area (14 symbols) | `.claude/skills/generated/technician/SKILL.md` |
+| Work in the Admin area (13 symbols) | `.claude/skills/generated/admin/SKILL.md` |
+| Work in the Technicians area (13 symbols) | `.claude/skills/generated/technicians/SKILL.md` |
+| Work in the Dashboard area (12 symbols) | `.claude/skills/generated/dashboard/SKILL.md` |
 
 <!-- gitnexus:end -->
