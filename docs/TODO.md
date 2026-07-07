@@ -1,8 +1,8 @@
 # MRC Lead Management System — Current TODO
 
-**Last Updated:** 2026-05-11
+**Last Updated:** 2026-07-07
 **Production state:** main @ `9d6c460`, production @ `1636ade`, mrcsystem.com serving Phase 4 Stage 4.3
-**Status:** Phase 1 + Phase 2 + Phase 3 + Phase 4 Stages 4.1/4.1.5/4.2/4.3 COMPLETE in production. Pre-launch hardening underway.
+**Status:** Phase 1 + Phase 3 + Phase 4 Stages 4.1/4.1.5/4.2/4.3 COMPLETE in production. Phase 2 (Job Completion) built and deployed — existence-verified 2026-07-07, runtime-untested against dev (see "Phase 2 — Job Completion Workflow: Existence Verification" below). Pre-launch hardening underway.
 
 Backed by `docs/inspection-workflow-fix-plan-v2-2026-04-30.md` (48-stage execution map) and `docs/JOB_COMPLETION_PRD.md` (Phase 2 spec).
 
@@ -24,6 +24,27 @@ Surfaced during the business-logic / flow audits (read-only investigations). Cod
 
 ---
 
+## Phase 2 — Job Completion Workflow: Existence Verification (2026-07-07)
+
+Read-only investigation cross-checked `docs/JOB_COMPLETION_PLAN.md` against disk + prod DB. All six sub-phases (2A–2F) are **BUILT — existence-verified [2026-07-07], runtime-untested against dev.** This confirms files/tables/routes EXIST; it does NOT confirm runtime behaviour. Not "complete" or "done" until the E2E gate below passes.
+
+- **2A Data & types — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `src/types/jobCompletion.ts`, `src/lib/api/jobCompletions.ts`, all 8 Phase 2 statuses in `src/lib/statusFlow.ts` (pending_review, job_waiting, job_completed, job_report_pdf_sent, invoicing_sent, paid, google_review, finished), AFD/HEPA rate in `pricing.ts` (`hepaAirScrubber`).
+- **2B Form — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** all 10 sections at `src/components/job-completion/` (Section1OfficeInfo…Section10OfficeNotes; Section7 is `Section7Equipment.tsx`), routed page `src/pages/JobCompletionForm.tsx` at `/technician/job-completion/:leadId`, technician entry button in `TechnicianJobDetail.tsx`.
+- **2C Job report PDF — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `supabase/functions/generate-job-report-pdf/` EF; view/edit/approve unified into `ViewReportPDF.tsx` via `reportType` detection (no standalone `ViewJobReportPDF.tsx` — deleted by design).
+- **2D Admin/invoice — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `src/pages/AdminInvoiceHelper.tsx` routed + admin-gated at `/admin/invoice/:leadId` (`src/App.tsx`), `src/hooks/usePaymentTracking.ts`, LeadDetail job/invoice/review cards.
+- **2E Payment automation — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `supabase/functions/check-overdue-invoices/` EF + `usePaymentTracking`. (Cron migration + individual Slack templates not separately verified.)
+- **2F Google review & closure — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `GoogleReviewSection` + `FinishLeadSection` in `LeadDetail.tsx`, `sendGoogleReviewEmail` in `notifications.ts`.
+- **DB (prod `ecyivrxjpsmjmexqatym`, SELECT-only):** `job_completions` (67 cols), `job_completion_pdf_versions` (13 cols), `invoices` (30 cols) all present.
+
+### Confirmed-remaining gaps (open — do not hide)
+
+- [ ] **No offline Dexie draft store for job completion.** `jobCompletionDrafts` was never added to `src/lib/offline/db.ts`; the `version(2)` bump added `quarantinedPhotos` instead. The inspection form has offline draft support; the job completion form does NOT — the zero-data-loss principle is not met for this form.
+- [ ] **No standalone `src/lib/schemas/jobCompletionSchema.ts`.** Validation is inline (form/hook), not a discrete Zod schema like `inspectionSchema.ts`. Extract it, or document the decision to keep validation inline.
+- [ ] **Pricing discrepancy — dehumidifier rate.** `src/lib/calculations/pricing.ts` has `dehumidifier: 119`, but PRD/CLAUDE.md say `132`. Unresolved — needs verification against business records. DO NOT change pricing here; fold into the L1 pricing session (rate reconciliation).
+- [ ] **Runtime E2E test of full job completion workflow against mrc-dev** — form save → PDF → invoice → payment → review → finish. Nothing above is runtime-verified; this is the gate that turns "BUILT" into "working."
+
+---
+
 ## Launch Model
 
 Three-stage green flag.
@@ -31,6 +52,13 @@ Three-stage green flag.
 1. **Pre-test green flag (Michael):** All L blockers + S should-fix items resolved. Michael confirms "this is production, not MVP."
 2. **Tester green flag (Glen + Clayton + Vryan):** They walk through full system including all T smoke surfaces. They must be happy. Vryan = admin role for testing purposes.
 3. **Customer launch green flag (Michael):** Only after both above. Real Framer form connected, customers can use it.
+
+---
+
+## Launch Rollback Plan
+
+- **Hybrid launch (2026-07-13):** From 2026-07-13, all new leads flow through the MRC system. Existing jobs already past the inspection-booking stage remain in ServiceM8 and run to closure there — no mid-flight job is migrated into MRC.
+- **Rollback path if MRC breaks post-launch:** New leads get manually logged into ServiceM8 — the same process used before launch. No data migration is required to revert; MRC simply stops being the intake path and staff fall back to the existing ServiceM8 manual workflow.
 
 ---
 
@@ -173,6 +201,7 @@ Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocki
 - **Progress (2026-06-02):**
   - [x] **Phase 0 [CC] — env-aware refs (prod-safe, on `main`):** Supabase origin de-hardcoded — `sentry.ts` trace target derives from `VITE_SUPABASE_URL`; `vercel.json` CSP uses `https://*.supabase.co` + `wss://*.supabase.co`; PDF-viewer fonts bundled locally (`public/fonts/`, `index.css`); `reportHash.test.ts` fixture neutralised. Commits `734a2af` / `8ee3aec` / `942e9b5`. Only remaining hardcoded ref is the server-rendered PDF template (intentional — public read-only fonts).
   - [x] **KEY_ROTATION.md added** (`e34dbec`) — secret inventory + Phase 6 runbook. Surfaced `INTERNAL_WEBHOOK_SECRET` (missing from the original L4 doc); confirmed `.env` git-history exposure (Oct–Dec 2025).
+  - [x] **Dev project wired + local override live (2026-07-07):** Separate DEV Supabase project (ref `ctppzqnysmzynkxjlzta`) created via **Restore-to-New-Project** — schema + Storage + extensions verified present. Local `npm run dev` now points at DEV through `.env.development.local` (`VITE_SUPABASE_URL` override); production (mrcsystem.com) confirmed still on prod ref `ecyivrxjpsmjmexqatym`, verified by reading both deployed bundles. Satisfies the intent of Phases 1–2 via the restore path (not the planned empty-project + 86-migration replay). **Remaining optional check:** end-to-end write-divergence test — create a record → confirm it lands in DEV and is absent in PROD.
   - [ ] **Phase 1 [HUMAN] — NEXT (deferred):** create `mrc-system-dev` Supabase project (same org, `ap-southeast-2`, free tier), enable `pg_cron` + `pg_net`, paste dev ref/URL/anon/service_role → [CC] verifies `public` schema empty.
   - [ ] Phase 2 [HUMAN] apply 86 migrations (skip the 2 cron) + seed Storage; [CC] schema diff.
   - [ ] Phase 3 [HUMAN] set dev EF secrets (incl. `INTERNAL_WEBHOOK_SECRET` + new Slack dev webhook) + deploy 12 EFs; [CC] smoke test.
@@ -227,9 +256,9 @@ Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocki
 - **Scope:** Add the third footnote to plan v2's "Execution-time amendments (2026-05-10)" section. Grep confirms zero `PostgREST` / `PGRST` / `HTTP 400` hits in the plan today.
 - **Why:** doc completeness from tonight's work. Other two footnotes (Stage 3.5 OR-predicate, Stage 4.2 RLS+offline) absorbed in commit `2ce5a55`.
 
-### S3 — Delete `src/pages/AdminInvoiceHelper.tsx` dead code
-- **Estimate:** 15 min (one-file delete + grep confirm)
-- **Why:** 16637 bytes on disk, no route. `src/App.tsx:48` comment confirms intent: "kept on disk but route removed — payment tracking simplified to LeadDetail card". Lingering file is maintenance hazard.
+### S3 — ~~Delete `src/pages/AdminInvoiceHelper.tsx` dead code~~ — STALE claim, corrected 2026-07-07
+- **Correction (2026-07-07):** `AdminInvoiceHelper.tsx` is **NOT dead code**. On current disk it is imported (`src/App.tsx`) and actively routed + admin-gated at `/admin/invoice/:leadId`. The earlier "no route / route removed" note is stale — the route exists. **Do NOT delete.**
+- **Follow-up (open):** [ ] Reconcile intent — decide whether the invoice-helper route is wanted for launch or should be removed. If kept, it needs runtime testing (covered by the Phase 2 E2E gate). Confirm with Glen/Clayton before any delete.
 
 ### S4 — Refresh CLAUDE.md "Current State" block
 - **Estimate:** 15 min
@@ -245,7 +274,7 @@ Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocki
 - **Estimate:** 5 min
 - **Scope:** `src/components/job-completion/Section8Variations.tsx:54-57` has a code comment promising:
   1. "variation details are included in Job Report PDF page 7" — UNTRUE (grep of `generate-job-report-pdf/index.ts` and `job-report-template.html` returns zero variation hits)
-  2. "invoice helper pre-populates a variation line item" — UNTRUE (`AdminInvoiceHelper.tsx` is dead code per S3)
+  2. "invoice helper pre-populates a variation line item" — the `AdminInvoiceHelper.tsx` route exists and is admin-gated (NOT dead code — see S3 correction 2026-07-07); whether it actually pre-populates a variation line item is runtime-unverified
 - **Fix:** Update comment to reflect reality: variations are captured for admin context (see L2 panel); customer-facing rendering is out of scope.
 - **Why:** Stale comments mislead future readers and caused tonight's analysis confusion about variation handling.
 
@@ -429,3 +458,50 @@ Tonight's deploy passed typecheck + unit tests + audit verification + programmat
 - [x] Lead detail improvements (inline editing, travel time, activity logging)
 - [x] MCP server stack configured (Supabase, GitHub, Resend, Slack, Playwright, Context7, Memory)
 - [x] Database cleanup & hardening (68/100 → 91/100: 12 legacy tables dropped, broken FKs/functions fixed, duplicate indexes removed)
+
+---
+
+## PARKED: Public Lead Form + Marketing Site Rebuild (code, not Framer)
+
+Decision: stop maintaining the customer-facing form in Framer. The whole marketing
+site will be rebuilt in code (React) at a later date. Until then, the current
+published Framer form stays live as-is. All items below carry into the code rebuild.
+
+### Form bugs + copy (currently unfixed on the live Framer form)
+- Typo: page heading "CONTUCT" → "CONTACT"
+- Label "number and address" → "Property Address"
+- Phone placeholder → "04XX XXX XXX"
+- Message placeholder → "Briefly describe the issue — which rooms are affected, how long has it been there, any known water damage or leaks?"
+- Submit button → "Book My Free Inspection"
+- Privacy line under button → "Your details are only used to contact you regarding your enquiry."
+- Required asterisks on: Name, Phone, Email, Property Address, Suburb, Preferred Day, Preferred Time, Type of Issue, How Urgent Is This?
+
+### Field changes
+- Remove Date picker, Time picker, and Postcode fields
+- Add dropdowns: Preferred Day (8 opts), Preferred Time (4 bands), Type of Issue (5 opts), How Urgent Is This? (3 opts), Property Type (3 opts)
+
+### Google Maps Places autocomplete (NOT started)
+- Autocomplete on the address field + auto-fill address components
+- Decide whether to persist formatted address / lat-lng to the leads table — if yes, needs new columns (e.g. property_address_lat, property_address_lng) + receive-framer-lead EF update + RPC allowlist update
+- Feeds existing calculate-travel-time / Distance Matrix accuracy downstream
+
+### Optional photo upload (NOT started in any code form except React reference)
+- Upload to lead-enquiry-photos Storage bucket → post resulting paths under initial_photos
+- MUST be optional — form submits successfully with zero photos
+
+### Canonical contract — already preserved, use as the spec (do NOT re-derive)
+- Option strings: the 5 exported arrays in src/lib/validators/lead-creation.schemas.ts (PREFERRED_DAY_OPTIONS, PREFERRED_TIME_OPTIONS, ISSUE_TYPE_OPTIONS, URGENCY_OPTIONS, PROPERTY_TYPE_OPTIONS) — byte-canonical, single source of truth
+- Field → webhook JSON-key contract: verified in plan file melodic-cooking-turtle.md
+- React reference form (src/pages/RequestInspection.tsx) still in repo as the working visual + behavioural reference
+
+### Backend infra — DONE and PERMANENT (do NOT rebuild or revert)
+- leads table: 5 columns (preferred_day, issue_type, urgency, property_type, initial_photos)
+- receive-framer-lead EF (verify_jwt: false), audited_insert_lead_via_framer RPC allowlist
+- Customer confirmation email (4 fields, conditional render); Slack notification (issue_type + urgency)
+- lead-enquiry-photos Storage bucket (anon INSERT, authenticated SELECT, image MIME, private)
+- Admin LeadDetail Enquiry Details card; admin CreateNewLeadModal at full field parity
+
+### Interim state
+- Old published Framer form stays live — public submissions won't capture the new fields (columns stay null; handled/gated everywhere)
+- Admin CreateNewLeadModal + React /request-inspection form both capture the full field set
+- React reference form NOT deleted — deletion was gated on Framer going live with parity, now parked with this work
