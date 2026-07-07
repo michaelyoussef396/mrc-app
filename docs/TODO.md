@@ -55,6 +55,13 @@ Three-stage green flag.
 
 ---
 
+## Launch Rollback Plan
+
+- **Hybrid launch (2026-07-13):** From 2026-07-13, all new leads flow through the MRC system. Existing jobs already past the inspection-booking stage remain in ServiceM8 and run to closure there — no mid-flight job is migrated into MRC.
+- **Rollback path if MRC breaks post-launch:** New leads get manually logged into ServiceM8 — the same process used before launch. No data migration is required to revert; MRC simply stops being the intake path and staff fall back to the existing ServiceM8 manual workflow.
+
+---
+
 ## Open Questions for Michael (blocking input)
 
 Items that need a decision from you, not engineering work. Resolving these unblocks L-section work.
