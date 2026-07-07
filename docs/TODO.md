@@ -1,6 +1,6 @@
 # MRC Lead Management System — Current TODO
 
-**Last Updated:** 2026-05-11
+**Last Updated:** 2026-07-07
 **Production state:** main @ `9d6c460`, production @ `1636ade`, mrcsystem.com serving Phase 4 Stage 4.3
 **Status:** Phase 1 + Phase 2 + Phase 3 + Phase 4 Stages 4.1/4.1.5/4.2/4.3 COMPLETE in production. Pre-launch hardening underway.
 
@@ -173,6 +173,7 @@ Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocki
 - **Progress (2026-06-02):**
   - [x] **Phase 0 [CC] — env-aware refs (prod-safe, on `main`):** Supabase origin de-hardcoded — `sentry.ts` trace target derives from `VITE_SUPABASE_URL`; `vercel.json` CSP uses `https://*.supabase.co` + `wss://*.supabase.co`; PDF-viewer fonts bundled locally (`public/fonts/`, `index.css`); `reportHash.test.ts` fixture neutralised. Commits `734a2af` / `8ee3aec` / `942e9b5`. Only remaining hardcoded ref is the server-rendered PDF template (intentional — public read-only fonts).
   - [x] **KEY_ROTATION.md added** (`e34dbec`) — secret inventory + Phase 6 runbook. Surfaced `INTERNAL_WEBHOOK_SECRET` (missing from the original L4 doc); confirmed `.env` git-history exposure (Oct–Dec 2025).
+  - [x] **Dev project wired + local override live (2026-07-07):** Separate DEV Supabase project (ref `ctppzqnysmzynkxjlzta`) created via **Restore-to-New-Project** — schema + Storage + extensions verified present. Local `npm run dev` now points at DEV through `.env.development.local` (`VITE_SUPABASE_URL` override); production (mrcsystem.com) confirmed still on prod ref `ecyivrxjpsmjmexqatym`, verified by reading both deployed bundles. Satisfies the intent of Phases 1–2 via the restore path (not the planned empty-project + 86-migration replay). **Remaining optional check:** end-to-end write-divergence test — create a record → confirm it lands in DEV and is absent in PROD.
   - [ ] **Phase 1 [HUMAN] — NEXT (deferred):** create `mrc-system-dev` Supabase project (same org, `ap-southeast-2`, free tier), enable `pg_cron` + `pg_net`, paste dev ref/URL/anon/service_role → [CC] verifies `public` schema empty.
   - [ ] Phase 2 [HUMAN] apply 86 migrations (skip the 2 cron) + seed Storage; [CC] schema diff.
   - [ ] Phase 3 [HUMAN] set dev EF secrets (incl. `INTERNAL_WEBHOOK_SECRET` + new Slack dev webhook) + deploy 12 EFs; [CC] smoke test.
@@ -429,3 +430,50 @@ Tonight's deploy passed typecheck + unit tests + audit verification + programmat
 - [x] Lead detail improvements (inline editing, travel time, activity logging)
 - [x] MCP server stack configured (Supabase, GitHub, Resend, Slack, Playwright, Context7, Memory)
 - [x] Database cleanup & hardening (68/100 → 91/100: 12 legacy tables dropped, broken FKs/functions fixed, duplicate indexes removed)
+
+---
+
+## PARKED: Public Lead Form + Marketing Site Rebuild (code, not Framer)
+
+Decision: stop maintaining the customer-facing form in Framer. The whole marketing
+site will be rebuilt in code (React) at a later date. Until then, the current
+published Framer form stays live as-is. All items below carry into the code rebuild.
+
+### Form bugs + copy (currently unfixed on the live Framer form)
+- Typo: page heading "CONTUCT" → "CONTACT"
+- Label "number and address" → "Property Address"
+- Phone placeholder → "04XX XXX XXX"
+- Message placeholder → "Briefly describe the issue — which rooms are affected, how long has it been there, any known water damage or leaks?"
+- Submit button → "Book My Free Inspection"
+- Privacy line under button → "Your details are only used to contact you regarding your enquiry."
+- Required asterisks on: Name, Phone, Email, Property Address, Suburb, Preferred Day, Preferred Time, Type of Issue, How Urgent Is This?
+
+### Field changes
+- Remove Date picker, Time picker, and Postcode fields
+- Add dropdowns: Preferred Day (8 opts), Preferred Time (4 bands), Type of Issue (5 opts), How Urgent Is This? (3 opts), Property Type (3 opts)
+
+### Google Maps Places autocomplete (NOT started)
+- Autocomplete on the address field + auto-fill address components
+- Decide whether to persist formatted address / lat-lng to the leads table — if yes, needs new columns (e.g. property_address_lat, property_address_lng) + receive-framer-lead EF update + RPC allowlist update
+- Feeds existing calculate-travel-time / Distance Matrix accuracy downstream
+
+### Optional photo upload (NOT started in any code form except React reference)
+- Upload to lead-enquiry-photos Storage bucket → post resulting paths under initial_photos
+- MUST be optional — form submits successfully with zero photos
+
+### Canonical contract — already preserved, use as the spec (do NOT re-derive)
+- Option strings: the 5 exported arrays in src/lib/validators/lead-creation.schemas.ts (PREFERRED_DAY_OPTIONS, PREFERRED_TIME_OPTIONS, ISSUE_TYPE_OPTIONS, URGENCY_OPTIONS, PROPERTY_TYPE_OPTIONS) — byte-canonical, single source of truth
+- Field → webhook JSON-key contract: verified in plan file melodic-cooking-turtle.md
+- React reference form (src/pages/RequestInspection.tsx) still in repo as the working visual + behavioural reference
+
+### Backend infra — DONE and PERMANENT (do NOT rebuild or revert)
+- leads table: 5 columns (preferred_day, issue_type, urgency, property_type, initial_photos)
+- receive-framer-lead EF (verify_jwt: false), audited_insert_lead_via_framer RPC allowlist
+- Customer confirmation email (4 fields, conditional render); Slack notification (issue_type + urgency)
+- lead-enquiry-photos Storage bucket (anon INSERT, authenticated SELECT, image MIME, private)
+- Admin LeadDetail Enquiry Details card; admin CreateNewLeadModal at full field parity
+
+### Interim state
+- Old published Framer form stays live — public submissions won't capture the new fields (columns stay null; handled/gated everywhere)
+- Admin CreateNewLeadModal + React /request-inspection form both capture the full field set
+- React reference form NOT deleted — deletion was gated on Framer going live with parity, now parked with this work
