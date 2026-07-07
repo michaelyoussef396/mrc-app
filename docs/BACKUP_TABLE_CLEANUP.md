@@ -10,6 +10,12 @@ SELECT-only; no DDL was executed during this investigation.
 
 **Generated:** 2026-07-07 (read-only pass against live production DB).
 
+**Status: ✅ COMPLETE — 2026-07-07.** Drop migration
+(`supabase/migrations/20260707120000_drop_backup_snapshot_tables.sql`) was applied to
+PROD `ecyivrxjpsmjmexqatym`. Re-query confirms **0 of the 15 tables remain**.
+`src/integrations/supabase/types.ts` was regenerated (the 3 backup tables that were in the
+type file are gone) and `npm run typecheck` passes clean. No live application code was affected.
+
 ---
 
 ## Security Callout
@@ -158,12 +164,13 @@ Before running these DROPs, the following conditions must be satisfied:
 
 ## Post-Drop Checklist
 
-- [ ] Michael approval received
-- [ ] Fresh backup taken and verified
-- [ ] Zero new code refs confirmed (`grep -rIn` across src/, supabase/, docs/)
-- [ ] Drops executed against DEV (`ctppzqnysmzynkxjlzta`) first
-- [ ] DEV verified clean (schema diff confirms tables absent)
-- [ ] Drops executed against PROD (`ecyivrxjpsmjmexqatym`)
-- [ ] TypeScript types regenerated and committed
-- [ ] `docs/database_technical_audit.md` updated to remove backup table references
-- [ ] This document updated to mark drops as complete
+- [x] Michael approval received
+- [ ] Fresh backup taken and verified — *not verifiable by CC; Michael to confirm a pre-drop dump exists*
+- [x] Zero new code refs confirmed (`grep -rIn` across src/, supabase/, docs/)
+- [ ] Drops executed against DEV (`ctppzqnysmzynkxjlzta`) first — *not verified; only PROD was checked*
+- [ ] DEV verified clean (schema diff confirms tables absent) — *not verified*
+- [x] Drops executed against PROD (`ecyivrxjpsmjmexqatym`) — confirmed 0/15 tables remain (2026-07-07)
+- [x] TypeScript types regenerated and committed (`ccc2f1a`); `npm run typecheck` clean
+- [x] `docs/database_technical_audit.md` reviewed — N/A: that doc is an April 2026 point-in-time
+  audit of 31 tables and contains **no references** to any of the 15 backup tables, so no edit needed
+- [x] This document updated to mark drops as complete
