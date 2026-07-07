@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-07-07
 **Production state:** main @ `9d6c460`, production @ `1636ade`, mrcsystem.com serving Phase 4 Stage 4.3
-**Status:** Phase 1 + Phase 2 + Phase 3 + Phase 4 Stages 4.1/4.1.5/4.2/4.3 COMPLETE in production. Pre-launch hardening underway.
+**Status:** Phase 1 + Phase 3 + Phase 4 Stages 4.1/4.1.5/4.2/4.3 COMPLETE in production. Phase 2 (Job Completion) built and deployed — existence-verified 2026-07-07, runtime-untested against dev (see "Phase 2 — Job Completion Workflow: Existence Verification" below). Pre-launch hardening underway.
 
 Backed by `docs/inspection-workflow-fix-plan-v2-2026-04-30.md` (48-stage execution map) and `docs/JOB_COMPLETION_PRD.md` (Phase 2 spec).
 
@@ -21,6 +21,27 @@ Surfaced during the business-logic / flow audits (read-only investigations). Cod
 4. **`docs/COST_CALCULATION_SYSTEM.md` is stale.** Documents under-2h work as pro-rated and equipment as direct-total entry; live code charges a flat 2-hour minimum and equipment as qty×rate×days. Fix or retire — own session.
 
 5. **Waste disposal — billing decision needed.** Recorded as a size (Small/Medium/Large) for reporting context only; never a dollar amount, not billed, no rate set. Confirm with Glen/Clayton whether it should be charged to customers.
+
+---
+
+## Phase 2 — Job Completion Workflow: Existence Verification (2026-07-07)
+
+Read-only investigation cross-checked `docs/JOB_COMPLETION_PLAN.md` against disk + prod DB. All six sub-phases (2A–2F) are **BUILT — existence-verified [2026-07-07], runtime-untested against dev.** This confirms files/tables/routes EXIST; it does NOT confirm runtime behaviour. Not "complete" or "done" until the E2E gate below passes.
+
+- **2A Data & types — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `src/types/jobCompletion.ts`, `src/lib/api/jobCompletions.ts`, all 8 Phase 2 statuses in `src/lib/statusFlow.ts` (pending_review, job_waiting, job_completed, job_report_pdf_sent, invoicing_sent, paid, google_review, finished), AFD/HEPA rate in `pricing.ts` (`hepaAirScrubber`).
+- **2B Form — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** all 10 sections at `src/components/job-completion/` (Section1OfficeInfo…Section10OfficeNotes; Section7 is `Section7Equipment.tsx`), routed page `src/pages/JobCompletionForm.tsx` at `/technician/job-completion/:leadId`, technician entry button in `TechnicianJobDetail.tsx`.
+- **2C Job report PDF — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `supabase/functions/generate-job-report-pdf/` EF; view/edit/approve unified into `ViewReportPDF.tsx` via `reportType` detection (no standalone `ViewJobReportPDF.tsx` — deleted by design).
+- **2D Admin/invoice — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `src/pages/AdminInvoiceHelper.tsx` routed + admin-gated at `/admin/invoice/:leadId` (`src/App.tsx`), `src/hooks/usePaymentTracking.ts`, LeadDetail job/invoice/review cards.
+- **2E Payment automation — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `supabase/functions/check-overdue-invoices/` EF + `usePaymentTracking`. (Cron migration + individual Slack templates not separately verified.)
+- **2F Google review & closure — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `GoogleReviewSection` + `FinishLeadSection` in `LeadDetail.tsx`, `sendGoogleReviewEmail` in `notifications.ts`.
+- **DB (prod `ecyivrxjpsmjmexqatym`, SELECT-only):** `job_completions` (67 cols), `job_completion_pdf_versions` (13 cols), `invoices` (30 cols) all present.
+
+### Confirmed-remaining gaps (open — do not hide)
+
+- [ ] **No offline Dexie draft store for job completion.** `jobCompletionDrafts` was never added to `src/lib/offline/db.ts`; the `version(2)` bump added `quarantinedPhotos` instead. The inspection form has offline draft support; the job completion form does NOT — the zero-data-loss principle is not met for this form.
+- [ ] **No standalone `src/lib/schemas/jobCompletionSchema.ts`.** Validation is inline (form/hook), not a discrete Zod schema like `inspectionSchema.ts`. Extract it, or document the decision to keep validation inline.
+- [ ] **Pricing discrepancy — dehumidifier rate.** `src/lib/calculations/pricing.ts` has `dehumidifier: 119`, but PRD/CLAUDE.md say `132`. Unresolved — needs verification against business records. DO NOT change pricing here; fold into the L1 pricing session (rate reconciliation).
+- [ ] **Runtime E2E test of full job completion workflow against mrc-dev** — form save → PDF → invoice → payment → review → finish. Nothing above is runtime-verified; this is the gate that turns "BUILT" into "working."
 
 ---
 
@@ -228,9 +249,9 @@ Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocki
 - **Scope:** Add the third footnote to plan v2's "Execution-time amendments (2026-05-10)" section. Grep confirms zero `PostgREST` / `PGRST` / `HTTP 400` hits in the plan today.
 - **Why:** doc completeness from tonight's work. Other two footnotes (Stage 3.5 OR-predicate, Stage 4.2 RLS+offline) absorbed in commit `2ce5a55`.
 
-### S3 — Delete `src/pages/AdminInvoiceHelper.tsx` dead code
-- **Estimate:** 15 min (one-file delete + grep confirm)
-- **Why:** 16637 bytes on disk, no route. `src/App.tsx:48` comment confirms intent: "kept on disk but route removed — payment tracking simplified to LeadDetail card". Lingering file is maintenance hazard.
+### S3 — ~~Delete `src/pages/AdminInvoiceHelper.tsx` dead code~~ — STALE claim, corrected 2026-07-07
+- **Correction (2026-07-07):** `AdminInvoiceHelper.tsx` is **NOT dead code**. On current disk it is imported (`src/App.tsx`) and actively routed + admin-gated at `/admin/invoice/:leadId`. The earlier "no route / route removed" note is stale — the route exists. **Do NOT delete.**
+- **Follow-up (open):** [ ] Reconcile intent — decide whether the invoice-helper route is wanted for launch or should be removed. If kept, it needs runtime testing (covered by the Phase 2 E2E gate). Confirm with Glen/Clayton before any delete.
 
 ### S4 — Refresh CLAUDE.md "Current State" block
 - **Estimate:** 15 min
@@ -246,7 +267,7 @@ Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocki
 - **Estimate:** 5 min
 - **Scope:** `src/components/job-completion/Section8Variations.tsx:54-57` has a code comment promising:
   1. "variation details are included in Job Report PDF page 7" — UNTRUE (grep of `generate-job-report-pdf/index.ts` and `job-report-template.html` returns zero variation hits)
-  2. "invoice helper pre-populates a variation line item" — UNTRUE (`AdminInvoiceHelper.tsx` is dead code per S3)
+  2. "invoice helper pre-populates a variation line item" — the `AdminInvoiceHelper.tsx` route exists and is admin-gated (NOT dead code — see S3 correction 2026-07-07); whether it actually pre-populates a variation line item is runtime-unverified
 - **Fix:** Update comment to reflect reality: variations are captured for admin context (see L2 panel); customer-facing rendering is out of scope.
 - **Why:** Stale comments mislead future readers and caused tonight's analysis confusion about variation handling.
 
