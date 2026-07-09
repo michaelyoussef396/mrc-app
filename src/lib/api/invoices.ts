@@ -575,8 +575,17 @@ export async function markInvoicePaid(
     throw new Error(`Failed to mark paid: ${error.message}`)
   }
 
-  // Fire-and-forget Slack alert + transition lead to 'paid'
   if (data?.lead_id) {
+    // Transition lead status (await so caller sees new status after refetch)
+    const { error: statusErr } = await supabase
+      .from('leads')
+      .update({ status: 'paid' })
+      .eq('id', data.lead_id)
+    if (statusErr) {
+      console.error('Lead status update failed:', statusErr)
+    }
+
+    // Fire-and-forget Slack alert
     notifyPaymentReceived({
       leadId: data.lead_id,
       leadName: data.customer_name,
@@ -584,12 +593,6 @@ export async function markInvoicePaid(
       totalAmount: Number(data.total_amount),
       paymentMethod,
     }).catch(err => console.error('Slack notify failed (non-fatal):', err))
-
-    // Transition lead status
-    supabase.from('leads').update({ status: 'paid' }).eq('id', data.lead_id)
-      .then(({ error: err }) => {
-        if (err) console.error('Lead status update failed:', err)
-      })
   }
 }
 

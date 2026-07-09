@@ -270,6 +270,9 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Save failed.'
       toast.error('Could not save', { description: message })
+      // Re-throw so callers (handleSubmit) can detect failure and abort.
+      // Autosave callers must catch this themselves — see the interval effect below.
+      throw err
     } finally {
       setIsSaving(false)
     }
@@ -283,7 +286,10 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
   useEffect(() => {
     const interval = setInterval(() => {
       if (hasUnsavedChangesRef.current && !isSavingRef.current) {
-        handleSaveRef.current()
+        // Autosave failures are non-fatal: silence the rejection so it never
+        // becomes an unhandled promise error. The user sees the "Could not save"
+        // toast from handleSave; no extra noise needed on the interval path.
+        handleSaveRef.current().catch(() => {})
       }
     }, AUTO_SAVE_INTERVAL_MS)
 
@@ -363,7 +369,16 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
     if (!jobCompletionId) return
 
     // Flush any pending changes before marking as submitted.
-    await handleSave()
+    // If the save fails, abort entirely — generating a PDF from stale DB data
+    // violates the zero-data-loss guarantee and would show a false success.
+    try {
+      await handleSave()
+    } catch {
+      toast.error("Couldn't submit", {
+        description: "Your latest changes didn't save. Please retry.",
+      })
+      return
+    }
 
     try {
       await submitJobCompletion(jobCompletionId)

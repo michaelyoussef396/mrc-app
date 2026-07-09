@@ -290,6 +290,15 @@ export default function AdminInvoiceHelper() {
   const gstAmount = round2(subtotalExGst * GST_RATE)
   const totalIncGst = round2(subtotalExGst + gstAmount)
 
+  // NOTE: When a saved invoice exists its stored totals are the customer-facing source of truth;
+  // only fall back to the live estimate for unsaved drafts (invoiceRow === null). This prevents
+  // rate-table drift between inspection time and invoicing from altering the billed amount on reload.
+  const displayLabourAfterDiscount = invoiceRow ? invoiceRow.subtotal_after_discount : estimate.labourAfterDiscount
+  const displayEquipmentCost = invoiceRow ? invoiceRow.equipment_subtotal : equipmentCost
+  const displayTotalIncGst = invoiceRow ? invoiceRow.total_amount : totalIncGst
+  const displayGstAmount = invoiceRow ? invoiceRow.gst_amount : gstAmount
+  const displaySubtotalExGst = invoiceRow ? round2(invoiceRow.total_amount - invoiceRow.gst_amount) : subtotalExGst
+
   const dueDate = useMemo(() => addDaysISO(invoiceDate, termDays), [invoiceDate, termDays])
   const isSentLike = status === 'sent' || status === 'viewed' || status === 'overdue'
   const isPaid = status === 'paid'
@@ -679,11 +688,11 @@ export default function AdminInvoiceHelper() {
         <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-1 text-sm">
           <div className="flex justify-between">
             <span className="text-gray-600">Labour (after discount)</span>
-            <span className="tabular-nums">{formatCurrency(estimate.labourAfterDiscount)}</span>
+            <span className="tabular-nums">{formatCurrency(displayLabourAfterDiscount)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Equipment</span>
-            <span className="tabular-nums">{formatCurrency(equipmentCost)}</span>
+            <span className="tabular-nums">{formatCurrency(displayEquipmentCost)}</span>
           </div>
           {wasteDisposalCost > 0 && (
             <div className="flex justify-between">
@@ -699,15 +708,15 @@ export default function AdminInvoiceHelper() {
           )}
           <div className="flex justify-between border-t border-gray-200 pt-1">
             <span className="text-gray-600">Subtotal ex GST</span>
-            <span className="tabular-nums">{formatCurrency(subtotalExGst)}</span>
+            <span className="tabular-nums">{formatCurrency(displaySubtotalExGst)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">GST 10%</span>
-            <span className="tabular-nums">{formatCurrency(gstAmount)}</span>
+            <span className="tabular-nums">{formatCurrency(displayGstAmount)}</span>
           </div>
           <div className="flex justify-between border-t border-gray-300 pt-1.5 mt-1">
             <span className="font-semibold">Total inc GST</span>
-            <span className="font-bold text-base tabular-nums">{formatCurrency(totalIncGst)}</span>
+            <span className="font-bold text-base tabular-nums">{formatCurrency(displayTotalIncGst)}</span>
           </div>
         </div>
       </section>
