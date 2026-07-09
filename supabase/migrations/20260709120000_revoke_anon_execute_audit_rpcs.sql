@@ -1,0 +1,75 @@
+-- Migration: revoke_anon_execute_audit_rpcs
+-- Created: 2026-07-09
+-- Author: database-specialist agent
+--
+-- Purpose:
+-- Fixes audit finding #2 from docs/PRELAUNCH_AUDIT_2026-07-08.md (Medium severity):
+--   "`anon` can EXECUTE the SECURITY DEFINER audit RPCs with a forged
+--   `p_acting_user_id` — `audited_mark_invoice_overdue` (flip any invoice
+--   overdue, RLS-bypassed) and `audited_insert_lead_via_framer` (insert leads
+--   bypassing the EF's rate-limit/validation, forge attribution). PUBLIC default
+--   grant never revoked. Close before the public Framer form / customers go
+--   live (L3)."
+--
+-- Both functions are SECURITY DEFINER. The PUBLIC grant inherited by `anon`
+-- lets any unauthenticated request invoke them directly against the REST API,
+-- bypassing all Edge Function guardrails (rate-limiting, Zod validation,
+-- duplicate detection, attribution) and allowing arbitrary invoice status
+-- forgery or lead spam with forged acting-user attribution.
+--
+-- PRE-CHECK SUMMARY (read-only, performed in main context — authoritative):
+--   Current EXECUTE grantees on BOTH functions:
+--     {PUBLIC, anon, authenticated, postgres, service_role}
+--   `service_role` and `authenticated` each hold their own EXPLICIT grant
+--   (from the original create migrations). Revoking from `anon` + `PUBLIC`
+--   leaves those explicit grants fully intact — no other role loses access.
+--
+-- CALLER VERIFICATION (repo read, 2026-07-09):
+--
+--   audited_insert_lead_via_framer:
+--     • ONLY caller: supabase/functions/receive-framer-lead/index.ts:415
+--       via a client built with SUPABASE_SERVICE_ROLE_KEY (line 463-464).
+--     • Frontend path (src/lib/api/public-leads.ts): posts to the Edge
+--       Function via raw fetch() — never calls the RPC directly. The anon
+--       key is used only as an HTTP bearer token to the EF, not to invoke
+--       this RPC. No authenticated path calls it either.
+--     • VERDICT: purely service-role/EF. Revoking anon + PUBLIC is safe.
+--
+--   audited_mark_invoice_overdue:
+--     • ONLY caller: supabase/functions/check-overdue-invoices/index.ts:108
+--       via a client built with SUPABASE_SERVICE_ROLE_KEY (line 66).
+--     • Frontend path (src/lib/api/invoices.ts): markInvoiceOverdue() at
+--       line 596-606 updates invoices table directly (.from('invoices').update)
+--       and does NOT call this RPC at all. No authenticated path calls it.
+--     • VERDICT: purely service-role/EF. Revoking anon + PUBLIC is safe.
+--
+-- APPLICATION: human-applied via Supabase Studio SQL editor. Run against DEV
+-- (ctppzqnysmzynkxjlzta) first, verify grantees (see verification query
+-- below), then apply to PROD (ecyivrxjpsmjmexqatym).
+--
+-- REVERSIBILITY: fully reversible, no data impact —
+--   GRANT EXECUTE ON FUNCTION public.audited_mark_invoice_overdue(uuid, uuid) TO anon;
+--   GRANT EXECUTE ON FUNCTION public.audited_insert_lead_via_framer(uuid, jsonb) TO anon;
+--   (restoring to anon only; PUBLIC re-grant is not recommended)
+
+REVOKE EXECUTE ON FUNCTION public.audited_mark_invoice_overdue(uuid, uuid) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.audited_insert_lead_via_framer(uuid, jsonb) FROM anon, PUBLIC;
+
+-- Optional (commented out): neither RPC is called from any authenticated
+-- frontend path either (verified above). If a stricter posture is desired —
+-- tightening to service_role + postgres only — uncomment these lines.
+-- Leaving authenticated intact preserves the original grant intent and avoids
+-- any future breakage if an admin-gated frontend call is ever added.
+--
+-- REVOKE EXECUTE ON FUNCTION public.audited_mark_invoice_overdue(uuid, uuid) FROM authenticated;
+-- REVOKE EXECUTE ON FUNCTION public.audited_insert_lead_via_framer(uuid, jsonb) FROM authenticated;
+
+-- Post-run verification (run separately in Studio after applying):
+-- Expected result: no row with grantee IN ('anon', 'PUBLIC') for either function.
+-- Expect remaining grantees: authenticated, postgres, service_role only.
+--
+-- SELECT grantee, routine_name, privilege_type
+-- FROM information_schema.routine_privileges
+-- WHERE routine_schema = 'public'
+--   AND routine_name IN ('audited_mark_invoice_overdue', 'audited_insert_lead_via_framer')
+-- ORDER BY routine_name, grantee;

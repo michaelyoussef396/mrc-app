@@ -1,0 +1,45 @@
+-- Migration: latest_ai_summary — switch view to SECURITY INVOKER
+-- Created: 2026-07-08
+-- Author: database-specialist agent
+--
+-- Purpose:
+-- Fixes the single Security ERROR from the advisor audit (docs/SUPABASE_ADVISOR_AUDIT.md):
+-- `security_definer_view` on public.latest_ai_summary. The view is owned by `postgres`
+-- (rolbypassrls = true) with no `security_invoker` reloption set, so it currently runs with
+-- the owner's privileges and BYPASSES the querying user's RLS on ai_summary_versions —
+-- returning all rows regardless of caller. Setting security_invoker = on makes the view
+-- honor the caller's RLS.
+--
+-- View definition (unchanged by this migration):
+--   SELECT DISTINCT ON (inspection_id) ... FROM ai_summary_versions ORDER BY inspection_id, version_number DESC
+--
+-- PRE-CHECK (read-only, 2026-07-08) — SAFE, no role loses legitimately-needed access:
+--   * ai_summary_versions has RLS ENABLED with policies:
+--       - admins_see_all           (authenticated, ALL)    -> admins see every row
+--       - technicians_see_assigned (authenticated, SELECT) -> techs see their own inspections
+--   * `authenticated` holds direct SELECT on ai_summary_versions (verified via
+--     information_schema.role_table_grants) — so security_invoker = on will NOT cause a
+--     permission-denied error for signed-in users.
+--   * App reads the view as `authenticated` on per-inspection, admin-gated / own-work screens
+--     (src/lib/api/inspections.ts, InspectionAIReview.tsx, ViewReportPDF.tsx, StalePdfBanner.tsx)
+--     and via the generate-inspection-pdf Edge Function as `service_role` (bypasses RLS).
+--     No path queries the view as `anon`.
+--
+-- INTENDED behavior change (this is the fix, not a regression):
+--   * Admins & service_role / Edge Functions: unchanged (see all).
+--   * Technicians: now see only their OWN inspections' summaries via the view (previously all,
+--     via the definer bypass). No functional breakage expected — reads are per-inspection.
+--   * anon: previously could read all rows through the view (the leak); now returns 0 rows.
+--
+-- APPLICATION: human-applied via Supabase Studio SQL editor. Run against DEV
+-- (ctppzqnysmzynkxjlzta) first, verify, then PROD (ecyivrxjpsmjmexqatym).
+--
+-- REVERSIBILITY: fully reversible, no data impact —
+--   ALTER VIEW public.latest_ai_summary SET (security_invoker = off);
+
+ALTER VIEW public.latest_ai_summary SET (security_invoker = on);
+
+-- Post-run verification (run separately — expect reloptions to contain 'security_invoker=true'):
+-- SELECT relname, reloptions
+-- FROM pg_class
+-- WHERE relnamespace = 'public'::regnamespace AND relname = 'latest_ai_summary';
