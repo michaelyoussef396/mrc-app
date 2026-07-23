@@ -10,7 +10,7 @@ import { notifyInvoiceSent, notifyPaymentReceived } from '@/lib/api/notification
 
 export type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'paid' | 'overdue' | 'void'
 export type PaymentMethod = 'cash' | 'visa' | 'mastercard' | 'bank_transfer' | 'cheque'
-export type EquipmentKey = 'dehumidifier' | 'airMover' | 'rcd'
+export type EquipmentKey = 'dehumidifier' | 'airMover' | 'hepaAirScrubber' | 'rcd'
 
 export interface InvoiceLineItem {
   description: string
@@ -575,8 +575,17 @@ export async function markInvoicePaid(
     throw new Error(`Failed to mark paid: ${error.message}`)
   }
 
-  // Fire-and-forget Slack alert + transition lead to 'paid'
   if (data?.lead_id) {
+    // Transition lead status (await so caller sees new status after refetch)
+    const { error: statusErr } = await supabase
+      .from('leads')
+      .update({ status: 'paid' })
+      .eq('id', data.lead_id)
+    if (statusErr) {
+      console.error('Lead status update failed:', statusErr)
+    }
+
+    // Fire-and-forget Slack alert
     notifyPaymentReceived({
       leadId: data.lead_id,
       leadName: data.customer_name,
@@ -584,12 +593,6 @@ export async function markInvoicePaid(
       totalAmount: Number(data.total_amount),
       paymentMethod,
     }).catch(err => console.error('Slack notify failed (non-fatal):', err))
-
-    // Transition lead status
-    supabase.from('leads').update({ status: 'paid' }).eq('id', data.lead_id)
-      .then(({ error: err }) => {
-        if (err) console.error('Lead status update failed:', err)
-      })
   }
 }
 
@@ -679,7 +682,7 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
   // Job completion (most recent)
   const { data: jc } = await supabase
     .from('job_completions')
-    .select('id, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_rcd_qty, actual_rcd_days')
+    .select('id, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_afd_qty, actual_afd_days, actual_rcd_qty, actual_rcd_days')
     .eq('lead_id', leadId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -739,6 +742,19 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
         quantity: qty * days,
         unit_price: EQUIPMENT_RATES.airMover,
         total: round2(qty * days * EQUIPMENT_RATES.airMover),
+        is_equipment: true,
+      })
+    }
+    // DB column is still actual_afd_* (job_completions columns kept snake_case);
+    // surfaced to the customer as "HEPA Air Scrubber".
+    if (jc.actual_afd_qty && jc.actual_afd_days) {
+      const qty = jc.actual_afd_qty
+      const days = jc.actual_afd_days
+      lineItems.push({
+        description: `HEPA Air Scrubber (${qty} units × ${days} days)`,
+        quantity: qty * days,
+        unit_price: EQUIPMENT_RATES.hepaAirScrubber,
+        total: round2(qty * days * EQUIPMENT_RATES.hepaAirScrubber),
         is_equipment: true,
       })
     }

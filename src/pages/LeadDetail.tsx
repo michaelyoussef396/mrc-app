@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -133,6 +133,76 @@ const getInitials = (name: string | null | undefined) => {
     .toUpperCase()
     .substring(0, 2);
 };
+
+// Private bucket holding photos uploaded via the public /request-inspection form.
+// Stored as object paths (not URLs); admin views them through short-lived signed URLs.
+const LEAD_ENQUIRY_BUCKET = "lead-enquiry-photos";
+const SIGNED_URL_TTL_SECONDS = 3600;
+
+interface SignedEnquiryPhoto {
+  path: string;
+  url: string | null;
+}
+
+// Resolves each private Storage path to a signed URL and renders clickable
+// thumbnails. A path that fails to sign falls back to a muted placeholder so
+// one bad object never blanks the whole row.
+function EnquiryPhotos({ paths }: { paths: string[] }) {
+  const [photos, setPhotos] = useState<SignedEnquiryPhoto[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const resolved = await Promise.all(
+        paths.map(async (path): Promise<SignedEnquiryPhoto> => {
+          try {
+            const { data, error } = await supabase.storage
+              .from(LEAD_ENQUIRY_BUCKET)
+              .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+            if (error || !data?.signedUrl) return { path, url: null };
+            return { path, url: data.signedUrl };
+          } catch {
+            return { path, url: null };
+          }
+        })
+      );
+      if (!cancelled) setPhotos(resolved);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [paths]);
+
+  return (
+    <div className="flex flex-wrap gap-2 pt-1">
+      {photos.map((photo, index) =>
+        photo.url ? (
+          <a
+            key={photo.path}
+            href={photo.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block h-20 w-20 overflow-hidden rounded-md border hover:opacity-90"
+          >
+            <img
+              src={photo.url}
+              alt={`Enquiry photo ${index + 1}`}
+              loading="lazy"
+              className="h-full w-full object-cover"
+            />
+          </a>
+        ) : (
+          <div
+            key={photo.path}
+            className="flex h-20 w-20 items-center justify-center rounded-md border bg-muted p-1 text-center text-[10px] text-muted-foreground"
+          >
+            Photo unavailable
+          </div>
+        )
+      )}
+    </div>
+  );
+}
 
 export default function LeadDetail() {
   const { id } = useParams<{ id: string }>();
@@ -1533,6 +1603,62 @@ export default function LeadDetail() {
             />
           </CardContent>
         </Card>
+
+        {/* Enquiry Details — read-only, captured by the public /request-inspection form.
+            Gated on the genuinely-new fields only (issue_type/urgency/preferred_day/
+            initial_photos) so legacy leads carrying the reused property_type or
+            customer_preferred_time columns don't surface an otherwise-empty card. */}
+        {(lead.issue_type ||
+          lead.urgency ||
+          lead.preferred_day ||
+          (lead.initial_photos && lead.initial_photos.length > 0)) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ClipboardList className="h-4 w-4" />
+                Enquiry Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {lead.issue_type && (
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-muted-foreground">Type of Issue</span>
+                  <span className="font-medium text-right">{lead.issue_type}</span>
+                </div>
+              )}
+              {lead.urgency && (
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-muted-foreground">Urgency</span>
+                  <span className="font-medium text-right">{lead.urgency}</span>
+                </div>
+              )}
+              {lead.preferred_day && (
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-muted-foreground">Preferred Day</span>
+                  <span className="font-medium text-right">{lead.preferred_day}</span>
+                </div>
+              )}
+              {lead.customer_preferred_time && (
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-muted-foreground">Preferred Time</span>
+                  <span className="font-medium text-right">{lead.customer_preferred_time}</span>
+                </div>
+              )}
+              {lead.property_type && (
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-muted-foreground">Property Type</span>
+                  <span className="font-medium text-right">{lead.property_type}</span>
+                </div>
+              )}
+              {lead.initial_photos && lead.initial_photos.length > 0 && (
+                <div className="space-y-1 pt-1">
+                  <span className="text-muted-foreground">Enquiry Photos</span>
+                  <EnquiryPhotos paths={lead.initial_photos} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Property Information */}
         <Card>

@@ -62,26 +62,31 @@ interface EquipmentUsage {
   days: number
 }
 
-// Rate card is sacred (CLAUDE.md): dehumidifier $132/day, air mover $46/day, RCD $5/day.
+// Rate card is sacred (CLAUDE.md): dehumidifier $119/day, air mover $46/day, HEPA Air Scrubber $100/day, RCD $5/day.
 // Equipment is never volume-discounted — it feeds the engine as a flat ex-GST cost.
 const EQUIPMENT_ROWS: { key: EquipmentKey; label: string; rate: number }[] = [
   { key: 'dehumidifier', label: 'Dehumidifier', rate: EQUIPMENT_RATES.dehumidifier },
   { key: 'airMover', label: 'Air Mover', rate: EQUIPMENT_RATES.airMover },
+  { key: 'hepaAirScrubber', label: 'HEPA Air Scrubber', rate: EQUIPMENT_RATES.hepaAirScrubber },
   { key: 'rcd', label: 'RCD Box', rate: EQUIPMENT_RATES.rcd },
 ]
 
-/** Seed equipment qty/days from a job_completion row (actual equipment used). */
+/** Seed equipment qty/days from a job_completion row (actual equipment used).
+ * HEPA Air Scrubber maps to the DB's actual_afd_* columns (kept snake_case). */
 function seedEquipment(jc: {
   actual_dehumidifier_qty?: number | null
   actual_dehumidifier_days?: number | null
   actual_air_mover_qty?: number | null
   actual_air_mover_days?: number | null
+  actual_afd_qty?: number | null
+  actual_afd_days?: number | null
   actual_rcd_qty?: number | null
   actual_rcd_days?: number | null
 } | null): Record<EquipmentKey, EquipmentUsage> {
   return {
     dehumidifier: { qty: Number(jc?.actual_dehumidifier_qty ?? 0), days: Number(jc?.actual_dehumidifier_days ?? 0) },
     airMover: { qty: Number(jc?.actual_air_mover_qty ?? 0), days: Number(jc?.actual_air_mover_days ?? 0) },
+    hepaAirScrubber: { qty: Number(jc?.actual_afd_qty ?? 0), days: Number(jc?.actual_afd_days ?? 0) },
     rcd: { qty: Number(jc?.actual_rcd_qty ?? 0), days: Number(jc?.actual_rcd_days ?? 0) },
   }
 }
@@ -90,7 +95,7 @@ function isAutoLine(item: InvoiceLineItem): boolean {
   return item.description.startsWith(LABOUR_LINE_PREFIX) || item.description.startsWith(EQUIPMENT_LINE_PREFIX)
 }
 
-const EQUIPMENT_KEYS: EquipmentKey[] = ['dehumidifier', 'airMover', 'rcd']
+const EQUIPMENT_KEYS: EquipmentKey[] = ['dehumidifier', 'airMover', 'hepaAirScrubber', 'rcd']
 
 /**
  * Reconstruct the per-item equipment breakdown from a saved invoice's line_items.
@@ -181,7 +186,7 @@ export default function AdminInvoiceHelper() {
         const [{ data: jc }, { data: inspection }] = await Promise.all([
           supabase
             .from('job_completions')
-            .select('id, job_number, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_rcd_qty, actual_rcd_days')
+            .select('id, job_number, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_afd_qty, actual_afd_days, actual_rcd_qty, actual_rcd_days')
             .eq('lead_id', leadId)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -284,6 +289,15 @@ export default function AdminInvoiceHelper() {
   const subtotalExGst = round2(estimate.subtotalExGst + customTotal + wasteDisposalCost)
   const gstAmount = round2(subtotalExGst * GST_RATE)
   const totalIncGst = round2(subtotalExGst + gstAmount)
+
+  // NOTE: When a saved invoice exists its stored totals are the customer-facing source of truth;
+  // only fall back to the live estimate for unsaved drafts (invoiceRow === null). This prevents
+  // rate-table drift between inspection time and invoicing from altering the billed amount on reload.
+  const displayLabourAfterDiscount = invoiceRow ? invoiceRow.subtotal_after_discount : estimate.labourAfterDiscount
+  const displayEquipmentCost = invoiceRow ? invoiceRow.equipment_subtotal : equipmentCost
+  const displayTotalIncGst = invoiceRow ? invoiceRow.total_amount : totalIncGst
+  const displayGstAmount = invoiceRow ? invoiceRow.gst_amount : gstAmount
+  const displaySubtotalExGst = invoiceRow ? round2(invoiceRow.total_amount - invoiceRow.gst_amount) : subtotalExGst
 
   const dueDate = useMemo(() => addDaysISO(invoiceDate, termDays), [invoiceDate, termDays])
   const isSentLike = status === 'sent' || status === 'viewed' || status === 'overdue'
@@ -603,25 +617,10 @@ export default function AdminInvoiceHelper() {
             <span className="tabular-nums">{estimate.totalLabourHours}h</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600">Labour before discount</span>
-            <span className="tabular-nums">{formatCurrency(estimate.labourSubtotal)}</span>
-          </div>
-          <div className="flex justify-between text-emerald-700">
-            <span>
-              Volume discount
-              <span className="text-xs text-gray-400 ml-1">
-                ({(estimate.discountPercent * 100).toFixed(estimate.discountPercent === 0 ? 0 : 2)}% · auto)
-              </span>
-            </span>
-            <span className="tabular-nums">
-              {estimate.discountAmount > 0 ? `-${formatCurrency(estimate.discountAmount)}` : formatCurrency(0)}
-            </span>
-          </div>
-          <p className="text-[11px] text-gray-400">{estimate.discountTierDescription} — discount auto-calculated from hours, max 13%.</p>
-          <div className="flex justify-between border-t border-gray-200 pt-1">
-            <span className="text-gray-600">Labour after discount</span>
+            <span className="text-gray-600">Labour</span>
             <span className="tabular-nums">{formatCurrency(estimate.labourAfterDiscount)}</span>
           </div>
+          <p className="text-[11px] text-gray-400">Per-day rates applied automatically from hours worked.</p>
         </div>
       </section>
 
@@ -689,11 +688,11 @@ export default function AdminInvoiceHelper() {
         <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-1 text-sm">
           <div className="flex justify-between">
             <span className="text-gray-600">Labour (after discount)</span>
-            <span className="tabular-nums">{formatCurrency(estimate.labourAfterDiscount)}</span>
+            <span className="tabular-nums">{formatCurrency(displayLabourAfterDiscount)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Equipment</span>
-            <span className="tabular-nums">{formatCurrency(equipmentCost)}</span>
+            <span className="tabular-nums">{formatCurrency(displayEquipmentCost)}</span>
           </div>
           {wasteDisposalCost > 0 && (
             <div className="flex justify-between">
@@ -709,15 +708,15 @@ export default function AdminInvoiceHelper() {
           )}
           <div className="flex justify-between border-t border-gray-200 pt-1">
             <span className="text-gray-600">Subtotal ex GST</span>
-            <span className="tabular-nums">{formatCurrency(subtotalExGst)}</span>
+            <span className="tabular-nums">{formatCurrency(displaySubtotalExGst)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">GST 10%</span>
-            <span className="tabular-nums">{formatCurrency(gstAmount)}</span>
+            <span className="tabular-nums">{formatCurrency(displayGstAmount)}</span>
           </div>
           <div className="flex justify-between border-t border-gray-300 pt-1.5 mt-1">
             <span className="font-semibold">Total inc GST</span>
-            <span className="font-bold text-base tabular-nums">{formatCurrency(totalIncGst)}</span>
+            <span className="font-bold text-base tabular-nums">{formatCurrency(displayTotalIncGst)}</span>
           </div>
         </div>
       </section>

@@ -290,75 +290,6 @@ export type Database = {
           },
         ]
       }
-      calendar_bookings_revert_cleanup_backup_20260429: {
-        Row: {
-          all_day: boolean | null
-          assigned_to: string | null
-          created_at: string | null
-          description: string | null
-          end_datetime: string | null
-          event_type: string | null
-          id: string | null
-          inspection_id: string | null
-          lead_id: string | null
-          location_address: string | null
-          reminder_scheduled_for: string | null
-          reminder_sent: boolean | null
-          reminder_sent_at: string | null
-          start_datetime: string | null
-          status: Database["public"]["Enums"]["booking_status"] | null
-          title: string | null
-          travel_from_suburb: string | null
-          travel_time_minutes: number | null
-          travel_to_suburb: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          all_day?: boolean | null
-          assigned_to?: string | null
-          created_at?: string | null
-          description?: string | null
-          end_datetime?: string | null
-          event_type?: string | null
-          id?: string | null
-          inspection_id?: string | null
-          lead_id?: string | null
-          location_address?: string | null
-          reminder_scheduled_for?: string | null
-          reminder_sent?: boolean | null
-          reminder_sent_at?: string | null
-          start_datetime?: string | null
-          status?: Database["public"]["Enums"]["booking_status"] | null
-          title?: string | null
-          travel_from_suburb?: string | null
-          travel_time_minutes?: number | null
-          travel_to_suburb?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          all_day?: boolean | null
-          assigned_to?: string | null
-          created_at?: string | null
-          description?: string | null
-          end_datetime?: string | null
-          event_type?: string | null
-          id?: string | null
-          inspection_id?: string | null
-          lead_id?: string | null
-          location_address?: string | null
-          reminder_scheduled_for?: string | null
-          reminder_sent?: boolean | null
-          reminder_sent_at?: string | null
-          start_datetime?: string | null
-          status?: Database["public"]["Enums"]["booking_status"] | null
-          title?: string | null
-          travel_from_suburb?: string | null
-          travel_time_minutes?: number | null
-          travel_to_suburb?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       editable_fields: {
         Row: {
           created_at: string | null
@@ -629,84 +560,6 @@ export type Database = {
           },
         ]
       }
-      inspection_areas_dead_col_drop_backup_20260513: {
-        Row: {
-          comments_approved: boolean | null
-          id: string | null
-          moisture_readings_enabled: boolean | null
-          mould_ceiling: boolean | null
-          mould_contents: boolean | null
-          mould_cornice: boolean | null
-          mould_cupboard: boolean | null
-          mould_flooring: boolean | null
-          mould_grout_silicone: boolean | null
-          mould_none_visible: boolean | null
-          mould_skirting: boolean | null
-          mould_walls: boolean | null
-          mould_wardrobe: boolean | null
-          mould_window_furnishings: boolean | null
-          mould_windows: boolean | null
-          snapshot_at: string | null
-        }
-        Insert: {
-          comments_approved?: boolean | null
-          id?: string | null
-          moisture_readings_enabled?: boolean | null
-          mould_ceiling?: boolean | null
-          mould_contents?: boolean | null
-          mould_cornice?: boolean | null
-          mould_cupboard?: boolean | null
-          mould_flooring?: boolean | null
-          mould_grout_silicone?: boolean | null
-          mould_none_visible?: boolean | null
-          mould_skirting?: boolean | null
-          mould_walls?: boolean | null
-          mould_wardrobe?: boolean | null
-          mould_window_furnishings?: boolean | null
-          mould_windows?: boolean | null
-          snapshot_at?: string | null
-        }
-        Update: {
-          comments_approved?: boolean | null
-          id?: string | null
-          moisture_readings_enabled?: boolean | null
-          mould_ceiling?: boolean | null
-          mould_contents?: boolean | null
-          mould_cornice?: boolean | null
-          mould_cupboard?: boolean | null
-          mould_flooring?: boolean | null
-          mould_grout_silicone?: boolean | null
-          mould_none_visible?: boolean | null
-          mould_skirting?: boolean | null
-          mould_walls?: boolean | null
-          mould_wardrobe?: boolean | null
-          mould_window_furnishings?: boolean | null
-          mould_windows?: boolean | null
-          snapshot_at?: string | null
-        }
-        Relationships: []
-      }
-      inspection_areas_dew_point_backfill_backup: {
-        Row: {
-          dew_point: number | null
-          humidity: number | null
-          id: string | null
-          temperature: number | null
-        }
-        Insert: {
-          dew_point?: number | null
-          humidity?: number | null
-          id?: string | null
-          temperature?: number | null
-        }
-        Update: {
-          dew_point?: number | null
-          humidity?: number | null
-          id?: string | null
-          temperature?: number | null
-        }
-        Relationships: []
-      }
       inspections: {
         Row: {
           additional_equipment_comments: string | null
@@ -960,132 +813,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      inspections_dead_col_drop_backup_20260513: {
-        Row: {
-          air_mover_rate: number | null
-          air_movers_enabled: boolean | null
-          commercial_dehumidifier_enabled: boolean | null
-          construction_hours: number | null
-          dehumidifier_rate: number | null
-          demo_labour_rate: number | null
-          drying_equipment_enabled: boolean | null
-          equipment_cost_inc_gst: number | null
-          estimated_cost_ex_gst: number | null
-          estimated_cost_inc_gst: number | null
-          id: string | null
-          inspection_start_time: string | null
-          manual_price_override: boolean | null
-          non_demo_labour_rate: number | null
-          property_address_snapshot: string | null
-          rcd_box_enabled: boolean | null
-          rcd_rate: number | null
-          selected_job_type: string | null
-          snapshot_at: string | null
-          subfloor_labour_rate: number | null
-          subfloor_required: boolean | null
-        }
-        Insert: {
-          air_mover_rate?: number | null
-          air_movers_enabled?: boolean | null
-          commercial_dehumidifier_enabled?: boolean | null
-          construction_hours?: number | null
-          dehumidifier_rate?: number | null
-          demo_labour_rate?: number | null
-          drying_equipment_enabled?: boolean | null
-          equipment_cost_inc_gst?: number | null
-          estimated_cost_ex_gst?: number | null
-          estimated_cost_inc_gst?: number | null
-          id?: string | null
-          inspection_start_time?: string | null
-          manual_price_override?: boolean | null
-          non_demo_labour_rate?: number | null
-          property_address_snapshot?: string | null
-          rcd_box_enabled?: boolean | null
-          rcd_rate?: number | null
-          selected_job_type?: string | null
-          snapshot_at?: string | null
-          subfloor_labour_rate?: number | null
-          subfloor_required?: boolean | null
-        }
-        Update: {
-          air_mover_rate?: number | null
-          air_movers_enabled?: boolean | null
-          commercial_dehumidifier_enabled?: boolean | null
-          construction_hours?: number | null
-          dehumidifier_rate?: number | null
-          demo_labour_rate?: number | null
-          drying_equipment_enabled?: boolean | null
-          equipment_cost_inc_gst?: number | null
-          estimated_cost_ex_gst?: number | null
-          estimated_cost_inc_gst?: number | null
-          id?: string | null
-          inspection_start_time?: string | null
-          manual_price_override?: boolean | null
-          non_demo_labour_rate?: number | null
-          property_address_snapshot?: string | null
-          rcd_box_enabled?: boolean | null
-          rcd_rate?: number | null
-          selected_job_type?: string | null
-          snapshot_at?: string | null
-          subfloor_labour_rate?: number | null
-          subfloor_required?: boolean | null
-        }
-        Relationships: []
-      }
-      inspections_discount_backfill_backup_20260513: {
-        Row: {
-          discount_percent: number | null
-          id: string | null
-          snapshot_at: string | null
-        }
-        Insert: {
-          discount_percent?: number | null
-          id?: string | null
-          snapshot_at?: string | null
-        }
-        Update: {
-          discount_percent?: number | null
-          id?: string | null
-          snapshot_at?: string | null
-        }
-        Relationships: []
-      }
-      inspections_outdoor_dew_point_backup: {
-        Row: {
-          id: string | null
-          outdoor_dew_point: number | null
-          outdoor_humidity: number | null
-          outdoor_temperature: number | null
-        }
-        Insert: {
-          id?: string | null
-          outdoor_dew_point?: number | null
-          outdoor_humidity?: number | null
-          outdoor_temperature?: number | null
-        }
-        Update: {
-          id?: string | null
-          outdoor_dew_point?: number | null
-          outdoor_humidity?: number | null
-          outdoor_temperature?: number | null
-        }
-        Relationships: []
-      }
-      inspections_subfloor_required_restore_backup: {
-        Row: {
-          created_at: string | null
-          id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string | null
-        }
-        Relationships: []
       }
       invoices: {
         Row: {
@@ -1495,6 +1222,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          initial_photos: string[] | null
           inspection_completed_date: string | null
           inspection_scheduled_date: string | null
           internal_notes: string | null
@@ -1502,6 +1230,7 @@ export type Database = {
           invoice_sent_date: string | null
           is_possible_duplicate: boolean | null
           issue_description: string | null
+          issue_type: string | null
           job_completed_date: string | null
           job_scheduled_date: string | null
           lead_number: string | null
@@ -1511,6 +1240,7 @@ export type Database = {
           payment_received_date: string | null
           phone: string
           possible_duplicate_of: string | null
+          preferred_day: string | null
           property_address_postcode: string
           property_address_state: string | null
           property_address_street: string
@@ -1527,6 +1257,7 @@ export type Database = {
           special_requests: string | null
           status: Database["public"]["Enums"]["lead_status"]
           updated_at: string | null
+          urgency: string | null
           xero_contact_id: string | null
         }
         Insert: {
@@ -1541,6 +1272,7 @@ export type Database = {
           email: string
           full_name: string
           id?: string
+          initial_photos?: string[] | null
           inspection_completed_date?: string | null
           inspection_scheduled_date?: string | null
           internal_notes?: string | null
@@ -1548,6 +1280,7 @@ export type Database = {
           invoice_sent_date?: string | null
           is_possible_duplicate?: boolean | null
           issue_description?: string | null
+          issue_type?: string | null
           job_completed_date?: string | null
           job_scheduled_date?: string | null
           lead_number?: string | null
@@ -1557,6 +1290,7 @@ export type Database = {
           payment_received_date?: string | null
           phone: string
           possible_duplicate_of?: string | null
+          preferred_day?: string | null
           property_address_postcode: string
           property_address_state?: string | null
           property_address_street: string
@@ -1573,6 +1307,7 @@ export type Database = {
           special_requests?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string | null
+          urgency?: string | null
           xero_contact_id?: string | null
         }
         Update: {
@@ -1587,6 +1322,7 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          initial_photos?: string[] | null
           inspection_completed_date?: string | null
           inspection_scheduled_date?: string | null
           internal_notes?: string | null
@@ -1594,6 +1330,7 @@ export type Database = {
           invoice_sent_date?: string | null
           is_possible_duplicate?: boolean | null
           issue_description?: string | null
+          issue_type?: string | null
           job_completed_date?: string | null
           job_scheduled_date?: string | null
           lead_number?: string | null
@@ -1603,6 +1340,7 @@ export type Database = {
           payment_received_date?: string | null
           phone?: string
           possible_duplicate_of?: string | null
+          preferred_day?: string | null
           property_address_postcode?: string
           property_address_state?: string | null
           property_address_street?: string
@@ -1619,6 +1357,7 @@ export type Database = {
           special_requests?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string | null
+          urgency?: string | null
           xero_contact_id?: string | null
         }
         Relationships: [
@@ -1630,318 +1369,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      leads_backup_20260428: {
-        Row: {
-          access_instructions: string | null
-          archived_at: string | null
-          assigned_to: string | null
-          booked_at: string | null
-          created_at: string | null
-          created_by: string | null
-          email: string | null
-          full_name: string | null
-          id: string | null
-          inspection_completed_date: string | null
-          inspection_scheduled_date: string | null
-          internal_notes: string | null
-          invoice_amount: number | null
-          invoice_sent_date: string | null
-          is_possible_duplicate: boolean | null
-          issue_description: string | null
-          job_completed_date: string | null
-          job_scheduled_date: string | null
-          lead_number: string | null
-          lead_source: string | null
-          lead_source_other: string | null
-          notes: string | null
-          payment_received_date: string | null
-          phone: string | null
-          possible_duplicate_of: string | null
-          property_address_postcode: string | null
-          property_address_state: string | null
-          property_address_street: string | null
-          property_address_suburb: string | null
-          property_lat: number | null
-          property_lng: number | null
-          property_type: string | null
-          property_zone: number | null
-          quoted_amount: number | null
-          report_pdf_url: string | null
-          scheduled_dates: string[] | null
-          scheduled_time: string | null
-          search_text: string | null
-          special_requests: string | null
-          status: Database["public"]["Enums"]["lead_status"] | null
-          updated_at: string | null
-          urgency: string | null
-        }
-        Insert: {
-          access_instructions?: string | null
-          archived_at?: string | null
-          assigned_to?: string | null
-          booked_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string | null
-          inspection_completed_date?: string | null
-          inspection_scheduled_date?: string | null
-          internal_notes?: string | null
-          invoice_amount?: number | null
-          invoice_sent_date?: string | null
-          is_possible_duplicate?: boolean | null
-          issue_description?: string | null
-          job_completed_date?: string | null
-          job_scheduled_date?: string | null
-          lead_number?: string | null
-          lead_source?: string | null
-          lead_source_other?: string | null
-          notes?: string | null
-          payment_received_date?: string | null
-          phone?: string | null
-          possible_duplicate_of?: string | null
-          property_address_postcode?: string | null
-          property_address_state?: string | null
-          property_address_street?: string | null
-          property_address_suburb?: string | null
-          property_lat?: number | null
-          property_lng?: number | null
-          property_type?: string | null
-          property_zone?: number | null
-          quoted_amount?: number | null
-          report_pdf_url?: string | null
-          scheduled_dates?: string[] | null
-          scheduled_time?: string | null
-          search_text?: string | null
-          special_requests?: string | null
-          status?: Database["public"]["Enums"]["lead_status"] | null
-          updated_at?: string | null
-          urgency?: string | null
-        }
-        Update: {
-          access_instructions?: string | null
-          archived_at?: string | null
-          assigned_to?: string | null
-          booked_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string | null
-          inspection_completed_date?: string | null
-          inspection_scheduled_date?: string | null
-          internal_notes?: string | null
-          invoice_amount?: number | null
-          invoice_sent_date?: string | null
-          is_possible_duplicate?: boolean | null
-          issue_description?: string | null
-          job_completed_date?: string | null
-          job_scheduled_date?: string | null
-          lead_number?: string | null
-          lead_source?: string | null
-          lead_source_other?: string | null
-          notes?: string | null
-          payment_received_date?: string | null
-          phone?: string | null
-          possible_duplicate_of?: string | null
-          property_address_postcode?: string | null
-          property_address_state?: string | null
-          property_address_street?: string | null
-          property_address_suburb?: string | null
-          property_lat?: number | null
-          property_lng?: number | null
-          property_type?: string | null
-          property_zone?: number | null
-          quoted_amount?: number | null
-          report_pdf_url?: string | null
-          scheduled_dates?: string[] | null
-          scheduled_time?: string | null
-          search_text?: string | null
-          special_requests?: string | null
-          status?: Database["public"]["Enums"]["lead_status"] | null
-          updated_at?: string | null
-          urgency?: string | null
-        }
-        Relationships: []
-      }
-      leads_dead_col_drop_backup_20260513: {
-        Row: {
-          id: string | null
-          snapshot_at: string | null
-          urgency: string | null
-        }
-        Insert: {
-          id?: string | null
-          snapshot_at?: string | null
-          urgency?: string | null
-        }
-        Update: {
-          id?: string | null
-          snapshot_at?: string | null
-          urgency?: string | null
-        }
-        Relationships: []
-      }
-      leads_revert_cleanup_backup_20260429: {
-        Row: {
-          access_instructions: string | null
-          archived_at: string | null
-          assigned_to: string | null
-          booked_at: string | null
-          created_at: string | null
-          created_by: string | null
-          customer_preferred_date: string | null
-          customer_preferred_time: string | null
-          email: string | null
-          full_name: string | null
-          id: string | null
-          inspection_completed_date: string | null
-          inspection_scheduled_date: string | null
-          internal_notes: string | null
-          invoice_amount: number | null
-          invoice_sent_date: string | null
-          is_possible_duplicate: boolean | null
-          issue_description: string | null
-          job_completed_date: string | null
-          job_scheduled_date: string | null
-          lead_number: string | null
-          lead_source: string | null
-          lead_source_other: string | null
-          notes: string | null
-          payment_received_date: string | null
-          phone: string | null
-          possible_duplicate_of: string | null
-          property_address_postcode: string | null
-          property_address_state: string | null
-          property_address_street: string | null
-          property_address_suburb: string | null
-          property_lat: number | null
-          property_lng: number | null
-          property_type: string | null
-          property_zone: number | null
-          quoted_amount: number | null
-          report_pdf_url: string | null
-          scheduled_dates: string[] | null
-          scheduled_time: string | null
-          search_text: string | null
-          special_requests: string | null
-          status: Database["public"]["Enums"]["lead_status"] | null
-          updated_at: string | null
-          urgency: string | null
-        }
-        Insert: {
-          access_instructions?: string | null
-          archived_at?: string | null
-          assigned_to?: string | null
-          booked_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          customer_preferred_date?: string | null
-          customer_preferred_time?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string | null
-          inspection_completed_date?: string | null
-          inspection_scheduled_date?: string | null
-          internal_notes?: string | null
-          invoice_amount?: number | null
-          invoice_sent_date?: string | null
-          is_possible_duplicate?: boolean | null
-          issue_description?: string | null
-          job_completed_date?: string | null
-          job_scheduled_date?: string | null
-          lead_number?: string | null
-          lead_source?: string | null
-          lead_source_other?: string | null
-          notes?: string | null
-          payment_received_date?: string | null
-          phone?: string | null
-          possible_duplicate_of?: string | null
-          property_address_postcode?: string | null
-          property_address_state?: string | null
-          property_address_street?: string | null
-          property_address_suburb?: string | null
-          property_lat?: number | null
-          property_lng?: number | null
-          property_type?: string | null
-          property_zone?: number | null
-          quoted_amount?: number | null
-          report_pdf_url?: string | null
-          scheduled_dates?: string[] | null
-          scheduled_time?: string | null
-          search_text?: string | null
-          special_requests?: string | null
-          status?: Database["public"]["Enums"]["lead_status"] | null
-          updated_at?: string | null
-          urgency?: string | null
-        }
-        Update: {
-          access_instructions?: string | null
-          archived_at?: string | null
-          assigned_to?: string | null
-          booked_at?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          customer_preferred_date?: string | null
-          customer_preferred_time?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string | null
-          inspection_completed_date?: string | null
-          inspection_scheduled_date?: string | null
-          internal_notes?: string | null
-          invoice_amount?: number | null
-          invoice_sent_date?: string | null
-          is_possible_duplicate?: boolean | null
-          issue_description?: string | null
-          job_completed_date?: string | null
-          job_scheduled_date?: string | null
-          lead_number?: string | null
-          lead_source?: string | null
-          lead_source_other?: string | null
-          notes?: string | null
-          payment_received_date?: string | null
-          phone?: string | null
-          possible_duplicate_of?: string | null
-          property_address_postcode?: string | null
-          property_address_state?: string | null
-          property_address_street?: string | null
-          property_address_suburb?: string | null
-          property_lat?: number | null
-          property_lng?: number | null
-          property_type?: string | null
-          property_zone?: number | null
-          quoted_amount?: number | null
-          report_pdf_url?: string | null
-          scheduled_dates?: string[] | null
-          scheduled_time?: string | null
-          search_text?: string | null
-          special_requests?: string | null
-          status?: Database["public"]["Enums"]["lead_status"] | null
-          updated_at?: string | null
-          urgency?: string | null
-        }
-        Relationships: []
-      }
-      leads_source_backfill_backup_20260514: {
-        Row: {
-          id: string | null
-          lead_source: string | null
-          snapshot_at: string | null
-        }
-        Insert: {
-          id?: string | null
-          lead_source?: string | null
-          snapshot_at?: string | null
-        }
-        Update: {
-          id?: string | null
-          lead_source?: string | null
-          snapshot_at?: string | null
-        }
-        Relationships: []
       }
       login_activity: {
         Row: {
@@ -2040,24 +1467,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      moisture_readings_dead_col_drop_backup_20260513: {
-        Row: {
-          id: string | null
-          moisture_status: string | null
-          snapshot_at: string | null
-        }
-        Insert: {
-          id?: string | null
-          moisture_status?: string | null
-          snapshot_at?: string | null
-        }
-        Update: {
-          id?: string | null
-          moisture_status?: string | null
-          snapshot_at?: string | null
-        }
-        Relationships: []
       }
       notifications: {
         Row: {
@@ -2309,99 +1718,6 @@ export type Database = {
           },
         ]
       }
-      photos_backup_20260526: {
-        Row: {
-          area_id: string | null
-          caption: string | null
-          created_at: string | null
-          deleted_at: string | null
-          file_name: string | null
-          file_size: number | null
-          id: string | null
-          inspection_id: string | null
-          job_completion_id: string | null
-          mime_type: string | null
-          moisture_reading_id: string | null
-          order_index: number | null
-          photo_category: string | null
-          photo_type: string | null
-          storage_path: string | null
-          subfloor_id: string | null
-          uploaded_by: string | null
-        }
-        Insert: {
-          area_id?: string | null
-          caption?: string | null
-          created_at?: string | null
-          deleted_at?: string | null
-          file_name?: string | null
-          file_size?: number | null
-          id?: string | null
-          inspection_id?: string | null
-          job_completion_id?: string | null
-          mime_type?: string | null
-          moisture_reading_id?: string | null
-          order_index?: number | null
-          photo_category?: string | null
-          photo_type?: string | null
-          storage_path?: string | null
-          subfloor_id?: string | null
-          uploaded_by?: string | null
-        }
-        Update: {
-          area_id?: string | null
-          caption?: string | null
-          created_at?: string | null
-          deleted_at?: string | null
-          file_name?: string | null
-          file_size?: number | null
-          id?: string | null
-          inspection_id?: string | null
-          job_completion_id?: string | null
-          mime_type?: string | null
-          moisture_reading_id?: string | null
-          order_index?: number | null
-          photo_category?: string | null
-          photo_type?: string | null
-          storage_path?: string | null
-          subfloor_id?: string | null
-          uploaded_by?: string | null
-        }
-        Relationships: []
-      }
-      photos_subfloor_snapshot_20260527: {
-        Row: {
-          area_id: string | null
-          caption: string | null
-          created_at: string | null
-          deleted_at: string | null
-          id: string | null
-          inspection_id: string | null
-          photo_type: string | null
-          subfloor_id: string | null
-        }
-        Insert: {
-          area_id?: string | null
-          caption?: string | null
-          created_at?: string | null
-          deleted_at?: string | null
-          id?: string | null
-          inspection_id?: string | null
-          photo_type?: string | null
-          subfloor_id?: string | null
-        }
-        Update: {
-          area_id?: string | null
-          caption?: string | null
-          created_at?: string | null
-          deleted_at?: string | null
-          id?: string | null
-          inspection_id?: string | null
-          photo_type?: string | null
-          subfloor_id?: string | null
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           created_at: string | null
@@ -2505,24 +1821,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      subfloor_data_dead_col_drop_backup_20260513: {
-        Row: {
-          id: string | null
-          racking_required: boolean | null
-          snapshot_at: string | null
-        }
-        Insert: {
-          id?: string | null
-          racking_required?: boolean | null
-          snapshot_at?: string | null
-        }
-        Update: {
-          id?: string | null
-          racking_required?: boolean | null
-          snapshot_at?: string | null
-        }
-        Relationships: []
       }
       subfloor_readings: {
         Row: {

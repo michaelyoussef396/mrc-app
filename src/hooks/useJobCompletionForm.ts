@@ -49,7 +49,7 @@ export function rowToFormData(row: JobCompletionRow): JobCompletionFormData {
     methodUlvFoggingProperty: row.method_ulv_fogging_property,
     methodUlvFoggingSubfloor: row.method_ulv_fogging_subfloor,
     methodSubfloorRemediation: row.method_subfloor_remediation,
-    methodAfdInstallation: row.method_afd_installation,
+    methodHepaAirScrubberInstallation: row.method_afd_installation,
     methodDryingEquipment: row.method_drying_equipment,
     methodContainmentPrv: row.method_containment_prv,
     methodMaterialDemolition: row.method_material_demolition,
@@ -68,8 +68,8 @@ export function rowToFormData(row: JobCompletionRow): JobCompletionFormData {
     actualDehumidifierDays: row.actual_dehumidifier_days,
     actualAirMoverQty: row.actual_air_mover_qty,
     actualAirMoverDays: row.actual_air_mover_days,
-    actualAfdQty: row.actual_afd_qty,
-    actualAfdDays: row.actual_afd_days,
+    actualHepaAirScrubberQty: row.actual_afd_qty,
+    actualHepaAirScrubberDays: row.actual_afd_days,
     actualRcdQty: row.actual_rcd_qty,
     actualRcdDays: row.actual_rcd_days,
 
@@ -270,6 +270,9 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Save failed.'
       toast.error('Could not save', { description: message })
+      // Re-throw so callers (handleSubmit) can detect failure and abort.
+      // Autosave callers must catch this themselves — see the interval effect below.
+      throw err
     } finally {
       setIsSaving(false)
     }
@@ -283,7 +286,10 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
   useEffect(() => {
     const interval = setInterval(() => {
       if (hasUnsavedChangesRef.current && !isSavingRef.current) {
-        handleSaveRef.current()
+        // Autosave failures are non-fatal: silence the rejection so it never
+        // becomes an unhandled promise error. The user sees the "Could not save"
+        // toast from handleSave; no extra noise needed on the interval path.
+        handleSaveRef.current().catch(() => {})
       }
     }, AUTO_SAVE_INTERVAL_MS)
 
@@ -363,7 +369,16 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
     if (!jobCompletionId) return
 
     // Flush any pending changes before marking as submitted.
-    await handleSave()
+    // If the save fails, abort entirely — generating a PDF from stale DB data
+    // violates the zero-data-loss guarantee and would show a false success.
+    try {
+      await handleSave()
+    } catch {
+      toast.error("Couldn't submit", {
+        description: "Your latest changes didn't save. Please retry.",
+      })
+      return
+    }
 
     try {
       await submitJobCompletion(jobCompletionId)

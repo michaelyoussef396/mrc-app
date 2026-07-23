@@ -35,8 +35,8 @@ export interface CurrentVariation {
   actualDehumidifierDays: number
   actualAirMoverQty: number
   actualAirMoverDays: number
-  actualAfdQty: number
-  actualAfdDays: number
+  actualHepaAirScrubberQty: number
+  actualHepaAirScrubberDays: number
   actualRcdQty: number
   actualRcdDays: number
   updatedAt: string
@@ -192,8 +192,8 @@ function toCurrentVariation(row: RawJobCompletionRow): CurrentVariation {
     actualDehumidifierDays: row.actual_dehumidifier_days ?? 0,
     actualAirMoverQty: row.actual_air_mover_qty ?? 0,
     actualAirMoverDays: row.actual_air_mover_days ?? 0,
-    actualAfdQty: row.actual_afd_qty ?? 0,
-    actualAfdDays: row.actual_afd_days ?? 0,
+    actualHepaAirScrubberQty: row.actual_afd_qty ?? 0,
+    actualHepaAirScrubberDays: row.actual_afd_days ?? 0,
     actualRcdQty: row.actual_rcd_qty ?? 0,
     actualRcdDays: row.actual_rcd_days ?? 0,
     updatedAt: row.updated_at ?? row.created_at,

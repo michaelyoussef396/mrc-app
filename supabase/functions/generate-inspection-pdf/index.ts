@@ -266,6 +266,15 @@ const STEP_DESCRIPTIONS: Record<string, { label1: string; desc1: string; label2:
     label2: 'Subfloor Remediation',
     desc2: 'Complete subfloor treatment including sanitation, antimicrobial application, and structural assessment of underfloor timbers and supports.',
   },
+  // Renamed key (AFD → HEPA Air Scrubber). The legacy 'AFD Installation' key is kept
+  // below as a backward-compat alias so inspections persisted before the
+  // treatment_methods data migration still render this scope step.
+  'HEPA Air Scrubber Installation': {
+    label1: 'Air Scrubbing',
+    desc1: 'HEPA air scrubbers are deployed to purify the air within the treatment zone, capturing remaining airborne mould spores and particulates.',
+    label2: 'Air Scrubbing (Extended)',
+    desc2: 'HEPA air scrubbers run for an extended period (minimum 24 hours) post-treatment to ensure all airborne spores are captured and indoor air quality is restored.',
+  },
   'AFD Installation': {
     label1: 'Air Scrubbing',
     desc1: 'HEPA air scrubbers are deployed to purify the air within the treatment zone, capturing remaining airborne mould spores and particulates.',
@@ -1397,7 +1406,7 @@ function generateReportHtml(
       : ''
 
   // Equipment pricing
-  const dehumidifierPrice = inspection.commercial_dehumidifier_qty > 0 ? `$132/day × ${inspection.commercial_dehumidifier_qty}` : '$132/day'
+  const dehumidifierPrice = inspection.commercial_dehumidifier_qty > 0 ? `$119/day × ${inspection.commercial_dehumidifier_qty}` : '$119/day'
   const airMoverPrice = inspection.air_movers_qty > 0 ? `$46/day × ${inspection.air_movers_qty}` : '$46/day'
   const rcdBoxPrice = inspection.rcd_box_qty > 0 ? `$5/day × ${inspection.rcd_box_qty}` : '$5/day'
 

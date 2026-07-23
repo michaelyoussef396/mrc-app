@@ -140,7 +140,7 @@ The Job Completion Workflow extends the MRC pipeline from "Inspection Report Sen
 
 | Equipment | Fields | Rate |
 |-----------|--------|------|
-| Dehumidifier | Quantity + Days | $132/day |
+| Dehumidifier | Quantity + Days | $119/day |
 | Air Mover | Quantity + Days | $46/day |
 | AFD | Quantity + Days | TBD (need rate from Michael) |
 | RCD | Quantity + Days | $5/day |

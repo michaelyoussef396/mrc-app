@@ -49,6 +49,8 @@ const InspectionAIReview = lazy(() => import("./pages/InspectionAIReview"));
 // ViewJobReportPDF deleted — unified into ViewReportPDF with reportType detection
 // Phase 1 server-side PDF render fidelity test — not linked from anywhere.
 const RenderPdfTest = lazy(() => import("./pages/RenderPdfTest"));
+const RequestInspection = lazy(() => import("./pages/RequestInspection"));
+const RequestInspectionSuccess = lazy(() => import("./pages/RequestInspectionSuccess"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -84,6 +86,8 @@ const AppContent = () => {
           <Routes>
             {/* Public routes (no layout) */}
             <Route path="/" element={<Login />} />
+            <Route path="/request-inspection" element={<RequestInspection />} />
+            <Route path="/request-inspection/success" element={<RequestInspectionSuccess />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/check-email" element={<CheckEmail />} />
             <Route path="/reset-password" element={<ResetPassword />} />

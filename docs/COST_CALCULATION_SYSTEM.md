@@ -1,8 +1,15 @@
 # MRC COST CALCULATION SYSTEM - REFERENCE GUIDE
 
-**Last Updated:** January 8, 2026
+**Last Updated:** June 24, 2026
 **Author:** Michael Youssef
 **Critical:** This document defines the exact pricing logic for the MRC Lead Management System. Follow it precisely.
+
+> **2026-06-24 rate update (Glen + Clayton approved):** Labour tier rates and equipment
+> rates below were replaced. "AFD" / "Air Filtration Device" equipment is now "HEPA Air
+> Scrubber" ($100/day, wired into the equipment total). The **methodology** (interpolation,
+> 8-hour day-blocks, volume discount, GST-last) is UNCHANGED — only the constants moved.
+> The worked dollar examples further down still use the **pre-update** rates and are kept
+> only to illustrate the method; recompute against the current rates before quoting.
 
 ---
 
@@ -16,13 +23,32 @@ The MRC cost calculation system uses **tier-based pricing with linear interpolat
 
 ### Tier Structure
 
-| Labour Type      | 2-Hour Rate | 8-Hour Rate |
-|------------------|-------------|-------------|
-| Non-Demolition   | $612.00     | $1,216.99   |
-| Demolition       | $711.90     | $1,798.90   |
-| Subfloor         | $900.00     | $2,334.69   |
+| Labour Type                | 2-Hour Rate | 8-Hour Rate |
+|----------------------------|-------------|-------------|
+| Non-Demolition (Treatment) | $1,019.40   | $1,245.33   |
+| Demolition                 | $1,062.00   | $1,825.87   |
+| Subfloor                   | $1,322.62   | $2,375.21   |
 
 **Note:** Construction labour ($661.96 / $1,507.95) is not currently implemented but may be added in future phases.
+
+### Glen/Clayton reference chart (indicative only)
+
+The chart below is the business reference Glen + Clayton approved. The engine reproduces
+the 2-hour and 8-hour anchors exactly, but **multi-day in-app quotes will differ from this
+chart past 8h** — the engine charges a full 8-hour day-block per day then applies the volume
+discount band, whereas this chart bakes in a smoothly decreasing marginal-day curve. Use the
+engine output (not this chart) as the system source of truth. The 1-hour column is an
+extrapolation below the standard 2-hour minimum (the engine charges the flat 2-hour minimum
+for any job under 2 hours).
+
+| Hours | Treatment   | Demolition  | Subfloor    |
+|-------|-------------|-------------|-------------|
+| 1h    | $509.70     | $531.00     | $661.31     |
+| 8h    | $1,245.33   | $1,825.87   | $2,375.21   |
+| 16h   | $2,305.67   | $3,375.92   | $4,390.68   |
+| 24h   | $3,360.19   | $4,928.15   | $6,415.83   |
+| 36h   | $4,828.16   | $7,076.65   | $9,205.38   |
+| 48h   | $6,210.52   | $9,095.44   | $11,820.76  |
 
 ---
 
@@ -155,21 +181,27 @@ function calculateDiscount(totalHours) {
 
 ## EQUIPMENT COSTS
 
-### Current Implementation: Direct Cost Entry
+### Current Implementation: Quantity × Rate × Days
 
-Equipment is entered as a **direct total cost** (ex GST), not calculated from quantities and rates.
+Equipment is calculated from quantities and daily rates, **not** entered as a direct total:
 
 ```javascript
-equipmentCost = userEnteredAmount; // Direct input, no calculation
+equipmentCost = Σ(qty × dailyRate × days);  // days = ceil(totalLabourHours / 8), min 1
 ```
 
-### Reference Rates (for manual estimation)
+Equipment is added to the subtotal **after** the labour discount and is **never discounted**.
+
+### Daily Rates (ex GST)
 
 | Equipment          | Daily Rate |
 |--------------------|------------|
-| Dehumidifier       | $132/day   |
+| Dehumidifier       | $119/day   |
 | Air Mover/Blower   | $46/day    |
+| HEPA Air Scrubber  | $100/day   |
 | RCD Box            | $5/day     |
+
+**HEPA Air Scrubber** (formerly "AFD" / "Air Filtration Device") is captured on the job
+completion form (qty × days) and billed at $100/day via the invoice equipment lines.
 
 **Note:** Equipment days typically equal labour days (totalHours ÷ 8, rounded up).
 
@@ -238,7 +270,7 @@ labourAfterDiscount = labourSubtotal - discountAmount
 ### Step 4: Add Equipment Costs
 
 ```javascript
-equipmentCost = userEnteredEquipmentTotal // Direct entry
+equipmentCost = Σ(qty × dailyRate × days) // qty/rate/days per equipment type
 ```
 
 ### Step 4.5: Add Waste Disposal (confirmed, never discounted)
@@ -427,7 +459,7 @@ Expected:
 | `subfloor_hours` | Subfloor labour hours |
 | `labor_cost_ex_gst` | Labour cost after discount (ex GST) |
 | `discount_percent` | Volume discount applied (0-13) |
-| `equipment_cost_ex_gst` | Equipment cost (direct entry, ex GST) |
+| `equipment_cost_ex_gst` | Equipment cost (Σ qty × rate × days, ex GST) |
 | `subtotal_ex_gst` | Labour + Equipment |
 | `gst_amount` | Subtotal × 0.10 |
 | `total_inc_gst` | Final total including GST |
@@ -473,6 +505,7 @@ If costs don't match expected:
 | Date | Version | Changes |
 |------|---------|---------|
 | 2026-01-08 | 1.0 | Initial tier pricing implementation |
+| 2026-06-24 | 1.1 | New labour tier rates + equipment rates (dehumidifier $119); AFD → HEPA Air Scrubber ($100/day, wired into equipment total); equipment doc corrected to qty×rate×days; Glen/Clayton reference chart added. Methodology unchanged. |
 
 ---
 

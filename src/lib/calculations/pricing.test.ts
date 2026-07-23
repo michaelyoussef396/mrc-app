@@ -1,81 +1,186 @@
 import { describe, it, expect } from 'vitest';
-import { calculateCostEstimate, calculateWasteDisposalCost, MAX_DISCOUNT, round2 } from './pricing';
+import {
+  calculateCostEstimate,
+  calculateLabourCost,
+  calculateWasteDisposalCost,
+  EQUIPMENT_RATES,
+  LABOUR_RATES,
+  MAX_DISCOUNT,
+  round2,
+} from './pricing';
 
 // ---------------------------------------------------------------------------
-// BUG-019: discount tier boundary values — decimal scale invariants
-// The canonical convention: calculateCostEstimate returns discountPercent on
-// DECIMAL scale (0.13 = 13%). The TIF writer multiplies by 100 before DB
-// persistence; the reader divides by 100 on load.
+// Per-day DAY_RATES labour model (replaces the volume-discount tiers).
+// Day 1 = full rate; each subsequent day is lower; Day 5 === Day 6 floor; days
+// beyond 6 extrapolate at the Day-6 rate. The per-day decline encodes the discount.
+// Values are dayRates-authoritative (the indicative chart is ≤1¢ off at 40h/48h).
 // ---------------------------------------------------------------------------
 
-describe('calculateCostEstimate — discount tier boundaries', () => {
-  it('should return 0 discount for 0 total labour hours', () => {
-    const result = calculateCostEstimate({ nonDemoHours: 0, demolitionHours: 0, subfloorHours: 0 });
-    expect(result.discountPercent).toBe(0);
+describe('calculateLabourCost — nonDemo per-day anchors', () => {
+  it('should pro-rate $509.70 for 1h (below the 2-hour minimum extrapolation)', () => {
+    expect(calculateLabourCost(1, 'nonDemo')).toBe(509.70);
   });
 
-  it('should return 0 discount for 8 total labour hours (1-day threshold)', () => {
+  it('should charge tier8h $1,245.33 at 8h (Day 1)', () => {
+    expect(calculateLabourCost(8, 'nonDemo')).toBe(1245.33);
+  });
+
+  it('should sum to $2,305.67 at 16h (Days 1–2)', () => {
+    expect(calculateLabourCost(16, 'nonDemo')).toBe(2305.67);
+  });
+
+  it('should sum to $3,360.19 at 24h (Days 1–3)', () => {
+    expect(calculateLabourCost(24, 'nonDemo')).toBe(3360.19);
+  });
+
+  it('should sum to $4,367.37 at 32h (Days 1–4)', () => {
+    expect(calculateLabourCost(32, 'nonDemo')).toBe(4367.37);
+  });
+
+  it('should sum to $5,288.94 at 40h (Days 1–5)', () => {
+    expect(calculateLabourCost(40, 'nonDemo')).toBe(5288.94);
+  });
+
+  it('should sum to $6,210.51 at 48h (Days 1–6)', () => {
+    expect(calculateLabourCost(48, 'nonDemo')).toBe(6210.51);
+  });
+});
+
+describe('calculateLabourCost — demolition and subfloor anchors', () => {
+  it('should charge tier8h $1,825.87 at 8h demolition', () => {
+    expect(calculateLabourCost(8, 'demolition')).toBe(1825.87);
+  });
+
+  it('should sum to $9,095.44 at 48h demolition', () => {
+    expect(calculateLabourCost(48, 'demolition')).toBe(9095.44);
+  });
+
+  it('should charge tier8h $2,375.21 at 8h subfloor', () => {
+    expect(calculateLabourCost(8, 'subfloor')).toBe(2375.21);
+  });
+
+  it('should sum to $11,820.77 at 48h subfloor', () => {
+    expect(calculateLabourCost(48, 'subfloor')).toBe(11820.77);
+  });
+});
+
+describe('calculateLabourCost — Day-6 floor (beyond 48h)', () => {
+  it('should extrapolate the 7th day at the Day-6 floor rate', () => {
+    // 56h = 7 full days → Days 1–6 sum (6210.51) + Day-6 floor rate (921.57)
+    expect(calculateLabourCost(56, 'nonDemo')).toBeCloseTo(6210.51 + 921.57, 2);
+  });
+});
+
+describe('calculateLabourCost — sub-8h band unchanged', () => {
+  it('should interpolate 4h nonDemo between tier2h and tier8h', () => {
+    expect(calculateLabourCost(4, 'nonDemo')).toBeCloseTo(
+      1019.40 + (2 / 6) * (1245.33 - 1019.40),
+      2
+    );
+  });
+});
+
+describe('DAY_RATES table invariants', () => {
+  it('should have dayRates[0] === tier8h for all three active labour types', () => {
+    expect(LABOUR_RATES.nonDemo.dayRates[0]).toBe(LABOUR_RATES.nonDemo.tier8h);
+    expect(LABOUR_RATES.demolition.dayRates[0]).toBe(LABOUR_RATES.demolition.tier8h);
+    expect(LABOUR_RATES.subfloor.dayRates[0]).toBe(LABOUR_RATES.subfloor.tier8h);
+  });
+
+  it('should keep Day 5 === Day 6 (clean floor) for all three active types', () => {
+    expect(LABOUR_RATES.nonDemo.dayRates[4]).toBe(LABOUR_RATES.nonDemo.dayRates[5]);
+    expect(LABOUR_RATES.demolition.dayRates[4]).toBe(LABOUR_RATES.demolition.dayRates[5]);
+    expect(LABOUR_RATES.subfloor.dayRates[4]).toBe(LABOUR_RATES.subfloor.dayRates[5]);
+  });
+});
+
+describe('estimate path (calculateLabourCostWithBreakdown) uses DAY_RATES', () => {
+  it('should produce labourSubtotal $6,210.51 for a 48h nonDemo estimate', () => {
+    const result = calculateCostEstimate({ nonDemoHours: 48, demolitionHours: 0, subfloorHours: 0 });
+    expect(result.labourSubtotal).toBeCloseTo(6210.51, 2);
+  });
+
+  it('should set labourAfterDiscount equal to labourSubtotal (no separate discount)', () => {
+    const result = calculateCostEstimate({ nonDemoHours: 16, demolitionHours: 8, subfloorHours: 4 });
+    expect(result.labourAfterDiscount).toBe(result.labourSubtotal);
+    expect(result.discountPercent).toBe(0);
+    expect(result.discountAmount).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Equipment rates (qty × rate × days, never discounted).
+// ---------------------------------------------------------------------------
+
+describe('EQUIPMENT_RATES', () => {
+  it('should set the dehumidifier rate to $119/day', () => {
+    expect(EQUIPMENT_RATES.dehumidifier).toBe(119);
+  });
+
+  it('should set the air mover rate to $46/day', () => {
+    expect(EQUIPMENT_RATES.airMover).toBe(46);
+  });
+
+  it('should set the HEPA Air Scrubber rate to $100/day', () => {
+    expect(EQUIPMENT_RATES.hepaAirScrubber).toBe(100);
+  });
+
+  it('should set the RCD rate to $5/day', () => {
+    expect(EQUIPMENT_RATES.rcd).toBe(5);
+  });
+
+  it('should produce 6 equipment days for a 47h job', () => {
+    const result = calculateCostEstimate({
+      nonDemoHours: 15, demolitionHours: 22, subfloorHours: 10,
+      dehumidifierQty: 2, airMoverQty: 3, rcdQty: 1,
+    });
+    expect(result.equipment.days).toBe(6);
+  });
+
+  it('should compute $2,286 equipment cost for 6 days at canonical quantities', () => {
+    // (2×119 + 3×46 + 1×5) × 6 = 381 × 6 = 2,286
+    const result = calculateCostEstimate({
+      nonDemoHours: 15, demolitionHours: 22, subfloorHours: 10,
+      dehumidifierQty: 2, airMoverQty: 3, rcdQty: 1,
+    });
+    expect(result.equipment.total).toBe(2286);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MAX_DISCOUNT retained as the manual invoice-discount cap (not a volume tier).
+// ---------------------------------------------------------------------------
+
+describe('MAX_DISCOUNT', () => {
+  it('should remain the 13% cap (0.13 decimal scale)', () => {
+    expect(MAX_DISCOUNT).toBe(0.13);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Full estimate — GST applied last, equipment not discounted.
+// ---------------------------------------------------------------------------
+
+describe('calculateCostEstimate — GST last, equipment not discounted', () => {
+  it('should produce labour $1,245.33, GST 10%, total inc GST for an 8h nonDemo job', () => {
     const result = calculateCostEstimate({ nonDemoHours: 8, demolitionHours: 0, subfloorHours: 0 });
-    expect(result.discountPercent).toBe(0);
+    expect(result.labourAfterDiscount).toBe(1245.33);
+    expect(result.gstAmount).toBeCloseTo(round2(1245.33 * 0.10), 2);
+    expect(result.totalIncGst).toBe(round2(1245.33 * 1.10));
   });
 
-  it('should return 0.075 discount for 9 total labour hours (2-day tier)', () => {
-    const result = calculateCostEstimate({ nonDemoHours: 9, demolitionHours: 0, subfloorHours: 0 });
-    expect(result.discountPercent).toBe(0.075);
-  });
-
-  it('should return 0.1025 discount for 17 total labour hours (3-day tier)', () => {
-    const result = calculateCostEstimate({ nonDemoHours: 17, demolitionHours: 0, subfloorHours: 0 });
-    expect(result.discountPercent).toBe(0.1025);
-  });
-
-  it('should return 0.115 discount for 25 total labour hours (4-day tier)', () => {
-    const result = calculateCostEstimate({ nonDemoHours: 25, demolitionHours: 0, subfloorHours: 0 });
-    expect(result.discountPercent).toBe(0.115);
-  });
-
-  it('should return 0.13 discount for 33 total labour hours (5-day cap)', () => {
-    const result = calculateCostEstimate({ nonDemoHours: 33, demolitionHours: 0, subfloorHours: 0 });
-    expect(result.discountPercent).toBe(0.13);
-  });
-
-  it('should never exceed MAX_DISCOUNT regardless of extreme hours', () => {
-    const result = calculateCostEstimate({ nonDemoHours: 1000, demolitionHours: 0, subfloorHours: 0 });
-    expect(result.discountPercent).toBeLessThanOrEqual(MAX_DISCOUNT);
+  it('should preserve manualTotal as totalIncGst when manualOverride is true', () => {
+    const result = calculateCostEstimate({
+      nonDemoHours: 15, demolitionHours: 22, subfloorHours: 10,
+      manualOverride: true, manualTotal: 5000,
+    });
+    expect(result.totalIncGst).toBe(5000);
   });
 });
 
 // ---------------------------------------------------------------------------
-// BUG-019: DB persistence boundary — multiplier must equal 0.87 minimum
-// ---------------------------------------------------------------------------
-
-describe('discount cap — 13% SACRED ceiling enforcement', () => {
-  it('should never allow the discount multiplier to go below 0.87', () => {
-    const result = calculateCostEstimate({ nonDemoHours: 500, demolitionHours: 0, subfloorHours: 0 });
-    const multiplier = 1 - result.discountPercent;
-    expect(multiplier).toBeGreaterThanOrEqual(0.87);
-  });
-
-  it('should persist 13 (percent scale) when discountPercent is 0.13 (decimal scale)', () => {
-    // Simulate what TIF writer does at the persistence boundary.
-    const result = calculateCostEstimate({ nonDemoHours: 40, demolitionHours: 0, subfloorHours: 0 });
-    const persistedValue = result.discountPercent * 100;
-    expect(persistedValue).toBe(13);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Phase 2c: both-option dual-write — option_selected === 3 behaviour
-//
-// When the technician offers the customer a choice (both options), the DB must
-// receive non-null values for BOTH option_1_total_inc_gst and
-// option_2_total_inc_gst. These tests verify the pricing.ts building blocks
-// that TIF handleSave composes to produce both totals, covering each discount
-// tier boundary.
-//
-// Calculation pattern (mirrors handleSave lines 3347–3368):
-//   Option 1 = surface only (nonDemo hours, demo=0, subfloor=0)
-//   Option 2 = full scope (nonDemo + demo + subfloor hours)
+// Both-option dual-write — both totals positive; equipment in both; never discounted.
+// (Mirrors TIF handleSave: option 1 = surface only, option 2 = full scope.)
 // ---------------------------------------------------------------------------
 
 function computeDualWriteTotals(
@@ -87,20 +192,12 @@ function computeDualWriteTotals(
   rcdQty = 0
 ): { option1Total: number; option2Total: number } {
   const opt1 = calculateCostEstimate({
-    nonDemoHours,
-    demolitionHours: 0,
-    subfloorHours: 0,
-    dehumidifierQty,
-    airMoverQty,
-    rcdQty,
+    nonDemoHours, demolitionHours: 0, subfloorHours: 0,
+    dehumidifierQty, airMoverQty, rcdQty,
   });
   const opt2 = calculateCostEstimate({
-    nonDemoHours,
-    demolitionHours,
-    subfloorHours,
-    dehumidifierQty,
-    airMoverQty,
-    rcdQty,
+    nonDemoHours, demolitionHours, subfloorHours,
+    dehumidifierQty, airMoverQty, rcdQty,
   });
   const o1Subtotal = opt1.labourAfterDiscount + opt1.equipmentCost;
   const o2Subtotal = opt2.labourAfterDiscount + opt2.equipmentCost;
@@ -111,57 +208,24 @@ function computeDualWriteTotals(
 }
 
 describe('both-option dual-write', () => {
-  it('should compute both option totals as positive non-zero values (1-day tier, no equipment)', () => {
+  it('should compute both option totals as positive non-zero values', () => {
     const { option1Total, option2Total } = computeDualWriteTotals(4, 4, 0);
     expect(option1Total).toBeGreaterThan(0);
     expect(option2Total).toBeGreaterThan(0);
   });
 
   it('should compute option2Total greater than option1Total when demo/subfloor hours are added', () => {
-    // Option 2 includes demolition and subfloor on top of surface — must cost more
     const { option1Total, option2Total } = computeDualWriteTotals(4, 4, 4);
     expect(option2Total).toBeGreaterThan(option1Total);
   });
 
-  it('should apply 7.5% discount tier (2-day, 9-16h total) to option2 when combined hours cross the boundary', () => {
-    // nonDemo=6h + demo=4h + subfloor=0 = 10h total → 2-day tier for option 2
-    // option1 has only 6h nonDemo → 1-day tier (0% discount)
-    const opt1 = calculateCostEstimate({ nonDemoHours: 6, demolitionHours: 0, subfloorHours: 0 });
-    const opt2 = calculateCostEstimate({ nonDemoHours: 6, demolitionHours: 4, subfloorHours: 0 });
-    expect(opt1.discountPercent).toBe(0);
-    expect(opt2.discountPercent).toBe(0.075);
-  });
-
-  it('should apply the 13% discount cap to option2 at 5-day tier and never exceed MAX_DISCOUNT', () => {
-    const opt2 = calculateCostEstimate({ nonDemoHours: 16, demolitionHours: 16, subfloorHours: 8 });
-    // 40 total hours → 5-day tier → 13% cap
-    expect(opt2.discountPercent).toBeLessThanOrEqual(MAX_DISCOUNT);
-    expect(opt2.discountPercent).toBe(0.13);
-  });
-
-  it('should produce a finite option1Total even when demolitionHours and subfloorHours are zero', () => {
-    const { option1Total } = computeDualWriteTotals(8, 0, 0);
-    expect(isFinite(option1Total)).toBe(true);
-  });
-
-  it('should produce a finite option2Total even when only nonDemoHours is set', () => {
-    // degenerate case: no demo or subfloor — option2 equals option1
+  it('should equal option1Total for option2 when only nonDemoHours is set', () => {
     const { option1Total, option2Total } = computeDualWriteTotals(8, 0, 0);
     expect(isFinite(option2Total)).toBe(true);
     expect(option2Total).toBe(option1Total);
   });
 
-  it('should null-clear option2 (return 0 for option1-only path) when optionSelected is 1', () => {
-    // In optionSelected === 1 mode only saveOption1Total is set; option2 is null.
-    // Verify the underlying calculation still returns a finite positive total.
-    const result = calculateCostEstimate({ nonDemoHours: 4, demolitionHours: 2, subfloorHours: 0 });
-    const subtotal = result.labourAfterDiscount + result.equipmentCost;
-    const totalIncGst = subtotal + subtotal * 0.1;
-    expect(totalIncGst).toBeGreaterThan(0);
-  });
-
-  it('should include equipment cost in both option totals when quantities are provided', () => {
-    // Equipment is never discounted — should appear in both option totals
+  it('should include (undiscounted) equipment cost in both option totals', () => {
     const { option1Total, option2Total } = computeDualWriteTotals(4, 4, 0, 2, 3, 1);
     const noEquip1 = computeDualWriteTotals(4, 4, 0, 0, 0, 0).option1Total;
     const noEquip2 = computeDualWriteTotals(4, 4, 0, 0, 0, 0).option2Total;
@@ -214,13 +278,11 @@ describe('calculateWasteDisposalCost', () => {
 });
 
 describe('waste disposal cost flows into subtotal without being discounted', () => {
-  it('should add the confirmed waste cost on top of the 13%-capped labour subtotal', () => {
-    // 40h nonDemo → 33+h tier → 13% cap. Waste must be a pass-through add-on.
+  it('should add the confirmed waste cost on top of the labour subtotal', () => {
     const base = { nonDemoHours: 40, demolitionHours: 0, subfloorHours: 0 };
     const withoutWaste = calculateCostEstimate(base);
     const withWaste = calculateCostEstimate({ ...base, wasteDisposalCost: 550 });
 
-    expect(withWaste.discountPercent).toBe(0.13);
     expect(withWaste.wasteDisposalCost).toBe(550);
     expect(withWaste.subtotalExGst).toBe(
       round2(withWaste.labourAfterDiscount + withWaste.equipmentCost + 550)
@@ -236,90 +298,7 @@ describe('waste disposal cost flows into subtotal without being discounted', () 
 });
 
 // ---------------------------------------------------------------------------
-// BUG-047: Regression locks for the canonical 47h / 37h progressive-save scenario.
-// Documented in docs/testing/section9_verification_MRC-2026-0144.md. The bug
-// was at the TIF consumption layer (formData.laborCost || costResult.labourAfterDiscount
-// short-circuit, fixed in PR #4). The pricing engine itself always produced the
-// correct values; these tests lock the dollar-level invariants so any future
-// regression in pricing.ts is caught immediately.
-// ---------------------------------------------------------------------------
-
-describe('BUG-047 canonical inputs — pricing engine invariants', () => {
-  it('should produce $9,223.92 labour after 13% cap for full 47h scope', () => {
-    // 15h nonDemo + 22h demo + 10h subfloor = 47h total → 33+h tier (13% cap).
-    const result = calculateCostEstimate({
-      nonDemoHours: 15,
-      demolitionHours: 22,
-      subfloorHours: 10,
-      dehumidifierQty: 2,
-      airMoverQty: 3,
-      rcdQty: 1,
-    });
-    expect(result.labourAfterDiscount).toBeCloseTo(9223.92, 2);
-  });
-
-  it('should produce labour subtotal of $10,602.21 before discount for 47h scope', () => {
-    const result = calculateCostEstimate({
-      nonDemoHours: 15,
-      demolitionHours: 22,
-      subfloorHours: 10,
-    });
-    expect(result.labourSubtotal).toBeCloseTo(10602.21, 2);
-  });
-
-  it('should produce $6,409.74 labour after 13% cap for 37h partial-save scope (BUG-047 stale-state value)', () => {
-    // 15h nonDemo + 22h demo + 0h subfloor = 37h total → still 33+h tier.
-    // This is the value that got persisted via the (now-fixed) || short-circuit
-    // when a tech progressively saved without subfloor hours.
-    const result = calculateCostEstimate({
-      nonDemoHours: 15,
-      demolitionHours: 22,
-      subfloorHours: 0,
-    });
-    expect(result.labourAfterDiscount).toBeCloseTo(6409.74, 2);
-  });
-
-  it('should produce 6 equipment days for 47h labour at standard rates', () => {
-    const result = calculateCostEstimate({
-      nonDemoHours: 15,
-      demolitionHours: 22,
-      subfloorHours: 10,
-      dehumidifierQty: 2,
-      airMoverQty: 3,
-      rcdQty: 1,
-    });
-    expect(result.equipment.days).toBe(6);
-  });
-
-  it('should produce $2,442 equipment cost for 6 days at canonical quantities', () => {
-    // (2×132 + 3×46 + 1×5) × 6 = 407 × 6 = 2,442
-    const result = calculateCostEstimate({
-      nonDemoHours: 15,
-      demolitionHours: 22,
-      subfloorHours: 10,
-      dehumidifierQty: 2,
-      airMoverQty: 3,
-      rcdQty: 1,
-    });
-    expect(result.equipment.total).toBe(2442);
-  });
-
-  it('should preserve manualTotal as totalIncGst when manualOverride is true', () => {
-    const result = calculateCostEstimate({
-      nonDemoHours: 15,
-      demolitionHours: 22,
-      subfloorHours: 10,
-      manualOverride: true,
-      manualTotal: 5000,
-    });
-    expect(result.totalIncGst).toBe(5000);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Phase A: all money values must be rounded to exactly 2 decimal places.
-// This prevents float noise like "3269.38 → 3269.378429166667" in activity
-// logs, PDFs, and any downstream consumer.
+// All money values must be rounded to exactly 2 decimal places.
 // ---------------------------------------------------------------------------
 
 describe('round2 utility', () => {
@@ -332,7 +311,7 @@ describe('round2 utility', () => {
   });
 
   it('should leave exact 2dp values unchanged', () => {
-    expect(round2(1216.99)).toBe(1216.99);
+    expect(round2(1245.33)).toBe(1245.33);
   });
 
   it('should handle zero', () => {
@@ -344,11 +323,6 @@ describe('calculateCostEstimate — 2dp precision on all money fields', () => {
   it('should return labourSubtotal with exactly 2 decimal places', () => {
     const result = calculateCostEstimate({ nonDemoHours: 5, demolitionHours: 3, subfloorHours: 2 });
     expect(result.labourSubtotal).toBe(round2(result.labourSubtotal));
-  });
-
-  it('should return discountAmount with exactly 2 decimal places', () => {
-    const result = calculateCostEstimate({ nonDemoHours: 10, demolitionHours: 5, subfloorHours: 2 });
-    expect(result.discountAmount).toBe(round2(result.discountAmount));
   });
 
   it('should return labourAfterDiscount with exactly 2 decimal places', () => {

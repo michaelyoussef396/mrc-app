@@ -1,0 +1,30 @@
+-- ============================================================================
+-- PENDING — DO NOT APPLY YET. Renamed to *.sql.PENDING so the migration runner
+-- will NOT pick it up. This is an OPTIONAL future cleanup, not required for the
+-- AFD → HEPA Air Scrubber rename to work.
+-- ============================================================================
+--
+-- CONTEXT: The job_completions AFD columns are live in production but were created
+-- via Supabase Studio, so they exist in NO prior migration file. Per Michael's
+-- decision (2026-06-24), the code keeps using the snake_case names actual_afd_qty /
+-- actual_afd_days / method_afd_installation and bridges them in the mapping layer
+-- (useJobCompletionForm.ts, jobCompletions.ts, useVariationContext.ts, JobCompletionRow
+-- in src/types/jobCompletion.ts, and src/integrations/supabase/types.ts). The app is
+-- fully functional on the snake_case columns today.
+--
+-- IF you ever want the DB columns to match the new terminology, applying this requires
+-- a COORDINATED change — do all three together, in this order:
+--   1. Apply this migration in Studio (renames the columns).
+--   2. Flip every snake_case reference in the code to the new names
+--      (the six files above) — currently they read/write actual_afd_*.
+--   3. Regenerate types: npx supabase gen types typescript --project-ref ecyivrxjpsmjmexqatym
+-- Until all three land together, the running app will break on job-completion save/load.
+--
+-- REVERSIBLE: swap the column names in each RENAME to undo.
+
+ALTER TABLE public.job_completions
+  RENAME COLUMN actual_afd_qty TO actual_hepa_air_scrubber_qty;
+ALTER TABLE public.job_completions
+  RENAME COLUMN actual_afd_days TO actual_hepa_air_scrubber_days;
+ALTER TABLE public.job_completions
+  RENAME COLUMN method_afd_installation TO method_hepa_air_scrubber_installation;

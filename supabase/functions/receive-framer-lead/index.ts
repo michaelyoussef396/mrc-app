@@ -65,10 +65,18 @@ const ParsedLeadSchema = z.object({
   email: z.string().email().max(254),
   street: z.string().max(500).optional(),
   suburb: z.string().max(100).optional(),
-  postcode: z.string().regex(POSTCODE_RE, 'Postcode must be a 4-digit Melbourne postcode (3000-3999)'),
+  // Optional: the in-app /request-inspection form drops postcode. The Framer
+  // path still sends it, and the regex still applies when present.
+  postcode: z.string().regex(POSTCODE_RE, 'Postcode must be a 4-digit Melbourne postcode (3000-3999)').optional(),
   preferredDate: z.string().max(30).optional(),
-  preferredTime: z.string().max(20).optional(),
+  preferredTime: z.string().max(40).optional(),
   issueDescription: z.string().max(5000).optional(),
+  // In-app /request-inspection form fields (absent on Framer payloads).
+  preferredDay: z.string().max(40).optional(),
+  issueType: z.string().max(100).optional(),
+  propertyType: z.string().max(50).optional(),
+  urgency: z.string().max(100).optional(),
+  initialPhotos: z.array(z.string().max(500)).max(5).optional(),
 })
 
 function normaliseDate(val: string): string {
@@ -99,6 +107,11 @@ interface FramerLeadPayload {
   preferred_date?: string
   preferred_time?: string
   issue_description?: string
+  // In-app /request-inspection form fields (absent on Framer payloads).
+  preferred_day?: string
+  issue_type?: string
+  property_type?: string
+  urgency?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +171,18 @@ function buildSlackBlocks(lead: FramerLeadPayload, createdAt: string, isPossible
           { type: 'mrkdwn', text: `*Preferred Time*\n${formattedTime}` },
         ],
       },
+      // In-app /request-inspection fields — only shown when present (Framer payloads omit them).
+      ...((lead.issue_type || lead.urgency)
+        ? [
+            {
+              type: 'section',
+              fields: [
+                ...(lead.issue_type ? [{ type: 'mrkdwn', text: `*Type of Issue*\n${lead.issue_type}` }] : []),
+                ...(lead.urgency ? [{ type: 'mrkdwn', text: `*Urgency*\n${lead.urgency}` }] : []),
+              ],
+            },
+          ]
+        : []),
       ...(lead.issue_description
         ? [
             {
@@ -214,6 +239,10 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
     `<tr><td>Address</td><td>${lead.street}${lead.suburb ? ', ' + lead.suburb : ''}</td></tr>`,
     formattedDate ? `<tr><td>Preferred Date</td><td>${formattedDate}</td></tr>` : '',
     lead.preferred_time ? `<tr><td>Preferred Time</td><td>${lead.preferred_time}</td></tr>` : '',
+    lead.preferred_day ? `<tr><td>Preferred Day</td><td>${lead.preferred_day}</td></tr>` : '',
+    lead.issue_type ? `<tr><td>Type of Issue</td><td>${lead.issue_type}</td></tr>` : '',
+    lead.property_type ? `<tr><td>Property Type</td><td>${lead.property_type}</td></tr>` : '',
+    lead.urgency ? `<tr><td>Urgency</td><td>${lead.urgency}</td></tr>` : '',
   ].filter(Boolean).join('\n        ')
 
   const bodyHtml = `
@@ -413,7 +442,7 @@ Deno.serve(async (req) => {
   // --- Health check (GET) ---
   if (req.method === 'GET') {
     return new Response(
-      JSON.stringify({ status: 'ok', timestamp: new Date().toISOString(), version: 18 }),
+      JSON.stringify({ status: 'ok', timestamp: new Date().toISOString(), version: 20 }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
@@ -553,6 +582,18 @@ Deno.serve(async (req) => {
     let preferredTime = getField(['preferred_time', 'Preferred Time', 'time', 'Time', 'preferredTime', 'inspection_time', 'Inspection Time', 'booking_time'])
     let issueDescription = getField(['issue_description', 'Issue Description', 'issueDescription', 'message', 'Message', 'description', 'Description', 'issue', 'Issue', 'your_message', 'Your Message', 'comments', 'Comments', 'notes', 'Notes', 'details', 'Details'])
 
+    // In-app /request-inspection form fields. These arrive with exact snake_case
+    // keys, so getField resolves them directly; they're absent on Framer payloads.
+    const preferredDay = getField(['preferred_day', 'Preferred Day', 'day', 'Day'])
+    const issueType = getField(['issue_type', 'Issue Type', 'issueType', 'type_of_issue', 'Type of Issue'])
+    const propertyType = getField(['property_type', 'Property Type', 'propertyType'])
+    const urgency = getField(['urgency', 'Urgency', 'how_urgent', 'How Urgent Is This?'])
+    // initial_photos arrives as a JSON array of Storage paths — read it directly
+    // (do NOT route through getField/stripHtml, which coerce to a single string).
+    const initialPhotos = Array.isArray(body['initial_photos'])
+      ? (body['initial_photos'] as unknown[]).map((p) => String(p).trim()).filter(Boolean).slice(0, 5)
+      : []
+
     const usedValues = new Set([fullName, phone, email, street, suburb, postcode, preferredDate, preferredTime, issueDescription].filter(Boolean))
 
     // Track each smart-extraction fallback that fires. Logged at the end so
@@ -645,6 +686,11 @@ Deno.serve(async (req) => {
       preferredDate: preferredDate || undefined,
       preferredTime: preferredTime || undefined,
       issueDescription: issueDescription || undefined,
+      preferredDay: preferredDay || undefined,
+      issueType: issueType || undefined,
+      propertyType: propertyType || undefined,
+      urgency: urgency || undefined,
+      initialPhotos: initialPhotos.length > 0 ? initialPhotos : undefined,
     })
 
     if (!parsedLead.success) {
@@ -682,7 +728,8 @@ Deno.serve(async (req) => {
       property_address_street: street,
       property_address_suburb: suburb,
       property_address_state: 'VIC',
-      property_address_postcode: postcode,
+      // In-app form omits postcode; column is NOT NULL so default to ''.
+      property_address_postcode: postcode || '',
       customer_preferred_date: preferredDate || null,
       customer_preferred_time: preferredTime || null,
       issue_description: issueDescription || null,
@@ -690,6 +737,12 @@ Deno.serve(async (req) => {
       status: 'new_lead',
       is_possible_duplicate: isPossibleDuplicate,
       possible_duplicate_of: possibleDuplicateOf,
+      // In-app /request-inspection form fields (null/empty for Framer payloads).
+      preferred_day: preferredDay || null,
+      issue_type: issueType || null,
+      property_type: propertyType || null,
+      urgency: urgency || null,
+      initial_photos: initialPhotos,
     }
 
     const { data: leadData, error: insertError } = await insertLeadWithRetry(
@@ -723,6 +776,10 @@ Deno.serve(async (req) => {
       preferred_date: preferredDate || undefined,
       preferred_time: preferredTime || undefined,
       issue_description: issueDescription || undefined,
+      preferred_day: preferredDay || undefined,
+      issue_type: issueType || undefined,
+      property_type: propertyType || undefined,
+      urgency: urgency || undefined,
     }
     const createdAt = new Date().toISOString()
 

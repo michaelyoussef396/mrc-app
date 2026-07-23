@@ -146,7 +146,7 @@ export interface InspectionFormData {
   // Calculated Values (auto-calculated from tier pricing)
   // Labour uses tier interpolation: 2h=$X, 8h=$Y with linear interpolation
   laborCost: number;           // Labour cost after discount (ex GST)
-  discountPercent: number;     // Volume discount (0%, 7.5%, 10.25%, 11.5%, 13% max)
+  discountPercent: number;     // Always 0 — per-day DAY_RATES model replaced the volume discount (see pricing.ts)
   subtotalExGst: number;       // Labour after discount + Equipment
   gstAmount: number;           // GST at 10%
   totalIncGst: number;         // Final total including GST

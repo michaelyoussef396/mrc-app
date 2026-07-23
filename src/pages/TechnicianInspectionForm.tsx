@@ -1879,7 +1879,7 @@ const SHARED_TREATMENT_METHODS = [
   'ULV Fogging - Property',
   'ULV Fogging - Subfloor',
   'Subfloor Remediation',
-  'AFD Installation',
+  'HEPA Air Scrubber Installation',
   'Drying Equipment',
   'Containment and Prep',
 ];
@@ -2528,10 +2528,9 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                 </div>
               </div>
 
-              {/* Discount Tier Info */}
+              {/* Hours / Work Days */}
               <div className="p-3 bg-white rounded-lg border border-gray-100">
-                <p className="text-sm font-medium text-[#1d1d1f]">{costResult.discountTierDescription}</p>
-                <p className="text-xs text-[#86868b] mt-1">
+                <p className="text-xs text-[#86868b]">
                   Total Hours: {costResult.totalLabourHours}h • Work Days: {costResult.totalDays}
                 </p>
               </div>
@@ -2625,10 +2624,9 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                 </div>
               </div>
 
-              {/* Discount Tier Info */}
+              {/* Hours / Work Days */}
               <div className="mt-3 p-3 bg-white/60 rounded-lg">
-                <p className="text-sm font-medium text-[#1d1d1f]">{costResult.discountTierDescription}</p>
-                <p className="text-xs text-[#86868b] mt-1">
+                <p className="text-xs text-[#86868b]">
                   Total Hours: {costResult.totalLabourHours}h • Work Days: {costResult.totalDays}
                 </p>
               </div>

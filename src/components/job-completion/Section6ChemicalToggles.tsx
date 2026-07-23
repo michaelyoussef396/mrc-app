@@ -13,7 +13,7 @@ const CHEMICAL_TOGGLES: Array<{
   field: keyof JobCompletionFormData;
   label: string;
 }> = [
-  { field: 'chemicalAirFiltration', label: 'Air Filtration Device' },
+  { field: 'chemicalAirFiltration', label: 'Air Filtration Treatment' },
   { field: 'chemicalWaterBased', label: 'Water Based Solution' },
   { field: 'chemicalSodiumHypochlorite', label: 'Sodium Hypochlorite' },
   { field: 'chemicalHepaVacuumed', label: "HEPA Vac'd" },

@@ -607,21 +607,6 @@ const Login = () => {
             )}
           </button>
         </form>
-
-        {/* Footer */}
-        <p
-          className="text-center mt-8 text-sm"
-          style={{ color: "#86868b" }}
-        >
-          Don't have an account?{" "}
-          <a
-            href="mailto:support@mouldco.com.au"
-            className="font-medium hover:underline"
-            style={{ color: "#007AFF" }}
-          >
-            Contact Support
-          </a>
-        </p>
       </div>
     </div>
   );
