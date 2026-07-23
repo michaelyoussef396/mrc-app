@@ -1,10 +1,54 @@
 # MRC Lead Management System — Current TODO
 
-**Last Updated:** 2026-07-07
-**Production state:** main @ `9d6c460`, production @ `1636ade`, mrcsystem.com serving Phase 4 Stage 4.3
+## ⚠️ PENDING: Email Domain DNS Cutover
+DNS records (SPF/DKIM/DMARC) for mouldandrestoration.com.au NOT yet configured.
+Resend domain NOT yet verified.
+**Scheduling (decided 2026-07-13):** now scheduled as an EARLY launch-weekend task —
+start the DNS setup FIRST because verification can take a few hours. This reverses the
+earlier "separate, later item" framing.
+Do NOT switch sending domain until DNS is verified in Resend dashboard. If it is not
+verified in time, launch on the current working domain and switch shortly after — do
+not delay launch for it.
+Once DNS is done: re-run a full email send test (booking confirmation +
+inspection report) and verify headers pass SPF/DKIM/DMARC before trusting
+production email delivery.
+
+---
+
+**Last Updated:** 2026-07-23
+**Production state:** main @ `b50d07b`, production @ `9fdc853` (merge of PRs #67–#71 + login-footer fix), mrcsystem.com live and verified 2026-07-23
 **Status:** Phase 1 + Phase 3 + Phase 4 Stages 4.1/4.1.5/4.2/4.3 COMPLETE in production. Phase 2 (Job Completion) built and deployed — existence-verified 2026-07-07, runtime-untested against dev (see "Phase 2 — Job Completion Workflow: Existence Verification" below). Pre-launch hardening underway.
 
 Backed by `docs/inspection-workflow-fix-plan-v2-2026-04-30.md` (48-stage execution map) and `docs/JOB_COMPLETION_PRD.md` (Phase 2 spec).
+
+---
+
+## Follow-ups from 23 Jul 2026 session (production deploy + env-var outage recovery)
+
+Context: merging main → production (PRs #67–#71 + login-footer fix) exposed that the Supabase↔Vercel
+marketplace integration had clobbered the Production-scope `VITE_SUPABASE_*` env vars (~30 Jun) —
+first prod build since shipped a blank page (~1h outage, same-day recovery). Vars restored, `9fdc853`
+redeployed, site verified end-to-end at 375px, all 6 active migrations from the deployed PRs
+confirmed applied on prod. Smoke-test lead created + deleted same session.
+
+- [ ] **Decide Supabase↔Vercel marketplace integration fate.** It owns env-var naming and can
+      re-sync/clobber the hand-maintained `VITE_*` vars again. Either disconnect it, or document that
+      `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (Production) must be re-verified after any
+      integration change. Pre-deploy check: `npx vercel env ls production --project mrc-system`.
+- [ ] **`.env.local` + `.gitignore` from `vercel link`.** The relink auto-created `.env.local`
+      (Development-scope pull) and appended `.env*` to `.gitignore`. Decide: commit the
+      `.gitignore` line (recommended) and delete `.env.local` (local dev already uses
+      `.env.development.local` → DEV).
+- [ ] **Replace dead `SUPABASE_ACCESS_TOKEN` in the `mcp__supabase` MCP server config.** Server
+      rejects all calls ("Unauthorized"); token was rotated out. Until fixed, DB access from CC
+      sessions = Supabase CLI (authed) + PostgREST with keys fetched via
+      `supabase projects api-keys` — or complete the Supabase MCP plugin OAuth.
+- [ ] **Confirm `audited_insert_lead_via_framer` anon-revoke in Studio** (1 query — the SELECT at
+      the bottom of `20260709120000_revoke_anon_execute_audit_rpcs.sql`). Its companion RPC was
+      probe-verified `42501` on 2026-07-23; this one is inferred-applied only (probing would insert
+      a real lead).
+- [ ] **Triage the 6 old git stashes** (`xero + lead detail WIP`, `wave-1-prep`, etc. — all pre-date
+      2026-07-23). Recover anything wanted, drop the rest.
 
 ---
 
