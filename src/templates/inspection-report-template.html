@@ -511,8 +511,8 @@
             <!-- Option 1 Price Text -->
             <div style="left: 320.2px; top: 178.5px; position: absolute; color: white; font-size: 16px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0303px; word-wrap: break-word; z-index: 6;">{{option_1_price}}</div>
 
-            <!-- Option 1 Description -->
-            <div style="width: 622px; left: 37px; top: 214px; position: absolute; color: #252525; font-size: 14px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">A. Eradication of visible mould from all impacted zones as detailed in the prior report.<br/><br/>B. Diminishment of airborne mould spores within the property through sanitisation.</div>
+            <!-- Option 1 Description — populated by the EF: selected treatment methods, or the historic static text for legacy inspections -->
+            <div style="width: 622px; left: 37px; top: 214px; position: absolute; color: #252525; font-size: 14px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">{{option_1_steps}}</div>
 
             <!-- OPTION 2: COMPREHENSIVE TREATMENT -->
             <div style="left: 37px; top: 400px; position: absolute; color: #252525; font-size: 17px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0393px; word-wrap: break-word; z-index: 5;">OPTION 2: COMPREHENSIVE TREATMENT</div>
@@ -526,14 +526,14 @@
             <!-- Option 2 Price Text -->
             <div style="left: 308.2px; top: 433.5px; position: absolute; color: white; font-size: 16px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0342px; word-wrap: break-word; z-index: 6;">{{option_2_price}}</div>
 
-            <!-- Option 2 Description -->
-            <div style="width: 622px; left: 37px; top: 476px; position: absolute; color: #252525; font-size: 14px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">A. Eradication of visible mould from all impacted zones as detailed in the prior report.<br/><br/>B. Removal of mould-affected materials and infrastructural components.<br/><br/>C. Diminishment of airborne mould spores within the property through sanitisation.<br/><br/>D. Proper Disposal and handling of removed mould-affected materials.</div>
+            <!-- Option 2 Description — populated by the EF: selected treatment methods, or the historic static text for legacy inspections -->
+            <div style="width: 622px; left: 37px; top: 476px; position: absolute; color: #252525; font-size: 14px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">{{option_2_steps}}</div>
 
             <!-- EQUIPMENT COSTS heading -->
             <div style="left: 38px; top: 670.5px; position: absolute; color: #252525; font-size: 19px; font-family: 'Garet Heavy', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0475px; word-wrap: break-word; z-index: 5;">EQUIPMENT COSTS</div>
 
-            <!-- Equipment costs list -->
-            <div style="width: 271px; left: 38px; top: 695px; position: absolute; color: #252525; font-size: 14px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">Commercial dehumidifier: {{equipment_dehumidifier}}<br/>Air Mover: {{equipment_air_mover}}<br/>RCD Box: {{equipment_rcd_box}}<br/>Capped at <span style="text-decoration: underline;">{{equipment_max_days}}</span></div>
+            <!-- Equipment costs list — 390px wide (red note starts at x=450); 6 lines end ~809px, photos start 827px -->
+            <div style="width: 390px; left: 38px; top: 695px; position: absolute; color: #252525; font-size: 14px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">Commercial dehumidifier: {{equipment_dehumidifier}}<br/>Air Mover: {{equipment_air_mover}}<br/>RCD Box: {{equipment_rcd_box}}<br/>HEPA Air Scrubber: {{equipment_hepa}}<br/>Capped at <span style="text-decoration: underline;">{{equipment_max_days}}</span><br/>{{waste_disposal}}</div>
 
             <!-- Red note (right side) -->
             <div style="width: 309px; left: 450px; top: 666.5px; position: absolute; color: #CD0000; font-size: 14px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: 19px; letter-spacing: 0.0231px; word-wrap: break-word; z-index: 5;">PLEASE NOTE: Mould & Restoration CO. Specialises in the removal of these materials and does not provide replacement services. Clients are advised to arrange for replacement through other specialised services.</div>
