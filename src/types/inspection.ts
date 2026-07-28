@@ -121,6 +121,8 @@ export interface InspectionFormData {
   airMoversQty: number;
   rcdBoxEnabled: boolean;
   rcdBoxQty: number;
+  hepaAirScrubberQty: number;
+  hepaAirScrubberDays: number;             // 0 = auto (shared equipment days)
 
   // Section 8: Job Summary
   recommendDehumidifier: boolean;

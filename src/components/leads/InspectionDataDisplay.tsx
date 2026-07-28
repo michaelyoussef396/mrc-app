@@ -716,6 +716,8 @@ function CostEstimateSection({
     dehumidifierQty: i.commercial_dehumidifier_qty || 0,
     airMoverQty: i.air_movers_qty || 0,
     rcdQty: i.rcd_box_qty || 0,
+    hepaAirScrubberQty: i.hepa_air_scrubber_qty || 0,
+    hepaAirScrubberDays: i.hepa_air_scrubber_days || undefined,
   });
 
   const option1Result: CostEstimateResult | null = i.option_selected === 3
@@ -726,6 +728,8 @@ function CostEstimateSection({
         dehumidifierQty: i.commercial_dehumidifier_qty || 0,
         airMoverQty: i.air_movers_qty || 0,
         rcdQty: i.rcd_box_qty || 0,
+        hepaAirScrubberQty: i.hepa_air_scrubber_qty || 0,
+        hepaAirScrubberDays: i.hepa_air_scrubber_days || undefined,
       })
     : null;
 
@@ -887,6 +891,14 @@ function CostEstimateSection({
                 Air Movers — {costResult.equipment.airMover.qty} × {fmtCurrency(EQUIPMENT_RATES.airMover)}/day × {costResult.equipment.days} day{costResult.equipment.days === 1 ? '' : 's'}
               </span>
               <span className="font-medium text-slate-800">{fmtCurrency(costResult.equipment.airMover.cost)}</span>
+            </div>
+          )}
+          {costResult.equipment.hepaAirScrubber.qty > 0 && (
+            <div className="flex justify-between">
+              <span className="text-slate-700">
+                HEPA Air Scrubber — {costResult.equipment.hepaAirScrubber.qty} × {fmtCurrency(EQUIPMENT_RATES.hepaAirScrubber)}/day × {costResult.equipment.hepaAirScrubber.days} day{costResult.equipment.hepaAirScrubber.days === 1 ? '' : 's'}
+              </span>
+              <span className="font-medium text-slate-800">{fmtCurrency(costResult.equipment.hepaAirScrubber.cost)}</span>
             </div>
           )}
           {costResult.equipment.rcd.qty > 0 && (
