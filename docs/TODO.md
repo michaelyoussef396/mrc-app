@@ -96,6 +96,43 @@ writes on job creation · invoice seeding precedence on real rows.
 6. [CC] Phase 5 closer: rewrite guide section 6 (gaps → closed), <800 words, verify vs
    pricing.ts, 375px check.
 
+### ADDENDUM — second work batch (28 Jul late evening)
+
+Five more scoped commits on local main (typecheck + build + 60/60 tests green after each):
+
+| Commit | What |
+|---|---|
+| `dc17242` | fix(rules): australian-compliance.md dehumidifier $132 → $119, HEPA added to the rate line. |
+| `e04b410` | docs(cost-system): SUPERSEDED banner on COST_CALCULATION_SYSTEM.md → points at PRICING_AND_PROCESS_GUIDE.html. |
+| `9eb0439` | feat(ai-summary): buildAIPayload sends resolved HEPA (qty/days/cost via shared getSharedEquipmentDays helper); summary EF renders a HEPA equipment line AND its TREATMENT METHODS line now prefers the canonical treatmentMethods array (was reading only 4 legacy booleans — the array was sent but never consumed). Waste verified already present in payload + prompt. Old deployed EF safely ignores the new fields (zod record is permissive). |
+| `7dae371` | feat(job-pdf): the job report previously rendered NO equipment/waste anywhere. Contents-page navy card now carries an EQUIPMENT & WASTE section via new `{{equipment_summary}}` placeholder (per-item actuals with line totals, equipment total, waste "billed once" line, graceful empty fallback). Plus the defensive catch-all placeholder strip the job EF lacked. Job template verified byte-identical to live PROD before editing; edited copy upserted to DEV Storage (DEV has no job EF → template-first is safe THERE ONLY). |
+| `41c99ad` | fix(job-completion): independent re-review follow-ups (below). |
+
+**Independent re-review of `1c663e8` (fresh agent, full run):** no criticals. 1 major
+FIXED (createJobCompletion swallowed inspection-fetch errors — a transient failure
+permanently forged a "never quoted" snapshot; now captures + throws, retryable). 3 minors
+FIXED (waste fields in the EditSheet field-edit map; Confirm clears the override flag;
+Save Override shows the amount so a cleared-field $0.00 is deliberate). 1 minor ACCEPTED
+AS DESIGN (admin EditSheet can save m³ changes without re-confirming the price — the
+no-stale-price invariant still holds; chips render em-dash). WasteCard state machine,
+null-vs-zero semantics, and legacy-card behaviour all verified clean.
+
+**Michael's addenda to the ordered steps:**
+- DEV job-report EF deploy (template already on DEV Storage):
+  `npx supabase functions deploy generate-job-report-pdf --project-ref ctppzqnysmzynkxjlzta`
+  → then CC can run the job-PDF render E2E the same way as the inspection one.
+- AI-summary HEPA needs `generate-inspection-summary` deployed wherever it's tested —
+  NOT on DEV yet (DEV still has only generate-inspection-pdf) and it needs the
+  OPENROUTER_API_KEY secret (part of the wider L4 "deploy 12 EFs to DEV" gap).
+- **PROD sequence gains two uploads + two deploys:** after migrations →
+  deploy `generate-inspection-pdf` AND `generate-job-report-pdf` (+
+  `generate-inspection-summary` when convenient) to PROD **FIRST**, then upload BOTH
+  templates to PROD `pdf-templates`: `src/templates/inspection-report-template.html`
+  AS `inspection-report-template-final.html`, and `src/templates/job-report-template.html`
+  AS `job-report-template.html` (same name). EF-first is MANDATORY on PROD for the job
+  template too — the live PROD job EF has no catch-all, so template-first would print
+  literal `{{equipment_summary}}` on customer reports.
+
 ### Known issues logged this session (separate sections below)
 
 - GitNexus false negatives on inline-component call edges — grep-verify LOW/zero results.
