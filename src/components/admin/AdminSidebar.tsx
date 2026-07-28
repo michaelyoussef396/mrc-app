@@ -48,7 +48,8 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
         .from('leads')
         .select('*', { count: 'exact', head: true })
         .is('assigned_to', null)
-        .in('status', ['new_lead', 'hipages_lead']);
+        .in('status', ['new_lead', 'hipages_lead'])
+        .is('archived_at', null);
       if (error) throw error;
       return count ?? 0;
     },

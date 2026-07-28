@@ -34,14 +34,16 @@ export function useUnassignedLeads(): UnassignedLeadsResult {
       setIsLoading(true);
 
 
-      // Fetch leads that are new/hipages OR have no technician assigned
+      // Unassigned new leads — same filter as the "Leads to Assign" card and
+      // sidebar badge so all three surfaces report the same count
       const { data, error: fetchError, count } = await supabase
         .from('leads')
         .select('id, full_name, property_address_suburb, status, assigned_to, created_at, phone, email', { count: 'exact' })
-        .or('status.in.(new_lead,hipages_lead),assigned_to.is.null')
+        .is('assigned_to', null)
+        .in('status', ['new_lead', 'hipages_lead'])
         .is('archived_at', null)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(50);
 
       if (fetchError) {
         console.error('[UnassignedLeads] Fetch error:', fetchError);

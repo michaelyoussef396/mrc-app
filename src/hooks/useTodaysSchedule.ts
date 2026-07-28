@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { formatTimeAU } from '@/lib/dateUtils';
 
 interface ScheduleItem {
   id: string;
@@ -31,23 +32,27 @@ export function useTodaysSchedule(): TodaysScheduleResult {
 
   const fetchTodaysSchedule = async () => {
     try {
-      // Get today's date in YYYY-MM-DD format (Melbourne timezone)
-      // Use en-CA locale with Intl.DateTimeFormat — it outputs YYYY-MM-DD directly
-      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' }).format(new Date());
+      // Today's Melbourne day window
+      const now = new Date();
+      const melbourneNow = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
+      const startOfToday = new Date(melbourneNow);
+      startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date(startOfToday);
+      endOfToday.setDate(endOfToday.getDate() + 1);
 
-
-      // Fetch inspections for today with lead details.
-      // NOTE: inspection_start_time + selected_job_type columns dropped in
-      // Phase 5 dead-column drop migration. Schedule shows 'TBD' for time
-      // and a generic 'Inspection' label until a replacement schedule
-      // model is built.
+      // Bookings whose span overlaps today (Melbourne). Overlap predicate
+      // (start < end-of-day AND end > start-of-day) so a multi-day booking
+      // appears on EVERY day of its span, not just its start date.
       const { data, error: fetchError } = await supabase
-        .from('inspections')
+        .from('calendar_bookings')
         .select(`
           id,
-          inspection_date,
-          inspector_name,
-          inspector_id,
+          start_datetime,
+          end_datetime,
+          event_type,
+          all_day,
+          status,
+          assigned_to,
           lead:leads (
             id,
             full_name,
@@ -56,29 +61,44 @@ export function useTodaysSchedule(): TodaysScheduleResult {
             status
           )
         `)
-        .eq('inspection_date', today)
-        .order('inspection_date', { ascending: true });
+        .lt('start_datetime', endOfToday.toISOString())
+        .gt('end_datetime', startOfToday.toISOString())
+        .neq('status', 'cancelled')
+        .order('start_datetime', { ascending: true });
 
       if (fetchError) {
         console.error('[Schedule] Fetch error:', fetchError);
         throw fetchError;
       }
 
+      // Resolve technician names for the assigned user ids
+      const techIds = [...new Set((data || []).map((b: any) => b.assigned_to).filter(Boolean))] as string[];
+      const nameMap = new Map<string, string>();
+      if (techIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', techIds);
+        if (profilesError) {
+          console.warn('[Schedule] Profile fetch error (names fall back to Unassigned):', profilesError);
+        }
+        (profiles || []).forEach((p) => nameMap.set(p.id, p.full_name || ''));
+      }
 
       // Transform the data
-      const transformedSchedule: ScheduleItem[] = (data || []).map((inspection: any) => {
-        const lead = inspection.lead;
-        const techName = inspection.inspector_name || 'Unassigned';
+      const transformedSchedule: ScheduleItem[] = (data || []).map((booking: any) => {
+        const lead = booking.lead;
+        const techName = (booking.assigned_to && nameMap.get(booking.assigned_to)) || 'Unassigned';
 
         return {
-          id: inspection.id,
-          time: 'TBD',
+          id: booking.id,
+          time: booking.all_day ? 'All day' : formatTimeAU(booking.start_datetime),
           clientName: lead?.full_name || 'Unknown Client',
           address: lead?.property_address_street || '',
           suburb: lead?.property_address_suburb || '',
           technicianName: techName,
           technicianInitial: techName.charAt(0).toUpperCase(),
-          inspectionType: 'Inspection',
+          inspectionType: booking.event_type === 'job' ? 'Job' : 'Inspection',
           leadStatus: lead?.status || 'unknown',
           leadId: lead?.id || '',
         };
@@ -96,4 +116,3 @@ export function useTodaysSchedule(): TodaysScheduleResult {
 
   return { schedule, isLoading, error };
 }
-
