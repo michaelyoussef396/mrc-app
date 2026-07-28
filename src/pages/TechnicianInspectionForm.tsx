@@ -1892,6 +1892,15 @@ const getEffectiveHepaQty = (formData: InspectionFormData) =>
     ? (formData.hepaAirScrubberQty || 0)
     : 0;
 
+// Shared equipment days, derived exactly the way Section 9 / the pricing engine do.
+// Used for the HEPA "Auto (N)" display and the AI payload's resolved HEPA days.
+const getSharedEquipmentDays = (formData: InspectionFormData) => {
+  const nonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
+  const demoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
+  const subfloorHours = formData.subfloorTreatmentTime || 0;
+  return Math.max(1, Math.ceil((nonDemoHours + demoHours + subfloorHours) / 8));
+};
+
 function Section7WorkProcedure({ formData, onChange }: SectionProps) {
   const selected = formData.selectedTreatmentMethods;
   const optionSelected = formData.optionSelected;
@@ -1922,12 +1931,7 @@ function Section7WorkProcedure({ formData, onChange }: SectionProps) {
   const dryingEquipmentEnabled = selected.includes('Drying Equipment');
   const hepaAirScrubberEnabled = selected.includes('HEPA Air Scrubber Installation');
 
-  // Mirror Section 9's labour-hour derivation so "Auto" shows the exact shared
-  // equipment days the pricing engine will use when Days is left at 0.
-  const hepaAutoNonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
-  const hepaAutoDemoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
-  const hepaAutoSubfloorHours = formData.subfloorTreatmentTime || 0;
-  const sharedEquipmentDays = Math.max(1, Math.ceil((hepaAutoNonDemoHours + hepaAutoDemoHours + hepaAutoSubfloorHours) / 8));
+  const sharedEquipmentDays = getSharedEquipmentDays(formData);
 
   return (
     <section className="space-y-5">
@@ -2723,6 +2727,12 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
 
 // buildPayload: construct the payload for the AI edge function
 function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
+  // Resolved HEPA values so AI summaries match the quote (qty 0 when the method
+  // toggle is off; days resolve to the shared equipment days when left on auto).
+  const hepaQty = getEffectiveHepaQty(formData);
+  const hepaDays = hepaQty > 0
+    ? ((formData.hepaAirScrubberDays || 0) > 0 ? formData.hepaAirScrubberDays : getSharedEquipmentDays(formData))
+    : null;
   return {
     propertyAddress: formData.address,
     clientName: lead?.full_name,
@@ -2780,6 +2790,9 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
     airMoversQty: formData.airMoversQty,
     rcdBoxEnabled: formData.rcdBoxEnabled,
     rcdBoxQty: formData.rcdBoxQty,
+    hepaAirScrubberQty: hepaQty,
+    hepaAirScrubberDays: hepaDays,
+    hepaAirScrubberCost: hepaQty > 0 && hepaDays ? hepaQty * EQUIPMENT_RATES.hepaAirScrubber * hepaDays : 0,
     recommendDehumidifier: formData.recommendDehumidifier,
     dehumidifierSize: formData.dehumidifierSize,
     causeOfMould: formData.causeOfMould,

@@ -100,6 +100,10 @@ interface InspectionFormData {
   airMoversQty?: number
   rcdBoxEnabled?: boolean
   rcdBoxQty?: number
+  hepaAirScrubberQty?: number
+  hepaAirScrubberDays?: number | null
+  hepaAirScrubberCost?: number
+  treatmentMethods?: string[]
 
   // Job Summary Section
   recommendDehumidifier?: boolean
@@ -272,12 +276,18 @@ function buildUserPrompt(formData: InspectionFormData): string {
   if (formData.outdoorDewPoint) lines.push(`- Dew Point: ${formData.outdoorDewPoint}°C`)
   if (formData.outdoorComments) lines.push(`- Comments: ${sanitizeField(formData.outdoorComments)}`)
 
-  // Treatment Plan
-  const treatments: string[] = []
-  if (formData.hepaVac) treatments.push('HEPA Vacuum')
-  if (formData.antimicrobial) treatments.push('Antimicrobial Treatment')
-  if (formData.stainRemovingAntimicrobial) treatments.push('Stain-Removing Antimicrobial')
-  if (formData.homeSanitationFogging) treatments.push('Home Sanitation/Fogging')
+  // Treatment Plan — prefer the canonical selected-methods array (covers all 11
+  // methods incl. HEPA Air Scrubber Installation); legacy boolean fallback keeps
+  // pre-array payloads rendering as before.
+  const treatments: string[] = formData.treatmentMethods && formData.treatmentMethods.length > 0
+    ? [...formData.treatmentMethods]
+    : []
+  if (treatments.length === 0) {
+    if (formData.hepaVac) treatments.push('HEPA Vacuum')
+    if (formData.antimicrobial) treatments.push('Antimicrobial Treatment')
+    if (formData.stainRemovingAntimicrobial) treatments.push('Stain-Removing Antimicrobial')
+    if (formData.homeSanitationFogging) treatments.push('Home Sanitation/Fogging')
+  }
   if (treatments.length > 0) {
     lines.push(`\nTREATMENT METHODS: ${treatments.join(', ')}`)
   }
@@ -292,6 +302,13 @@ function buildUserPrompt(formData: InspectionFormData): string {
   }
   if (formData.rcdBoxEnabled && formData.rcdBoxQty) {
     equipment.push(`${formData.rcdBoxQty}x RCD Safety Box`)
+  }
+  // HEPA has no enabled boolean — an effective qty of 0 already encodes "toggle off".
+  if (formData.hepaAirScrubberQty) {
+    const hepaDetail = formData.hepaAirScrubberDays
+      ? ` ($100/day × ${formData.hepaAirScrubberDays} days = $${(formData.hepaAirScrubberCost || 0).toFixed(2)} ex GST)`
+      : ''
+    equipment.push(`${formData.hepaAirScrubberQty}x HEPA Air Scrubber${hepaDetail}`)
   }
   if (equipment.length > 0) {
     lines.push(`DRYING EQUIPMENT: ${equipment.join(', ')}`)
