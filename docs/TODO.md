@@ -70,16 +70,24 @@ writes on job creation · invoice seeding precedence on real rows.
 
 ### Michael's ordered steps
 
-1. `git push origin main` → Vercel preview builds (preview env → DEV).
+1. ~~`git push origin main`~~ — DONE (Michael, 28 Jul eve, `6fa0855..77fcc22`).
 2. Smoke the forms on preview at 375px: HEPA panel only when its toggle is on; Section 9
    HEPA line; job completion quoted values real (no false amber); WasteCard flow; invoice
-   helper chips.
-3. Deploy the EF to DEV (sandbox): `npx supabase functions deploy generate-inspection-pdf --project-ref ctppzqnysmzynkxjlzta`
-4. E2E render on preview — single AND Both mode, HEPA+waste inspection:
-   HEPA line on Page 8 · waste line (Both mode says "billed once") · scope-of-work steps
-   show the actual selected treatment methods (first time this feature ever works) ·
-   no leaked `{{…}}` · description text fits its area at 4-6 methods (scaled type).
-5. **PROD sequence (only after E2E green + parallel stream ready):** apply
+   helper chips. **Still outstanding — the only unverified surface.**
+3. ~~Deploy the EF to DEV~~ — DONE (Michael, 28 Jul eve).
+4. ~~E2E render~~ — **DONE by CC against the DEPLOYED DEV EF + live DEV Storage template
+   (28 Jul eve): single mode 7/7 PASS, Both mode 8/8 PASS, legacy fallback 5/5 PASS.**
+   Verified: HEPA line ("$100/day × 2 (3 days)") · waste single ("6 m³ — $550.00 +GST")
+   and Both ("billed once") wording · scope steps rendered from real treatment methods
+   with scaled type (5 methods → 12px wrapper) · zero leaked `{{…}}` · legacy rows
+   (empty methods / null HEPA / null waste) reproduce the historic static text,
+   informational HEPA rate, and "Not required" · DOM-measured geometry: equipment list
+   695→809px vs photos 827px (18px clear); Option-1 steps end 386px vs Option-2 title
+   400px. Test fixture: DEV inspection `fc568a31-…17ff` left STAGED in Both mode
+   (2 HEPA × 3d, 6 m³/$550, 5 methods, option totals 3000/5000) for the UI smoke; the
+   render used the default EF path, so DEV also gained pdf_versions rows + an
+   inspection-reports HTML object (sandbox, expected).
+5. **PROD sequence (only after step-2 smoke green + parallel stream ready):** apply
    `20260624113911` then `20260728120000` in PROD Studio → deploy EF to PROD
    (`--project-ref ecyivrxjpsmjmexqatym`) → upload `src/templates/inspection-report-template.html`
    to PROD Storage AS `inspection-report-template-final.html` (EF FIRST, template second —
