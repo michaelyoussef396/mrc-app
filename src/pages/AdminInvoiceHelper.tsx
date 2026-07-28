@@ -95,6 +95,32 @@ function isAutoLine(item: InvoiceLineItem): boolean {
   return item.description.startsWith(LABOUR_LINE_PREFIX) || item.description.startsWith(EQUIPMENT_LINE_PREFIX)
 }
 
+/** One estimate/actual reference row with a Use button. Display-only until Use is tapped. */
+function RefChip({ label, text, onUse, disabled }: {
+  label: 'Estimate' | 'Actual'
+  text: string
+  onUse: () => void
+  disabled: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-md bg-gray-50 border border-gray-200 px-2.5 py-1">
+      <span className="text-xs text-gray-600">
+        {label}:{' '}
+        <span className="font-medium text-gray-900 tabular-nums">{text}</span>
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-9 px-3 text-xs flex-shrink-0"
+        onClick={onUse}
+        disabled={disabled}
+      >
+        Use
+      </Button>
+    </div>
+  )
+}
+
 const EQUIPMENT_KEYS: EquipmentKey[] = ['dehumidifier', 'airMover', 'hepaAirScrubber', 'rcd']
 
 /**
@@ -159,6 +185,14 @@ export default function AdminInvoiceHelper() {
   const [subfloorHours, setSubfloorHours] = useState(0)
   const [equipment, setEquipment] = useState<Record<EquipmentKey, EquipmentUsage>>(() => seedEquipment(null))
 
+  // Estimate-vs-actual reference values, display-only — never persisted as line items,
+  // so calculateInvoiceTotals partitions and the custom-items filter stay untouched.
+  // The admin picks a side with a Use button (or types freely); the inputs stay authoritative.
+  const [estimates, setEstimates] = useState<Record<EquipmentKey, EquipmentUsage> | null>(null)
+  const [actuals, setActuals] = useState<Record<EquipmentKey, EquipmentUsage> | null>(null)
+  const [wasteEstimate, setWasteEstimate] = useState<{ m3: number | null; cost: number } | null>(null)
+  const [wasteActual, setWasteActual] = useState<{ m3: number | null; cost: number } | null>(null)
+
   // Custom / variation line items (never volume-discounted)
   const [customItems, setCustomItems] = useState<InvoiceLineItem[]>([])
   const [wasteDisposalCost, setWasteDisposalCost] = useState(0)
@@ -186,14 +220,14 @@ export default function AdminInvoiceHelper() {
         const [{ data: jc }, { data: inspection }] = await Promise.all([
           supabase
             .from('job_completions')
-            .select('id, job_number, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_afd_qty, actual_afd_days, actual_rcd_qty, actual_rcd_days')
+            .select('id, job_number, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_afd_qty, actual_afd_days, actual_rcd_qty, actual_rcd_days, actual_waste_disposal_m3, actual_waste_disposal_cost')
             .eq('lead_id', leadId)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
           supabase
             .from('inspections')
-            .select('no_demolition_hours, demolition_hours, subfloor_hours, waste_disposal_confirmed_cost')
+            .select('no_demolition_hours, demolition_hours, subfloor_hours, waste_disposal_m3, waste_disposal_confirmed_cost, commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty, equipment_days, hepa_air_scrubber_qty, hepa_air_scrubber_days')
             .eq('lead_id', leadId)
             .order('created_at', { ascending: false })
             .limit(1)
@@ -210,23 +244,50 @@ export default function AdminInvoiceHelper() {
         setPropertyAddress(existing?.property_address ?? populated.property_address ?? null)
         setJobCompletionId(existing?.job_completion_id ?? populated.job_completion_id ?? null)
 
+        // Estimate (inspection quote) vs actual (job completion) reference values.
+        // Recomputed on every load — they survive reload without being persisted anywhere.
+        const shared = Number(inspection?.equipment_days ?? 0)
+        const inspectionEstimates: Record<EquipmentKey, EquipmentUsage> | null = inspection
+          ? {
+              dehumidifier: { qty: Number(inspection.commercial_dehumidifier_qty ?? 0), days: shared },
+              airMover: { qty: Number(inspection.air_movers_qty ?? 0), days: shared },
+              hepaAirScrubber: {
+                qty: Number(inspection.hepa_air_scrubber_qty ?? 0),
+                days: Number(inspection.hepa_air_scrubber_days ?? inspection.equipment_days ?? 0),
+              },
+              rcd: { qty: Number(inspection.rcd_box_qty ?? 0), days: shared },
+            }
+          : null
+        const jcActuals = jc ? seedEquipment(jc) : null
+        setEstimates(inspectionEstimates)
+        setActuals(jcActuals)
+
+        const estWaste = Number(inspection?.waste_disposal_confirmed_cost ?? 0) > 0
+          ? { m3: inspection?.waste_disposal_m3 ?? null, cost: round2(Number(inspection?.waste_disposal_confirmed_cost)) }
+          : null
+        const actWaste = jc?.actual_waste_disposal_cost != null
+          ? { m3: jc.actual_waste_disposal_m3 ?? null, cost: round2(Number(jc.actual_waste_disposal_cost)) }
+          : null
+        setWasteEstimate(estWaste)
+        setWasteActual(actWaste)
+
         // Equipment + hours: prefer the breakdown persisted in the saved invoice's line_items so
-        // admin edits survive reload. Only seed from the job completion / inspection on first open,
-        // when no structured breakdown exists yet (new invoice or legacy lump row).
+        // admin edits survive reload. On first open seed from job actuals, else the inspection
+        // estimate — the chips make whichever side seeded (and the other) visible for the admin.
         const savedEquipment = existing ? equipmentFromLineItems(existing.line_items) : null
-        setEquipment(savedEquipment ?? seedEquipment(jc))
+        setEquipment(savedEquipment ?? jcActuals ?? inspectionEstimates ?? seedEquipment(null))
 
         const savedHours = existing ? hoursFromLineItems(existing.line_items) : null
         setNonDemoHours(savedHours ? savedHours.nonDemo : Number(inspection?.no_demolition_hours ?? 0))
         setDemolitionHours(savedHours ? savedHours.demolition : Number(inspection?.demolition_hours ?? 0))
         setSubfloorHours(savedHours ? savedHours.subfloor : Number(inspection?.subfloor_hours ?? 0))
 
-        // Waste: reconstruct from the saved invoice's waste line(s) on reload, else
-        // seed from the inspection's confirmed cost on first open.
+        // Waste: reconstruct from the saved invoice's waste line(s) on reload, else seed
+        // job actual → inspection estimate on first open (same precedence as equipment).
         const savedWaste = existing
           ? round2(existing.line_items.filter(li => li.is_waste).reduce((s, li) => s + (li.total || 0), 0))
           : null
-        setWasteDisposalCost(savedWaste ?? Number(inspection?.waste_disposal_confirmed_cost ?? 0))
+        setWasteDisposalCost(savedWaste ?? actWaste?.cost ?? estWaste?.cost ?? 0)
 
         if (existing) {
           setInvoiceId(existing.id)
@@ -542,12 +603,42 @@ export default function AdminInvoiceHelper() {
             {EQUIPMENT_ROWS.map(row => {
               const { qty, days } = equipment[row.key]
               const lineTotal = round2(qty * days * row.rate)
+              const est = estimates?.[row.key]
+              const act = actuals?.[row.key]
+              const showEst = !!est && est.qty > 0 && est.days > 0
+              const showAct = !!act && act.qty > 0 && act.days > 0
+              const differs = showEst && showAct && (est.qty !== act.qty || est.days !== act.days)
               return (
                 <div key={row.key} className="rounded-lg border border-gray-200 p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">{row.label}</span>
                     <span className="text-xs text-gray-500">{formatCurrency(row.rate)}/day</span>
                   </div>
+                  {(showEst || showAct) && (
+                    <div className="space-y-1.5">
+                      {differs && (
+                        <p className="text-[11px] font-medium text-amber-700">
+                          Inspection estimate and job actual differ — choose one or type below
+                        </p>
+                      )}
+                      {showEst && (
+                        <RefChip
+                          label="Estimate"
+                          text={`${est.qty} × ${est.days} ${est.days === 1 ? 'day' : 'days'} — ${formatCurrency(round2(est.qty * est.days * row.rate))}`}
+                          onUse={() => setEquipment(prev => ({ ...prev, [row.key]: { qty: est.qty, days: est.days } }))}
+                          disabled={saving}
+                        />
+                      )}
+                      {showAct && (
+                        <RefChip
+                          label="Actual"
+                          text={`${act.qty} × ${act.days} ${act.days === 1 ? 'day' : 'days'} — ${formatCurrency(round2(act.qty * act.days * row.rate))}`}
+                          onUse={() => setEquipment(prev => ({ ...prev, [row.key]: { qty: act.qty, days: act.days } }))}
+                          disabled={saving}
+                        />
+                      )}
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor={`${row.key}-qty`} className="text-xs text-gray-500">Qty</Label>
@@ -590,22 +681,49 @@ export default function AdminInvoiceHelper() {
             <span className="text-gray-600 font-medium">Equipment subtotal (never discounted)</span>
             <span className="font-semibold tabular-nums">{formatCurrency(equipmentCost)}</span>
           </div>
-          <div className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
-            <Label htmlFor="wasteDisposalCost" className="text-sm text-gray-600 font-medium">
-              Waste disposal (ex GST, never discounted)
-            </Label>
-            <div className="flex items-center gap-1 w-40">
-              <span className="text-sm text-gray-400">$</span>
-              <Input
-                id="wasteDisposalCost"
-                type="number"
-                min={0}
-                step="0.01"
-                value={wasteDisposalCost || ''}
-                disabled={saving}
-                onChange={e => setWasteDisposalCost(round2(Number(e.target.value) || 0))}
-                className="text-right"
-              />
+          <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 space-y-1.5">
+            {(wasteEstimate || wasteActual) && (
+              <>
+                {wasteEstimate && wasteActual && wasteEstimate.cost !== wasteActual.cost && (
+                  <p className="text-[11px] font-medium text-amber-700">
+                    Inspection estimate and job actual differ — choose one or type below
+                  </p>
+                )}
+                {wasteEstimate && (
+                  <RefChip
+                    label="Estimate"
+                    text={`${wasteEstimate.m3 != null ? `${wasteEstimate.m3} m³ — ` : ''}${formatCurrency(wasteEstimate.cost)}`}
+                    onUse={() => setWasteDisposalCost(wasteEstimate.cost)}
+                    disabled={saving}
+                  />
+                )}
+                {wasteActual && (
+                  <RefChip
+                    label="Actual"
+                    text={`${wasteActual.m3 != null ? `${wasteActual.m3} m³ — ` : ''}${formatCurrency(wasteActual.cost)}`}
+                    onUse={() => setWasteDisposalCost(wasteActual.cost)}
+                    disabled={saving}
+                  />
+                )}
+              </>
+            )}
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="wasteDisposalCost" className="text-sm text-gray-600 font-medium">
+                Waste disposal (ex GST, never discounted)
+              </Label>
+              <div className="flex items-center gap-1 w-40">
+                <span className="text-sm text-gray-400">$</span>
+                <Input
+                  id="wasteDisposalCost"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={wasteDisposalCost || ''}
+                  disabled={saving}
+                  onChange={e => setWasteDisposalCost(round2(Number(e.target.value) || 0))}
+                  className="text-right"
+                />
+              </div>
             </div>
           </div>
         </div>

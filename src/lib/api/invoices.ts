@@ -682,7 +682,7 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
   // Job completion (most recent)
   const { data: jc } = await supabase
     .from('job_completions')
-    .select('id, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_afd_qty, actual_afd_days, actual_rcd_qty, actual_rcd_days')
+    .select('id, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_afd_qty, actual_afd_days, actual_rcd_qty, actual_rcd_days, actual_waste_disposal_m3, actual_waste_disposal_cost')
     .eq('lead_id', leadId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -691,7 +691,7 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
   // Inspection (for quoted amount + labour)
   const { data: inspection, error: inspectionError } = await supabase
     .from('inspections')
-    .select('total_inc_gst, subtotal_ex_gst, labour_cost_ex_gst, equipment_cost_ex_gst, discount_percent, waste_disposal_confirmed_cost')
+    .select('total_inc_gst, subtotal_ex_gst, labour_cost_ex_gst, equipment_cost_ex_gst, discount_percent, waste_disposal_m3, waste_disposal_confirmed_cost')
     .eq('lead_id', leadId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -782,10 +782,15 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
   }
 
   // Waste disposal — confirmed ex-GST pass-through (never discounted).
-  if (inspection?.waste_disposal_confirmed_cost && Number(inspection.waste_disposal_confirmed_cost) > 0) {
-    const wasteCost = round2(Number(inspection.waste_disposal_confirmed_cost))
+  // Prefer the job's confirmed actual (tech re-priced on site) over the inspection estimate.
+  const actualWaste = jc?.actual_waste_disposal_cost != null ? Number(jc.actual_waste_disposal_cost) : null
+  const estimateWaste = inspection?.waste_disposal_confirmed_cost != null ? Number(inspection.waste_disposal_confirmed_cost) : null
+  const wasteCostSource = actualWaste ?? estimateWaste
+  if (wasteCostSource != null && wasteCostSource > 0) {
+    const wasteCost = round2(wasteCostSource)
+    const wasteM3 = actualWaste != null ? jc?.actual_waste_disposal_m3 : inspection?.waste_disposal_m3
     lineItems.push({
-      description: 'Waste disposal',
+      description: `Waste disposal${wasteM3 ? ` (${wasteM3} m³)` : ''}`,
       quantity: 1,
       unit_price: wasteCost,
       total: wasteCost,
