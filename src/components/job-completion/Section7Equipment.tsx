@@ -262,7 +262,12 @@ function WasteCard({
           {!isReadOnly && (
             <button
               type="button"
-              onClick={() => onChange('actualWasteCost', displayCalculated)}
+              onClick={() => {
+                onChange('actualWasteCost', displayCalculated);
+                // Defensive parity with the inspection form: Confirm always means
+                // "calculated price", even if a row arrived with a stray override flag.
+                onChange('actualWasteIsOverridden', false);
+              }}
               className="w-full h-12 bg-[#007AFF] text-white font-semibold rounded-lg flex items-center justify-center"
               style={{ minHeight: '48px' }}
             >
@@ -346,7 +351,8 @@ function WasteCard({
               className="flex-1 h-12 bg-[#007AFF] text-white font-semibold rounded-lg"
               style={{ minHeight: '48px' }}
             >
-              Save Override
+              {/* Amount on the button so a cleared-field $0.00 is saved knowingly */}
+              Save Override — {formatCurrency(round2(overrideDraft))}
             </button>
             <button
               type="button"

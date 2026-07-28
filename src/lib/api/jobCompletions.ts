@@ -136,11 +136,21 @@ export async function createJobCompletion(
   let areasTreated: string[] = []
 
   if (inspectionId) {
-    const { data: inspection } = await supabase
+    const { data: inspection, error: inspectionError } = await supabase
       .from('inspections')
       .select('commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty, equipment_days, attention_to, treatment_methods, hepa_air_scrubber_qty, hepa_air_scrubber_days, waste_disposal_m3, waste_disposal_confirmed_cost')
       .eq('id', inspectionId)
       .single()
+
+    // The quoted snapshot is written ONCE and never re-derived; proceeding on a
+    // failed fetch would permanently forge a "never quoted" baseline that is
+    // indistinguishable from a legacy row. Fail the create — it is retryable.
+    if (inspectionError) {
+      captureBusinessError('Failed to fetch inspection for job completion quote snapshot', {
+        leadId, inspectionId, error: inspectionError.message,
+      })
+      throw new Error(`Failed to load the inspection quote snapshot: ${inspectionError.message}`)
+    }
 
     if (inspection) {
       quotedDehumidifierQty = inspection.commercial_dehumidifier_qty ?? 0
@@ -158,12 +168,18 @@ export async function createJobCompletion(
       attentionTo = inspection.attention_to ?? ''
     }
 
-    // Pre-populate areas treated from inspection areas
-    const { data: areas } = await supabase
+    // Pre-populate areas treated from inspection areas. Non-fatal on failure —
+    // an empty pre-fill is visible in Section 2 and the tech ticks areas manually.
+    const { data: areas, error: areasError } = await supabase
       .from('inspection_areas')
       .select('area_name')
       .eq('inspection_id', inspectionId)
       .order('area_order')
+    if (areasError) {
+      captureBusinessError('Failed to prefill areas treated from inspection', {
+        leadId, inspectionId, error: areasError.message,
+      })
+    }
 
     if (areas) {
       areasTreated = areas.map(a => a.area_name)
