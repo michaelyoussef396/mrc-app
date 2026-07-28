@@ -23,6 +23,81 @@ Backed by `docs/inspection-workflow-fix-plan-v2-2026-04-30.md` (48-stage executi
 
 ---
 
+## HANDOFF — HEPA/waste consistency build (28 Jul 2026 session, PENDING MULTI-SESSION MERGE)
+
+All code phases are committed on LOCAL main. **`git push` was blocked by the session's
+permission classifier — Michael runs `git push origin main` to trigger the Vercel preview.**
+Michael is running a parallel CC session on other debugging; nothing merges to production
+until both streams land together.
+
+### Commits (local main, in order)
+
+| Commit | What |
+|---|---|
+| `a350400` | feat(pricing): HEPA in the equipment engine (qty + own days; absent = byte-identical). 8 new tests, pricing-guardian GO. |
+| `725b764` | feat(db): migration file `20260728120000_hepa_quote_columns.sql` (inspections.hepa_air_scrubber_qty/_days + job_completions.quoted_afd_qty/_days). |
+| `0362c39` | chore(types): regenerated from DEV after both migrations applied there. |
+| `277cc86` | feat(inspection): Section 7 HEPA panel (units/days, Auto (N) days); wired into all 4 calc/save sites + Section 9 + InspectionDataDisplay; first writer of `inspections.equipment_days`. |
+| `1c663e8` | feat(job-completion): WasteCard (quoted vs actual m³, confirm/override, reset-on-edit); quoted HEPA/waste snapshot in createJobCompletion; null-tolerant quoted props (kills HEPA false-amber); rates imported from pricing.ts. |
+| `8be4c83` | feat(invoice): estimate/actual chips + Use buttons (equipment + waste); autoPopulateFromLead prefers job-actual waste; reference values never become line items. |
+| `a68710d` | feat(pdf): Page 8 HEPA + waste lines (Both mode = "billed once"); scope-steps injection fixed via {{option_1_steps}}/{{option_2_steps}} placeholders with count-scaled type (14px ≤3 / 12px 4-5 / 10px 6+), legacy static fallback; dead indexOf surgery deleted; preview gets Both-mode waste input. |
+
+### Verified vs UNTESTED — be honest about the line
+
+**Verified (local, this session):** typecheck clean · `npm run build` clean · 60/60 pricing
+tests · EF parses (esbuild) · template placeholders 1:1 with EF replacements · DEV columns
+live (behavioral probes 200) · PROD schema untouched (probes 400) · repo template was
+byte-identical to live PROD Storage BEFORE editing · Phase 2 adversarially reviewed
+(2a by agent: APPROVE; 2b reviewer died on rate limit — reviewed manually line-by-line,
+2 fixes applied pre-commit).
+
+**UNTESTED at runtime (nothing has rendered or round-tripped):** every UI flow (HEPA
+panel, autosave/localStorage round-trip, WasteCard confirm/override, invoice chips) ·
+EF execution on Deno (incl. page-marker validation with the edited template) · actual
+PDF visual geometry (line-fit numbers are calculated, not rendered) · quoted-snapshot
+writes on job creation · invoice seeding precedence on real rows.
+
+### DEV environment state (prepared this session)
+
+- Both migrations applied to DEV (`ctppzqnysmzynkxjlzta`) by Michael, probe-verified.
+- DEV Storage seeded via Storage API: `pdf-templates` + `pdf-assets` created PUBLIC,
+  90/90 objects copied from PROD (incl. Galvji.ttc re-uploaded as octet-stream), and
+  the EDITED `inspection-report-template-final.html` (66,282B) upserted. Bucket
+  inventory now 1:1 with PROD (`inspection-reports` output bucket already existed).
+- **DEV has ZERO Edge Functions deployed** (restore never carried them) — the
+  generate-inspection-pdf deploy below is the first; EF/template ordering is therefore
+  moot on DEV. This EF needs no custom secrets (Supabase-only).
+
+### Michael's ordered steps
+
+1. `git push origin main` → Vercel preview builds (preview env → DEV).
+2. Smoke the forms on preview at 375px: HEPA panel only when its toggle is on; Section 9
+   HEPA line; job completion quoted values real (no false amber); WasteCard flow; invoice
+   helper chips.
+3. Deploy the EF to DEV (sandbox): `npx supabase functions deploy generate-inspection-pdf --project-ref ctppzqnysmzynkxjlzta`
+4. E2E render on preview — single AND Both mode, HEPA+waste inspection:
+   HEPA line on Page 8 · waste line (Both mode says "billed once") · scope-of-work steps
+   show the actual selected treatment methods (first time this feature ever works) ·
+   no leaked `{{…}}` · description text fits its area at 4-6 methods (scaled type).
+5. **PROD sequence (only after E2E green + parallel stream ready):** apply
+   `20260624113911` then `20260728120000` in PROD Studio → deploy EF to PROD
+   (`--project-ref ecyivrxjpsmjmexqatym`) → upload `src/templates/inspection-report-template.html`
+   to PROD Storage AS `inspection-report-template-final.html` (EF FIRST, template second —
+   PROD still runs the old EF, so reversed order blanks the description areas) → merge
+   main → production.
+6. [CC] Phase 5 closer: rewrite guide section 6 (gaps → closed), <800 words, verify vs
+   pricing.ts, 375px check.
+
+### Known issues logged this session (separate sections below)
+
+- GitNexus false negatives on inline-component call edges — grep-verify LOW/zero results.
+- `.claude/rules/australian-compliance.md` still says dehumidifier $132/day (wrong, $119).
+- `docs/COST_CALCULATION_SYSTEM.md` documents the retired volume-discount tiers as live.
+- Follow-up added 28 Jul eve: `buildAIPayload` in TechnicianInspectionForm doesn't include
+  the new HEPA fields, so AI summaries won't mention a HEPA quote (review finding, minor).
+
+---
+
 ## Follow-ups from 23 Jul 2026 session (production deploy + env-var outage recovery)
 
 Context: merging main → production (PRs #67–#71 + login-footer fix) exposed that the Supabase↔Vercel
@@ -49,6 +124,69 @@ confirmed applied on prod. Smoke-test lead created + deleted same session.
       a real lead).
 - [ ] **Triage the 6 old git stashes** (`xero + lead detail WIP`, `wave-1-prep`, etc. — all pre-date
       2026-07-23). Recover anything wanted, drop the rest.
+
+---
+
+## Follow-ups from 28 Jul 2026 session (pricing doc consolidation)
+
+Surfaced while verifying `src/lib/calculations/pricing.ts` against the docs to build
+`docs/PRICING_AND_PROCESS_GUIDE.html`. All read-only findings — no code was touched.
+
+- [ ] **`docs/COST_CALCULATION_SYSTEM.md` is actively WRONG, not merely stale.** *(Supersedes the
+      milder "stale" note in the 2 Jun list, item 4 — upgrade the severity.)* It documents the
+      **retired volume-discount tier system** (7.5% / 10.25% / 11.5% / 13% by total hours) as the
+      live rule across four sections, including a `calculateDiscount()` code block, a tier table, a
+      worked example applying 10.25%, and test cases asserting the tiers. That system no longer
+      exists — `calculateCostEstimate` returns `discountPercent: 0` unconditionally
+      (`pricing.ts:376, 435`); the per-day `dayRates` model replaced it. Its "Rule 1: pro-rate under
+      2 hours" also contradicts the live charging path, which enforces a **flat 2-hour minimum**
+      (`calculateLabourCostWithBreakdown`, `pricing.ts:115-124`). Worked examples still use
+      pre-2026-06-24 rates. Anyone reading this doc for pricing rules will be misled on the single
+      most money-sensitive rule in the system. Rewrite or retire — own session.
+- [ ] **`.claude/rules/australian-compliance.md` says "Dehumidifier $132/day"** — contradicts live
+      `pricing.ts:28` ($119) *and* contradicts `CLAUDE.md`, which correctly says $119. This rule file
+      is auto-loaded every session, so the wrong figure is in context by default. One-line fix.
+- [ ] **Stale comments in `src/lib/api/invoices.ts:325-326, 361-362`** claim the 13% cap "is enforced
+      by `calculateCostEstimate`'s discount tiers." Those tiers no longer exist. Consequently the
+      branch at `:383` (`est.discountPercent > 0 ? ...volume discount...`) is **unreachable** — it
+      builds a discount note that can never render. Real enforcement is the explicit clamp at
+      `:106-108` plus the two DB CHECK constraints. Correct the comments, drop the dead branch.
+- [ ] **Dead exports in `pricing.ts`.** `interpolateCost` has no importer anywhere (not even the test
+      file) — live only via internal call at `:116`. `formatPercent` is imported at
+      `TechnicianInspectionForm.tsx:15` with **zero call sites** in that file. Drop the unused import;
+      decide whether to unexport `interpolateCost`.
+- [ ] **Inspection PDF scope-of-work injection is a SILENT NO-OP in production (pre-existing, discovered 28 Jul).**
+      `generate-inspection-pdf/index.ts:1539-1585` replaces the template's hardcoded Option 1/2
+      scope-of-work steps with the inspection's selected treatment methods via `indexOf` markers
+      (`'left: 33px; top: 157px;'`, `'top: 370px'`, `'top: 470px'`, `'top: 696px'`). Verified 28 Jul:
+      the LIVE Storage template `pdf-templates/inspection-report-template-final.html` (fetched via
+      public URL, byte-identical to `src/templates/inspection-report-template.html`) contains ZERO
+      of those markers — its Page 8 uses static "Option 1/2 Description" A/B/C/D text at
+      `top: 214px` / `top: 476px` instead. The guards (`if (opt1Idx > 0 ...)`) therefore fail
+      silently and **every customer PDF ships the generic template descriptions, never the
+      selected treatment methods**. Exposure verified same day (read-only PROD SELECTs): 0
+      inspections, 0 pdf_versions rows, 0 report emails since the 13 Jul launch — zero launch-era
+      customers received generic-description reports; no corrective re-sends needed. Key-alignment
+      (old L1 item-7) re-verified: all 11 form labels match STEP_DESCRIPTIONS keys exactly, plus
+      the legacy 'AFD Installation' alias. **FOLDED INTO Phase 3 of the HEPA/waste work (Michael,
+      28 Jul)** — fixed in the same EF-deploy + template-upload cycle; option (a) marker fix /
+      (b) placeholders / (c) delete pending Michael's pick.
+- [ ] **DEV Storage has no PDF buckets content — DEV cannot render any PDF (found 28 Jul).**
+      Public GETs against DEV (`ctppzqnysmzynkxjlzta`) return 400/404 for
+      `pdf-templates/inspection-report-template-final.html`, `pdf-templates/job-report-template.html`
+      AND `pdf-assets/pages/page-6-cleaning-estimate/logo-page6.png` (all 200 on PROD). Either the
+      restore didn't carry these buckets/objects or they're not public on DEV. Blocks any preview
+      E2E of PDF generation. Fix: create/verify `pdf-templates` + `pdf-assets` as PUBLIC buckets on
+      DEV and copy objects from PROD. The earlier "Storage verified present" note (2026-07-07) did
+      not cover these two buckets.
+- [ ] **GitNexus false negative worth knowing about.** After a fresh `analyze` (10,014 symbols),
+      `impact({target: "calculateWasteDisposalCost", direction: "upstream"})` returned **0 callers /
+      LOW risk**, but grep proves a live call at `TechnicianInspectionForm.tsx:1696`. The call sits
+      inside `Section6WasteDisposal`, a component defined *inline* within
+      `TechnicianInspectionForm.tsx` rather than as its own module — the indexer appears to miss
+      call edges from inline-declared components. `calculateCostEstimate` resolved correctly
+      (CRITICAL, 5 direct callers). **Always grep-verify a LOW/zero-impact GitNexus result before
+      trusting it**, especially for symbols consumed by the inline sections of the big form files.
 
 ---
 
