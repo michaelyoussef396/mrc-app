@@ -206,6 +206,11 @@ export default function JobCompletionForm() {
       }
     }
 
+    // Section 7: Waste — an entered m³ must have an explicitly confirmed price
+    if (formData.actualWasteM3 && formData.actualWasteM3 > 0 && formData.actualWasteCost == null) {
+      errors.push({ section: 7, message: 'Confirm the waste disposal price in Equipment (Section 7)' })
+    }
+
     // Section 8: Variations — if scope changed, require what + why
     if (formData.scopeChanged) {
       if (!formData.scopeWhatChanged?.trim()) {

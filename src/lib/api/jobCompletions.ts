@@ -64,6 +64,12 @@ function formDataToRow(data: Partial<JobCompletionFormData>): Record<string, unk
   if (data.actualRcdQty !== undefined) row.actual_rcd_qty = data.actualRcdQty
   if (data.actualRcdDays !== undefined) row.actual_rcd_days = data.actualRcdDays
 
+  // Section 7: Waste disposal actuals. Quoted waste/HEPA fields are snapshot-only
+  // (written once by createJobCompletion) — never written from form data.
+  if (data.actualWasteM3 !== undefined) row.actual_waste_disposal_m3 = data.actualWasteM3
+  if (data.actualWasteCost !== undefined) row.actual_waste_disposal_cost = data.actualWasteCost
+  if (data.actualWasteIsOverridden !== undefined) row.actual_waste_disposal_is_overridden = data.actualWasteIsOverridden
+
   // Section 8: Variations
   if (data.scopeChanged !== undefined) row.scope_changed = data.scopeChanged
   if (data.scopeWhatChanged !== undefined) row.scope_what_changed = data.scopeWhatChanged || null
@@ -115,18 +121,24 @@ export async function createJobCompletion(
     lead.property_address_postcode ? `VIC ${lead.property_address_postcode}` : '',
   ].filter(Boolean).join(', ')
 
-  // Snapshot quoted equipment from inspection
+  // Snapshot quoted equipment from inspection.
+  // HEPA/waste quoted fields stay NULL when never quoted (legacy inspections) —
+  // distinct from an explicit 0, which means "quoted none".
   let quotedDehumidifierQty = 0
   let quotedAirMoverQty = 0
   let quotedRcdQty = 0
   let quotedEquipmentDays = 0
+  let quotedHepaAirScrubberQty: number | null = null
+  let quotedHepaAirScrubberDays: number | null = null
+  let quotedWasteM3: number | null = null
+  let quotedWasteCost: number | null = null
   let attentionTo = ''
   let areasTreated: string[] = []
 
   if (inspectionId) {
     const { data: inspection } = await supabase
       .from('inspections')
-      .select('commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty, equipment_days, attention_to, treatment_methods')
+      .select('commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty, equipment_days, attention_to, treatment_methods, hepa_air_scrubber_qty, hepa_air_scrubber_days, waste_disposal_m3, waste_disposal_confirmed_cost')
       .eq('id', inspectionId)
       .single()
 
@@ -135,13 +147,15 @@ export async function createJobCompletion(
       quotedAirMoverQty = inspection.air_movers_qty ?? 0
       quotedRcdQty = inspection.rcd_box_qty ?? 0
       quotedEquipmentDays = inspection.equipment_days ?? 0
+      quotedHepaAirScrubberQty = inspection.hepa_air_scrubber_qty ?? null
+      // Resolve HEPA days at snapshot time (own days → shared equipment days) so
+      // the job never has to re-derive them later.
+      quotedHepaAirScrubberDays = inspection.hepa_air_scrubber_qty != null
+        ? (inspection.hepa_air_scrubber_days ?? inspection.equipment_days ?? null)
+        : null
+      quotedWasteM3 = inspection.waste_disposal_m3 ?? null
+      quotedWasteCost = inspection.waste_disposal_confirmed_cost ?? null
       attentionTo = inspection.attention_to ?? ''
-      // NOTE(waste-disposal): job-completion waste actuals are DEFERRED (Brief 2).
-      // When Section 7 gets a waste row, also SELECT waste_disposal_m3 /
-      // waste_disposal_confirmed_cost above and snapshot them into
-      // quoted_waste_disposal_m3 / quoted_waste_disposal_cost here, then persist the
-      // tech's actuals (actual_waste_disposal_*). Requires applying
-      // supabase/migrations/20260624113911_job_completion_waste.sql first.
     }
 
     // Pre-populate areas treated from inspection areas
@@ -172,6 +186,10 @@ export async function createJobCompletion(
       quoted_air_mover_qty: quotedAirMoverQty,
       quoted_rcd_qty: quotedRcdQty,
       quoted_equipment_days: quotedEquipmentDays,
+      quoted_afd_qty: quotedHepaAirScrubberQty,
+      quoted_afd_days: quotedHepaAirScrubberDays,
+      quoted_waste_disposal_m3: quotedWasteM3,
+      quoted_waste_disposal_cost: quotedWasteCost,
       status: 'draft',
     })
     .select()
