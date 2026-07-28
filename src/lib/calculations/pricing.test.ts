@@ -145,6 +145,63 @@ describe('EQUIPMENT_RATES', () => {
     });
     expect(result.equipment.total).toBe(2286);
   });
+
+  it('should charge HEPA at $100/unit/day over the shared equipment days by default', () => {
+    // 47h job → 6 shared days; 2 scrubbers × $100 × 6 = 1,200
+    const result = calculateCostEstimate({
+      nonDemoHours: 15, demolitionHours: 22, subfloorHours: 10,
+      hepaAirScrubberQty: 2,
+    });
+    expect(result.equipment.hepaAirScrubber.cost).toBe(1200);
+    expect(result.equipment.hepaAirScrubber.days).toBe(6);
+  });
+
+  it('should add HEPA on top of the canonical equipment total', () => {
+    // 2,286 + (2×100×6) = 3,486
+    const result = calculateCostEstimate({
+      nonDemoHours: 15, demolitionHours: 22, subfloorHours: 10,
+      dehumidifierQty: 2, airMoverQty: 3, rcdQty: 1, hepaAirScrubberQty: 2,
+    });
+    expect(result.equipment.total).toBe(3486);
+  });
+
+  it('should use the explicit HEPA days without changing the shared equipment days', () => {
+    const result = calculateCostEstimate({
+      nonDemoHours: 15, demolitionHours: 22, subfloorHours: 10,
+      hepaAirScrubberQty: 2, hepaAirScrubberDays: 3,
+    });
+    expect(result.equipment.hepaAirScrubber.cost).toBe(600);
+    expect(result.equipment.hepaAirScrubber.days).toBe(3);
+    expect(result.equipment.days).toBe(6);
+  });
+
+  it('should leave the canonical total unchanged when HEPA fields are absent', () => {
+    const result = calculateCostEstimate({
+      nonDemoHours: 15, demolitionHours: 22, subfloorHours: 10,
+      dehumidifierQty: 2, airMoverQty: 3, rcdQty: 1,
+    });
+    expect(result.equipment.total).toBe(2286);
+    expect(result.equipment.hepaAirScrubber.qty).toBe(0);
+    expect(result.equipment.hepaAirScrubber.cost).toBe(0);
+  });
+
+  it('should charge $0 HEPA when qty is 0 even with days set', () => {
+    const result = calculateCostEstimate({
+      nonDemoHours: 15, demolitionHours: 22, subfloorHours: 10,
+      dehumidifierQty: 2, airMoverQty: 3, rcdQty: 1,
+      hepaAirScrubberQty: 0, hepaAirScrubberDays: 5,
+    });
+    expect(result.equipment.hepaAirScrubber.cost).toBe(0);
+    expect(result.equipment.total).toBe(2286);
+  });
+
+  it('should charge one minimum HEPA day when there are no labour hours', () => {
+    const result = calculateCostEstimate({
+      nonDemoHours: 0, demolitionHours: 0, subfloorHours: 0,
+      hepaAirScrubberQty: 1,
+    });
+    expect(result.equipment.hepaAirScrubber.cost).toBe(100);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -189,15 +246,16 @@ function computeDualWriteTotals(
   subfloorHours: number,
   dehumidifierQty = 0,
   airMoverQty = 0,
-  rcdQty = 0
+  rcdQty = 0,
+  hepaAirScrubberQty = 0
 ): { option1Total: number; option2Total: number } {
   const opt1 = calculateCostEstimate({
     nonDemoHours, demolitionHours: 0, subfloorHours: 0,
-    dehumidifierQty, airMoverQty, rcdQty,
+    dehumidifierQty, airMoverQty, rcdQty, hepaAirScrubberQty,
   });
   const opt2 = calculateCostEstimate({
     nonDemoHours, demolitionHours, subfloorHours,
-    dehumidifierQty, airMoverQty, rcdQty,
+    dehumidifierQty, airMoverQty, rcdQty, hepaAirScrubberQty,
   });
   const o1Subtotal = opt1.labourAfterDiscount + opt1.equipmentCost;
   const o2Subtotal = opt2.labourAfterDiscount + opt2.equipmentCost;
@@ -231,6 +289,14 @@ describe('both-option dual-write', () => {
     const noEquip2 = computeDualWriteTotals(4, 4, 0, 0, 0, 0).option2Total;
     expect(option1Total).toBeGreaterThan(noEquip1);
     expect(option2Total).toBeGreaterThan(noEquip2);
+  });
+
+  it('should raise both option totals by the HEPA cost plus GST', () => {
+    // 8h total → 1 shared day; 2 scrubbers × $100 × 1 = 200; ×1.1 = 220 inc GST.
+    const base = computeDualWriteTotals(4, 4, 0);
+    const withHepa = computeDualWriteTotals(4, 4, 0, 0, 0, 0, 2);
+    expect(round2(withHepa.option1Total - base.option1Total)).toBe(220);
+    expect(round2(withHepa.option2Total - base.option2Total)).toBe(220);
   });
 });
 
@@ -294,6 +360,18 @@ describe('waste disposal cost flows into subtotal without being discounted', () 
   it('should default wasteDisposalCost to 0 when not provided (backward compatible)', () => {
     const result = calculateCostEstimate({ nonDemoHours: 5, demolitionHours: 0, subfloorHours: 0 });
     expect(result.wasteDisposalCost).toBe(0);
+  });
+});
+
+describe('HEPA cost flows into subtotal without being discounted', () => {
+  it('should raise the subtotal by exactly the HEPA cost (no discount applied)', () => {
+    // 40h → 5 shared days; 2 scrubbers × $100 × 5 = 1,000; GST makes the total delta 1,100.
+    const base = { nonDemoHours: 40, demolitionHours: 0, subfloorHours: 0 };
+    const withoutHepa = calculateCostEstimate(base);
+    const withHepa = calculateCostEstimate({ ...base, hepaAirScrubberQty: 2 });
+
+    expect(round2(withHepa.subtotalExGst - withoutHepa.subtotalExGst)).toBe(1000);
+    expect(round2(withHepa.totalIncGst - withoutHepa.totalIncGst)).toBe(1100);
   });
 });
 

@@ -204,6 +204,11 @@ export interface EquipmentInput {
   dehumidifierQty: number;
   airMoverQty: number;
   rcdQty: number;
+  // HEPA Air Scrubber (formerly "AFD"). Optional: absent/0 qty leaves all outputs
+  // identical to the pre-HEPA engine. Days may differ from the shared equipment
+  // days (scrubbers often run on their own hire period); 0/absent = shared days.
+  hepaAirScrubberQty?: number;
+  hepaAirScrubberDays?: number;
 }
 
 export interface EquipmentResult {
@@ -211,6 +216,8 @@ export interface EquipmentResult {
   dehumidifier: { qty: number; rate: number; cost: number };
   airMover: { qty: number; rate: number; cost: number };
   rcd: { qty: number; rate: number; cost: number };
+  // Carries its OWN days (may differ from the shared `days` above).
+  hepaAirScrubber: { qty: number; rate: number; cost: number; days: number };
   total: number;
 }
 
@@ -227,6 +234,14 @@ export function calculateEquipmentCost(
   const dehumidifierCost = equipment.dehumidifierQty * EQUIPMENT_RATES.dehumidifier * days;
   const airMoverCost = equipment.airMoverQty * EQUIPMENT_RATES.airMover * days;
   const rcdCost = equipment.rcdQty * EQUIPMENT_RATES.rcd * days;
+
+  // HEPA runs on its own hire period when one is given; otherwise the shared days.
+  const hepaQty = equipment.hepaAirScrubberQty ?? 0;
+  const hepaDays =
+    equipment.hepaAirScrubberDays && equipment.hepaAirScrubberDays > 0
+      ? equipment.hepaAirScrubberDays
+      : days;
+  const hepaCost = hepaQty * EQUIPMENT_RATES.hepaAirScrubber * hepaDays;
 
   return {
     days,
@@ -245,7 +260,13 @@ export function calculateEquipmentCost(
       rate: EQUIPMENT_RATES.rcd,
       cost: rcdCost
     },
-    total: dehumidifierCost + airMoverCost + rcdCost
+    hepaAirScrubber: {
+      qty: hepaQty,
+      rate: EQUIPMENT_RATES.hepaAirScrubber,
+      cost: hepaCost,
+      days: hepaDays
+    },
+    total: dehumidifierCost + airMoverCost + rcdCost + hepaCost
   };
 }
 
@@ -300,6 +321,8 @@ export interface CostEstimateInput {
   dehumidifierQty?: number;
   airMoverQty?: number;
   rcdQty?: number;
+  hepaAirScrubberQty?: number;
+  hepaAirScrubberDays?: number; // 0/absent = shared equipment days
 
   // Waste disposal — confirmed cost (ex GST), pass-through like equipment, never discounted
   wasteDisposalCost?: number;
@@ -365,7 +388,9 @@ export function calculateCostEstimate(input: CostEstimateInput): CostEstimateRes
       {
         dehumidifierQty: input.dehumidifierQty || 0,
         airMoverQty: input.airMoverQty || 0,
-        rcdQty: input.rcdQty || 0
+        rcdQty: input.rcdQty || 0,
+        hepaAirScrubberQty: input.hepaAirScrubberQty || 0,
+        hepaAirScrubberDays: input.hepaAirScrubberDays
       },
       totalLabourHours
     );
@@ -409,7 +434,9 @@ export function calculateCostEstimate(input: CostEstimateInput): CostEstimateRes
     {
       dehumidifierQty: input.dehumidifierQty || 0,
       airMoverQty: input.airMoverQty || 0,
-      rcdQty: input.rcdQty || 0
+      rcdQty: input.rcdQty || 0,
+      hepaAirScrubberQty: input.hepaAirScrubberQty || 0,
+      hepaAirScrubberDays: input.hepaAirScrubberDays
     },
     totalLabourHours
   );
