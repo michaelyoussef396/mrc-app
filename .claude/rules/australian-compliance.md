@@ -8,7 +8,8 @@ alwaysApply: true
 - Format: `$X,XXX.XX` (Australian dollars)
 - GST: always 10% — calculate as `subtotal * 1.1`
 - **13% discount cap** — maximum multiplier is `0.87`. NEVER exceed this.
-- Equipment pricing (fixed): Dehumidifier $132/day, Air Mover $46/day, RCD Box $5/day
+- Equipment pricing (fixed, source of truth = EQUIPMENT_RATES in src/lib/calculations/pricing.ts):
+  Dehumidifier $119/day, Air Mover $46/day, HEPA Air Scrubber $100/unit/day, RCD Box $5/day
 
 ## Date & Time
 - Format: `DD/MM/YYYY` (not MM/DD/YYYY)
