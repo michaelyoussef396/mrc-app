@@ -73,4 +73,41 @@ describe('TechnicianCard', () => {
     renderCard(clayton)
     expect(screen.getByText(/inspections: all time/i)).toBeInTheDocument()
   })
+
+  // After the invoices table is emptied, every technician's revenue aggregates
+  // over zero rows. It must read $0, never $NaN or a blank cell.
+  describe('with no data at all', () => {
+    const empty: TechnicianWithStats = {
+      ...clayton,
+      activeLeads: 0,
+      inspectionsTotal: 0,
+      revenueThisMonth: 0,
+      upcomingCount: 0,
+    }
+
+    it('should render revenue as $0 rather than NaN or blank', () => {
+      renderCard(empty)
+      expect(statValue('Revenue')).toBe('$0')
+    })
+
+    it('should render a zero inspection count', () => {
+      renderCard(empty)
+      expect(statValue('Inspections')).toBe('0')
+    })
+
+    it('should render a zero active-lead count', () => {
+      renderCard(empty)
+      expect(statValue('Active Leads')).toBe('0')
+    })
+
+    it('should render a zero upcoming count', () => {
+      renderCard(empty)
+      expect(statValue('Upcoming')).toBe('0')
+    })
+
+    it('should not render NaN anywhere on the card', () => {
+      const { container } = renderCard(empty)
+      expect(container.textContent).not.toMatch(/NaN|undefined/)
+    })
+  })
 })

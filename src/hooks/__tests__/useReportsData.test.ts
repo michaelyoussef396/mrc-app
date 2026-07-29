@@ -122,3 +122,37 @@ describe('chart total matches the Total Leads KPI', () => {
     expect(chartTotal(generateTimeline(leads, 'month', start, end))).toBe(leads.length)
   })
 })
+
+describe('empty period', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(melbourne(2026, 7, 29, 13, 30)))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  // With no leads in the window the chart still renders a full set of buckets,
+  // every one at zero — the flat-line state, not a crash and not "No data".
+  it('should produce a bucket for every day even with no leads', () => {
+    const { start, end } = getDateRange('month')
+    expect(generateTimeline([], 'month', start, end).length).toBe(30)
+  })
+
+  it('should total zero rather than NaN', () => {
+    const { start, end } = getDateRange('month')
+    expect(chartTotal(generateTimeline([], 'month', start, end))).toBe(0)
+  })
+
+  it('should give every bucket a numeric zero count', () => {
+    const { start, end } = getDateRange('month')
+    const nonNumeric = generateTimeline([], 'month', start, end).filter(p => !Number.isFinite(p.leads))
+    expect(nonNumeric).toEqual([])
+  })
+
+  it('should agree with a zero KPI count', () => {
+    const { start, end } = getDateRange('month')
+    expect(chartTotal(generateTimeline([], 'month', start, end))).toBe(kpiCount([], start, end))
+  })
+})
