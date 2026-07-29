@@ -29,6 +29,9 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+// Below this many leads a percentage is noise, not a signal.
+const MIN_LEADS_FOR_PIPELINE_HEALTH = 5;
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -184,7 +187,9 @@ const Reports = () => {
             <div className="space-y-1">
               <p className="text-sm text-slate-500">Pipeline Health</p>
               <p className="text-lg font-semibold text-slate-900">
-                {kpis.conversionRate >= 30 ? (
+                {kpis.totalLeads < MIN_LEADS_FOR_PIPELINE_HEALTH ? (
+                  <span className="text-slate-400">Not enough data</span>
+                ) : kpis.conversionRate >= 30 ? (
                   <span className="text-emerald-600">Healthy</span>
                 ) : kpis.conversionRate >= 15 ? (
                   <span className="text-orange-600">Average</span>
@@ -193,7 +198,9 @@ const Reports = () => {
                 )}
               </p>
               <p className="text-xs text-slate-400">
-                Based on conversion rate
+                {kpis.totalLeads < MIN_LEADS_FOR_PIPELINE_HEALTH
+                  ? `Needs at least ${MIN_LEADS_FOR_PIPELINE_HEALTH} leads in the period`
+                  : 'Based on conversion rate'}
               </p>
             </div>
           </div>

@@ -81,6 +81,20 @@ export function formatRelativeOrDateAU(input: string | Date | null | undefined):
 }
 
 /**
+ * Parse a Postgres DATE column ("YYYY-MM-DD") as LOCAL midnight.
+ *
+ * `new Date('2026-07-29')` parses as UTC midnight, which lands on the previous
+ * calendar day for any timezone behind UTC and shifts day-boundary comparisons
+ * (today / this week / this month) by one. Callers comparing a DATE against a
+ * locally-constructed boundary must use this.
+ */
+export function parseLocalDate(input: string | null | undefined): Date | null {
+  if (!input) return null;
+  const d = new Date(input.length === 10 ? `${input}T00:00:00` : input);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/**
  * Render a duration given in fractional hours.
  *
  * Sub-hour durations are the common case for response times, so they render in

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { formatShortDateAU } from '@/lib/dateUtils';
+import { formatShortDateAU, parseLocalDate } from '@/lib/dateUtils';
 import { getPaidInvoices, sumPaidRevenueFor } from '@/lib/api/invoices';
 
 // ============================================================================
@@ -16,7 +16,7 @@ export interface TechnicianWithStats {
   phone: string | null;
   homeSuburb: string | null;
   lastSignInAt: string | null;
-  // Stats
+  // Stats — all month-to-date except activeLeads/upcomingCount, which are "right now"
   /** Open leads currently assigned to this technician. NOT an inspection count. */
   activeLeads: number;
   /**
@@ -26,8 +26,9 @@ export interface TechnicianWithStats {
    * technician profile page.
    */
   inspectionsTotal: number;
-  /** Paid invoices credited to this technician, this month. */
+  /** Paid invoices credited to this technician. */
   revenueThisMonth: number;
+  /** Distinct upcoming engagements — a multi-day job counts once, not once per day. */
   upcomingCount: number;
   // Display
   initials: string;
@@ -178,7 +179,7 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
     const technicianUserIds = new Set(userRolesData.map(r => r.user_id));
     const technicians = allUsers.filter(user => technicianUserIds.has(user.id));
 
-    // Step 5: Fetch inspection stats for each technician
+    // Step 5: Fetch per-technician stats
     const techIds = technicians.map(t => t.id);
 
     const now = new Date();
@@ -195,12 +196,14 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
       console.warn('[useTechnicianStats] Inspection stats error:', inspectionError);
     }
 
-    // Step 6: Fetch upcoming bookings count
+    // Step 6: Upcoming bookings. lead_id + event_type let us collapse the daily
+    // rows of a multi-day job into a single engagement.
     const { data: upcomingBookings, error: bookingsError } = await supabase
       .from('calendar_bookings')
-      .select('assigned_to')
+      .select('assigned_to, lead_id, event_type, status')
       .in('assigned_to', techIds)
-      .gte('start_datetime', new Date().toISOString());
+      .neq('status', 'cancelled')
+      .gte('start_datetime', now.toISOString());
 
     if (bookingsError) {
       console.warn('[useTechnicianStats] Bookings fetch error:', bookingsError);
@@ -227,10 +230,14 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
     }
 
     // Step 7: Calculate stats for each technician
-    const statsMap: Record<string, { activeLeads: number; inspectionsTotal: number; upcomingCount: number }> = {};
+    const statsMap: Record<string, {
+      activeLeads: number;
+      inspectionsTotal: number;
+      upcomingKeys: Set<string>;
+    }> = {};
 
     techIds.forEach(id => {
-      statsMap[id] = { activeLeads: 0, inspectionsTotal: 0, upcomingCount: 0 };
+      statsMap[id] = { activeLeads: 0, inspectionsTotal: 0, upcomingKeys: new Set() };
     });
 
     (assignedLeads || []).forEach((lead: { assigned_to: string | null }) => {
@@ -244,11 +251,14 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
       statsMap[insp.inspector_id].inspectionsTotal++;
     });
 
-    // Count upcoming bookings
-    (upcomingBookings || []).forEach((booking: any) => {
-      if (booking.assigned_to && statsMap[booking.assigned_to]) {
-        statsMap[booking.assigned_to].upcomingCount++;
-      }
+    // One engagement per lead+type: a 6-day job is one upcoming job, not six.
+    (upcomingBookings || []).forEach((booking: {
+      assigned_to: string | null;
+      lead_id: string | null;
+      event_type: string | null;
+    }) => {
+      if (!booking.assigned_to || !statsMap[booking.assigned_to]) return;
+      statsMap[booking.assigned_to].upcomingKeys.add(`${booking.lead_id}|${booking.event_type}`);
     });
 
     // Step 8: Build final result
@@ -264,7 +274,7 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
       activeLeads: statsMap[user.id]?.activeLeads || 0,
       inspectionsTotal: statsMap[user.id]?.inspectionsTotal || 0,
       revenueThisMonth: sumPaidRevenueFor(paidInvoices, user.id),
-      upcomingCount: statsMap[user.id]?.upcomingCount || 0,
+      upcomingCount: statsMap[user.id]?.upcomingKeys.size || 0,
       initials: getInitials(user.first_name, user.last_name),
       color: getTechnicianColor(index),
     }));

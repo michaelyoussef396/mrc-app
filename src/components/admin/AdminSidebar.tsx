@@ -104,6 +104,8 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
               >
                 <item.icon className="h-[22px] w-[22px]" />
                 <span className="font-medium text-[15px]">{item.label}</span>
+                {/* Unassigned-inbox counter, not a total lead count — the two
+                    differ, and Reports shows a period-scoped total. */}
                 {item.label === 'Leads' && newLeadsCount > 0 && (
                   <span
                     className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold"
@@ -111,6 +113,8 @@ export default function AdminSidebar({ isOpen = false, onClose }: AdminSidebarPr
                       backgroundColor: '#007AFF',
                       color: 'white',
                     }}
+                    title={`${newLeadsCount} unassigned new lead${newLeadsCount === 1 ? '' : 's'}`}
+                    aria-label={`${newLeadsCount} unassigned new lead${newLeadsCount === 1 ? '' : 's'}`}
                   >
                     {newLeadsCount}
                   </span>

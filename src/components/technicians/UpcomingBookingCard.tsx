@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { UpcomingJob, formatJobDateTime, getEventTypeColor, getJobAccentColor } from '@/hooks/useTechnicianDetail';
+import { formatShortDateAU } from '@/lib/dateUtils';
 import { MapPin, Phone } from 'lucide-react';
 
 interface UpcomingBookingCardProps {
@@ -50,6 +51,14 @@ export function UpcomingBookingCard({ booking }: UpcomingBookingCardProps) {
               >
                 {booking.eventType === 'inspection' ? 'Inspection' : 'Job'}
               </span>
+              {booking.dayCount > 1 && (
+                <span
+                  className="text-xs font-medium px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: '#f5f7f8', color: '#617589' }}
+                >
+                  {booking.dayCount} days &middot; to {formatShortDateAU(booking.endDatetime)}
+                </span>
+              )}
             </div>
 
             {/* Customer Name */}

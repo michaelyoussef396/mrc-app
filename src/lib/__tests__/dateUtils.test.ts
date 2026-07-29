@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatDurationHours, toLocalDayKey } from '../dateUtils'
+import { formatDurationHours, parseLocalDate, toLocalDayKey } from '../dateUtils'
 
 describe('formatDurationHours', () => {
   // Reports previously rounded to whole hours before formatting, so a genuine
@@ -26,6 +26,24 @@ describe('formatDurationHours', () => {
 
   it('should render an em-dash when there is no duration to report', () => {
     expect(formatDurationHours(0)).toBe('—')
+  })
+})
+
+describe('parseLocalDate', () => {
+  it('should parse a DATE column as local midnight', () => {
+    expect(parseLocalDate('2026-07-29')?.getHours()).toBe(0)
+  })
+
+  it('should keep the calendar day a DATE column names', () => {
+    expect(parseLocalDate('2026-07-29')?.getDate()).toBe(29)
+  })
+
+  it('should return null for a null column value', () => {
+    expect(parseLocalDate(null)).toBeNull()
+  })
+
+  it('should return null for an unparseable value', () => {
+    expect(parseLocalDate('not-a-date')).toBeNull()
   })
 })
 
