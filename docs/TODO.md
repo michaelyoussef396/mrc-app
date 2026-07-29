@@ -603,6 +603,7 @@ branch; merge PR #72 first.
 - `396ca9c` fix(leads): honour ?status= deep links from dashboard cards and quick actions
 - `0ee439e` fix(invoices): stamp due_date/payment_date as Melbourne calendar day; restart 14-day payment terms at send
 - `0a2fbac` feat(ef): check-overdue-invoices rewrite (see CRITICAL above)
+- `b4d4cc3` fix(settings): remove "Log out from ALL devices" option from Settings.tsx — unrelated to the dashboard work this branch is named for; the capability deliberately remains on the Profile page only (one place instead of two)
 
 (Plus three docs-only commits: `87952cd`, `ed75377`, `3e687f2` — TODO.md.)
 
