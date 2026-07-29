@@ -15,6 +15,53 @@ production email delivery.
 
 ---
 
+## ⚠️ PENDING: Invoice data integrity — 2 SQL blocks for Michael to run
+
+Branch `fix/admin-analytics-accuracy`. Surfaced 2026-07-29 while auditing the
+admin analytics surfaces. Read-only investigation; **no DB writes made, no
+migration applied.**
+
+**What was wrong.** Two writers stamped an inc-GST figure into
+`invoices.subtotal_after_discount`, which is the ex-GST column:
+
+| Invoice | Stored | Status | Written by |
+|---|---|---|---|
+| `INV-2026-0001` | sad **290.40**, gst **0.00**, total 290.40 | overdue | `handleCreate` in `InvoicePaymentCard.tsx` — raw insert bypassing `calculateInvoiceTotals`, gst hardcoded 0 |
+| `INV-2026-0002` | sad **11029.77**, gst 1002.69, total 11029.77 | paid | pre-`bb1ee91` `handleEdit`, same file — stamped the typed inc-GST total onto three money columns leaving gst stale |
+
+`handleEdit` was removed 2026-06-02 (`bb1ee91`). `handleCreate` was removed
+2026-07-29 (`5792211`) — it was unreachable but was the surviving copy of the
+same shape. **No code can produce this defect any more**; only the two rows and
+the missing DB guard remain.
+
+Live consequence while the rows exist: `AdminInvoiceHelper.tsx:357-361` renders
+`subtotal_after_discount` and `gst_amount` raw when a saved invoice exists, so
+`INV-2026-0001` displays **"GST 10%: $0.00"** on the screen an admin copies from
+to hand-build an invoice.
+
+- [ ] **Run `docs/INVOICE_INTEGRITY_RUNBOOK.md` — DEV (`ctppzqnysmzynkxjlzta`)
+      first, confirm clean, then PROD (`ecyivrxjpsmjmexqatym`).** Two ordered
+      blocks: **A** deletes both rows with bracketing verification SELECTs;
+      **B** applies `supabase/migrations/20260729153000_invoice_totals_integrity_checks.sql`
+      (two CHECK constraints, both `VALID`). **A before B** — a VALID constraint
+      aborts while the bad rows are present.
+
+**Safe to delete (verified read-only 2026-07-29):** no table in the DB has an
+`invoice_id` column — all 26 public tables probed — so no FK references
+`invoices.id`; nothing cascades, nothing blocks. The full before-state of both
+rows is preserved permanently in `audit_logs` (append-only, protected by
+`prevent_audit_logs_delete`), plus a `delete_invoice` audit row each.
+`invoice_number_seq` is not rewound; the next invoice is `INV-2026-0005`.
+
+**Expected, not a regression:** deleting the paid `INV-2026-0002` drops Reports
+year revenue **$39,633.52 → $28,603.75**. Month view stays $0.00 either way.
+
+Both constraints are required — neither alone catches both defects.
+`INV-2026-0001` **passes** the sum check (290.40 + 0.00 = 290.40 is
+arithmetically consistent) and is caught only by the GST relation.
+
+---
+
 **Last Updated:** 2026-07-23
 **Production state:** main @ `b50d07b`, production @ `9fdc853` (merge of PRs #67–#71 + login-footer fix), mrcsystem.com live and verified 2026-07-23
 **Status:** Phase 1 + Phase 3 + Phase 4 Stages 4.1/4.1.5/4.2/4.3 COMPLETE in production. Phase 2 (Job Completion) built and deployed — existence-verified 2026-07-07, runtime-untested against dev (see "Phase 2 — Job Completion Workflow: Existence Verification" below). Pre-launch hardening underway.
