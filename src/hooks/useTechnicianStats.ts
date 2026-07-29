@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { formatShortDateAU } from '@/lib/dateUtils';
+import { getPaidInvoices, sumPaidRevenueFor } from '@/lib/api/invoices';
 
 // ============================================================================
 // TYPES
@@ -171,23 +172,10 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
     // Step 5: Fetch inspection stats for each technician
     const techIds = technicians.map(t => t.id);
 
-    // Get inspections this week
-    const weekStart = new Date();
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
-    weekStart.setHours(0, 0, 0, 0);
-
+    const now = new Date();
     const monthStart = new Date();
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
-
-    const { data: inspectionStats, error: inspectionError } = await supabase
-      .from('inspections')
-      .select('inspector_id, inspection_date, total_inc_gst')
-      .in('inspector_id', techIds);
-
-    if (inspectionError) {
-      console.warn('[useTechnicianStats] Inspection stats error:', inspectionError);
-    }
 
     // Step 6: Fetch upcoming bookings count
     const { data: upcomingBookings, error: bookingsError } = await supabase
@@ -212,27 +200,25 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
       console.warn('[useTechnicianStats] Assigned leads fetch error:', assignedLeadsError);
     }
 
+    // Step 6c: Paid invoices this month, for real revenue attribution
+    let paidInvoices: Awaited<ReturnType<typeof getPaidInvoices>> = [];
+    try {
+      paidInvoices = await getPaidInvoices(monthStart, now);
+    } catch (revenueError) {
+      console.warn('[useTechnicianStats] Paid invoice fetch error:', revenueError);
+    }
+
     // Step 7: Calculate stats for each technician
-    const statsMap: Record<string, { inspectionsThisWeek: number; revenueThisMonth: number; upcomingCount: number }> = {};
+    const statsMap: Record<string, { inspectionsThisWeek: number; upcomingCount: number }> = {};
 
     techIds.forEach(id => {
-      statsMap[id] = { inspectionsThisWeek: 0, revenueThisMonth: 0, upcomingCount: 0 };
+      statsMap[id] = { inspectionsThisWeek: 0, upcomingCount: 0 };
     });
 
     // Count active assigned leads per technician (shown as "leads" in Team Workload)
     (assignedLeads || []).forEach((lead: any) => {
       if (lead.assigned_to && statsMap[lead.assigned_to]) {
         statsMap[lead.assigned_to].inspectionsThisWeek++;
-      }
-    });
-
-    // Revenue this month from completed inspections
-    (inspectionStats || []).forEach((insp: any) => {
-      if (insp.inspector_id && statsMap[insp.inspector_id]) {
-        const inspDate = new Date(insp.inspection_date);
-        if (inspDate >= monthStart && insp.total_inc_gst) {
-          statsMap[insp.inspector_id].revenueThisMonth += parseFloat(insp.total_inc_gst) || 0;
-        }
       }
     });
 
@@ -254,7 +240,7 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
       homeSuburb: user.starting_address?.suburb || null,
       lastSignInAt: user.last_sign_in_at || null,
       inspectionsThisWeek: statsMap[user.id]?.inspectionsThisWeek || 0,
-      revenueThisMonth: statsMap[user.id]?.revenueThisMonth || 0,
+      revenueThisMonth: sumPaidRevenueFor(paidInvoices, user.id),
       upcomingCount: statsMap[user.id]?.upcomingCount || 0,
       initials: getInitials(user.first_name, user.last_name),
       color: getTechnicianColor(index),

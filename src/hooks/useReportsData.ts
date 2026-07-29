@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getPaidInvoices, sumPaidRevenue } from '@/lib/api/invoices';
 import { toLocalDayKey } from '@/lib/dateUtils';
 
 // ============================================================================
@@ -130,19 +131,11 @@ export function useReportsData(period: TimePeriod = 'month'): ReportsData {
     refetchInterval: 60000,
   });
 
-  // Fetch inspections for revenue
-  const inspectionsQuery = useQuery({
-    queryKey: ['reports', 'inspections', period],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('inspections')
-        .select('id, total_inc_gst, created_at')
-        .gte('created_at', startISO)
-        .lte('created_at', endISO);
-
-      if (error) throw error;
-      return data || [];
-    },
+  // Revenue is money received, so it comes from paid invoices — not from
+  // inspections.total_inc_gst, which is only the quote.
+  const revenueQuery = useQuery({
+    queryKey: ['reports', 'paid-invoices', period],
+    queryFn: () => getPaidInvoices(start, end),
     refetchInterval: 60000,
   });
 
@@ -163,10 +156,9 @@ export function useReportsData(period: TimePeriod = 'month'): ReportsData {
   });
 
   // Process data
-  const isLoading = leadsQuery.isLoading || inspectionsQuery.isLoading || bookingsQuery.isLoading;
-  const error = leadsQuery.error || inspectionsQuery.error || bookingsQuery.error;
+  const isLoading = leadsQuery.isLoading || revenueQuery.isLoading || bookingsQuery.isLoading;
+  const error = leadsQuery.error || revenueQuery.error || bookingsQuery.error;
   const leads = leadsQuery.data || [];
-  const inspections = inspectionsQuery.data || [];
 
   // Calculate KPIs
   const totalLeads = leads.length;
@@ -197,10 +189,9 @@ export function useReportsData(period: TimePeriod = 'month'): ReportsData {
     ? responseTimes.reduce((sum, h) => sum + h, 0) / responseTimes.length
     : 0;
 
-  // Total revenue from inspections
-  const totalRevenue = inspections.reduce((sum, ins) => {
-    return sum + (typeof ins.total_inc_gst === 'number' ? ins.total_inc_gst : 0);
-  }, 0);
+  // Money actually collected in the period, including invoices that trace to no
+  // technician — the org total must not under-report what was banked.
+  const totalRevenue = sumPaidRevenue(revenueQuery.data || []);
 
   // Status breakdown
   const statusCounts: Record<string, number> = {};

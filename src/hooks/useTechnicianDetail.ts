@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getInitials, getTechnicianColor, formatRevenue, formatLastSeen } from './useTechnicianStats';
 import { formatTimeAU } from '@/lib/dateUtils';
+import { getPaidInvoices, sumPaidRevenueFor } from '@/lib/api/invoices';
 
 // ============================================================================
 // TYPES
@@ -169,7 +170,7 @@ async function fetchTechnicianDetail(technicianId: string): Promise<TechnicianDe
     // Step 4: Fetch inspection stats
     const { data: inspections, error: inspError } = await supabase
       .from('inspections')
-      .select('inspection_date, total_inc_gst')
+      .select('inspection_date')
       .eq('inspector_id', technicianId);
 
     if (inspError) {
@@ -180,7 +181,6 @@ async function fetchTechnicianDetail(technicianId: string): Promise<TechnicianDe
     let inspectionsToday = 0;
     let inspectionsThisWeek = 0;
     let inspectionsThisMonth = 0;
-    let revenueThisMonth = 0;
 
     (inspections || []).forEach((insp: any) => {
       const inspDate = new Date(insp.inspection_date);
@@ -193,11 +193,17 @@ async function fetchTechnicianDetail(technicianId: string): Promise<TechnicianDe
       }
       if (inspDate >= monthStart) {
         inspectionsThisMonth++;
-        if (insp.total_inc_gst) {
-          revenueThisMonth += parseFloat(insp.total_inc_gst) || 0;
-        }
       }
     });
+
+    // Revenue is collected cash, not quoted value — see getPaidInvoices.
+    let revenueThisMonth = 0;
+    try {
+      const paidInvoices = await getPaidInvoices(monthStart, now);
+      revenueThisMonth = sumPaidRevenueFor(paidInvoices, technicianId);
+    } catch (revenueError) {
+      console.warn('[useTechnicianDetail] Paid invoice fetch error:', revenueError);
+    }
 
     // Step 5: Fetch workload breakdown (leads assigned, last 30 days)
     const { data: leads, error: leadsError } = await supabase

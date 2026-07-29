@@ -72,6 +72,8 @@ export interface InvoiceRow {
   updated_at: string
 }
 
+
+
 export interface CreateInvoiceInput {
   lead_id: string
   job_completion_id?: string | null

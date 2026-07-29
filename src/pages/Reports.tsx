@@ -127,7 +127,7 @@ const Reports = () => {
             value={formatCurrency(kpis.totalRevenue)}
             icon={<DollarSign className="w-5 h-5 text-purple-600" />}
             iconBg="bg-purple-50"
-            subtitle="From completed inspections"
+            subtitle="Invoices paid in period"
           />
         </div>
 
