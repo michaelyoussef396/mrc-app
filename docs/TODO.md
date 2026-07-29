@@ -577,3 +577,66 @@ published Framer form stays live as-is. All items below carry into the code rebu
 - Old published Framer form stays live — public submissions won't capture the new fields (columns stay null; handled/gated everywhere)
 - Admin CreateNewLeadModal + React /request-inspection form both capture the full field set
 - React reference form NOT deleted — deletion was gated on Framer going live with parity, now parked with this work
+
+---
+
+## Merge-day checklist — launch/checks (PR #72)
+
+Written 2026-07-29 at session close. PR #72 stays OPEN until the other session's
+work lands and both branches reconcile. The open items in "Follow-ups from 28 Jul
+2026 session" above are the merge-day checklist — do not tidy them away.
+
+### ⚠️ CRITICAL — EF runtime is ahead of every branch
+
+PROD's `check-overdue-invoices` Edge Function is ALREADY RUNNING the `0a2fbac`
+rewrite (deployed 2026-07-29, v9): Melbourne day-math, ladder-aligned milestones
+[1/8/15/16/29] + 60-day escalation, idempotency guard, single Slack digest with
+dry-run. `main` and `production` still hold the OLD `index.ts`. **Anyone who runs
+`npx supabase functions deploy check-overdue-invoices` from any checkout other
+than `launch/checks` before this merges silently reverts the fix** (UTC day-math
+back, per-invoice Slack spam back, no guard). Do not deploy this EF from another
+branch; merge PR #72 first.
+
+### Commits on this branch (code)
+
+- `91dd58f` fix(dashboard): overdue card derives from due_date + cents; count alignment across badge/card/panel; +N more; Revenue = paid invoices; Today's Jobs/Schedule read calendar_bookings with day-span overlap
+- `396ca9c` fix(leads): honour ?status= deep links from dashboard cards and quick actions
+- `0ee439e` fix(invoices): stamp due_date/payment_date as Melbourne calendar day; restart 14-day payment terms at send
+- `0a2fbac` feat(ef): check-overdue-invoices rewrite (see CRITICAL above)
+
+(Plus three docs-only commits: `87952cd`, `ed75377`, `3e687f2` — TODO.md.)
+
+### Files touched (for conflict prediction vs the other session)
+
+- `src/hooks/useAdminDashboardStats.ts` (heavily rewritten queries)
+- `src/hooks/useTodaysSchedule.ts` (rewritten onto calendar_bookings)
+- `src/hooks/useUnassignedLeads.ts` (query + limit)
+- `src/components/admin/AdminSidebar.tsx` (one filter line)
+- `src/pages/AdminDashboard.tsx` (formatCurrency, +N more block, empty-state copy)
+- `src/pages/LeadsManagement.tsx` (useSearchParams wiring)
+- `src/lib/api/invoices.ts` (melbourneDateISO, defaultDueDate, markInvoicePaid date, markInvoiceSent due_date)
+- `supabase/functions/check-overdue-invoices/index.ts` (full rewrite)
+- `docs/TODO.md`
+
+### Verified vs NOT verified
+
+- VERIFIED: every dashboard metric against DEV ground truth on pinned preview
+  `mrc-system-l2w60bwsy` (counts, overdue card ≡ panel, cents, +9 more @48px, all
+  three ?status= deep links, 375px zero-overflow, console/network clean); EF
+  dry-run against PROD (write-free proven by identical pre/post DB state).
+- NOT verified: multi-day span logic against a real PROD booking (QA Test PR57
+  exists only on PROD; production runs pre-fix code until merge); Team Workload
+  (manage-users EF absent on DEV → "No technicians found" on preview); the live
+  Slack digest (no invoice has become newly eligible since deploy).
+
+### Post-merge checks on PROD (Michael) — with deadlines
+
+- [ ] **Multi-day span (window CLOSES 4 Aug):** QA Test PR57 must appear in
+      Today's Jobs and Today's Schedule at 8:00 am, Type "Job", every day through
+      4 Aug. The booking expires after that — merge before 4 Aug or stage a new
+      multi-day booking to verify against.
+- [ ] **First real Slack digest — 4 Aug:** INV-2026-0003 hits day 29 ("Warranty
+      VOID — Ongoing") at the 9:00 am AEST cron. Expect ONE digest, milestone
+      section, outstanding total; no per-invoice spam, no duplicate.
+- [ ] **Team Workload renders technicians on PROD** (manage-users EF exists
+      there; DEV could never show this).
