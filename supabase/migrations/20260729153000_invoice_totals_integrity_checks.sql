@@ -9,6 +9,12 @@
 -- docs/INVOICE_INTEGRITY_RUNBOOK.md, Block A. If this migration errors with
 -- "check constraint ... is violated by some row", Block A has not been run.
 --
+-- Block A also deletes INV-2026-0004, which is NOT defective — it passes both
+-- constraints. It is removed separately as test data (email
+-- user.name+tag+sorting@example.com, a line item named "testing custom line",
+-- no inspection or job completion behind it). Its removal is not a precondition
+-- for this migration.
+--
 -- WHY
 -- The only money constraint on this table was `discount_cap`. Nothing enforced
 -- the relationship between subtotal_after_discount, gst_amount and
@@ -29,10 +35,10 @@
 -- they stood on 2026-07-29:
 --
 --   row            sad        gst       total      sum check   gst check
---   INV-2026-0001  290.40     0.00      290.40     PASSES      fails ($29.04)
---   INV-2026-0002  11029.77   1002.69   11029.77   fails       fails ($100.29)
---   INV-2026-0003  4270.44    427.04    4697.48    passes      passes
---   INV-2026-0004  26003.41   2600.34   28603.75   passes      passes
+--   INV-2026-0001  290.40     0.00      290.40     PASSES      fails ($29.04)   [deleted: defective]
+--   INV-2026-0002  11029.77   1002.69   11029.77   fails       fails ($100.29)  [deleted: defective]
+--   INV-2026-0003  4270.44    427.04    4697.48    passes      passes           [retained]
+--   INV-2026-0004  26003.41   2600.34   28603.75   passes      passes           [deleted: test data]
 --
 -- INV-2026-0001 satisfies the sum (290.40 + 0.00 = 290.40) because $0 GST is
 -- arithmetically consistent — it is wrong only against the GST relation. A sum

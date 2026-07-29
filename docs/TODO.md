@@ -39,26 +39,44 @@ Live consequence while the rows exist: `AdminInvoiceHelper.tsx:357-361` renders
 `INV-2026-0001` displays **"GST 10%: $0.00"** on the screen an admin copies from
 to hand-build an invoice.
 
+**A third row also goes — test data, not defective.** `INV-2026-0004` (paid,
+$28,603.75) is arithmetically perfect and came through the proper
+`saveCalculatedInvoice` path, but it is not a real invoice: customer email
+`user.name+tag+sorting@example.com` on an IANA-reserved domain, notes reading
+`notes optial in invocie`, a line item named `testing custom line`, equipment of
+10 × 10 days for every item ($18,300), address just "VIC", zero inspections /
+job completions / bookings, and a full create→sent→paid lifecycle in 50 minutes
+(sent one second after creation, paid six seconds after being re-sent).
+
 - [ ] **Run `docs/INVOICE_INTEGRITY_RUNBOOK.md` — DEV (`ctppzqnysmzynkxjlzta`)
       first, confirm clean, then PROD (`ecyivrxjpsmjmexqatym`).** Two ordered
-      blocks: **A** deletes both rows with bracketing verification SELECTs;
+      blocks: **A** deletes all three rows with bracketing verification SELECTs;
       **B** applies `supabase/migrations/20260729153000_invoice_totals_integrity_checks.sql`
       (two CHECK constraints, both `VALID`). **A before B** — a VALID constraint
-      aborts while the bad rows are present.
+      aborts while the two defective rows are present.
 
 **Safe to delete (verified read-only 2026-07-29):** no table in the DB has an
 `invoice_id` column — all 26 public tables probed — so no FK references
-`invoices.id`; nothing cascades, nothing blocks. The full before-state of both
-rows is preserved permanently in `audit_logs` (append-only, protected by
+`invoices.id`; nothing cascades, nothing blocks. The full before-state of all
+three rows is preserved permanently in `audit_logs` (append-only, protected by
 `prevent_audit_logs_delete`), plus a `delete_invoice` audit row each.
 `invoice_number_seq` is not rewound; the next invoice is `INV-2026-0005`.
 
-**Expected, not a regression:** deleting the paid `INV-2026-0002` drops Reports
-year revenue **$39,633.52 → $28,603.75**. Month view stays $0.00 either way.
+**Expected, not a regression:** both paid invoices go, so Reports year revenue
+drops **$39,633.52 → $0.00**. Month view and technician revenue stay $0.00
+(unchanged — neither payment fell in the current month). Outstanding
+**$4,987.88 → $4,697.48**. $0.00 is the honest figure: no real customer has been
+invoiced through this system.
 
 Both constraints are required — neither alone catches both defects.
 `INV-2026-0001` **passes** the sum check (290.40 + 0.00 = 290.40 is
 arithmetically consistent) and is caught only by the GST relation.
+
+**Open, flagged not actioned:** the one surviving invoice `INV-2026-0003`
+(Amy sherry, $4,697.48, overdue/unpaid) also looks like test data — email is a
+variant of Michael's own address, one line item is named `custom one` — but it
+exercised more of the pipeline (1 inspection, 1 booking) and is unpaid, so
+revenue reads $0.00 either way. Decide whether to delete it too.
 
 ---
 
