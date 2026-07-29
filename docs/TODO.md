@@ -118,9 +118,13 @@ no-stale-price invariant still holds; chips render em-dash). WasteCard state mac
 null-vs-zero semantics, and legacy-card behaviour all verified clean.
 
 **Michael's addenda to the ordered steps:**
-- DEV job-report EF deploy (template already on DEV Storage):
-  `npx supabase functions deploy generate-job-report-pdf --project-ref ctppzqnysmzynkxjlzta`
-  → then CC can run the job-PDF render E2E the same way as the inspection one.
+- ~~DEV job-report EF deploy~~ — DONE (Michael, 29 Jul) → **job-PDF render E2E run by CC
+  against the deployed DEV EF: 11/11 PASS** (all four equipment lines with exact totals,
+  equipment total $1,881.00, waste "(6 m³) — billed once: $550.00 ex GST", section heading
+  on the contents card, zero leaked placeholders, dynamic contents page numbers intact,
+  and the zeroed-row empty fallback). Test fixture: DEV job_completion `1b81f7e7-…33c5`
+  left STAGED (2/3 dehumidifier, 4/3 air mover, 2/3 HEPA, 1/3 RCD, 6 m³/$550 waste,
+  demolition=true) for the UI smoke.
 - AI-summary HEPA needs `generate-inspection-summary` deployed wherever it's tested —
   NOT on DEV yet (DEV still has only generate-inspection-pdf) and it needs the
   OPENROUTER_API_KEY secret (part of the wider L4 "deploy 12 EFs to DEV" gap).
