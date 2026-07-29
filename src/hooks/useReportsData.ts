@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getPaidInvoices, sumPaidRevenue } from '@/lib/api/invoices';
+import { isConvertedStatus } from '@/lib/statusFlow';
 import { toLocalDayKey } from '@/lib/dateUtils';
 
 // ============================================================================
@@ -162,10 +163,8 @@ export function useReportsData(period: TimePeriod = 'month'): ReportsData {
 
   // Calculate KPIs
   const totalLeads = leads.length;
-  const closedLeads = leads.filter(l =>
-    ['closed', 'job_completed', 'paid', 'finished'].includes(l.status)
-  ).length;
-  const conversionRate = totalLeads > 0 ? Math.round((closedLeads / totalLeads) * 100) : 0;
+  const convertedLeads = leads.filter(l => isConvertedStatus(l.status)).length;
+  const conversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
 
   // Average response time: hours between lead creation and first booking creation
   const bookings = bookingsQuery.data || [];

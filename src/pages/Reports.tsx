@@ -113,7 +113,7 @@ const Reports = () => {
             value={`${kpis.conversionRate}%`}
             icon={<TrendingUp className="w-5 h-5 text-emerald-600" />}
             iconBg="bg-emerald-50"
-            subtitle="Leads to closed jobs"
+            subtitle="Leads to won jobs"
           />
           <KPICard
             title="Avg Response Time"

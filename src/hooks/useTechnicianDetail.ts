@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getInitials, getTechnicianColor, formatRevenue, formatLastSeen } from './useTechnicianStats';
 import { formatTimeAU } from '@/lib/dateUtils';
 import { getPaidInvoices, sumPaidRevenueFor } from '@/lib/api/invoices';
+import { getWorkloadBucket } from '@/lib/statusFlow';
 
 // ============================================================================
 // TYPES
@@ -31,7 +32,7 @@ export interface TechnicianDetail {
   workloadScheduled: number;
   workloadInProgress: number;
   workloadCompleted: number;
-  workloadCancelled: number;
+  workloadNotLanded: number;
 }
 
 export interface UpcomingJob {
@@ -217,26 +218,21 @@ async function fetchTechnicianDetail(technicianId: string): Promise<TechnicianDe
       console.warn('[useTechnicianDetail] Leads fetch error:', leadsError);
     }
 
-    // Categorize workload
+    // Categorize workload. WORKLOAD_BUCKET is exhaustive over LeadStatus, so a
+    // new status is a compile error rather than a silent fall-through to
+    // "Scheduled" — which is what previously swallowed job_report_pdf_sent,
+    // invoicing_sent, google_review and four others.
     let workloadScheduled = 0;
     let workloadInProgress = 0;
     let workloadCompleted = 0;
-    let workloadCancelled = 0;
+    let workloadNotLanded = 0;
 
-    (leads || []).forEach((lead: any) => {
-      const status = lead.status?.toLowerCase() || '';
-
-      if (['inspection_waiting', 'job_waiting', 'contacted'].includes(status)) {
-        workloadScheduled++;
-      } else if (['inspection_in_progress', 'approve_inspection_report'].includes(status)) {
-        workloadInProgress++;
-      } else if (['job_completed', 'finished', 'paid', 'invoicing_sent'].includes(status)) {
-        workloadCompleted++;
-      } else if (['closed', 'cancelled', 'not_landed'].includes(status)) {
-        workloadCancelled++;
-      } else {
-        // Default to scheduled for new statuses
-        workloadScheduled++;
+    (leads || []).forEach((lead: { status: string | null }) => {
+      switch (getWorkloadBucket(lead.status)) {
+        case 'scheduled': workloadScheduled++; break;
+        case 'inProgress': workloadInProgress++; break;
+        case 'completed': workloadCompleted++; break;
+        case 'notLanded': workloadNotLanded++; break;
       }
     });
 
@@ -261,7 +257,7 @@ async function fetchTechnicianDetail(technicianId: string): Promise<TechnicianDe
       workloadScheduled,
       workloadInProgress,
       workloadCompleted,
-      workloadCancelled,
+      workloadNotLanded,
     };
 
     return technicianDetail;
