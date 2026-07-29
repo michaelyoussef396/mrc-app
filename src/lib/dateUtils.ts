@@ -79,3 +79,31 @@ export function formatRelativeOrDateAU(input: string | Date | null | undefined):
   if (diffDays < 7) return `${diffDays}d ago`;
   return formatDateAU(d);
 }
+
+/**
+ * Render a duration given in fractional hours.
+ *
+ * Sub-hour durations are the common case for response times, so they render in
+ * minutes. Callers must pass unrounded hours — rounding to whole hours before
+ * calling collapses every sub-30-minute duration to zero.
+ */
+export function formatDurationHours(hours: number): string {
+  if (!isFinite(hours) || hours <= 0) return '—';
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} min`;
+  if (hours < 10) return `${hours.toFixed(1)} hrs`;
+  return `${Math.round(hours)} hrs`;
+}
+
+/**
+ * Stable "YYYY-MM-DD" key built from LOCAL date parts.
+ *
+ * Chart bucketing must key both the data points and the axis buckets the same
+ * way. `toISOString()` converts to UTC first, so in UTC+10 a local-midnight
+ * bucket keys to the previous day — points then plot a day late and any row
+ * past 10:00 local falls outside the generated range entirely.
+ */
+export function toLocalDayKey(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}

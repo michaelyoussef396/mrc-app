@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toLocalDayKey } from '@/lib/dateUtils';
 
 // ============================================================================
 // TYPES
@@ -46,7 +47,7 @@ export interface ReportsData {
 // HELPERS
 // ============================================================================
 
-function getDateRange(period: TimePeriod): { start: Date; end: Date } {
+export function getDateRange(period: TimePeriod): { start: Date; end: Date } {
   const now = new Date();
   const melbourneNow = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
   const end = new Date(melbourneNow);
@@ -190,8 +191,10 @@ export function useReportsData(period: TimePeriod = 'month'): ReportsData {
       if (hours >= 0) responseTimes.push(hours);
     }
   });
+  // Kept fractional — rounding to whole hours here collapsed every sub-30-minute
+  // response to 0 before the formatter could render it in minutes.
   const avgResponseTime = responseTimes.length > 0
-    ? Math.round(responseTimes.reduce((sum, h) => sum + h, 0) / responseTimes.length)
+    ? responseTimes.reduce((sum, h) => sum + h, 0) / responseTimes.length
     : 0;
 
   // Total revenue from inspections
@@ -248,8 +251,25 @@ export function useReportsData(period: TimePeriod = 'month'): ReportsData {
   };
 }
 
-// Generate timeline data points
-function generateTimeline(
+/**
+ * Bucket key for a point in time, in LOCAL time.
+ *
+ * Data points and axis buckets MUST derive their key from this one function.
+ * When the day branch used `toISOString()` the two sides disagreed by a day in
+ * UTC+10: every point plotted one day late, and any lead created after 10:00
+ * local fell past the last generated bucket and vanished from the chart while
+ * still being counted by the Total Leads KPI.
+ */
+function bucketKey(date: Date, period: TimePeriod): string {
+  const day = toLocalDayKey(date);
+  if (period === 'year') return day.slice(0, 7);
+  if (period === 'today') return `${day}T${String(date.getHours()).padStart(2, '0')}`;
+  return day;
+}
+
+// Generate timeline data points. Exported for regression tests — the
+// KPI-vs-chart agreement invariant lives here.
+export function generateTimeline(
   leads: Array<{ created_at: string }>,
   period: TimePeriod,
   start: Date,
@@ -258,44 +278,24 @@ function generateTimeline(
   const timeline: TimelineData[] = [];
   const leadsByDate: Record<string, number> = {};
 
-  // Count leads by date
   leads.forEach(lead => {
-    const date = new Date(lead.created_at);
-    let key: string;
-
-    if (period === 'year') {
-      // Group by month for year view
-      key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    } else if (period === 'today') {
-      // Group by hour for today view
-      key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}`;
-    } else {
-      // Group by day for other views
-      key = date.toISOString().split('T')[0];
-    }
-
+    const key = bucketKey(new Date(lead.created_at), period);
     leadsByDate[key] = (leadsByDate[key] || 0) + 1;
   });
 
   // Generate all date points
   const current = new Date(start);
   while (current <= end) {
-    let key: string;
+    const key = bucketKey(current, period);
     let label: string;
 
     if (period === 'year') {
-      key = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
       label = current.toLocaleDateString('en-AU', { month: 'short' });
-
-      // Move to next month
       current.setMonth(current.getMonth() + 1);
     } else if (period === 'today') {
-      // For today, bucket by hour
-      key = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}T${String(current.getHours()).padStart(2, '0')}`;
       label = current.toLocaleTimeString('en-AU', { hour: 'numeric', hour12: true });
       current.setHours(current.getHours() + 1);
     } else {
-      key = current.toISOString().split('T')[0];
       label = current.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
       current.setDate(current.getDate() + 1);
     }

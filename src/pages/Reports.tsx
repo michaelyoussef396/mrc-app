@@ -14,6 +14,7 @@ import {
 } from '@/components/reports';
 import { Users, TrendingUp, Clock, DollarSign, Loader2, AlertCircle, RefreshCw, BarChart3 } from 'lucide-react';
 import AdminPageLayout from '@/components/admin/AdminPageLayout';
+import { formatDurationHours } from '@/lib/dateUtils';
 
 // ============================================================================
 // HELPERS
@@ -26,13 +27,6 @@ function formatCurrency(amount: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
-}
-
-function formatHours(hours: number): string {
-  if (hours < 1) {
-    return `${Math.round(hours * 60)} min`;
-  }
-  return `${hours} hrs`;
 }
 
 // ============================================================================
@@ -123,7 +117,7 @@ const Reports = () => {
           />
           <KPICard
             title="Avg Response Time"
-            value={formatHours(kpis.avgResponseTime)}
+            value={formatDurationHours(kpis.avgResponseTime)}
             icon={<Clock className="w-5 h-5 text-orange-600" />}
             iconBg="bg-orange-50"
             subtitle="Time to first contact"
