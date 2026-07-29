@@ -6,6 +6,22 @@ interface TechnicianCardProps {
   technician: TechnicianWithStats;
 }
 
+function Stat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex flex-col items-center px-2">
+      <span
+        className="text-[11px] font-semibold uppercase tracking-wider mb-1 text-center"
+        style={{ color: '#617589' }}
+      >
+        {label}
+      </span>
+      <span className="text-xl font-bold" style={{ color: '#1d1d1f' }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
 export function TechnicianCard({ technician }: TechnicianCardProps) {
   const navigate = useNavigate();
 
@@ -77,57 +93,17 @@ export function TechnicianCard({ technician }: TechnicianCardProps) {
         </div>
       </div>
 
-      {/* Stats Row */}
-      <div
-        className="grid grid-cols-3 gap-2 divide-x divide-gray-100 border-t border-b border-gray-100 py-4"
-      >
-        {/* Inspections This Week */}
-        <div className="flex flex-col items-center px-2">
-          <span
-            className="text-[11px] font-semibold uppercase tracking-wider mb-1"
-            style={{ color: '#617589' }}
-          >
-            Inspections
-          </span>
-          <span
-            className="text-xl font-bold"
-            style={{ color: '#1d1d1f' }}
-          >
-            {technician.inspectionsThisWeek}
-          </span>
+      {/* Stats Row — 2x2 at 375px so four labels stay legible, 1x4 from sm up */}
+      <div className="border-t border-b border-gray-100 py-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-4">
+          <Stat label="Active Leads" value={technician.activeLeads} />
+          <Stat label="Inspections" value={technician.inspectionsTotal} />
+          <Stat label="Upcoming" value={technician.upcomingCount} />
+          <Stat label="Revenue" value={formatRevenue(technician.revenueThisMonth)} />
         </div>
-
-        {/* Upcoming */}
-        <div className="flex flex-col items-center px-2">
-          <span
-            className="text-[11px] font-semibold uppercase tracking-wider mb-1"
-            style={{ color: '#617589' }}
-          >
-            Upcoming
-          </span>
-          <span
-            className="text-xl font-bold"
-            style={{ color: '#1d1d1f' }}
-          >
-            {technician.upcomingCount}
-          </span>
-        </div>
-
-        {/* Revenue This Month */}
-        <div className="flex flex-col items-center px-2">
-          <span
-            className="text-[11px] font-semibold uppercase tracking-wider mb-1"
-            style={{ color: '#617589' }}
-          >
-            Revenue
-          </span>
-          <span
-            className="text-xl font-bold"
-            style={{ color: '#1d1d1f' }}
-          >
-            {formatRevenue(technician.revenueThisMonth)}
-          </span>
-        </div>
+        <p className="text-[11px] text-center mt-3" style={{ color: '#617589' }}>
+          Inspections: all time &middot; Revenue: this month
+        </p>
       </div>
 
       {/* Footer - Last Seen */}

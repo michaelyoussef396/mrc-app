@@ -17,7 +17,16 @@ export interface TechnicianWithStats {
   homeSuburb: string | null;
   lastSignInAt: string | null;
   // Stats
-  inspectionsThisWeek: number;
+  /** Open leads currently assigned to this technician. NOT an inspection count. */
+  activeLeads: number;
+  /**
+   * Every inspection this technician has carried out, by inspections.inspector_id.
+   * All-time on purpose: this card is a team roster, and a month-scoped count
+   * reads 0 for everyone during a quiet month. Per-period breakdowns live on the
+   * technician profile page.
+   */
+  inspectionsTotal: number;
+  /** Paid invoices credited to this technician, this month. */
   revenueThisMonth: number;
   upcomingCount: number;
   // Display
@@ -177,6 +186,15 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
 
+    const { data: inspectionStats, error: inspectionError } = await supabase
+      .from('inspections')
+      .select('inspector_id')
+      .in('inspector_id', techIds);
+
+    if (inspectionError) {
+      console.warn('[useTechnicianStats] Inspection stats error:', inspectionError);
+    }
+
     // Step 6: Fetch upcoming bookings count
     const { data: upcomingBookings, error: bookingsError } = await supabase
       .from('calendar_bookings')
@@ -209,17 +227,21 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
     }
 
     // Step 7: Calculate stats for each technician
-    const statsMap: Record<string, { inspectionsThisWeek: number; upcomingCount: number }> = {};
+    const statsMap: Record<string, { activeLeads: number; inspectionsTotal: number; upcomingCount: number }> = {};
 
     techIds.forEach(id => {
-      statsMap[id] = { inspectionsThisWeek: 0, upcomingCount: 0 };
+      statsMap[id] = { activeLeads: 0, inspectionsTotal: 0, upcomingCount: 0 };
     });
 
-    // Count active assigned leads per technician (shown as "leads" in Team Workload)
-    (assignedLeads || []).forEach((lead: any) => {
+    (assignedLeads || []).forEach((lead: { assigned_to: string | null }) => {
       if (lead.assigned_to && statsMap[lead.assigned_to]) {
-        statsMap[lead.assigned_to].inspectionsThisWeek++;
+        statsMap[lead.assigned_to].activeLeads++;
       }
+    });
+
+    (inspectionStats || []).forEach((insp: { inspector_id: string | null }) => {
+      if (!insp.inspector_id || !statsMap[insp.inspector_id]) return;
+      statsMap[insp.inspector_id].inspectionsTotal++;
     });
 
     // Count upcoming bookings
@@ -239,7 +261,8 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
       phone: user.phone || null,
       homeSuburb: user.starting_address?.suburb || null,
       lastSignInAt: user.last_sign_in_at || null,
-      inspectionsThisWeek: statsMap[user.id]?.inspectionsThisWeek || 0,
+      activeLeads: statsMap[user.id]?.activeLeads || 0,
+      inspectionsTotal: statsMap[user.id]?.inspectionsTotal || 0,
       revenueThisMonth: sumPaidRevenueFor(paidInvoices, user.id),
       upcomingCount: statsMap[user.id]?.upcomingCount || 0,
       initials: getInitials(user.first_name, user.last_name),

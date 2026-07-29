@@ -555,8 +555,8 @@ export default function AdminDashboard() {
                   </div>
                 ) : (
                   technicianStats.map((tech) => {
-                    const maxInspections = Math.max(...technicianStats.map(t => t.inspectionsThisWeek), 1);
-                    const progress = (tech.inspectionsThisWeek / maxInspections) * 100;
+                    const maxActiveLeads = Math.max(...technicianStats.map(t => t.activeLeads), 1);
+                    const progress = (tech.activeLeads / maxActiveLeads) * 100;
                     return (
                       <div key={tech.id} className="flex items-center gap-3 md:gap-4">
                         <div
@@ -571,7 +571,7 @@ export default function AdminDashboard() {
                               {tech.fullName}
                             </span>
                             <span className="text-xs flex-shrink-0 ml-2" style={{ color: '#86868b' }}>
-                              {tech.inspectionsThisWeek} lead{tech.inspectionsThisWeek !== 1 ? 's' : ''}
+                              {tech.activeLeads} lead{tech.activeLeads !== 1 ? 's' : ''}
                             </span>
                           </div>
                           <div
