@@ -125,9 +125,14 @@ null-vs-zero semantics, and legacy-card behaviour all verified clean.
   and the zeroed-row empty fallback). Test fixture: DEV job_completion `1b81f7e7-…33c5`
   left STAGED (2/3 dehumidifier, 4/3 air mover, 2/3 HEPA, 1/3 RCD, 6 m³/$550 waste,
   demolition=true) for the UI smoke.
-- AI-summary HEPA needs `generate-inspection-summary` deployed wherever it's tested —
-  NOT on DEV yet (DEV still has only generate-inspection-pdf) and it needs the
-  OPENROUTER_API_KEY secret (part of the wider L4 "deploy 12 EFs to DEV" gap).
+- ~~AI-summary EF deploy to DEV~~ — DONE (Michael, 29 Jul). Probe-verified the new code
+  is live: it fails fast with 500 "AI service not configured" because **DEV has ONLY the
+  platform-auto secrets** (CLI-verified 29 Jul: no OPENROUTER_API_KEY, no SYSTEM_USER_UUID,
+  no Resend/Slack/INTERNAL_WEBHOOK_SECRET — the L4 "set dev EF secrets" step never ran).
+  AI generation on DEV works once Michael runs
+  `npx supabase secrets set OPENROUTER_API_KEY=<from vault> --project-ref ctppzqnysmzynkxjlzta`
+  (value from his own vault, never via chat). CC can then run a generation against the
+  staged inspection and check the summary mentions the HEPA quote.
 - **PROD sequence gains two uploads + two deploys:** after migrations →
   deploy `generate-inspection-pdf` AND `generate-job-report-pdf` (+
   `generate-inspection-summary` when convenient) to PROD **FIRST**, then upload BOTH
