@@ -641,3 +641,28 @@ branch; merge PR #72 first.
       section, outstanding total; no per-invoice spam, no duplicate.
 - [ ] **Team Workload renders technicians on PROD** (manage-users EF exists
       there; DEV could never show this).
+
+---
+
+## Follow-ups from 29 Jul 2026 session (pipeline tab reorder investigation)
+
+Context: investigation of leads-page pipeline order vs the real customer journey.
+Fix shipped this session: `LeadsManagement.tsx` statusOptions swap so pending_review
+sits directly after job_completed, matching canonical ALL_STATUSES. statusFlow.ts
+deliberately untouched. Findings below are logged, not actioned.
+
+- [ ] **HIGH — `LeadDetail.tsx:500-543` reversion logic is index-fragile.** It nulls
+      booking dates, `invoice_amount`/`invoice_sent_date` and `payment_received_date`
+      based on hardcoded `ALL_STATUSES.indexOf` thresholds (`newRank < 1/2/6/7/10/11`).
+      Any future reorder of ALL_STATUSES silently changes which customer financial
+      data gets wiped on status reversion. MUST be refactored to named-status
+      comparisons before ALL_STATUSES is ever reordered (natural home: the PR-T1
+      `revision_needed` session, which reopens this logic anyway).
+- [ ] **Type drift — `LeadStatus` union vs Postgres enum.** `statusFlow.ts` union is
+      missing `hipages_lead` (live in the DB enum and queried by
+      `useUnassignedLeads.ts`) plus 3 legacy enum values (`contacted`,
+      `inspection_completed`, `inspection_report_pdf_completed`). Reconcile in a
+      typed-cleanup session — either extend the union or migrate the legacy values out.
+- [ ] **`LeadDetail.tsx:2554` renders `config.icon` but `StatusFlowConfig` defines
+      `iconName`** — Change Status dialog icons likely render blank. Verify in UI,
+      then fix the property name (one-liner, cosmetic).
