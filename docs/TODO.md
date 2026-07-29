@@ -52,6 +52,29 @@ confirmed applied on prod. Smoke-test lead created + deleted same session.
 
 ---
 
+## Follow-ups from 28 Jul 2026 session (admin dashboard accuracy audit + fix batches 1–2)
+
+Context: launch-verification session audited every admin-dashboard number against PROD (read-only),
+then shipped fixes on `launch/checks` (`91dd58f` dashboard reporting, `396ca9c` ?status= deep links,
+`0ee439e` Melbourne date stamps + due_date restart at send). Runtime verification on a pinned preview
+pending.
+
+- [ ] Verify Today's Jobs / Today's Schedule show QA Test PR57 on 29 Jul, 8:00 am, Type "Job" — span logic SQL-verified 28 Jul but only observable in UI from tomorrow.
+- [ ] PROD-side confirmation after merge: QA Test PR57 bookings and both overdue invoices (INV-2026-0001/0003) exist only on PROD, not the DEV clone — preview verification covered the span/overdue logic structurally, not against those rows; re-check on production once `launch/checks` ships.
+- [ ] Team Workload internal naming: `useTechnicianStats.inspectionsThisWeek` actually holds active-assigned-lead counts, and its `weekStart` computation is dead code — rename + clean (feature session).
+- [ ] 14-day payment term hardcoded in three places (`createInvoice`, `autoPopulateFromLead`, `markInvoiceSent`) — no `payment_terms_days` column; feeds penalty ladder; scope into Xero sprint.
+- [ ] `markInvoiceSent` now overwrites any manually-set `due_date` with send-date + 14 (intended: terms start at send) — revisit if per-invoice terms arrive with Xero.
+- [ ] "Needs attention" wording collision: Leads-to-Assign card subtitle vs the Needs Attention panel — rename the subtitle (one-liner, cosmetic).
+- [ ] Locate the "27 July" element from the dashboard date-contradiction report (Michael — no dashboard code path can render it for a 28 Jul view; need the exact element/screenshot).
+- [ ] `check-overdue-invoices` cron not firing on PROD — INV-2026-0003 sat 22 days past due still `status='sent'` (Michael: verify EF deploy + cron schedule).
+- [ ] INV-2026-0003 due_date data correction (Michael — one-row fix in Studio; code fix `0ee439e` prevents recurrence, does not touch existing rows).
+- [ ] Rotate the DEV admin password (Michael — it was pasted into a CC chat on 29 Jul 2026; DEV-only exposure, rotate when convenient).
+- [ ] Team Workload unverifiable on DEV: `manage-users` EF fails CORS on the DEV project (likely not deployed there — L4 Phase 3 EF deploys), so the panel renders "No technicians found" on preview; re-verify once DEV EFs exist.
+- [ ] Google Fonts woff2 (`fonts.gstatic.com` Inter) fails to load on the preview — check `font-src`/CSP vs the local-font bundling done in L4 Phase 0; page falls back cleanly, cosmetic.
+- [ ] "Completed This Week" counts leads *updated* while sitting in a completed-ish status (updated_at filter), not actual completion events — semantics decision for a future batch.
+
+---
+
 ## Bugs & decisions found 2 Jun 2026
 
 Surfaced during the business-logic / flow audits (read-only investigations). Code fixes are each their own session — logged here, not yet actioned.
