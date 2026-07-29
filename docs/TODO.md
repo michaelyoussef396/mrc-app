@@ -93,8 +93,25 @@ writes on job creation · invoice seeding precedence on real rows.
    to PROD Storage AS `inspection-report-template-final.html` (EF FIRST, template second —
    PROD still runs the old EF, so reversed order blanks the description areas) → merge
    main → production.
-6. [CC] Phase 5 closer: rewrite guide section 6 (gaps → closed), <800 words, verify vs
-   pricing.ts, 375px check.
+6. ~~[CC] Phase 5 closer~~ — **DONE (29 Jul, `01abf08`, Michael-approved after both render
+   E2Es + AI payload verification).** Guide section 6 rewritten: gaps → closed (HEPA on
+   the quote, waste on the quote incl. billed-once, actual-vs-estimate waste at invoice,
+   job report equipment summary). 796 prose words, all 31 figures re-verified against
+   pricing.ts, 375px clean. Note: this was the guide file's FIRST commit — it had been
+   untracked since the 28 Jul doc-consolidation session.
+
+**ALL CC WORK COMPLETE. Remaining (Michael only):**
+1. 375px UI smoke on the Vercel preview (staged fixtures ready: inspection
+   `fc568a31-…17ff` in Both mode, job completion `1b81f7e7-…33c5` with full actuals).
+2. PROD sequence, in order: **2 migrations** in PROD Studio (`20260624113911` then
+   `20260728120000`) → **3 EF deploys** to PROD (`generate-inspection-pdf`,
+   `generate-job-report-pdf`, `generate-inspection-summary`) → **2 template uploads** to
+   PROD `pdf-templates` (`inspection-report-template.html` AS
+   `inspection-report-template-final.html`; `job-report-template.html` same name) —
+   **EF-first is mandatory on PROD** (live job EF has no catch-all; live inspection EF
+   would strip the new placeholders) → merge main → production (merge commit, never
+   squash), coordinated with the parallel session's stream.
+3. Optional DEV extras: `OPENROUTER_API_KEY` secret for AI-summary testing on preview.
 
 ### ADDENDUM — second work batch (28 Jul late evening)
 
