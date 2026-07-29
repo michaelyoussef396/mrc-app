@@ -458,6 +458,26 @@ Surfaced while verifying `src/lib/calculations/pricing.ts` against the docs to b
 
 ---
 
+## Follow-ups from 29 Jul 2026 session (admin analytics audit)
+
+- [ ] **Revenue-query failure takes down the whole Reports page; the technician
+      surfaces degrade instead.** `useReportsData` folds `revenueQuery.error` into
+      the page-level `error`, so if `getPaidInvoices` throws, Reports renders its
+      full-page "Failed to load reports" state and no KPI, chart or insight is
+      shown — including the ones that have nothing to do with revenue.
+      `useTechnicianStats` and `useTechnicianDetail` wrap the same call in
+      try/catch and fall back to `revenueThisMonth = 0`, so a revenue outage
+      costs them one tile, not the page.
+
+      Not introduced by the revenue rewrite — the inspections query it replaced
+      was wired the same way, so this is pre-existing shape, not a regression.
+      Worth unifying so Reports degrades like the others (render the page, show
+      the revenue tile as unavailable), but deliberately **not** done during the
+      analytics work: it changes error-handling behaviour on a page that was
+      already being reworked, and it deserves its own scoped change.
+
+---
+
 ## Bugs & decisions found 2 Jun 2026
 
 Surfaced during the business-logic / flow audits (read-only investigations). Code fixes are each their own session — logged here, not yet actioned.
