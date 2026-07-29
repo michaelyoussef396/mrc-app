@@ -150,7 +150,7 @@ export function WorkloadBreakdown({
         </>
       ) : (
         <div className="text-center py-8">
-          <ClipboardList className="h-8 w-8 mb-2" style={{ color: '#617589' }} />
+          <ClipboardList className="h-8 w-8 mb-2 mx-auto" style={{ color: '#617589' }} />
           <p className="text-sm" style={{ color: '#617589' }}>
             No workload data available
           </p>

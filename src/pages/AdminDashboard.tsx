@@ -268,12 +268,12 @@ export default function AdminDashboard() {
                   </div>
                 ) : scheduleError ? (
                   <div className="py-12 text-center">
-                    <AlertCircle className="h-10 w-10 mb-2" style={{ color: '#FF3B30' }} />
+                    <AlertCircle className="h-10 w-10 mb-2 mx-auto" style={{ color: '#FF3B30' }} />
                     <p className="text-sm" style={{ color: '#FF3B30' }}>{scheduleError}</p>
                   </div>
                 ) : schedule.length === 0 ? (
                   <div className="py-12 text-center">
-                    <CalendarCheck className="h-10 w-10 mb-2 opacity-50" style={{ color: '#86868b' }} />
+                    <CalendarCheck className="h-10 w-10 mb-2 opacity-50 mx-auto" style={{ color: '#86868b' }} />
                     <p className="text-sm" style={{ color: '#86868b' }}>No inspections scheduled for today</p>
                   </div>
                 ) : (
@@ -365,12 +365,12 @@ export default function AdminDashboard() {
                   </div>
                 ) : scheduleError ? (
                   <div className="py-12 text-center">
-                    <AlertCircle className="h-10 w-10 mb-2" style={{ color: '#FF3B30' }} />
+                    <AlertCircle className="h-10 w-10 mb-2 mx-auto" style={{ color: '#FF3B30' }} />
                     <p className="text-sm" style={{ color: '#FF3B30' }}>{scheduleError}</p>
                   </div>
                 ) : schedule.length === 0 ? (
                   <div className="py-12 text-center">
-                    <CalendarCheck className="h-10 w-10 mb-2 opacity-50" style={{ color: '#86868b' }} />
+                    <CalendarCheck className="h-10 w-10 mb-2 opacity-50 mx-auto" style={{ color: '#86868b' }} />
                     <p className="text-sm" style={{ color: '#86868b' }}>No inspections scheduled for today</p>
                   </div>
                 ) : (
@@ -478,7 +478,7 @@ export default function AdminDashboard() {
                 </div>
               ) : unassignedLeadsData.length === 0 ? (
                 <div className="py-8 text-center">
-                  <CheckCircle2 className="h-8 w-8 mb-2 opacity-50" style={{ color: '#34C759' }} />
+                  <CheckCircle2 className="h-8 w-8 mb-2 opacity-50 mx-auto" style={{ color: '#34C759' }} />
                   <p className="text-sm" style={{ color: '#86868b' }}>All leads assigned!</p>
                 </div>
               ) : (
@@ -550,7 +550,7 @@ export default function AdminDashboard() {
                   </div>
                 ) : !technicianStats || technicianStats.length === 0 ? (
                   <div className="py-8 text-center">
-                    <Users className="h-8 w-8 mb-2 opacity-50" style={{ color: '#86868b' }} />
+                    <Users className="h-8 w-8 mb-2 opacity-50 mx-auto" style={{ color: '#86868b' }} />
                     <p className="text-sm" style={{ color: '#86868b' }}>No technicians found</p>
                   </div>
                 ) : (
