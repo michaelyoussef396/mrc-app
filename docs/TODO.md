@@ -100,18 +100,148 @@ writes on job creation · invoice seeding precedence on real rows.
    pricing.ts, 375px clean. Note: this was the guide file's FIRST commit — it had been
    untracked since the 28 Jul doc-consolidation session.
 
-**ALL CC WORK COMPLETE. Remaining (Michael only):**
-1. 375px UI smoke on the Vercel preview (staged fixtures ready: inspection
-   `fc568a31-…17ff` in Both mode, job completion `1b81f7e7-…33c5` with full actuals).
-2. PROD sequence, in order: **2 migrations** in PROD Studio (`20260624113911` then
-   `20260728120000`) → **3 EF deploys** to PROD (`generate-inspection-pdf`,
-   `generate-job-report-pdf`, `generate-inspection-summary`) → **2 template uploads** to
-   PROD `pdf-templates` (`inspection-report-template.html` AS
-   `inspection-report-template-final.html`; `job-report-template.html` same name) —
-   **EF-first is mandatory on PROD** (live job EF has no catch-all; live inspection EF
-   would strip the new placeholders) → merge main → production (merge commit, never
-   squash), coordinated with the parallel session's stream.
-3. Optional DEV extras: `OPENROUTER_API_KEY` secret for AI-summary testing on preview.
+**ALL CC WORK COMPLETE.** Everything that remains lives in ONE place: the
+**PROD ROLLOUT RUNBOOK** section directly below. (Optional DEV extra, separate from the
+rollout: `OPENROUTER_API_KEY` secret on DEV for AI-summary testing on preview.)
+
+---
+
+## PROD ROLLOUT RUNBOOK — HEPA/waste stream + parallel-session merge
+
+Written 29 Jul 2026 to be run COLD, possibly days later, with no memory of the
+sessions. Covers the HEPA/waste stream (20 commits, `a350400..97f3b44`, all on
+origin/main). The parallel debugging session's requirements get pasted into the slot
+below before running.
+
+**The one ordering principle, spelled out:** three layers activate this feature and
+each must exist before the next one needs it. (1) **DB columns before code** — the
+merged code writes `hepa_air_scrubber_*` / `*_waste_disposal_*` columns; if the
+migrations haven't run, every inspection save and job-completion save on live 500s
+with "column does not exist". (2) **EF code before templates** — the live inspection
+EF strips unknown `{{placeholders}}`, so uploading the new template first renders
+blank description/equipment values; the live job EF has NO catch-all, so uploading its
+template first prints literal `{{equipment_summary}}` on customer PDFs. (3) **All of
+the above before the production merge**, because the merge is what puts the
+column-writing frontend in front of customers.
+
+### GATE (do not start the runbook until both are ticked)
+
+- [ ] 375px UI smoke passed on the Vercel preview (staged fixtures: inspection
+      `fc568a31-…17ff` in Both mode; job completion `1b81f7e7-…33c5` with full actuals
+      — HEPA panel gating, WasteCard confirm/override, invoice estimate/actual chips).
+- [ ] Parallel session's stream is ready to merge (its steps pasted in below).
+
+### PRE-MERGE
+
+- [ ] **Both streams build clean.** On each branch/worktree:
+      `npm run typecheck && npm run build && npx vitest run src/lib/calculations/pricing.test.ts`
+      (this stream's expected: typecheck clean, build clean, 60/60 tests).
+- [ ] **Conflict check.** Files the HEPA/waste stream touched (definitive list from
+      `git diff --name-only a350400^..97f3b44`) — check the parallel session against
+      these BEFORE merging; the starred ones are the likely collision points:
+      - ⭐ `src/lib/calculations/pricing.ts` (+ `pricing.test.ts`) — SACRED money engine
+      - ⭐ `src/lib/api/invoices.ts`
+      - ⭐ `src/pages/TechnicianInspectionForm.tsx`
+      - ⭐ `src/pages/JobCompletionForm.tsx` + `src/hooks/useJobCompletionForm.ts`
+        + `src/lib/api/jobCompletions.ts` + `src/components/job-completion/Section7Equipment.tsx`
+      - ⭐ `src/pages/AdminInvoiceHelper.tsx`
+      - ⭐ `src/templates/inspection-report-template.html` + `src/templates/job-report-template.html`
+        (BOTH must be re-uploaded to Storage if the parallel session edited them too —
+        Storage serves ONE copy per file)
+      - `src/components/leads/InspectionDataDisplay.tsx`, `JobCompletionEditSheet.tsx`,
+        `JobCompletionSummary.tsx`, `src/components/pdf/ReportPreviewHTML.tsx`
+      - `src/types/inspection.ts`, `src/types/jobCompletion.ts`,
+        `src/integrations/supabase/types.ts` (regenerate from DB if both streams touched it)
+      - `supabase/functions/generate-inspection-pdf/index.ts`,
+        `generate-job-report-pdf/index.ts`, `generate-inspection-summary/index.ts`
+      - `supabase/migrations/20260728120000_hepa_quote_columns.sql`
+      - Docs only: `docs/TODO.md`, `docs/PRICING_AND_PROCESS_GUIDE.html`,
+        `docs/COST_CALCULATION_SYSTEM.md`, `.claude/rules/australian-compliance.md`
+- [ ] **PARALLEL SESSION STEPS — fill in from the other session before running:**
+      ```
+      (paste the parallel session's pre-merge checks, migrations, deploys, and
+       verification steps here, and slot them into the sequence below)
+      ```
+
+### PROD SEQUENCE — exact order
+
+- [ ] **1. Apply BOTH migrations in PROD Studio** (LIVE — `ecyivrxjpsmjmexqatym`).
+      SQL editor: https://supabase.com/dashboard/project/ecyivrxjpsmjmexqatym/sql/new
+      Paste and run, in this order (both files in `supabase/migrations/`, both additive
+      `IF NOT EXISTS`, safe to re-run):
+      1. `20260624113911_job_completion_waste.sql`
+      2. `20260728120000_hepa_quote_columns.sql`
+      Verify (same SQL editor — expect 4 rows):
+      ```sql
+      SELECT table_name, column_name FROM information_schema.columns
+      WHERE (table_name='inspections'     AND column_name LIKE 'hepa_air_scrubber%')
+         OR (table_name='job_completions' AND column_name IN ('quoted_afd_qty','actual_waste_disposal_cost'));
+      ```
+      *Out of order:* skip this and merge anyway → every inspection/job-completion save
+      on live fails ("column does not exist") until applied. Rollback SQL is in each
+      file's header comment.
+
+- [ ] **2. Deploy the three Edge Functions to PROD** (from the repo root, on the
+      merged-ready main — run all three, order among them doesn't matter):
+      ```
+      npx supabase functions deploy generate-inspection-pdf     --project-ref ecyivrxjpsmjmexqatym
+      npx supabase functions deploy generate-job-report-pdf     --project-ref ecyivrxjpsmjmexqatym
+      npx supabase functions deploy generate-inspection-summary --project-ref ecyivrxjpsmjmexqatym
+      ```
+      *Out of order:* deploying AFTER step 3's uploads leaves a window where the OLD
+      EFs render the NEW templates — inspection PDFs show blank scope/equipment values
+      (catch-all strips), job PDFs print literal `{{equipment_summary}}` (no catch-all).
+      Deploying EFs first is harmless: new `.replace` calls no-op on the old templates.
+
+- [ ] **3. Upload BOTH templates to PROD Storage** (Dashboard → Storage →
+      `pdf-templates` bucket → Upload, overwrite existing):
+      https://supabase.com/dashboard/project/ecyivrxjpsmjmexqatym/storage/buckets/pdf-templates
+      | Source (repo) | Upload into bucket AS |
+      |---|---|
+      | `src/templates/inspection-report-template.html` | `inspection-report-template-final.html` ← **RENAME on upload** |
+      | `src/templates/job-report-template.html` | `job-report-template.html` (same name) |
+      *Out of order / skipped:* features stay silently OFF — the new EFs find no
+      placeholders to fill, customers keep getting the old pages (no corruption, but
+      no HEPA/waste lines and the scope-steps fix stays dormant). This step is the ON
+      switch. To roll a template back: `git show a68710d^:src/templates/inspection-report-template.html`
+      / `git show 7dae371^:src/templates/job-report-template.html` and re-upload.
+
+- [ ] **4. Merge main → production** (repo rule: merge commit — NEVER squash, never
+      rebase):
+      ```
+      git checkout production && git pull origin production
+      git merge main --no-ff
+      git push origin production
+      git checkout main
+      ```
+      Vercel auto-deploys production (mrcsystem.com) from the push.
+      *Out of order:* merging before steps 1-3 puts column-writing forms and
+      placeholder-emitting flows in front of customers against a DB/EF/template stack
+      that can't serve them — this is the step that goes LAST.
+
+- [ ] **5. Post-merge deploy verification:**
+      - Vercel dashboard: production deployment green (project **mrc-system** — repo
+        `.vercel` link is stale, always pass/select the project explicitly).
+      - Bundle points at PROD Supabase (guards the 23 Jul env-var clobber recurrence):
+        view-source of https://mrcsystem.com → fetch the main JS bundle → it must
+        contain `ecyivrxjpsmjmexqatym` and NOT `ctppzqnysmzynkxjlzta`.
+
+### POST-MERGE
+
+- [ ] **Env vars intact** (the 23 Jul outage was Production-scope `VITE_*` vars
+      clobbered by the Supabase marketplace integration):
+      `npx vercel env ls production --project mrc-system` → confirm
+      `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (+ the other two `VITE_*`) exist
+      in **Production** scope with PROD values.
+- [ ] **Live smoke on mrcsystem.com:** log in → open a lead → inspection form opens
+      and Section 7 shows the HEPA panel when its toggle is on → create a smoke lead,
+      confirm it appears, delete it (23 Jul pattern). If a real inspection exists,
+      render its PDF once and check Page 8: HEPA line, waste line, scope-of-work steps
+      showing actual treatment methods, no `{{...}}` anywhere.
+- [ ] **Send `docs/PRICING_AND_PROCESS_GUIDE.html` to Glen and Clayton** — the Phase 5
+      quick-skim (796 words, gaps-closed section 6). Print-to-PDF or attach the HTML.
+
+---
 
 ### ADDENDUM — second work batch (28 Jul late evening)
 
