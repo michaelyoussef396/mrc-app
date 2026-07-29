@@ -72,8 +72,6 @@ export interface InvoiceRow {
   updated_at: string
 }
 
-
-
 export interface CreateInvoiceInput {
   lead_id: string
   job_completion_id?: string | null
@@ -197,6 +195,73 @@ export async function getInvoiceById(invoiceId: string): Promise<InvoiceRow> {
     throw new Error(`Failed to fetch invoice: ${error.message}`)
   }
   return data as InvoiceRow
+}
+
+/** One paid invoice, reduced to what the analytics surfaces need. */
+export interface PaidInvoice {
+  id: string
+  /** inc-GST total actually billed (see saveCalculatedInvoice). */
+  totalAmount: number
+  paidAt: string
+  /**
+   * Technician credited with the payment, or null when the invoice can be
+   * traced to neither a job completion nor an assigned lead. Null-attributed
+   * invoices still count toward org-wide revenue — see sumPaidRevenue.
+   */
+  technicianId: string | null
+}
+
+/**
+ * Paid invoices with `paid_at` inside [from, to], each attributed to a technician.
+ *
+ * This is the only source of truth for "revenue" on the Reports and Technician
+ * surfaces. Those tiles previously summed `inspections.total_inc_gst`, which is
+ * the *quoted* figure — it reported money that had not been earned and could
+ * never show money that had been collected.
+ *
+ * Attribution prefers the technician who completed the job over the currently
+ * assigned lead owner, because lead assignment can change after the work is done.
+ */
+export async function getPaidInvoices(from: Date, to: Date): Promise<PaidInvoice[]> {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('id, total_amount, paid_at, job_completion:job_completions(completed_by), lead:leads(assigned_to)')
+    .eq('status', 'paid')
+    .gte('paid_at', from.toISOString())
+    .lte('paid_at', to.toISOString())
+
+  if (error) {
+    captureBusinessError('Failed to fetch paid invoices', { error: error.message })
+    throw new Error(`Failed to fetch paid invoices: ${error.message}`)
+  }
+
+  return (data ?? []).map((row: {
+    id: string
+    total_amount: number | string | null
+    paid_at: string
+    job_completion: { completed_by: string | null } | null
+    lead: { assigned_to: string | null } | null
+  }) => ({
+    id: row.id,
+    totalAmount: Number(row.total_amount) || 0,
+    paidAt: row.paid_at,
+    technicianId: row.job_completion?.completed_by ?? row.lead?.assigned_to ?? null,
+  }))
+}
+
+/**
+ * Org-wide paid revenue. Includes invoices with no technician attribution so the
+ * top-line total never silently under-reports what was collected.
+ */
+export function sumPaidRevenue(invoices: PaidInvoice[]): number {
+  return invoices.reduce((sum, inv) => sum + inv.totalAmount, 0)
+}
+
+/** Paid revenue credited to one technician. */
+export function sumPaidRevenueFor(invoices: PaidInvoice[], technicianId: string): number {
+  return invoices
+    .filter(inv => inv.technicianId === technicianId)
+    .reduce((sum, inv) => sum + inv.totalAmount, 0)
 }
 
 // ============================================================
