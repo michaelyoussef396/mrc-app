@@ -1,5 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getPaidInvoices, sumPaidRevenue } from '@/lib/api/invoices';
+import { isConvertedStatus } from '@/lib/statusFlow';
+import { toLocalDayKey } from '@/lib/dateUtils';
 
 // ============================================================================
 // TYPES
@@ -46,7 +49,7 @@ export interface ReportsData {
 // HELPERS
 // ============================================================================
 
-function getDateRange(period: TimePeriod): { start: Date; end: Date } {
+export function getDateRange(period: TimePeriod): { start: Date; end: Date } {
   const now = new Date();
   const melbourneNow = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
   const end = new Date(melbourneNow);
@@ -129,19 +132,11 @@ export function useReportsData(period: TimePeriod = 'month'): ReportsData {
     refetchInterval: 60000,
   });
 
-  // Fetch inspections for revenue
-  const inspectionsQuery = useQuery({
-    queryKey: ['reports', 'inspections', period],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('inspections')
-        .select('id, total_inc_gst, created_at')
-        .gte('created_at', startISO)
-        .lte('created_at', endISO);
-
-      if (error) throw error;
-      return data || [];
-    },
+  // Revenue is money received, so it comes from paid invoices — not from
+  // inspections.total_inc_gst, which is only the quote.
+  const revenueQuery = useQuery({
+    queryKey: ['reports', 'paid-invoices', period],
+    queryFn: () => getPaidInvoices(start, end),
     refetchInterval: 60000,
   });
 
@@ -162,17 +157,14 @@ export function useReportsData(period: TimePeriod = 'month'): ReportsData {
   });
 
   // Process data
-  const isLoading = leadsQuery.isLoading || inspectionsQuery.isLoading || bookingsQuery.isLoading;
-  const error = leadsQuery.error || inspectionsQuery.error || bookingsQuery.error;
+  const isLoading = leadsQuery.isLoading || revenueQuery.isLoading || bookingsQuery.isLoading;
+  const error = leadsQuery.error || revenueQuery.error || bookingsQuery.error;
   const leads = leadsQuery.data || [];
-  const inspections = inspectionsQuery.data || [];
 
   // Calculate KPIs
   const totalLeads = leads.length;
-  const closedLeads = leads.filter(l =>
-    ['closed', 'job_completed', 'paid', 'finished'].includes(l.status)
-  ).length;
-  const conversionRate = totalLeads > 0 ? Math.round((closedLeads / totalLeads) * 100) : 0;
+  const convertedLeads = leads.filter(l => isConvertedStatus(l.status)).length;
+  const conversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
 
   // Average response time: hours between lead creation and first booking creation
   const bookings = bookingsQuery.data || [];
@@ -190,14 +182,15 @@ export function useReportsData(period: TimePeriod = 'month'): ReportsData {
       if (hours >= 0) responseTimes.push(hours);
     }
   });
+  // Kept fractional — rounding to whole hours here collapsed every sub-30-minute
+  // response to 0 before the formatter could render it in minutes.
   const avgResponseTime = responseTimes.length > 0
-    ? Math.round(responseTimes.reduce((sum, h) => sum + h, 0) / responseTimes.length)
+    ? responseTimes.reduce((sum, h) => sum + h, 0) / responseTimes.length
     : 0;
 
-  // Total revenue from inspections
-  const totalRevenue = inspections.reduce((sum, ins) => {
-    return sum + (typeof ins.total_inc_gst === 'number' ? ins.total_inc_gst : 0);
-  }, 0);
+  // Money actually collected in the period, including invoices that trace to no
+  // technician — the org total must not under-report what was banked.
+  const totalRevenue = sumPaidRevenue(revenueQuery.data || []);
 
   // Status breakdown
   const statusCounts: Record<string, number> = {};
@@ -248,8 +241,25 @@ export function useReportsData(period: TimePeriod = 'month'): ReportsData {
   };
 }
 
-// Generate timeline data points
-function generateTimeline(
+/**
+ * Bucket key for a point in time, in LOCAL time.
+ *
+ * Data points and axis buckets MUST derive their key from this one function.
+ * When the day branch used `toISOString()` the two sides disagreed by a day in
+ * UTC+10: every point plotted one day late, and any lead created after 10:00
+ * local fell past the last generated bucket and vanished from the chart while
+ * still being counted by the Total Leads KPI.
+ */
+function bucketKey(date: Date, period: TimePeriod): string {
+  const day = toLocalDayKey(date);
+  if (period === 'year') return day.slice(0, 7);
+  if (period === 'today') return `${day}T${String(date.getHours()).padStart(2, '0')}`;
+  return day;
+}
+
+// Generate timeline data points. Exported for regression tests — the
+// KPI-vs-chart agreement invariant lives here.
+export function generateTimeline(
   leads: Array<{ created_at: string }>,
   period: TimePeriod,
   start: Date,
@@ -258,44 +268,24 @@ function generateTimeline(
   const timeline: TimelineData[] = [];
   const leadsByDate: Record<string, number> = {};
 
-  // Count leads by date
   leads.forEach(lead => {
-    const date = new Date(lead.created_at);
-    let key: string;
-
-    if (period === 'year') {
-      // Group by month for year view
-      key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    } else if (period === 'today') {
-      // Group by hour for today view
-      key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}`;
-    } else {
-      // Group by day for other views
-      key = date.toISOString().split('T')[0];
-    }
-
+    const key = bucketKey(new Date(lead.created_at), period);
     leadsByDate[key] = (leadsByDate[key] || 0) + 1;
   });
 
   // Generate all date points
   const current = new Date(start);
   while (current <= end) {
-    let key: string;
+    const key = bucketKey(current, period);
     let label: string;
 
     if (period === 'year') {
-      key = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
       label = current.toLocaleDateString('en-AU', { month: 'short' });
-
-      // Move to next month
       current.setMonth(current.getMonth() + 1);
     } else if (period === 'today') {
-      // For today, bucket by hour
-      key = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}T${String(current.getHours()).padStart(2, '0')}`;
       label = current.toLocaleTimeString('en-AU', { hour: 'numeric', hour12: true });
       current.setHours(current.getHours() + 1);
     } else {
-      key = current.toISOString().split('T')[0];
       label = current.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
       current.setDate(current.getDate() + 1);
     }

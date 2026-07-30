@@ -7,7 +7,6 @@ import {
   Receipt, CheckCircle2, AlertCircle, Send, Loader2, XCircle, Pencil, Save, ExternalLink,
 } from 'lucide-react'
 
-import { supabase } from '@/integrations/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PenaltyLadderWidget } from '@/components/invoices/PenaltyLadderWidget'
@@ -59,7 +58,6 @@ export function InvoicePaymentCard({ leadId, leadStatus, onRefresh }: Props) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
-  const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [paidDialogOpen, setPaidDialogOpen] = useState(false)
   const [voidDialogOpen, setVoidDialogOpen] = useState(false)
@@ -90,78 +88,6 @@ export function InvoicePaymentCard({ leadId, leadStatus, onRefresh }: Props) {
       setNotes(invoice.notes ?? '')
     }
   }, [invoice, editOpen])
-
-  async function loadLeadCustomer() {
-    const { data } = await supabase
-      .from('leads')
-      .select('full_name, email, phone, property_address_street, property_address_suburb, property_address_state, property_address_postcode')
-      .eq('id', leadId)
-      .single()
-    return data
-  }
-
-  async function handleCreate() {
-    if (amount <= 0) {
-      toast.error('Invoice amount must be greater than 0')
-      return
-    }
-    if (!dueDate) {
-      toast.error('Due date is required')
-      return
-    }
-    setSaving(true)
-    try {
-      const lead = await loadLeadCustomer()
-      if (!lead?.full_name) {
-        toast.error('Lead has no name — cannot create invoice')
-        return
-      }
-
-      const address = [
-        lead.property_address_street,
-        lead.property_address_suburb,
-        lead.property_address_state,
-        lead.property_address_postcode,
-      ].filter(Boolean).join(', ')
-
-      const { error } = await supabase
-        .from('invoices')
-        .insert({
-          lead_id: leadId,
-          customer_name: lead.full_name,
-          customer_email: lead.email,
-          customer_phone: lead.phone,
-          property_address: address,
-          total_amount: amount,
-          subtotal: amount,
-          subtotal_after_discount: amount,
-          discount_percentage: 0,
-          discount_amount: 0,
-          gst_amount: 0,
-          equipment_subtotal: 0,
-          line_items: [],
-          due_date: dueDate,
-          payment_reference: reference || null,
-          notes: notes || null,
-          status: 'draft',
-        })
-
-      if (error) throw error
-      toast.success('Invoice created')
-      setCreateOpen(false)
-      // Reset form
-      setAmount(0)
-      setDueDate(defaultDueDate())
-      setReference('')
-      setNotes('')
-      await refetch()
-      onRefresh()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create invoice')
-    } finally {
-      setSaving(false)
-    }
-  }
 
   function handleEdit() {
     if (!invoice) return
@@ -290,78 +216,11 @@ export function InvoicePaymentCard({ leadId, leadStatus, onRefresh }: Props) {
     )
   }
 
-  // No invoice: show create button (or inline form)
-  if (!invoice) {
-    const canCreate = ['job_completed', 'job_report_pdf_sent', 'invoicing_sent', 'paid'].includes(leadStatus)
-
-    return (
-      <>
-        <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <Receipt className="h-5 w-5 text-purple-600" />
-            <h3 className="font-semibold">Invoice & Payment</h3>
-          </div>
-          <p className="text-sm text-gray-500">Track payment status for this lead. Admin sends the invoice externally.</p>
-          <Button
-            className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white"
-            onClick={() => setCreateOpen(true)}
-            disabled={!canCreate}
-          >
-            Create Invoice Tracker
-          </Button>
-          {!canCreate && (
-            <p className="text-xs text-gray-400">Complete the job report first.</p>
-          )}
-        </div>
-
-        {/* Create Dialog */}
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Create Invoice Tracker</DialogTitle>
-              <DialogDescription>Enter the invoice details you've sent externally.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3 py-2">
-              <div>
-                <Label>Invoice Amount (AUD, inc. GST)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  value={amount || ''}
-                  onChange={e => setAmount(Number(e.target.value) || 0)}
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <Label>Due Date</Label>
-                <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
-              </div>
-              <div>
-                <Label>Reference (optional)</Label>
-                <Input
-                  value={reference}
-                  onChange={e => setReference(e.target.value)}
-                  placeholder="e.g. external invoice number"
-                />
-              </div>
-              <div>
-                <Label>Notes (optional)</Label>
-                <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreate} disabled={saving} className="bg-purple-600 hover:bg-purple-700">
-                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                Create
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </>
-    )
-  }
+  // LeadDetail only mounts this card once an invoice exists (LeadDetail.tsx, the
+  // `if (invoice)` branch); the no-invoice case is a type guard, not a UI state.
+  // Invoices are created through AdminInvoiceHelper, which routes every write
+  // through calculateInvoiceTotals in lib/api/invoices.ts.
+  if (!invoice) return null
 
   // Existing invoice — show summary + actions
   const badgeStatus = invoice.status

@@ -220,3 +220,71 @@ export const isTerminalStatus = (status: LeadStatus): boolean => {
 export const getNextStatus = (currentStatus: LeadStatus): LeadStatus | null => {
   return STATUS_FLOW[currentStatus]?.next || null;
 };
+
+// ============================================================================
+// ANALYTICS CLASSIFICATION
+// ============================================================================
+// Both maps below are typed Record<LeadStatus, ...> on purpose: adding a status
+// to the LeadStatus union without classifying it here is a compile error rather
+// than a silent miscount on the Reports and Technician surfaces.
+
+export type WorkloadBucket = 'scheduled' | 'inProgress' | 'completed' | 'notLanded';
+
+/**
+ * Lifecycle stage each status represents, for the technician Workload Breakdown.
+ * `closed` sits in `completed` — STATUS_FLOW describes it as "Lead completed
+ * successfully", so it is a win, not a cancellation.
+ */
+export const WORKLOAD_BUCKET: Record<LeadStatus, WorkloadBucket> = {
+  new_lead: 'scheduled',
+  inspection_waiting: 'scheduled',
+  job_waiting: 'scheduled',
+  job_scheduled: 'scheduled',
+
+  inspection_ai_summary: 'inProgress',
+  approve_inspection_report: 'inProgress',
+  inspection_email_approval: 'inProgress',
+  job_completed: 'inProgress',
+  pending_review: 'inProgress',
+  job_report_pdf_sent: 'inProgress',
+  invoicing_sent: 'inProgress',
+
+  paid: 'completed',
+  google_review: 'completed',
+  finished: 'completed',
+  closed: 'completed',
+
+  not_landed: 'notLanded',
+};
+
+/**
+ * Whether a lead reaching this status counts as won, for the Reports conversion
+ * rate. A lead converts once the customer accepts and the job is booked
+ * (`job_waiting`); everything downstream of that is also won.
+ */
+export const IS_CONVERTED_STATUS: Record<LeadStatus, boolean> = {
+  new_lead: false,
+  inspection_waiting: false,
+  inspection_ai_summary: false,
+  approve_inspection_report: false,
+  inspection_email_approval: false,
+
+  job_waiting: true,
+  job_scheduled: true,
+  job_completed: true,
+  pending_review: true,
+  job_report_pdf_sent: true,
+  invoicing_sent: true,
+  paid: true,
+  google_review: true,
+  finished: true,
+  closed: true,
+
+  not_landed: false,
+};
+
+export const isConvertedStatus = (status: string | null | undefined): boolean =>
+  !!status && IS_CONVERTED_STATUS[status as LeadStatus] === true;
+
+export const getWorkloadBucket = (status: string | null | undefined): WorkloadBucket =>
+  WORKLOAD_BUCKET[status as LeadStatus] ?? 'scheduled';

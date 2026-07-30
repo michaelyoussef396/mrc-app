@@ -15,6 +15,73 @@ production email delivery.
 
 ---
 
+## ⚠️ PENDING: Invoice data integrity — 2 SQL blocks for Michael to run
+
+Branch `fix/admin-analytics-accuracy`. Surfaced 2026-07-29 while auditing the
+admin analytics surfaces. Read-only investigation; **no DB writes made, no
+migration applied.**
+
+**What was wrong.** Two writers stamped an inc-GST figure into
+`invoices.subtotal_after_discount`, which is the ex-GST column:
+
+| Invoice | Stored | Status | Written by |
+|---|---|---|---|
+| `INV-2026-0001` | sad **290.40**, gst **0.00**, total 290.40 | overdue | `handleCreate` in `InvoicePaymentCard.tsx` — raw insert bypassing `calculateInvoiceTotals`, gst hardcoded 0 |
+| `INV-2026-0002` | sad **11029.77**, gst 1002.69, total 11029.77 | paid | pre-`bb1ee91` `handleEdit`, same file — stamped the typed inc-GST total onto three money columns leaving gst stale |
+
+`handleEdit` was removed 2026-06-02 (`bb1ee91`). `handleCreate` was removed
+2026-07-29 (`5792211`) — it was unreachable but was the surviving copy of the
+same shape. **No code can produce this defect any more**; only the two rows and
+the missing DB guard remain.
+
+Live consequence while the rows exist: `AdminInvoiceHelper.tsx:357-361` renders
+`subtotal_after_discount` and `gst_amount` raw when a saved invoice exists, so
+`INV-2026-0001` displays **"GST 10%: $0.00"** on the screen an admin copies from
+to hand-build an invoice.
+
+**The other two rows also go — test data, not defective.** Both are
+arithmetically perfect and came through the proper `saveCalculatedInvoice` path;
+neither is a real invoice. `INV-2026-0004` (paid, $28,603.75): email
+`user.name+tag+sorting@example.com` on an IANA-reserved domain, notes reading
+`notes optial in invocie`, a line item named `testing custom line`, equipment of
+10 × 10 days for every item ($18,300), address just "VIC", zero inspections /
+job completions / bookings, whole create→sent→paid lifecycle in 50 minutes.
+`INV-2026-0003` (overdue, $4,697.48): email is a variant of Michael's own
+address, a line item named `custom one`.
+
+**The invoices table ends empty.** Nothing has ever been billed through this
+system, so $0.00 is the honest figure.
+
+- [ ] **Run `docs/INVOICE_INTEGRITY_RUNBOOK.md` — DEV (`ctppzqnysmzynkxjlzta`)
+      first, confirm clean, then PROD (`ecyivrxjpsmjmexqatym`).** Two ordered
+      blocks: **A** deletes all four rows with bracketing verification SELECTs;
+      **B** applies `supabase/migrations/20260729153000_invoice_totals_integrity_checks.sql`
+      (two CHECK constraints, both `VALID`). **A before B** — a VALID constraint
+      aborts while the two defective rows are present.
+
+**Only invoice rows are deleted (verified read-only 2026-07-29).** No table in
+the DB has an `invoice_id` column — all 26 public tables probed — so no FK
+references `invoices.id`; nothing cascades, nothing blocks. `INV-2026-0003`'s
+linked inspection and calendar booking **survive**: neither table has an
+`invoice_id`, both link to the *lead*, and the invoice FKs point outward
+(`invoices.lead_id → leads`), so deleting the referencing side cannot touch the
+parent. Runbook step A7 asserts this. Leads, activities and email_logs untouched.
+The full before-state of all four rows is preserved permanently in `audit_logs`
+(24 rows, append-only, protected by `prevent_audit_logs_delete`), plus a
+`delete_invoice` audit row each. `invoice_number_seq` is not rewound by a DELETE
+— the next real invoice is `INV-2026-0005`, never a reused number; step A8
+verifies the sequence directly.
+
+**Expected, not a regression:** Reports year revenue **$39,633.52 → $0.00**;
+month view and technician revenue stay $0.00; Outstanding **$4,987.88 → $0.00**.
+The dashboard Outstanding Invoices widget will be empty.
+
+Both constraints are required — neither alone catches both defects.
+`INV-2026-0001` **passes** the sum check (290.40 + 0.00 = 290.40 is
+arithmetically consistent) and is caught only by the GST relation.
+
+---
+
 **Last Updated:** 2026-07-23
 **Production state:** main @ `b50d07b`, production @ `9fdc853` (merge of PRs #67–#71 + login-footer fix), mrcsystem.com live and verified 2026-07-23
 **Status:** Phase 1 + Phase 3 + Phase 4 Stages 4.1/4.1.5/4.2/4.3 COMPLETE in production. Phase 2 (Job Completion) built and deployed — existence-verified 2026-07-07, runtime-untested against dev (see "Phase 2 — Job Completion Workflow: Existence Verification" below). Pre-launch hardening underway.
@@ -388,6 +455,26 @@ Surfaced while verifying `src/lib/calculations/pricing.ts` against the docs to b
       call edges from inline-declared components. `calculateCostEstimate` resolved correctly
       (CRITICAL, 5 direct callers). **Always grep-verify a LOW/zero-impact GitNexus result before
       trusting it**, especially for symbols consumed by the inline sections of the big form files.
+
+---
+
+## Follow-ups from 29 Jul 2026 session (admin analytics audit)
+
+- [ ] **Revenue-query failure takes down the whole Reports page; the technician
+      surfaces degrade instead.** `useReportsData` folds `revenueQuery.error` into
+      the page-level `error`, so if `getPaidInvoices` throws, Reports renders its
+      full-page "Failed to load reports" state and no KPI, chart or insight is
+      shown — including the ones that have nothing to do with revenue.
+      `useTechnicianStats` and `useTechnicianDetail` wrap the same call in
+      try/catch and fall back to `revenueThisMonth = 0`, so a revenue outage
+      costs them one tile, not the page.
+
+      Not introduced by the revenue rewrite — the inspections query it replaced
+      was wired the same way, so this is pre-existing shape, not a regression.
+      Worth unifying so Reports degrades like the others (render the page, show
+      the revenue tile as unavailable), but deliberately **not** done during the
+      analytics work: it changes error-handling behaviour on a page that was
+      already being reworked, and it deserves its own scoped change.
 
 ---
 
