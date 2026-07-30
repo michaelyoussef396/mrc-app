@@ -14,8 +14,14 @@ export TECH_EMAIL=...  TECH_PASSWORD=...
 #    PLAYWRIGHT_BASE_URL is what playwright.config.ts reads.
 export PLAYWRIGHT_BASE_URL="https://mrc-app-1-<commit-hash>-....vercel.app"
 
-npx playwright test tests/e2e/pre-merge --reporter=list
+npx playwright test tests/e2e/pre-merge --reporter=list --workers=2
 ```
+
+`--workers=2` matters against a local dev server: at full concurrency it starves and the
+EF-backed technician surfaces time out.
+
+Note `playwright.config.ts` points `webServer` at port 5173 while Vite serves **8080**, so
+omitting `PLAYWRIGHT_BASE_URL` will hang for 120s and fail. Always set it.
 
 Omitting `PLAYWRIGHT_BASE_URL` makes the config auto-start `npm run dev` and run
 against local dev instead.
@@ -42,20 +48,11 @@ Two caveats stated plainly:
   therefore **never focus, type into, or clear a field, and never click Restore**.
   Keep it that way when extending them.
 
-## Skipped specs — post-merge surfaces
+## All specs active
 
-`*.skip.mobile.spec.ts` files are scaffolded but `test.describe.skip`-ed. They cover
-behaviour that lands with `launch/checks` (`0350749`), which is not on `main`; this
-branch descends from `main`, so their absence here is branch scoping, not a defect.
-
-| File | Un-skip when | Commit |
-|---|---|---|
-| `admin-dashboard.skip` | dashboard reporting fixes land | `91dd58f` |
-| `leads-pipeline.skip` | tab reorder + `?status=` deep links land | `d50b117`, `396ca9c` |
-| `settings-profile.skip` | Settings danger-zone removal lands | `b4d4cc3` |
-
-Un-skip by deleting `.skip` from the `test.describe.skip(` call, then run as part of
-the combined post-merge pass.
+Nothing is skipped. The four `launch/checks` surfaces (`91dd58f` dashboard reporting,
+`d50b117` tab order, `396ca9c` `?status=` deep links, `b4d4cc3` Settings danger zone)
+merged into `main` at `8fe47e9` and are asserted live.
 
 **Do not "fix" a failing pipeline-order test by editing `ALL_STATUSES`.** That array is
 frozen: `LeadDetail.tsx` `handleChangeStatus` uses `ALL_STATUSES.indexOf()` against

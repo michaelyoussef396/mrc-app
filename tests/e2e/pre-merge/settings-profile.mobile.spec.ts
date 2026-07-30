@@ -6,7 +6,7 @@ import {
 } from './helpers/breadth';
 
 /**
- * SKIPPED ON THIS BRANCH — post-merge surface.
+ * Merged into main at 8fe47e9 — live.
  *
  *   b4d4cc3  fix(settings): remove "Log out from ALL devices" option from the
  *            Settings danger zone
@@ -20,9 +20,8 @@ import {
  *   Profile  → PRESENT   the capability is deliberately retained
  *   Settings → ABSENT    removed from the danger zone by b4d4cc3
  *
- * UN-SKIP: delete the test.describe.skip below once b4d4cc3 is merged.
  */
-test.describe.skip('Settings / Profile — post-merge (launch/checks b4d4cc3)', () => {
+test.describe('Settings / Profile (launch/checks b4d4cc3, merged)', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
   });

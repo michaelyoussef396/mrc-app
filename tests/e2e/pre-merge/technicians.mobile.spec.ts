@@ -10,28 +10,15 @@ import {
  * docs/PRE_MERGE_TESTING_CHECKLIST.md §3.5 and §3.6 —
  * Technicians list and technician profile.
  *
- * ─────────────────────────────────────────────────────────────────────────────
- * SKIPPED — BLOCKED BY A DEV ENVIRONMENT GAP, NOT BY CODE.
- *
  * Both surfaces are driven entirely by useTechnicianStats / useTechnicianDetail,
- * which fetch the `manage-users` Edge Function. That function returns 404 on DEV
- * (ctppzqnysmzynkxjlzta) — verified 2026-07-29. docs/TODO.md records that the
- * DEV restore never carried any Edge Function; only generate-inspection-pdf,
- * generate-job-report-pdf and generate-inspection-summary were later deployed.
- *
- * With the fetch failing, useTechnicianStats catches and returns [], so the page
- * renders its "No Technicians Found" empty state and every assertion here fails
- * on absent elements. Preview deploys use Preview-scope env vars pointing at the
- * same DEV project, so this cannot pass there either.
- *
- * UN-SKIP once manage-users is deployed to DEV:
- *   npx supabase functions deploy manage-users --project-ref ctppzqnysmzynkxjlzta
- * ─────────────────────────────────────────────────────────────────────────────
+ * which fetch the `manage-users` Edge Function. That returned 404 on DEV until
+ * 2026-07-30; it now answers 401 to a service-role probe (deployed, wants a user
+ * JWT), so these specs are live.
  *
  * Breadth only. The PROD figures in the checklist (michael 12/10, Clayton 0/1)
  * do not apply — the preview points at DEV.
  */
-test.describe.skip('§3.5 Technicians list — blocked: manage-users EF absent on DEV', () => {
+test.describe('§3.5 Technicians list', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
   });
@@ -81,6 +68,9 @@ test.describe.skip('§3.5 Technicians list — blocked: manage-users EF absent o
 
   test('last seen renders relative time or DD/MM, never an ISO string', async ({ page }) => {
     await page.goto('/admin/technicians');
+    // Wait for the EF-backed list to populate before asserting — it takes ~9s, so
+    // going straight to the assertion races the default 10s expect timeout.
+    await expect(page.getByText(/active leads/i).first()).toBeVisible({ timeout: 25_000 });
     const lastSeen = page.getByText(/last seen:/i).first();
     const text = await expectRenderable(lastSeen, 'Last seen');
     // Either relative ("19 hours ago", "Never") or Australian short date (04/05).
@@ -89,7 +79,7 @@ test.describe.skip('§3.5 Technicians list — blocked: manage-users EF absent o
   });
 });
 
-test.describe.skip('§3.6 Technician profile — blocked: manage-users EF absent on DEV', () => {
+test.describe('§3.6 Technician profile', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
   });
@@ -97,6 +87,9 @@ test.describe.skip('§3.6 Technician profile — blocked: manage-users EF absent
   test('opens from the list and renders the stats grid', async ({ page }, testInfo) => {
     const watch = watchConsole(page);
     await page.goto('/admin/technicians');
+    // EF-backed list — wait for a card before clicking through.
+    await expect(page.getByRole('button', { name: /view profile/i }).first())
+      .toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: /view profile/i }).first().click();
     await expect(page).toHaveURL(/\/admin\/technicians\/[0-9a-f-]{36}/, { timeout: 15_000 });
 

@@ -32,6 +32,11 @@ const CONSOLE_ALLOWLIST: Array<{ pattern: RegExp; reason: string }> = [
   { pattern: /React Router Future Flag Warning/i, reason: 'v7 opt-in notice, emitted by react-router v6' },
   { pattern: /favicon\.ico|manifest\.json|apple-touch-icon/i, reason: 'static asset 404s, not app code' },
   { pattern: /Download the React DevTools/i, reason: 'React dev build banner' },
+  {
+    pattern: /\[useGoogleMaps\] Google Maps API key not configured/i,
+    reason: 'environmental: VITE_GOOGLE_MAPS_API_KEY absent from the build env, not a code defect. '
+          + 'Will also appear on any deploy whose env lacks the key — check Preview/Production scope.',
+  },
 ];
 
 export interface ConsoleWatch {
