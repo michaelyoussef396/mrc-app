@@ -74,10 +74,20 @@ export function rowToFormData(row: JobCompletionRow): JobCompletionFormData {
     actualRcdDays: row.actual_rcd_days,
 
     // Section 7: Equipment (quoted snapshot — read-only in UI)
+    // NULL = never quoted (legacy row) — must survive the round-trip, never coerce to 0.
     quotedDehumidifierQty: row.quoted_dehumidifier_qty,
     quotedAirMoverQty: row.quoted_air_mover_qty,
     quotedRcdQty: row.quoted_rcd_qty,
     quotedEquipmentDays: row.quoted_equipment_days,
+    quotedHepaAirScrubberQty: row.quoted_afd_qty,
+    quotedHepaAirScrubberDays: row.quoted_afd_days,
+
+    // Section 7: Waste disposal (quoted snapshot + actual confirm/override)
+    quotedWasteM3: row.quoted_waste_disposal_m3,
+    quotedWasteCost: row.quoted_waste_disposal_cost,
+    actualWasteM3: row.actual_waste_disposal_m3,
+    actualWasteCost: row.actual_waste_disposal_cost,
+    actualWasteIsOverridden: row.actual_waste_disposal_is_overridden ?? false,
 
     // Section 8: Variation Tracking
     scopeChanged: row.scope_changed,

@@ -78,10 +78,20 @@ export interface JobCompletionFormData {
   actualRcdDays: number;
 
   // Section 7: Quoted equipment (snapshot, read-only)
+  // NULL = never quoted (legacy row) — distinct from an explicit 0.
   quotedDehumidifierQty: number;
   quotedAirMoverQty: number;
   quotedRcdQty: number;
   quotedEquipmentDays: number;
+  quotedHepaAirScrubberQty: number | null;
+  quotedHepaAirScrubberDays: number | null;
+
+  // Section 7: Waste disposal (quoted snapshot + actual with confirm/override)
+  quotedWasteM3: number | null;
+  quotedWasteCost: number | null;
+  actualWasteM3: number | null;
+  actualWasteCost: number | null;
+  actualWasteIsOverridden: boolean;
 
   // Section 8: Variation Tracking
   scopeChanged: boolean;
@@ -149,6 +159,13 @@ export interface JobCompletionRow {
   quoted_air_mover_qty: number;
   quoted_rcd_qty: number;
   quoted_equipment_days: number;
+  quoted_afd_qty: number | null;
+  quoted_afd_days: number | null;
+  quoted_waste_disposal_m3: number | null;
+  quoted_waste_disposal_cost: number | null;
+  actual_waste_disposal_m3: number | null;
+  actual_waste_disposal_cost: number | null;
+  actual_waste_disposal_is_overridden: boolean | null;
   scope_changed: boolean;
   scope_what_changed: string | null;
   scope_why_changed: string | null;
@@ -216,6 +233,13 @@ export const DEFAULT_JOB_COMPLETION_FORM: JobCompletionFormData = {
   quotedAirMoverQty: 0,
   quotedRcdQty: 0,
   quotedEquipmentDays: 0,
+  quotedHepaAirScrubberQty: null,
+  quotedHepaAirScrubberDays: null,
+  quotedWasteM3: null,
+  quotedWasteCost: null,
+  actualWasteM3: null,
+  actualWasteCost: null,
+  actualWasteIsOverridden: false,
   scopeChanged: false,
   scopeWhatChanged: '',
   scopeWhyChanged: '',

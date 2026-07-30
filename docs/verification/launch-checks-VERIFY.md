@@ -16,6 +16,7 @@ Docs-only commits carry no user-visible change; every behavioural change from th
 - **Role required:** admin
 - **Preconditions:** invoices past due_date in status sent/viewed/overdue. PROD has INV-2026-0001 and INV-2026-0003 (both overdue). DEV has no equivalent rows — seed one `sent` invoice with a past due_date to test there.
 - **PASS looks like:** card count and total ≡ the Outstanding/overdue panel exactly (on PROD as of 29 Jul: 2 invoices, $4,987.88 — both figures with cents, `$X,XXX.XX`). Card derives from `getDaysOverdue(due_date, status) > 0`, NOT from `status = 'overdue'`.
+  **⚠️ PASS-value window (added 30 Jul):** the 2 · $4,987.88 figures are valid ONLY until the invoice-integrity runbook runs (post-4 Aug: deletes all four invoice rows). Post-runbook the correct PASS value is **0 · $0.00** with an empty panel. The manual pass must check this card BEFORE the runbook.
 - **FAIL signal:** card shows fewer invoices than the panel (old behaviour: 1 · $290.00 vs 2 · $4,987.88), or whole-dollar amounts with no cents.
 - **Environment:** DEV-verifiable with seeded row; PROD confirmation needed against the two real invoices (those rows exist only on PROD).
 - **Already verified:** yes (structurally, DEV numbers) — pinned preview above. PROD-row confirmation outstanding.

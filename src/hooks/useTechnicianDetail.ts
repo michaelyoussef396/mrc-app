@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getInitials, getTechnicianColor, formatRevenue, formatLastSeen } from './useTechnicianStats';
-import { formatTimeAU } from '@/lib/dateUtils';
+import { formatTimeAU, parseLocalDate } from '@/lib/dateUtils';
+import { getPaidInvoices, sumPaidRevenueFor } from '@/lib/api/invoices';
+import { getWorkloadBucket } from '@/lib/statusFlow';
 
 // ============================================================================
 // TYPES
@@ -30,9 +32,14 @@ export interface TechnicianDetail {
   workloadScheduled: number;
   workloadInProgress: number;
   workloadCompleted: number;
-  workloadCancelled: number;
+  workloadNotLanded: number;
 }
 
+/**
+ * One upcoming engagement. A multi-day job occupies one calendar_bookings row
+ * per day; those rows are collapsed into a single entry here so the profile list
+ * and the "Upcoming" count on the technician card agree.
+ */
 export interface UpcomingJob {
   id: string;
   startDatetime: Date;
@@ -44,6 +51,8 @@ export interface UpcomingJob {
   suburb: string;
   phone: string | null;
   leadId: string | null;
+  /** Number of scheduled days this engagement spans. 1 for a single-day booking. */
+  dayCount: number;
 }
 
 interface UserFromAPI {
@@ -169,7 +178,7 @@ async function fetchTechnicianDetail(technicianId: string): Promise<TechnicianDe
     // Step 4: Fetch inspection stats
     const { data: inspections, error: inspError } = await supabase
       .from('inspections')
-      .select('inspection_date, total_inc_gst')
+      .select('inspection_date')
       .eq('inspector_id', technicianId);
 
     if (inspError) {
@@ -180,24 +189,26 @@ async function fetchTechnicianDetail(technicianId: string): Promise<TechnicianDe
     let inspectionsToday = 0;
     let inspectionsThisWeek = 0;
     let inspectionsThisMonth = 0;
-    let revenueThisMonth = 0;
 
-    (inspections || []).forEach((insp: any) => {
-      const inspDate = new Date(insp.inspection_date);
+    (inspections || []).forEach((insp: { inspection_date: string | null }) => {
+      // inspection_date is a DATE column — must parse as local midnight, or the
+      // day-boundary comparisons below shift by one.
+      const inspDate = parseLocalDate(insp.inspection_date);
+      if (!inspDate) return;
 
-      if (inspDate >= todayStart) {
-        inspectionsToday++;
-      }
-      if (inspDate >= weekStart) {
-        inspectionsThisWeek++;
-      }
-      if (inspDate >= monthStart) {
-        inspectionsThisMonth++;
-        if (insp.total_inc_gst) {
-          revenueThisMonth += parseFloat(insp.total_inc_gst) || 0;
-        }
-      }
+      if (inspDate >= todayStart) inspectionsToday++;
+      if (inspDate >= weekStart) inspectionsThisWeek++;
+      if (inspDate >= monthStart) inspectionsThisMonth++;
     });
+
+    // Revenue is collected cash, not quoted value — see getPaidInvoices.
+    let revenueThisMonth = 0;
+    try {
+      const paidInvoices = await getPaidInvoices(monthStart, now);
+      revenueThisMonth = sumPaidRevenueFor(paidInvoices, technicianId);
+    } catch (revenueError) {
+      console.warn('[useTechnicianDetail] Paid invoice fetch error:', revenueError);
+    }
 
     // Step 5: Fetch workload breakdown (leads assigned, last 30 days)
     const { data: leads, error: leadsError } = await supabase
@@ -211,26 +222,21 @@ async function fetchTechnicianDetail(technicianId: string): Promise<TechnicianDe
       console.warn('[useTechnicianDetail] Leads fetch error:', leadsError);
     }
 
-    // Categorize workload
+    // Categorize workload. WORKLOAD_BUCKET is exhaustive over LeadStatus, so a
+    // new status is a compile error rather than a silent fall-through to
+    // "Scheduled" — which is what previously swallowed job_report_pdf_sent,
+    // invoicing_sent, google_review and four others.
     let workloadScheduled = 0;
     let workloadInProgress = 0;
     let workloadCompleted = 0;
-    let workloadCancelled = 0;
+    let workloadNotLanded = 0;
 
-    (leads || []).forEach((lead: any) => {
-      const status = lead.status?.toLowerCase() || '';
-
-      if (['inspection_waiting', 'job_waiting', 'contacted'].includes(status)) {
-        workloadScheduled++;
-      } else if (['inspection_in_progress', 'approve_inspection_report'].includes(status)) {
-        workloadInProgress++;
-      } else if (['job_completed', 'finished', 'paid', 'invoicing_sent'].includes(status)) {
-        workloadCompleted++;
-      } else if (['closed', 'cancelled', 'not_landed'].includes(status)) {
-        workloadCancelled++;
-      } else {
-        // Default to scheduled for new statuses
-        workloadScheduled++;
+    (leads || []).forEach((lead: { status: string | null }) => {
+      switch (getWorkloadBucket(lead.status)) {
+        case 'scheduled': workloadScheduled++; break;
+        case 'inProgress': workloadInProgress++; break;
+        case 'completed': workloadCompleted++; break;
+        case 'notLanded': workloadNotLanded++; break;
       }
     });
 
@@ -255,7 +261,7 @@ async function fetchTechnicianDetail(technicianId: string): Promise<TechnicianDe
       workloadScheduled,
       workloadInProgress,
       workloadCompleted,
-      workloadCancelled,
+      workloadNotLanded,
     };
 
     return technicianDetail;
@@ -269,6 +275,8 @@ async function fetchTechnicianDetail(technicianId: string): Promise<TechnicianDe
 async function fetchUpcomingJobs(technicianId: string): Promise<UpcomingJob[]> {
 
   try {
+    // No limit here: rows are collapsed into engagements below, and a single
+    // multi-week job can span more rows than any sensible row cap.
     const { data: bookings, error } = await supabase
       .from('calendar_bookings')
       .select(`
@@ -287,29 +295,48 @@ async function fetchUpcomingJobs(technicianId: string): Promise<UpcomingJob[]> {
         )
       `)
       .eq('assigned_to', technicianId)
+      .neq('status', 'cancelled')
       .gte('start_datetime', new Date().toISOString())
-      .order('start_datetime', { ascending: true })
-      .limit(10);
+      .order('start_datetime', { ascending: true });
 
     if (error) {
       console.error('[useTechnicianDetail] Bookings fetch error:', error);
       throw error;
     }
 
-    const upcomingJobs: UpcomingJob[] = (bookings || []).map((booking: any) => ({
-      id: booking.id,
-      startDatetime: new Date(booking.start_datetime),
-      endDatetime: new Date(booking.end_datetime),
-      eventType: booking.event_type === 'job' ? 'job' : 'inspection',
-      title: booking.title || '',
-      status: booking.status || 'scheduled',
-      customerName: booking.lead?.full_name || 'Unknown',
-      suburb: booking.lead?.property_address_suburb || '',
-      phone: booking.lead?.phone || null,
-      leadId: booking.lead_id,
-    }));
+    const byEngagement = new Map<string, UpcomingJob>();
 
-    return upcomingJobs;
+    (bookings || []).forEach((booking: any) => {
+      const key = `${booking.lead_id}|${booking.event_type}`;
+      const start = new Date(booking.start_datetime);
+      const end = new Date(booking.end_datetime);
+      const existing = byEngagement.get(key);
+
+      if (existing) {
+        // Rows arrive in start order, so only the tail can extend.
+        if (end > existing.endDatetime) existing.endDatetime = end;
+        existing.dayCount++;
+        return;
+      }
+
+      byEngagement.set(key, {
+        id: booking.id,
+        startDatetime: start,
+        endDatetime: end,
+        eventType: booking.event_type === 'job' ? 'job' : 'inspection',
+        title: booking.title || '',
+        status: booking.status || 'scheduled',
+        customerName: booking.lead?.full_name || 'Unknown',
+        suburb: booking.lead?.property_address_suburb || '',
+        phone: booking.lead?.phone || null,
+        leadId: booking.lead_id,
+        dayCount: 1,
+      });
+    });
+
+    return [...byEngagement.values()].sort(
+      (a, b) => a.startDatetime.getTime() - b.startDatetime.getTime()
+    );
 
   } catch (error) {
     console.error('[useTechnicianDetail] Upcoming jobs error:', error);

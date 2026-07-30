@@ -313,6 +313,42 @@ Deno.serve(async (req) => {
       html = html.replaceAll(placeholder, value)
     }
 
+    // 5a-bis. Equipment & waste summary (contents page) — actuals recorded on the
+    // job. Rates must match EQUIPMENT_RATES in src/lib/calculations/pricing.ts
+    // (dehumidifier 119, airMover 46, hepaAirScrubber 100, rcd 5); no shared
+    // constant across the Deno boundary, keep in sync by hand. HEPA reads the
+    // legacy actual_afd_* columns (rename parked). Waste is a job-level
+    // pass-through — never folded into the equipment total.
+    const money = (n: number) =>
+      `$${n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    const equipmentRows: Array<[string, number, number, number]> = [
+      ['Dehumidifier', jc.actual_dehumidifier_qty || 0, jc.actual_dehumidifier_days || 0, 119],
+      ['Air Mover', jc.actual_air_mover_qty || 0, jc.actual_air_mover_days || 0, 46],
+      ['HEPA Air Scrubber', jc.actual_afd_qty || 0, jc.actual_afd_days || 0, 100],
+      ['RCD Box', jc.actual_rcd_qty || 0, jc.actual_rcd_days || 0, 5],
+    ]
+    const summaryLines: string[] = []
+    let equipmentTotal = 0
+    for (const [label, qty, days, rate] of equipmentRows) {
+      if (qty > 0 && days > 0) {
+        const lineTotal = qty * days * rate
+        equipmentTotal += lineTotal
+        summaryLines.push(`${label}: ${qty} × ${days} day${days === 1 ? '' : 's'} @ ${money(rate)}/day — ${money(lineTotal)}`)
+      }
+    }
+    if (summaryLines.length > 0) {
+      summaryLines.push(`Equipment total (ex GST): ${money(equipmentTotal)}`)
+    }
+    const wasteCost = Number(jc.actual_waste_disposal_cost ?? 0)
+    if (wasteCost > 0) {
+      const wasteM3 = jc.actual_waste_disposal_m3
+      summaryLines.push(`Waste disposal${wasteM3 ? ` (${wasteM3} m³)` : ''} — billed once: ${money(wasteCost)} ex GST`)
+    }
+    const equipmentSummaryHtml = summaryLines.length > 0
+      ? summaryLines.join('<br/>')
+      : 'No equipment hire or waste disposal recorded for this job.'
+    html = html.replaceAll('{{equipment_summary}}', equipmentSummaryHtml)
+
     // 5b. Conditional: demolition page
     const ifDemoStart = '<!-- IF: demolition_works -->'
     const ifDemoEnd = '<!-- ENDIF -->'
@@ -362,6 +398,11 @@ Deno.serve(async (req) => {
       'g',
     )
     html = html.replace(emptyImgPattern, '')
+
+    // 5f. Defensive: strip any placeholder left unreplaced (e.g. a template newer
+    // than this function) so raw {{...}} never ships to a customer. Mirrors the
+    // inspection EF's catch-all.
+    html = html.replace(/\{\{[^}]+\}\}/g, '')
 
     // ===== STEP 6: Store and return =====
     const newVersion = regenerate ? (jc.pdf_version || 0) + 1 : (jc.pdf_version || 0) + 1

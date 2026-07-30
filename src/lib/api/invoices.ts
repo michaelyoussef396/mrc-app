@@ -197,6 +197,73 @@ export async function getInvoiceById(invoiceId: string): Promise<InvoiceRow> {
   return data as InvoiceRow
 }
 
+/** One paid invoice, reduced to what the analytics surfaces need. */
+export interface PaidInvoice {
+  id: string
+  /** inc-GST total actually billed (see saveCalculatedInvoice). */
+  totalAmount: number
+  paidAt: string
+  /**
+   * Technician credited with the payment, or null when the invoice can be
+   * traced to neither a job completion nor an assigned lead. Null-attributed
+   * invoices still count toward org-wide revenue — see sumPaidRevenue.
+   */
+  technicianId: string | null
+}
+
+/**
+ * Paid invoices with `paid_at` inside [from, to], each attributed to a technician.
+ *
+ * This is the only source of truth for "revenue" on the Reports and Technician
+ * surfaces. Those tiles previously summed `inspections.total_inc_gst`, which is
+ * the *quoted* figure — it reported money that had not been earned and could
+ * never show money that had been collected.
+ *
+ * Attribution prefers the technician who completed the job over the currently
+ * assigned lead owner, because lead assignment can change after the work is done.
+ */
+export async function getPaidInvoices(from: Date, to: Date): Promise<PaidInvoice[]> {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('id, total_amount, paid_at, job_completion:job_completions(completed_by), lead:leads(assigned_to)')
+    .eq('status', 'paid')
+    .gte('paid_at', from.toISOString())
+    .lte('paid_at', to.toISOString())
+
+  if (error) {
+    captureBusinessError('Failed to fetch paid invoices', { error: error.message })
+    throw new Error(`Failed to fetch paid invoices: ${error.message}`)
+  }
+
+  return (data ?? []).map((row: {
+    id: string
+    total_amount: number | string | null
+    paid_at: string
+    job_completion: { completed_by: string | null } | null
+    lead: { assigned_to: string | null } | null
+  }) => ({
+    id: row.id,
+    totalAmount: Number(row.total_amount) || 0,
+    paidAt: row.paid_at,
+    technicianId: row.job_completion?.completed_by ?? row.lead?.assigned_to ?? null,
+  }))
+}
+
+/**
+ * Org-wide paid revenue. Includes invoices with no technician attribution so the
+ * top-line total never silently under-reports what was collected.
+ */
+export function sumPaidRevenue(invoices: PaidInvoice[]): number {
+  return invoices.reduce((sum, inv) => sum + inv.totalAmount, 0)
+}
+
+/** Paid revenue credited to one technician. */
+export function sumPaidRevenueFor(invoices: PaidInvoice[], technicianId: string): number {
+  return invoices
+    .filter(inv => inv.technicianId === technicianId)
+    .reduce((sum, inv) => sum + inv.totalAmount, 0)
+}
+
 // ============================================================
 // MUTATIONS
 // ============================================================
@@ -687,7 +754,7 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
   // Job completion (most recent)
   const { data: jc } = await supabase
     .from('job_completions')
-    .select('id, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_afd_qty, actual_afd_days, actual_rcd_qty, actual_rcd_days')
+    .select('id, actual_dehumidifier_qty, actual_dehumidifier_days, actual_air_mover_qty, actual_air_mover_days, actual_afd_qty, actual_afd_days, actual_rcd_qty, actual_rcd_days, actual_waste_disposal_m3, actual_waste_disposal_cost')
     .eq('lead_id', leadId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -696,7 +763,7 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
   // Inspection (for quoted amount + labour)
   const { data: inspection, error: inspectionError } = await supabase
     .from('inspections')
-    .select('total_inc_gst, subtotal_ex_gst, labour_cost_ex_gst, equipment_cost_ex_gst, discount_percent, waste_disposal_confirmed_cost')
+    .select('total_inc_gst, subtotal_ex_gst, labour_cost_ex_gst, equipment_cost_ex_gst, discount_percent, waste_disposal_m3, waste_disposal_confirmed_cost')
     .eq('lead_id', leadId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -787,10 +854,15 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
   }
 
   // Waste disposal — confirmed ex-GST pass-through (never discounted).
-  if (inspection?.waste_disposal_confirmed_cost && Number(inspection.waste_disposal_confirmed_cost) > 0) {
-    const wasteCost = round2(Number(inspection.waste_disposal_confirmed_cost))
+  // Prefer the job's confirmed actual (tech re-priced on site) over the inspection estimate.
+  const actualWaste = jc?.actual_waste_disposal_cost != null ? Number(jc.actual_waste_disposal_cost) : null
+  const estimateWaste = inspection?.waste_disposal_confirmed_cost != null ? Number(inspection.waste_disposal_confirmed_cost) : null
+  const wasteCostSource = actualWaste ?? estimateWaste
+  if (wasteCostSource != null && wasteCostSource > 0) {
+    const wasteCost = round2(wasteCostSource)
+    const wasteM3 = actualWaste != null ? jc?.actual_waste_disposal_m3 : inspection?.waste_disposal_m3
     lineItems.push({
-      description: 'Waste disposal',
+      description: `Waste disposal${wasteM3 ? ` (${wasteM3} m³)` : ''}`,
       quantity: 1,
       unit_price: wasteCost,
       total: wasteCost,

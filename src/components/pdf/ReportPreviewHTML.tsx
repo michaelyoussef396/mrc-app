@@ -780,13 +780,9 @@ export function ReportPreviewHTML({
   function recalcTotals(form: CostData): CostData {
     const next = { ...form }
     // Waste disposal: confirmed pass-through, never discounted. Excluded in "Both"
-    // mode (option 3) to mirror the technician estimate — per-option totals stay
-    // labour+equipment only.
-    // NOTE: this updates the in-app editable preview + hard-save totals only. The
-    // customer-facing render (generate-inspection-pdf EF + Storage template
-    // `inspection-report-template-final.html`) does not yet show a waste line — that
-    // is a deferred follow-up (design-IP boundary; needs a `{{waste_disposal}}`
-    // placeholder + EF replacement + Storage template upload).
+    // mode (option 3) — it is a single job-level cost billed once, so per-option
+    // totals stay labour+equipment only. The customer PDF renders it as its own
+    // "billed once" line via the {{waste_disposal}} placeholder (2026-07-28).
     const waste = next.option_selected === 3 ? 0 : (next.waste_disposal_cost || 0)
     // Option 2 / single-option totals
     next.subtotal_ex_gst = Math.round((next.labour_cost_ex_gst + next.equipment_cost_ex_gst + waste) * 100) / 100
@@ -1549,6 +1545,21 @@ export function ReportPreviewHTML({
                               </div>
                             </div>
                           </div>
+                          {/* Job-level waste line — billed once, deliberately outside both option totals */}
+                          <div className="flex items-center gap-3 pt-1">
+                            <label className="text-sm text-gray-600 w-36 shrink-0">Waste Disposal (ex GST)</label>
+                            <div className="flex items-center gap-1 flex-1">
+                              <span className="text-sm text-gray-400">$</span>
+                              <input type="number" step="0.01" min="0"
+                                value={costForm.waste_disposal_cost || ''}
+                                onChange={(e) => updateCostField('waste_disposal_cost', parseFloat(e.target.value) || 0)}
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                              />
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-gray-500">
+                            Billed once — applies to either option; not included in the option totals above.
+                          </p>
                         </div>
                       ) : (
                         /* Single option pricing */
