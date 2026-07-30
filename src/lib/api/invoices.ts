@@ -576,9 +576,13 @@ export async function applyManualInvoiceTotal(
 }
 
 export async function markInvoiceSent(invoiceId: string): Promise<void> {
+  // Payment terms start when the invoice is actually sent, so due_date is
+  // recalculated from the send date (same 14-day term as invoice creation).
+  // Without this, an invoice drafted weeks earlier is overdue — and deep into
+  // the penalty ladder — the instant it goes out.
   const { data, error } = await supabase
     .from('invoices')
-    .update({ status: 'sent', sent_at: new Date().toISOString() })
+    .update({ status: 'sent', sent_at: new Date().toISOString(), due_date: defaultDueDate(14) })
     .eq('id', invoiceId)
     .select('lead_id, customer_name, invoice_number, total_amount')
     .single()
@@ -617,9 +621,10 @@ export async function markInvoicePaid(
   const current = await getInvoiceById(invoiceId)
   if (current.status === 'paid') return
 
-  // A custom payment_date records when payment actually landed; default to today.
+  // A custom payment_date records when payment actually landed; default to
+  // today's Melbourne calendar date.
   // paid_at anchors a custom date to local midday to avoid timezone day-rollover.
-  const payment_date = paymentDate ?? new Date().toISOString().split('T')[0]
+  const payment_date = paymentDate ?? melbourneDateISO()
   const paid_at = paymentDate
     ? new Date(`${paymentDate}T12:00:00`).toISOString()
     : new Date().toISOString()
@@ -888,8 +893,14 @@ export async function autoPopulateFromLead(leadId: string): Promise<CreateInvoic
 // HELPERS
 // ============================================================
 
+// YYYY-MM-DD for the Melbourne calendar day — toISOString() would give the UTC
+// date, which is yesterday's date before 10am/11am AEST/AEDT.
+function melbourneDateISO(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' }).format(date)
+}
+
 function defaultDueDate(days: number): string {
   const d = new Date()
   d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
+  return melbourneDateISO(d)
 }

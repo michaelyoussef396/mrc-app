@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getDaysOverdue } from '@/lib/calculations/penaltyLadder';
+import type { InvoiceStatus } from '@/lib/api/invoices';
 
 interface DashboardStats {
   todaysJobs: number;
@@ -18,10 +20,10 @@ interface DashboardStats {
  * Custom hook for fetching real-time dashboard statistics from Supabase.
  *
  * Stats:
- * - todaysJobs: Inspections scheduled for today
+ * - todaysJobs: Bookings (inspections + jobs) whose span overlaps today
  * - leadsToAssign: New leads without an assigned technician
  * - completedThisWeek: Jobs completed this week (Monday-Sunday)
- * - revenueThisWeek: Total revenue from completed inspections this week
+ * - revenueThisWeek: Revenue received this week — paid invoices by payment_date
  */
 export function useAdminDashboardStats(): DashboardStats {
   const [stats, setStats] = useState<DashboardStats>({
@@ -43,10 +45,6 @@ export function useAdminDashboardStats(): DashboardStats {
 
   const fetchStats = async () => {
     try {
-      // Get today's date in YYYY-MM-DD format (Melbourne timezone)
-      // Use en-CA locale with Intl.DateTimeFormat — it outputs YYYY-MM-DD directly
-      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Melbourne' }).format(new Date());
-
       // Get start of week (Monday) in Melbourne timezone
       const now = new Date();
       const melbourneNow = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
@@ -56,6 +54,17 @@ export function useAdminDashboardStats(): DashboardStats {
       startOfWeek.setDate(melbourneNow.getDate() - diffToMonday);
       startOfWeek.setHours(0, 0, 0, 0);
       const startOfWeekISO = startOfWeek.toISOString();
+      // Same Monday boundary as a plain date, for comparing DATE columns
+      // (invoices.payment_date) rather than timestamps
+      const startOfWeekDate = new Intl.DateTimeFormat('en-CA').format(startOfWeek);
+
+      // Today's Melbourne day window, for booking-overlap queries
+      const startOfToday = new Date(melbourneNow);
+      startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date(startOfToday);
+      endOfToday.setDate(endOfToday.getDate() + 1);
+      const startOfTodayISO = startOfToday.toISOString();
+      const endOfTodayISO = endOfToday.toISOString();
 
 
       // Run all queries in parallel for better performance
@@ -72,11 +81,15 @@ export function useAdminDashboardStats(): DashboardStats {
         overdueInvoicesResult,
         failedWebhooksResult,
       ] = await Promise.all([
-        // 1. Today's Jobs - count inspections scheduled for today
+        // 1. Today's Jobs - bookings whose span overlaps today (Melbourne).
+        // Overlap predicate (start < end-of-day AND end > start-of-day) so a
+        // multi-day booking counts on EVERY day of its span, not just day one.
         supabase
-          .from('inspections')
+          .from('calendar_bookings')
           .select('*', { count: 'exact', head: true })
-          .eq('inspection_date', today),
+          .lt('start_datetime', endOfTodayISO)
+          .gt('end_datetime', startOfTodayISO)
+          .neq('status', 'cancelled'),
 
         // 2. Leads to Assign - new leads without technician assigned
         supabase
@@ -94,12 +107,13 @@ export function useAdminDashboardStats(): DashboardStats {
           .gte('updated_at', startOfWeekISO)
           .is('archived_at', null),
 
-        // 4. Revenue This Week - sum of total_inc_gst from inspections created this week
+        // 4. Revenue This Week - money actually received: paid invoices with a
+        // payment_date in the current Melbourne week (Mon 00:00 boundary)
         supabase
-          .from('inspections')
-          .select('total_inc_gst')
-          .gte('created_at', startOfWeekISO)
-          .not('total_inc_gst', 'is', null),
+          .from('invoices')
+          .select('total_amount')
+          .eq('status', 'paid')
+          .gte('payment_date', startOfWeekDate),
 
         // 5. Pending Reviews - leads flagged by techs for admin review
         supabase
@@ -108,11 +122,13 @@ export function useAdminDashboardStats(): DashboardStats {
           .eq('status', 'pending_review')
           .is('archived_at', null),
 
-        // 6. Overdue Invoices - count + sum of total_amount
+        // 6. Overdue Invoices - issued-but-unpaid set; overdue is derived from
+        // due_date below (matches useOverdueInvoices), never the stored status,
+        // because the overdue-flagging cron can lag or miss rows
         supabase
           .from('invoices')
-          .select('total_amount')
-          .eq('status', 'overdue'),
+          .select('total_amount, due_date, status')
+          .in('status', ['sent', 'viewed', 'overdue']),
 
         // 7. Failed Webhooks - submissions that failed in last 7 days
         supabase
@@ -152,14 +168,16 @@ export function useAdminDashboardStats(): DashboardStats {
         console.warn('[Dashboard Stats] Failed webhooks query error:', failedWebhooksResult.error);
       }
 
-      // Calculate total revenue
-      const totalRevenue = revenueResult.data?.reduce((sum, inspection) => {
-        const amount = inspection.total_inc_gst;
-        return sum + (typeof amount === 'number' ? amount : 0);
+      // Total revenue received this week (paid invoices)
+      const totalRevenue = revenueResult.data?.reduce((sum, invoice) => {
+        const amount = Number(invoice.total_amount);
+        return sum + (Number.isFinite(amount) ? amount : 0);
       }, 0) || 0;
 
-      // Calculate overdue invoice totals
-      const overdueData = overdueInvoicesResult.data || [];
+      // Calculate overdue invoice totals (past due_date only)
+      const overdueData = (overdueInvoicesResult.data || []).filter(
+        (inv) => getDaysOverdue({ due_date: inv.due_date, status: inv.status as InvoiceStatus }) > 0
+      );
       const overdueTotal = overdueData.reduce((sum, inv) => {
         const amount = inv.total_amount;
         return sum + (typeof amount === 'number' ? amount : 0);

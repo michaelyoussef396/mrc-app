@@ -17,6 +17,14 @@ production email delivery.
 
 ## ⚠️ PENDING: Invoice data integrity — 2 SQL blocks for Michael to run
 
+> ⛔ DO NOT RUN BEFORE 4 AUG 2026. INV-2026-0003 hits day 29 on 4 Aug and fires
+> the first real Slack digest — the only live test of the check-overdue-invoices
+> v9 rewrite, and it fires once. Correct order: (1) digest fires 4 Aug ~9:00 AEST,
+> (2) Michael confirms Slack output, (3) runbook block A (delete 4 invoice rows),
+> (4) runbook block B (apply 20260729153000 constraint migration). Block B MUST
+> follow A — the CHECK constraints reject the existing rows. Deletion supersedes
+> the previously planned INV-2026-0003 two-field correction; that item is void.
+
 Branch `fix/admin-analytics-accuracy`. Surfaced 2026-07-29 while auditing the
 admin analytics surfaces. Read-only investigation; **no DB writes made, no
 migration applied.**
@@ -82,8 +90,8 @@ arithmetically consistent) and is caught only by the GST relation.
 
 ---
 
-**Last Updated:** 2026-07-23
-**Production state:** main @ `b50d07b`, production @ `9fdc853` (merge of PRs #67–#71 + login-footer fix), mrcsystem.com live and verified 2026-07-23
+**Last Updated:** 2026-07-29
+**Production state:** main @ `b50d07b`, production @ `9fdc853` (merge of PRs #67–#71 + login-footer fix), mrcsystem.com live and verified 2026-07-23. NOTE 2026-07-29: the `check-overdue-invoices` EF on PROD now runs the rewritten version from `launch/checks` `0a2fbac` (EFs deploy independently of the production branch); PR #72 (dashboard fixes) open, unmerged.
 **Status:** Phase 1 + Phase 3 + Phase 4 Stages 4.1/4.1.5/4.2/4.3 COMPLETE in production. Phase 2 (Job Completion) built and deployed — existence-verified 2026-07-07, runtime-untested against dev (see "Phase 2 — Job Completion Workflow: Existence Verification" below). Pre-launch hardening underway.
 
 Backed by `docs/inspection-workflow-fix-plan-v2-2026-04-30.md` (48-stage execution map) and `docs/JOB_COMPLETION_PRD.md` (Phase 2 spec).
@@ -392,6 +400,34 @@ confirmed applied on prod. Smoke-test lead created + deleted same session.
       a real lead).
 - [ ] **Triage the 6 old git stashes** (`xero + lead detail WIP`, `wave-1-prep`, etc. — all pre-date
       2026-07-23). Recover anything wanted, drop the rest.
+
+---
+
+## Follow-ups from 28 Jul 2026 session (admin dashboard accuracy audit + fix batches 1–2)
+
+Context: launch-verification session audited every admin-dashboard number against PROD (read-only),
+then shipped fixes on `launch/checks` (`91dd58f` dashboard reporting, `396ca9c` ?status= deep links,
+`0ee439e` Melbourne date stamps + due_date restart at send). Runtime verification on a pinned preview
+pending.
+
+- [x] ~~Verify Today's Jobs / Today's Schedule show QA Test PR57 on 29 Jul~~ **FOLDED 2026-07-29 into the next item** — production still runs pre-fix code (PR #72 unmerged), so the observation is only possible after merge; the after-merge line below covers it.
+- [ ] PROD-side confirmation after merge: QA Test PR57 bookings and both overdue invoices (INV-2026-0001/0003) exist only on PROD, not the DEV clone — preview verification covered the span/overdue logic structurally, not against those rows; re-check on production once `launch/checks` ships.
+- [ ] Team Workload internal naming: `useTechnicianStats.inspectionsThisWeek` actually holds active-assigned-lead counts, and its `weekStart` computation is dead code — rename + clean (feature session).
+- [ ] 14-day payment term hardcoded in three places (`createInvoice`, `autoPopulateFromLead`, `markInvoiceSent`) — no `payment_terms_days` column; feeds penalty ladder; scope into Xero sprint.
+- [ ] `markInvoiceSent` now overwrites any manually-set `due_date` with send-date + 14 (intended: terms start at send) — revisit if per-invoice terms arrive with Xero.
+- [ ] "Needs attention" wording collision: Leads-to-Assign card subtitle vs the Needs Attention panel — rename the subtitle (one-liner, cosmetic).
+- [ ] Locate the "27 July" element from the dashboard date-contradiction report (Michael — no dashboard code path can render it for a 28 Jul view; need the exact element/screenshot).
+- [x] ~~`check-overdue-invoices` cron not firing on PROD~~ **RESOLVED 2026-07-29 — misdiagnosis.** Cron fired at 23:00 UTC (9am AEST) and correctly flagged INV-2026-0003 the first morning it was eligible; the 22-day gap was the invoice sitting in `draft` (cron only scans `sent`), the exact trap the `markInvoiceSent` due-date restart now closes. EF deployed (v8), Vault auth header working, audit row attributed to SYSTEM_USER_UUID.
+- [ ] `check-overdue-invoices` double-fired 28 Jul: two identical `invoice_overdue` activity rows 35ms apart (23:00:00.863/.898 UTC). Duplicate schedule RULED OUT 29 Jul — `cron.job` has exactly one job (jobid 3, `0 23 * * *`); internal double-processing ruled out by code path. Remaining hypothesis: duplicate HTTP delivery of a single cron tick (pg_net retry or gateway). Attributing it needs the EF request logs in the Supabase dashboard (Michael, low priority — the idempotency guard shipped 29 Jul makes duplicates a no-op either way).
+- [x] ~~`check-overdue-invoices` EF computes daysOverdue from server UTC midnight~~ **RESOLVED 2026-07-29** — EF rewritten (Melbourne day-math, ladder-aligned milestones [1/8/15/16/29] + 60-day admin-escalation prompt, idempotency guard, single Slack digest with dry-run). Residuals below.
+- [ ] Overdue-EF residual (accepted 2026-07-29): near-simultaneous invocations <~20ms apart can still double-post the Slack digest — closing it needs an advisory-lock RPC (migration); declined for now.
+- [ ] Overdue-EF residual: invoices in `viewed` status are never scanned for overdue flagging (status quo preserved; nothing sets `viewed` today — latent until something does).
+- [ ] Overdue cron `0 23 * * *` is fixed UTC: digest lands 9:00am AEST but will shift to 10:00am when Melbourne enters AEDT in October — decide whether to re-schedule to `0 22 * * *` for DST or accept the drift (Michael).
+- [ ] INV-2026-0003 due_date data correction (Michael — one-row fix in Studio; code fix `0ee439e` prevents recurrence, does not touch existing rows). NOTE 2026-07-29: if correcting due_date to send-date+14 (2026-08-11), also revert `status` from 'overdue' back to 'sent' — the cron flagged it on 29 Jul, so a one-field fix would leave a contradictory 'overdue' row with a future due date.
+- [ ] Rotate the DEV admin password (Michael — it was pasted into a CC chat on 29 Jul 2026; DEV-only exposure, rotate when convenient).
+- [ ] Team Workload unverifiable on DEV: `manage-users` EF fails CORS on the DEV project (likely not deployed there — L4 Phase 3 EF deploys), so the panel renders "No technicians found" on preview; re-verify once DEV EFs exist.
+- [ ] Google Fonts woff2 (`fonts.gstatic.com` Inter) fails to load on the preview — check `font-src`/CSP vs the local-font bundling done in L4 Phase 0; page falls back cleanly, cosmetic.
+- [ ] "Completed This Week" counts leads *updated* while sitting in a completed-ish status (updated_at filter), not actual completion events — semantics decision for a future batch.
 
 ---
 
@@ -975,3 +1011,104 @@ published Framer form stays live as-is. All items below carry into the code rebu
 - Old published Framer form stays live — public submissions won't capture the new fields (columns stay null; handled/gated everywhere)
 - Admin CreateNewLeadModal + React /request-inspection form both capture the full field set
 - React reference form NOT deleted — deletion was gated on Framer going live with parity, now parked with this work
+
+---
+
+## Merge-day checklist — launch/checks (PR #72)
+
+Written 2026-07-29 at session close. PR #72 stays OPEN until the other session's
+work lands and both branches reconcile. The open items in "Follow-ups from 28 Jul
+2026 session" above are the merge-day checklist — do not tidy them away.
+
+### ⚠️ CRITICAL — EF runtime is ahead of every branch
+
+PROD's `check-overdue-invoices` Edge Function is ALREADY RUNNING the `0a2fbac`
+rewrite (deployed 2026-07-29, v9): Melbourne day-math, ladder-aligned milestones
+[1/8/15/16/29] + 60-day escalation, idempotency guard, single Slack digest with
+dry-run. `main` and `production` still hold the OLD `index.ts`. **Anyone who runs
+`npx supabase functions deploy check-overdue-invoices` from any checkout other
+than `launch/checks` before this merges silently reverts the fix** (UTC day-math
+back, per-invoice Slack spam back, no guard). Do not deploy this EF from another
+branch; merge PR #72 first.
+
+### Commits on this branch (code)
+
+- `91dd58f` fix(dashboard): overdue card derives from due_date + cents; count alignment across badge/card/panel; +N more; Revenue = paid invoices; Today's Jobs/Schedule read calendar_bookings with day-span overlap
+- `396ca9c` fix(leads): honour ?status= deep links from dashboard cards and quick actions
+- `0ee439e` fix(invoices): stamp due_date/payment_date as Melbourne calendar day; restart 14-day payment terms at send
+- `0a2fbac` feat(ef): check-overdue-invoices rewrite (see CRITICAL above)
+- `b4d4cc3` fix(settings): remove "Log out from ALL devices" option from Settings.tsx — unrelated to the dashboard work this branch is named for; the capability deliberately remains on the Profile page only (one place instead of two)
+
+(Plus three docs-only commits: `87952cd`, `ed75377`, `3e687f2` — TODO.md.)
+
+### Files touched (for conflict prediction vs the other session)
+
+- `src/hooks/useAdminDashboardStats.ts` (heavily rewritten queries)
+- `src/hooks/useTodaysSchedule.ts` (rewritten onto calendar_bookings)
+- `src/hooks/useUnassignedLeads.ts` (query + limit)
+- `src/components/admin/AdminSidebar.tsx` (one filter line)
+- `src/pages/AdminDashboard.tsx` (formatCurrency, +N more block, empty-state copy)
+- `src/pages/LeadsManagement.tsx` (useSearchParams wiring)
+- `src/lib/api/invoices.ts` (melbourneDateISO, defaultDueDate, markInvoicePaid date, markInvoiceSent due_date)
+- `supabase/functions/check-overdue-invoices/index.ts` (full rewrite)
+- `docs/TODO.md`
+
+### Verified vs NOT verified
+
+- VERIFIED: every dashboard metric against DEV ground truth on pinned preview
+  `mrc-system-l2w60bwsy` (counts, overdue card ≡ panel, cents, +9 more @48px, all
+  three ?status= deep links, 375px zero-overflow, console/network clean); EF
+  dry-run against PROD (write-free proven by identical pre/post DB state).
+- NOT verified: multi-day span logic against a real PROD booking (QA Test PR57
+  exists only on PROD; production runs pre-fix code until merge); Team Workload
+  (manage-users EF absent on DEV → "No technicians found" on preview); the live
+  Slack digest (no invoice has become newly eligible since deploy).
+
+### Post-merge checks on PROD (Michael) — with deadlines
+
+- [ ] **Multi-day span (window CLOSES 4 Aug):** QA Test PR57 must appear in
+      Today's Jobs and Today's Schedule at 8:00 am, Type "Job", every day through
+      4 Aug. The booking expires after that — merge before 4 Aug or stage a new
+      multi-day booking to verify against.
+- [ ] **First real Slack digest — 4 Aug:** INV-2026-0003 hits day 29 ("Warranty
+      VOID — Ongoing") at the 9:00 am AEST cron. Expect ONE digest, milestone
+      section, outstanding total; no per-invoice spam, no duplicate.
+- [ ] **Team Workload renders technicians on PROD** (manage-users EF exists
+      there; DEV could never show this).
+
+---
+
+## Follow-ups from 29 Jul 2026 session (pipeline tab reorder investigation)
+
+Context: investigation of leads-page pipeline order vs the real customer journey.
+Fix shipped this session: `LeadsManagement.tsx` statusOptions swap so pending_review
+sits directly after job_completed, matching canonical ALL_STATUSES. statusFlow.ts
+deliberately untouched. Findings below are logged, not actioned.
+
+- [ ] **HIGH — `LeadDetail.tsx:500-543` reversion logic is index-fragile.** It nulls
+      booking dates, `invoice_amount`/`invoice_sent_date` and `payment_received_date`
+      based on hardcoded `ALL_STATUSES.indexOf` thresholds (`newRank < 1/2/6/7/10/11`).
+      Any future reorder of ALL_STATUSES silently changes which customer financial
+      data gets wiped on status reversion. MUST be refactored to named-status
+      comparisons before ALL_STATUSES is ever reordered (natural home: the PR-T1
+      `revision_needed` session, which reopens this logic anyway).
+- [ ] **Type drift — `LeadStatus` union vs Postgres enum.** `statusFlow.ts` union is
+      missing `hipages_lead` (live in the DB enum and queried by
+      `useUnassignedLeads.ts`) plus 3 legacy enum values (`contacted`,
+      `inspection_completed`, `inspection_report_pdf_completed`). Reconcile in a
+      typed-cleanup session — either extend the union or migrate the legacy values out.
+- [ ] **`LeadDetail.tsx:2554` renders `config.icon` but `StatusFlowConfig` defines
+      `iconName`** — Change Status dialog icons likely render blank. Verify in UI,
+      then fix the property name (one-liner, cosmetic).
+
+---
+
+## Known issues logged 30 Jul 2026 (merge reconciliation, launch/checks × analytics)
+
+- [ ] **Revenue bucketing divergence (log only, do not fix):** dashboard "Revenue This
+      Week" buckets by `payment_date` (Melbourne DATE); Reports revenue buckets by
+      `paid_at` (timestamptz). The two surfaces can disagree at day boundaries for
+      custom-dated payments.
+- [ ] **/admin/reports scrolls horizontally at 375px (521px doc). Pre-existing.**
+      `PeriodFilter.tsx:22` — inline-flex row of four buttons, no wrap. Violates §3.4.
+      Playwright has a scoped `test.fail()` armed that flips red when fixed.
