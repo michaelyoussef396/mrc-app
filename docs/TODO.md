@@ -139,9 +139,12 @@ writes on job creation · invoice seeding precedence on real rows.
   90/90 objects copied from PROD (incl. Galvji.ttc re-uploaded as octet-stream), and
   the EDITED `inspection-report-template-final.html` (66,282B) upserted. Bucket
   inventory now 1:1 with PROD (`inspection-reports` output bucket already existed).
-- **DEV has ZERO Edge Functions deployed** (restore never carried them) — the
-  generate-inspection-pdf deploy below is the first; EF/template ordering is therefore
-  moot on DEV. This EF needs no custom secrets (Supabase-only).
+- ~~**DEV has ZERO Edge Functions deployed**~~ **[STALE — corrected 2026-08-01:
+  DEV now has 4 EFs, deployed 28–30 Jul: generate-inspection-pdf,
+  generate-job-report-pdf, generate-inspection-summary, manage-users.]**
+  (Original context: restore never carried EFs; the generate-inspection-pdf deploy
+  below was the first, so EF/template ordering was moot on DEV. That EF needs no
+  custom secrets — Supabase-only.)
 
 ### Michael's ordered steps
 
@@ -425,7 +428,7 @@ pending.
 - [ ] Overdue cron `0 23 * * *` is fixed UTC: digest lands 9:00am AEST but will shift to 10:00am when Melbourne enters AEDT in October — decide whether to re-schedule to `0 22 * * *` for DST or accept the drift (Michael).
 - [ ] INV-2026-0003 due_date data correction (Michael — one-row fix in Studio; code fix `0ee439e` prevents recurrence, does not touch existing rows). NOTE 2026-07-29: if correcting due_date to send-date+14 (2026-08-11), also revert `status` from 'overdue' back to 'sent' — the cron flagged it on 29 Jul, so a one-field fix would leave a contradictory 'overdue' row with a future due date.
 - [ ] Rotate the DEV admin password (Michael — it was pasted into a CC chat on 29 Jul 2026; DEV-only exposure, rotate when convenient).
-- [ ] Team Workload unverifiable on DEV: `manage-users` EF fails CORS on the DEV project (likely not deployed there — L4 Phase 3 EF deploys), so the panel renders "No technicians found" on preview; re-verify once DEV EFs exist.
+- [ ] Team Workload on DEV — ~~`manage-users` EF fails CORS on the DEV project (likely not deployed there)~~ **[STALE — corrected 2026-08-01: `manage-users` was deployed to DEV 28–30 Jul and answers 200.]** Re-verify the panel renders technicians on a DEV-backed preview, then close this item.
 - [ ] Google Fonts woff2 (`fonts.gstatic.com` Inter) fails to load on the preview — check `font-src`/CSP vs the local-font bundling done in L4 Phase 0; page falls back cleanly, cosmetic.
 - [ ] "Completed This Week" counts leads *updated* while sitting in a completed-ish status (updated_at filter), not actual completion events — semantics decision for a future batch.
 
@@ -1112,3 +1115,90 @@ deliberately untouched. Findings below are logged, not actioned.
 - [ ] **/admin/reports scrolls horizontally at 375px (521px doc). Pre-existing.**
       `PeriodFilter.tsx:22` — inline-flex row of four buttons, no wrap. Violates §3.4.
       Playwright has a scoped `test.fail()` armed that flips red when fixed.
+
+---
+
+## Deferred from Manual QA Pass — 30 Jul 2026 (commit 8fe47e9)
+
+Context: manual QA pass over the merged `main` (`8fe47e9`) on a DEV-backed Preview.
+Items below were consciously deferred out of that pass, with the reason recorded so a
+later session does not mistake them for untested-and-forgotten. Nothing here blocks
+launch. Cross-references are given where an existing entry above already covers part
+of the ground — those entries are left as they stand.
+
+- [ ] **Money accuracy verification (overdue + revenue cards).** Deferred: the DEV
+      fixture invoices are not genuinely late, so neither the overdue card nor the
+      revenue card can be meaningfully verified against them. Admin reviews both
+      daily against real invoices in PROD. Revisit after real leads accumulate
+      genuine overdue/paid history. Covers: overdue card derives from `due_date`
+      rather than `status='overdue'`; revenue card sourced from PAID invoices
+      bucketed by `payment_date`; cents visible on all money displays; invoice
+      helper totals (GST 10% on subtotal, equipment never discounted). Related, not
+      duplicated: the after-merge PROD row confirmation in the 28 Jul dashboard-audit
+      list, and the two 4 Aug deadline checks in the merge-reconciliation section.
+- [ ] **Dashboard count consistency.** Deferred: the unassigned-lead count must read
+      identically across the dashboard card, the sidebar badge and the panel. Also
+      the "+N more" affordance, and Today's Jobs / Today's Schedule reading
+      `calendar_bookings` so JOBS appear and not only inspections. Not blocking
+      launch. Note the tension to resolve on revisit: the merge-reconciliation
+      section records these as VERIFIED on the earlier pinned preview
+      `mrc-system-l2w60bwsy` (counts, overdue card ≡ panel, cents, +9 more @48px);
+      this pass deferred re-verification on `8fe47e9` rather than contradicting that.
+- [ ] **Launch-stream surface checks.** Deferred: covered by the Playwright breadth
+      suite (`tests/e2e/pre-merge`, 88/88 on DEV), so manual re-verification was
+      judged unnecessary. Items: "log out all devices" ABSENT on Settings and
+      PRESENT on Profile (`b4d4cc3`); pipeline tab order matches canonical
+      `ALL_STATUSES` with `pending_review` immediately after `job_completed`
+      (`d50b117`); `?status=` deep links pre-filter the leads page (`396ca9c`). The
+      shipped fixes are already recorded above — this entry records only why the
+      manual pass skipped them.
+- [ ] **Real-device ergonomics — job completion form.** Deferred to a dedicated
+      on-phone run. Desktop 375px emulation verifies layout and DB writes but not
+      touch targets under work gloves, real scroll behaviour, or on-device keyboard
+      interference. 48px minimum touch targets to be confirmed on hardware.
+- [ ] **Admin surfaces on phone.** Deferred to a separate later run, after the
+      technician phone pass above.
+- [x] ~~375px horizontal-scroll sweep~~ **CLOSED 2026-07-30 — not deferred.**
+      Playwright already covers static route renders at 375px. Manual scope narrowed
+      to interactive overlays (dialogs, dropdowns, date pickers, toasts, stage
+      selectors), which are absolutely positioned and fall outside the automated
+      measurement — these are now checked inline during the lifecycle run rather than
+      as a standalone item. Does not close the `/admin/reports` 521px overflow logged
+      in the section above, which remains open.
+
+---
+
+## Noticed during 1 Aug QA — not yet actioned
+
+- [ ] **Dexie offline layer is never fed by the UI.** `queuePhotoOffline` and
+      `syncManager.saveDraft` have zero production callers, and
+      `uploadInspectionPhoto`'s docstring claims it auto-queues offline when it does
+      not. Real offline persistence today is the localStorage crash backups, not
+      Dexie. Gap between what the code implies and what actually runs — resolve
+      before offline behaviour is relied on further.
+- [ ] **OfflineBanner overlays page headers while visible.** Back button and header
+      Save icon sit behind it until dismissed. Pre-existing positioning, only visible
+      now that the banner renders. Fix would be a layout-reserving banner slot, which
+      means touching page headers.
+- [ ] **Offline banner unverified on real hardware.** The iOS Safari event-firing
+      quirk cannot be reproduced in desktop Chromium. Needs an airplane-mode
+      walkthrough on a real iPhone against a pinned deployment URL before it can be
+      called fixed.
+- [ ] **Lightbox full-size photo render not visually confirmed.** Staged DEV photos
+      are the known storage-seeding artifact (DB rows exist, Storage objects do
+      not), so the viewer showed broken-image placeholders. Chrome, gestures and
+      layout are proven; actual photo render needs a production-side look.
+- [ ] **`TECH_EMAIL` / `TECH_PASSWORD` in `.env.test` are rejected by DEV Auth** —
+      likely fallout from the 29 Jul DEV password rotation. Any technician-login e2e
+      spec will fail until updated. Admin account works and carries the technician
+      role on DEV.
+- [ ] **shadcn toast limit** — one toast at a time, so during an offline spell the
+      newest offline warning replaces the previous one. Noted in case message
+      sequencing matters.
+- [ ] **Stale docs corrected 2026-08-01 in this file:** the "DEV has ZERO Edge
+      Functions deployed" claim (HANDOFF section) and "manage-users fails CORS on
+      DEV" (28 Jul follow-ups) were both false as of 28–30 Jul — DEV has 4 EFs
+      deployed (generate-inspection-pdf, generate-job-report-pdf,
+      generate-inspection-summary, manage-users) and manage-users answers 200.
+      Corrections applied in place with strikethrough; historical records in the
+      merge-reconciliation section left as written.

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ImageIcon, ImagePlus, Loader2, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -28,6 +29,7 @@ interface JobPhoto {
   id: string;
   storage_path: string;
   photo_category: PhotoCategory;
+  caption: string | null;
   signed_url: string;
 }
 
@@ -50,7 +52,7 @@ async function fetchJobCompletionPhotos(jobCompletionId: string): Promise<JobPho
   // Stage 4.3: filter soft-deleted rows
   const { data: rows, error } = await supabase
     .from('photos')
-    .select('id, storage_path, photo_category')
+    .select('id, storage_path, photo_category, caption')
     .eq('job_completion_id', jobCompletionId)
     .in('photo_category', ['after', 'demolition'])
     .is('deleted_at', null)
@@ -68,6 +70,7 @@ async function fetchJobCompletionPhotos(jobCompletionId: string): Promise<JobPho
         id: row.id,
         storage_path: row.storage_path,
         photo_category: row.photo_category as PhotoCategory,
+        caption: row.caption ?? null,
         signed_url: data?.signedUrl ?? '',
       };
     })
@@ -100,6 +103,7 @@ export function Section4AfterPhotos({
   const [inspectionLookupError, setInspectionLookupError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [lightboxPhoto, setLightboxPhoto] = useState<JobPhoto | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingCategoryRef = useRef<PhotoCategory>('after');
@@ -375,6 +379,7 @@ export function Section4AfterPhotos({
           deletingId={deletingId}
           onAdd={() => triggerUpload('after')}
           onDelete={handleDelete}
+          onView={setLightboxPhoto}
           emptyLabel={afterLimit > 0 ? 'No after photos yet. Tap Add Photos to get started.' : ''}
         />
       </div>
@@ -423,6 +428,7 @@ export function Section4AfterPhotos({
             deletingId={deletingId}
             onAdd={() => triggerUpload('demolition')}
             onDelete={handleDelete}
+            onView={setLightboxPhoto}
             emptyLabel="No demolition photos yet."
           />
 
@@ -458,6 +464,10 @@ export function Section4AfterPhotos({
           </div>
         </div>
       )}
+
+      {lightboxPhoto && (
+        <PhotoLightbox photo={lightboxPhoto} onClose={() => setLightboxPhoto(null)} />
+      )}
     </section>
   );
 }
@@ -470,6 +480,7 @@ interface PhotoGridProps {
   deletingId: string | null;
   onAdd: () => void;
   onDelete: (id: string) => void;
+  onView: (photo: JobPhoto) => void;
   emptyLabel: string;
 }
 
@@ -481,6 +492,7 @@ function PhotoGrid({
   deletingId,
   onAdd,
   onDelete,
+  onView,
   emptyLabel,
 }: PhotoGridProps) {
   if (isLoading) {
@@ -500,9 +512,15 @@ function PhotoGrid({
         >
           <img
             src={photo.signed_url}
-            alt="After remediation"
+            alt={photo.caption ?? 'After remediation'}
             loading="lazy"
             className="w-full h-full object-cover"
+          />
+          <button
+            type="button"
+            onClick={() => onView(photo)}
+            aria-label={photo.caption ? `View photo: ${photo.caption}` : 'View photo'}
+            className="absolute inset-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#007AFF] focus-visible:ring-inset"
           />
           {!isReadOnly && (
             <button
@@ -541,5 +559,178 @@ function PhotoGrid({
         </div>
       )}
     </div>
+  );
+}
+
+const LIGHTBOX_MIN_SCALE = 1;
+const LIGHTBOX_MAX_SCALE = 4;
+const LIGHTBOX_DOUBLE_TAP_SCALE = 2.5;
+const LIGHTBOX_DOUBLE_TAP_WINDOW_MS = 300;
+const LIGHTBOX_WHEEL_ZOOM_STEP = 0.0025;
+
+interface LightboxTransform {
+  scale: number;
+  x: number;
+  y: number;
+}
+
+function pointerDistance(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+interface PhotoLightboxProps {
+  photo: JobPhoto;
+  onClose: () => void;
+}
+
+/**
+ * Full-screen viewer for job photos (PRD Section 4: "pinch-to-zoom on tap").
+ * Gestures are implemented with pointer events because the browser's native
+ * pinch zooms the viewport, not an element inside a fixed overlay: two-finger
+ * pinch scales, single-finger drag pans while zoomed, double-tap/double-click
+ * toggles zoom, mouse wheel zooms on desktop. Rendered through a portal so an
+ * ancestor transform (PageTransition) can't re-anchor the fixed positioning.
+ */
+function PhotoLightbox({ photo, onClose }: PhotoLightboxProps) {
+  const [transform, setTransform] = useState<LightboxTransform>({ scale: 1, x: 0, y: 0 });
+  const transformRef = useRef(transform);
+  transformRef.current = transform;
+
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ startDist: number; startScale: number } | null>(null);
+  const panRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const lastTapAtRef = useRef(0);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  const applyScale = (next: number) => {
+    const scale = Math.min(LIGHTBOX_MAX_SCALE, Math.max(LIGHTBOX_MIN_SCALE, next));
+    setTransform((prev) => (scale === LIGHTBOX_MIN_SCALE ? { scale, x: 0, y: 0 } : { ...prev, scale }));
+  };
+
+  const toggleZoom = () => {
+    setTransform((prev) =>
+      prev.scale > LIGHTBOX_MIN_SCALE
+        ? { scale: LIGHTBOX_MIN_SCALE, x: 0, y: 0 }
+        : { scale: LIGHTBOX_DOUBLE_TAP_SCALE, x: 0, y: 0 }
+    );
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const points = [...pointersRef.current.values()];
+
+    if (points.length === 2) {
+      pinchRef.current = {
+        startDist: pointerDistance(points[0], points[1]),
+        startScale: transformRef.current.scale,
+      };
+      panRef.current = null;
+      return;
+    }
+
+    if (points.length === 1) {
+      if (e.pointerType === 'touch') {
+        const now = Date.now();
+        if (now - lastTapAtRef.current < LIGHTBOX_DOUBLE_TAP_WINDOW_MS) {
+          lastTapAtRef.current = 0;
+          toggleZoom();
+          return;
+        }
+        lastTapAtRef.current = now;
+      }
+      if (transformRef.current.scale > LIGHTBOX_MIN_SCALE) {
+        panRef.current = {
+          startX: e.clientX,
+          startY: e.clientY,
+          originX: transformRef.current.x,
+          originY: transformRef.current.y,
+        };
+      }
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointersRef.current.has(e.pointerId)) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const points = [...pointersRef.current.values()];
+
+    if (pinchRef.current && points.length >= 2) {
+      const dist = pointerDistance(points[0], points[1]);
+      if (pinchRef.current.startDist > 0) {
+        applyScale(pinchRef.current.startScale * (dist / pinchRef.current.startDist));
+      }
+      return;
+    }
+
+    if (panRef.current && points.length === 1) {
+      const { startX, startY, originX, originY } = panRef.current;
+      setTransform((prev) => ({
+        ...prev,
+        x: originX + (e.clientX - startX),
+        y: originY + (e.clientY - startY),
+      }));
+    }
+  };
+
+  const handlePointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+    if (pointersRef.current.size === 0) panRef.current = null;
+  };
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Photo viewer"
+      className="fixed inset-0 z-[10000] bg-black/95 flex items-center justify-center"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close photo"
+        className="absolute top-2 right-2 z-10 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+        style={{ minWidth: '48px', minHeight: '48px' }}
+      >
+        <X className="w-6 h-6" aria-hidden="true" />
+      </button>
+
+      <div
+        data-testid="lightbox-gesture-surface"
+        className="w-full h-full flex items-center justify-center overflow-hidden"
+        style={{ touchAction: 'none' }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerEnd}
+        onDoubleClick={toggleZoom}
+        onWheel={(e) => applyScale(transformRef.current.scale - e.deltaY * LIGHTBOX_WHEEL_ZOOM_STEP)}
+      >
+        <img
+          src={photo.signed_url}
+          alt={photo.caption ?? 'Job photo'}
+          draggable={false}
+          className="max-w-full max-h-full object-contain select-none"
+          style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
+        />
+      </div>
+
+      {photo.caption && (
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-4 pb-4 pt-10 pointer-events-none">
+          <p className="text-white text-sm text-center">{photo.caption}</p>
+        </div>
+      )}
+    </div>,
+    document.body
   );
 }

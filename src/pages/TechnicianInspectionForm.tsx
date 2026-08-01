@@ -61,9 +61,30 @@ import {
   Sun,
   Thermometer,
   Trash2,
+  WifiOff,
   Wind,
   X,
 } from 'lucide-react';
+
+// Save-time offline classifier for user messaging. navigator.onLine can be
+// stale on iOS Safari after airplane-mode toggles, so also sniff the
+// fetch-level failure text: Chromium throws 'Failed to fetch', WebKit
+// 'Load failed', Firefox 'NetworkError'. supabase-js surfaces these as plain
+// objects with a message, not Error instances. Deliberately duplicated in
+// useJobCompletionForm.ts — two call sites don't justify a shared module.
+function isNetworkLevelError(err: unknown): boolean {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
+  const message =
+    typeof err === 'object' && err !== null && 'message' in err
+      ? String((err as { message?: unknown }).message ?? '')
+      : String(err ?? '');
+  return /failed to fetch|load failed|network ?error|fetch failed/i.test(message);
+}
+
+// Amber warning styling for offline toasts — dark text on amber for WCAG
+// contrast; inline classes because the shadcn toast only ships default and
+// destructive variants and this file must not edit the shared UI kit.
+const OFFLINE_TOAST_CLASS = 'border-amber-600 bg-amber-500 text-amber-950';
 
 // Helper: invoke edge functions via direct fetch (bypasses supabase.functions.invoke timeout issues)
 async function invokeEdgeFunction(functionName: string, body: object): Promise<{ data: any; error: any }> {
@@ -3587,11 +3608,28 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       toast({ title: 'Photos added', description: `${newPhotos.length} photo(s) uploaded` });
     } catch (err: any) {
       console.error('[PhotoCapture] Upload error:', err);
-      toast({
-        title: 'Upload Failed',
-        description: err?.message || 'Failed to upload photo(s)',
-        variant: 'destructive',
-      });
+      if (isNetworkLevelError(err)) {
+        // Honest wording: photo uploads go straight to the server and are NOT
+        // kept on the device when they fail — unlike form fields.
+        toast({
+          title: (
+            <span className="flex items-center gap-2">
+              <WifiOff className="h-5 w-5 shrink-0" />
+              You're offline — photo not uploaded
+            </span>
+          ),
+          description:
+            "Photos can't be uploaded without a connection and are not kept on this device. Add the photo again once you're back online.",
+          className: OFFLINE_TOAST_CLASS,
+          duration: 8000,
+        });
+      } else {
+        toast({
+          title: 'Upload Failed',
+          description: err?.message || 'Failed to upload photo(s)',
+          variant: 'destructive',
+        });
+      }
     } finally {
       photoContextRef.current = { ...photoContextRef.current, userCaption: undefined };
     }
@@ -3703,6 +3741,11 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   }, [adminMode]);
 
   // Save handler - multi-table upsert to Supabase
+  // True when the most recent save attempt failed at the network level.
+  // Read by the Complete flow so it never reports "Inspection Complete" on
+  // top of a save that only exists on this device.
+  const lastSaveFailedOfflineRef = useRef(false);
+
   const handleSave = async (options?: { silent?: boolean }): Promise<string | null> => {
     if (!leadId || !user) return null;
     setIsSaving(true);
@@ -4198,16 +4241,17 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       }
 
       setHasUnsavedChanges(false);
+      lastSaveFailedOfflineRef.current = false;
       if (options?.silent) {
         toast({
           title: 'Auto-saved',
-          description: 'Your progress has been saved',
+          description: 'Progress saved to the server',
           duration: 2000,
         });
       } else {
         toast({
           title: 'Saved',
-          description: `Section ${currentSection} saved successfully`,
+          description: `Section ${currentSection} saved to the server`,
         });
       }
       // Return the resolved inspection id so the Complete handler can pass a
@@ -4221,11 +4265,27 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         section: currentSection,
         error: err?.message || String(err),
       });
-      toast({
-        title: 'Save Failed',
-        description: err?.message || 'Failed to save inspection data',
-        variant: 'destructive',
-      });
+      if (isNetworkLevelError(err)) {
+        lastSaveFailedOfflineRef.current = true;
+        toast({
+          title: (
+            <span className="flex items-center gap-2">
+              <WifiOff className="h-5 w-5 shrink-0" />
+              You're offline — not saved to the server
+            </span>
+          ),
+          description:
+            "Your changes are only on this device for now. Keep this form open — it will save to the server automatically once you're back online.",
+          className: OFFLINE_TOAST_CLASS,
+          duration: 8000,
+        });
+      } else {
+        toast({
+          title: 'Save Failed',
+          description: err?.message || 'Failed to save inspection data',
+          variant: 'destructive',
+        });
+      }
       return currentInspectionId;
     } finally {
       setIsSaving(false);
@@ -4386,6 +4446,27 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         // sets currentInspectionId via async state, which is stale here on a
         // brand-new inspection completed in a single render).
         const savedInspectionId = await handleSave();
+
+        // Offline guard: handleSave swallows its own errors, so without this
+        // check an offline Complete would sail on to a "Inspection Complete /
+        // Inspection saved" toast while nothing reached the server. Stop here
+        // with honest messaging; the form stays open so auto-save can retry.
+        if (lastSaveFailedOfflineRef.current) {
+          toast({
+            title: (
+              <span className="flex items-center gap-2">
+                <WifiOff className="h-5 w-5 shrink-0" />
+                You're offline — inspection not submitted
+              </span>
+            ),
+            description:
+              "Nothing was sent to the server. Your work is kept on this device — keep this form open and tap Complete again once you're back online.",
+            className: OFFLINE_TOAST_CLASS,
+            duration: 10000,
+          });
+          return;
+        }
+
         const effectiveInspectionId = savedInspectionId ?? currentInspectionId;
 
         // 2. Generate AI summary via edge function. The EF requires a valid
@@ -4443,11 +4524,26 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           inspectionId: currentInspectionId,
           error: err?.message || String(err),
         });
-        toast({
-          title: 'Error',
-          description: err?.message || 'Failed to complete inspection. Please try again.',
-          variant: 'destructive',
-        });
+        if (isNetworkLevelError(err)) {
+          toast({
+            title: (
+              <span className="flex items-center gap-2">
+                <WifiOff className="h-5 w-5 shrink-0" />
+                You're offline — inspection not submitted
+              </span>
+            ),
+            description:
+              "Nothing was sent to the server. Your work is kept on this device — keep this form open and tap Complete again once you're back online.",
+            className: OFFLINE_TOAST_CLASS,
+            duration: 10000,
+          });
+        } else {
+          toast({
+            title: 'Error',
+            description: err?.message || 'Failed to complete inspection. Please try again.',
+            variant: 'destructive',
+          });
+        }
       } finally {
         setIsCompleting(false);
       }
