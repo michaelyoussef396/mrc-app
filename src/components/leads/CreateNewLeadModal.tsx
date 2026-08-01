@@ -429,8 +429,11 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         status: 'new_lead',
         created_by: user.id,
         property_zone: zone,
-        inspection_scheduled_date: formData.preferredDate,
-        scheduled_time: formData.preferredTime,
+        // Advisory only. inspection_scheduled_date / scheduled_time stay NULL until
+        // bookInspection confirms a real booking — a new_lead must not carry a
+        // scheduled date. See 20260428174022_add_customer_preferred_columns.sql.
+        customer_preferred_date: formData.preferredDate,
+        customer_preferred_time: formData.preferredTime,
       };
 
       if (formData.lat != null && formData.lng != null) {
