@@ -4,7 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { LeadToSchedule } from '@/hooks/useLeadsToSchedule';
 import { bookInspection, TIME_SLOTS, formatTimeForDisplay } from '@/lib/bookingService';
-import { useBookingValidation, type DateRecommendation, type AvailabilityResult, formatTimeDisplay } from '@/hooks/useBookingValidation';
+import { useBookingValidation, RECOMMENDED_DATES_FAILURE_MESSAGES, type DateRecommendation, type AvailabilityResult, formatTimeDisplay } from '@/hooks/useBookingValidation';
+import { captureBusinessError } from '@/lib/sentry';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
 import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
 import { useLeadUpdate } from '@/hooks/useLeadUpdate';
@@ -111,10 +112,12 @@ export function LeadBookingCard({
   const { isLoaded: mapsLoaded } = useLoadGoogleMaps();
   const { predictions, getPlacePredictions, getPlaceDetails, clearPredictions } = useAddressAutocomplete(addressInputRef);
 
-  // Form state — pre-populate from customer's preferred date/time
+  // Form state — the pickers start empty on purpose. The customer's preferred slot is
+  // advisory: it is displayed above and ranks the suggested days (passed into
+  // getRecommendedDates), but the admin picks the actual booking deliberately.
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
-  const [selectedDate, setSelectedDate] = useState<string>(lead.preferredDate || '');
-  const [selectedTime, setSelectedTime] = useState<string>(lead.preferredTime || '');
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedTime, setSelectedTime] = useState<string>('');
   const [selectedTechnician, setSelectedTechnician] = useState<string>('');
   const [internalNotes, setInternalNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -127,6 +130,52 @@ export function LeadBookingCard({
   const [editEmail, setEditEmail] = useState(lead.email);
   const [editDescription, setEditDescription] = useState(lead.issueDescription || '');
   const [editLeadSource, setEditLeadSource] = useState(lead.leadSource || '');
+
+  // useLeadsToSchedule refetches every 60s and hands back freshly-built objects, so these
+  // five props can change under an open card. Adopt the incoming value only for fields the
+  // admin has not touched — "untouched" meaning the edit value still equals the prop value
+  // we last observed. Without this a remote change makes the card read "Unsaved" for an edit
+  // the admin never made, and Save writes the stale value back over the newer one.
+  const prevLeadRef = useRef({
+    fullName: lead.fullName,
+    phone: lead.phone,
+    email: lead.email,
+    issueDescription: lead.issueDescription || '',
+    leadSource: lead.leadSource || '',
+  });
+
+  useEffect(() => {
+    const prev = prevLeadRef.current;
+    const next = {
+      fullName: lead.fullName,
+      phone: lead.phone,
+      email: lead.email,
+      issueDescription: lead.issueDescription || '',
+      leadSource: lead.leadSource || '',
+    };
+
+    if (
+      prev.fullName === next.fullName &&
+      prev.phone === next.phone &&
+      prev.email === next.email &&
+      prev.issueDescription === next.issueDescription &&
+      prev.leadSource === next.leadSource
+    ) {
+      return;
+    }
+
+    if (next.fullName !== prev.fullName) setEditName((cur) => (cur === prev.fullName ? next.fullName : cur));
+    if (next.phone !== prev.phone) setEditPhone((cur) => (cur === prev.phone ? next.phone : cur));
+    if (next.email !== prev.email) setEditEmail((cur) => (cur === prev.email ? next.email : cur));
+    if (next.issueDescription !== prev.issueDescription) {
+      setEditDescription((cur) => (cur === prev.issueDescription ? next.issueDescription : cur));
+    }
+    if (next.leadSource !== prev.leadSource) {
+      setEditLeadSource((cur) => (cur === prev.leadSource ? next.leadSource : cur));
+    }
+
+    prevLeadRef.current = next;
+  }, [lead.fullName, lead.phone, lead.email, lead.issueDescription, lead.leadSource]);
 
   const hasLeadChanges =
     editName !== lead.fullName ||
@@ -163,6 +212,7 @@ export function LeadBookingCard({
   const [recsLoading, setRecsLoading] = useState(false);
   const [selectedRecDate, setSelectedRecDate] = useState<string>('');
   const [techInfo, setTechInfo] = useState<{ name: string; home: string | null; missingAddress: boolean } | null>(null);
+  const [recsError, setRecsError] = useState<string | null>(null);
 
   // Real-time availability / travel info state
   const [availabilityResult, setAvailabilityResult] = useState<AvailabilityResult | null>(null);
@@ -302,42 +352,76 @@ export function LeadBookingCard({
     navigate(`/leads/${lead.id}`);
   };
 
-  const handleTechnicianSelect = async (techId: string) => {
+  /**
+   * Single entry point for the recommended-days lookup. Both the technician picker and
+   * the duration blur go through here so the success mapping, the failure banner and the
+   * Sentry context stay in one place.
+   */
+  const loadRecommendations = useCallback(async (techId: string, duration: number) => {
+    if (!techId || !lead.propertyAddress) return;
+
+    setRecsLoading(true);
+    setRecsError(null);
+    try {
+      const outcome = await getRecommendedDates({
+        technicianId: techId,
+        destinationAddress: lead.propertyAddress,
+        destinationSuburb: lead.suburb,
+        daysAhead: 14,
+        durationMinutes: duration,
+        preferredDate: lead.preferredDate || undefined,
+        preferredTime: lead.preferredTime || undefined,
+      });
+
+      if (outcome.status === 'failed') {
+        // We do NOT know whether there are free days — say so rather than implying none.
+        setRecommendations([]);
+        setTechInfo(null);
+        setRecsError(outcome.userMessage);
+        captureBusinessError('Recommended dates lookup failed', {
+          leadId: lead.id,
+          technicianId: techId,
+          durationMinutes: duration,
+          reason: outcome.reason,
+          detail: outcome.detail,
+        });
+        return;
+      }
+
+      // 'ok' and 'empty' both carry technician info — an empty result still renders
+      // "Travelling from: X" alongside the no-free-days message.
+      setRecommendations(outcome.recommendations.slice(0, 3));
+      setTechInfo({
+        name: outcome.technician_name,
+        home: outcome.technician_home,
+        missingAddress: outcome.has_missing_address_warning,
+      });
+    } catch (err) {
+      // Defensive: getRecommendedDates is designed never to reject.
+      setRecommendations([]);
+      setTechInfo(null);
+      setRecsError(RECOMMENDED_DATES_FAILURE_MESSAGES.network);
+      captureBusinessError('Recommended dates lookup threw unexpectedly', {
+        leadId: lead.id,
+        technicianId: techId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setRecsLoading(false);
+    }
+  }, [getRecommendedDates, lead.id, lead.propertyAddress, lead.suburb, lead.preferredDate, lead.preferredTime]);
+
+  const handleTechnicianSelect = (techId: string) => {
     setSelectedTechnician(techId);
     setSelectedDate('');
     setSelectedTime('');
     setRecommendations([]);
     setSelectedRecDate('');
     setTechInfo(null);
+    setRecsError(null);
     setAvailabilityResult(null);
 
-    if (!techId || !lead.propertyAddress) return;
-
-    setRecsLoading(true);
-    try {
-      const result = await getRecommendedDates({
-        technicianId: techId,
-        destinationAddress: lead.propertyAddress,
-        destinationSuburb: lead.suburb,
-        daysAhead: 14,
-        durationMinutes,
-        preferredDate: lead.preferredDate || undefined,
-        preferredTime: lead.preferredTime || undefined,
-      });
-
-      if (result) {
-        setRecommendations(result.recommendations.slice(0, 3));
-        setTechInfo({
-          name: result.technician_name,
-          home: result.technician_home,
-          missingAddress: result.has_missing_address_warning || false,
-        });
-      }
-    } catch {
-      // Silently fail — user can still pick manually
-    } finally {
-      setRecsLoading(false);
-    }
+    void loadRecommendations(techId, durationMinutes);
   };
 
   const handleRecommendationClick = (rec: DateRecommendation) => {
@@ -942,28 +1026,9 @@ export function LeadBookingCard({
                     setSelectedRecDate('');
                     setSelectedDate('');
                     setSelectedTime('');
-                    setRecsLoading(true);
-                    getRecommendedDates({
-                      technicianId: selectedTechnician,
-                      destinationAddress: lead.propertyAddress,
-                      destinationSuburb: lead.suburb,
-                      daysAhead: 14,
-                      durationMinutes: Math.max(30, Math.min(480, durationMinutes)),
-                      preferredDate: lead.preferredDate || undefined,
-                      preferredTime: lead.preferredTime || undefined,
-                    })
-                      .then((result) => {
-                        if (result) {
-                          setRecommendations(result.recommendations.slice(0, 3));
-                          setTechInfo({
-                            name: result.technician_name,
-                            home: result.technician_home,
-                            missingAddress: result.has_missing_address_warning || false,
-                          });
-                        }
-                      })
-                      .catch(() => {})
-                      .finally(() => setRecsLoading(false));
+                    setTechInfo(null);
+                    setRecsError(null);
+                    void loadRecommendations(selectedTechnician, clamped);
                   }
                 }}
                 className="w-full h-12 px-4 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[#007AFF] outline-none transition-all"
@@ -1065,6 +1130,21 @@ export function LeadBookingCard({
                       Finding best days...
                     </span>
                   </div>
+                ) : recsError ? (
+                  <div
+                    role="alert"
+                    data-testid="recs-error"
+                    className="p-3 rounded-lg flex items-start gap-2"
+                    style={{
+                      backgroundColor: 'rgba(255, 149, 0, 0.08)',
+                      border: '1px solid rgba(255, 149, 0, 0.2)',
+                    }}
+                  >
+                    <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: '#FF9500' }} />
+                    <p className="text-xs font-medium" style={{ color: '#FF9500' }}>
+                      {recsError}
+                    </p>
+                  </div>
                 ) : recommendations.length > 0 ? (
                   <div className="space-y-2">
                     {recommendations.map((rec, idx) => {
@@ -1127,8 +1207,8 @@ export function LeadBookingCard({
                     })}
                   </div>
                 ) : (
-                  <p className="text-xs" style={{ color: '#86868b' }}>
-                    No recommendations available — pick any date below.
+                  <p className="text-xs" data-testid="recs-empty" style={{ color: '#86868b' }}>
+                    No free days in the next 14 days for this technician — pick any date below.
                   </p>
                 )}
               </div>
@@ -1157,6 +1237,7 @@ export function LeadBookingCard({
               </label>
               <input
                 type="date"
+                data-testid="inspection-date"
                 value={selectedDate}
                 onChange={(e) => handleDateChange(e.target.value)}
                 min={today}
@@ -1180,6 +1261,7 @@ export function LeadBookingCard({
               </label>
               <div className="relative">
                 <select
+                  data-testid="inspection-time"
                   value={selectedTime}
                   onChange={(e) => setSelectedTime(e.target.value)}
                   className="w-full h-12 px-4 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[#007AFF] outline-none transition-all appearance-none cursor-pointer pr-10"
