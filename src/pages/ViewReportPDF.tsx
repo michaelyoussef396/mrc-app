@@ -57,6 +57,7 @@ import { OutdoorPhotoSlotGrid } from '@/components/photos/OutdoorPhotoSlotGrid'
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
 import { resizePhoto } from '@/lib/offline/photoResizer'
 import { formatDateAU, formatDateTimeAU } from '@/lib/dateUtils'
+import { toDisplayTitleCase } from '@/lib/utils/displayFormat'
 import {
   Dialog,
   DialogContent,
@@ -334,11 +335,11 @@ export default function ViewReportPDF() {
   function prefillEmailAndOpenStage() {
     if (reportType === 'job' && jobCompletion) {
       const lead = jobCompletion.lead as { full_name?: string; email?: string; property_address_street?: string; property_address_suburb?: string } | null
-      const addr = lead ? [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ') : ''
+      const addr = lead ? toDisplayTitleCase([lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ')) : ''
       setEmailRecipient(lead?.email || '')
       setEmailSubject(`Your Job Completion Report — ${jobCompletion.job_number || 'Mould & Restoration Co.'}`)
       setEmailBody(
-        `Hi ${lead?.full_name || 'there'},\n\n` +
+        `Hi ${lead?.full_name ? toDisplayTitleCase(lead.full_name) : 'there'},\n\n` +
         `Great news — the remediation work at ${addr} has been completed` +
         `${jobCompletion.job_number ? ` (Ref: ${jobCompletion.job_number})` : ''}.\n\n` +
         `Please find the job completion report attached for your records.\n\n` +
@@ -349,11 +350,11 @@ export default function ViewReportPDF() {
       return
     }
     const lead = inspection?.lead
-    const addr = lead ? [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ') : ''
+    const addr = lead ? toDisplayTitleCase([lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ')) : ''
     setEmailRecipient(lead?.email || '')
     setEmailSubject(`Your Inspection Report — ${inspection?.job_number || 'Mould & Restoration Co.'}`)
     setEmailBody(
-      `Hi ${lead?.full_name || 'there'},\n\n` +
+      `Hi ${lead?.full_name ? toDisplayTitleCase(lead.full_name) : 'there'},\n\n` +
       `Great news — your mould inspection report for ${addr} has been completed and approved` +
       `${inspection?.job_number ? ` (Ref: ${inspection.job_number})` : ''}.\n\n` +
       `Our team has thoroughly reviewed the findings and the report is now ready for you.\n\n` +

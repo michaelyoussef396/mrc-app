@@ -86,6 +86,28 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
 </html>`;
 }
 
+// Display-only copy of src/lib/utils/displayFormat.ts (Deno can't import src/).
+// Keep the two implementations in sync.
+const STATE_ABBREVIATION_MAX_LETTERS = 3;
+
+function toDisplayTitleCase(value: string): string {
+  if (!value) return value;
+  return value
+    .split(/(\s+)/)
+    .map((token) => {
+      if (!/[a-zA-Z]/.test(token) || /\d/.test(token)) return token;
+      const letterCount = (token.match(/[a-zA-Z]/g) || []).length;
+      const isAllCaps = token === token.toUpperCase();
+      const isAllLower = token === token.toLowerCase();
+      if (isAllCaps && letterCount <= STATE_ABBREVIATION_MAX_LETTERS) return token;
+      if (!isAllCaps && !isAllLower) return token;
+      return token
+        .toLowerCase()
+        .replace(/(^|['-])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase());
+    })
+    .join('');
+}
+
 function buildReminderHtml(data: {
   customerName: string;
   date: string;
@@ -94,13 +116,13 @@ function buildReminderHtml(data: {
 }): string {
   return wrapInBrandedTemplate(`
     <h2>Inspection Reminder</h2>
-    <p>Hi ${data.customerName},</p>
+    <p>Hi ${toDisplayTitleCase(data.customerName)},</p>
     <p>This is a friendly reminder that your mould inspection is coming up in <strong>2 days</strong>.</p>
     <div class="details-box">
       <table>
         <tr><td>Date</td><td>${data.date}</td></tr>
         <tr><td>Time</td><td>${data.time}</td></tr>
-        <tr><td>Address</td><td>${data.address}</td></tr>
+        <tr><td>Address</td><td>${toDisplayTitleCase(data.address)}</td></tr>
       </table>
     </div>
     <p><strong>Please ensure:</strong></p>

@@ -232,6 +232,28 @@ function buildSlackBlocks(lead: FramerLeadPayload, createdAt: string, isPossible
 // Confirmation email – branded MRC template
 // ---------------------------------------------------------------------------
 
+// Display-only copy of src/lib/utils/displayFormat.ts (Deno can't import src/).
+// Keep the two implementations in sync.
+const STATE_ABBREVIATION_MAX_LETTERS = 3
+
+function toDisplayTitleCase(value: string): string {
+  if (!value) return value
+  return value
+    .split(/(\s+)/)
+    .map((token) => {
+      if (!/[a-zA-Z]/.test(token) || /\d/.test(token)) return token
+      const letterCount = (token.match(/[a-zA-Z]/g) || []).length
+      const isAllCaps = token === token.toUpperCase()
+      const isAllLower = token === token.toLowerCase()
+      if (isAllCaps && letterCount <= STATE_ABBREVIATION_MAX_LETTERS) return token
+      if (!isAllCaps && !isAllLower) return token
+      return token
+        .toLowerCase()
+        .replace(/(^|['-])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase())
+    })
+    .join('')
+}
+
 function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
   let formattedDate = ''
   if (lead.preferred_date) {
@@ -240,8 +262,8 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
   }
 
   const detailRows = [
-    `<tr><td>Name</td><td>${lead.full_name}</td></tr>`,
-    `<tr><td>Address</td><td>${lead.street}${lead.suburb ? ', ' + lead.suburb : ''}</td></tr>`,
+    `<tr><td>Name</td><td>${toDisplayTitleCase(lead.full_name)}</td></tr>`,
+    `<tr><td>Address</td><td>${toDisplayTitleCase(lead.street)}${lead.suburb ? ', ' + toDisplayTitleCase(lead.suburb) : ''}</td></tr>`,
     formattedDate ? `<tr><td>Preferred Date</td><td>${formattedDate}</td></tr>` : '',
     lead.preferred_time ? `<tr><td>Preferred Time</td><td>${lead.preferred_time}</td></tr>` : '',
     lead.preferred_day ? `<tr><td>Preferred Day</td><td>${lead.preferred_day}</td></tr>` : '',
@@ -252,7 +274,7 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
 
   const bodyHtml = `
       <h2>Thank You for Your Enquiry</h2>
-      <p>Hi ${lead.full_name},</p>
+      <p>Hi ${toDisplayTitleCase(lead.full_name)},</p>
       <p>Thank you for reaching out to Mould &amp; Restoration Co. We have received your enquiry and a member of our team will be in touch shortly to confirm your booking.</p>
       <div class="details-box">
         <table>

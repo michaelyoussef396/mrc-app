@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { toDisplayTitleCase } from '@/lib/utils/displayFormat';
 
 // ============================================================================
 // CONSTANTS
@@ -197,13 +198,13 @@ export interface ReportApprovedData {
 export function buildBookingConfirmationHtml(data: BookingConfirmationData): string {
   return wrapInBrandedTemplate(`
     <h2>Booking Confirmed</h2>
-    <p>Hi ${data.customerName},</p>
+    <p>Hi ${toDisplayTitleCase(data.customerName)},</p>
     <p>Your mould inspection has been confirmed. Here are the details:</p>
     <div class="details-box">
       <table>
         <tr><td>Date</td><td>${data.date}</td></tr>
         <tr><td>Time</td><td>${data.time}</td></tr>
-        <tr><td>Address</td><td>${data.address}</td></tr>
+        <tr><td>Address</td><td>${toDisplayTitleCase(data.address)}</td></tr>
         ${data.technicianName ? `<tr><td>Technician</td><td>${data.technicianName}</td></tr>` : ''}
       </table>
     </div>
@@ -223,13 +224,13 @@ export function buildReportApprovedHtml(data: ReportApprovedData): string {
   return wrapInBrandedTemplate(`
     <h2>Your Inspection Report is Ready</h2>
     ${customMessageHtml || `
-    <p>Hi ${data.customerName},</p>
-    <p>Great news — your mould inspection report for <strong>${data.address}</strong> has been completed and approved${data.jobNumber ? ` (Ref: ${data.jobNumber})` : ''}.</p>
+    <p>Hi ${toDisplayTitleCase(data.customerName)},</p>
+    <p>Great news — your mould inspection report for <strong>${toDisplayTitleCase(data.address)}</strong> has been completed and approved${data.jobNumber ? ` (Ref: ${data.jobNumber})` : ''}.</p>
     <p>Our team has thoroughly reviewed the findings and the report is now ready for you.</p>
     `}
     <div class="details-box">
       <table>
-        <tr><td>Property</td><td>${data.address}</td></tr>
+        <tr><td>Property</td><td>${toDisplayTitleCase(data.address)}</td></tr>
         ${data.jobNumber ? `<tr><td>Reference</td><td>${data.jobNumber}</td></tr>` : ''}
         <tr><td>Status</td><td style="color:#16a34a; font-weight:600;">Approved &amp; Ready</td></tr>
       </table>
@@ -266,8 +267,8 @@ export function buildJobBookingConfirmationHtml(data: JobBookingConfirmationData
   const durationLabel = `${data.durationDays} ${data.durationDays === 1 ? 'day' : 'days'} (${data.totalHours} hours)`;
   return wrapInBrandedTemplate(`
     <h2>Job Booking Confirmed</h2>
-    <p>Hi ${data.customerName},</p>
-    <p>Great news — your mould remediation job at <strong>${data.address}</strong> has been confirmed and scheduled.</p>
+    <p>Hi ${toDisplayTitleCase(data.customerName)},</p>
+    <p>Great news — your mould remediation job at <strong>${toDisplayTitleCase(data.address)}</strong> has been confirmed and scheduled.</p>
     <div class="details-box">
       <table>
         <tr><td>Reference</td><td>${data.leadNumber}</td></tr>
@@ -275,7 +276,7 @@ export function buildJobBookingConfirmationHtml(data: JobBookingConfirmationData
         <tr><td>Start Time</td><td>${data.startTime} daily</td></tr>
         <tr><td>Duration</td><td>${durationLabel}</td></tr>
         <tr><td>Technician</td><td>${data.technicianName}</td></tr>
-        <tr><td>Address</td><td>${data.address}</td></tr>
+        <tr><td>Address</td><td>${toDisplayTitleCase(data.address)}</td></tr>
       </table>
     </div>
     <p><strong>What to expect:</strong></p>
@@ -287,13 +288,13 @@ export function buildJobBookingConfirmationHtml(data: JobBookingConfirmationData
 export function buildInspectionReminderHtml(data: InspectionReminderData): string {
   return wrapInBrandedTemplate(`
     <h2>Inspection Reminder</h2>
-    <p>Hi ${data.customerName},</p>
+    <p>Hi ${toDisplayTitleCase(data.customerName)},</p>
     <p>This is a friendly reminder that your mould inspection is coming up in <strong>2 days</strong>.</p>
     <div class="details-box">
       <table>
         <tr><td>Date</td><td>${data.date}</td></tr>
         <tr><td>Time</td><td>${data.time}</td></tr>
-        <tr><td>Address</td><td>${data.address}</td></tr>
+        <tr><td>Address</td><td>${toDisplayTitleCase(data.address)}</td></tr>
       </table>
     </div>
     <p><strong>Please ensure:</strong></p>
@@ -370,12 +371,12 @@ export function buildJobReportEmailHtml(params: {
   return wrapInBrandedTemplate(`
     <h2>Job Completion Report</h2>
     ${customMessageHtml || `
-    <p>Dear ${params.customerName},</p>
+    <p>Dear ${toDisplayTitleCase(params.customerName)},</p>
     <p>Please find your job completion report for the remediation work carried out at:</p>
     `}
     <div class="details-box">
       <table>
-        <tr><td>Property</td><td>${params.propertyAddress}</td></tr>
+        <tr><td>Property</td><td>${toDisplayTitleCase(params.propertyAddress)}</td></tr>
         <tr><td>Job Number</td><td>${params.jobNumber}</td></tr>
         <tr><td>Completion Date</td><td>${params.completionDate}</td></tr>
         ${params.technicianName ? `<tr><td>Technician</td><td>${params.technicianName}</td></tr>` : ''}
@@ -446,7 +447,7 @@ export interface GoogleReviewEmailParams {
 export function buildGoogleReviewEmailHtml(params: GoogleReviewEmailParams): string {
   return wrapInBrandedTemplate(`
     <h2>Thank You — Would You Leave Us a Review?</h2>
-    <p>Dear ${params.customerName},</p>
+    <p>Dear ${toDisplayTitleCase(params.customerName)},</p>
     <p>Thank you for trusting Mould &amp; Restoration Co. with your remediation work (${params.jobNumber}). We hope you're thrilled with the result.</p>
     <p>Your feedback means the world to small businesses like ours. If you have 30 seconds, a quick Google review would genuinely make our day:</p>
     <p style="margin-top:24px;text-align:center;">
