@@ -222,10 +222,26 @@ Section 6 (Waste Disposal) already implements the correct pattern: tech enters b
 price calculates, tech confirms, with an "Edit price" escape hatch. Equipment days should
 follow the same confirm-or-override pattern. See Confirmed Rules below.
 
-**16. LOW — Timestamp casing inconsistent**
+**16. LOW — HEPA Air Scrubber toggle should reveal its detail section**
+
+HEPA Air Scrubber already has a detail section with units and an auto day count, matching
+the other equipment — no new build required. The Treatment Methods toggle
+"HEPA Air Scrubber Installation" should show and hide that detail section the way the
+Drying Equipment toggle does, so there is one place to turn HEPA on rather than two
+states that can drift apart.
+
+**17. LOW — Timestamp casing inconsistent**
 
 Internal notes render "[02/08/2026 at 11:32 pm]" in lowercase, while booking emails use
 "10:00 AM". Date format DD/MM/YYYY is correct. Pick one casing convention.
+
+### Untested this run
+
+**HEPA Air Scrubber pricing path.** The Treatment Methods toggle was off for this run, so
+the $100/day line never rendered in the Section 8 breakdown. HEPA is unit-tested and in
+the pricing engine but has not been exercised end to end. Needs a pass with the toggle on
+and a quantity set, confirming the line appears in Labour/Equipment Breakdown and flows
+into both option totals.
 
 ### Confirmed rules — Michael, 3 Aug 2026
 
@@ -233,10 +249,10 @@ Answers to questions raised during this test run. These are settled; no further
 consultation needed before the batch session.
 
 **Equipment quantities and days.** Section 7 (Drying Equipment) is the single home for
-all equipment — Commercial Dehumidifier, Air Movers, RCD Box — and holds the per-unit
-quantities. Day count is auto-calculated from labour hours and applies as one shared
-figure across all equipment units, not per-unit. Auto-calculation stays; the change
-required is a confirm/override step matching the Section 6 bin-price pattern.
+all equipment — Commercial Dehumidifier, Air Movers, RCD Box, HEPA Air Scrubber — and
+holds the per-unit quantities. Day count is auto-calculated from labour hours and applies
+as one shared figure across all equipment units, not per-unit. Auto-calculation stays;
+the change required is a confirm/override step matching the Section 6 bin-price pattern.
 
 **Option 1 equipment value.** Option 1 showing $472.00 against Option 2's $944.00 is
 correct. Surface-only scope runs fewer days, so the lower equipment figure reflects the
