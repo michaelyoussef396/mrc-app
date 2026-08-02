@@ -8,6 +8,7 @@ import { captureBusinessError } from '@/lib/sentry';
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
@@ -112,6 +113,7 @@ export function EventDetailsPanel({ event, open, onClose }: EventDetailsPanelPro
               Booking Details
             </SheetTitle>
           </div>
+          <SheetDescription className="sr-only">Details and actions for the selected booking.</SheetDescription>
         </SheetHeader>
 
         <div className="p-5 space-y-5 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 80px)' }}>

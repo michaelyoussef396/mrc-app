@@ -39,6 +39,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -1169,6 +1170,7 @@ const LeadsManagement = () => {
               <Clock className="w-5 h-5" />
               Activity History
             </DialogTitle>
+            <DialogDescription className="sr-only">Recent activity recorded for this lead.</DialogDescription>
           </DialogHeader>
           {historyLoading ? (
             <div className="flex items-center justify-center py-12">
@@ -1210,6 +1212,7 @@ const LeadsManagement = () => {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Send Email to Client</DialogTitle>
+            <DialogDescription className="sr-only">Review and send the inspection report email to the customer.</DialogDescription>
           </DialogHeader>
           {emailTargetLead && (
             <div className="space-y-4">

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
@@ -233,6 +234,7 @@ export function JobCompletionEditSheet({
           <SheetTitle className="text-base">
             Edit Section {sectionIndex} — {sectionName}
           </SheetTitle>
+          <SheetDescription className="sr-only">Edit the fields of this job completion section.</SheetDescription>
         </SheetHeader>
 
         {/* Scrollable section body */}
