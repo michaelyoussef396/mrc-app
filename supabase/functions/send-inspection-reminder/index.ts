@@ -293,11 +293,11 @@ Deno.serve(async (_req) => {
 
       // Send email
       const result = await sendWithRetry({
-        from: 'Mould & Restoration Co <noreply@mrcsystem.com>',
+        from: 'Mould & Restoration Co <admin@mouldandrestoration.com.au>',
         to: [lead.email],
         subject,
         html,
-        reply_to: 'admin@mrcsystem.com',
+        reply_to: 'admin@mouldandrestoration.com.au',
       }, RESEND_API_KEY);
 
       // Log to email_logs
