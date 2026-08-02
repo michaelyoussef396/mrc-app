@@ -523,7 +523,15 @@ Surfaced during the business-logic / flow audits (read-only investigations). Cod
 
 1. **Manual-invoice GST = $0 lump-sum branch is latent dead code (low priority).** *Corrected 3 Jun 2026 — the earlier "GST=$0 is the default path" claim was a misreading.* In normal use the live invoice-create path is `InvoiceSummaryCard → createInvoice`, which **splits GST correctly** (and only renders at status `job_report_pdf_sent` with no existing invoice). The `gst_amount = 0` lump-sum branch in `InvoicePaymentCard.handleCreate` is **UNREACHABLE**: the card only mounts when an invoice already exists (`LeadDetail.tsx:2413`, `if (invoice)`), but that create branch only runs when there is *no* invoice — so it never renders. **Not current behaviour; no customer impact today.** Fix (low priority, own session): harden the unreachable branch to split GST so it's safe if the gating is ever re-wired.
 
-2. **AFD not wired + not captured as billable equipment.** AFD is a method toggle only ("AFD Installation") — no qty×days line like dehumidifier/air mover/RCD in the quote engine. `$75` in `Section7Equipment.tsx` is a placeholder (only AFD number anywhere; usage qty/days IS captured on the job form via `actual_afd_qty`/`actual_afd_days` but never SELECTed in `autoPopulateFromLead`, no line emitted, absent from `pricing.ts`). Bills **$0**. **Decision: $75/unit/day ex GST provisional, flagged for Glen/Clayton, not applied yet.** Fix own session — confirm rate, ensure qty/days capturable through to billing, wire AFD through quote → invoice → PDF.
+2. ~~**AFD not wired + not captured as billable equipment.**~~ **RESOLVED — see the
+   Open Questions entry above (verified 2026-08-02).** AFD is the HEPA Air Scrubber, rate
+   $100/unit/day, fully wired through quote → invoice → PDF. The description below is the
+   2 Jun state and is kept only for history: *AFD is a method toggle only, `$75` in
+   `Section7Equipment.tsx` is a placeholder, qty/days captured but never SELECTed in
+   `autoPopulateFromLead`, no line emitted, absent from `pricing.ts`, bills $0.* Every one
+   of those clauses is now false — `pricing.ts:30` has `hepaAirScrubber: 100`,
+   `invoices.ts:757` SELECTs `actual_afd_qty, actual_afd_days`, and `:822-831` emits the
+   line item.
 
 3. **Section 7 "both options" save guard over-fires (not data loss).** *Clarified 3 Jun 2026.* "Option 1 total could not be computed; ensure surface treatment hours are entered before saving in Both-options mode" is an **intentional integrity guard** — it blocks saving a $0/blank price to one option's customer PDF. The problem is it's wired into the shared save function (`handleSave`), so it over-fires: it blocks auto-save and section navigation, not just final submit, and surfaces a legitimate "no hours yet" state as a "Save Failed" error. **Data is retained in normal use** (the throw precedes all state resets + DB writes; in-memory form state + 30s localStorage backup survive). Only real loss risk: a brand-new inspection that has never had a successful save (so no localStorage backup key yet) being hard-reloaded before any save. Fix (own session): enforce the non-zero check only at submit / PDF-generation time; let sections auto-save freely.
 
@@ -575,7 +583,25 @@ Three-stage green flag.
 
 Items that need a decision from you, not engineering work. Resolving these unblocks L-section work.
 
-- **AFD equipment daily rate** — `src/components/job-completion/Section7Equipment.tsx:9` uses `$75/day` as a placeholder. Comment at :166 reads "Confirm with Michael before going live." Real impact: every job using AFD will quote wrong until this is locked. Need the real rate to seed the constant.
+- [x] ~~**AFD equipment daily rate** — `Section7Equipment.tsx:9` uses `$75/day` as a
+      placeholder~~ **RESOLVED — verified 2026-08-02, no code change needed.** AFD **is**
+      the HEPA Air Scrubber; same equipment, confirmed by Glen and Clayton and renamed
+      throughout the codebase on 25 June 2026. Rate is **$100/unit/day ex GST**.
+      - `df4c115` (PR #67) replaced `afd: 75` with `hepaAirScrubber: 100`. Confirmed
+        present in production `9fdc853`, so the correct rate has been **live since
+        23 July**. `git show 9fdc853:src/components/job-completion/Section7Equipment.tsx`
+        if you need to see it.
+      - `1c663e8` removed the last duplicate: Section 7 held its own local
+        `EQUIPMENT_RATES` const rather than importing the canonical one. It now imports
+        from `pricing.ts` (`Section7Equipment.tsx:6`, used at `:403-410`, `:424-463`).
+        Reached production today in `29a5808`.
+      - The `$75` figure was never wired into billing at all — there was no line item, so
+        customers were charged $0, not $75.
+      - Billing is verified end to end: `pricing.test.ts:168-174` (2 × 3 days = $600),
+        `invoices.hepaLineItem.test.ts` (line item $600 at unit_price 100, labelled "HEPA
+        Air Scrubber", `is_equipment: true`), and `generate-job-report-pdf/index.ts:327`.
+      - `equipmentRateDrift.test.ts` now pins the two Edge Function rate copies against
+        `EQUIPMENT_RATES`, so the next drift fails CI instead of reaching a customer PDF.
 
 ---
 

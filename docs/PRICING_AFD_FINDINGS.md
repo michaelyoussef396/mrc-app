@@ -1,5 +1,28 @@
 # Pricing Engine & AFD Billing — Verified Findings
 
+> ## ⚠️ SUPERSEDED — THE AFD SECTIONS NO LONGER DESCRIBE THE CODE (2026-08-02)
+>
+> This was an accurate read-only snapshot on **2026-06-02**. The AFD findings were acted
+> on three weeks later and every AFD claim below is now false:
+>
+> - **AFD *is* the HEPA Air Scrubber** — same equipment, confirmed by Glen and Clayton,
+>   renamed throughout the codebase on 25 June 2026.
+> - **The rate is $100/unit/day ex GST**, not the `$75` placeholder cited at line 89.
+>   `df4c115` (PR #67) replaced it; live in production since 23 July.
+> - **`Section7Equipment.tsx` has no local rate constant.** It imports the canonical
+>   `EQUIPMENT_RATES` from `src/lib/calculations/pricing.ts` (`:6`, used at `:403-410`).
+>   `1c663e8` removed the duplicate; live since `29a5808`.
+> - **AFD is billed.** `invoices.ts:757` SELECTs `actual_afd_qty` / `actual_afd_days` and
+>   `:822-831` emits a "HEPA Air Scrubber" line at $100/unit-day. The "bills $0" finding
+>   is closed.
+>
+> The **labour** sections (rate card, interpolation band, 2-hour minimum) predate the
+> per-day `dayRates` model and should also not be trusted — see `pricing.ts:19-24`.
+>
+> **Current, verified reference:** `docs/PRICING_AND_PROCESS_GUIDE.html`. For exact
+> figures the code is the source of truth. Retained for history — do not use for pricing
+> rules.
+
 **Date:** 2026-06-02
 **Phase:** 1 of 3 (read-only investigation)
 **Scope:** `src/lib/calculations/pricing.ts` + AFD capture/billing trace
