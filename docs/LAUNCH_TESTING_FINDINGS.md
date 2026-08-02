@@ -165,9 +165,85 @@ even though the app standard is DD/MM/YYYY. Confirm before changing.
 
 ## Step 3 — Technician inspection form at 375px
 
-**Status:** awaiting test
+**Status: PASS** (all 9 sections completed and saved end to end)
+
+Verified working:
+
+- Sections 3–8 all saved to server, "Saved — Section N saved to the server" toast on each
+- Photo upload working across Area Inspection, Subfloor, Outdoor, Infrared
+- Auto-calculated labour hours pulled correctly from Area Inspection and Subfloor
+- No horizontal scroll, no layout breakage at 375px
+- Internal notes carried through from booking call and displayed in later sections
+- Dew point auto-calc correct in both sections (23°C/32% → 5.4°C; 46°C/23% → 19.9°C)
+
+**Pricing engine verified correct against MRC Pricing Reference:**
+
+- 2h rates are exactly 2× the 1h reference figures across all three labour types
+- Demolition 6h interpolated to $1,571.25 — matches linear interpolation between
+  2h ($1,062.00) and 8h ($1,825.87)
+- Partial days correctly prorate against day-2 rates, not day-1
+  (Treatment day 2: $1,060.34 ÷ 8 = $132.54/h; Subfloor day 2: $2,015.47 ÷ 8 × 2 = $503.87)
+- Equipment charged at correct per-unit-per-day rates: Dehumidifier $119, Air Mover $46,
+  RCD Box $5
+- GST 10% on subtotal correct on both options
+
+Test data: Kitchen, cornice + grout/silicone, 9h surface / 6h demolition / 10h subfloor,
+25h total, 4 work days, 6m³ bin at $550.
 
 ### Issues found
+
+**13. HIGH — Multiple photos can be attached to a single caption slot**
+
+On mobile, the photo picker allows selecting and uploading multiple images against one
+caption. The intended model is one photo per caption. Affects Area Inspection photo
+gallery and likely every captioned photo field in the form.
+
+Consequence is report quality rather than data loss — captions stop matching images in
+the PDF. Needs both a form-level constraint and a note to Glen and Clayton on expected
+behaviour before they start using the form.
+
+**14. MEDIUM — Dehumidifier Size dropdown does not affect pricing**
+
+Section 8 presents a Dehumidifier Size selector (Small/Medium/Large). Equipment is
+charged at a flat $119 per unit per day regardless of size, per the MRC Pricing
+Reference. The field implies a pricing consequence that does not exist.
+
+The calculation itself is correct — this is a UI expectation problem, not a pricing
+defect. Decision needed: relabel as technician-reference-only, or remove. Pricing
+surface, so pricing-guardian gate applies and Glen/Clayton confirm before any change.
+
+### Open questions — Glen/Clayton gate
+
+**Q1 — How are equipment hire days derived?**
+
+25 total labour hours produced "Work Days: 4", and equipment was billed at 4 days
+($119 × 4, $46 × 2 × 4, $5 × 5 × 4 = $944.00). If this is ceil(total hours ÷ 8), a
+labour-days figure is being used as an equipment-hire figure. Those are not the same
+quantity — equipment remains on site across calendar days including days no one attends.
+
+Confirm the intended rule before the batch session. Also confirm whether the 4-day
+residential cap (extendable to 5 for severe jobs) is enforced in code or only a
+guideline — this run happened to land on exactly 4 so the cap was not exercised.
+
+**Q2 — Option 1 equipment is exactly half Option 2**
+
+Option 1 (Surface Treatment) shows $472.00 equipment against Option 2's $944.00 —
+precisely half. Confirm whether this is a deliberate 2-day assumption for surface-only
+scope or a hardcoded halving. Affects every quote where both options are shown.
+
+**Q3 — HEPA Air Scrubber not exercised this run**
+
+The HEPA Air Scrubber Installation toggle was off, so the $100/day line never rendered.
+HEPA pricing was added and unit-tested previously but is untested in this end-to-end run.
+Needs a second pass with the toggle on before launch.
+
+Note: RCD Box at $5/unit/day appears in the app and calculated correctly, but does not
+appear in the MRC Pricing Reference table. Confirm the reference should be updated.
+
+**15. LOW — Timestamp casing inconsistent**
+
+Internal notes render "[02/08/2026 at 11:32 pm]" in lowercase, while booking emails use
+"10:00 AM". Date format DD/MM/YYYY is correct. Pick one casing convention.
 
 ---
 
