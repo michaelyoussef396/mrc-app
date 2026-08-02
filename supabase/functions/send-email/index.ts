@@ -197,11 +197,11 @@ Deno.serve(async (req) => {
 
     // Send email via Resend with retry
     const result = await sendWithRetry({
-      from: from || 'Mould & Restoration Co <noreply@mrcsystem.com>',
+      from: from || 'Mould & Restoration Co <admin@mouldandrestoration.com.au>',
       to: [to],
       subject,
       html,
-      reply_to: replyTo || 'admin@mrcsystem.com',
+      reply_to: replyTo || 'admin@mouldandrestoration.com.au',
       attachments: attachments || [],
     }, RESEND_API_KEY)
 

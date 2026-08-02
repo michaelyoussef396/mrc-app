@@ -204,7 +204,7 @@ export default function CheckEmail() {
               <Info className="note-icon-svg" />
               <p className="note-text">
                 Check your spam folder if you don't see the email. Need help?{' '}
-                <a href="mailto:support@mrc.com.au" className="support-link">
+                <a href="mailto:admin@mouldandrestoration.com.au" className="support-link">
                   Contact support
                 </a>
               </p>

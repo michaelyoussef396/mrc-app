@@ -124,7 +124,7 @@ const NotFound = () => {
           <div className="grid grid-cols-2 gap-3">
             {/* Phone Support */}
             <a
-              href="tel:1300665673"
+              href="tel:1800954117"
               className="flex items-center justify-center gap-2 p-3 rounded-xl transition-all hover:opacity-80"
               style={{ backgroundColor: "#e8e8ed" }}
             >
@@ -139,7 +139,7 @@ const NotFound = () => {
 
             {/* Email Support */}
             <a
-              href="mailto:support@mrc.com.au"
+              href="mailto:admin@mouldandrestoration.com.au"
               className="flex items-center justify-center gap-2 p-3 rounded-xl transition-all hover:opacity-80"
               style={{ backgroundColor: "#e8e8ed" }}
             >
@@ -160,7 +160,7 @@ const NotFound = () => {
             className="text-xs"
             style={{ color: "#86868b" }}
           >
-            1300 665 673 | support@mrc.com.au
+            1800 954 117 | admin@mouldandrestoration.com.au
           </p>
         </div>
       </div>

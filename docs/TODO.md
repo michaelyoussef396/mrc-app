@@ -1,17 +1,164 @@
 # MRC Lead Management System — Current TODO
 
-## ⚠️ PENDING: Email Domain DNS Cutover
-DNS records (SPF/DKIM/DMARC) for mouldandrestoration.com.au NOT yet configured.
-Resend domain NOT yet verified.
-**Scheduling (decided 2026-07-13):** now scheduled as an EARLY launch-weekend task —
-start the DNS setup FIRST because verification can take a few hours. This reverses the
-earlier "separate, later item" framing.
-Do NOT switch sending domain until DNS is verified in Resend dashboard. If it is not
-verified in time, launch on the current working domain and switch shortly after — do
-not delay launch for it.
-Once DNS is done: re-run a full email send test (booking confirmation +
-inspection report) and verify headers pass SPF/DKIM/DMARC before trusting
-production email delivery.
+## ✅ CLOSED: Email Domain DNS Cutover — DNS verified 2026-08-02
+
+**`mouldandrestoration.com.au` is VERIFIED in Resend as of 2 Aug 2026, 8:11pm AEST.
+DKIM and SPF both verified. The pending-DNS blocker is CLOSED.** The earlier framing
+("NOT yet configured", "do NOT switch sending domain until verified", "launch on the
+current working domain if it isn't verified in time") is now obsolete — the gate it
+guarded has passed.
+
+**What this unblocks, and what it does NOT.** DNS verification only makes the new
+domain *sendable*. Nothing sends from it yet: every `from` / `reply_to` in the codebase
+is still a `@mrcsystem.com` literal (see the envelope-layer item below). Verification
+was the precondition; the cutover itself is still outstanding.
+
+### Also completed 2026-08-02 (same session)
+
+- **PROD Auth SMTP now routes through Resend** — `smtp.resend.com:465`, sender
+  `noreply@mrcsystem.com`, API key named `supabase-auth-smtp`. Supabase Auth emails
+  (confirmation, recovery, invite, email_change, magic_link, reauthentication — the six
+  templates in `supabase/templates/`) no longer use the Supabase default SMTP.
+  Note the sender is still `@mrcsystem.com`, so this inherits the same envelope-layer
+  gap as the Edge Functions.
+- **Auth redirect allowlist fixed** — `mrcsystem.com/**` added.
+- **15 stale Supabase marketplace env vars deleted** from Vercel Production scope.
+- **Supabase↔Vercel marketplace integration removed entirely.** This closes the
+  clobber hazard behind the 23 Jul blank-page outage — the integration owned env-var
+  naming and could re-sync over the hand-maintained `VITE_*` vars. See the related
+  open item in the 23 Jul follow-ups, which this supersedes.
+- **Production redeployed cache-free on `29a5808`**; bundle verified to contain the
+  PROD ref only (`ecyivrxjpsmjmexqatym`, no `ctppzqnysmzynkxjlzta`).
+
+### OUTSTANDING — carried forward from this session
+
+- [ ] **Site URL is `https://mrcsystem.com/admin`, should be the root
+      `https://mrcsystem.com`.** Auth redirects currently resolve against an admin
+      subpath.
+- [ ] **Envelope layer still sends from `noreply@mrcsystem.com`** — 6 hardcoded
+      literals across 3 Edge Functions, none env-driven, all read-only-audited
+      2026-08-02:
+      - `send-email/index.ts:200` (from) + `:204` (reply_to) — these two are the
+        highest-leverage: the EF accepts optional `from`/`replyTo` but **no caller
+        passes either** (all 6 call sites checked), so changing these two literals
+        moves every app-originated email at once.
+      - `send-inspection-reminder/index.ts:296` (from) + `:300` (reply_to)
+      - `receive-framer-lead/index.ts:809` (from) + `:813` (reply_to) — customer
+        confirmation. Same file also has the internal failure alert at `:360`/`:369`
+        (`MRC System Alerts <noreply@mrcsystem.com>`).
+      Display layer is already correct (`admin@mouldandrestoration.com.au` in every
+      email footer and both PDF templates) — which means today every email arrives
+      from one domain while its own footer prints another.
+- [ ] **`seed-admin` still uses `admin@mrc.com.au`** (`supabase/functions/seed-admin/index.ts:50`).
+      A wrong-brand domain that is neither the old nor the new one. Left untouched in
+      the 2 Aug display-layer fix because it is an Edge Function and is an account
+      login address, not a display string — editing the literal alone would not rename
+      the existing account, only change what the next seed creates. Needs its own
+      decision alongside the envelope-layer work.
+- [ ] **`ADMIN_FALLBACK_EMAIL` may be unset in PROD.** Only consumer is
+      `receive-framer-lead/index.ts:354`, which falls back to `admin@mrcsystem.com`.
+      If unset, lead-capture failure alerts land in a mailbox on the domain being
+      retired — dropped leads would go unnoticed silently. Verify with
+      `npx supabase secrets list --project-ref ecyivrxjpsmjmexqatym` before the cutover.
+- [ ] **Post-cutover send test still required** — booking confirmation + inspection
+      report, with headers checked to pass SPF/DKIM/DMARC before production email
+      delivery is trusted. (Carried over from the original DNS item; verification
+      alone does not discharge it.)
+
+**Done 2026-08-02 (`fd0c942`), display layer only:** personal mobile `0433 553 199`
+removed from the job-booking confirmation email (`notifications.ts:286`) and both
+preview scripts; stale `support@mrc.com.au` / `1300 665 673` replaced with
+`admin@mouldandrestoration.com.au` / `1800 954 117` on NotFound and CheckEmail;
+ForgotPassword placeholder rebranded. No Edge Function or Resend literal touched.
+
+---
+
+## PENDING DECISION — Sent-folder visibility for system email
+
+**Problem.** The system sends customer email via Resend. Reply-To is
+`admin@mouldandrestoration.com.au` (live as of 2 Aug), so customer replies reach the
+Workspace inbox and admin can respond normally. What's missing is a record of the
+OUTBOUND message — nothing appears in Gmail's Sent folder, so admin sees replies
+without seeing what was sent.
+
+### Option A — BCC to a dedicated address
+
+Add `bcc` to Resend calls, pointing at `sent@mouldandrestoration.com.au` (not
+`admin@`, to keep the main inbox clean). Gmail filter auto-labels.
+
+- ✅ ~20 min, one line per send site
+- ✅ Transport unchanged — Resend logs, bounce tracking, delivery history all retained
+- ✅ No new failure modes
+- ❌ Copies land in an inbox, not literally the Sent folder
+- ❌ Slightly indirect
+
+### Option B — Route through Gmail SMTP
+
+Swap transport in every Edge Function so mail genuinely appears in Sent.
+
+- ✅ Exactly the desired result — indistinguishable from admin sending manually
+- ✅ Single unified mail history
+- ❌ Gmail app password needed as a secret in every EF
+- ❌ 2,000/day cap, tighter per-recipient limits
+- ❌ Single point of failure: if Gmail SMTP or the app password fails, ALL app email
+  stops including password resets
+- ❌ Loses Resend delivery logs, bounce tracking, send history
+
+### Michael's position
+
+Prefers **Option B**. Reason: Option A puts system copies in an inbox, which risks
+admin confusing what to read vs what to respond to. B keeps the mental model clean —
+sent mail lives in Sent, incoming lives in Inbox.
+
+### Status
+
+**Deferred.** Not to be built before the team's first week on the system — swapping
+email transport is the highest-risk change available and the current path was only
+stabilised 2 Aug. Revisit once the system has run clean for a week. Include in the
+team how-to doc so Glen and Clayton can weigh in, since it affects their daily
+workflow.
+
+---
+
+## DEFERRED — Full API key rotation
+
+Rotate all production API keys: Resend, Supabase (anon + service role), Slack
+webhook, Google Maps, OpenRouter, Sentry.
+
+> Existing runbook: `docs/KEY_ROTATION.md` (secret inventory + new→verify→revoke
+> sequence, Supabase/GitHub PATs LAST). This is the same work tracked as **L4 Phase 6**
+> further down this file — do not plan it twice. Check that runbook's inventory against
+> the scope list below before starting; it carries at least one secret this list omits.
+
+### Why deferred
+
+Rotation touches every Edge Function secret and every Vercel env var. A missed key
+fails silently — email, AI summaries, or Slack notifications stop working with no
+error surfaced until someone hits the wall. The email path was only stabilised
+2 Aug 2026 and the team starts using the system 3 Aug. Rotating the night before
+first use puts the highest-blast-radius change directly in front of the least
+tolerance for breakage.
+
+### When
+
+After the system has run clean for a full week with the team on it.
+
+### Scope when it happens
+
+- `RESEND_API_KEY` (note: the `supabase-auth-smtp` key is separate — it lives in
+  Supabase Auth SMTP config, not as an EF secret. Rotate both, independently.)
+- `SUPABASE_SERVICE_ROLE_KEY` (also still present in Vercel Preview + Production
+  scopes — remove there as part of this, see **PDF-CL6**)
+- `SUPABASE_ANON_KEY` / `VITE_SUPABASE_ANON_KEY`
+- `SLACK_WEBHOOK_URL`
+- `GOOGLE_MAPS_API_KEY` / `VITE_GOOGLE_MAPS_API_KEY`
+- `OPENROUTER_API_KEY`
+- `SENTRY_AUTH_TOKEN`
+
+### Verification required after each
+
+Every EF that consumes the key must be **re-invoked and confirmed working**, not just
+deployed. Build passing is not proof.
 
 ---
 
@@ -90,8 +237,12 @@ arithmetically consistent) and is caught only by the GST relation.
 
 ---
 
-**Last Updated:** 2026-07-29
-**Production state:** main @ `b50d07b`, production @ `9fdc853` (merge of PRs #67–#71 + login-footer fix), mrcsystem.com live and verified 2026-07-23. NOTE 2026-07-29: the `check-overdue-invoices` EF on PROD now runs the rewritten version from `launch/checks` `0a2fbac` (EFs deploy independently of the production branch); PR #72 (dashboard fixes) open, unmerged.
+**Last Updated:** 2026-08-02
+**Production state:** production redeployed cache-free on `29a5808` (2026-08-02), bundle
+verified to carry the PROD ref only. Supabase↔Vercel marketplace integration removed and 15
+stale marketplace env vars deleted from Production scope the same day. Earlier baseline: main @
+`b50d07b`, production @ `9fdc853` (merge of PRs #67–#71 + login-footer fix), mrcsystem.com live
+and verified 2026-07-23. NOTE 2026-07-29: the `check-overdue-invoices` EF on PROD now runs the rewritten version from `launch/checks` `0a2fbac` (EFs deploy independently of the production branch); PR #72 (dashboard fixes) open, unmerged.
 **Status:** Phase 1 + Phase 3 + Phase 4 Stages 4.1/4.1.5/4.2/4.3 COMPLETE in production. Phase 2 (Job Completion) built and deployed — existence-verified 2026-07-07, runtime-untested against dev (see "Phase 2 — Job Completion Workflow: Existence Verification" below). Pre-launch hardening underway.
 
 Backed by `docs/inspection-workflow-fix-plan-v2-2026-04-30.md` (48-stage execution map) and `docs/JOB_COMPLETION_PRD.md` (Phase 2 spec).
@@ -385,10 +536,12 @@ first prod build since shipped a blank page (~1h outage, same-day recovery). Var
 redeployed, site verified end-to-end at 375px, all 6 active migrations from the deployed PRs
 confirmed applied on prod. Smoke-test lead created + deleted same session.
 
-- [ ] **Decide Supabase↔Vercel marketplace integration fate.** It owns env-var naming and can
-      re-sync/clobber the hand-maintained `VITE_*` vars again. Either disconnect it, or document that
-      `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (Production) must be re-verified after any
-      integration change. Pre-deploy check: `npx vercel env ls production --project mrc-system`.
+- [x] ~~**Decide Supabase↔Vercel marketplace integration fate.**~~ **RESOLVED 2026-08-02 —
+      integration REMOVED entirely**, plus 15 stale marketplace env vars deleted from Vercel
+      Production scope. The clobber hazard behind the 23 Jul outage is gone at the source, not
+      merely documented around. Production redeployed cache-free on `29a5808`; bundle verified to
+      carry the PROD ref only. The pre-deploy check
+      (`npx vercel env ls production --project mrc-system`) is still worth keeping as habit.
 - [ ] **`.env.local` + `.gitignore` from `vercel link`.** The relink auto-created `.env.local`
       (Development-scope pull) and appended `.env*` to `.gitignore`. Decide: commit the
       `.gitignore` line (recommended) and delete `.env.local` (local dev already uses
@@ -523,7 +676,15 @@ Surfaced during the business-logic / flow audits (read-only investigations). Cod
 
 1. **Manual-invoice GST = $0 lump-sum branch is latent dead code (low priority).** *Corrected 3 Jun 2026 — the earlier "GST=$0 is the default path" claim was a misreading.* In normal use the live invoice-create path is `InvoiceSummaryCard → createInvoice`, which **splits GST correctly** (and only renders at status `job_report_pdf_sent` with no existing invoice). The `gst_amount = 0` lump-sum branch in `InvoicePaymentCard.handleCreate` is **UNREACHABLE**: the card only mounts when an invoice already exists (`LeadDetail.tsx:2413`, `if (invoice)`), but that create branch only runs when there is *no* invoice — so it never renders. **Not current behaviour; no customer impact today.** Fix (low priority, own session): harden the unreachable branch to split GST so it's safe if the gating is ever re-wired.
 
-2. **AFD not wired + not captured as billable equipment.** AFD is a method toggle only ("AFD Installation") — no qty×days line like dehumidifier/air mover/RCD in the quote engine. `$75` in `Section7Equipment.tsx` is a placeholder (only AFD number anywhere; usage qty/days IS captured on the job form via `actual_afd_qty`/`actual_afd_days` but never SELECTed in `autoPopulateFromLead`, no line emitted, absent from `pricing.ts`). Bills **$0**. **Decision: $75/unit/day ex GST provisional, flagged for Glen/Clayton, not applied yet.** Fix own session — confirm rate, ensure qty/days capturable through to billing, wire AFD through quote → invoice → PDF.
+2. ~~**AFD not wired + not captured as billable equipment.**~~ **RESOLVED — see the
+   Open Questions entry above (verified 2026-08-02).** AFD is the HEPA Air Scrubber, rate
+   $100/unit/day, fully wired through quote → invoice → PDF. The description below is the
+   2 Jun state and is kept only for history: *AFD is a method toggle only, `$75` in
+   `Section7Equipment.tsx` is a placeholder, qty/days captured but never SELECTed in
+   `autoPopulateFromLead`, no line emitted, absent from `pricing.ts`, bills $0.* Every one
+   of those clauses is now false — `pricing.ts:30` has `hepaAirScrubber: 100`,
+   `invoices.ts:757` SELECTs `actual_afd_qty, actual_afd_days`, and `:822-831` emits the
+   line item.
 
 3. **Section 7 "both options" save guard over-fires (not data loss).** *Clarified 3 Jun 2026.* "Option 1 total could not be computed; ensure surface treatment hours are entered before saving in Both-options mode" is an **intentional integrity guard** — it blocks saving a $0/blank price to one option's customer PDF. The problem is it's wired into the shared save function (`handleSave`), so it over-fires: it blocks auto-save and section navigation, not just final submit, and surfaces a legitimate "no hours yet" state as a "Save Failed" error. **Data is retained in normal use** (the throw precedes all state resets + DB writes; in-memory form state + 30s localStorage backup survive). Only real loss risk: a brand-new inspection that has never had a successful save (so no localStorage backup key yet) being hard-reloaded before any save. Fix (own session): enforce the non-zero check only at submit / PDF-generation time; let sections auto-save freely.
 
@@ -575,7 +736,25 @@ Three-stage green flag.
 
 Items that need a decision from you, not engineering work. Resolving these unblocks L-section work.
 
-- **AFD equipment daily rate** — `src/components/job-completion/Section7Equipment.tsx:9` uses `$75/day` as a placeholder. Comment at :166 reads "Confirm with Michael before going live." Real impact: every job using AFD will quote wrong until this is locked. Need the real rate to seed the constant.
+- [x] ~~**AFD equipment daily rate** — `Section7Equipment.tsx:9` uses `$75/day` as a
+      placeholder~~ **RESOLVED — verified 2026-08-02, no code change needed.** AFD **is**
+      the HEPA Air Scrubber; same equipment, confirmed by Glen and Clayton and renamed
+      throughout the codebase on 25 June 2026. Rate is **$100/unit/day ex GST**.
+      - `df4c115` (PR #67) replaced `afd: 75` with `hepaAirScrubber: 100`. Confirmed
+        present in production `9fdc853`, so the correct rate has been **live since
+        23 July**. `git show 9fdc853:src/components/job-completion/Section7Equipment.tsx`
+        if you need to see it.
+      - `1c663e8` removed the last duplicate: Section 7 held its own local
+        `EQUIPMENT_RATES` const rather than importing the canonical one. It now imports
+        from `pricing.ts` (`Section7Equipment.tsx:6`, used at `:403-410`, `:424-463`).
+        Reached production today in `29a5808`.
+      - The `$75` figure was never wired into billing at all — there was no line item, so
+        customers were charged $0, not $75.
+      - Billing is verified end to end: `pricing.test.ts:168-174` (2 × 3 days = $600),
+        `invoices.hepaLineItem.test.ts` (line item $600 at unit_price 100, labelled "HEPA
+        Air Scrubber", `is_equipment: true`), and `generate-job-report-pdf/index.ts:327`.
+      - `equipmentRateDrift.test.ts` now pins the two Edge Function rate copies against
+        `EQUIPMENT_RATES`, so the next drift fails CI instead of reaching a customer PDF.
 
 ---
 
@@ -722,12 +901,18 @@ Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocki
 - **Blocking:** can't safely run Glen/Clayton walkthrough on prod data.
 
 ### L5 — Email domain switch to `mouldandrestoration.com.au`
-- **Estimate:** 3-4h (mostly DNS wait)
+- **Estimate:** ~1h remaining (the DNS wait is spent)
 - **Tasks:**
-  - [ ] Update DNS records (SPF, DKIM, DMARC)
-  - [ ] Update Resend configuration
-  - [ ] Test deliverability (inbox vs spam)
-- **Blocking:** brand integrity. Customer-facing emails currently send from non-MRC domain.
+  - [x] ~~Update DNS records (SPF, DKIM, DMARC)~~ **DONE 2026-08-02 8:11pm AEST — DKIM + SPF
+        verified in Resend.**
+  - [x] ~~Update Resend configuration~~ **DONE — domain verified; PROD Auth SMTP moved onto
+        Resend (`smtp.resend.com:465`, key `supabase-auth-smtp`).**
+  - [ ] **Cut the envelope over** — 6 `from`/`reply_to` literals across 3 Edge Functions still
+        say `@mrcsystem.com`. This is now the whole of L5. Detail in the closed DNS section at
+        the top of this file.
+  - [ ] Test deliverability (inbox vs spam) + verify headers pass SPF/DKIM/DMARC
+- **Blocking:** brand integrity. Customer-facing emails still send from a non-MRC domain —
+  the domain is now verified and ready, but nothing has been pointed at it yet.
 
 ### L6 — Activate Glen + Clayton + Vryan production accounts ✅ COMPLETE
 - **Status:** Accounts activated (confirmed by Michael 2026-05-12). Glen + Clayton + Vryan can log in to production.

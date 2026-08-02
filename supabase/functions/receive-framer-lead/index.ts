@@ -351,13 +351,13 @@ async function sendFailureEmail(rawPayload: string, errorMsg: string): Promise<v
   try {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
     if (!RESEND_API_KEY) return
-    const adminEmail = Deno.env.get('ADMIN_FALLBACK_EMAIL') || 'admin@mrcsystem.com'
+    const adminEmail = Deno.env.get('ADMIN_FALLBACK_EMAIL') || 'admin@mouldandrestoration.com.au'
     const ts = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' })
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'MRC System Alerts <noreply@mrcsystem.com>',
+        from: 'MRC System Alerts <admin@mouldandrestoration.com.au>',
         to: [adminEmail],
         subject: 'LEAD CAPTURE FAILURE — Manual Follow-up Required',
         html: `<h2 style="color:#c00;">Lead Capture Failed</h2>
@@ -366,7 +366,7 @@ async function sendFailureEmail(rawPayload: string, errorMsg: string): Promise<v
 <h3>Raw Payload</h3>
 <pre style="background:#f5f5f5;padding:12px;border-radius:4px;overflow:auto;font-size:13px;">${rawPayload.substring(0, 5000)}</pre>
 <p><strong>Action required:</strong> Manually create this lead in <a href="https://www.mrcsystem.com/admin/leads">the admin dashboard</a>.</p>`,
-        reply_to: 'admin@mrcsystem.com',
+        reply_to: 'admin@mouldandrestoration.com.au',
       }),
     })
   } catch (err) {
@@ -806,11 +806,11 @@ Deno.serve(async (req) => {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            from: 'Mould & Restoration Co <noreply@mrcsystem.com>',
+            from: 'Mould & Restoration Co <admin@mouldandrestoration.com.au>',
             to: [email],
             subject: 'Thank you for your enquiry - Mould & Restoration Co',
             html,
-            reply_to: 'admin@mrcsystem.com',
+            reply_to: 'admin@mouldandrestoration.com.au',
           }),
         })
         if (!res.ok) {
