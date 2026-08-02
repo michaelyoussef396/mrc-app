@@ -27,6 +27,18 @@ describe('toDisplayTitleCase', () => {
     expect(toDisplayTitleCase('Anna McDonald')).toBe('Anna McDonald');
   });
 
+  it('should title-case short all-caps names', () => {
+    expect(toDisplayTitleCase('JO ANN')).toBe('Jo Ann');
+  });
+
+  it('should title-case all-caps street abbreviations', () => {
+    expect(toDisplayTitleCase('35 WELLINGTON ST, MERNDA')).toBe('35 Wellington St, Mernda');
+  });
+
+  it('should capitalise after a curly apostrophe', () => {
+    expect(toDisplayTitleCase('sean o’brien')).toBe('Sean O’Brien');
+  });
+
   it('should capitalise after an apostrophe', () => {
     expect(toDisplayTitleCase("sean o'brien")).toBe("Sean O'Brien");
   });

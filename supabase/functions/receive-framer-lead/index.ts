@@ -234,7 +234,7 @@ function buildSlackBlocks(lead: FramerLeadPayload, createdAt: string, isPossible
 
 // Display-only copy of src/lib/utils/displayFormat.ts (Deno can't import src/).
 // Keep the two implementations in sync.
-const STATE_ABBREVIATION_MAX_LETTERS = 3
+const AU_STATE_ABBREVIATIONS = new Set(['VIC', 'NSW', 'QLD', 'SA', 'WA', 'NT', 'ACT', 'TAS'])
 
 function toDisplayTitleCase(value: string): string {
   if (!value) return value
@@ -242,14 +242,13 @@ function toDisplayTitleCase(value: string): string {
     .split(/(\s+)/)
     .map((token) => {
       if (!/[a-zA-Z]/.test(token) || /\d/.test(token)) return token
-      const letterCount = (token.match(/[a-zA-Z]/g) || []).length
       const isAllCaps = token === token.toUpperCase()
       const isAllLower = token === token.toLowerCase()
-      if (isAllCaps && letterCount <= STATE_ABBREVIATION_MAX_LETTERS) return token
+      if (isAllCaps && AU_STATE_ABBREVIATIONS.has(token.replace(/[^a-zA-Z]/g, ''))) return token
       if (!isAllCaps && !isAllLower) return token
       return token
         .toLowerCase()
-        .replace(/(^|['-])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase())
+        .replace(/(^|['’-])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase())
     })
     .join('')
 }
