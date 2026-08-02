@@ -254,6 +254,31 @@ function toDisplayTitleCase(value: string): string {
     .join('')
 }
 
+// Port of src/lib/bookingService.ts formatTimeForDisplay, widened to accept
+// the suffixed values TIME_RE admits ("14:30", "9:30 am", "2:30PM").
+// Label strings like "Morning (8am–12pm)" pass through unchanged.
+function formatPreferredTimeForDisplay(timeStr: string): string {
+  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(am|pm)?$/i)
+  if (!match) return timeStr
+  let hours = Number(match[1])
+  const minutes = match[2]
+  const meridiem = match[3]?.toUpperCase()
+  if (meridiem === 'PM' && hours < 12) hours += 12
+  if (meridiem === 'AM' && hours === 12) hours = 0
+  const period = hours >= 12 ? 'PM' : 'AM'
+  const displayHour = hours % 12 || 12
+  return `${displayHour}:${minutes} ${period}`
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
   let formattedDate = ''
   if (lead.preferred_date) {
@@ -264,8 +289,9 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
   const detailRows = [
     `<tr><td>Name</td><td>${toDisplayTitleCase(lead.full_name)}</td></tr>`,
     `<tr><td>Address</td><td>${toDisplayTitleCase(lead.street)}${lead.suburb ? ', ' + toDisplayTitleCase(lead.suburb) : ''}</td></tr>`,
+    lead.postcode ? `<tr><td>Postcode</td><td>${lead.postcode}</td></tr>` : '',
     formattedDate ? `<tr><td>Preferred Date</td><td>${formattedDate}</td></tr>` : '',
-    lead.preferred_time ? `<tr><td>Preferred Time</td><td>${lead.preferred_time}</td></tr>` : '',
+    lead.preferred_time ? `<tr><td>Preferred Time</td><td>${formatPreferredTimeForDisplay(lead.preferred_time)}</td></tr>` : '',
     lead.preferred_day ? `<tr><td>Preferred Day</td><td>${lead.preferred_day}</td></tr>` : '',
     lead.issue_type ? `<tr><td>Type of Issue</td><td>${lead.issue_type}</td></tr>` : '',
     lead.property_type ? `<tr><td>Property Type</td><td>${lead.property_type}</td></tr>` : '',
@@ -281,6 +307,10 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
           ${detailRows}
         </table>
       </div>
+      ${lead.issue_description ? `
+      <p><strong>What you told us:</strong></p>
+      <p>${escapeHtml(lead.issue_description).replace(/\n/g, '<br>')}</p>
+      ` : ''}
       <p><strong>What happens next?</strong></p>
       <ol style="margin:16px 0;padding-left:20px;font-size:14px;color:#333;">
         <li style="padding:4px 0;">Our team will call you to confirm the inspection date and time</li>
