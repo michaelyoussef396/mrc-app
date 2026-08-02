@@ -212,15 +212,17 @@ The calculation itself is correct — this is a UI expectation problem, not a pr
 defect. Decision needed: relabel as technician-reference-only, or remove. Pricing
 surface, so pricing-guardian gate applies before any change.
 
-**15. MEDIUM — Equipment days auto-calculate with no confirm step**
+**15. LOW — Editable days field exists on HEPA only, not the other equipment rows**
 
-Equipment hire days are derived from labour hours (25h → 4 days) and applied silently.
-The tech has no opportunity to confirm or adjust before the figure drives the equipment
-total.
+HEPA Air Scrubber Details includes a Days field showing "Auto (4)" with steppers and the
+hint "Days defaults to the job's equipment days" — the tech can accept the calculated
+figure or override it. This is the correct pattern and matches the Section 6 bin-price
+confirm flow.
 
-Section 6 (Waste Disposal) already implements the correct pattern: tech enters bin size,
-price calculates, tech confirms, with an "Edit price" escape hatch. Equipment days should
-follow the same confirm-or-override pattern. See Confirmed Rules below.
+Commercial Dehumidifier, Air Movers and RCD Box have quantity steppers only, with no
+equivalent days control. Extend the HEPA pattern to the other three rows so every
+equipment line can be adjusted the same way. Not urgent — the shared auto figure is
+correct for typical jobs.
 
 **16. LOW — HEPA Air Scrubber toggle should reveal its detail section**
 
@@ -271,7 +273,8 @@ code.
 
 ## Step 4 — Report generation and AI summary
 
-**Status: FAIL** (generation works, one pricing blocker and several narrative defects)
+**Status: PASS with defects** (generation and pricing correct, narrative asserts
+unselected services)
 
 Verified working:
 
@@ -284,55 +287,47 @@ Verified working:
 
 **All numeric values transcribe accurately from the form.** Verified individually:
 kitchen 46°C / 23% RH / dew point 19.9°C, internal moisture 46% near window, external
-wall 31%, subfloor 20% under shower, outdoor 23°C / 32% / dew point 5.4°C. Both dew
-point figures are correct to one decimal against the Magnus formula. No numeric
-fabrication.
+wall 31%, subfloor 20% under shower, outdoor 23°C / 32% / dew point 5.4°C. Both dew point
+figures correct to one decimal against the Magnus formula.
+
+**Equipment pricing verified correct with HEPA enabled.** Section 9 Cost Estimate:
+Dehumidifier 1 × $119 × 4 = $476.00, Air Movers 2 × $46 × 4 = $368.00, HEPA Air Scrubber
+4 × $100 × 4 = $1,600.00, RCD Box 5 × $5 × 4 = $100.00, equipment total $2,544.00. Labour
+subtotal $5,828.20. Option 2 subtotal $8,372.20, GST $837.22, total $9,209.42 — all
+arithmetically correct. Option 1 equipment $1,272.00 reflects the shorter surface-only
+duration as confirmed in Step 3.
+
+This closes the HEPA end-to-end gap flagged in Step 3.
 
 ### Issues found
 
-**18. BLOCKER — HEPA Air Scrubbers selected but absent from equipment pricing**
-
-Four HEPA Air Scrubbers were selected during the inspection. The Section 8 Equipment
-Breakdown shows only Dehumidifier ($476.00), Air Movers ($368.00) and RCD Box ($100.00),
-totalling $944.00. There is no HEPA line.
-
-At $100 per unit per day across 4 days, this is $1,600.00 ex GST missing from both
-Option 1 and Option 2 totals. The AI narrative correctly states four scrubbers will be
-installed — the report is right and the quote is wrong.
-
-Under-quoting is the worst failure direction available here: the customer accepts a price
-that does not cover the equipment MRC has committed to supplying. Nothing goes to a
-customer until this is fixed.
-
-Pricing surface — pricing-guardian gate applies. Needs verification with HEPA both on
-and off, and against a second unit count to confirm the multiplier rather than just
-presence of a line.
-
-**19. HIGH — AI asserts treatment methods whose toggles are OFF**
+**18. HIGH — AI asserts treatment methods whose toggles are OFF**
 
 Two services appear in the narrative that were not selected in Section 7:
 
 1. "A broad-spectrum antimicrobial solution will then be applied to kill any remaining
-   mould spores" — Surface Remediation Treatment was OFF.
-2. "A final clearance air test will be conducted to confirm the successful restoration
-   of healthy air quality" — not present in Treatment Methods at all and not priced.
+   mould spores" — Surface Remediation Treatment is OFF.
+2. "A final clearance air test will be conducted to confirm the successful restoration of
+   healthy air quality" — not present in Treatment Methods at all and not priced.
 
 Containment and negative pressure also appear despite Containment and Prep being OFF,
-though that one traces to the technician's own extra notes, so it is defensible.
+though that one traces to the technician's own extra notes and is defensible.
 
 Root cause is scope: the model fills gaps with plausible remediation-industry defaults
 rather than restricting itself to selected inputs. Needs a prompt-level constraint plus a
 post-generation check that no service appears in the narrative which is absent from the
 work procedure toggles.
 
-**20. HIGH — Broken character in section heading**
+Customer-visible commitment to unquoted work — fix before the team uses the form.
+
+**19. HIGH — Broken character in section heading**
 
 The Recommendations heading renders as `**\ccb RECOMMENDATIONS**` — a literal escape
 artifact where the adjacent heading renders an emoji correctly. Customer-visible in the
 PDF. Likely an encoding or escaping issue in AI response handling rather than model
 output.
 
-**21. HIGH — Timeline is arithmetically self-contradictory**
+**20. HIGH — Timeline is arithmetically self-contradictory**
 
 Report states "MRC treatment: 6 days", "Drying equipment: 4 days", "Total project: 10 days".
 
@@ -344,7 +339,7 @@ double.
 Timeline should derive from the calculated work-days figure rather than be generated
 freely.
 
-**22. MEDIUM — No range validation on temperature and humidity inputs**
+**21. MEDIUM — No range validation on temperature and humidity inputs**
 
 Kitchen was recorded at 46°C, which is not physically plausible indoors in Melbourne, and
 the same value 46 also appears as the internal moisture percentage — consistent with one
@@ -354,7 +349,7 @@ The AI transcribed both accurately, so this is a form-level gap rather than an A
 Add range validation on temperature, humidity and moisture inputs so implausible values
 are caught at entry rather than reaching the customer's report.
 
-**23. MEDIUM — Customer's reported issue never reconciled with inspection findings**
+**22. MEDIUM — Customer's reported issue never reconciled with inspection findings**
 
 The enquiry describes black mould on the bathroom ceiling around the exhaust fan spreading
 behind the shower, roughly 1.5m², following a roof leak, plus a musty smell in the
@@ -365,7 +360,7 @@ This run used mismatched test data, so the specific divergence is an artifact. T
 of any reconciliation step is not — where findings diverge from what the customer
 reported, the report should say so explicitly.
 
-**24. MEDIUM — Conflicting values quoted without flagging**
+**23. MEDIUM — Conflicting values quoted without flagging**
 
 Subfloor moisture reading in the form is 20% (under shower); the subfloor free-text
 comment states 22–28% WME. The AI quoted 20% and ignored the conflict. Dwelling type is
@@ -376,12 +371,13 @@ review rather than being silently resolved.
 
 ### Assessment
 
-Generation, review UI, regeneration controls and numeric transcription all work correctly.
-Issue 18 is a pricing defect, not an AI defect, and is the only true blocker. Issues 19–21
-must be fixed before any report reaches a customer.
+Pricing, generation, review UI and numeric transcription are all correct. The remaining
+defects are confined to what the model is permitted to assert and how the timeline is
+derived. Issues 18–20 before the team uses the form; 21–23 are polish.
 
-Recommend the batch session treat 18 and 19 as separate tasks — one is the pricing engine,
-the other is prompt engineering, and they need independent verification passes.
+Note for the batch session: an earlier reading of this run reported HEPA as missing from
+equipment pricing. That was a stale screenshot taken before the HEPA toggle was enabled.
+Pricing is correct. Do not open the pricing engine for this.
 
 ---
 
