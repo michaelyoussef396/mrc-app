@@ -8,7 +8,12 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const RATE_LIMIT = 5
+// Framer posts server-side, so clientIp below is Framer's infrastructure, not the
+// visitor's — every production lead shares one IP. This is therefore a volume ceiling
+// against runaway loops, NOT per-visitor abuse protection; at 5 it rejected the 6th
+// enquiry site-wide in any hour. Real abuse protection needs a shared secret or an
+// origin check (out of scope).
+const RATE_LIMIT = 100
 const RATE_WINDOW_MS = 60 * 60 * 1000
 
 // deno-lint-ignore no-explicit-any
