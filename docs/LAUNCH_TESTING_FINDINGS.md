@@ -41,6 +41,16 @@ duplicated in two Edge Functions: `receive-framer-lead/index.ts:340` and
 `send-inspection-reminder/index.ts:81`. All three need the change, and the two EFs need
 redeploying separately from the frontend.
 
+Why this is sharper than "promotional content in a transactional email": the enquiry
+confirmation goes to someone who has just filled in a webform and is not yet a
+customer. There is no existing transaction to anchor a commercial call to action to,
+which is a materially weaker position under s 6 than the inspection report's embedded
+quote. Severity and fix are unchanged; this is the reasoning for the batch session.
+
+Batch note: this is an Edge Function change, not just a template edit. EF deploy order
+applies (EF first, template second), and re-proving Step 1 requires a fresh Framer
+submission after `receive-framer-lead` is redeployed.
+
 **2. HIGH — Phone number leading zero stripped**
 
 Submitted as `0433 880 403`, stored/displayed as `433880403`. Confirm whether the zero
