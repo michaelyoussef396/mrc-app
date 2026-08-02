@@ -283,7 +283,7 @@ function buildJobBookingConfirmationHtml(d: {
     </div>
     <p><strong>What to expect:</strong></p>
     <p>Our technician will arrive at ${d.startTime} on ${d.firstDate} to begin work. Please ensure access to all affected areas of the property for the duration of the job.</p>
-    <p>If you need to reschedule, please call us on <a href="tel:0433553199" style="color:#121D73; font-weight:600;">0433 553 199</a> as soon as possible.</p>
+    <p>If you need to reschedule, please call us on <a href="tel:1800954117" style="color:#121D73; font-weight:600;">1800 954 117</a> as soon as possible.</p>
   `);
 }
 

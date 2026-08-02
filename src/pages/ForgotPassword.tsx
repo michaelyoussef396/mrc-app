@@ -402,7 +402,7 @@ export default function ForgotPassword() {
               <Mail className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2" style={{ color: error ? '#FF3B30' : '#86868b' }} />
               <input
                 type="email"
-                placeholder="staff@mrc.com"
+                placeholder="staff@mouldandrestoration.com.au"
                 value={email}
                 onChange={(e) => handleEmailChange(e.target.value)}
                 disabled={isLoading}
