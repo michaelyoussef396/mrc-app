@@ -128,8 +128,6 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
   .sig-details-cell p { margin: 0 0 2px !important; font-size: 13px; color: #555; }
   .sig-details-cell a { color: #121D73; text-decoration: none; }
   .sig-inquiries { font-size: 13px; color: #666; margin: 14px 0 6px !important; }
-  .sig-review { font-size: 13px; margin: 0 !important; }
-  .sig-review a { color: #121D73; font-weight: 600; text-decoration: none; }
   .footer { background: #f8f9fa; padding: 0 24px 24px; text-align: center; }
   .footer p { margin: 0; font-size: 11px; color: #999; line-height: 1.5; }
   @media only screen and (max-width: 620px) {
@@ -167,7 +165,6 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
         </tr>
       </table>
       <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
-      <p class="sig-review">Write a Review: <a href="${GOOGLE_REVIEW_URL}">Leave us a Google Review</a></p>
     </div>
     <div class="footer">
       <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it. Mould and Restoration Co. does not accept liability for any damage caused by this email or its attachments.</p>
