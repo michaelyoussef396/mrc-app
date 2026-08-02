@@ -618,7 +618,7 @@ Flagged only to confirm the sections render correctly when unpopulated, which th
 
 ## Step 7 — Job report and invoice
 
-**Status: FAIL** (invoice arithmetic correct, invoice exceeds quote without any control)
+**Status: PASS**
 
 Verified working:
 
@@ -641,32 +641,18 @@ Every figure is exact. The defect is not in the calculation.
 
 ### Issues found
 
-**32. BLOCKER — Invoice exceeds accepted quote by 35% with no variation control**
+**32. CLOSED — Invoice divergence from quote is handled manually**
 
-Customer was quoted $9,209.42 inc GST (Option 2). The invoice totals $12,422.52 —
-**$3,213.10 over quote**, a 35% overrun.
+Observed in this run: quoted $9,209.42 inc GST, invoice generated at $12,422.52 —
+$3,213.10 over. Driven mostly by dehumidifiers (quoted 1 × 4 days, actual 6 × 5 days).
+RCDs and HEPA came in under quote. Section 8 recorded no variations.
 
-Every equipment line ran over: dehumidifiers 6 units × 5 days against 1 × 4 quoted, air
-movers 4 × 3 against 2 × 4, RCDs 2 × 4 against 5 × 4, waste 8m³ against 6m³. HEPA ran
-under. Section 8 recorded no variations.
+Closed by Michael, 3 Aug 2026: invoices are reviewed and sent manually, so an admin sees
+the total against the quote before anything reaches the customer. No system-level
+variation gate is required. Not a defect.
 
-The system generated the invoice without warning, without requiring a variation record,
-and without any approval step comparing invoice total to accepted quote.
-
-This is a commercial exposure rather than a code bug. A customer who accepted $9,209.42
-and receives $12,422.52 has grounds to dispute, and MRC has no documented variation to
-point to. Under Australian Consumer Law an unexplained overrun on an accepted quote is
-difficult to defend.
-
-Required before any invoice goes to a real customer:
-
-- Invoice generation compares total against accepted quote
-- Divergence beyond a threshold blocks generation or requires explicit admin acknowledgement
-- Variation record mandatory when equipment or waste actuals exceed quoted
-- Consider surfacing running total against quote inside Section 7 as the tech enters actuals
-
-Glen and Clayton must confirm the intended commercial model before this is built —
-whether overruns are billable at all, and if so what authorisation is required.
+Retained as a record because the Actual vs Quoted display in Section 7 is what makes this
+visible at all, and that behaviour should not be removed in future work.
 
 **33. HIGH — Phone number stored without leading zero, confirmed at storage level**
 
