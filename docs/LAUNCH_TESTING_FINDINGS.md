@@ -510,28 +510,50 @@ this template too:
 please don't hesitate to get in touch." appears twice — once above the details table and
 again below it, immediately before the Call Us button.
 
-**28. HIGH — Report send fails intermittently, succeeded on third attempt**
+**28. HIGH — Job report hard-save fails at three independent points**
 
-Sending the inspection report from the report page failed twice with a render error
-before succeeding on the third attempt. The successful send delivered correctly — email
-received, PDF attached, Slack notification fired.
+Console captured during the failed send attempts, from the Google review step before
+lead closure. Three distinct errors, not one flaky operation:
 
-Distinct from the parked intermittent error page (issue 10): this has a defined trigger
-(report send) and a real consequence. A technician or admin who hits the error once and
-does not retry will believe the report was sent when it was not.
+    HardSaveJobReportError: HTML storage upload failed
+      at Ma (ViewReportPDF-*.js) at async pe (ViewReportPDF-*.js)
 
-Not yet established whether the two failures were server-side or client-side. The
-distinguishing check is the customer inbox: three report emails means the sends
-succeeded and only the UI response failed; one email means the first two genuinely
-failed. Check before the batch session — it determines whether this is an Edge Function
-problem or a frontend error-handling problem.
+    HardSaveJobReportError: PDF render failed
+      at Ma (ViewReportPDF-*.js) at async pe (ViewReportPDF-*.js)
 
-Also unrecorded: the exact error text, the route, and whether Sentry raised an issue.
-Capture these if it recurs.
+    [Notifications] Email edge function error:
+      FunctionsHttpError: Edge Function returned a non-2xx status code
 
-Interim mitigation regardless of cause: the send action needs a clear success state and
-a retry affordance, so a failed send is unambiguous rather than looking like a render
-glitch.
+Attempt 1 failed at HTML storage upload. Attempt 2 failed later, at PDF render. Attempt 3
+succeeded. The email Edge Function error is separate again.
+
+Three failure stages in the hard-save chain: HTML upload to storage, PDF render, and the
+email dispatch EF. Each fails independently and each is caught by the same
+`HardSaveJobReportError` wrapper, which makes them look like one intermittent fault when
+they are not.
+
+**The email arrived despite the EF returning non-2xx.** Either the function partially
+succeeded before erroring, or the successful third attempt sent it and this error is
+orphaned. Worth establishing — an admin who sees a send failure may reasonably assume no
+email went out, and could resend, producing a duplicate to the customer.
+
+Source is `ViewReportPDF` (the lazy-loaded chunk). Sentry captured all three, so the
+issues should be retrievable there with full stack traces rather than minified frames.
+
+Fix scope for the batch session:
+
+- Distinguish the three failure modes in error handling rather than collapsing them into
+  one wrapper error
+- Surface a specific, actionable message per failure mode
+- Establish whether the email EF genuinely failed or reported failure after sending
+- Add a retry affordance with a clear success state
+
+**28a. LOW — Radix Dialog accessibility warnings**
+
+Same console shows two Radix warnings on the dialog used in this flow: `DialogContent`
+requires a `DialogTitle`, and `Description`/`aria-describedby` is missing. Screen reader
+accessibility only, no functional impact. Fix is a `VisuallyHidden` wrapped title and a
+description on the dialog.
 
 ---
 
