@@ -510,6 +510,29 @@ this template too:
 please don't hesitate to get in touch." appears twice — once above the details table and
 again below it, immediately before the Call Us button.
 
+**28. HIGH — Report send fails intermittently, succeeded on third attempt**
+
+Sending the inspection report from the report page failed twice with a render error
+before succeeding on the third attempt. The successful send delivered correctly — email
+received, PDF attached, Slack notification fired.
+
+Distinct from the parked intermittent error page (issue 10): this has a defined trigger
+(report send) and a real consequence. A technician or admin who hits the error once and
+does not retry will believe the report was sent when it was not.
+
+Not yet established whether the two failures were server-side or client-side. The
+distinguishing check is the customer inbox: three report emails means the sends
+succeeded and only the UI response failed; one email means the first two genuinely
+failed. Check before the batch session — it determines whether this is an Edge Function
+problem or a frontend error-handling problem.
+
+Also unrecorded: the exact error text, the route, and whether Sentry raised an issue.
+Capture these if it recurs.
+
+Interim mitigation regardless of cause: the send action needs a clear success state and
+a retry affordance, so a failed send is unambiguous rather than looking like a render
+glitch.
+
 ---
 
 ## Step 6 — Job completion form
