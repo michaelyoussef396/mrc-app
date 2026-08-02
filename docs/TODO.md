@@ -120,6 +120,48 @@ workflow.
 
 ---
 
+## DEFERRED — Full API key rotation
+
+Rotate all production API keys: Resend, Supabase (anon + service role), Slack
+webhook, Google Maps, OpenRouter, Sentry.
+
+> Existing runbook: `docs/KEY_ROTATION.md` (secret inventory + new→verify→revoke
+> sequence, Supabase/GitHub PATs LAST). This is the same work tracked as **L4 Phase 6**
+> further down this file — do not plan it twice. Check that runbook's inventory against
+> the scope list below before starting; it carries at least one secret this list omits.
+
+### Why deferred
+
+Rotation touches every Edge Function secret and every Vercel env var. A missed key
+fails silently — email, AI summaries, or Slack notifications stop working with no
+error surfaced until someone hits the wall. The email path was only stabilised
+2 Aug 2026 and the team starts using the system 3 Aug. Rotating the night before
+first use puts the highest-blast-radius change directly in front of the least
+tolerance for breakage.
+
+### When
+
+After the system has run clean for a full week with the team on it.
+
+### Scope when it happens
+
+- `RESEND_API_KEY` (note: the `supabase-auth-smtp` key is separate — it lives in
+  Supabase Auth SMTP config, not as an EF secret. Rotate both, independently.)
+- `SUPABASE_SERVICE_ROLE_KEY` (also still present in Vercel Preview + Production
+  scopes — remove there as part of this, see **PDF-CL6**)
+- `SUPABASE_ANON_KEY` / `VITE_SUPABASE_ANON_KEY`
+- `SLACK_WEBHOOK_URL`
+- `GOOGLE_MAPS_API_KEY` / `VITE_GOOGLE_MAPS_API_KEY`
+- `OPENROUTER_API_KEY`
+- `SENTRY_AUTH_TOKEN`
+
+### Verification required after each
+
+Every EF that consumes the key must be **re-invoked and confirmed working**, not just
+deployed. Build passing is not proof.
+
+---
+
 ## ⚠️ PENDING: Invoice data integrity — 2 SQL blocks for Michael to run
 
 > ⛔ DO NOT RUN BEFORE 4 AUG 2026. INV-2026-0003 hits day 29 on 4 Aug and fires
