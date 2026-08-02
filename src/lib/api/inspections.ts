@@ -97,32 +97,17 @@ export interface InspectionAreaData {
 }
 
 /**
- * Generate a unique job number for an inspection
- * Format: MRC-YYYYMMDD-XXXX
- */
-function generateJobNumber(): string {
-  const date = new Date()
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
-
-  return `MRC-${year}${month}${day}-${random}`
-}
-
-/**
- * Create a new inspection record
+ * Create a new inspection record.
+ * job_number is omitted deliberately — the set_inspection_job_number trigger assigns
+ * INS-YYYY-NNNN from a sequence. A caller-supplied data.job_number still wins.
  * @param data Inspection data
  * @returns Promise with created inspection
  */
 export async function createInspection(data: InspectionData) {
-  const jobNumber = data.job_number || generateJobNumber()
-
   const { data: inspection, error } = await supabase
     .from('inspections')
     .insert({
       ...data,
-      job_number: jobNumber,
       inspection_date: data.inspection_date || new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()

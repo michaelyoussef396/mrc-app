@@ -723,8 +723,8 @@ const LeadsManagement = () => {
       });
 
       // 6. Build filename
-      const jobNumber = inspection.job_number || emailTargetLead.leadNumber || 'Report';
-      const filename = `MRC-${jobNumber}-Inspection-Report.pdf`;
+      const jobNumber = inspection.job_number || emailTargetLead.leadNumber || 'MRC';
+      const filename = `${jobNumber}-Inspection-Report.pdf`;
 
       // 7. Send email with PDF attachment
       await sendEmail({

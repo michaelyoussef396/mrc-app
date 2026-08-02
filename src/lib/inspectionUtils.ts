@@ -41,16 +41,6 @@ export const calculateDewPoint = (temperature: number, humidity: number): number
 };
 
 /**
- * Generate unique job number
- * Format: MRC-YYYY-XXXX
- */
-export const generateJobNumber = (): string => {
-  const year = new Date().getFullYear();
-  const random = Math.floor(Math.random() * 9999) + 1;
-  return `MRC-${year}-${String(random).padStart(4, '0')}`;
-};
-
-/**
  * Format currency for display
  */
 export const formatCurrency = (amount: number): string => {

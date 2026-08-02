@@ -3,16 +3,6 @@ import { captureBusinessError, addBusinessBreadcrumb } from '@/lib/sentry'
 import type { JobCompletionFormData, JobCompletionRow } from '@/types/jobCompletion'
 
 /**
- * Generate a unique job number.
- * Format: JOB-YYYY-XXXX (different from inspection MRC-YYYY-XXXX)
- */
-function generateJobNumber(): string {
-  const year = new Date().getFullYear()
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
-  return `JOB-${year}-${random}`
-}
-
-/**
  * Map camelCase form data to snake_case database columns.
  * Only includes fields that have changed (partial update safe).
  */
@@ -191,7 +181,6 @@ export async function createJobCompletion(
     .insert({
       lead_id: leadId,
       inspection_id: inspectionId,
-      job_number: generateJobNumber(),
       address_snapshot: addressSnapshot,
       requested_by: lead.full_name,
       attention_to: attentionTo,

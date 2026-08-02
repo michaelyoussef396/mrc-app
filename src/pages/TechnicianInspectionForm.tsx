@@ -215,12 +215,6 @@ interface BookingData {
 // HELPER FUNCTIONS
 // ============================================================================
 
-function generateJobNumber(): string {
-  const year = new Date().getFullYear();
-  const randomNum = Math.floor(1000 + Math.random() * 9000);
-  return `MRC-${year}-${randomNum}`;
-}
-
 function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
 }
@@ -781,7 +775,7 @@ function Section1BasicInfo({ formData, onChange }: SectionProps) {
   return (
     <section className="space-y-5">
       <FormField label="Job Number">
-        <ReadOnlyInput value={formData.jobNumber} />
+        <ReadOnlyInput value={formData.jobNumber || 'Assigned on first save'} />
       </FormField>
 
       <FormField label="Triage (Job Description)">
@@ -2862,7 +2856,9 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
 
   // Form state
   const [formData, setFormData] = useState<InspectionFormData>({
-    jobNumber: generateJobNumber(),
+    // Assigned by the set_inspection_job_number trigger on first INSERT and read back
+    // from the returned row — never generated client-side.
+    jobNumber: '',
     triage: '',
     address: '',
     inspector: '',
@@ -3881,7 +3877,6 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         lead_id: leadId,
         inspector_id: user.id,
         inspector_name: formData.inspector,
-        job_number: formData.jobNumber,
         triage_description: formData.triage,
         requested_by: formData.requestedBy,
         attention_to: formData.attentionTo,
@@ -3970,11 +3965,14 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         const { data: insertData, error: insertError } = await supabase
           .from('inspections')
           .insert(inspectionRow)
-          .select('id')
+          .select('id, job_number')
           .single();
         if (insertError) throw insertError;
         inspectionId = insertData.id;
         setCurrentInspectionId(inspectionId);
+        if (insertData.job_number) {
+          setFormData((prev) => ({ ...prev, jobNumber: insertData.job_number }));
+        }
       }
 
       // 2. Upsert inspection_areas

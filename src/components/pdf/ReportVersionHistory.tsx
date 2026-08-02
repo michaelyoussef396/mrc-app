@@ -93,7 +93,7 @@ export function ReportVersionHistory({ inspectionId, jobNumber, refreshKey }: Re
         .from(REPORT_PDFS_BUCKET)
         .download(row.pdf_storage_path)
       if (error || !data) throw new Error(error?.message ?? 'Download failed')
-      const filename = `MRC-${jobNumber ?? 'Report'}-v${row.version_number}.pdf`
+      const filename = `${jobNumber ?? 'MRC'}-v${row.version_number}.pdf`
       downloadBlobAs(data, filename)
     } catch (err) {
       console.error('[ReportVersionHistory] download failed', err)
