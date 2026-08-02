@@ -120,6 +120,65 @@ workflow.
 
 ---
 
+## Team guide doc — items to cover
+
+Content for the team how-to referenced above. Written for Glen, Clayton and Vryan,
+not for developers — keep the plain-English phrasing when the guide is authored.
+
+### Technicians (Glen, Clayton)
+
+**Updating your own starting address.** Profile → Edit → Starting Address. Start
+typing, then **pick your address from the dropdown that appears**. Don't just type it
+and hit Save.
+
+Why it matters: your starting address is where the app measures travel time from for
+your first job each day. If you type without picking from the dropdown, in the normal
+case **nothing saves at all** — the old address stays and it looks like the change
+didn't take. If Google's address lookup happens to be down, the text saves but the
+postcode is left blank, which is what the app falls back to when it can't reach Google
+for a live travel estimate. Either way, picking from the dropdown is what makes it
+stick.
+
+Technicians can do this themselves — no admin involvement needed.
+
+### Admin
+
+**Customer replies.** Replies to system emails land in the
+`admin@mouldandrestoration.com.au` inbox. Reply from there as normal.
+
+**Google review "reply STOP".** The review request email carries a line offering
+customers a way to opt out of follow-ups. **Nothing parses those replies
+automatically.** If a customer replies STOP, note it and don't trigger the review
+email for that customer again. An unsubscribe offer that isn't honoured is worse than
+not offering one.
+
+**System email doesn't appear in Sent.** Emails the system sends won't show in Gmail's
+Sent folder — only replies you write yourself. See the Sent-folder pending decision
+above; Option B is preferred but deferred until the system has run clean for a week.
+
+### Developer context (not for the guide itself)
+
+- Starting address lives in **auth `user_metadata.starting_address`**, not a table.
+  Self-service works because `Profile.tsx:218` calls `supabase.auth.updateUser()`,
+  which writes the caller's own metadata — no RLS policy involved.
+- The dropdown requirement is real: `AddressAutocomplete.tsx:209` wires the input to
+  `handleInputChange`, which only sets local state. `onChange` fires solely from
+  `handleSelectPlace` (`:109`). The `!isLoaded` fallback branch (`:167-176`) is the
+  exception — it commits typed text with empty `suburb`/`state`/`postcode`.
+- Travel time reads `starting_address.fullAddress` **as a string** for the Google
+  Distance Matrix call (`calculate-travel-time/index.ts:708, 898`); the haversine
+  fallback keys on `postcode` against `MELBOURNE_POSTCODE_COORDS` (`:602-606`). The
+  stored `lat`/`lng` are read **only** by `Profile.tsx:174-175` to repopulate the form
+  — no calculation consumes them.
+- **Clayton's address was changed Footscray → Toorak on 2026-08-02** by direct admin-API
+  update, not through the UI. `lat`/`lng` were deliberately left null rather than
+  fabricated; they self-heal the next time he saves through the dropdown. Full
+  pre-change metadata backed up at `dev-setup/clayton-address-2026-08-02/`
+  (gitignored). Both `3011` and `3142` are present in the postcode fallback table, so
+  travel calculations were correct immediately.
+
+---
+
 ## DEFERRED — Full API key rotation
 
 Rotate all production API keys: Resend, Supabase (anon + service role), Slack
