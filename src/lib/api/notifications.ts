@@ -457,6 +457,7 @@ export function buildGoogleReviewEmailHtml(params: GoogleReviewEmailParams): str
     </p>
     <p>If anything's not quite right, please reply to this email or call us on <strong>1800 954 117</strong> — we'll make it right.</p>
     <p>Thanks again,<br>The MRC Team</p>
+    <p style="font-size:13px;color:#666;margin-top:20px;">If you'd prefer not to receive follow-ups like this, reply STOP to this email.</p>
   `);
 }
 
