@@ -192,15 +192,26 @@ Test data: Kitchen, cornice + grout/silicone, 9h surface / 6h demolition / 10h s
 
 ### Issues found
 
-**13. HIGH — Multiple photos can be attached to a single caption slot**
+**13. MEDIUM — Multiple photos can be attached to a single caption slot**
 
-On mobile, the photo picker allows selecting and uploading multiple images against one
-caption. The intended model is one photo per caption. Affects Area Inspection photo
-gallery and likely every captioned photo field in the form.
+On iOS the native photo picker allows multi-select and the web form cannot prevent the
+user from choosing several images at once. Downgraded from HIGH: this is a platform
+constraint, not purely an application defect.
 
-Consequence is report quality rather than data loss — captions stop matching images in
-the PDF. Needs both a form-level constraint and a note to Glen and Clayton on expected
-behaviour before they start using the form.
+Two mitigations remain available and should be assessed in the batch session:
+
+1. Omit the `multiple` attribute on the file input, which limits the iOS picker to a
+   single selection at the OS level.
+2. Accept only the first file returned and discard the remainder, with a visible message
+   telling the tech that one photo per caption is expected.
+
+If neither is workable, the fallback is documentation: brief Glen and Clayton that one
+photo per caption is required, and note the limitation in the team guide. Consequence is
+report quality rather than data loss — captions stop matching images in the PDF.
+
+Applies to Area Inspection and likely every captioned photo field. Confirm during Step 6
+whether the job completion form shares the same photo component — if it does, one fix
+covers both.
 
 **14. MEDIUM — Dehumidifier Size dropdown does not affect pricing**
 
