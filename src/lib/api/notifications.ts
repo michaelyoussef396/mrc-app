@@ -235,7 +235,6 @@ export function buildReportApprovedHtml(data: ReportApprovedData): string {
         <tr><td>Status</td><td style="color:#16a34a; font-weight:600;">Approved &amp; Ready</td></tr>
       </table>
     </div>
-    <p>If you have any questions about the report or would like to discuss remediation options, please don't hesitate to get in touch.</p>
     <p style="margin-top:24px;">
       <a href="tel:1800954117" class="cta-button">Call Us to Discuss</a>
     </p>
