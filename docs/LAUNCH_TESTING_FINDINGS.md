@@ -269,11 +269,119 @@ code.
 
 ---
 
-## Step 4 — Report generation and PDF
+## Step 4 — Report generation and AI summary
 
-**Status:** awaiting test
+**Status: FAIL** (generation works, one pricing blocker and several narrative defects)
+
+Verified working:
+
+- AI summary generated automatically on inspection completion, no manual trigger needed
+- Admin review screen renders all five sections with per-section and global regenerate
+- Per-section instruction boxes present with 2000-char counters
+- Lead context, internal notes and inspection metrics all populate correctly
+- Reject / Save Draft / Approve & Next controls present
+- Prose quality is good — structure, tone and Australian spelling all correct
+
+**All numeric values transcribe accurately from the form.** Verified individually:
+kitchen 46°C / 23% RH / dew point 19.9°C, internal moisture 46% near window, external
+wall 31%, subfloor 20% under shower, outdoor 23°C / 32% / dew point 5.4°C. Both dew
+point figures are correct to one decimal against the Magnus formula. No numeric
+fabrication.
 
 ### Issues found
+
+**18. BLOCKER — HEPA Air Scrubbers selected but absent from equipment pricing**
+
+Four HEPA Air Scrubbers were selected during the inspection. The Section 8 Equipment
+Breakdown shows only Dehumidifier ($476.00), Air Movers ($368.00) and RCD Box ($100.00),
+totalling $944.00. There is no HEPA line.
+
+At $100 per unit per day across 4 days, this is $1,600.00 ex GST missing from both
+Option 1 and Option 2 totals. The AI narrative correctly states four scrubbers will be
+installed — the report is right and the quote is wrong.
+
+Under-quoting is the worst failure direction available here: the customer accepts a price
+that does not cover the equipment MRC has committed to supplying. Nothing goes to a
+customer until this is fixed.
+
+Pricing surface — pricing-guardian gate applies. Needs verification with HEPA both on
+and off, and against a second unit count to confirm the multiplier rather than just
+presence of a line.
+
+**19. HIGH — AI asserts treatment methods whose toggles are OFF**
+
+Two services appear in the narrative that were not selected in Section 7:
+
+1. "A broad-spectrum antimicrobial solution will then be applied to kill any remaining
+   mould spores" — Surface Remediation Treatment was OFF.
+2. "A final clearance air test will be conducted to confirm the successful restoration
+   of healthy air quality" — not present in Treatment Methods at all and not priced.
+
+Containment and negative pressure also appear despite Containment and Prep being OFF,
+though that one traces to the technician's own extra notes, so it is defensible.
+
+Root cause is scope: the model fills gaps with plausible remediation-industry defaults
+rather than restricting itself to selected inputs. Needs a prompt-level constraint plus a
+post-generation check that no service appears in the narrative which is absent from the
+work procedure toggles.
+
+**20. HIGH — Broken character in section heading**
+
+The Recommendations heading renders as `**\ccb RECOMMENDATIONS**` — a literal escape
+artifact where the adjacent heading renders an emoji correctly. Customer-visible in the
+PDF. Likely an encoding or escaping issue in AI response handling rather than model
+output.
+
+**21. HIGH — Timeline is arithmetically self-contradictory**
+
+Report states "MRC treatment: 6 days", "Drying equipment: 4 days", "Total project: 10 days".
+
+Actual labour is 25 hours across 4 work days. The 6 appears to be demolition's 6 *hours*
+misread as days. Drying also normally runs concurrent with treatment rather than
+sequentially, so summing to 10 inflates the customer's expected disruption by more than
+double.
+
+Timeline should derive from the calculated work-days figure rather than be generated
+freely.
+
+**22. MEDIUM — No range validation on temperature and humidity inputs**
+
+Kitchen was recorded at 46°C, which is not physically plausible indoors in Melbourne, and
+the same value 46 also appears as the internal moisture percentage — consistent with one
+number typed into two fields.
+
+The AI transcribed both accurately, so this is a form-level gap rather than an AI defect.
+Add range validation on temperature, humidity and moisture inputs so implausible values
+are caught at entry rather than reaching the customer's report.
+
+**23. MEDIUM — Customer's reported issue never reconciled with inspection findings**
+
+The enquiry describes black mould on the bathroom ceiling around the exhaust fan spreading
+behind the shower, roughly 1.5m², following a roof leak, plus a musty smell in the
+adjacent bedroom. The report covers the kitchen sink trap exclusively and never addresses
+the bathroom, the bedroom odour, or the roof leak.
+
+This run used mismatched test data, so the specific divergence is an artifact. The absence
+of any reconciliation step is not — where findings diverge from what the customer
+reported, the report should say so explicitly.
+
+**24. MEDIUM — Conflicting values quoted without flagging**
+
+Subfloor moisture reading in the form is 20% (under shower); the subfloor free-text
+comment states 22–28% WME. The AI quoted 20% and ignored the conflict. Dwelling type is
+recorded as "townhouse" while the enquiry describes a 1950s weatherboard.
+
+Where structured fields and free text disagree, the conflict should surface for admin
+review rather than being silently resolved.
+
+### Assessment
+
+Generation, review UI, regeneration controls and numeric transcription all work correctly.
+Issue 18 is a pricing defect, not an AI defect, and is the only true blocker. Issues 19–21
+must be fixed before any report reaches a customer.
+
+Recommend the batch session treat 18 and 19 as separate tasks — one is the pricing engine,
+the other is prompt engineering, and they need independent verification passes.
 
 ---
 
