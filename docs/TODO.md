@@ -1,17 +1,75 @@
 # MRC Lead Management System — Current TODO
 
-## ⚠️ PENDING: Email Domain DNS Cutover
-DNS records (SPF/DKIM/DMARC) for mouldandrestoration.com.au NOT yet configured.
-Resend domain NOT yet verified.
-**Scheduling (decided 2026-07-13):** now scheduled as an EARLY launch-weekend task —
-start the DNS setup FIRST because verification can take a few hours. This reverses the
-earlier "separate, later item" framing.
-Do NOT switch sending domain until DNS is verified in Resend dashboard. If it is not
-verified in time, launch on the current working domain and switch shortly after — do
-not delay launch for it.
-Once DNS is done: re-run a full email send test (booking confirmation +
-inspection report) and verify headers pass SPF/DKIM/DMARC before trusting
-production email delivery.
+## ✅ CLOSED: Email Domain DNS Cutover — DNS verified 2026-08-02
+
+**`mouldandrestoration.com.au` is VERIFIED in Resend as of 2 Aug 2026, 8:11pm AEST.
+DKIM and SPF both verified. The pending-DNS blocker is CLOSED.** The earlier framing
+("NOT yet configured", "do NOT switch sending domain until verified", "launch on the
+current working domain if it isn't verified in time") is now obsolete — the gate it
+guarded has passed.
+
+**What this unblocks, and what it does NOT.** DNS verification only makes the new
+domain *sendable*. Nothing sends from it yet: every `from` / `reply_to` in the codebase
+is still a `@mrcsystem.com` literal (see the envelope-layer item below). Verification
+was the precondition; the cutover itself is still outstanding.
+
+### Also completed 2026-08-02 (same session)
+
+- **PROD Auth SMTP now routes through Resend** — `smtp.resend.com:465`, sender
+  `noreply@mrcsystem.com`, API key named `supabase-auth-smtp`. Supabase Auth emails
+  (confirmation, recovery, invite, email_change, magic_link, reauthentication — the six
+  templates in `supabase/templates/`) no longer use the Supabase default SMTP.
+  Note the sender is still `@mrcsystem.com`, so this inherits the same envelope-layer
+  gap as the Edge Functions.
+- **Auth redirect allowlist fixed** — `mrcsystem.com/**` added.
+- **15 stale Supabase marketplace env vars deleted** from Vercel Production scope.
+- **Supabase↔Vercel marketplace integration removed entirely.** This closes the
+  clobber hazard behind the 23 Jul blank-page outage — the integration owned env-var
+  naming and could re-sync over the hand-maintained `VITE_*` vars. See the related
+  open item in the 23 Jul follow-ups, which this supersedes.
+- **Production redeployed cache-free on `29a5808`**; bundle verified to contain the
+  PROD ref only (`ecyivrxjpsmjmexqatym`, no `ctppzqnysmzynkxjlzta`).
+
+### OUTSTANDING — carried forward from this session
+
+- [ ] **Site URL is `https://mrcsystem.com/admin`, should be the root
+      `https://mrcsystem.com`.** Auth redirects currently resolve against an admin
+      subpath.
+- [ ] **Envelope layer still sends from `noreply@mrcsystem.com`** — 6 hardcoded
+      literals across 3 Edge Functions, none env-driven, all read-only-audited
+      2026-08-02:
+      - `send-email/index.ts:200` (from) + `:204` (reply_to) — these two are the
+        highest-leverage: the EF accepts optional `from`/`replyTo` but **no caller
+        passes either** (all 6 call sites checked), so changing these two literals
+        moves every app-originated email at once.
+      - `send-inspection-reminder/index.ts:296` (from) + `:300` (reply_to)
+      - `receive-framer-lead/index.ts:809` (from) + `:813` (reply_to) — customer
+        confirmation. Same file also has the internal failure alert at `:360`/`:369`
+        (`MRC System Alerts <noreply@mrcsystem.com>`).
+      Display layer is already correct (`admin@mouldandrestoration.com.au` in every
+      email footer and both PDF templates) — which means today every email arrives
+      from one domain while its own footer prints another.
+- [ ] **`seed-admin` still uses `admin@mrc.com.au`** (`supabase/functions/seed-admin/index.ts:50`).
+      A wrong-brand domain that is neither the old nor the new one. Left untouched in
+      the 2 Aug display-layer fix because it is an Edge Function and is an account
+      login address, not a display string — editing the literal alone would not rename
+      the existing account, only change what the next seed creates. Needs its own
+      decision alongside the envelope-layer work.
+- [ ] **`ADMIN_FALLBACK_EMAIL` may be unset in PROD.** Only consumer is
+      `receive-framer-lead/index.ts:354`, which falls back to `admin@mrcsystem.com`.
+      If unset, lead-capture failure alerts land in a mailbox on the domain being
+      retired — dropped leads would go unnoticed silently. Verify with
+      `npx supabase secrets list --project-ref ecyivrxjpsmjmexqatym` before the cutover.
+- [ ] **Post-cutover send test still required** — booking confirmation + inspection
+      report, with headers checked to pass SPF/DKIM/DMARC before production email
+      delivery is trusted. (Carried over from the original DNS item; verification
+      alone does not discharge it.)
+
+**Done 2026-08-02 (`fd0c942`), display layer only:** personal mobile `0433 553 199`
+removed from the job-booking confirmation email (`notifications.ts:286`) and both
+preview scripts; stale `support@mrc.com.au` / `1300 665 673` replaced with
+`admin@mouldandrestoration.com.au` / `1800 954 117` on NotFound and CheckEmail;
+ForgotPassword placeholder rebranded. No Edge Function or Resend literal touched.
 
 ---
 
@@ -90,8 +148,12 @@ arithmetically consistent) and is caught only by the GST relation.
 
 ---
 
-**Last Updated:** 2026-07-29
-**Production state:** main @ `b50d07b`, production @ `9fdc853` (merge of PRs #67–#71 + login-footer fix), mrcsystem.com live and verified 2026-07-23. NOTE 2026-07-29: the `check-overdue-invoices` EF on PROD now runs the rewritten version from `launch/checks` `0a2fbac` (EFs deploy independently of the production branch); PR #72 (dashboard fixes) open, unmerged.
+**Last Updated:** 2026-08-02
+**Production state:** production redeployed cache-free on `29a5808` (2026-08-02), bundle
+verified to carry the PROD ref only. Supabase↔Vercel marketplace integration removed and 15
+stale marketplace env vars deleted from Production scope the same day. Earlier baseline: main @
+`b50d07b`, production @ `9fdc853` (merge of PRs #67–#71 + login-footer fix), mrcsystem.com live
+and verified 2026-07-23. NOTE 2026-07-29: the `check-overdue-invoices` EF on PROD now runs the rewritten version from `launch/checks` `0a2fbac` (EFs deploy independently of the production branch); PR #72 (dashboard fixes) open, unmerged.
 **Status:** Phase 1 + Phase 3 + Phase 4 Stages 4.1/4.1.5/4.2/4.3 COMPLETE in production. Phase 2 (Job Completion) built and deployed — existence-verified 2026-07-07, runtime-untested against dev (see "Phase 2 — Job Completion Workflow: Existence Verification" below). Pre-launch hardening underway.
 
 Backed by `docs/inspection-workflow-fix-plan-v2-2026-04-30.md` (48-stage execution map) and `docs/JOB_COMPLETION_PRD.md` (Phase 2 spec).
@@ -385,10 +447,12 @@ first prod build since shipped a blank page (~1h outage, same-day recovery). Var
 redeployed, site verified end-to-end at 375px, all 6 active migrations from the deployed PRs
 confirmed applied on prod. Smoke-test lead created + deleted same session.
 
-- [ ] **Decide Supabase↔Vercel marketplace integration fate.** It owns env-var naming and can
-      re-sync/clobber the hand-maintained `VITE_*` vars again. Either disconnect it, or document that
-      `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (Production) must be re-verified after any
-      integration change. Pre-deploy check: `npx vercel env ls production --project mrc-system`.
+- [x] ~~**Decide Supabase↔Vercel marketplace integration fate.**~~ **RESOLVED 2026-08-02 —
+      integration REMOVED entirely**, plus 15 stale marketplace env vars deleted from Vercel
+      Production scope. The clobber hazard behind the 23 Jul outage is gone at the source, not
+      merely documented around. Production redeployed cache-free on `29a5808`; bundle verified to
+      carry the PROD ref only. The pre-deploy check
+      (`npx vercel env ls production --project mrc-system`) is still worth keeping as habit.
 - [ ] **`.env.local` + `.gitignore` from `vercel link`.** The relink auto-created `.env.local`
       (Development-scope pull) and appended `.env*` to `.gitignore`. Decide: commit the
       `.gitignore` line (recommended) and delete `.env.local` (local dev already uses
@@ -748,12 +812,18 @@ Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocki
 - **Blocking:** can't safely run Glen/Clayton walkthrough on prod data.
 
 ### L5 — Email domain switch to `mouldandrestoration.com.au`
-- **Estimate:** 3-4h (mostly DNS wait)
+- **Estimate:** ~1h remaining (the DNS wait is spent)
 - **Tasks:**
-  - [ ] Update DNS records (SPF, DKIM, DMARC)
-  - [ ] Update Resend configuration
-  - [ ] Test deliverability (inbox vs spam)
-- **Blocking:** brand integrity. Customer-facing emails currently send from non-MRC domain.
+  - [x] ~~Update DNS records (SPF, DKIM, DMARC)~~ **DONE 2026-08-02 8:11pm AEST — DKIM + SPF
+        verified in Resend.**
+  - [x] ~~Update Resend configuration~~ **DONE — domain verified; PROD Auth SMTP moved onto
+        Resend (`smtp.resend.com:465`, key `supabase-auth-smtp`).**
+  - [ ] **Cut the envelope over** — 6 `from`/`reply_to` literals across 3 Edge Functions still
+        say `@mrcsystem.com`. This is now the whole of L5. Detail in the closed DNS section at
+        the top of this file.
+  - [ ] Test deliverability (inbox vs spam) + verify headers pass SPF/DKIM/DMARC
+- **Blocking:** brand integrity. Customer-facing emails still send from a non-MRC domain —
+  the domain is now verified and ready, but nothing has been pointed at it yet.
 
 ### L6 — Activate Glen + Clayton + Vryan production accounts ✅ COMPLETE
 - **Status:** Accounts activated (confirmed by Michael 2026-05-12). Glen + Clayton + Vryan can log in to production.
