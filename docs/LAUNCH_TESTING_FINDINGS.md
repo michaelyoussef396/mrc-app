@@ -210,40 +210,46 @@ Reference. The field implies a pricing consequence that does not exist.
 
 The calculation itself is correct — this is a UI expectation problem, not a pricing
 defect. Decision needed: relabel as technician-reference-only, or remove. Pricing
-surface, so pricing-guardian gate applies and Glen/Clayton confirm before any change.
+surface, so pricing-guardian gate applies before any change.
 
-### Open questions — Glen/Clayton gate
+**15. MEDIUM — Equipment days auto-calculate with no confirm step**
 
-**Q1 — How are equipment hire days derived?**
+Equipment hire days are derived from labour hours (25h → 4 days) and applied silently.
+The tech has no opportunity to confirm or adjust before the figure drives the equipment
+total.
 
-25 total labour hours produced "Work Days: 4", and equipment was billed at 4 days
-($119 × 4, $46 × 2 × 4, $5 × 5 × 4 = $944.00). If this is ceil(total hours ÷ 8), a
-labour-days figure is being used as an equipment-hire figure. Those are not the same
-quantity — equipment remains on site across calendar days including days no one attends.
+Section 6 (Waste Disposal) already implements the correct pattern: tech enters bin size,
+price calculates, tech confirms, with an "Edit price" escape hatch. Equipment days should
+follow the same confirm-or-override pattern. See Confirmed Rules below.
 
-Confirm the intended rule before the batch session. Also confirm whether the 4-day
-residential cap (extendable to 5 for severe jobs) is enforced in code or only a
-guideline — this run happened to land on exactly 4 so the cap was not exercised.
-
-**Q2 — Option 1 equipment is exactly half Option 2**
-
-Option 1 (Surface Treatment) shows $472.00 equipment against Option 2's $944.00 —
-precisely half. Confirm whether this is a deliberate 2-day assumption for surface-only
-scope or a hardcoded halving. Affects every quote where both options are shown.
-
-**Q3 — HEPA Air Scrubber not exercised this run**
-
-The HEPA Air Scrubber Installation toggle was off, so the $100/day line never rendered.
-HEPA pricing was added and unit-tested previously but is untested in this end-to-end run.
-Needs a second pass with the toggle on before launch.
-
-Note: RCD Box at $5/unit/day appears in the app and calculated correctly, but does not
-appear in the MRC Pricing Reference table. Confirm the reference should be updated.
-
-**15. LOW — Timestamp casing inconsistent**
+**16. LOW — Timestamp casing inconsistent**
 
 Internal notes render "[02/08/2026 at 11:32 pm]" in lowercase, while booking emails use
 "10:00 AM". Date format DD/MM/YYYY is correct. Pick one casing convention.
+
+### Confirmed rules — Michael, 3 Aug 2026
+
+Answers to questions raised during this test run. These are settled; no further
+consultation needed before the batch session.
+
+**Equipment quantities and days.** Section 7 (Drying Equipment) is the single home for
+all equipment — Commercial Dehumidifier, Air Movers, RCD Box — and holds the per-unit
+quantities. Day count is auto-calculated from labour hours and applies as one shared
+figure across all equipment units, not per-unit. Auto-calculation stays; the change
+required is a confirm/override step matching the Section 6 bin-price pattern.
+
+**Option 1 equipment value.** Option 1 showing $472.00 against Option 2's $944.00 is
+correct. Surface-only scope runs fewer days, so the lower equipment figure reflects the
+shorter duration. Not a hardcoded halving. No change required.
+
+**4-day residential cap.** Remains a displayed guideline rather than a code-enforced
+constraint, on the condition that the cap is stated in the pricing section of the form
+where the tech can see it. Verify the text is present and visible at 375px; if it is,
+no change required.
+
+**RCD Box.** Charging correctly at $5 per unit per day. Absent from the MRC Pricing
+Reference table — update the reference document to include it rather than changing the
+code.
 
 ---
 
