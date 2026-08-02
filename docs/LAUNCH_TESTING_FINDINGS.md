@@ -118,15 +118,15 @@ Test data: lead "michael youssef", 35 wellington street, mernda, VIC, 3754, book
 
 ### Issues found
 
-**10. HIGH — Intermittent error page during app use**
+**10. PARKED — Intermittent error page, clears on refresh**
 
 An error page appears at random points in the app. Pressing the blue refresh button
-clears it, usually on the first or second attempt. Pre-existing, not introduced by
-launch testing. Not yet reproduced deliberately and no route or Sentry event captured.
+clears it, usually first or second attempt. Pre-existing, long-standing, not introduced
+by launch testing. Never blocks completion of a workflow.
 
-Next capture: when it next appears, record the URL, the on-screen error text, and the
-Sentry issue ID if one is raised. Without a route it cannot be scoped. Only
-non-cosmetic issue logged so far.
+Not in scope for the launch batch. A previous full-day investigation produced no root
+cause and no change. Deliberately parked — do not reopen without new evidence (a
+reproducible route, or a Sentry issue ID appearing on its own).
 
 **11. MEDIUM — Sender display name is a fourth business-name variant**
 
