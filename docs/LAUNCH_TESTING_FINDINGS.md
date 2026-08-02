@@ -101,9 +101,65 @@ boilerplate on a customer enquiry confirmation. Consider removing or shortening.
 
 ## Step 2 — Admin books the job
 
-**Status:** awaiting test
+**Status: PASS** (chain worked end to end)
+
+Verified working:
+
+- Lead created directly in app — Slack notification and email fired identically to the
+  Framer path
+- Lead scheduled via recommended-date picker, no issues
+- Slack "Inspection Booked" received with lead, address, technician, date and time
+- Slack "Booking confirmation sent" received with recipient address
+- Booking confirmation email delivered to customer
+- Time rendered correctly as "10:00 AM" in this template
+
+Test data: lead "michael youssef", 35 wellington street, mernda, VIC, 3754, booked
+6 Aug 2026 10:00 AM.
 
 ### Issues found
+
+**10. HIGH — Intermittent error page during app use**
+
+An error page appears at random points in the app. Pressing the blue refresh button
+clears it, usually on the first or second attempt. Pre-existing, not introduced by
+launch testing. Not yet reproduced deliberately and no route or Sentry event captured.
+
+Next capture: when it next appears, record the URL, the on-screen error text, and the
+Sentry issue ID if one is raised. Without a route it cannot be scoped. Only
+non-cosmetic issue logged so far.
+
+**11. MEDIUM — Sender display name is a fourth business-name variant**
+
+Inbox shows "Mould & Restoration Co" with no trailing period, while the email header
+uses "Mould & Restoration Co." and the footer uses "Mould and Restoration Co.". Rolls
+into issue 4, but note this variant is the one customers see in their inbox list before
+opening. Set in the Resend `from` field, not the template body.
+
+**12. MEDIUM — Address not title-cased**
+
+Renders as "35 wellington street, mernda, VIC, 3754". Same root cause as issue 3 (name
+casing) — submitted values echoed raw. Suburb and street should be title-cased for
+display; VIC and postcode are already correct.
+
+### Recurrences confirmed from Step 1
+
+The following appear identically in the booking confirmation, confirming
+`wrapInBrandedTemplate` is the single shared source:
+
+- Issue 1 — Google Review link in footer
+- Issue 4 — business name inconsistent between header, sign-off and footer
+- Issue 5 — dot-ring logo illegible at email size
+- Issue 9 — confidentiality disclaimer boilerplate
+
+### Scope narrowed
+
+Issue 6 (time shown as "10:00" not "10:00 AM") does **not** occur in the booking
+confirmation — this template renders "10:00 AM" correctly. Issue 6 is therefore scoped
+to the enquiry confirmation template only, not the shared wrapper.
+
+Note: date renders as "6 Aug 2026" rather than DD/MM/YYYY. Flagging for a decision
+rather than as a defect — long-form date may be intentional for customer-facing email
+even though the app standard is DD/MM/YYYY. Confirm before changing.
 
 ---
 
