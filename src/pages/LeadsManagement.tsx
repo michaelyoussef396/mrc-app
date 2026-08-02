@@ -511,7 +511,7 @@ const LeadsManagement = () => {
     if (!lead) return;
     setEmailSubject(`Your Inspection Report - ${lead.property || lead.suburb}`);
     setEmailBody(
-      `Dear ${lead.name},\n\nThank you for choosing Mould & Restoration Co. for your inspection.\n\nPlease find your comprehensive inspection report for ${lead.property}.\n\nIf you have any questions, please don't hesitate to contact us on 0433 880 403.\n\nKind regards,\nMould & Restoration Co.`
+      `Dear ${lead.name},\n\nThank you for choosing Mould & Restoration Co. for your inspection.\n\nPlease find your comprehensive inspection report for ${lead.property}.\n\nIf you have any questions, please don't hesitate to contact us on 1800 954 117.\n\nKind regards,\nMould & Restoration Co.`
     );
     setEmailTargetLead(lead);
   };

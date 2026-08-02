@@ -343,7 +343,7 @@ export default function ViewReportPDF() {
         `${jobCompletion.job_number ? ` (Ref: ${jobCompletion.job_number})` : ''}.\n\n` +
         `Please find the job completion report attached for your records.\n\n` +
         `If you have any questions, please don't hesitate to get in touch.\n\n` +
-        `Kind regards,\nMould & Restoration Co.\n0433 880 403`
+        `Kind regards,\nMould & Restoration Co.\n1800 954 117`
       )
       setStage('email-approval')
       return
@@ -358,7 +358,7 @@ export default function ViewReportPDF() {
       `${inspection?.job_number ? ` (Ref: ${inspection.job_number})` : ''}.\n\n` +
       `Our team has thoroughly reviewed the findings and the report is now ready for you.\n\n` +
       `If you have any questions about the report or would like to discuss remediation options, please don't hesitate to get in touch.\n\n` +
-      `Kind regards,\nMould & Restoration Co.\n0433 880 403`
+      `Kind regards,\nMould & Restoration Co.\n1800 954 117`
     )
     setStage('email-approval')
   }
