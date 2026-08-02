@@ -420,9 +420,70 @@ Pricing is correct. Do not open the pricing engine for this.
 
 ## Step 5 — Report email delivery
 
-**Status:** awaiting test
+**Status: FAIL** (delivery works, one blocker in the customer-facing body)
+
+Verified working:
+
+- Report email delivered on approval, subject line "Your Inspection Report — INS-2026-0001"
+- PDF attached correctly, 16 pages, opens and renders in Gmail's viewer
+- Slack notification fired
+- Reference number, property address and status all populate correctly
+- Body copy reads well and the approval framing is clear
 
 ### Issues found
+
+**25. BLOCKER — Personal mobile number appears in the customer-facing email body**
+
+The sign-off reads:
+
+    Kind regards,
+    Mould & Restoration Co.
+    0433 880 403
+
+That is a personal mobile, not a business line. It goes to every customer receiving an
+inspection report.
+
+The footer of the same email carries the correct business number (1800 954 117), so this
+is not a missing-value fallback — a different field is being resolved for the body. Most
+likely the assigned technician's or approving admin's phone from their user record, which
+means the number will change depending on who approves the report and cannot be found by
+grepping for a literal string. Look for a field reference, not a hardcoded value.
+
+Nothing goes to a real customer until this is fixed and re-tested with two different
+approving users to confirm the value is not user-derived.
+
+Note: 0433 880 403 is also the number logged in issue 2 as having its leading zero
+stripped. Whichever store it comes from is now confirmed to be reachable by the email
+templates.
+
+**26. HIGH — MRC logo does not render in the sender profile**
+
+The sender avatar shows a generic placeholder rather than the MRC mark. Distinct from
+issue 5 (dot-ring logo illegible inside the email body) — this is the profile image Gmail
+displays beside the sender name, set via BIMI or the sending domain's profile rather than
+in the template.
+
+Related to issue 11 (sender display name variant), since both are sender-identity
+configuration rather than template content.
+
+### Recurrences confirmed
+
+Fifth appearance of the shared footer block, confirming `wrapInBrandedTemplate` reaches
+this template too:
+
+- Issue 1 — Google Review link
+- Issue 4 — business name inconsistent: header "Mould & Restoration Co.", sign-off
+  "The MRC Team – Mould & Restoration Experts", footer "Mould and Restoration Co."
+- Issue 5 — dot-ring logo illegible at email size
+- Issue 9 — confidentiality disclaimer boilerplate
+- Issue 3 — greeting not title-cased ("Hi michael youssef")
+- Issue 12 — address not title-cased ("35 wellington street, mernda")
+
+**27. LOW — Duplicate sentence in email body**
+
+"If you have any questions about the report or would like to discuss remediation options,
+please don't hesitate to get in touch." appears twice — once above the details table and
+again below it, immediately before the Call Us button.
 
 ---
 
