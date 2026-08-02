@@ -369,6 +369,44 @@ recorded as "townhouse" while the enquiry describes a 1950s weatherboard.
 Where structured fields and free text disagree, the conflict should surface for admin
 review rather than being silently resolved.
 
+### PDF output
+
+**Status: PASS with defects** (PDF generated, renders end to end, one missing data page)
+
+Verified working:
+
+- PDF generated on approval and renders complete
+- Cover page with property address, inspection date and branding
+- Area Inspected, Outdoor Environment, Subfloor, Problem Analysis, Demolition,
+  Visual Mould Cleaning Estimate, Terms & Conditions and closing page all present
+- Photos render throughout including infrared, natural light comparison, subfloor,
+  street view, front house and front door
+- Outdoor Environment section correctly displays numeric values: outdoor temp 23°C,
+  humidity 32%, dew point 5.4°C
+- Before/after comparison imagery present in the cleaning estimate section
+
+**24. HIGH — Internal moisture and environment readings missing from the PDF**
+
+The Area Inspected: Kitchen section renders INTERNAL MOISTURE and EXTERNAL MOISTURE as
+photo tiles, but the readings themselves appear nowhere in the report. Missing values:
+
+- Internal moisture 46% (near window)
+- External moisture 31% (external wall)
+- Kitchen temperature 46°C, humidity 23%, dew point 19.9°C
+
+All five values were captured in Section 3 and all five are absent from the output. The
+photos documenting them are included, which makes the omission more visible — the
+customer sees a picture of a meter with no reading beside it.
+
+The Outdoor Environment section renders its equivalent values correctly, so the template
+is capable of displaying them. The gap is specific to internal area readings.
+
+Likely a missing block in the inspection report HTML template rather than a data problem.
+Confirm the values are present in the database before assuming a template fix.
+
+Note: internal and external moisture photos opening in a photo viewer rather than a fixed
+grid is expected behaviour for this run — only 2 of 4 slots were populated. Not a defect.
+
 ### Assessment
 
 Pricing, generation, review UI and numeric transcription are all correct. The remaining
