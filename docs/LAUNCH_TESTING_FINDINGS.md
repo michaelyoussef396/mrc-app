@@ -454,32 +454,37 @@ The sign-off reads:
 That is a personal mobile, not a business line. It goes to every customer receiving an
 inspection report.
 
-The footer of the same email carries the correct business number (1800 954 117), so this
-is not a missing-value fallback — a different field is being resolved for the body.
+**Root cause confirmed by code trace, 3 Aug 2026. Not a field resolution problem.**
 
-Two candidate sources, not yet distinguished:
+The number is a hardcoded string literal at `src/pages/ViewReportPDF.tsx:361`, inside the
+email body template literal:
 
-1. **The lead's own phone.** 0433 880 403 is the number submitted through the Framer form
-   as the customer's contact. If the sign-off renders the lead record's phone, every
-   customer receives their own mobile presented as MRC's contact line. This is the
-   likelier explanation given the number matches the test lead exactly.
-2. **The approving user's phone.** The technician or admin user record resolved into the
-   body instead of the business number.
+    `Kind regards,\nMould & Restoration Co.\n0433 880 403`
 
-The distinguishing test is one report approved for **two different leads with different
-customer phone numbers**, not two different approving users. If the sign-off tracks the
-lead, it is hypothesis 1. Testing across approvers alone would show no change under
-hypothesis 1 and produce a false negative.
+Line 361 contains no `${}` interpolation. Lines 356–358 of the same literal do
+interpolate `lead?.full_name`, the address and `inspection.job_number` — the phone is
+conspicuously not among them. The digits are characters in source.
 
-Either way the number is a field reference rather than a hardcoded string, so grepping
-for the literal value will not find it.
+The match with the test lead's submitted phone is coincidence: the same mobile was used as
+the test customer and is separately hardcoded in the composer.
 
-Nothing goes to a real customer until this is fixed and verified against two leads with
-different phone numbers.
+Why the footer is correct: `notifications.ts:162` hardcodes `1800 954 117` in
+`wrapInBrandedTemplate`. The body arrives as `customMessage` and is wrapped by it. Two
+independent hardcoded numbers in one email, not one field resolving inconsistently.
 
-Note: 0433 880 403 is also the number logged in issue 2 as having its leading zero
-stripped. Whichever store it comes from is now confirmed to be reachable by the email
-templates.
+Flow: `emailBody` state (ViewReportPDF.tsx:322) → editable textarea (:2343-2344) →
+`customMessage` (:978) → `buildReportApprovedHtml` (notifications.ts:369-375) → `sendEmail`.
+
+Fix is a one-line change at ViewReportPDF.tsx:361 to the business number, or removal of
+the line so the footer number stands alone. Frontend only — no Edge Function deploy.
+
+**Verification superseded.** The two-lead test described earlier is not required; the code
+trace is sufficient proof. Verify instead by sending one report after the change and
+confirming 1800 954 117 appears in both body and footer.
+
+Note: `LeadsManagement.tsx:512` produces a different subject line format (hyphen, property
+or suburb) and is a separate send path. Confirm whether it carries its own hardcoded
+number before closing this issue.
 
 **26. HIGH — MRC logo does not render in the sender profile**
 
