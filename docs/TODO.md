@@ -73,6 +73,53 @@ ForgotPassword placeholder rebranded. No Edge Function or Resend literal touched
 
 ---
 
+## PENDING DECISION — Sent-folder visibility for system email
+
+**Problem.** The system sends customer email via Resend. Reply-To is
+`admin@mouldandrestoration.com.au` (live as of 2 Aug), so customer replies reach the
+Workspace inbox and admin can respond normally. What's missing is a record of the
+OUTBOUND message — nothing appears in Gmail's Sent folder, so admin sees replies
+without seeing what was sent.
+
+### Option A — BCC to a dedicated address
+
+Add `bcc` to Resend calls, pointing at `sent@mouldandrestoration.com.au` (not
+`admin@`, to keep the main inbox clean). Gmail filter auto-labels.
+
+- ✅ ~20 min, one line per send site
+- ✅ Transport unchanged — Resend logs, bounce tracking, delivery history all retained
+- ✅ No new failure modes
+- ❌ Copies land in an inbox, not literally the Sent folder
+- ❌ Slightly indirect
+
+### Option B — Route through Gmail SMTP
+
+Swap transport in every Edge Function so mail genuinely appears in Sent.
+
+- ✅ Exactly the desired result — indistinguishable from admin sending manually
+- ✅ Single unified mail history
+- ❌ Gmail app password needed as a secret in every EF
+- ❌ 2,000/day cap, tighter per-recipient limits
+- ❌ Single point of failure: if Gmail SMTP or the app password fails, ALL app email
+  stops including password resets
+- ❌ Loses Resend delivery logs, bounce tracking, send history
+
+### Michael's position
+
+Prefers **Option B**. Reason: Option A puts system copies in an inbox, which risks
+admin confusing what to read vs what to respond to. B keeps the mental model clean —
+sent mail lives in Sent, incoming lives in Inbox.
+
+### Status
+
+**Deferred.** Not to be built before the team's first week on the system — swapping
+email transport is the highest-risk change available and the current path was only
+stabilised 2 Aug. Revisit once the system has run clean for a week. Include in the
+team how-to doc so Glen and Clayton can weigh in, since it affects their daily
+workflow.
+
+---
+
 ## ⚠️ PENDING: Invoice data integrity — 2 SQL blocks for Michael to run
 
 > ⛔ DO NOT RUN BEFORE 4 AUG 2026. INV-2026-0003 hits day 29 on 4 Aug and fires
