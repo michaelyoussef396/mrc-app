@@ -537,14 +537,149 @@ glitch.
 
 ## Step 6 — Job completion form
 
-**Status:** awaiting test
+**Status: PASS** (all 10 sections completed, submitted, approved and report sent)
+
+Verified working:
+
+- All 10 sections completed and submitted, JOB-2026-0001 created
+- Office info, address snapshot, requested-by and attention-to all carried from inspection
+- Before photos (3) and after photos (7, split across After and Demolition) uploaded
+- Treatment methods, chemicals used and SWMS all recorded
+- Section 7 shows Actual vs Quoted side by side for every equipment type — good design,
+  makes divergence visible at the point of entry
+- Waste disposal captured actual 8m³ / $703.00 against quoted 6m³ / $550.00
+- Job report approved and emailed at 12:47am, appears in Email History
+- Activity Log captured every state transition with timestamps and attribution
+
+**No em-dashes in snapshot values.** Quoted figures rendered correctly throughout
+Section 7, confirming the snapshot path works on inspections created after the snapshot
+code landed. The em-dash behaviour in fixture 1b81f7e7 remains the known null-tolerance
+case and is not a defect.
 
 ### Issues found
+
+**29. HIGH — No field for actual labour hours**
+
+Section 7 captures actual equipment quantities and days against quoted. There is no
+equivalent for labour. The invoice bills labour at the quoted $5,828.20, derived from the
+25h inspection estimate.
+
+The job was booked as 5 days / 34 hours. If 34 hours were worked, roughly 9 hours are
+unbilled. Equipment is billed at actual while labour is billed at quote — the two halves
+of the invoice use different bases.
+
+Needs a decision from Glen and Clayton on whether labour should bill at quote (fixed-price
+model) or actual (time-and-materials). If quote, the current behaviour is correct and only
+needs documenting. If actual, Section 7 needs actual-hours fields per labour type and the
+invoice needs rewiring.
+
+**30. MEDIUM — Variations section left empty despite substantial scope change**
+
+Section 8 records "No scope variations recorded" while every equipment line and the waste
+disposal diverged materially from quote. Nothing required an entry and nothing warned.
+
+The section exists and works; the gap is that it is optional in a case where a variation
+clearly occurred. Consider requiring a variation note when actual equipment or waste
+diverges from quote beyond a threshold.
+
+**31. LOW — Sections 9 and 10 empty**
+
+Job Notes and Office Notes both recorded as empty. Not a defect — no notes were entered.
+Flagged only to confirm the sections render correctly when unpopulated, which they do.
 
 ---
 
 ## Step 7 — Job report and invoice
 
-**Status:** awaiting test
+**Status: FAIL** (invoice arithmetic correct, invoice exceeds quote without any control)
+
+Verified working:
+
+- Job Completion Report emailed to customer, appears in Email History as sent
+- Invoice Summary renders all line items with unit counts and day counts shown
+- Generate Invoice control present, opens invoice editor
+- Status advanced correctly to Job Report Sent, ready to invoice
+- Activity Log captured approval, send and status transitions with attribution
+
+**Invoice arithmetic verified line by line — all correct:**
+
+- Dehumidifier 6 × 5 days × $119.00 = $3,570.00
+- Air Mover 4 × 3 days × $46.00 = $552.00
+- HEPA Air Scrubber 2 × 3 days × $100.00 = $600.00
+- RCD 2 × 4 days × $5.00 = $40.00
+- Equipment subtotal $4,762.00, labour $5,828.20, waste $703.00
+- Subtotal ex GST $11,293.20, GST 10% $1,129.32, total inc GST $12,422.52
+
+Every figure is exact. The defect is not in the calculation.
 
 ### Issues found
+
+**32. BLOCKER — Invoice exceeds accepted quote by 35% with no variation control**
+
+Customer was quoted $9,209.42 inc GST (Option 2). The invoice totals $12,422.52 —
+**$3,213.10 over quote**, a 35% overrun.
+
+Every equipment line ran over: dehumidifiers 6 units × 5 days against 1 × 4 quoted, air
+movers 4 × 3 against 2 × 4, RCDs 2 × 4 against 5 × 4, waste 8m³ against 6m³. HEPA ran
+under. Section 8 recorded no variations.
+
+The system generated the invoice without warning, without requiring a variation record,
+and without any approval step comparing invoice total to accepted quote.
+
+This is a commercial exposure rather than a code bug. A customer who accepted $9,209.42
+and receives $12,422.52 has grounds to dispute, and MRC has no documented variation to
+point to. Under Australian Consumer Law an unexplained overrun on an accepted quote is
+difficult to defend.
+
+Required before any invoice goes to a real customer:
+
+- Invoice generation compares total against accepted quote
+- Divergence beyond a threshold blocks generation or requires explicit admin acknowledgement
+- Variation record mandatory when equipment or waste actuals exceed quoted
+- Consider surfacing running total against quote inside Section 7 as the tech enters actuals
+
+Glen and Clayton must confirm the intended commercial model before this is built —
+whether overruns are billable at all, and if so what authorisation is required.
+
+**33. HIGH — Phone number stored without leading zero, confirmed at storage level**
+
+`433880403` appears in the lead detail view Contact Information block and again in the
+Invoice Summary customer block. Submitted as `0433 880 403`.
+
+This confirms issue 2: the zero is lost at storage, not at display. Every downstream
+consumer inherits it — click-to-call, technician callbacks, and now the invoice, where it
+will be copied into Xero and reach the customer on a tax document.
+
+Escalates issue 2 from HIGH-uncertain to HIGH-confirmed. The `raw_payload` diagnostic in
+issue 2 is still worth running to establish whether the loss occurs at Framer or at
+ingest, since that determines who fixes it.
+
+**34. MEDIUM — Waste disposal amount shows em-dash in inspection data view**
+
+Lead page Inspection Data section renders "Waste Disposal — Required: Yes, Amount: —"
+while Section 6 of the inspection recorded 6m³ at $550.00 confirmed. The value exists but
+does not surface in this view.
+
+**35. LOW — PDF version 2 attributed to "Unknown"**
+
+Inspection Report History shows v3 by michael youssef and v2 by Unknown, marked Legacy.
+Attribution missing on the earlier version.
+
+### Lead detail page — content inventory
+
+Recorded for the team guide. The page surfaces, in order: status header with contact
+actions, current status card with next-action prompt, contact information, property
+information with Google Maps link, issue description, lead details, inspection scheduling
+with reschedule control, customer requests, internal notes with add-note control, cost
+estimate summary, subfloor and waste status, dehumidifier size, parking, additional info
+for technician, internal office notes per area, cause of mould, property occupation,
+outdoor comments, admin cost breakdown for both options, full inspection data including
+all areas with photos and moisture readings, subfloor assessment, outdoor environment,
+waste disposal, work procedure and equipment, job summary, cost estimate with labour
+breakdown and rate reference, AI summary in full, inspection report history with PDF
+versions, email history, job completion sections 1–10, invoice summary with line items,
+and activity log.
+
+Note for the team guide: this page is long. Admin users will need guidance on which
+sections matter at which stage, and technicians should not be directed here at all —
+their entry point is the mobile dashboard.
