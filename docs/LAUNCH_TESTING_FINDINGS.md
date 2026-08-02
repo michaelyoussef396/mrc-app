@@ -444,13 +444,27 @@ That is a personal mobile, not a business line. It goes to every customer receiv
 inspection report.
 
 The footer of the same email carries the correct business number (1800 954 117), so this
-is not a missing-value fallback — a different field is being resolved for the body. Most
-likely the assigned technician's or approving admin's phone from their user record, which
-means the number will change depending on who approves the report and cannot be found by
-grepping for a literal string. Look for a field reference, not a hardcoded value.
+is not a missing-value fallback — a different field is being resolved for the body.
 
-Nothing goes to a real customer until this is fixed and re-tested with two different
-approving users to confirm the value is not user-derived.
+Two candidate sources, not yet distinguished:
+
+1. **The lead's own phone.** 0433 880 403 is the number submitted through the Framer form
+   as the customer's contact. If the sign-off renders the lead record's phone, every
+   customer receives their own mobile presented as MRC's contact line. This is the
+   likelier explanation given the number matches the test lead exactly.
+2. **The approving user's phone.** The technician or admin user record resolved into the
+   body instead of the business number.
+
+The distinguishing test is one report approved for **two different leads with different
+customer phone numbers**, not two different approving users. If the sign-off tracks the
+lead, it is hypothesis 1. Testing across approvers alone would show no change under
+hypothesis 1 and produce a false negative.
+
+Either way the number is a field reference rather than a hardcoded string, so grepping
+for the literal value will not find it.
+
+Nothing goes to a real customer until this is fixed and verified against two leads with
+different phone numbers.
 
 Note: 0433 880 403 is also the number logged in issue 2 as having its leading zero
 stripped. Whichever store it comes from is now confirmed to be reachable by the email
