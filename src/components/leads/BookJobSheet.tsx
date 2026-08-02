@@ -111,7 +111,7 @@ function formatTimeLabel(timeStr: string): string {
   const [h, m] = timeStr.split(':').map(Number)
   const d = new Date()
   d.setHours(h, m, 0, 0)
-  return d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true })
+  return d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase())
 }
 
 /** Format an ISO datetime as "DD/MM/YYYY h:mm a" en-AU Australia/Melbourne */
@@ -125,7 +125,7 @@ function formatDateTimeAu(iso: string | Date): string {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-  }).format(date)
+  }).format(date).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase())
 }
 
 /** Build a local Date from YYYY-MM-DD + HH:MM */
@@ -882,7 +882,7 @@ export function BookJobSheet({
                       hour: 'numeric',
                       minute: '2-digit',
                       hour12: true,
-                    })
+                    }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase())
                     return (
                       <div
                         key={day.dateStr}

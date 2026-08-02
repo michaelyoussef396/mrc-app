@@ -208,7 +208,7 @@ const Reports = () => {
 
         {/* Footer Note */}
         <p className="text-center text-xs text-slate-400 pb-8">
-          Data refreshes automatically every minute. Last updated: {new Date().toLocaleTimeString('en-AU')}
+          Data refreshes automatically every minute. Last updated: {new Date().toLocaleTimeString('en-AU').replace(/\b[ap]m\b/gi, (m) => m.toUpperCase())}
         </p>
       </div>
     </AdminPageLayout>

@@ -282,11 +282,11 @@ Deno.serve(async (_req) => {
         timeZone: 'Australia/Melbourne',
       });
       const timeStr = startDate.toLocaleTimeString('en-AU', {
-        hour: '2-digit',
+        hour: 'numeric',
         minute: '2-digit',
         hour12: true,
         timeZone: 'Australia/Melbourne',
-      });
+      }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase());
       const dayOfWeek = startDate.toLocaleDateString('en-AU', {
         weekday: 'long',
         timeZone: 'Australia/Melbourne',
