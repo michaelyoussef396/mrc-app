@@ -149,14 +149,14 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
       ${bodyHtml}
     </div>
     <div class="signature">
-      <p class="sign-off">Best Regards,<br>The MRC Team – Mould &amp; Restoration Experts</p>
+      <p class="sign-off">Best Regards,<br>The MRC Team – Mould &amp; Restoration Co.</p>
       <table class="sig-table" cellpadding="0" cellspacing="0">
         <tr>
           <td class="sig-logo-cell">
             <img src="${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
           </td>
           <td class="sig-details-cell">
-            <p class="sig-company">Mould and Restoration Co.</p>
+            <p class="sig-company">Mould &amp; Restoration Co.</p>
             <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
             <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
             <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
@@ -447,7 +447,7 @@ export function buildGoogleReviewEmailHtml(params: GoogleReviewEmailParams): str
   return wrapInBrandedTemplate(`
     <h2>Thank You — Would You Leave Us a Review?</h2>
     <p>Dear ${params.customerName},</p>
-    <p>Thank you for trusting Mould &amp; Restoration Co with your remediation work (${params.jobNumber}). We hope you're thrilled with the result.</p>
+    <p>Thank you for trusting Mould &amp; Restoration Co. with your remediation work (${params.jobNumber}). We hope you're thrilled with the result.</p>
     <p>Your feedback means the world to small businesses like ours. If you have 30 seconds, a quick Google review would genuinely make our day:</p>
     <p style="margin-top:24px;text-align:center;">
       <a href="${GOOGLE_REVIEW_URL}" class="cta-button">Leave us a Google Review</a>

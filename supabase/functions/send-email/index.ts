@@ -197,7 +197,7 @@ Deno.serve(async (req) => {
 
     // Send email via Resend with retry
     const result = await sendWithRetry({
-      from: from || 'Mould & Restoration Co <admin@mouldandrestoration.com.au>',
+      from: from || 'Mould & Restoration Co. <admin@mouldandrestoration.com.au>',
       to: [to],
       subject,
       html,

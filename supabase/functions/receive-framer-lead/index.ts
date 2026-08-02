@@ -319,14 +319,14 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
       ${bodyHtml}
     </div>
     <div class="signature">
-      <p class="sign-off">Best Regards,<br>The MRC Team – Mould &amp; Restoration Experts</p>
+      <p class="sign-off">Best Regards,<br>The MRC Team – Mould &amp; Restoration Co.</p>
       <table class="sig-table" cellpadding="0" cellspacing="0">
         <tr>
           <td class="sig-logo-cell">
             <img src="${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
           </td>
           <td class="sig-details-cell">
-            <p class="sig-company">Mould and Restoration Co.</p>
+            <p class="sig-company">Mould &amp; Restoration Co.</p>
             <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
             <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
             <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
@@ -808,9 +808,9 @@ Deno.serve(async (req) => {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            from: 'Mould & Restoration Co <admin@mouldandrestoration.com.au>',
+            from: 'Mould & Restoration Co. <admin@mouldandrestoration.com.au>',
             to: [email],
-            subject: 'Thank you for your enquiry - Mould & Restoration Co',
+            subject: 'Thank you for your enquiry - Mould & Restoration Co.',
             html,
             reply_to: 'admin@mouldandrestoration.com.au',
           }),
@@ -820,7 +820,7 @@ Deno.serve(async (req) => {
           console.error('Resend error:', errBody)
           await supabase.from('email_logs').insert({
             recipient_email: email,
-            subject: 'Thank you for your enquiry - Mould & Restoration Co',
+            subject: 'Thank you for your enquiry - Mould & Restoration Co.',
             template_name: 'framer_lead_confirmation',
             status: 'failed',
             error_message: JSON.stringify(errBody).slice(0, 500),
@@ -832,7 +832,7 @@ Deno.serve(async (req) => {
           const emailData = await res.json()
           await supabase.from('email_logs').insert({
             recipient_email: email,
-            subject: 'Thank you for your enquiry - Mould & Restoration Co',
+            subject: 'Thank you for your enquiry - Mould & Restoration Co.',
             template_name: 'framer_lead_confirmation',
             status: 'sent', provider: 'resend',
             provider_message_id: emailData?.id || null,
@@ -845,7 +845,7 @@ Deno.serve(async (req) => {
         console.error('Confirmation email failed:', err)
         await supabase.from('email_logs').insert({
           recipient_email: email,
-          subject: 'Thank you for your enquiry - Mould & Restoration Co',
+          subject: 'Thank you for your enquiry - Mould & Restoration Co.',
           template_name: 'framer_lead_confirmation',
           status: 'failed',
           error_message: String(err),
