@@ -78,3 +78,7 @@ phase3-stage-3.5-snapshot-*.json
 # Claude Code local overrides
 CLAUDE.local.md
 settings.local.json
+.env*
+
+# Operational scratch: schema dumps, PROD storage-path exports, template backups
+dev-setup/

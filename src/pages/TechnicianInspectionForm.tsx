@@ -61,9 +61,30 @@ import {
   Sun,
   Thermometer,
   Trash2,
+  WifiOff,
   Wind,
   X,
 } from 'lucide-react';
+
+// Save-time offline classifier for user messaging. navigator.onLine can be
+// stale on iOS Safari after airplane-mode toggles, so also sniff the
+// fetch-level failure text: Chromium throws 'Failed to fetch', WebKit
+// 'Load failed', Firefox 'NetworkError'. supabase-js surfaces these as plain
+// objects with a message, not Error instances. Deliberately duplicated in
+// useJobCompletionForm.ts — two call sites don't justify a shared module.
+function isNetworkLevelError(err: unknown): boolean {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
+  const message =
+    typeof err === 'object' && err !== null && 'message' in err
+      ? String((err as { message?: unknown }).message ?? '')
+      : String(err ?? '');
+  return /failed to fetch|load failed|network ?error|fetch failed/i.test(message);
+}
+
+// Amber warning styling for offline toasts — dark text on amber for WCAG
+// contrast; inline classes because the shadcn toast only ships default and
+// destructive variants and this file must not edit the shared UI kit.
+const OFFLINE_TOAST_CLASS = 'border-amber-600 bg-amber-500 text-amber-950';
 
 // Helper: invoke edge functions via direct fetch (bypasses supabase.functions.invoke timeout issues)
 async function invokeEdgeFunction(functionName: string, body: object): Promise<{ data: any; error: any }> {
@@ -193,12 +214,6 @@ interface BookingData {
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-function generateJobNumber(): string {
-  const year = new Date().getFullYear();
-  const randomNum = Math.floor(1000 + Math.random() * 9000);
-  return `MRC-${year}-${randomNum}`;
-}
 
 function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
@@ -760,7 +775,7 @@ function Section1BasicInfo({ formData, onChange }: SectionProps) {
   return (
     <section className="space-y-5">
       <FormField label="Job Number">
-        <ReadOnlyInput value={formData.jobNumber} />
+        <ReadOnlyInput value={formData.jobNumber || 'Assigned on first save'} />
       </FormField>
 
       <FormField label="Triage (Job Description)">
@@ -1885,6 +1900,22 @@ const SHARED_TREATMENT_METHODS = [
 ];
 const OPTION_2_ONLY_METHODS = ['Material Demolition', 'Cavity Treatment', 'Debris Removal'];
 
+// HEPA qty only counts while the method toggle is on — toggling it off keeps the
+// entered numbers in state but stops them feeding calcs and saves.
+const getEffectiveHepaQty = (formData: InspectionFormData) =>
+  formData.selectedTreatmentMethods?.includes('HEPA Air Scrubber Installation')
+    ? (formData.hepaAirScrubberQty || 0)
+    : 0;
+
+// Shared equipment days, derived exactly the way Section 9 / the pricing engine do.
+// Used for the HEPA "Auto (N)" display and the AI payload's resolved HEPA days.
+const getSharedEquipmentDays = (formData: InspectionFormData) => {
+  const nonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
+  const demoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
+  const subfloorHours = formData.subfloorTreatmentTime || 0;
+  return Math.max(1, Math.ceil((nonDemoHours + demoHours + subfloorHours) / 8));
+};
+
 function Section7WorkProcedure({ formData, onChange }: SectionProps) {
   const selected = formData.selectedTreatmentMethods;
   const optionSelected = formData.optionSelected;
@@ -1913,6 +1944,9 @@ function Section7WorkProcedure({ formData, onChange }: SectionProps) {
     : SHARED_TREATMENT_METHODS;
 
   const dryingEquipmentEnabled = selected.includes('Drying Equipment');
+  const hepaAirScrubberEnabled = selected.includes('HEPA Air Scrubber Installation');
+
+  const sharedEquipmentDays = getSharedEquipmentDays(formData);
 
   return (
     <section className="space-y-5">
@@ -2074,6 +2108,59 @@ function Section7WorkProcedure({ formData, onChange }: SectionProps) {
           </div>
         </div>
       )}
+
+      {/* HEPA Air Scrubber Details — shown when "HEPA Air Scrubber Installation" is selected */}
+      {hepaAirScrubberEnabled && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-4 bg-gray-50 border-b border-gray-100">
+            <h3 className="font-semibold text-[#1d1d1f]">HEPA Air Scrubber Details</h3>
+          </div>
+          <div className="p-4 space-y-4">
+            {/* Units — `|| 0` guards a restored pre-HEPA localStorage backup (fields absent) */}
+            <div className="flex items-center justify-between">
+              <span className="text-[#1d1d1f]">Units</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onChange('hepaAirScrubberQty', Math.max(0, (formData.hepaAirScrubberQty || 0) - 1))}
+                  className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-[#007AFF] font-bold"
+                >
+                  -
+                </button>
+                <span className="w-8 text-center font-medium">{formData.hepaAirScrubberQty || 0}</span>
+                <button
+                  onClick={() => onChange('hepaAirScrubberQty', (formData.hepaAirScrubberQty || 0) + 1)}
+                  className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-[#007AFF] font-bold"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Days — 0 means "auto": follow the job's shared equipment days */}
+            <div className="flex items-center justify-between">
+              <span className="text-[#1d1d1f]">Days</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onChange('hepaAirScrubberDays', Math.max(0, (formData.hepaAirScrubberDays || 0) - 1))}
+                  className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-[#007AFF] font-bold"
+                >
+                  -
+                </button>
+                <span className="min-w-[2rem] text-center font-medium whitespace-nowrap">
+                  {(formData.hepaAirScrubberDays || 0) > 0 ? formData.hepaAirScrubberDays : `Auto (${sharedEquipmentDays})`}
+                </span>
+                <button
+                  onClick={() => onChange('hepaAirScrubberDays', (formData.hepaAirScrubberDays || 0) + 1)}
+                  className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-[#007AFF] font-bold"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-[#86868b]">Days defaults to the job&apos;s equipment days</p>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -2163,6 +2250,8 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
     dehumidifierQty: formData.commercialDehumidifierQty || 0,
     airMoverQty: formData.airMoversQty || 0,
     rcdQty: formData.rcdBoxQty || 0,
+    hepaAirScrubberQty: getEffectiveHepaQty(formData),
+    hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
   });
 
   // For "Both" mode: also compute Option 1 (surface only, no demo/subfloor)
@@ -2174,6 +2263,8 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
         dehumidifierQty: formData.commercialDehumidifierQty || 0,
         airMoverQty: formData.airMoversQty || 0,
         rcdQty: formData.rcdBoxQty || 0,
+        hepaAirScrubberQty: getEffectiveHepaQty(formData),
+        hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
       })
     : null;
 
@@ -2364,6 +2455,17 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
               <span className="font-medium text-[#1d1d1f]">{formatCurrency(costResult.equipment.airMover.cost)}</span>
             </div>
           )}
+          {costResult.equipment.hepaAirScrubber.qty > 0 && (
+            <div className="flex justify-between items-center py-2 border-b border-gray-100">
+              <div>
+                <span className="text-[#1d1d1f]">HEPA Air Scrubber</span>
+                <span className="text-[#86868b] ml-2">
+                  ({costResult.equipment.hepaAirScrubber.qty} × ${EQUIPMENT_RATES.hepaAirScrubber} × {costResult.equipment.hepaAirScrubber.days} days)
+                </span>
+              </div>
+              <span className="font-medium text-[#1d1d1f]">{formatCurrency(costResult.equipment.hepaAirScrubber.cost)}</span>
+            </div>
+          )}
           {formData.rcdBoxQty > 0 && (
             <div className="flex justify-between items-center py-2 border-b border-gray-100">
               <div>
@@ -2375,7 +2477,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
               <span className="font-medium text-[#1d1d1f]">{formatCurrency(costResult.equipment.rcd.cost)}</span>
             </div>
           )}
-          {!formData.commercialDehumidifierQty && !formData.airMoversQty && !formData.rcdBoxQty && (
+          {!formData.commercialDehumidifierQty && !formData.airMoversQty && !formData.rcdBoxQty && !costResult.equipment.hepaAirScrubber.qty && (
             <p className="text-[#86868b] italic py-2">No equipment selected (set in Section 7)</p>
           )}
           {/* Equipment Total */}
@@ -2640,6 +2742,12 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
 
 // buildPayload: construct the payload for the AI edge function
 function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
+  // Resolved HEPA values so AI summaries match the quote (qty 0 when the method
+  // toggle is off; days resolve to the shared equipment days when left on auto).
+  const hepaQty = getEffectiveHepaQty(formData);
+  const hepaDays = hepaQty > 0
+    ? ((formData.hepaAirScrubberDays || 0) > 0 ? formData.hepaAirScrubberDays : getSharedEquipmentDays(formData))
+    : null;
   return {
     propertyAddress: formData.address,
     clientName: lead?.full_name,
@@ -2697,6 +2805,9 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
     airMoversQty: formData.airMoversQty,
     rcdBoxEnabled: formData.rcdBoxEnabled,
     rcdBoxQty: formData.rcdBoxQty,
+    hepaAirScrubberQty: hepaQty,
+    hepaAirScrubberDays: hepaDays,
+    hepaAirScrubberCost: hepaQty > 0 && hepaDays ? hepaQty * EQUIPMENT_RATES.hepaAirScrubber * hepaDays : 0,
     recommendDehumidifier: formData.recommendDehumidifier,
     dehumidifierSize: formData.dehumidifierSize,
     causeOfMould: formData.causeOfMould,
@@ -2745,7 +2856,9 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
 
   // Form state
   const [formData, setFormData] = useState<InspectionFormData>({
-    jobNumber: generateJobNumber(),
+    // Assigned by the set_inspection_job_number trigger on first INSERT and read back
+    // from the returned row — never generated client-side.
+    jobNumber: '',
     triage: '',
     address: '',
     inspector: '',
@@ -2797,6 +2910,8 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
     airMoversQty: 0,
     rcdBoxEnabled: false,
     rcdBoxQty: 0,
+    hepaAirScrubberQty: 0,
+    hepaAirScrubberDays: 0,
     recommendDehumidifier: false,
     dehumidifierSize: '',
     causeOfMould: '',
@@ -3103,6 +3218,8 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             airMoversQty: ins.air_movers_qty || 0,
             rcdBoxEnabled: (ins.rcd_box_qty ?? 0) > 0,
             rcdBoxQty: ins.rcd_box_qty || 0,
+            hepaAirScrubberQty: ins.hepa_air_scrubber_qty || 0,
+            hepaAirScrubberDays: ins.hepa_air_scrubber_days || 0,
             recommendDehumidifier: ins.recommended_dehumidifier != null,
             dehumidifierSize: ins.recommended_dehumidifier || '',
             causeOfMould: ins.cause_of_mould || '',
@@ -3487,11 +3604,28 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       toast({ title: 'Photos added', description: `${newPhotos.length} photo(s) uploaded` });
     } catch (err: any) {
       console.error('[PhotoCapture] Upload error:', err);
-      toast({
-        title: 'Upload Failed',
-        description: err?.message || 'Failed to upload photo(s)',
-        variant: 'destructive',
-      });
+      if (isNetworkLevelError(err)) {
+        // Honest wording: photo uploads go straight to the server and are NOT
+        // kept on the device when they fail — unlike form fields.
+        toast({
+          title: (
+            <span className="flex items-center gap-2">
+              <WifiOff className="h-5 w-5 shrink-0" />
+              You're offline — photo not uploaded
+            </span>
+          ),
+          description:
+            "Photos can't be uploaded without a connection and are not kept on this device. Add the photo again once you're back online.",
+          className: OFFLINE_TOAST_CLASS,
+          duration: 8000,
+        });
+      } else {
+        toast({
+          title: 'Upload Failed',
+          description: err?.message || 'Failed to upload photo(s)',
+          variant: 'destructive',
+        });
+      }
     } finally {
       photoContextRef.current = { ...photoContextRef.current, userCaption: undefined };
     }
@@ -3603,6 +3737,11 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   }, [adminMode]);
 
   // Save handler - multi-table upsert to Supabase
+  // True when the most recent save attempt failed at the network level.
+  // Read by the Complete flow so it never reports "Inspection Complete" on
+  // top of a save that only exists on this device.
+  const lastSaveFailedOfflineRef = useRef(false);
+
   const handleSave = async (options?: { silent?: boolean }): Promise<string | null> => {
     if (!leadId || !user) return null;
     setIsSaving(true);
@@ -3627,6 +3766,8 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         dehumidifierQty: formData.commercialDehumidifierQty || 0,
         airMoverQty: formData.airMoversQty || 0,
         rcdQty: formData.rcdBoxQty || 0,
+        hepaAirScrubberQty: getEffectiveHepaQty(formData),
+        hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
         wasteDisposalCost: saveWaste,
       });
 
@@ -3664,6 +3805,8 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           dehumidifierQty: formData.commercialDehumidifierQty || 0,
           airMoverQty: formData.airMoversQty || 0,
           rcdQty: formData.rcdBoxQty || 0,
+          hepaAirScrubberQty: getEffectiveHepaQty(formData),
+          hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
         });
         // BUG-047 follow-up: gate on manualPriceOverride, not field non-zero.
         // Save path mirror of the render-side fix at the Option 1 Both-mode block.
@@ -3734,7 +3877,6 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         lead_id: leadId,
         inspector_id: user.id,
         inspector_name: formData.inspector,
-        job_number: formData.jobNumber,
         triage_description: formData.triage,
         requested_by: formData.requestedBy,
         attention_to: formData.attentionTo,
@@ -3764,6 +3906,10 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         commercial_dehumidifier_qty: formData.commercialDehumidifierQty || 0,
         air_movers_qty: formData.airMoversQty || 0,
         rcd_box_qty: formData.rcdBoxQty || 0,
+        hepa_air_scrubber_qty: getEffectiveHepaQty(formData) || 0,
+        // NULL = auto (HEPA follows the shared equipment days); >0 = explicit hire period
+        hepa_air_scrubber_days: formData.hepaAirScrubberDays > 0 ? formData.hepaAirScrubberDays : null,
+        equipment_days: saveFullResult.equipment.days,
         recommended_dehumidifier: formData.recommendDehumidifier ? (formData.dehumidifierSize || null) : null,
         cause_of_mould: formData.causeOfMould || null,
         additional_info_technician: formData.additionalInfoForTech || null,
@@ -3819,11 +3965,14 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         const { data: insertData, error: insertError } = await supabase
           .from('inspections')
           .insert(inspectionRow)
-          .select('id')
+          .select('id, job_number')
           .single();
         if (insertError) throw insertError;
         inspectionId = insertData.id;
         setCurrentInspectionId(inspectionId);
+        if (insertData.job_number) {
+          setFormData((prev) => ({ ...prev, jobNumber: insertData.job_number }));
+        }
       }
 
       // 2. Upsert inspection_areas
@@ -4090,16 +4239,17 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       }
 
       setHasUnsavedChanges(false);
+      lastSaveFailedOfflineRef.current = false;
       if (options?.silent) {
         toast({
           title: 'Auto-saved',
-          description: 'Your progress has been saved',
+          description: 'Progress saved to the server',
           duration: 2000,
         });
       } else {
         toast({
           title: 'Saved',
-          description: `Section ${currentSection} saved successfully`,
+          description: `Section ${currentSection} saved to the server`,
         });
       }
       // Return the resolved inspection id so the Complete handler can pass a
@@ -4113,11 +4263,27 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         section: currentSection,
         error: err?.message || String(err),
       });
-      toast({
-        title: 'Save Failed',
-        description: err?.message || 'Failed to save inspection data',
-        variant: 'destructive',
-      });
+      if (isNetworkLevelError(err)) {
+        lastSaveFailedOfflineRef.current = true;
+        toast({
+          title: (
+            <span className="flex items-center gap-2">
+              <WifiOff className="h-5 w-5 shrink-0" />
+              You're offline — not saved to the server
+            </span>
+          ),
+          description:
+            "Your changes are only on this device for now. Keep this form open — it will save to the server automatically once you're back online.",
+          className: OFFLINE_TOAST_CLASS,
+          duration: 8000,
+        });
+      } else {
+        toast({
+          title: 'Save Failed',
+          description: err?.message || 'Failed to save inspection data',
+          variant: 'destructive',
+        });
+      }
       return currentInspectionId;
     } finally {
       setIsSaving(false);
@@ -4278,6 +4444,27 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         // sets currentInspectionId via async state, which is stale here on a
         // brand-new inspection completed in a single render).
         const savedInspectionId = await handleSave();
+
+        // Offline guard: handleSave swallows its own errors, so without this
+        // check an offline Complete would sail on to a "Inspection Complete /
+        // Inspection saved" toast while nothing reached the server. Stop here
+        // with honest messaging; the form stays open so auto-save can retry.
+        if (lastSaveFailedOfflineRef.current) {
+          toast({
+            title: (
+              <span className="flex items-center gap-2">
+                <WifiOff className="h-5 w-5 shrink-0" />
+                You're offline — inspection not submitted
+              </span>
+            ),
+            description:
+              "Nothing was sent to the server. Your work is kept on this device — keep this form open and tap Complete again once you're back online.",
+            className: OFFLINE_TOAST_CLASS,
+            duration: 10000,
+          });
+          return;
+        }
+
         const effectiveInspectionId = savedInspectionId ?? currentInspectionId;
 
         // 2. Generate AI summary via edge function. The EF requires a valid
@@ -4335,11 +4522,26 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           inspectionId: currentInspectionId,
           error: err?.message || String(err),
         });
-        toast({
-          title: 'Error',
-          description: err?.message || 'Failed to complete inspection. Please try again.',
-          variant: 'destructive',
-        });
+        if (isNetworkLevelError(err)) {
+          toast({
+            title: (
+              <span className="flex items-center gap-2">
+                <WifiOff className="h-5 w-5 shrink-0" />
+                You're offline — inspection not submitted
+              </span>
+            ),
+            description:
+              "Nothing was sent to the server. Your work is kept on this device — keep this form open and tap Complete again once you're back online.",
+            className: OFFLINE_TOAST_CLASS,
+            duration: 10000,
+          });
+        } else {
+          toast({
+            title: 'Error',
+            description: err?.message || 'Failed to complete inspection. Please try again.',
+            variant: 'destructive',
+          });
+        }
       } finally {
         setIsCompleting(false);
       }

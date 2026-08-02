@@ -292,7 +292,7 @@
       <p>A quick plain-English rundown of the pricing and billing changes now live in the system.</p>
 
       <ul>
-        <li><strong>Multi-day jobs now get cheaper per day, automatically.</strong> We've moved away from the old "work out a percentage discount" approach. Now each day on a job is simply priced a bit lower than the day before — Day 2 costs less than Day 1, Day 3 less again, down to a floor rate. The multi-day saving is built straight into the rates, so there's no separate discount to calculate or apply by hand. Longer jobs come out cheaper per day without anyone doing the maths.</li>
+        <li><strong>Multi-day jobs now get cheaper per day, automatically.</strong> We've moved away from the old "work out a percentage discount" approach. Now each day on a job is simply priced a bit lower than the day before — Day 2 costs less than Day 1, Day 3 less again, down to a floor rate. The multi-day saving is built straight into the rates, so there's no separate discount to calculate or apply by hand. Longer jobs come out cheaper per day without anyone doing the maths. (If you ever want to give a customer an extra discount on top, that's still available — capped at 13%, same as before.)</li>
 
         <li><strong>The AFD is now the "HEPA Air Scrubber" — and it's now billed.</strong> Same piece of equipment, clearer name. It's charged at <strong>$100 per unit, per day</strong>. Previously we recorded that it was used but never actually put it on the bill, so that usage was going out for free. Now it's captured on the job completion form and flows through onto the invoice.</li>
 
@@ -301,9 +301,8 @@
         <li><strong>Fixed a data-safety bug on job completion.</strong> Before, if a save failed at the wrong moment (say the connection dropped), a job could get marked "submitted" with incomplete details behind it. That can't happen quietly anymore — if the save doesn't go through, the system stops and tells the technician to try again, so nothing gets sent based on half-saved information.</li>
       </ul>
 
-      <div class="flag">
-        <span class="flag-label">&#9888; Dehumidifier rate — needs a final decision</span>
-        <p>The system is charging <strong>$119 per day</strong> for the dehumidifier. Some of our older reference notes say $132 per day. $119 is what the software actually bills right now. We need a final call from you two on which figure is correct <strong>before more invoices go out</strong>, so every job charges the same number.</p>
+      <div class="side-note">
+        <strong>Dehumidifier rate — confirmed $119/day.</strong> This matches the MRC Pricing Reference, so it's settled: $119 is correct. The old $132 figure floating in some notes is out of date and can be ignored. Nothing to change — the system is already billing the right number.
       </div>
     </div>
 
@@ -317,36 +316,49 @@
         <li>
           <span class="pipeline-step-num">1</span>
           <span class="pipeline-step-body">
-            <strong>Connect the website form to the live system</strong>
-            <span>Hook up the Framer enquiry form so submissions flow straight in.</span>
+            <strong>Start the email domain setup first</strong>
+            <span>Add the DNS records for mouldandrestoration.com.au and wait for the email service to show it as "verified." Do this first thing, because it can take a few hours to go through — kicking it off early means it's ready by the time we need it.</span>
           </span>
         </li>
         <li>
           <span class="pipeline-step-num">2</span>
+          <span class="pipeline-step-body">
+            <strong>Connect the website form to the live system</strong>
+            <span>Hook up the Framer enquiry form so submissions flow straight in. (This doesn't depend on the email setup, so it can happen while that's still verifying.)</span>
+          </span>
+        </li>
+        <li>
+          <span class="pipeline-step-num">3</span>
           <span class="pipeline-step-body">
             <strong>Confirm the notification email</strong>
             <span>Make sure new-enquiry alerts go to admin@mouldandrestoration.com.au.</span>
           </span>
         </li>
         <li>
-          <span class="pipeline-step-num">3</span>
+          <span class="pipeline-step-num">4</span>
           <span class="pipeline-step-body">
             <strong>Run one real test enquiry</strong>
             <span>Submit an actual enquiry through the website and confirm it appears correctly in the system before we trust it.</span>
           </span>
         </li>
         <li>
-          <span class="pipeline-step-num">4</span>
+          <span class="pipeline-step-num">5</span>
+          <span class="pipeline-step-body">
+            <strong>Switch our sending address and test it</strong>
+            <span>Once the domain shows "verified" (from step 1), switch our emails to send from mouldandrestoration.com.au, then send a test booking confirmation and a test report and check they land in the inbox — not spam. If the domain isn't verified in time, don't hold up the launch: leave emails on the current working address for now and do this switch a little later. Either way is fine.</span>
+          </span>
+        </li>
+        <li>
+          <span class="pipeline-step-num">6</span>
           <span class="pipeline-step-body">
             <strong>Publish the new website</strong>
-            <span>This stays unpublished until everything above is confirmed working. It's the last switch we flip.</span>
+            <span>This stays unpublished until the steps above are confirmed working. It's the last switch we flip.</span>
           </span>
         </li>
       </ol>
 
-      <div class="flag">
-        <span class="flag-label">&#9888; Not happening this weekend</span>
-        <p>The email <strong>sending</strong> switch — sending our emails from mouldandrestoration.com.au — is a <strong>separate, later step</strong>. It only happens once the DNS setup is done and checked. For now, emails keep going out from the current working address, which is fine. Don't bundle this into the weekend.</p>
+      <div class="side-note">
+        <strong>How we're starting — the clean way:</strong> from the moment we switch on, only <strong>new</strong> enquiries coming in through the website flow into the new system. Any older jobs that are already part-way through stay in ServiceM8 and get finished off there — we don't move a job mid-flight. Once we're running fully on the new system, Michael will bring all the past ServiceM8 records across into our database for the record. This keeps the changeover simple and low-risk.
       </div>
     </div>
 

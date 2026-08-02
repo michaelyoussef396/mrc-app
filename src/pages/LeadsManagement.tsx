@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { generateInspectionPDF } from '@/lib/api/pdfGeneration';
@@ -71,8 +71,8 @@ const statusOptions: StatusOption[] = [
   { value: 'inspection_email_approval', label: 'Email Approval', dotColor: 'bg-purple-500' },
   { value: 'job_waiting', label: 'Awaiting Job', dotColor: 'bg-amber-500' },
   { value: 'job_scheduled', label: 'Job Scheduled', dotColor: 'bg-blue-500' },
-  { value: 'pending_review', label: 'Pending Review', dotColor: 'bg-yellow-500' },
   { value: 'job_completed', label: 'Job Completed', dotColor: 'bg-emerald-500' },
+  { value: 'pending_review', label: 'Pending Review', dotColor: 'bg-yellow-500' },
   { value: 'job_report_pdf_sent', label: 'Report Sent', dotColor: 'bg-sky-500' },
   { value: 'invoicing_sent', label: 'Invoice Sent', dotColor: 'bg-fuchsia-500' },
   { value: 'paid', label: 'Paid', dotColor: 'bg-green-600' },
@@ -81,6 +81,10 @@ const statusOptions: StatusOption[] = [
   { value: 'closed', label: 'Closed', dotColor: 'bg-blue-500' },
   { value: 'not_landed', label: 'Not Landed', dotColor: 'bg-red-500' },
 ];
+
+// A ?status= value is only honoured when it matches a real pipeline tab
+const isValidStatusFilter = (value: string | null): value is string =>
+  value !== null && statusOptions.some((option) => option.value === value);
 
 // ============================================================================
 // HELPERS
@@ -136,6 +140,8 @@ const LEAD_COLUMNS = 'id,full_name,email,phone,property_address_street,property_
 const LeadsManagement = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const statusParam = searchParams.get('status');
 
   // State
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -144,7 +150,14 @@ const LeadsManagement = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(
+    isValidStatusFilter(statusParam) ? statusParam : 'all'
+  );
+
+  // Keep the filter in sync when a deep link changes ?status= without remounting
+  useEffect(() => {
+    setStatusFilter(isValidStatusFilter(statusParam) ? statusParam : 'all');
+  }, [statusParam]);
   const [sortBy, setSortBy] = useState('newest');
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -710,8 +723,8 @@ const LeadsManagement = () => {
       });
 
       // 6. Build filename
-      const jobNumber = inspection.job_number || emailTargetLead.leadNumber || 'Report';
-      const filename = `MRC-${jobNumber}-Inspection-Report.pdf`;
+      const jobNumber = inspection.job_number || emailTargetLead.leadNumber || 'MRC';
+      const filename = `${jobNumber}-Inspection-Report.pdf`;
 
       // 7. Send email with PDF attachment
       await sendEmail({

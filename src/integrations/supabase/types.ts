@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -578,6 +578,8 @@ export type Database = {
           equipment_cost_ex_gst: number | null
           equipment_days: number | null
           gst_amount: number | null
+          hepa_air_scrubber_days: number | null
+          hepa_air_scrubber_qty: number | null
           hepa_vac: boolean | null
           home_sanitation_fogging: boolean | null
           id: string
@@ -659,6 +661,8 @@ export type Database = {
           equipment_cost_ex_gst?: number | null
           equipment_days?: number | null
           gst_amount?: number | null
+          hepa_air_scrubber_days?: number | null
+          hepa_air_scrubber_qty?: number | null
           hepa_vac?: boolean | null
           home_sanitation_fogging?: boolean | null
           id?: string
@@ -740,6 +744,8 @@ export type Database = {
           equipment_cost_ex_gst?: number | null
           equipment_days?: number | null
           gst_amount?: number | null
+          hepa_air_scrubber_days?: number | null
+          hepa_air_scrubber_qty?: number | null
           hepa_vac?: boolean | null
           home_sanitation_fogging?: boolean | null
           id?: string
@@ -994,6 +1000,9 @@ export type Database = {
           actual_dehumidifier_qty: number
           actual_rcd_days: number
           actual_rcd_qty: number
+          actual_waste_disposal_cost: number | null
+          actual_waste_disposal_is_overridden: boolean | null
+          actual_waste_disposal_m3: number | null
           additional_notes: string | null
           address_snapshot: string | null
           areas_treated: string[] | null
@@ -1035,10 +1044,14 @@ export type Database = {
           pdf_url: string | null
           pdf_version: number
           premises_type: string | null
+          quoted_afd_days: number | null
+          quoted_afd_qty: number | null
           quoted_air_mover_qty: number
           quoted_dehumidifier_qty: number
           quoted_equipment_days: number
           quoted_rcd_qty: number
+          quoted_waste_disposal_cost: number | null
+          quoted_waste_disposal_m3: number | null
           remediation_completed_by: string | null
           request_review: boolean
           requested_by: string | null
@@ -1063,6 +1076,9 @@ export type Database = {
           actual_dehumidifier_qty?: number
           actual_rcd_days?: number
           actual_rcd_qty?: number
+          actual_waste_disposal_cost?: number | null
+          actual_waste_disposal_is_overridden?: boolean | null
+          actual_waste_disposal_m3?: number | null
           additional_notes?: string | null
           address_snapshot?: string | null
           areas_treated?: string[] | null
@@ -1104,10 +1120,14 @@ export type Database = {
           pdf_url?: string | null
           pdf_version?: number
           premises_type?: string | null
+          quoted_afd_days?: number | null
+          quoted_afd_qty?: number | null
           quoted_air_mover_qty?: number
           quoted_dehumidifier_qty?: number
           quoted_equipment_days?: number
           quoted_rcd_qty?: number
+          quoted_waste_disposal_cost?: number | null
+          quoted_waste_disposal_m3?: number | null
           remediation_completed_by?: string | null
           request_review?: boolean
           requested_by?: string | null
@@ -1132,6 +1152,9 @@ export type Database = {
           actual_dehumidifier_qty?: number
           actual_rcd_days?: number
           actual_rcd_qty?: number
+          actual_waste_disposal_cost?: number | null
+          actual_waste_disposal_is_overridden?: boolean | null
+          actual_waste_disposal_m3?: number | null
           additional_notes?: string | null
           address_snapshot?: string | null
           areas_treated?: string[] | null
@@ -1173,10 +1196,14 @@ export type Database = {
           pdf_url?: string | null
           pdf_version?: number
           premises_type?: string | null
+          quoted_afd_days?: number | null
+          quoted_afd_qty?: number | null
           quoted_air_mover_qty?: number
           quoted_dehumidifier_qty?: number
           quoted_equipment_days?: number
           quoted_rcd_qty?: number
+          quoted_waste_disposal_cost?: number | null
+          quoted_waste_disposal_m3?: number | null
           remediation_completed_by?: string | null
           request_review?: boolean
           requested_by?: string | null

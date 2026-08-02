@@ -3,16 +3,6 @@ import { captureBusinessError, addBusinessBreadcrumb } from '@/lib/sentry'
 import type { JobCompletionFormData, JobCompletionRow } from '@/types/jobCompletion'
 
 /**
- * Generate a unique job number.
- * Format: JOB-YYYY-XXXX (different from inspection MRC-YYYY-XXXX)
- */
-function generateJobNumber(): string {
-  const year = new Date().getFullYear()
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
-  return `JOB-${year}-${random}`
-}
-
-/**
  * Map camelCase form data to snake_case database columns.
  * Only includes fields that have changed (partial update safe).
  */
@@ -63,6 +53,12 @@ function formDataToRow(data: Partial<JobCompletionFormData>): Record<string, unk
   if (data.actualHepaAirScrubberDays !== undefined) row.actual_afd_days = data.actualHepaAirScrubberDays
   if (data.actualRcdQty !== undefined) row.actual_rcd_qty = data.actualRcdQty
   if (data.actualRcdDays !== undefined) row.actual_rcd_days = data.actualRcdDays
+
+  // Section 7: Waste disposal actuals. Quoted waste/HEPA fields are snapshot-only
+  // (written once by createJobCompletion) — never written from form data.
+  if (data.actualWasteM3 !== undefined) row.actual_waste_disposal_m3 = data.actualWasteM3
+  if (data.actualWasteCost !== undefined) row.actual_waste_disposal_cost = data.actualWasteCost
+  if (data.actualWasteIsOverridden !== undefined) row.actual_waste_disposal_is_overridden = data.actualWasteIsOverridden
 
   // Section 8: Variations
   if (data.scopeChanged !== undefined) row.scope_changed = data.scopeChanged
@@ -115,41 +111,65 @@ export async function createJobCompletion(
     lead.property_address_postcode ? `VIC ${lead.property_address_postcode}` : '',
   ].filter(Boolean).join(', ')
 
-  // Snapshot quoted equipment from inspection
+  // Snapshot quoted equipment from inspection.
+  // HEPA/waste quoted fields stay NULL when never quoted (legacy inspections) —
+  // distinct from an explicit 0, which means "quoted none".
   let quotedDehumidifierQty = 0
   let quotedAirMoverQty = 0
   let quotedRcdQty = 0
   let quotedEquipmentDays = 0
+  let quotedHepaAirScrubberQty: number | null = null
+  let quotedHepaAirScrubberDays: number | null = null
+  let quotedWasteM3: number | null = null
+  let quotedWasteCost: number | null = null
   let attentionTo = ''
   let areasTreated: string[] = []
 
   if (inspectionId) {
-    const { data: inspection } = await supabase
+    const { data: inspection, error: inspectionError } = await supabase
       .from('inspections')
-      .select('commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty, equipment_days, attention_to, treatment_methods')
+      .select('commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty, equipment_days, attention_to, treatment_methods, hepa_air_scrubber_qty, hepa_air_scrubber_days, waste_disposal_m3, waste_disposal_confirmed_cost')
       .eq('id', inspectionId)
       .single()
+
+    // The quoted snapshot is written ONCE and never re-derived; proceeding on a
+    // failed fetch would permanently forge a "never quoted" baseline that is
+    // indistinguishable from a legacy row. Fail the create — it is retryable.
+    if (inspectionError) {
+      captureBusinessError('Failed to fetch inspection for job completion quote snapshot', {
+        leadId, inspectionId, error: inspectionError.message,
+      })
+      throw new Error(`Failed to load the inspection quote snapshot: ${inspectionError.message}`)
+    }
 
     if (inspection) {
       quotedDehumidifierQty = inspection.commercial_dehumidifier_qty ?? 0
       quotedAirMoverQty = inspection.air_movers_qty ?? 0
       quotedRcdQty = inspection.rcd_box_qty ?? 0
       quotedEquipmentDays = inspection.equipment_days ?? 0
+      quotedHepaAirScrubberQty = inspection.hepa_air_scrubber_qty ?? null
+      // Resolve HEPA days at snapshot time (own days → shared equipment days) so
+      // the job never has to re-derive them later.
+      quotedHepaAirScrubberDays = inspection.hepa_air_scrubber_qty != null
+        ? (inspection.hepa_air_scrubber_days ?? inspection.equipment_days ?? null)
+        : null
+      quotedWasteM3 = inspection.waste_disposal_m3 ?? null
+      quotedWasteCost = inspection.waste_disposal_confirmed_cost ?? null
       attentionTo = inspection.attention_to ?? ''
-      // NOTE(waste-disposal): job-completion waste actuals are DEFERRED (Brief 2).
-      // When Section 7 gets a waste row, also SELECT waste_disposal_m3 /
-      // waste_disposal_confirmed_cost above and snapshot them into
-      // quoted_waste_disposal_m3 / quoted_waste_disposal_cost here, then persist the
-      // tech's actuals (actual_waste_disposal_*). Requires applying
-      // supabase/migrations/20260624113911_job_completion_waste.sql first.
     }
 
-    // Pre-populate areas treated from inspection areas
-    const { data: areas } = await supabase
+    // Pre-populate areas treated from inspection areas. Non-fatal on failure —
+    // an empty pre-fill is visible in Section 2 and the tech ticks areas manually.
+    const { data: areas, error: areasError } = await supabase
       .from('inspection_areas')
       .select('area_name')
       .eq('inspection_id', inspectionId)
       .order('area_order')
+    if (areasError) {
+      captureBusinessError('Failed to prefill areas treated from inspection', {
+        leadId, inspectionId, error: areasError.message,
+      })
+    }
 
     if (areas) {
       areasTreated = areas.map(a => a.area_name)
@@ -161,7 +181,6 @@ export async function createJobCompletion(
     .insert({
       lead_id: leadId,
       inspection_id: inspectionId,
-      job_number: generateJobNumber(),
       address_snapshot: addressSnapshot,
       requested_by: lead.full_name,
       attention_to: attentionTo,
@@ -172,6 +191,10 @@ export async function createJobCompletion(
       quoted_air_mover_qty: quotedAirMoverQty,
       quoted_rcd_qty: quotedRcdQty,
       quoted_equipment_days: quotedEquipmentDays,
+      quoted_afd_qty: quotedHepaAirScrubberQty,
+      quoted_afd_days: quotedHepaAirScrubberDays,
+      quoted_waste_disposal_m3: quotedWasteM3,
+      quoted_waste_disposal_cost: quotedWasteCost,
       status: 'draft',
     })
     .select()

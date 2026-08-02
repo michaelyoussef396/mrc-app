@@ -3,7 +3,7 @@ import { ClipboardList } from 'lucide-react';interface WorkloadBreakdownProps {
   scheduled: number;
   inProgress: number;
   completed: number;
-  cancelled: number;
+  notLanded: number;
 }
 
 interface LegendItemProps {
@@ -37,9 +37,9 @@ export function WorkloadBreakdown({
   scheduled,
   inProgress,
   completed,
-  cancelled,
+  notLanded,
 }: WorkloadBreakdownProps) {
-  const total = scheduled + inProgress + completed + cancelled;
+  const total = scheduled + inProgress + completed + notLanded;
 
   // Calculate percentages
   const getPercentage = (value: number) => {
@@ -50,14 +50,14 @@ export function WorkloadBreakdown({
   const scheduledPct = getPercentage(scheduled);
   const inProgressPct = getPercentage(inProgress);
   const completedPct = getPercentage(completed);
-  const cancelledPct = getPercentage(cancelled);
+  const notLandedPct = getPercentage(notLanded);
 
   // Colors
   const colors = {
     scheduled: '#007AFF',
     inProgress: '#FF9500',
     completed: '#34C759',
-    cancelled: '#8E8E93',
+    notLanded: '#8E8E93',
   };
 
   return (
@@ -109,12 +109,12 @@ export function WorkloadBreakdown({
                 }}
               />
             )}
-            {cancelledPct > 0 && (
+            {notLandedPct > 0 && (
               <div
                 className="h-full transition-all"
                 style={{
-                  width: `${cancelledPct}%`,
-                  backgroundColor: colors.cancelled,
+                  width: `${notLandedPct}%`,
+                  backgroundColor: colors.notLanded,
                 }}
               />
             )}
@@ -141,16 +141,16 @@ export function WorkloadBreakdown({
               percentage={completedPct}
             />
             <LegendItem
-              color={colors.cancelled}
-              label="Cancelled"
-              count={cancelled}
-              percentage={cancelledPct}
+              color={colors.notLanded}
+              label="Not Landed"
+              count={notLanded}
+              percentage={notLandedPct}
             />
           </div>
         </>
       ) : (
         <div className="text-center py-8">
-          <ClipboardList className="h-8 w-8 mb-2" style={{ color: '#617589' }} />
+          <ClipboardList className="h-8 w-8 mb-2 mx-auto" style={{ color: '#617589' }} />
           <p className="text-sm" style={{ color: '#617589' }}>
             No workload data available
           </p>

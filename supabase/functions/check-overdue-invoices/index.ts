@@ -1,12 +1,28 @@
 // Supabase Edge Function: check-overdue-invoices
-// Runs daily via cron to flag overdue invoices and send Slack alerts.
-// Cron schedule must be configured in Supabase dashboard or via pg_cron:
-//   daily at 23:00 UTC (9am AEST)
+// Runs daily via cron (23:00 UTC = 9:00am AEST) to flag overdue invoices and
+// post ONE Slack digest per run. Cron schedule lives in
+// 20260601120000_fix_cron_auth_headers.sql (auth header from Vault).
 //
 // Logic:
-// 1. Query invoices WHERE status = 'sent' AND due_date < CURRENT_DATE
-// 2. For each: update status to 'overdue', insert activity log, Slack alert
-// 3. At milestone days (15/22/29/30/60) past due: extra Slack reminders
+// 1. All day-math is in the Australia/Melbourne calendar day — daysOverdue here
+//    must agree with src/lib/calculations/penaltyLadder.ts (the canonical ladder),
+//    because admins act on the tier names in the digest.
+// 2. sent + past-due invoices transition to 'overdue' via the audited RPC
+//    (audited_mark_invoice_overdue — SYSTEM_USER_UUID attribution, see
+//    docs/edge-function-attribution-manifest.md Bucket B).
+// 3. Idempotency: duplicate deliveries of the same cron tick (observed 28 Jul —
+//    two invocations 35ms apart) must no-op. The guard derives from the EF's own
+//    persisted effects — the atomic sent→overdue transition plus the activity
+//    rows each action writes — so a second same-day invocation finds nothing to
+//    flag, no milestone left to record, and therefore posts no Slack. No new
+//    schema needed.
+// 4. Slack: one digest per run, only when something happened. The digest is
+//    informational — MRC never auto-contacts customers; the admin does.
+//
+// Manual invocation (safe to repeat):
+//   POST {}                → real run, respects the idempotency guard
+//   POST {"dryRun": true}  → computes everything, writes NOTHING, posts the
+//                            digest prefixed [DRY RUN] (posts nothing if empty)
 //
 // NOTE: Does NOT auto-charge late fees. Admin handles fee charges manually.
 
@@ -18,16 +34,33 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const MILESTONE_DAYS = [15, 22, 29, 30, 60] as const
-const MILESTONE_MESSAGES: Record<number, string> = {
-  15: 'First reminder — $65 late fee applies (admin to charge manually)',
-  22: 'Second reminder — payment still outstanding',
-  29: 'Final notice — warranty at risk',
-  30: 'WARRANTY VOID — 30 days overdue',
-  60: 'CREDIT DEFAULT WARNING — 60+ days overdue, escalate',
+const MELBOURNE_TZ = 'Australia/Melbourne'
+const MS_PER_DAY = 1000 * 60 * 60 * 24
+
+// Penalty-ladder tier boundaries (days past due). Canonical source:
+// src/lib/calculations/penaltyLadder.ts — keep in lockstep. A crossing fires
+// the day an invoice ENTERS a tier: 1 overdue, 8 second reminder, 15 final
+// notice, 16 warranty void, 29 ongoing.
+// (Replaces the legacy MILESTONE_DAYS [15,22,29,30,60], which had drifted from
+// the ladder — see the 29 Jul EF-wave report.)
+const TIER_BOUNDARY_DAYS = [1, 8, 15, 16, 29] as const
+
+// NOT a warranty tier — an admin escalation prompt beyond the ladder
+// ("stop chasing, escalate"). Kept separate from TIER_BOUNDARY_DAYS and
+// labelled distinctly so it can't be read as a ladder tier.
+const ESCALATION_DAY = 60
+const ESCALATION_LABEL = 'Admin escalation — stop chasing, escalate (not a warranty tier)'
+
+function ladderTierLabel(daysOverdue: number): string {
+  if (daysOverdue <= 0) return 'Current'
+  if (daysOverdue <= 7) return 'Overdue'
+  if (daysOverdue < 15) return 'Second Reminder'
+  if (daysOverdue === 15) return 'Final Notice'
+  if (daysOverdue < 29) return 'Warranty VOID'
+  return 'Warranty VOID — Ongoing'
 }
 
-interface OverdueInvoice {
+interface InvoiceRow {
   id: string
   invoice_number: string
   customer_name: string
@@ -37,20 +70,95 @@ interface OverdueInvoice {
   lead_id: string | null
 }
 
-function formatAUD(n: number): string {
-  return `$${Number(n).toFixed(2)}`
+interface DigestLine {
+  invoice_number: string
+  customer_name: string
+  total_amount: number
+  days_overdue: number
+  tier: string
 }
 
-async function postSlack(webhook: string, text: string): Promise<void> {
+// --- Melbourne date helpers (date-only arithmetic, DST-safe) -----------------
+
+/** YYYY-MM-DD of the current Melbourne calendar day. */
+function melbourneDateISO(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: MELBOURNE_TZ }).format(now)
+}
+
+/** A YYYY-MM-DD string as a UTC day number, for pure date subtraction. */
+function isoToDayNumber(iso: string): number {
+  const [y, m, d] = iso.split('-').map(Number)
+  return Date.UTC(y, m - 1, d) / MS_PER_DAY
+}
+
+/** Days the invoice is past due as of the given Melbourne calendar day. */
+function daysOverdueOn(dueDate: string, melTodayIso: string): number {
+  const diff = isoToDayNumber(melTodayIso) - isoToDayNumber(dueDate)
+  return diff > 0 ? diff : 0
+}
+
+/** DD/MM/YYYY for the digest heading. */
+function formatDateAU(iso: string): string {
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+function formatAUD(n: number): string {
+  return `$${Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+// Same posting pattern as send-slack-notification (shared SLACK_WEBHOOK_URL secret)
+async function postSlack(webhook: string, text: string): Promise<boolean> {
   try {
-    await fetch(webhook, {
+    const res = await fetch(webhook, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
     })
+    if (!res.ok) {
+      console.error('Slack API error:', await res.text())
+      return false
+    }
+    return true
   } catch (err) {
     console.error('Slack post failed:', err)
+    return false
   }
+}
+
+function buildDigest(
+  melTodayIso: string,
+  newlyFlagged: DigestLine[],
+  milestones: DigestLine[],
+  escalations: DigestLine[],
+  outstandingCount: number,
+  outstandingTotal: number,
+  dryRun: boolean,
+): string {
+  const lines: string[] = []
+  if (dryRun) lines.push('*[DRY RUN — no changes were written]*')
+  lines.push(`:receipt: *Overdue invoice digest — ${formatDateAU(melTodayIso)}*`)
+  if (newlyFlagged.length > 0) {
+    lines.push('*Newly overdue (flagged this run):*')
+    for (const f of newlyFlagged) {
+      lines.push(`• ${f.invoice_number} — ${f.customer_name} — ${formatAUD(f.total_amount)} — ${f.days_overdue} day${f.days_overdue === 1 ? '' : 's'} overdue (${f.tier})`)
+    }
+  }
+  if (milestones.length > 0) {
+    lines.push('*Penalty milestones reached today:*')
+    for (const m of milestones) {
+      lines.push(`• ${m.invoice_number} — ${m.customer_name} — day ${m.days_overdue} — entered *${m.tier}*`)
+    }
+  }
+  if (escalations.length > 0) {
+    lines.push('*Admin escalation (not a warranty tier):*')
+    for (const e of escalations) {
+      lines.push(`• ${e.invoice_number} — ${e.customer_name} — ${formatAUD(e.total_amount)} — ${e.days_overdue} days overdue — *stop chasing, escalate*`)
+    }
+  }
+  lines.push(`*Outstanding total:* ${outstandingCount} invoice${outstandingCount === 1 ? '' : 's'} — ${formatAUD(outstandingTotal)}`)
+  lines.push('_No customer has been contacted — review and follow up from the <https://www.mrcsystem.com/admin|dashboard>._')
+  return lines.join('\n')
 }
 
 Deno.serve(async (req) => {
@@ -69,20 +177,29 @@ Deno.serve(async (req) => {
     console.error('[check-overdue-invoices] SYSTEM_USER_UUID env var not set — audit attribution will be NULL')
   }
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const todayISO = today.toISOString().split('T')[0]
+  let dryRun = false
+  try {
+    const body = await req.json()
+    dryRun = body?.dryRun === true
+  } catch {
+    // empty body (cron sends {}) — real run
+  }
 
-  let overdueCount = 0
-  let milestoneAlerts = 0
+  const melToday = melbourneDateISO()
+
+  const newlyFlagged: DigestLine[] = []
+  const milestones: DigestLine[] = []
+  const escalations: DigestLine[] = []
   const errors: string[] = []
 
   try {
+    // Past-due candidates. due_date is a DATE column, so comparing against the
+    // Melbourne calendar day keeps the whole run in Melbourne reckoning.
     const { data: invoices, error } = await supabase
       .from('invoices')
       .select('id, invoice_number, customer_name, total_amount, due_date, status, lead_id')
       .in('status', ['sent', 'overdue'])
-      .lt('due_date', todayISO)
+      .lt('due_date', melToday)
 
     if (error) {
       console.error('Query failed:', error)
@@ -92,19 +209,66 @@ Deno.serve(async (req) => {
       )
     }
 
-    const rows = (invoices ?? []) as OverdueInvoice[]
+    const rows = (invoices ?? []) as InvoiceRow[]
+
+    // Idempotency lookup: activity rows already written today (Melbourne) by an
+    // earlier invocation. 26h window then exact Melbourne-day filter client-side,
+    // which avoids computing the UTC instant of Melbourne midnight across DST.
+    const lookbackISO = new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString()
+    const { data: todaysActivities, error: actErr } = await supabase
+      .from('activities')
+      .select('activity_type, title, description, lead_id, created_at')
+      .in('activity_type', ['invoice_overdue', 'invoice_milestone'])
+      .gte('created_at', lookbackISO)
+    if (actErr) {
+      // Guard data unavailable — safer to abort a real run than risk duplicate
+      // writes/digests. Dry runs can continue (they write nothing).
+      if (!dryRun) {
+        return new Response(
+          JSON.stringify({ error: `Idempotency lookup failed: ${actErr.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
+    }
+    const doneToday = new Set(
+      (todaysActivities ?? [])
+        .filter((a) => melbourneDateISO(new Date(a.created_at)) === melToday)
+        .map((a) => `${a.activity_type}:${a.lead_id}:${a.description?.match(/INV-\d{4}-\d{4}/)?.[0] ?? ''}`),
+    )
 
     for (const inv of rows) {
       try {
-        const dueDate = new Date(inv.due_date + 'T00:00:00')
-        const diffMs = today.getTime() - dueDate.getTime()
-        const daysOverdue = Math.round(diffMs / (1000 * 60 * 60 * 24))
+        const daysOverdue = daysOverdueOn(inv.due_date, melToday)
+        if (daysOverdue <= 0) continue
+        const tier = ladderTierLabel(daysOverdue)
 
-        // First-time transition from sent -> overdue.
-        // Audited write: routed through audited_mark_invoice_overdue RPC so
-        // set_config('app.acting_user_id', SYSTEM_USER_UUID) and the UPDATE
-        // run in one transaction. See docs/edge-function-attribution-manifest.md.
+        // ---- sent → overdue transition -----------------------------------
         if (inv.status === 'sent') {
+          const flagKey = `invoice_overdue:${inv.lead_id}:${inv.invoice_number}`
+          // Guard 2: an earlier invocation already flagged it today
+          if (doneToday.has(flagKey)) continue
+
+          // Guard 1: re-read the status — the atomic transition is the
+          // tie-breaker between near-simultaneous invocations
+          const { data: fresh, error: freshErr } = await supabase
+            .from('invoices')
+            .select('status')
+            .eq('id', inv.id)
+            .single()
+          if (freshErr) {
+            errors.push(`Re-read failed for ${inv.invoice_number}: ${freshErr.message}`)
+            continue
+          }
+          if (fresh.status !== 'sent') continue // another invocation won the race
+
+          if (dryRun) {
+            newlyFlagged.push({ invoice_number: inv.invoice_number, customer_name: inv.customer_name, total_amount: inv.total_amount, days_overdue: daysOverdue, tier })
+            continue
+          }
+
+          // Audited write: routed through audited_mark_invoice_overdue RPC so
+          // set_config('app.acting_user_id', SYSTEM_USER_UUID) and the UPDATE
+          // run in one transaction. See docs/edge-function-attribution-manifest.md.
           const { error: updateErr } = await supabase.rpc('audited_mark_invoice_overdue', {
             p_acting_user_id: SYSTEM_USER_UUID || null,
             p_invoice_id: inv.id,
@@ -113,7 +277,6 @@ Deno.serve(async (req) => {
             errors.push(`Failed to mark ${inv.invoice_number} overdue: ${updateErr.message}`)
             continue
           }
-          overdueCount++
 
           if (inv.lead_id) {
             await supabase.from('activities').insert({
@@ -123,33 +286,30 @@ Deno.serve(async (req) => {
               description: `Invoice ${inv.invoice_number} is ${daysOverdue} days overdue (${formatAUD(inv.total_amount)})`,
             })
           }
-
-          if (SLACK_WEBHOOK_URL) {
-            await postSlack(
-              SLACK_WEBHOOK_URL,
-              `⏰ Invoice ${inv.invoice_number} for ${inv.customer_name} is ${daysOverdue} day${daysOverdue === 1 ? '' : 's'} overdue — ${formatAUD(inv.total_amount)}. <https://www.mrcsystem.com/admin/leads|Open dashboard>`,
-            )
-          }
+          newlyFlagged.push({ invoice_number: inv.invoice_number, customer_name: inv.customer_name, total_amount: inv.total_amount, days_overdue: daysOverdue, tier })
         }
 
-        // Milestone reminders (exact-day match — cron runs daily so each fires once)
-        if (MILESTONE_DAYS.includes(daysOverdue as typeof MILESTONE_DAYS[number])) {
-          const milestoneText = MILESTONE_MESSAGES[daysOverdue]
-          if (SLACK_WEBHOOK_URL) {
-            await postSlack(
-              SLACK_WEBHOOK_URL,
-              `🚨 *${milestoneText}*\nInvoice ${inv.invoice_number} — ${inv.customer_name} — ${formatAUD(inv.total_amount)}\nDay ${daysOverdue} past due`,
-            )
-          }
-          if (inv.lead_id) {
+        // ---- penalty-ladder tier crossing / admin escalation -------------
+        const isTierBoundary = TIER_BOUNDARY_DAYS.includes(daysOverdue as typeof TIER_BOUNDARY_DAYS[number])
+        const isEscalation = daysOverdue === ESCALATION_DAY
+        if (isTierBoundary || isEscalation) {
+          const milestoneKey = `invoice_milestone:${inv.lead_id}:${inv.invoice_number}`
+          if (doneToday.has(milestoneKey)) continue
+
+          const label = isEscalation ? ESCALATION_LABEL : tier
+          if (!dryRun && inv.lead_id) {
             await supabase.from('activities').insert({
               lead_id: inv.lead_id,
               activity_type: 'invoice_milestone',
               title: `Invoice milestone: day ${daysOverdue}`,
-              description: milestoneText,
+              description: isEscalation
+                ? `Invoice ${inv.invoice_number} is ${daysOverdue} days past due — ${ESCALATION_LABEL}`
+                : `Invoice ${inv.invoice_number} entered penalty tier "${tier}" (day ${daysOverdue} past due)`,
             })
           }
-          milestoneAlerts++
+          const line: DigestLine = { invoice_number: inv.invoice_number, customer_name: inv.customer_name, total_amount: inv.total_amount, days_overdue: daysOverdue, tier: label }
+          if (isEscalation) escalations.push(line)
+          else milestones.push(line)
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
@@ -157,8 +317,44 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Running total: every issued-but-unpaid invoice (matches the dashboard's
+    // Outstanding Invoices widget: sent / viewed / overdue).
+    const { data: outstandingRows, error: outErr } = await supabase
+      .from('invoices')
+      .select('total_amount')
+      .in('status', ['sent', 'viewed', 'overdue'])
+    if (outErr) errors.push(`Outstanding total query failed: ${outErr.message}`)
+    const outstandingCount = outstandingRows?.length ?? 0
+    const outstandingTotal = (outstandingRows ?? []).reduce((sum, r) => sum + Number(r.total_amount ?? 0), 0)
+
+    // One digest per run, only when something happened this run.
+    let slackPosted = false
+    let digest: string | null = null
+    if (newlyFlagged.length + milestones.length + escalations.length > 0) {
+      digest = buildDigest(melToday, newlyFlagged, milestones, escalations, outstandingCount, outstandingTotal, dryRun)
+      if (SLACK_WEBHOOK_URL) {
+        slackPosted = await postSlack(SLACK_WEBHOOK_URL, digest)
+      } else {
+        console.warn('[check-overdue-invoices] SLACK_WEBHOOK_URL not set — digest not posted')
+      }
+    } else {
+      console.log(`[check-overdue-invoices] ${melToday}: nothing newly overdue, no tier crossings — no digest posted`)
+    }
+
     return new Response(
-      JSON.stringify({ success: true, overdueCount, milestoneAlerts, errors, checkedAt: new Date().toISOString() }),
+      JSON.stringify({
+        success: true,
+        dryRun,
+        melbourneDate: melToday,
+        newlyFlagged,
+        milestones,
+        escalations,
+        outstanding: { count: outstandingCount, total: Math.round(outstandingTotal * 100) / 100 },
+        slackPosted,
+        digest,
+        errors,
+        checkedAt: new Date().toISOString(),
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch (err) {

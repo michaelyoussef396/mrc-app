@@ -127,6 +127,10 @@ interface Inspection {
   commercial_dehumidifier_qty: number
   air_movers_qty: number
   rcd_box_qty: number
+  hepa_air_scrubber_qty: number | null
+  hepa_air_scrubber_days: number | null
+  waste_disposal_m3: number | null
+  waste_disposal_confirmed_cost: number | null
   treatment_methods: string[] | null
   option_selected: number | null
   option_1_total_inc_gst: number | null
@@ -313,19 +317,22 @@ const STEP_DESCRIPTIONS: Record<string, { label1: string; desc1: string; label2:
   },
 }
 
-// Generate numbered scope-of-work steps HTML for the PDF estimate page
+// Generate numbered scope-of-work steps HTML for the PDF estimate page.
+// Type scales with step count so long method lists stay inside the fixed
+// description areas on Page 8 (~186px for Option 1, ~194px for Option 2).
 function generateScopeStepsHtml(methods: string[], optionType: 1 | 2): string {
   if (!methods || methods.length === 0) return ''
-  const steps = methods
-    .filter(m => STEP_DESCRIPTIONS[m])
-    .map((m, i) => {
-      const desc = STEP_DESCRIPTIONS[m]
-      const label = optionType === 1 ? desc.label1 : desc.label2
-      const text = optionType === 1 ? desc.desc1 : desc.desc2
-      const isLast = i === methods.filter(mm => STEP_DESCRIPTIONS[mm]).length - 1
-      return `<div${isLast ? '' : ' style="margin-bottom: 3px;"'}><span style="font-weight: 700;">${i + 1}. ${label} —</span> ${text}</div>`
-    })
-  return steps.join('')
+  const known = methods.filter(m => STEP_DESCRIPTIONS[m])
+  if (known.length === 0) return ''
+  const [fontSize, lineHeight] = known.length <= 3 ? [14, 19] : known.length <= 5 ? [12, 16] : [10, 13]
+  const steps = known.map((m, i) => {
+    const desc = STEP_DESCRIPTIONS[m]
+    const label = optionType === 1 ? desc.label1 : desc.label2
+    const text = optionType === 1 ? desc.desc1 : desc.desc2
+    const isLast = i === known.length - 1
+    return `<div${isLast ? '' : ' style="margin-bottom: 3px;"'}><span style="font-weight: 700;">${i + 1}. ${label} —</span> ${text}</div>`
+  })
+  return `<div style="font-size: ${fontSize}px; line-height: ${lineHeight}px;">${steps.join('')}</div>`
 }
 
 // Get treatment methods as a list
@@ -351,6 +358,9 @@ function getEquipmentList(inspection: Inspection): string {
   }
   if (inspection.air_movers_qty > 0) {
     equipment.push(`${inspection.air_movers_qty}x Air Mover`)
+  }
+  if ((inspection.hepa_air_scrubber_qty ?? 0) > 0) {
+    equipment.push(`${inspection.hepa_air_scrubber_qty}x HEPA Air Scrubber`)
   }
   if (inspection.rcd_box_qty > 0) {
     equipment.push(`${inspection.rcd_box_qty}x RCD Safety Box`)
@@ -1405,10 +1415,16 @@ function generateReportHtml(
       ? demolitionAreas.map(a => `<strong>${escapeHtml(a.area_name)}:</strong> ${escapeHtml(a.demolition_description || 'Demolition work required.')}`).join('<br/><br/>')
       : ''
 
-  // Equipment pricing
+  // Equipment pricing — literals must match EQUIPMENT_RATES in src/lib/calculations/pricing.ts
+  // (dehumidifier 119, airMover 46, hepaAirScrubber 100, rcd 5); no shared constant across
+  // the Deno boundary, so keep them in sync by hand.
   const dehumidifierPrice = inspection.commercial_dehumidifier_qty > 0 ? `$119/day × ${inspection.commercial_dehumidifier_qty}` : '$119/day'
   const airMoverPrice = inspection.air_movers_qty > 0 ? `$46/day × ${inspection.air_movers_qty}` : '$46/day'
   const rcdBoxPrice = inspection.rcd_box_qty > 0 ? `$5/day × ${inspection.rcd_box_qty}` : '$5/day'
+  const hepaQty = inspection.hepa_air_scrubber_qty ?? 0
+  const hepaPrice = hepaQty > 0
+    ? `$100/day × ${hepaQty}${inspection.hepa_air_scrubber_days ? ` (${inspection.hepa_air_scrubber_days} days)` : ''}`
+    : '$100/day'
 
   // Start replacing placeholders in template
   let html = templateHtml
@@ -1528,61 +1544,27 @@ function generateReportHtml(
   const optionSelected = inspection.option_selected
     ?? ((hasDemolition || hasSubfloor) ? 2 : 1)
 
-  // Replace hardcoded scope-of-work steps with selected treatment methods
+  // Scope-of-work steps: the template carries {{option_1_steps}} / {{option_2_steps}}
+  // placeholders inside the fixed description areas; render the selected treatment
+  // methods into them, falling back to the historic static descriptions for legacy
+  // inspections with no treatment_methods. (Replaces the old indexOf position-marker
+  // surgery, which silently no-oped once the template's geometry changed.)
   const OPTION_2_ONLY = ['Material Demolition', 'Cavity Treatment', 'Debris Removal']
   const selectedMethods = inspection.treatment_methods && inspection.treatment_methods.length > 0
     ? inspection.treatment_methods
-    : [] // Fallback: empty = keep template defaults (backward compat for old inspections)
+    : []
   // Option 1 never includes Option 2-only methods
   const opt1Methods = selectedMethods.filter(m => !OPTION_2_ONLY.includes(m))
 
-  if (selectedMethods.length > 0) {
-    // Replace hardcoded steps using indexOf — regex fails on deeply nested divs
-    // Option 1 steps: container div starts at "top: 157px", ends before "top: 370px" sibling
-    const opt1Open = 'left: 33px; top: 157px;'
-    const opt1End = 'TOTAL ESTIMATED COST OF OPTION 1'
-    const opt1Idx = html.indexOf(opt1Open)
-    const opt1EndIdx = html.indexOf(opt1End)
-    if (opt1Idx > 0 && opt1EndIdx > opt1Idx) {
-      // Find the container div's opening tag start
-      const containerStart = html.lastIndexOf('<div', opt1Idx)
-      // Find the closing </div> right before the price label div
-      // The price label div starts with <div style="width: 222px; left: 286px; top: 370px
-      const priceDivMarker = 'top: 370px'
-      const priceDivIdx = html.indexOf(priceDivMarker, opt1Idx)
-      if (priceDivIdx > 0) {
-        const priceDivStart = html.lastIndexOf('<div', priceDivIdx)
-        // Everything from containerStart to priceDivStart is the steps container + its closing </div> + whitespace
-        const stepsContainerHtml = html.substring(containerStart, priceDivStart)
-        // Build replacement: same opening tag, new content, close tag
-        const openTagEnd = stepsContainerHtml.indexOf('>') + 1
-        const openTag = stepsContainerHtml.substring(0, openTagEnd)
-        const opt1StepsHtml = generateScopeStepsHtml(opt1Methods, 1)
-        const replacement = `${openTag}${opt1StepsHtml}</div>\n\n            `
-        html = html.substring(0, containerStart) + replacement + html.substring(priceDivStart)
-      }
-    }
+  const DEFAULT_OPTION_1_STEPS =
+    'A. Eradication of visible mould from all impacted zones as detailed in the prior report.<br/><br/>B. Diminishment of airborne mould spores within the property through sanitisation.'
+  const DEFAULT_OPTION_2_STEPS =
+    'A. Eradication of visible mould from all impacted zones as detailed in the prior report.<br/><br/>B. Removal of mould-affected materials and infrastructural components.<br/><br/>C. Diminishment of airborne mould spores within the property through sanitisation.<br/><br/>D. Proper Disposal and handling of removed mould-affected materials.'
 
-    // Option 2 steps: container div starts at "top: 470px", ends before "top: 696px" sibling
-    const opt2Open = 'left: 33px; top: 470px;'
-    const opt2End = 'TOTAL ESTIMATED COST OF OPTION 2'
-    const opt2Idx = html.indexOf(opt2Open)
-    const opt2EndIdx = html.indexOf(opt2End)
-    if (opt2Idx > 0 && opt2EndIdx > opt2Idx) {
-      const containerStart = html.lastIndexOf('<div', opt2Idx)
-      const priceDivMarker = 'top: 696px'
-      const priceDivIdx = html.indexOf(priceDivMarker, opt2Idx)
-      if (priceDivIdx > 0) {
-        const priceDivStart = html.lastIndexOf('<div', priceDivIdx)
-        const stepsContainerHtml = html.substring(containerStart, priceDivStart)
-        const openTagEnd = stepsContainerHtml.indexOf('>') + 1
-        const openTag = stepsContainerHtml.substring(0, openTagEnd)
-        const opt2StepsHtml = generateScopeStepsHtml(selectedMethods, 2)
-        const replacement = `${openTag}${opt2StepsHtml}</div>\n\n            `
-        html = html.substring(0, containerStart) + replacement + html.substring(priceDivStart)
-      }
-    }
-  }
+  const opt1StepsHtml = generateScopeStepsHtml(opt1Methods, 1) || DEFAULT_OPTION_1_STEPS
+  const opt2StepsHtml = generateScopeStepsHtml(selectedMethods, 2) || DEFAULT_OPTION_2_STEPS
+  html = html.replace(/\{\{option_1_steps\}\}/g, opt1StepsHtml)
+  html = html.replace(/\{\{option_2_steps\}\}/g, opt2StepsHtml)
 
   if (optionSelected === 3) {
     // "Both" mode: show each option's stored price
@@ -1599,10 +1581,22 @@ function generateReportHtml(
     html = html.replace(/\{\{option_1_price\}\}/g, optionSelected === 2 ? 'N/A' : `${formatCurrency(inspection.total_inc_gst)} +GST`)
     html = html.replace(/\{\{option_2_price\}\}/g, optionSelected === 2 ? `${formatCurrency(inspection.total_inc_gst)} +GST` : 'N/A')
   }
+  // Waste disposal — job-level pass-through. In Both mode the option totals deliberately
+  // exclude it (billed once, whichever option proceeds), so the line says so explicitly.
+  const wasteCost = Number(inspection.waste_disposal_confirmed_cost ?? 0)
+  const wasteM3 = inspection.waste_disposal_m3
+  const wasteLine = wasteCost > 0
+    ? optionSelected === 3
+      ? `Waste disposal — billed once: ${formatCurrency(wasteCost)} +GST`
+      : `Waste disposal: ${wasteM3 ? `${wasteM3} m³ — ` : ''}${formatCurrency(wasteCost)} +GST`
+    : 'Waste disposal: Not required'
+
   html = html.replace(/\{\{equipment_dehumidifier\}\}/g, dehumidifierPrice)
   html = html.replace(/\{\{equipment_air_mover\}\}/g, airMoverPrice)
   html = html.replace(/\{\{equipment_rcd_box\}\}/g, rcdBoxPrice)
+  html = html.replace(/\{\{equipment_hepa\}\}/g, hepaPrice)
   html = html.replace(/\{\{equipment_max_days\}\}/g, '5 days')
+  html = html.replace(/\{\{waste_disposal\}\}/g, wasteLine)
 
   // Clean up any remaining unreplaced placeholders
   html = html.replace(/\{\{[^}]+\}\}/g, '')

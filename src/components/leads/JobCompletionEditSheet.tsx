@@ -75,6 +75,9 @@ const SECTION_FIELD_MAPS: Record<
     actualHepaAirScrubberDays: 'HEPA Air Scrubber Days',
     actualRcdQty: 'RCD Qty',
     actualRcdDays: 'RCD Days',
+    actualWasteM3: 'Waste Disposal m³',
+    actualWasteCost: 'Waste Disposal Cost',
+    actualWasteIsOverridden: 'Waste Cost Overridden',
   },
   8: {
     scopeChanged: 'Scope Changed',

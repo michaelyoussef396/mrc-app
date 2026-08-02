@@ -285,7 +285,7 @@ export default function AdminTechnicianDetail() {
                 scheduled={technician.workloadScheduled}
                 inProgress={technician.workloadInProgress}
                 completed={technician.workloadCompleted}
-                cancelled={technician.workloadCancelled}
+                notLanded={technician.workloadNotLanded}
               />
 
               {/* Upcoming Jobs */}

@@ -721,9 +721,8 @@
         </tbody>
       </table>
 
-      <div class="flag" style="margin-top:16px;">
-        <span class="flag-label">&#9888; Dehumidifier rate — needs reconciling</span>
-        <p>The app currently uses <strong>$119 / day</strong> for the dehumidifier. Some reference documents (the PRD and CLAUDE.md) say $132 / day. This mismatch is unresolved and is being tracked as launch item L1 (equipment pricing audit) — the $119 figure is what the software actually charges today. Confirm the correct rate with Glen and Clayton and align all surfaces.</p>
+      <div class="side-note" style="margin-top:16px;">
+        <strong>Dehumidifier rate — confirmed $119 / day.</strong> The app charges $119 / day, and this is confirmed correct against the MRC Pricing Reference. The $132 figure in some older reference notes (PRD, CLAUDE.md) is out of date and should be treated as superseded. This closes the L1 dehumidifier-rate question.
       </div>
 
       <div class="flag" style="margin-top:12px;">
@@ -911,8 +910,8 @@
       </ol>
 
       <div class="flag">
-        <span class="flag-label">&#9888; Not part of launch weekend</span>
-        <p>The email <strong>domain DNS cutover</strong> (SPF, DKIM and DMARC records for the sending domain) is a separate, later item — it is <strong>not</strong> part of launch weekend and must not be bundled into it. It is tracked on its own in <code>docs/TODO.md</code>. Sending email stays on the current working domain until that DNS work is done and verified.</p>
+        <span class="flag-label">&#9888; Email domain setup — start this first</span>
+        <p>Decision (13 July 2026): the email <strong>domain setup</strong> (SPF, DKIM and DMARC records for the sending domain) is now part of launch weekend and should be <strong>started first</strong>, because verification can take a few hours. The actual switch of the sending address to mouldandrestoration.com.au must still wait until the domain shows <strong>verified</strong> — if it is not verified in time, leave sending on the current working domain and switch shortly after, rather than delaying the launch.</p>
       </div>
     </div>
 
@@ -920,12 +919,6 @@
     <div class="closing-box">
       <h2>&#9888; Decisions needed + Known issues</h2>
       <p style="color:#5a3d00; margin-bottom:20px; font-size:15px;">These items are not yet fully settled. No one should treat them as confirmed business rules until they are signed off.</p>
-
-      <div class="confirm-item">
-        <h3>Dehumidifier rate — $119 vs $132</h3>
-        <p>The software charges $119 per day for the dehumidifier. Some reference documents say $132. These need to be reconciled so every surface agrees.</p>
-        <p><strong>Decision needed:</strong> Confirm the correct dehumidifier day rate with Glen and Clayton, then align the app and the reference docs. Tracked as launch item L1 (equipment pricing audit).</p>
-      </div>
 
       <div class="confirm-item">
         <h3>HEPA Air Scrubber rate — confirm $100</h3>

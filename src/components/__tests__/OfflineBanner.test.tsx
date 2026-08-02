@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 
-// Mock useOfflineSync
+import OfflineBanner from '../OfflineBanner'
+import { useOfflineSync } from '@/lib/offline/useOfflineSync'
+
+// Mock useOfflineSync (read-only dependency — pendingCount/syncState display)
 vi.mock('@/lib/offline/useOfflineSync', () => ({
   useOfflineSync: vi.fn().mockReturnValue({
     syncState: 'offline',
@@ -11,84 +14,142 @@ vi.mock('@/lib/offline/useOfflineSync', () => ({
   }),
 }))
 
-describe('OfflineBanner', () => {
-  let originalOnLine: boolean
+const POLL_MS = 3000
 
+function setNavigatorOnLine(value: boolean) {
+  Object.defineProperty(window.navigator, 'onLine', {
+    value,
+    writable: true,
+    configurable: true,
+  })
+}
+
+const advance = (ms: number) => act(() => vi.advanceTimersByTime(ms))
+
+describe('OfflineBanner', () => {
   beforeEach(() => {
-    originalOnLine = navigator.onLine
-    vi.resetModules()
+    vi.useFakeTimers()
+    vi.mocked(useOfflineSync).mockReturnValue({
+      syncState: 'offline',
+      pendingCount: 0,
+      syncNow: vi.fn(),
+      lastSyncError: null,
+    })
   })
 
   afterEach(() => {
-    Object.defineProperty(navigator, 'onLine', { value: originalOnLine, writable: true })
+    vi.useRealTimers()
+    setNavigatorOnLine(true)
   })
 
-  it('is hidden when online', async () => {
-    Object.defineProperty(navigator, 'onLine', { value: true, writable: true })
-
-    const { default: OfflineBanner } = await import('../OfflineBanner')
-
+  it('is hidden when online', () => {
+    setNavigatorOnLine(true)
     const { container } = render(<OfflineBanner />)
     expect(container.innerHTML).toBe('')
   })
 
-  it('shows amber banner when offline', async () => {
-    Object.defineProperty(navigator, 'onLine', { value: false, writable: true })
-
-    const { default: OfflineBanner } = await import('../OfflineBanner')
-
+  it('shows amber banner when offline at mount', () => {
+    setNavigatorOnLine(false)
     render(<OfflineBanner />)
     const banner = screen.getByText(/offline/i).closest('div')
     expect(banner?.parentElement).toHaveClass('bg-amber-500')
   })
 
-  it('shows offline message text', async () => {
-    Object.defineProperty(navigator, 'onLine', { value: false, writable: true })
-
-    const { default: OfflineBanner } = await import('../OfflineBanner')
-
+  it('appears when the offline event fires', () => {
+    setNavigatorOnLine(true)
     render(<OfflineBanner />)
+    setNavigatorOnLine(false)
+    act(() => {
+      fireEvent(window, new Event('offline'))
+    })
     expect(screen.getByText(/offline/i)).toBeInTheDocument()
   })
 
-  it('shows pending count when there are pending changes', async () => {
-    Object.defineProperty(navigator, 'onLine', { value: false, writable: true })
+  it('appears via the poll when navigator.onLine flips without any event (iOS quirk)', () => {
+    setNavigatorOnLine(true)
+    render(<OfflineBanner />)
+    setNavigatorOnLine(false)
+    advance(POLL_MS + 100)
+    expect(screen.getByText(/offline/i)).toBeInTheDocument()
+  })
 
-    const { useOfflineSync } = await import('@/lib/offline/useOfflineSync')
+  it('hides via the poll when connectivity returns without any event', () => {
+    setNavigatorOnLine(false)
+    render(<OfflineBanner />)
+    setNavigatorOnLine(true)
+    advance(POLL_MS + 100)
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument()
+  })
+
+  it('re-checks connectivity on visibilitychange without waiting for the poll', () => {
+    setNavigatorOnLine(true)
+    render(<OfflineBanner />)
+    setNavigatorOnLine(false)
+    act(() => {
+      fireEvent(document, new Event('visibilitychange'))
+    })
+    expect(screen.getByText(/offline/i)).toBeInTheDocument()
+  })
+
+  it('re-checks connectivity on window focus without waiting for the poll', () => {
+    setNavigatorOnLine(true)
+    render(<OfflineBanner />)
+    setNavigatorOnLine(false)
+    act(() => {
+      fireEvent(window, new Event('focus'))
+    })
+    expect(screen.getByText(/offline/i)).toBeInTheDocument()
+  })
+
+  it('dismiss button hides banner', () => {
+    setNavigatorOnLine(false)
+    render(<OfflineBanner />)
+    fireEvent.click(screen.getByLabelText('Dismiss'))
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument()
+  })
+
+  it('poll does not resurrect a dismissed banner during the same offline spell', () => {
+    setNavigatorOnLine(false)
+    render(<OfflineBanner />)
+    fireEvent.click(screen.getByLabelText('Dismiss'))
+    advance(POLL_MS * 3)
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument()
+  })
+
+  it('dismissal resets on the next offline transition', () => {
+    setNavigatorOnLine(false)
+    render(<OfflineBanner />)
+    fireEvent.click(screen.getByLabelText('Dismiss'))
+    setNavigatorOnLine(true)
+    advance(POLL_MS + 100)
+    setNavigatorOnLine(false)
+    advance(POLL_MS + 100)
+    expect(screen.getByText(/offline/i)).toBeInTheDocument()
+  })
+
+  it('shows pending count when there are pending changes', () => {
+    setNavigatorOnLine(false)
     vi.mocked(useOfflineSync).mockReturnValue({
       syncState: 'offline',
       pendingCount: 3,
       syncNow: vi.fn(),
       lastSyncError: null,
     })
-
-    const { default: OfflineBanner } = await import('../OfflineBanner')
-
     render(<OfflineBanner />)
     expect(screen.getByText(/3 changes pending/i)).toBeInTheDocument()
   })
 
-  it('dismiss button hides banner', async () => {
-    Object.defineProperty(navigator, 'onLine', { value: false, writable: true })
-
-    const { default: OfflineBanner } = await import('../OfflineBanner')
-
+  it('states that new changes stay on this device when nothing is pending', () => {
+    setNavigatorOnLine(false)
     render(<OfflineBanner />)
-
-    const dismissBtn = screen.getByLabelText('Dismiss')
-    fireEvent.click(dismissBtn)
-
-    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument()
+    expect(
+      screen.getByText(/new changes stay on this device until you're back online/i),
+    ).toBeInTheDocument()
   })
 
-  it('dismiss button has 48px touch target', async () => {
-    Object.defineProperty(navigator, 'onLine', { value: false, writable: true })
-
-    const { default: OfflineBanner } = await import('../OfflineBanner')
-
+  it('dismiss button has 48px touch target', () => {
+    setNavigatorOnLine(false)
     render(<OfflineBanner />)
-
-    const dismissBtn = screen.getByLabelText('Dismiss')
-    expect(dismissBtn).toHaveStyle({ minWidth: '48px', minHeight: '48px' })
+    expect(screen.getByLabelText('Dismiss')).toHaveStyle({ minWidth: '48px', minHeight: '48px' })
   })
 })

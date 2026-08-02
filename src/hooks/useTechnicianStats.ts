@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { formatShortDateAU } from '@/lib/dateUtils';
+import { formatShortDateAU, parseLocalDate } from '@/lib/dateUtils';
+import { getPaidInvoices, sumPaidRevenueFor } from '@/lib/api/invoices';
 
 // ============================================================================
 // TYPES
@@ -15,9 +16,19 @@ export interface TechnicianWithStats {
   phone: string | null;
   homeSuburb: string | null;
   lastSignInAt: string | null;
-  // Stats
-  inspectionsThisWeek: number;
+  // Stats — all month-to-date except activeLeads/upcomingCount, which are "right now"
+  /** Open leads currently assigned to this technician. NOT an inspection count. */
+  activeLeads: number;
+  /**
+   * Every inspection this technician has carried out, by inspections.inspector_id.
+   * All-time on purpose: this card is a team roster, and a month-scoped count
+   * reads 0 for everyone during a quiet month. Per-period breakdowns live on the
+   * technician profile page.
+   */
+  inspectionsTotal: number;
+  /** Paid invoices credited to this technician. */
   revenueThisMonth: number;
+  /** Distinct upcoming engagements — a multi-day job counts once, not once per day. */
   upcomingCount: number;
   // Display
   initials: string;
@@ -168,33 +179,31 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
     const technicianUserIds = new Set(userRolesData.map(r => r.user_id));
     const technicians = allUsers.filter(user => technicianUserIds.has(user.id));
 
-    // Step 5: Fetch inspection stats for each technician
+    // Step 5: Fetch per-technician stats
     const techIds = technicians.map(t => t.id);
 
-    // Get inspections this week
-    const weekStart = new Date();
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
-    weekStart.setHours(0, 0, 0, 0);
-
+    const now = new Date();
     const monthStart = new Date();
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
 
     const { data: inspectionStats, error: inspectionError } = await supabase
       .from('inspections')
-      .select('inspector_id, inspection_date, total_inc_gst')
+      .select('inspector_id')
       .in('inspector_id', techIds);
 
     if (inspectionError) {
       console.warn('[useTechnicianStats] Inspection stats error:', inspectionError);
     }
 
-    // Step 6: Fetch upcoming bookings count
+    // Step 6: Upcoming bookings. lead_id + event_type let us collapse the daily
+    // rows of a multi-day job into a single engagement.
     const { data: upcomingBookings, error: bookingsError } = await supabase
       .from('calendar_bookings')
-      .select('assigned_to')
+      .select('assigned_to, lead_id, event_type, status')
       .in('assigned_to', techIds)
-      .gte('start_datetime', new Date().toISOString());
+      .neq('status', 'cancelled')
+      .gte('start_datetime', now.toISOString());
 
     if (bookingsError) {
       console.warn('[useTechnicianStats] Bookings fetch error:', bookingsError);
@@ -212,35 +221,44 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
       console.warn('[useTechnicianStats] Assigned leads fetch error:', assignedLeadsError);
     }
 
+    // Step 6c: Paid invoices this month, for real revenue attribution
+    let paidInvoices: Awaited<ReturnType<typeof getPaidInvoices>> = [];
+    try {
+      paidInvoices = await getPaidInvoices(monthStart, now);
+    } catch (revenueError) {
+      console.warn('[useTechnicianStats] Paid invoice fetch error:', revenueError);
+    }
+
     // Step 7: Calculate stats for each technician
-    const statsMap: Record<string, { inspectionsThisWeek: number; revenueThisMonth: number; upcomingCount: number }> = {};
+    const statsMap: Record<string, {
+      activeLeads: number;
+      inspectionsTotal: number;
+      upcomingKeys: Set<string>;
+    }> = {};
 
     techIds.forEach(id => {
-      statsMap[id] = { inspectionsThisWeek: 0, revenueThisMonth: 0, upcomingCount: 0 };
+      statsMap[id] = { activeLeads: 0, inspectionsTotal: 0, upcomingKeys: new Set() };
     });
 
-    // Count active assigned leads per technician (shown as "leads" in Team Workload)
-    (assignedLeads || []).forEach((lead: any) => {
+    (assignedLeads || []).forEach((lead: { assigned_to: string | null }) => {
       if (lead.assigned_to && statsMap[lead.assigned_to]) {
-        statsMap[lead.assigned_to].inspectionsThisWeek++;
+        statsMap[lead.assigned_to].activeLeads++;
       }
     });
 
-    // Revenue this month from completed inspections
-    (inspectionStats || []).forEach((insp: any) => {
-      if (insp.inspector_id && statsMap[insp.inspector_id]) {
-        const inspDate = new Date(insp.inspection_date);
-        if (inspDate >= monthStart && insp.total_inc_gst) {
-          statsMap[insp.inspector_id].revenueThisMonth += parseFloat(insp.total_inc_gst) || 0;
-        }
-      }
+    (inspectionStats || []).forEach((insp: { inspector_id: string | null }) => {
+      if (!insp.inspector_id || !statsMap[insp.inspector_id]) return;
+      statsMap[insp.inspector_id].inspectionsTotal++;
     });
 
-    // Count upcoming bookings
-    (upcomingBookings || []).forEach((booking: any) => {
-      if (booking.assigned_to && statsMap[booking.assigned_to]) {
-        statsMap[booking.assigned_to].upcomingCount++;
-      }
+    // One engagement per lead+type: a 6-day job is one upcoming job, not six.
+    (upcomingBookings || []).forEach((booking: {
+      assigned_to: string | null;
+      lead_id: string | null;
+      event_type: string | null;
+    }) => {
+      if (!booking.assigned_to || !statsMap[booking.assigned_to]) return;
+      statsMap[booking.assigned_to].upcomingKeys.add(`${booking.lead_id}|${booking.event_type}`);
     });
 
     // Step 8: Build final result
@@ -253,9 +271,10 @@ async function fetchTechniciansWithStats(): Promise<TechnicianWithStats[]> {
       phone: user.phone || null,
       homeSuburb: user.starting_address?.suburb || null,
       lastSignInAt: user.last_sign_in_at || null,
-      inspectionsThisWeek: statsMap[user.id]?.inspectionsThisWeek || 0,
-      revenueThisMonth: statsMap[user.id]?.revenueThisMonth || 0,
-      upcomingCount: statsMap[user.id]?.upcomingCount || 0,
+      activeLeads: statsMap[user.id]?.activeLeads || 0,
+      inspectionsTotal: statsMap[user.id]?.inspectionsTotal || 0,
+      revenueThisMonth: sumPaidRevenueFor(paidInvoices, user.id),
+      upcomingCount: statsMap[user.id]?.upcomingKeys.size || 0,
       initials: getInitials(user.first_name, user.last_name),
       color: getTechnicianColor(index),
     }));

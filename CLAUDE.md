@@ -41,7 +41,7 @@ the exact command; Michael runs it. Same discipline for migrations.
 
 - 13% discount cap (0.87 multiplier) — NEVER exceed
 - GST always 10% on subtotal
-- Equipment: Dehumidifier $132/day, Air Mover $46/day, RCD $5/day
+- Equipment: Dehumidifier $119/day, Air Mover $46/day, HEPA Air Scrubber $100/unit/day, RCD $5/day
 - Mobile-first: 375px primary, 48px touch targets, no horizontal scroll
 - Australian: DD/MM/YYYY, $X,XXX.XX, (03) XXXX XXXX, ABN XX XXX XXX XXX
 - Auto-save every 30 seconds on forms

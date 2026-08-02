@@ -14,6 +14,7 @@ import {
 
 import { JobCompletionRow } from '@/types/jobCompletion';
 import { formatDateAU } from '@/lib/dateUtils';
+import { formatCurrency } from '@/lib/calculations/pricing';
 
 // 1-hour TTL for signed photo URLs — long enough to outlive the page session
 const SIGNED_URL_TTL_SECONDS = 3600;
@@ -125,8 +126,8 @@ interface EquipmentRowData {
   label: string;
   actualQty: number;
   actualDays: number;
-  quotedQty: number | null;  // null = no quoted data for this type (HEPA Air Scrubber)
-  quotedDays: number | null; // null = no quoted data; tied to quoted_equipment_days
+  quotedQty: number | null;  // null = never quoted (legacy row) — distinct from an explicit 0
+  quotedDays: number | null; // null = no quoted data; falls back to quoted_equipment_days
 }
 
 function EquipmentRow({ row }: { row: EquipmentRowData }) {
@@ -290,8 +291,10 @@ export function JobCompletionSummary({
       label: 'HEPA Air Scrubber',
       actualQty: jobCompletion.actual_afd_qty,
       actualDays: jobCompletion.actual_afd_days,
-      quotedQty: null,
-      quotedDays: null,
+      quotedQty: jobCompletion.quoted_afd_qty ?? null,
+      // `|| null` (not `?? null`): legacy rows carry quoted_equipment_days 0, which must
+      // render as an em-dash, matching the Section7Equipment card's treatment.
+      quotedDays: jobCompletion.quoted_afd_days ?? (jobCompletion.quoted_equipment_days || null),
     },
     {
       label: 'RCD',
@@ -642,6 +645,54 @@ export function JobCompletionSummary({
               {equipmentRows.map((row) => (
                 <EquipmentRow key={row.label} row={row} />
               ))}
+
+              {/* Waste disposal — quoted vs actual (null = never quoted/entered) */}
+              <div className="rounded-lg border p-3 space-y-1 bg-gray-50 border-gray-200">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">Waste Disposal</p>
+                  {jobCompletion.actual_waste_disposal_is_overridden && (
+                    <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 text-xs font-medium">
+                      manually overridden
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-col md:flex-row md:gap-6 gap-0.5">
+                  <span className="text-sm text-[#86868b]">
+                    Quoted:{' '}
+                    {jobCompletion.quoted_waste_disposal_m3 !== null ||
+                    jobCompletion.quoted_waste_disposal_cost !== null ? (
+                      <strong>
+                        {jobCompletion.quoted_waste_disposal_m3 !== null
+                          ? `${jobCompletion.quoted_waste_disposal_m3} m³`
+                          : '—'}
+                        {' — '}
+                        {jobCompletion.quoted_waste_disposal_cost !== null
+                          ? formatCurrency(jobCompletion.quoted_waste_disposal_cost)
+                          : '—'}
+                      </strong>
+                    ) : (
+                      '—'
+                    )}
+                  </span>
+                  <span className="text-sm text-[#1d1d1f]">
+                    Actual:{' '}
+                    {jobCompletion.actual_waste_disposal_m3 !== null ||
+                    jobCompletion.actual_waste_disposal_cost !== null ? (
+                      <strong>
+                        {jobCompletion.actual_waste_disposal_m3 !== null
+                          ? `${jobCompletion.actual_waste_disposal_m3} m³`
+                          : '—'}
+                        {' — '}
+                        {jobCompletion.actual_waste_disposal_cost !== null
+                          ? formatCurrency(jobCompletion.actual_waste_disposal_cost)
+                          : '—'}
+                      </strong>
+                    ) : (
+                      '—'
+                    )}
+                  </span>
+                </div>
+              </div>
             </div>
           </AccordionContent>
         </AccordionItem>

@@ -351,7 +351,7 @@ Multi-Day Discount:
   - 24+ hours = Cap at 13% discount (multiply by 0.87)
 
 Equipment Costs (per day, excluding GST):
-- Dehumidifier: $132/day
+- Dehumidifier: $119/day
 - Air mover: $46/day
 - RCD box: $5/day
 

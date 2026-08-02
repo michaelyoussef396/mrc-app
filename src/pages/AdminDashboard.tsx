@@ -95,13 +95,13 @@ export default function AdminDashboard() {
   // Fetch unified activity timeline
   const { data: timelineEvents = [], isLoading: timelineLoading } = useActivityTimeline(15);
 
-  // Format currency for Australian dollars
+  // Format currency for Australian dollars — always show cents ($X,XXX.XX)
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-AU', {
       style: 'currency',
       currency: 'AUD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount);
   };
 
@@ -268,13 +268,13 @@ export default function AdminDashboard() {
                   </div>
                 ) : scheduleError ? (
                   <div className="py-12 text-center">
-                    <AlertCircle className="h-10 w-10 mb-2" style={{ color: '#FF3B30' }} />
+                    <AlertCircle className="h-10 w-10 mb-2 mx-auto" style={{ color: '#FF3B30' }} />
                     <p className="text-sm" style={{ color: '#FF3B30' }}>{scheduleError}</p>
                   </div>
                 ) : schedule.length === 0 ? (
                   <div className="py-12 text-center">
-                    <CalendarCheck className="h-10 w-10 mb-2 opacity-50" style={{ color: '#86868b' }} />
-                    <p className="text-sm" style={{ color: '#86868b' }}>No inspections scheduled for today</p>
+                    <CalendarCheck className="h-10 w-10 mb-2 opacity-50 mx-auto" style={{ color: '#86868b' }} />
+                    <p className="text-sm" style={{ color: '#86868b' }}>No bookings scheduled for today</p>
                   </div>
                 ) : (
                   <table className="w-full">
@@ -365,13 +365,13 @@ export default function AdminDashboard() {
                   </div>
                 ) : scheduleError ? (
                   <div className="py-12 text-center">
-                    <AlertCircle className="h-10 w-10 mb-2" style={{ color: '#FF3B30' }} />
+                    <AlertCircle className="h-10 w-10 mb-2 mx-auto" style={{ color: '#FF3B30' }} />
                     <p className="text-sm" style={{ color: '#FF3B30' }}>{scheduleError}</p>
                   </div>
                 ) : schedule.length === 0 ? (
                   <div className="py-12 text-center">
-                    <CalendarCheck className="h-10 w-10 mb-2 opacity-50" style={{ color: '#86868b' }} />
-                    <p className="text-sm" style={{ color: '#86868b' }}>No inspections scheduled for today</p>
+                    <CalendarCheck className="h-10 w-10 mb-2 opacity-50 mx-auto" style={{ color: '#86868b' }} />
+                    <p className="text-sm" style={{ color: '#86868b' }}>No bookings scheduled for today</p>
                   </div>
                 ) : (
                   schedule.map((item) => {
@@ -478,7 +478,7 @@ export default function AdminDashboard() {
                 </div>
               ) : unassignedLeadsData.length === 0 ? (
                 <div className="py-8 text-center">
-                  <CheckCircle2 className="h-8 w-8 mb-2 opacity-50" style={{ color: '#34C759' }} />
+                  <CheckCircle2 className="h-8 w-8 mb-2 opacity-50 mx-auto" style={{ color: '#34C759' }} />
                   <p className="text-sm" style={{ color: '#86868b' }}>All leads assigned!</p>
                 </div>
               ) : (
@@ -517,6 +517,15 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   ))}
+                  {unassignedCount > 5 && (
+                    <button
+                      onClick={() => navigate('/admin/leads')}
+                      className="w-full py-3 text-sm font-medium rounded-xl transition-colors hover:bg-gray-50 min-h-[48px]"
+                      style={{ color: '#007AFF' }}
+                    >
+                      +{unassignedCount - 5} more
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -550,13 +559,13 @@ export default function AdminDashboard() {
                   </div>
                 ) : !technicianStats || technicianStats.length === 0 ? (
                   <div className="py-8 text-center">
-                    <Users className="h-8 w-8 mb-2 opacity-50" style={{ color: '#86868b' }} />
+                    <Users className="h-8 w-8 mb-2 opacity-50 mx-auto" style={{ color: '#86868b' }} />
                     <p className="text-sm" style={{ color: '#86868b' }}>No technicians found</p>
                   </div>
                 ) : (
                   technicianStats.map((tech) => {
-                    const maxInspections = Math.max(...technicianStats.map(t => t.inspectionsThisWeek), 1);
-                    const progress = (tech.inspectionsThisWeek / maxInspections) * 100;
+                    const maxActiveLeads = Math.max(...technicianStats.map(t => t.activeLeads), 1);
+                    const progress = (tech.activeLeads / maxActiveLeads) * 100;
                     return (
                       <div key={tech.id} className="flex items-center gap-3 md:gap-4">
                         <div
@@ -571,7 +580,7 @@ export default function AdminDashboard() {
                               {tech.fullName}
                             </span>
                             <span className="text-xs flex-shrink-0 ml-2" style={{ color: '#86868b' }}>
-                              {tech.inspectionsThisWeek} lead{tech.inspectionsThisWeek !== 1 ? 's' : ''}
+                              {tech.activeLeads} lead{tech.activeLeads !== 1 ? 's' : ''}
                             </span>
                           </div>
                           <div

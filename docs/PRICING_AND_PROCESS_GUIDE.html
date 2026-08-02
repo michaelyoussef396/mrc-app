@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mould &amp; Restoration Co. — Pricing Summary</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      color: #1a1a1a;
+      background-color: #f5f6f8;
+      padding: 0 0 48px 0;
+    }
+
+    .page-header {
+      background-color: #121D73;
+      color: #ffffff;
+      padding: 32px 24px 28px 24px;
+      text-align: center;
+    }
+
+    .page-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+    }
+
+    .page-header .subtitle {
+      margin-top: 10px;
+      font-size: 15px;
+      opacity: 0.9;
+      font-weight: 400;
+    }
+
+    .page-header .last-reviewed {
+      margin-top: 12px;
+      font-size: 13px;
+      opacity: 0.65;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    .section {
+      background-color: #ffffff;
+      border-radius: 8px;
+      border: 1px solid #e0e3ea;
+      padding: 24px 20px;
+      margin-top: 20px;
+    }
+
+    .section h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #121D73;
+      margin-bottom: 14px;
+      line-height: 1.3;
+    }
+
+    .section p {
+      margin-bottom: 12px;
+    }
+
+    .section p:last-child {
+      margin-bottom: 0;
+    }
+
+    .section ul {
+      padding-left: 22px;
+      margin-bottom: 12px;
+    }
+
+    .section ul li {
+      margin-bottom: 10px;
+    }
+
+    .section ul li:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Tables */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      font-size: 15px;
+    }
+
+    .data-table th {
+      background-color: #121D73;
+      color: #ffffff;
+      padding: 10px 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .data-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e0e3ea;
+      vertical-align: top;
+    }
+
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .data-table tr:nth-child(even) td {
+      background-color: #f8f9fc;
+    }
+
+    /* Flag / warning callout */
+    .flag {
+      background-color: #fffbea;
+      border: 2px solid #f0a500;
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin: 14px 0 0 0;
+      font-size: 15px;
+    }
+
+    .flag .flag-label {
+      font-weight: 700;
+      color: #8a5c00;
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .flag p {
+      margin-bottom: 0;
+      color: #5a3d00;
+    }
+
+    .side-note {
+      background-color: #f0f3ff;
+      border-left: 4px solid #121D73;
+      border-radius: 0 6px 6px 0;
+      padding: 14px 16px;
+      margin-top: 16px;
+      font-size: 15px;
+      color: #333;
+    }
+
+    /* Labour charging-model chart */
+    .charge-chart {
+      margin-top: 18px;
+      background-color: #f8f9fc;
+      border: 1px solid #e0e3ea;
+      border-radius: 8px;
+      padding: 16px 14px 14px 14px;
+    }
+
+    .charge-chart h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #121D73;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 0 0 4px 0;
+    }
+
+    .charge-chart .chart-sub {
+      font-size: 13px;
+      color: #617589;
+      font-style: italic;
+      margin-bottom: 12px;
+    }
+
+    .charge-chart svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .charge-chart .chart-legend {
+      list-style: none;
+      padding: 0;
+      margin: 12px 0 0 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+    }
+
+    .charge-chart .chart-legend li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #444;
+      margin-bottom: 0;
+    }
+
+    .charge-chart .chart-legend .swatch {
+      flex-shrink: 0;
+      width: 22px;
+      height: 0;
+      border-top-width: 3px;
+      border-top-style: solid;
+    }
+
+    .charge-chart .chart-legend .swatch-flat { border-top-color: #617589; }
+    .charge-chart .chart-legend .swatch-ramp { border-top-color: #f0a500; }
+    .charge-chart .chart-legend .swatch-steps { border-top-color: #121D73; }
+
+    /* Responsive adjustments */
+    @media (max-width: 480px) {
+      .page-header h1 {
+        font-size: 19px;
+      }
+
+      .section {
+        padding: 20px 16px;
+      }
+
+      .data-table th,
+      .data-table td {
+        padding: 9px 10px;
+        font-size: 14px;
+      }
+
+      /* Wide rate card scrolls inside its own box, never the page */
+      .table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .table-scroll .data-table {
+        min-width: 520px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <h1>Mould &amp; Restoration Co. — Pricing Summary</h1>
+    <p class="subtitle">Have a quick read — if any number looks wrong, text Michael.</p>
+    <p class="last-reviewed">Last reviewed: 29 July 2026</p>
+  </div>
+
+  <div class="container">
+
+    <!-- 1. What changed -->
+    <div class="section">
+      <h2>1. What changed at launch</h2>
+
+      <p>Two things we used to do for free are now billed.</p>
+
+      <ul>
+        <li><strong>The AFD is now the "HEPA Air Scrubber" — and it's now billed.</strong> Same piece of equipment, clearer name, <strong>$100 per unit per day</strong>. We used to record that it was used but never put it on the bill. Units and days are captured on the job completion form and flow onto the invoice.</li>
+        <li><strong>Waste disposal is now billed.</strong> It used to be noted down as a rough size and never charged. Now it's priced by volume removed (Section 4) and appears on the invoice.</li>
+      </ul>
+
+      <p>Also: multi-day jobs now get cheaper per day automatically. The old "work out a percentage discount" approach is gone — the saving is built straight into the day rates instead.</p>
+    </div>
+
+    <!-- 2. Labour rates -->
+    <div class="section">
+      <h2>2. Labour rates</h2>
+
+      <p><strong>Day 1</strong> is the full 8-hour rate. Each later day is charged at its own lower rate, down to a floor from Day 5. That decline <em>is</em> the multi-day discount — there's nothing to calculate or apply by hand.</p>
+
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Work type</th>
+              <th>2-hour minimum</th>
+              <th>Day 1 (8 hours)</th>
+              <th>Later days (Day 2 / 3 / 4 / 5+)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Normal (non-demolition)</td>
+              <td>$1,019.40</td>
+              <td>$1,245.33</td>
+              <td>$1,060.34 / $1,054.52 / $1,007.18 / $921.57</td>
+            </tr>
+            <tr>
+              <td>Demolition</td>
+              <td>$1,062.00</td>
+              <td>$1,825.87</td>
+              <td>$1,550.05 / $1,552.23 / $1,475.57 / $1,345.86</td>
+            </tr>
+            <tr>
+              <td>Subfloor</td>
+              <td>$1,322.62</td>
+              <td>$2,375.21</td>
+              <td>$2,015.47 / $2,025.15 / $1,917.76 / $1,743.59</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p style="margin-top:14px;"><strong>Under 2 hours</strong> — flat 2-hour minimum, no cheaper partial rate. <strong>2 to 8 hours</strong> — scales smoothly between the 2-hour minimum and the Day 1 rate. <strong>Beyond 8 hours</strong> — whole days at the declining rates, with any leftover hours charged as a fraction of the next day's rate.</p>
+
+      <div class="side-note">
+        <strong>Example:</strong> 3 full days of normal work = $1,245.33 + $1,060.34 + $1,054.52 = <strong>$3,360.19</strong>, before equipment and GST.
+      </div>
+
+      <div class="charge-chart">
+        <h3>The charging shape</h3>
+        <p class="chart-sub">Illustrative shape — see the table above for actual rates.</p>
+        <svg viewBox="0 0 360 300" role="img" aria-labelledby="chargeChartTitle chargeChartDesc" preserveAspectRatio="xMidYMid meet">
+          <title id="chargeChartTitle">Labour cost against hours worked</title>
+          <desc id="chargeChartDesc">A chart of cumulative cost versus hours worked showing three regimes. Below two hours the cost is a flat line at the two-hour minimum. From two to eight hours the cost rises in a straight line up to the Day 1 rate. Beyond eight hours the cost keeps rising as each whole day is added, but the line gets gradually shallower because each further day is charged at a lower rate than the one before — reaching roughly the two-day total at sixteen hours and the three-day total at twenty-four hours.</desc>
+
+          <!-- Y reference levels (words only, no numbers) -->
+          <!-- y=250 = 2-hr min, y=200 = 1-day, y=130 = 2-day, y=60 = 3-day -->
+          <line x1="60" y1="250" x2="345" y2="250" stroke="#e0e3ea" stroke-width="1" stroke-dasharray="3 3"></line>
+          <line x1="60" y1="200" x2="345" y2="200" stroke="#e0e3ea" stroke-width="1" stroke-dasharray="3 3"></line>
+          <line x1="60" y1="130" x2="345" y2="130" stroke="#e0e3ea" stroke-width="1" stroke-dasharray="3 3"></line>
+          <line x1="60" y1="60" x2="345" y2="60" stroke="#e0e3ea" stroke-width="1" stroke-dasharray="3 3"></line>
+
+          <text x="56" y="253" text-anchor="end" font-size="11" fill="#617589">2-hr min</text>
+          <text x="56" y="203" text-anchor="end" font-size="11" fill="#617589">1-day rate</text>
+          <text x="56" y="133" text-anchor="end" font-size="11" fill="#617589">2-day rate</text>
+          <text x="56" y="63" text-anchor="end" font-size="11" fill="#617589">3-day rate</text>
+
+          <!-- Axes -->
+          <line x1="60" y1="20" x2="60" y2="265" stroke="#121D73" stroke-width="1.5"></line>
+          <line x1="60" y1="265" x2="345" y2="265" stroke="#121D73" stroke-width="1.5"></line>
+
+          <!-- X axis ticks/labels at 2, 8, 16, 24 -->
+          <!-- x mapping: 2h=92, 8h=158, 16h=246, 24h=334 (≈11px per hour) -->
+          <line x1="92" y1="265" x2="92" y2="270" stroke="#121D73" stroke-width="1.5"></line>
+          <line x1="158" y1="265" x2="158" y2="270" stroke="#121D73" stroke-width="1.5"></line>
+          <line x1="246" y1="265" x2="246" y2="270" stroke="#121D73" stroke-width="1.5"></line>
+          <line x1="334" y1="265" x2="334" y2="270" stroke="#121D73" stroke-width="1.5"></line>
+          <text x="92" y="283" text-anchor="middle" font-size="12" fill="#444">2</text>
+          <text x="158" y="283" text-anchor="middle" font-size="12" fill="#444">8</text>
+          <text x="246" y="283" text-anchor="middle" font-size="12" fill="#444">16</text>
+          <text x="334" y="283" text-anchor="middle" font-size="12" fill="#444">24</text>
+          <text x="202" y="297" text-anchor="middle" font-size="12" font-weight="700" fill="#121D73">Hours worked</text>
+
+          <!-- Y axis title -->
+          <text x="16" y="145" text-anchor="middle" font-size="12" font-weight="700" fill="#121D73" transform="rotate(-90 16 145)">Cost</text>
+
+          <!-- Regime 1: flat floor (0 to 2h) at 2-hr min level -->
+          <line x1="60" y1="250" x2="92" y2="250" stroke="#617589" stroke-width="3"></line>
+
+          <!-- Regime 2: linear ramp from 2h (2-hr min) to 8h (Day 1 rate) -->
+          <line x1="92" y1="250" x2="158" y2="200" stroke="#f0a500" stroke-width="3"></line>
+
+          <!-- Regime 3: continuous rising line, shallower each day (each further day costs less) -->
+          <!-- Day 2 block (8h to 16h): steeper ramp up toward the 2-day total -->
+          <line x1="158" y1="200" x2="246" y2="128" stroke="#121D73" stroke-width="3"></line>
+          <!-- Day 3 block (16h to 24h): shallower ramp toward the 3-day total -->
+          <line x1="246" y1="128" x2="334" y2="70" stroke="#121D73" stroke-width="3"></line>
+
+          <!-- Regime labels in words -->
+          <text x="76" y="240" text-anchor="middle" font-size="11" fill="#617589">2-hr min (flat)</text>
+          <text x="120" y="195" text-anchor="middle" font-size="11" fill="#a06f00">linear to</text>
+          <text x="120" y="207" text-anchor="middle" font-size="11" fill="#a06f00">Day 1 rate</text>
+          <text x="250" y="42" text-anchor="middle" font-size="11" fill="#121D73">each further day adds</text>
+          <text x="250" y="54" text-anchor="middle" font-size="11" fill="#121D73">a little less</text>
+        </svg>
+        <ul class="chart-legend">
+          <li><span class="swatch swatch-flat" aria-hidden="true"></span>Under 2 hours: flat 2-hr minimum</li>
+          <li><span class="swatch swatch-ramp" aria-hidden="true"></span>2 to 8 hours: linear to Day 1 rate</li>
+          <li><span class="swatch swatch-steps" aria-hidden="true"></span>Beyond 8 hours: whole days at declining rates</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 3. Equipment -->
+    <div class="section">
+      <h2>3. Equipment rates</h2>
+
+      <p>Billed as <strong>quantity × daily rate × days</strong>, by whole days, minimum one day. Never discounted.</p>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Equipment</th>
+            <th>Daily rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Dehumidifier</td>
+            <td>$119 / day</td>
+          </tr>
+          <tr>
+            <td>Air Mover</td>
+            <td>$46 / day</td>
+          </tr>
+          <tr>
+            <td>HEPA Air Scrubber</td>
+            <td>$100 / unit / day</td>
+          </tr>
+          <tr>
+            <td>RCD</td>
+            <td>$5 / day</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="side-note">
+        <strong>Dehumidifier is $119 / day.</strong> The $132 figure in some older notes is out of date — ignore it.
+      </div>
+    </div>
+
+    <!-- 4. Waste disposal -->
+    <div class="section">
+      <h2>4. Waste disposal</h2>
+
+      <p>Priced by volume removed. Never discounted. On site you enter the volume, the system works out the price, and you have to confirm it — or type a different figure if the real cost was different.</p>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Volume removed</th>
+            <th>Price (ex GST)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>2 m³</td><td>$350</td></tr>
+          <tr><td>4 m³</td><td>$450</td></tr>
+          <tr><td>6 m³</td><td>$550</td></tr>
+          <tr><td>8 m³</td><td>$703</td></tr>
+          <tr><td>10 m³</td><td>$900</td></tr>
+          <tr><td>12 m³</td><td>$1,190</td></tr>
+        </tbody>
+      </table>
+
+      <p style="margin-top:14px;">In-between volumes scale smoothly (1 m³ is $175, 3 m³ is $400, 7 m³ is $626.50). Above 12 m³ adds <strong>$145 per extra m³</strong>.</p>
+    </div>
+
+    <!-- 5. Discount cap and GST -->
+    <div class="section">
+      <h2>5. Discount cap and GST</h2>
+
+      <p><strong>The 13% cap.</strong> There's no automatic discount any more — the multi-day saving lives in the day rates. 13% is now only the ceiling on a <em>manual</em> discount an admin can choose to apply at invoice time, and it comes off labour only — never equipment or waste.</p>
+
+      <p><strong>GST is 10%</strong>, worked out on the whole subtotal and added last.</p>
+    </div>
+
+    <!-- 6. Known gaps -->
+    <div class="section">
+      <h2>6. Worth knowing</h2>
+
+      <p>The three gaps previously listed here are now closed (late-July update). What changed:</p>
+
+      <ul>
+        <li><strong>HEPA can now be estimated at the inspection — and it shows on the customer's quote.</strong> When scrubbers are planned, the units and days go in on the inspection form, the cost lands in the quoted price, and a HEPA line appears on the customer's report. Days can be left on auto, where they simply follow the job's equipment days.</li>
+        <li><strong>Waste disposal now shows on the customer's quote.</strong> The report lists the waste line alongside the equipment costs. On a two-option quote it appears once, marked "billed once" — it applies whichever option goes ahead, and it deliberately stays out of the two option totals.</li>
+        <li><strong>Actual waste volume is captured at job completion.</strong> The technician records what was actually removed, the system re-prices it, and the technician confirms (or overrides) it on site. On the invoice screen the estimate and the actual sit side by side — the admin taps the one to bill. Nothing auto-overwrites the other.</li>
+        <li><strong>The job report now shows the equipment and waste actually used</strong> — each item with days and cost, matching what the invoice will say.</li>
+      </ul>
+
+      <div class="flag">
+        <span class="flag-label">&#9888; If a number here looks wrong</span>
+        <p>Text Michael. These are the rates going out on every quote and invoice right now, so a wrong one is wrong everywhere.</p>
+      </div>
+    </div>
+
+  </div><!-- end .container -->
+
+</body>
+</html>

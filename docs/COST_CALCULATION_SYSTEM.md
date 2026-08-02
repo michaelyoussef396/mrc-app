@@ -1,6 +1,22 @@
 # MRC COST CALCULATION SYSTEM - REFERENCE GUIDE
 
-**Last Updated:** June 24, 2026
+> ## ⚠️ SUPERSEDED — DO NOT USE FOR PRICING RULES (2026-07-28)
+>
+> Large parts of this document describe the **retired volume-discount tier system**
+> (7.5% / 10.25% / 11.5% / 13% by total hours) as if it were live. It is not:
+> `calculateCostEstimate` returns `discountPercent: 0` unconditionally — the per-day
+> declining `dayRates` model replaced volume discounting, and 13% survives only as the
+> cap on a MANUAL invoice discount. The "pro-rate under 2 hours" rule below also
+> contradicts the live flat 2-hour minimum, and the worked examples use pre-2026-06-24
+> rates.
+>
+> **Current, verified reference:** `docs/PRICING_AND_PROCESS_GUIDE.html` (plain-English,
+> checked against `src/lib/calculations/pricing.ts`). For exact figures, the code is the
+> source of truth. This file is retained for the still-accurate mechanics (interpolation
+> band, waste anchors, equipment qty×rate×days) and for history; rewrite or retire is
+> tracked in docs/TODO.md.
+
+**Last Updated:** June 24, 2026 (superseded banner added 2026-07-28)
 **Author:** Michael Youssef
 **Critical:** This document defines the exact pricing logic for the MRC Lead Management System. Follow it precisely.
 

@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { createElement, useState, useEffect, useRef, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { WifiOff } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { supabase } from '@/integrations/supabase/client'
@@ -17,6 +18,49 @@ const AUTO_SAVE_INTERVAL_MS = 30_000
 
 // localStorage backups older than this are ignored on restore
 const BACKUP_MAX_AGE_MINUTES = 1440 // 24 hours
+
+/**
+ * Save-time offline classifier for user messaging. navigator.onLine can be
+ * stale on iOS Safari after airplane-mode toggles, so also sniff the
+ * fetch-level failure text: Chromium throws 'Failed to fetch', WebKit
+ * 'Load failed', Firefox 'NetworkError'. Deliberately duplicated in
+ * TechnicianInspectionForm.tsx — two call sites don't justify a shared module.
+ * Exported for unit tests only.
+ */
+export function isNetworkLevelError(err: unknown): boolean {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return true
+  const message =
+    typeof err === 'object' && err !== null && 'message' in err
+      ? String((err as { message?: unknown }).message ?? '')
+      : String(err ?? '')
+  return /failed to fetch|load failed|network ?error|fetch failed/i.test(message)
+}
+
+// Shared id so repeated offline warnings replace each other instead of stacking.
+const OFFLINE_TOAST_ID = 'jc-offline-save'
+
+// Amber warning look, dark text for WCAG contrast. Inline styles because the
+// global sonner Toaster classNames (bg-background etc.) would fight per-toast
+// Tailwind classes with unpredictable CSS-order results.
+const OFFLINE_TOAST_STYLE: React.CSSProperties = {
+  background: '#f59e0b', // amber-500
+  color: '#451a03', // amber-950
+  border: '1px solid #d97706', // amber-600
+}
+
+const OFFLINE_TOAST_DURATION_MS = 8_000
+
+function showOfflineToast(title: string, description: string): void {
+  toast.warning(title, {
+    description,
+    id: OFFLINE_TOAST_ID,
+    duration: OFFLINE_TOAST_DURATION_MS,
+    style: OFFLINE_TOAST_STYLE,
+    // !important beats the global Toaster's muted description colour.
+    descriptionClassName: '!text-amber-950',
+    icon: createElement(WifiOff, { size: 20 }),
+  })
+}
 
 /**
  * Map a database row (snake_case) to form state (camelCase).
@@ -74,10 +118,20 @@ export function rowToFormData(row: JobCompletionRow): JobCompletionFormData {
     actualRcdDays: row.actual_rcd_days,
 
     // Section 7: Equipment (quoted snapshot — read-only in UI)
+    // NULL = never quoted (legacy row) — must survive the round-trip, never coerce to 0.
     quotedDehumidifierQty: row.quoted_dehumidifier_qty,
     quotedAirMoverQty: row.quoted_air_mover_qty,
     quotedRcdQty: row.quoted_rcd_qty,
     quotedEquipmentDays: row.quoted_equipment_days,
+    quotedHepaAirScrubberQty: row.quoted_afd_qty,
+    quotedHepaAirScrubberDays: row.quoted_afd_days,
+
+    // Section 7: Waste disposal (quoted snapshot + actual confirm/override)
+    quotedWasteM3: row.quoted_waste_disposal_m3,
+    quotedWasteCost: row.quoted_waste_disposal_cost,
+    actualWasteM3: row.actual_waste_disposal_m3,
+    actualWasteCost: row.actual_waste_disposal_cost,
+    actualWasteIsOverridden: row.actual_waste_disposal_is_overridden ?? false,
 
     // Section 8: Variation Tracking
     scopeChanged: row.scope_changed,
@@ -266,10 +320,17 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
     try {
       await updateJobCompletion(jobCompletionId, formData)
       setHasUnsavedChanges(false)
-      toast.success('Saved')
+      toast.success('Saved to the server')
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Save failed.'
-      toast.error('Could not save', { description: message })
+      if (isNetworkLevelError(err)) {
+        showOfflineToast(
+          "You're offline — not saved to the server",
+          "Your changes are only on this device for now. Keep this form open — it will save to the server automatically once you're back online.",
+        )
+      } else {
+        const message = err instanceof Error ? err.message : 'Save failed.'
+        toast.error('Could not save', { description: message })
+      }
       // Re-throw so callers (handleSubmit) can detect failure and abort.
       // Autosave callers must catch this themselves — see the interval effect below.
       throw err
@@ -373,10 +434,18 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
     // violates the zero-data-loss guarantee and would show a false success.
     try {
       await handleSave()
-    } catch {
-      toast.error("Couldn't submit", {
-        description: "Your latest changes didn't save. Please retry.",
-      })
+    } catch (err) {
+      if (isNetworkLevelError(err)) {
+        // Replaces handleSave's offline toast (same id) with submit wording.
+        showOfflineToast(
+          "You're offline — job not submitted",
+          "Nothing was sent to the server. Your answers are kept on this device — keep this form open and submit again once you're back online.",
+        )
+      } else {
+        toast.error("Couldn't submit", {
+          description: "Your latest changes didn't save. Please retry.",
+        })
+      }
       return
     }
 
@@ -422,8 +491,15 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
           : 'Job marked as completed.',
       })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Submit failed.'
-      toast.error('Could not submit job', { description: message })
+      if (isNetworkLevelError(err)) {
+        showOfflineToast(
+          "You're offline — job not submitted",
+          "Nothing was sent to the server. Your answers are kept on this device — keep this form open and submit again once you're back online.",
+        )
+      } else {
+        const message = err instanceof Error ? err.message : 'Submit failed.'
+        toast.error('Could not submit job', { description: message })
+      }
       // Re-throw so the form page can decide whether to navigate.
       throw err
     }
