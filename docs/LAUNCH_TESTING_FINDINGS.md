@@ -324,8 +324,15 @@ Customer-visible commitment to unquoted work — fix before the team uses the fo
 
 The Recommendations heading renders as `**\ccb RECOMMENDATIONS**` — a literal escape
 artifact where the adjacent heading renders an emoji correctly. Customer-visible in the
-PDF. Likely an encoding or escaping issue in AI response handling rather than model
-output.
+PDF. Confirmed as an escaping issue, not model output. The prompt string at
+`supabase/functions/generate-inspection-summary/index.ts:712` contains
+`\ud83d\udccb RECOMMENDATIONS` — a surrogate pair for 📋 (U+1F4CB). The leading
+`\ud83d` half is lost and the trailing `\udccb` collapses to `\ccb`. The adjacent
+heading in the same prompt uses `\ud83d\udd0d` for 🔍 (U+1F50D) and renders
+correctly, so the fault is specific to this pair rather than to emoji handling
+generally.
+
+Batch note: this is an Edge Function change and needs a deploy, not just a template edit.
 
 **20. HIGH — Timeline is arithmetically self-contradictory**
 
@@ -371,7 +378,7 @@ review rather than being silently resolved.
 
 ### PDF output
 
-**Status: PASS with defects** (PDF generated, renders end to end, one missing data page)
+**Status: PASS with defects** (PDF generated, renders end to end, one layout ordering issue)
 
 Verified working:
 
@@ -403,7 +410,7 @@ the inspection report HTML template.
 
 Pricing, generation, review UI and numeric transcription are all correct. The remaining
 defects are confined to what the model is permitted to assert and how the timeline is
-derived. Issues 18–20 before the team uses the form; 21–23 are polish.
+derived. Issues 18–20 before the team uses the form; 21–24 are polish.
 
 Note for the batch session: an earlier reading of this run reported HEPA as missing from
 equipment pricing. That was a stale screenshot taken before the HEPA toggle was enabled.
