@@ -28,39 +28,66 @@ const VIEWPORTS = [
 
 const FAILURE_COPY = /Couldn't reach the scheduling service — pick a date manually/i;
 const EMPTY_COPY = /No free days in the next 14 days/i;
+const AVAILABILITY_FAILURE_COPY = /Couldn't reach the scheduling service — travel time unknown/i;
+
+/** Tomorrow as YYYY-MM-DD — the date input enforces a min of today. */
+const TOMORROW_ISO = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split('T')[0];
+})();
 
 /** The desktop queue lives in an `lg:` aside; below 1024px it is behind a FAB sheet. */
 async function openLeadsQueue(page: Page, width: number): Promise<void> {
   await page.goto('/admin/schedule');
   if (width < 1024) {
-    const fab = page.locator('.lg\\:hidden button').first();
+    const fab = page.locator('div.fixed.bottom-6.right-6 button').first();
     await expect(fab).toBeVisible({ timeout: 25_000 });
     await fab.click();
   }
 }
 
 /**
- * Expand the first inspection lead in the queue and return its card.
+ * Expand the first inspection lead in the queue and return its date input.
  * Returns null when the queue holds no inspection leads.
+ *
+ * A LeadBookingCard header is a `cursor-pointer` div wrapping an <h4> with the customer
+ * name; the compact "job to book" card uses a <p> instead, so <h4> selects inspection
+ * cards only.
  */
 async function expandFirstInspectionCard(page: Page): Promise<Locator | null> {
-  const dateInputs = page.locator('[data-testid="inspection-date"]');
+  // `:visible` matters below 1024px: the desktop aside is still in the DOM behind the
+  // mobile sheet, and an unscoped .first() would resolve to its unclickable copy.
+  const header = page
+    .locator('div.cursor-pointer:visible')
+    .filter({ has: page.locator('h4') })
+    .first();
 
-  // Cards render collapsed; the chevron toggles them. Try each visible card header.
-  const headers = page.locator('div:visible', { hasText: /Prefers|No suburb|•/ });
-  const toggles = page.locator('button:visible').filter({ has: page.locator('svg') });
-
-  for (let i = 0; i < Math.min(await toggles.count(), 12); i += 1) {
-    if (await dateInputs.locator('visible=true').count()) break;
-    await toggles.nth(i).click({ trial: false }).catch(() => undefined);
-    await page.waitForTimeout(250);
-  }
-
-  if (!(await dateInputs.locator('visible=true').count())) {
-    void headers;
+  try {
+    await header.waitFor({ state: 'visible', timeout: 20_000 });
+  } catch {
     return null;
   }
-  return page.locator('[data-testid="inspection-date"]:visible').first();
+  await header.click();
+
+  const dateInput = page.locator('[data-testid="inspection-date"]').first();
+  try {
+    await dateInput.waitFor({ state: 'visible', timeout: 15_000 });
+  } catch {
+    return null;
+  }
+  return dateInput;
+}
+
+/**
+ * Pick the first technician. Scoped to the grid's testid on purpose: filtering an
+ * unscoped `div` by text matches every ancestor up to the page shell, so `.first()`
+ * resolves to the layout wrapper and the first button inside it is the sidebar.
+ */
+async function selectFirstTechnician(page: Page): Promise<void> {
+  const technician = page.locator('[data-testid="technician-grid"]:visible button').first();
+  await technician.waitFor({ state: 'visible', timeout: 15_000 });
+  await technician.click();
 }
 
 for (const vp of VIEWPORTS) {
@@ -96,14 +123,7 @@ for (const vp of VIEWPORTS) {
 
       // Scheduling is pointer-events:none until the address is confirmed.
       await page.getByRole('button', { name: /Address is Correct/i }).first().click();
-      await page.locator('button:visible').filter({ hasText: /^[A-Z]/ }).first().waitFor();
-
-      const technician = page
-        .locator('div:visible')
-        .filter({ hasText: /Assign Technician/i })
-        .locator('button:visible')
-        .first();
-      await technician.click();
+      await selectFirstTechnician(page);
 
       const alert = page.locator('[data-testid="recs-error"]');
       await expect(alert).toBeVisible({ timeout: 20_000 });
@@ -120,12 +140,7 @@ for (const vp of VIEWPORTS) {
       if (!dateInput) test.skip(true, 'No inspection leads in the scheduling queue');
 
       await page.getByRole('button', { name: /Address is Correct/i }).first().click();
-      const technician = page
-        .locator('div:visible')
-        .filter({ hasText: /Assign Technician/i })
-        .locator('button:visible')
-        .first();
-      await technician.click();
+      await selectFirstTechnician(page);
 
       await expect(page.locator('[data-testid="recs-error"]')).toBeVisible({ timeout: 20_000 });
       await expect(page.getByText(EMPTY_COPY)).toHaveCount(0);
@@ -142,16 +157,52 @@ for (const vp of VIEWPORTS) {
       if (!dateInput) test.skip(true, 'No inspection leads in the scheduling queue');
 
       await page.getByRole('button', { name: /Address is Correct/i }).first().click();
-      await page
-        .locator('div:visible')
-        .filter({ hasText: /Assign Technician/i })
-        .locator('button:visible')
-        .first()
-        .click();
+      await selectFirstTechnician(page);
       await expect(page.locator('[data-testid="recs-error"]')).toBeVisible({ timeout: 20_000 });
 
       const picker = page.locator('[data-testid="inspection-date"]:visible').first();
       await expect(picker).toBeEnabled();
+    });
+
+    test('a failed availability lookup renders the amber alert, not a blank panel', async ({ page }) => {
+      test.skip(
+        !!process.env.PLAYWRIGHT_PROD,
+        'calculate-travel-time is deployed on prod, so the failure path does not fire',
+      );
+
+      const dateInput = await expandFirstInspectionCard(page);
+      if (!dateInput) test.skip(true, 'No inspection leads in the scheduling queue');
+
+      await page.getByRole('button', { name: /Address is Correct/i }).first().click();
+      await selectFirstTechnician(page);
+
+      // The availability check only fires once date AND time are both set.
+      await page.locator('[data-testid="inspection-date"]:visible').first().fill(TOMORROW_ISO);
+      await page.locator('[data-testid="inspection-time"]:visible').first().selectOption({ index: 1 });
+
+      const alert = page.locator('[data-testid="availability-error"]');
+      await expect(alert).toBeVisible({ timeout: 20_000 });
+      await expect(alert).toHaveText(AVAILABILITY_FAILURE_COPY);
+    });
+
+    test('a failed availability lookup does not render a travel answer', async ({ page }) => {
+      test.skip(
+        !!process.env.PLAYWRIGHT_PROD,
+        'calculate-travel-time is deployed on prod, so the failure path does not fire',
+      );
+
+      const dateInput = await expandFirstInspectionCard(page);
+      if (!dateInput) test.skip(true, 'No inspection leads in the scheduling queue');
+
+      await page.getByRole('button', { name: /Address is Correct/i }).first().click();
+      await selectFirstTechnician(page);
+      await page.locator('[data-testid="inspection-date"]:visible').first().fill(TOMORROW_ISO);
+      await page.locator('[data-testid="inspection-time"]:visible').first().selectOption({ index: 1 });
+
+      await expect(page.locator('[data-testid="availability-error"]')).toBeVisible({ timeout: 20_000 });
+      // Neither the travel panel nor the red buffer banner may claim anything.
+      await expect(page.getByText(/Travel Feasible|Travel Warning/i)).toHaveCount(0);
+      await expect(page.getByText(/more min to get there/i)).toHaveCount(0);
     });
 
     test('the page does not scroll horizontally', async ({ page }) => {

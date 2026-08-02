@@ -129,6 +129,50 @@ function recsFailure(
   return { status: 'failed', reason, userMessage: RECOMMENDED_DATES_FAILURE_MESSAGES[reason], detail }
 }
 
+/** Why an availability lookup failed. Drives the user-facing copy below. */
+export type AvailabilityFailureReason =
+  | 'auth'        // no Supabase session — token expired or signed out in another tab
+  | 'network'     // fetch itself rejected (offline, DNS, CORS, aborted)
+  | 'server'      // reached the function, got a non-2xx or an unparseable body
+  | 'bad_params'  // caller omitted technician, date, time or destination address
+
+export const AVAILABILITY_FAILURE_MESSAGES: Record<AvailabilityFailureReason, string> = {
+  auth: 'Your session expired — refresh the page to check travel time',
+  network: "Couldn't reach the scheduling service — travel time unknown",
+  server: "Couldn't reach the scheduling service — travel time unknown",
+  bad_params: 'Missing technician, date, time or address — travel time unknown',
+}
+
+/**
+ * Three-way outcome. Never rejects, never returns null — an unanswered lookup must stay
+ * distinguishable from a real travel answer, because the panel that renders it is what
+ * the admin books against.
+ *
+ *  - 'ok'          → the service computed a travel time.
+ *  - 'unavailable' → the service answered HTTP 200 but could not compute, because the
+ *                    technician has no starting address (`error: 'no_starting_address'`).
+ *                    Carries the function's own message, which names the technician and
+ *                    says where to set the address. Previously this took the success path
+ *                    and rendered as a confident "0 min / Buffer: 0 min" answer.
+ *  - 'failed'      → we do not know anything about travel time.
+ */
+export type AvailabilityOutcome =
+  | { status: 'ok'; data: AvailabilityResult }
+  | { status: 'unavailable'; message: string; data: AvailabilityResult }
+  | {
+      status: 'failed'
+      reason: AvailabilityFailureReason
+      userMessage: string   // safe to render verbatim
+      detail: string        // diagnostics for Sentry — never rendered
+    }
+
+function availabilityFailure(
+  reason: AvailabilityFailureReason,
+  detail: string
+): AvailabilityOutcome {
+  return { status: 'failed', reason, userMessage: AVAILABILITY_FAILURE_MESSAGES[reason], detail }
+}
+
 /** Best-effort body read for diagnostics. Must never throw. */
 async function readErrorDetail(response: Response): Promise<string> {
   try {
@@ -147,12 +191,12 @@ export function useBookingValidation() {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<AvailabilityResult | null>(null)
 
-  const checkAvailability = useCallback(async (params: CheckAvailabilityParams): Promise<AvailabilityResult | null> => {
+  const checkAvailability = useCallback(async (params: CheckAvailabilityParams): Promise<AvailabilityOutcome> => {
     const { technicianId, date, requestedTime, destinationAddress, overrideStartAddress } = params
 
     if (!technicianId || !date || !requestedTime || !destinationAddress) {
       setError('Missing required parameters')
-      return null
+      return availabilityFailure('bad_params', 'Missing technicianId, date, requestedTime or destinationAddress')
     }
 
     setIsLoading(true)
@@ -161,7 +205,8 @@ export function useBookingValidation() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        throw new Error('Not authenticated')
+        setError(AVAILABILITY_FAILURE_MESSAGES.auth)
+        return availabilityFailure('auth', 'No active Supabase session')
       }
 
       // Format date as YYYY-MM-DD
@@ -180,32 +225,66 @@ export function useBookingValidation() {
         requestBody.override_start_address = overrideStartAddress
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calculate-travel-time`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        }
-      )
+      let response: Response
+      try {
+        response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calculate-travel-time`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          }
+        )
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err)
+        setError(AVAILABILITY_FAILURE_MESSAGES.network)
+        console.error('Availability check network error:', err)
+        return availabilityFailure('network', detail)
+      }
 
-      const data = await response.json()
-
+      // Status is checked BEFORE the body is parsed: an undeployed function returns a
+      // 404 with an HTML body, which would otherwise surface as a JSON parse error and
+      // hide the real cause.
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to check availability')
+        const detail = `HTTP ${response.status}: ${await readErrorDetail(response)}`
+        setError(AVAILABILITY_FAILURE_MESSAGES.server)
+        console.error('Availability check server error:', detail)
+        return availabilityFailure('server', detail)
+      }
+
+      let data: AvailabilityResult
+      try {
+        data = (await response.json()) as AvailabilityResult
+      } catch (err) {
+        const detail = `Malformed JSON body: ${err instanceof Error ? err.message : String(err)}`
+        setError(AVAILABILITY_FAILURE_MESSAGES.server)
+        console.error('Availability check parse error:', err)
+        return availabilityFailure('server', detail)
       }
 
       setResult(data)
-      return data
+
+      // The function answers 200 with this flag when the technician has no starting
+      // address. Every numeric field is a placeholder zero, so treating it as a real
+      // answer renders "0 min travel, 0 min buffer" as fact.
+      if (data.error === 'no_starting_address') {
+        const message = data.message ?? 'Travel time could not be calculated for this technician.'
+        setError(message)
+        return { status: 'unavailable', message, data }
+      }
+
+      return { status: 'ok', data }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      setError(errorMessage)
+      // Only reachable if supabase.auth.getSession() itself rejects, which it does on
+      // transport failure.
+      const detail = err instanceof Error ? err.message : String(err)
+      setError(AVAILABILITY_FAILURE_MESSAGES.network)
       console.error('Availability check error:', err)
-      return null
+      return availabilityFailure('network', detail)
     } finally {
       setIsLoading(false)
     }

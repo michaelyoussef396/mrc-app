@@ -62,9 +62,12 @@ export function TimeSlotValidator({
         date: selectedDate,
         requestedTime: selectedTime,
         destinationAddress: `${leadAddress}, ${leadSuburb}, VIC, Australia`
-      }).then((result) => {
-        if (result) {
-          onValidationChange?.(result.requested_time_works)
+      }).then((outcome) => {
+        // Only a computed answer can validate the slot. 'unavailable' (no starting
+        // address) and 'failed' both mean we don't know, so leave validation untouched
+        // rather than asserting the slot works.
+        if (outcome.status === 'ok') {
+          onValidationChange?.(outcome.data.requested_time_works)
         }
       })
     }, 500) // Debounce

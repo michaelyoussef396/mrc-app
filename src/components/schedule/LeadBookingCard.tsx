@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { LeadToSchedule } from '@/hooks/useLeadsToSchedule';
 import { bookInspection, TIME_SLOTS, formatTimeForDisplay } from '@/lib/bookingService';
-import { useBookingValidation, RECOMMENDED_DATES_FAILURE_MESSAGES, type DateRecommendation, type AvailabilityResult, formatTimeDisplay } from '@/hooks/useBookingValidation';
+import { useBookingValidation, RECOMMENDED_DATES_FAILURE_MESSAGES, AVAILABILITY_FAILURE_MESSAGES, type DateRecommendation, type AvailabilityResult, formatTimeDisplay } from '@/hooks/useBookingValidation';
 import { captureBusinessError } from '@/lib/sentry';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
 import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
@@ -217,6 +217,7 @@ export function LeadBookingCard({
   // Real-time availability / travel info state
   const [availabilityResult, setAvailabilityResult] = useState<AvailabilityResult | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
   // Get minimum date (today)
   const today = new Date().toISOString().split('T')[0];
@@ -225,11 +226,13 @@ export function LeadBookingCard({
   useEffect(() => {
     if (!selectedDate || !selectedTime || !selectedTechnician || !lead.propertyAddress) {
       setAvailabilityResult(null);
+      setAvailabilityError(null);
       return;
     }
 
     let cancelled = false;
     setAvailabilityLoading(true);
+    setAvailabilityError(null);
 
     checkAvailability({
       technicianId: selectedTechnician,
@@ -237,18 +240,49 @@ export function LeadBookingCard({
       requestedTime: selectedTime,
       destinationAddress: lead.propertyAddress,
     })
-      .then((result) => {
-        if (!cancelled) setAvailabilityResult(result);
+      .then((outcome) => {
+        if (cancelled) return;
+
+        if (outcome.status === 'ok') {
+          setAvailabilityResult(outcome.data);
+          return;
+        }
+
+        // 'failed' and 'unavailable' both mean there is no travel answer. Clearing the
+        // result and showing the banner keeps that distinct from "not checked yet",
+        // which is what a null result used to render as: nothing at all.
+        setAvailabilityResult(null);
+        setAvailabilityError(
+          outcome.status === 'unavailable' ? outcome.message : outcome.userMessage
+        );
+        captureBusinessError('Availability check did not return a travel answer', {
+          leadId: lead.id,
+          technicianId: selectedTechnician,
+          date: selectedDate,
+          requestedTime: selectedTime,
+          status: outcome.status,
+          ...(outcome.status === 'failed'
+            ? { reason: outcome.reason, detail: outcome.detail }
+            : { detail: outcome.message }),
+        });
       })
-      .catch(() => {
-        if (!cancelled) setAvailabilityResult(null);
+      .catch((err) => {
+        // Defensive: checkAvailability is designed never to reject.
+        if (cancelled) return;
+        setAvailabilityResult(null);
+        setAvailabilityError(AVAILABILITY_FAILURE_MESSAGES.network);
+        captureBusinessError('Availability check threw unexpectedly', {
+          leadId: lead.id,
+          technicianId: selectedTechnician,
+          error: err instanceof Error ? err.message : String(err),
+        });
       })
       .finally(() => {
         if (!cancelled) setAvailabilityLoading(false);
       });
 
     return () => { cancelled = true; };
-  }, [selectedDate, selectedTime, selectedTechnician, lead.propertyAddress, checkAvailability]);
+  }, [selectedDate, selectedTime, selectedTechnician, lead.propertyAddress, lead.id, checkAvailability]);
 
   // ---- Address validation handlers ----
 
@@ -420,6 +454,7 @@ export function LeadBookingCard({
     setTechInfo(null);
     setRecsError(null);
     setAvailabilityResult(null);
+    setAvailabilityError(null);
 
     void loadRecommendations(techId, durationMinutes);
   };
@@ -435,6 +470,7 @@ export function LeadBookingCard({
     setSelectedRecDate('');
     setSelectedTime('');
     setAvailabilityResult(null);
+    setAvailabilityError(null);
   };
 
   const getTimeSlots = () => {
@@ -496,6 +532,7 @@ export function LeadBookingCard({
         setRecommendations([]);
         setSelectedRecDate('');
         setAvailabilityResult(null);
+        setAvailabilityError(null);
         onToggle();
       } else {
         toast.error(result.error || 'Failed to book inspection');
@@ -1049,7 +1086,7 @@ export function LeadBookingCard({
               >
                 Assign Technician
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2" data-testid="technician-grid">
                 {technicians.map((tech) => {
                   const isSelected = selectedTechnician === tech.id;
                   return (
@@ -1293,6 +1330,22 @@ export function LeadBookingCard({
                 <span className="text-sm" style={{ color: '#617589' }}>
                   Checking travel time...
                 </span>
+              </div>
+            )}
+            {availabilityError && !availabilityLoading && (
+              <div
+                role="alert"
+                data-testid="availability-error"
+                className="p-3 rounded-lg flex items-start gap-2"
+                style={{
+                  backgroundColor: 'rgba(255, 149, 0, 0.08)',
+                  border: '1px solid rgba(255, 149, 0, 0.2)',
+                }}
+              >
+                <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: '#FF9500' }} />
+                <p className="text-xs font-medium" style={{ color: '#FF9500' }}>
+                  {availabilityError}
+                </p>
               </div>
             )}
             {availabilityResult && !availabilityLoading && (
