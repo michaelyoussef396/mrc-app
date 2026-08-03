@@ -3502,6 +3502,21 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   // 'infrared', 'front_house', or moisture readings) supply their own caption.
   const HUMAN_CAPTION_TYPES = new Set(['roomView', 'subfloor']);
 
+  // Types backed by a single state slot. The handlers below keep only newPhotos[0],
+  // so a multi-select here uploads every file to Storage and then silently discards
+  // all but the first — leaving orphan photo rows and captions that no longer match
+  // the images in the PDF. iOS offers multi-select whenever the input allows it.
+  const SINGLE_SLOT_PHOTO_TYPES = new Set([
+    'single',
+    'infrared',
+    'naturalInfrared',
+    'frontDoor',
+    'frontHouse',
+    'mailbox',
+    'street',
+    'direction',
+  ]);
+
   const openFilePicker = (multiple: boolean) => {
     const input = photoInputRef.current;
     if (!input) return;
@@ -3522,14 +3537,14 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       return;
     }
 
-    openFilePicker(type !== 'single' && !readingId);
+    openFilePicker(!SINGLE_SLOT_PHOTO_TYPES.has(type) && !readingId);
   };
 
   const handleCaptionPromptConfirm = (caption: string) => {
     photoContextRef.current = { ...photoContextRef.current, userCaption: caption };
     setCaptionPromptOpen(false);
     const ctx = photoContextRef.current;
-    openFilePicker(ctx.type !== 'single' && !ctx.readingId);
+    openFilePicker(!SINGLE_SLOT_PHOTO_TYPES.has(ctx.type) && !ctx.readingId);
   };
 
   const handleCaptionPromptCancel = () => {
