@@ -744,8 +744,12 @@ function CostEstimateSection({
     rcdQty: i.rcd_box_qty || 0,
     hepaAirScrubberQty: i.hepa_air_scrubber_qty || 0,
     hepaAirScrubberDays: i.hepa_air_scrubber_days || undefined,
+    wasteDisposalCost: i.waste_disposal_confirmed_cost ?? undefined,
   });
 
+  // Option 1 in Both-options mode omits waste on purpose: it is a single
+  // job-level cost billed once via the invoice, not per option. Mirrors the
+  // form's own Both-mode call in TechnicianInspectionForm.handleSave.
   const option1Result: CostEstimateResult | null = i.option_selected === 3
     ? calculateCostEstimate({
         nonDemoHours: calculatedNonDemoHours,
