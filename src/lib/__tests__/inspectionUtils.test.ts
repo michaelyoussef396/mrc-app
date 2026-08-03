@@ -84,6 +84,22 @@ describe('getEnvironmentReadingWarning', () => {
     expect(getEnvironmentReadingWarning('indoorHumidity', '55')).toBeNull()
   })
 
+  it('should stay silent on the first digit of a two-digit indoor humidity', () => {
+    expect(getEnvironmentReadingWarning('indoorHumidity', '5')).toBeNull()
+  })
+
+  it('should stay silent on the first digit of a two-digit outdoor humidity', () => {
+    expect(getEnvironmentReadingWarning('outdoorHumidity', '4')).toBeNull()
+  })
+
+  it('should still warn on a below-floor value that cannot gain another digit', () => {
+    expect(getEnvironmentReadingWarning('outdoorTemperature', '-40')).toContain('low')
+  })
+
+  it('should warn immediately on an above-ceiling value, which cannot be a prefix', () => {
+    expect(getEnvironmentReadingWarning('indoorTemperature', '46')).toContain('high')
+  })
+
   it('should return null for an in-range outdoor humidity', () => {
     expect(getEnvironmentReadingWarning('outdoorHumidity', '62')).toBeNull()
   })
@@ -104,8 +120,8 @@ describe('getEnvironmentReadingWarning', () => {
     expect(getEnvironmentReadingWarning('outdoorTemperature', '55')).toContain('Unusually high')
   })
 
-  it('should warn that 5% is unusually low for indoor humidity', () => {
-    expect(getEnvironmentReadingWarning('indoorHumidity', '5')).toContain('Unusually low')
+  it('should not warn on a single-digit indoor humidity, which is indistinguishable from mid-typing', () => {
+    expect(getEnvironmentReadingWarning('indoorHumidity', '5')).toBeNull()
   })
 
   it('should not warn for 5% outdoor humidity (hot north-wind days reach it)', () => {
