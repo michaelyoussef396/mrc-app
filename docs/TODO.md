@@ -123,12 +123,13 @@ only the quote side is missing them.
 
 ---
 
-## OPEN — Drying Equipment toggle does not gate its quantities
+## ✅ CLOSED — Drying Equipment toggle did not gate its quantities
 
-Found 3 Aug 2026 while verifying launch-testing issue 16. **Issue 16 as written was already
-implemented** (`TechnicianInspectionForm.tsx:2148` gates the HEPA detail section on the
-treatment-method toggle, symmetric with Drying Equipment at `:2054`, and was present on
-`main` before the 2 Aug test run). The real divergence runs the other way.
+Found and fixed 3 Aug 2026 on `batch-c-forms-ui` while verifying launch-testing issue 16.
+**Issue 16 as written was already implemented** (`TechnicianInspectionForm.tsx:2148` gates
+the HEPA detail section on the treatment-method toggle, symmetric with Drying Equipment at
+`:2054`, and was present on `main` before the 2 Aug test run). The real divergence ran the
+other way.
 
 HEPA has `getEffectiveHepaQty` (`:1938-1943`), so turning its method toggle off stops the
 quantity feeding pricing and saves. Drying Equipment has no equivalent: turning it off hides
@@ -138,10 +139,18 @@ are never persisted either — on reload they are re-derived from `qty > 0` (`:3
 so a tech who flicks one off without stepping the quantity to 0 finds it back on after a
 reload, still billing.
 
-Fix is a `getEffectiveDryingQty` mirroring the HEPA helper — `pricing.ts` untouched, only the
-quantity passed in changes. **Gated on a data check first**, because it changes the quoted
-figure on any existing row with `qty > 0` and `'Drying Equipment'` absent from
-`treatment_methods`:
+**Fixed in `bcb9e99`.** `getEffectiveDryingQty` mirrors the HEPA helper — `pricing.ts`
+untouched, only the quantity passed in changes. Applied to both pricing call sites, the DB
+write, the Section 9 breakdown rows and the AI payload.
+
+**No existing quote changes, and no data migration was needed.** The load path now
+reconciles the two states rather than letting the gate act retroactively: stored quantities
+are treated as evidence the equipment was on, so a pre-gate record with `qty > 0` and
+`'Drying Equipment'` missing has the method restored on load instead of silently losing its
+equipment. Only a deliberate toggle-off from here zeroes anything.
+
+This supersedes the pre-flight SELECT originally planned for this change — the count no
+longer gates anything. If you ever want it for curiosity, it is:
 
 ```sql
 SELECT id, job_number, commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty

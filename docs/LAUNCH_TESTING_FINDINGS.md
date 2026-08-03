@@ -708,7 +708,7 @@ those are recorded below rather than quietly reinterpreted.
 |---|---|
 | 13 — multiple photos per caption | **FIXED.** Seven fields, not nine. |
 | 15 — editable days on other equipment | **PARKED** — see `docs/TODO.md`. |
-| 16 — HEPA toggle reveals its section | **ALREADY IMPLEMENTED.** Inverse defect logged. |
+| 16 — HEPA toggle reveals its section | **ALREADY IMPLEMENTED.** Inverse defect found and fixed. |
 | 24 — PDF readings position | **HELD** — does not reproduce, see below. |
 | 30 — variation note on the invoice | **FIXED.** |
 | 34 — waste amount em-dash | **FIXED**, plus a money bug found alongside. |
@@ -724,8 +724,11 @@ wrote every selected file before `newPhotos[0]` discarded the extras.
 **16.** `TechnicianInspectionForm.tsx:2148` already gates the HEPA detail section on the
 treatment-method toggle, symmetric with Drying Equipment at `:2054`, and was present on `main`
 before this test run — no later commit fixed it. The genuine "two states that can drift apart"
-is the opposite one: Drying Equipment hides its UI but keeps billing. Logged in `docs/TODO.md`
-with the data check it needs.
+is the opposite one: Drying Equipment hid its UI while its quantities kept feeding pricing,
+kept being saved and kept being billed. Fixed in `bcb9e99` with `getEffectiveDryingQty`,
+mirroring the HEPA helper. No existing quote changes — the load path reconciles pre-gate
+records by treating stored quantities as evidence the equipment was on, so nothing is
+dropped retroactively.
 
 **24 — verification, since the brief asked for the live template to be identified first.**
 The live template is `pdf-templates/inspection-report-template-final.html`, fetched by public
