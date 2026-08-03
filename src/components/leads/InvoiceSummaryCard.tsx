@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowRight, ClipboardCopy, FileText, Loader2 } from 'lucide-react'
+import { ArrowRight, ClipboardCopy, FileText, Info, Loader2 } from 'lucide-react'
 
 import { supabase } from '@/integrations/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import {
 } from '@/lib/api/invoices'
 import { formatCurrency } from '@/lib/calculations/pricing'
 import { formatDateAU } from '@/lib/dateUtils'
+import { findQuoteVariances, type QuoteVariance } from '@/lib/utils/quoteVariance'
 
 // Invoice create/edit lives entirely in the AdminInvoiceHelper page (/admin/invoice/:leadId).
 // This card is a read-only preview of the auto-populated figures plus a button into that page.
@@ -25,6 +26,7 @@ interface SummaryData {
   totals: InvoiceTotals
   jobNumber: string | null
   completionDate: string | null
+  variances: QuoteVariance[]
 }
 
 function buildClipboardText(d: SummaryData): string {
@@ -78,7 +80,16 @@ export function InvoiceSummaryCard({ leadId }: Props) {
         )
         const { data: jc } = await supabase
           .from('job_completions')
-          .select('job_number, completion_date')
+          .select(
+            'job_number, completion_date,'
+            + 'actual_dehumidifier_qty, actual_dehumidifier_days,'
+            + 'actual_air_mover_qty, actual_air_mover_days,'
+            + 'actual_afd_qty, actual_afd_days,'
+            + 'actual_rcd_qty, actual_rcd_days, actual_waste_disposal_m3,'
+            + 'quoted_dehumidifier_qty, quoted_air_mover_qty,'
+            + 'quoted_afd_qty, quoted_afd_days, quoted_rcd_qty,'
+            + 'quoted_equipment_days, quoted_waste_disposal_m3',
+          )
           .eq('lead_id', leadId)
           .order('created_at', { ascending: false })
           .limit(1)
@@ -89,6 +100,7 @@ export function InvoiceSummaryCard({ leadId }: Props) {
           totals,
           jobNumber: jc?.job_number ?? null,
           completionDate: jc?.completion_date ?? null,
+          variances: findQuoteVariances(jc),
         })
       } catch (err) {
         if (cancelled) return
@@ -190,6 +202,30 @@ export function InvoiceSummaryCard({ leadId }: Props) {
               <span>{formatDateAU(data.completionDate)}</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Actuals vs quote. Informational only — invoicing is manual, so this
+          exists so divergence is visible before figures are copied out. It
+          never blocks, and it alters no figure below. */}
+      {data.variances.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
+          <p className="flex items-start gap-2 text-xs font-medium text-amber-900">
+            <Info className="h-4 w-4 shrink-0 mt-px" aria-hidden="true" />
+            <span>
+              Actuals differ from the quote on {data.variances.length}{' '}
+              {data.variances.length === 1 ? 'line' : 'lines'}. Worth a look before you
+              copy these figures out.
+            </span>
+          </p>
+          <ul className="space-y-1 text-xs text-amber-900">
+            {data.variances.map((v) => (
+              <li key={v.label} className="flex flex-wrap justify-between gap-x-2">
+                <span className="font-medium">{v.label}</span>
+                <span>quoted {v.quoted} → actual {v.actual}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
