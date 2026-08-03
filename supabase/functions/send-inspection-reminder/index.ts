@@ -1,5 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+// deps pin: supabase-js declares functions-js ^2.1.5, which floats to a version
+// esm.sh has no denonext build for, breaking every deploy. 2.4.4 satisfies the
+// same range and builds. Remove once esm.sh serves the newer target.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?deps=@supabase/functions-js@2.4.4'
 
 // ---------------------------------------------------------------------------
 // Branded email template (duplicated from notifications.ts for Deno runtime)

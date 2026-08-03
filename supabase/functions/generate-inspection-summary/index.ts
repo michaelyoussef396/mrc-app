@@ -4,7 +4,10 @@
 // for every successful generation (Bucket A audited write — JWT-bound client).
 
 import { z } from 'https://esm.sh/zod@3.22.4'
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+// deps pin: supabase-js declares functions-js ^2.1.5, which floats to a version
+// esm.sh has no denonext build for, breaking every deploy. 2.4.4 satisfies the
+// same range and builds. Remove once esm.sh serves the newer target.
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?deps=@supabase/functions-js@2.4.4'
 import { stripBadUnicode } from '../_shared/stripBadUnicode.ts'
 
 const RequestBodySchema = z.object({
