@@ -343,7 +343,6 @@ export default function ViewReportPDF() {
         `Great news — the remediation work at ${addr} has been completed` +
         `${jobCompletion.job_number ? ` (Ref: ${jobCompletion.job_number})` : ''}.\n\n` +
         `Please find the job completion report attached for your records.\n\n` +
-        `If you have any questions, please don't hesitate to get in touch.\n\n` +
         `Kind regards,\nMould & Restoration Co.\n1800 954 117`
       )
       setStage('email-approval')

@@ -291,7 +291,7 @@ function buildGoogleReviewEmailHtml(params: { customerName: string; jobNumber: s
   return wrapInBrandedTemplate(`
     <h2>Thank You — Would You Leave Us a Review?</h2>
     <p>Dear ${params.customerName},</p>
-    <p>Thank you for trusting Mould &amp; Restoration Co with your remediation work (${params.jobNumber}). We hope you're thrilled with the result.</p>
+    <p>Thank you for trusting Mould &amp; Restoration Co. with your remediation work (${params.jobNumber}). We hope you're thrilled with the result.</p>
     <p>Your feedback means the world to small businesses like ours. If you have 30 seconds, a quick Google review would genuinely make our day:</p>
     <p style="margin-top:24px;text-align:center;">
       <a href="https://g.page/r/CSmcatb7uSq9EBM/review" class="cta-button">Leave a Google Review</a>

@@ -9,7 +9,7 @@
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const PREVIEW_TO = process.env.PREVIEW_TO || 'michaelyoussef396@gmail.com';
-const SENDER = 'Mould & Restoration Co <noreply@mrcsystem.com>';
+const SENDER = 'Mould & Restoration Co. <noreply@mrcsystem.com>';
 const REPLY_TO = 'admin@mrcsystem.com';
 const DELAY_MS = 3000;
 
@@ -313,7 +313,7 @@ function buildGoogleReviewEmailHtml(p: { customerName: string; jobNumber: string
   return wrapInBrandedTemplate(`
     <h2>Thank You — Would You Leave Us a Review?</h2>
     <p>Dear ${p.customerName},</p>
-    <p>Thank you for trusting Mould &amp; Restoration Co with your remediation work (${p.jobNumber}). We hope you're thrilled with the result.</p>
+    <p>Thank you for trusting Mould &amp; Restoration Co. with your remediation work (${p.jobNumber}). We hope you're thrilled with the result.</p>
     <p>Your feedback means the world to small businesses like ours. If you have 30 seconds, a quick Google review would genuinely make our day:</p>
     <p style="margin-top:24px;text-align:center;">
       <a href="https://g.page/r/CSmcatb7uSq9EBM/review" class="cta-button">Leave a Google Review</a>
@@ -346,7 +346,7 @@ const emails = [
   {
     n: 1,
     name: 'Enquiry confirmation',
-    subject: '[PREVIEW] Thank you for your enquiry - Mould & Restoration Co',
+    subject: '[PREVIEW] Thank you for your enquiry - Mould & Restoration Co.',
     html: buildConfirmationEmailHtml(),
   },
   {
@@ -415,7 +415,7 @@ const emails = [
   {
     n: 7,
     name: 'Google Review Request',
-    subject: '[PREVIEW] Thank you from Mould & Restoration Co',
+    subject: '[PREVIEW] Thank you from Mould & Restoration Co.',
     html: buildGoogleReviewEmailHtml({
       customerName: LEAD.full_name,
       jobNumber: JOB_COMPLETION.job_number,
