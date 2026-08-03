@@ -358,9 +358,15 @@ function buildUserPrompt(formData: InspectionFormData): string {
 // ============================================================================
 // CALL OPENROUTER API (with model fallback)
 // ============================================================================
+// flash-lite was primary until 2026-08-04, when it failed 3/3 structured generations
+// on DEV — each time finish_reason=error with zeroed usage, delivering a body cut
+// mid-sentence. flash answered the same prompt cleanly (finish_reason=stop). Demoted
+// rather than dropped: the evidence is from one junk-data inspection, so it may well
+// be fine on normal records, and a failure there now costs one cheap wasted call
+// instead of the whole request.
 const MODELS = [
-  'google/gemini-2.5-flash-lite', // primary  — cheap, fast, ~cost-neutral vs old 2.0-flash
-  'google/gemini-2.5-flash',      // fallback 1 — same family, headroom if lite is rate-limited
+  'google/gemini-2.5-flash',      // primary  — the model that actually completes this prompt
+  'google/gemini-2.5-flash-lite', // fallback 1 — cheap; on probation, see above
   'anthropic/claude-haiku-4.5',   // fallback 2 — different provider, survives a Google-wide outage
 ]
 
@@ -368,7 +374,11 @@ async function callOpenRouter(
   apiKey: string,
   systemPrompt: string,
   userPrompt: string,
-  maxTokens: number
+  maxTokens: number,
+  // Validates a candidate body before it is accepted. Throwing rejects this model
+  // and falls through to the next — a model that returns 200 with an unparseable
+  // body is a failed model, not a failed request.
+  validate?: (text: string) => void
 ): Promise<OpenRouterResult> {
   const errors: string[] = []
 
@@ -393,7 +403,22 @@ async function callOpenRouter(
             ],
             temperature: 0.7,
             max_tokens: maxTokens,
-            top_p: 0.95
+            top_p: 0.95,
+            // Thinking tokens bill against Gemini's maxOutputTokens, which OpenRouter
+            // maps max_tokens onto, so disabling reasoning keeps the whole budget
+            // available for the body. Verified to reach the provider: the flash call
+            // reports reasoning_tokens: 0 where thinking is otherwise on by default.
+            //
+            // This did NOT fix the flash-lite truncation it was first added for —
+            // that turned out to be finish_reason=error with zeroed usage (an upstream
+            // stream failure), not budget exhaustion. Kept because it removes a real
+            // failure mode and costs nothing, not because it fixed that bug.
+            //
+            // Deliberately not a token cap: a 1024-token thinking budget would ENABLE
+            // extended thinking on the claude-haiku-4.5 fallback, which Anthropic then
+            // rejects unless temperature is 1 — breaking the very fallback this change
+            // exists to make reachable.
+            reasoning: { enabled: false }
           })
         }
       )
@@ -406,11 +431,36 @@ async function callOpenRouter(
       }
 
       const result = await response.json()
-      const text = result?.choices?.[0]?.message?.content
+      const choice = result?.choices?.[0]
+      const text = choice?.message?.content
+      // Logged unconditionally: without finish_reason and the token counts, a
+      // truncated body is indistinguishable from a short answer in the logs.
+      console.log(`Model ${model} finish_reason=${choice?.finish_reason} usage=`, JSON.stringify(result?.usage ?? null))
       if (!text) {
         console.warn(`Model ${model} returned empty content`)
         errors.push(`${model}: empty response`)
         continue
+      }
+      // 'error' is an upstream stream failure that still delivers a partial body —
+      // observed on flash-lite (DEV, 2026-08-04): finish_reason=error, usage zeroed,
+      // ~1500 chars of a JSON object cut mid-sentence. Section mode passes no
+      // validate callback, so this guard is its only protection against a
+      // half-sentence being written straight into a customer report.
+      if (choice?.finish_reason === 'length' || choice?.finish_reason === 'error') {
+        console.warn(`Model ${model} truncated (finish_reason=${choice.finish_reason}); trying next`)
+        errors.push(`${model}: truncated (${choice.finish_reason})`)
+        continue
+      }
+      if (validate) {
+        try {
+          validate(text)
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          console.warn(`Model ${model} failed validation: ${msg}; trying next`)
+          console.warn(`Rejected body (first 1500 chars):`, text.slice(0, 1500))
+          errors.push(`${model}: ${msg}`)
+          continue
+        }
       }
       console.log(`Success with model: ${model}`)
       return {
@@ -746,7 +796,10 @@ Return ONLY the JSON object:`
 
       let cleanedText = ''
       try {
-        const aiResult = await callOpenRouter(openrouterApiKey, MRC_SYSTEM_PROMPT, structuredUserPrompt, 5000)
+        const aiResult = await callOpenRouter(
+          openrouterApiKey, MRC_SYSTEM_PROMPT, structuredUserPrompt, 5000,
+          (t) => { JSON.parse(extractJson(t)) }
+        )
         console.log('Raw AI response (first 1500 chars):', aiResult.text.slice(0, 1500))
 
         cleanedText = extractJson(aiResult.text)
