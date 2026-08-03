@@ -2080,7 +2080,24 @@ export default function LeadDetail() {
                   {inspection.waste_disposal_required ? "Yes" : "No"}
                 </Badge>
               </div>
-              {inspection.waste_disposal_required && inspection.waste_disposal_amount && (
+              {inspection.waste_disposal_required && inspection.waste_disposal_m3 != null && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Volume</span>
+                  <span className="text-sm font-medium">{inspection.waste_disposal_m3} m³</span>
+                </div>
+              )}
+              {inspection.waste_disposal_required && inspection.waste_disposal_confirmed_cost != null && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Cost</span>
+                  <span className="text-sm font-medium">
+                    {formatCurrency(Number(inspection.waste_disposal_confirmed_cost))}
+                  </span>
+                </div>
+              )}
+              {/* Legacy rows predate the m³ columns and carry only the size enum. */}
+              {inspection.waste_disposal_required
+                && inspection.waste_disposal_m3 == null
+                && inspection.waste_disposal_amount && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">Estimated Amount</span>
                   <span className="text-sm font-medium">{inspection.waste_disposal_amount}</span>
