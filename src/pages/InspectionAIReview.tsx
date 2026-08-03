@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +7,7 @@ import { captureBusinessError } from '@/lib/sentry';
 import { logFieldEdits } from '@/lib/api/fieldEditLog';
 import { stripBadUnicode } from '@/lib/stripBadUnicode';
 import { EQUIPMENT_RATES } from '@/lib/calculations/pricing';
+import { findSummaryFlags } from '@/lib/utils/summaryChecks';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import {
   AlertTriangle,
@@ -75,6 +76,12 @@ interface InspectionData {
   outdoor_temperature: number | null;
   outdoor_humidity: number | null;
   cause_of_mould: string | null;
+  // Selected work procedure, used to flag services the narrative claims but the
+  // inspection never selected. The booleans are the pre-array legacy encoding.
+  treatment_methods: string[] | null;
+  hepa_vac: boolean | null;
+  antimicrobial: boolean | null;
+  home_sanitation_fogging: boolean | null;
 }
 
 interface AreaData {
@@ -180,7 +187,7 @@ export default function InspectionAIReview() {
       // latest_ai_summary view per Stage 3.4.5).
       const { data: inspData, error: inspError } = await supabase
         .from('inspections')
-        .select('id, inspection_date, inspector_name, dwelling_type, property_occupation, outdoor_temperature, outdoor_humidity, cause_of_mould')
+        .select('id, inspection_date, inspector_name, dwelling_type, property_occupation, outdoor_temperature, outdoor_humidity, cause_of_mould, treatment_methods, hepa_vac, antimicrobial, home_sanitation_fogging')
         .eq('lead_id', leadId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -527,6 +534,30 @@ export default function InspectionAIReview() {
 
   const hasDemolition = areas.some(a => a.demolition_required);
 
+  // Cross-check the narrative against the work procedure the inspection actually
+  // selected. Legacy rows predate treatment_methods and encode the selection as
+  // booleans; without that fallback every legacy report would flag everything.
+  const summaryFlags = useMemo(() => {
+    const selectedMethods = inspection?.treatment_methods?.length
+      ? inspection.treatment_methods
+      : [
+          inspection?.hepa_vac ? 'HEPA Vacuuming' : null,
+          inspection?.antimicrobial ? 'Surface Remediation Treatment' : null,
+          inspection?.home_sanitation_fogging ? 'ULV Fogging - Property' : null,
+        ].filter((m): m is string => m !== null);
+
+    return findSummaryFlags(
+      {
+        whatWeFound,
+        detailedAnalysis: problemAnalysis,
+        whatWeWillDo,
+        demolitionDetails: demolitionContent,
+      },
+      selectedMethods,
+      hasDemolition,
+    );
+  }, [inspection, whatWeFound, problemAnalysis, whatWeWillDo, demolitionContent, hasDemolition]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
@@ -752,6 +783,26 @@ export default function InspectionAIReview() {
                     <p className="text-sm text-amber-700 mb-4">
                       The AI summary was not generated during inspection completion. Use "Regenerate All Sections" to generate content now.
                     </p>
+                  </div>
+                )}
+
+                {summaryFlags.length > 0 && (
+                  <div role="alert" className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+                      <h3 className="text-base font-semibold text-amber-800">Verify before approving</h3>
+                    </div>
+                    <p className="text-sm text-amber-700 mb-3">
+                      The report mentions the following, which the inspection did not record. Edit the wording or confirm it is correct — an unselected service is a commitment to unquoted work.
+                    </p>
+                    <ul className="space-y-1">
+                      {summaryFlags.map((flag) => (
+                        <li key={`${flag.section}-${flag.label}`} className="text-sm text-amber-800">
+                          <span className="font-medium">{flag.label}</span>
+                          <span className="text-amber-700"> — in {SECTION_LABELS[flag.section]}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 

@@ -292,9 +292,9 @@ function buildUserPrompt(formData: InspectionFormData): string {
     if (formData.stainRemovingAntimicrobial) treatments.push('Stain-Removing Antimicrobial')
     if (formData.homeSanitationFogging) treatments.push('Home Sanitation/Fogging')
   }
-  if (treatments.length > 0) {
-    lines.push(`\nTREATMENT METHODS: ${treatments.join(', ')}`)
-  }
+  // Always emitted, even when empty: an absent heading let the model fall back on
+  // generic industry defaults and describe services the customer was never quoted.
+  lines.push(`\nTREATMENT METHODS: ${treatments.length > 0 ? treatments.join(', ') : 'None selected'}`)
 
   // Equipment
   const equipment: string[] = []
@@ -719,7 +719,7 @@ IMPORTANT: Return ONLY valid JSON with no additional text. Use this exact struct
 {
   "what_we_found": "VALUE PROPOSITION - WHAT WE FOUND subsection. Write 1-2 concise sentences describing the main issue and its impact on the property. Keep it brief — this is a summary for the cover page.",
   "detailed_analysis": "This is the MAIN SECTION — Problem Analysis & Recommendations. Generate using this EXACT format with subsections separated by \\n\\n:\\n\\n**WHAT WE DISCOVERED**\\n[Comprehensive paragraph: specific address, what was found, severity, impact. Reference inspection data: temp, humidity, moisture readings, areas affected. Be specific with room names and measurements.]\\n\\n**🔍 IDENTIFIED CAUSES**\\n\\n**Primary Cause:**\\n- [Single clear statement of main issue]\\n\\n**Contributing Factors:**\\n1. [Factor 1 with specific data from inspection]\\n2. [Factor 2 with specific data]\\n3. [Factor 3 with specific data]\\n4. [Factor 4 if applicable]\\n5. [Factor 5 if applicable]\\n6. [Factor 6 if applicable]\\n\\n**WHY THIS HAPPENED**\\n[Paragraph explaining mechanism: how this type of failure occurs, why moisture persists, consequences if not addressed]\\n\\n**📋 RECOMMENDATIONS**\\n\\n**IMMEDIATE ACTIONS WEEK 1**\\n1. [Urgent action 1 with explanation]\\n2. [Urgent action 2 with explanation]\\n3. [Urgent action 3 with explanation]\\n4. [Urgent action 4 with explanation]\\n\\n**LONG-TERM PROTECTION**\\n- [Protection measure 1 with explanation]\\n- [Protection measure 2 with explanation]\\n- [Protection measure 3 with explanation]\\n\\n**WHAT SUCCESS LOOKS LIKE**\\n[Paragraph describing expected outcomes, air quality restoration, timeline for reoccupancy, warranty coverage]\\n\\n**TIMELINE**\\n- Total project: [use the TOTAL PROJECT WORK DAYS figure from the inspection data verbatim — never calculate your own]\\n- On-site treatment: [days, within the total above]\\n- Drying equipment: [include this line ONLY if DRYING EQUIPMENT is listed in the data; drying runs concurrently with treatment, never added on top]\\n- Property reoccupancy: [hours/days after completion]",
-  "what_we_will_do": "WHAT WE'RE GOING TO DO section — detailed treatment plan. Write 2-3 paragraphs describing: the complete remediation approach, step-by-step treatment process (HEPA vacuuming, antimicrobial application, stain removal, fogging), equipment to be deployed (specific quantities of dehumidifiers, air movers, RCD boxes), any demolition or material removal required, drying period, and expected outcomes. Be specific with quantities and timelines. This is a standalone section, not a 1-2 sentence summary.",
+  "what_we_will_do": "WHAT WE'RE GOING TO DO section — detailed treatment plan. Write 2-3 paragraphs describing: the complete remediation approach, the step-by-step process for EACH method listed under TREATMENT METHODS in the inspection data (and no others), the equipment listed under DRYING EQUIPMENT with its quantities (omit entirely if no equipment is listed), and the expected outcomes. Be specific with quantities and timelines. This is a standalone section, not a 1-2 sentence summary.",
   ${demolitionInstruction}
 }
 
@@ -734,6 +734,8 @@ CRITICAL RULES:
 - Use \\n for line breaks within lists
 - Contributing Factors MUST be numbered (1. 2. 3. etc.)
 - Take every day count from the TOTAL PROJECT WORK DAYS figure in the inspection data; never derive durations from the hour figures yourself, and never sum treatment and drying into a longer total
+- Describe ONLY the services listed under TREATMENT METHODS and the equipment listed under DRYING EQUIPMENT. Never infer, suggest or describe any remediation step absent from those lists — no antimicrobial or fogging treatment, no containment, no demolition, and above all no clearance or air-quality testing, unless it is explicitly listed. An unlisted service is a commitment to unquoted work
+- Where a structured value and a free-text comment disagree (a moisture reading against a range quoted in the comments, a recorded dwelling type against the customer's description), do not silently pick one. State both and mark it [DATA CONFLICT: X vs Y — confirm before sending]
 
 Return ONLY the JSON object:`
 
@@ -846,6 +848,8 @@ CRITICAL INSTRUCTIONS:
 6. Use Australian English (mould not mold)
 7. Maintain professional tone for a customer-facing report
 8. Take every day count from the TOTAL PROJECT WORK DAYS figure in the inspection data; never derive durations from the hour figures, and never sum treatment and drying into a longer total
+9. Describe ONLY the services listed under TREATMENT METHODS and the equipment listed under DRYING EQUIPMENT — never introduce a remediation step absent from those lists, and never mention clearance or air-quality testing
+10. Where a structured value and a free-text comment disagree, state both and mark it [DATA CONFLICT: X vs Y — confirm before sending] rather than silently choosing one
 
 [Inspection data for reference]:
 ${userDataPrompt}
@@ -877,12 +881,12 @@ ${userDataPrompt}
 
 Write 2-3 detailed paragraphs describing:
 - The complete remediation approach and step-by-step treatment process
-- Treatment methods: HEPA vacuuming, antimicrobial application, stain removal, fogging
-- Equipment to be deployed with specific quantities (dehumidifiers, air movers, RCD boxes)
-- Any demolition or material removal required
-- Drying period and monitoring
+- The step-by-step process for EACH method listed under TREATMENT METHODS in the data, and no others
+- The equipment listed under DRYING EQUIPMENT with its quantities (omit entirely if none is listed)
 - Expected outcomes and timeline
 
+Describe ONLY the services listed under TREATMENT METHODS and the equipment listed under DRYING EQUIPMENT. Never infer, suggest or describe a remediation step absent from those lists — no antimicrobial or fogging treatment, no containment, no demolition, and above all no clearance or air-quality testing, unless it is explicitly listed. An unlisted service is a commitment to unquoted work.
+Where a structured value and a free-text comment disagree, state both and mark it [DATA CONFLICT: X vs Y — confirm before sending] rather than silently choosing one.
 Be specific with quantities, methods, and timelines. This is a standalone treatment plan section.
 Australian English. Professional but reassuring tone.
 Return ONLY the paragraphs, nothing else.`
@@ -939,7 +943,7 @@ Use this EXACT format with **bold** headers and emoji icons:
 - Drying equipment: [include this line ONLY if DRYING EQUIPMENT is listed in the data; drying runs concurrently with treatment, never added on top]
 - Property reoccupancy: [hours/days after completion]
 
-CRITICAL: Use real data from the inspection — temperatures, humidity, moisture readings, room names. Do NOT use placeholder brackets. Australian English. Take every day count from the TOTAL PROJECT WORK DAYS figure in the inspection data; never derive durations from hours yourself.
+CRITICAL: Use real data from the inspection — temperatures, humidity, moisture readings, room names. Do NOT use placeholder brackets. Australian English. Take every day count from the TOTAL PROJECT WORK DAYS figure in the inspection data; never derive durations from hours yourself. Reference ONLY the services listed under TREATMENT METHODS — never introduce a remediation step absent from that list, and never mention clearance or air-quality testing. Where a structured value and a free-text comment disagree, state both and mark it [DATA CONFLICT: X vs Y — confirm before sending].
 Return ONLY the formatted analysis text, no JSON wrapping.`
       }
     } else if (section === 'demolitionDetails') {
