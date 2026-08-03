@@ -1937,6 +1937,18 @@ const OPTION_2_ONLY_METHODS = ['Material Demolition', 'Cavity Treatment', 'Debri
 
 // HEPA qty only counts while the method toggle is on — toggling it off keeps the
 // entered numbers in state but stops them feeding calcs and saves.
+// Same contract for drying equipment: the method toggle is the single source of
+// truth for whether it is quoted. Without this the toggle only hid the UI while
+// the quantities kept feeding pricing and kept being saved, so a tech who turned
+// it off still billed the customer for equipment they could no longer see.
+const getEffectiveDryingQty = (
+  formData: InspectionFormData,
+  field: 'commercialDehumidifierQty' | 'airMoversQty' | 'rcdBoxQty',
+) =>
+  formData.selectedTreatmentMethods?.includes('Drying Equipment')
+    ? (formData[field] || 0)
+    : 0;
+
 const getEffectiveHepaQty = (formData: InspectionFormData) =>
   formData.selectedTreatmentMethods?.includes('HEPA Air Scrubber Installation')
     ? (formData.hepaAirScrubberQty || 0)
@@ -2277,14 +2289,20 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
   const calculatedDemoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
   const calculatedSubfloorHours = formData.subfloorTreatmentTime || 0;
 
+  // Gated by the Drying Equipment toggle, so the breakdown below and the totals
+  // agree with what the toggle says is quoted.
+  const dehumidifierQty = getEffectiveDryingQty(formData, 'commercialDehumidifierQty');
+  const airMoverQty = getEffectiveDryingQty(formData, 'airMoversQty');
+  const rcdQty = getEffectiveDryingQty(formData, 'rcdBoxQty');
+
   // Calculate cost estimate (full calculation with all hours — used as auto-calc reference)
   const costResult = calculateCostEstimate({
     nonDemoHours: calculatedNonDemoHours,
     demolitionHours: calculatedDemoHours,
     subfloorHours: calculatedSubfloorHours,
-    dehumidifierQty: formData.commercialDehumidifierQty || 0,
-    airMoverQty: formData.airMoversQty || 0,
-    rcdQty: formData.rcdBoxQty || 0,
+    dehumidifierQty,
+    airMoverQty,
+    rcdQty,
     hepaAirScrubberQty: getEffectiveHepaQty(formData),
     hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
   });
@@ -2295,9 +2313,9 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
         nonDemoHours: calculatedNonDemoHours,
         demolitionHours: 0,
         subfloorHours: 0,
-        dehumidifierQty: formData.commercialDehumidifierQty || 0,
-        airMoverQty: formData.airMoversQty || 0,
-        rcdQty: formData.rcdBoxQty || 0,
+        dehumidifierQty,
+        airMoverQty,
+        rcdQty,
         hepaAirScrubberQty: getEffectiveHepaQty(formData),
         hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
       })
@@ -2468,23 +2486,23 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
           Equipment Breakdown ({costResult.totalDays} day{costResult.totalDays !== 1 ? 's' : ''})
         </h3>
         <div className="space-y-2 text-sm">
-          {formData.commercialDehumidifierQty > 0 && (
+          {dehumidifierQty > 0 && (
             <div className="flex justify-between items-center py-2 border-b border-gray-100">
               <div>
                 <span className="text-[#1d1d1f]">Dehumidifier</span>
                 <span className="text-[#86868b] ml-2">
-                  ({formData.commercialDehumidifierQty} × ${EQUIPMENT_RATES.dehumidifier} × {costResult.totalDays} days)
+                  ({dehumidifierQty} × ${EQUIPMENT_RATES.dehumidifier} × {costResult.totalDays} days)
                 </span>
               </div>
               <span className="font-medium text-[#1d1d1f]">{formatCurrency(costResult.equipment.dehumidifier.cost)}</span>
             </div>
           )}
-          {formData.airMoversQty > 0 && (
+          {airMoverQty > 0 && (
             <div className="flex justify-between items-center py-2 border-b border-gray-100">
               <div>
                 <span className="text-[#1d1d1f]">Air Movers</span>
                 <span className="text-[#86868b] ml-2">
-                  ({formData.airMoversQty} × ${EQUIPMENT_RATES.airMover} × {costResult.totalDays} days)
+                  ({airMoverQty} × ${EQUIPMENT_RATES.airMover} × {costResult.totalDays} days)
                 </span>
               </div>
               <span className="font-medium text-[#1d1d1f]">{formatCurrency(costResult.equipment.airMover.cost)}</span>
@@ -2501,18 +2519,18 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
               <span className="font-medium text-[#1d1d1f]">{formatCurrency(costResult.equipment.hepaAirScrubber.cost)}</span>
             </div>
           )}
-          {formData.rcdBoxQty > 0 && (
+          {rcdQty > 0 && (
             <div className="flex justify-between items-center py-2 border-b border-gray-100">
               <div>
                 <span className="text-[#1d1d1f]">RCD Box</span>
                 <span className="text-[#86868b] ml-2">
-                  ({formData.rcdBoxQty} × ${EQUIPMENT_RATES.rcd} × {costResult.totalDays} days)
+                  ({rcdQty} × ${EQUIPMENT_RATES.rcd} × {costResult.totalDays} days)
                 </span>
               </div>
               <span className="font-medium text-[#1d1d1f]">{formatCurrency(costResult.equipment.rcd.cost)}</span>
             </div>
           )}
-          {!formData.commercialDehumidifierQty && !formData.airMoversQty && !formData.rcdBoxQty && !costResult.equipment.hepaAirScrubber.qty && (
+          {!dehumidifierQty && !airMoverQty && !rcdQty && !costResult.equipment.hepaAirScrubber.qty && (
             <p className="text-[#86868b] italic py-2">No equipment selected (set in Section 7)</p>
           )}
           {/* Equipment Total */}
@@ -2835,11 +2853,11 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
     optionSelected: formData.optionSelected,
     treatmentMethods: formData.selectedTreatmentMethods,
     commercialDehumidifierEnabled: formData.commercialDehumidifierEnabled,
-    commercialDehumidifierQty: formData.commercialDehumidifierQty,
+    commercialDehumidifierQty: getEffectiveDryingQty(formData, 'commercialDehumidifierQty'),
     airMoversEnabled: formData.airMoversEnabled,
-    airMoversQty: formData.airMoversQty,
+    airMoversQty: getEffectiveDryingQty(formData, 'airMoversQty'),
     rcdBoxEnabled: formData.rcdBoxEnabled,
-    rcdBoxQty: formData.rcdBoxQty,
+    rcdBoxQty: getEffectiveDryingQty(formData, 'rcdBoxQty'),
     hepaAirScrubberQty: hepaQty,
     hepaAirScrubberDays: hepaDays,
     hepaAirScrubberCost: hepaQty > 0 && hepaDays ? hepaQty * EQUIPMENT_RATES.hepaAirScrubber * hepaDays : 0,
@@ -3188,6 +3206,33 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           const streetPhoto = generalPhotos.find((p: any) => p.caption === 'street');
           const directionPhoto = generalPhotos.find((p: any) => p.caption === 'direction');
 
+          // Treatment methods, with drying equipment reconciled against the
+          // saved quantities. Before the toggle gated its quantities, a tech
+          // could turn "Drying Equipment" off and still leave qty > 0 on the
+          // record — and those quantities were billed. Stored quantities are
+          // therefore evidence the equipment was on, so the method is restored
+          // rather than letting the gate silently drop equipment from an
+          // existing quote. Toggling off now zeroes the quantities on save, so
+          // this can only ever describe a pre-gate record.
+          const storedMethods = (ins.treatment_methods && ins.treatment_methods.length > 0)
+            ? ins.treatment_methods
+            : [
+                // Backward compat: derive treatment methods from surviving boolean columns
+                // for old inspections that predate the treatment_methods array column.
+                // NOTE: drying_equipment_enabled removed in Phase 5c (column being dropped).
+                ...(ins.hepa_vac ? ['HEPA Vacuuming'] : []),
+                ...(ins.antimicrobial ? ['Surface Remediation Treatment'] : []),
+                ...(ins.home_sanitation_fogging ? ['ULV Fogging - Property'] : []),
+              ];
+          const hasStoredDryingQty =
+            (ins.commercial_dehumidifier_qty ?? 0) > 0
+            || (ins.air_movers_qty ?? 0) > 0
+            || (ins.rcd_box_qty ?? 0) > 0;
+          const reconciledMethods =
+            hasStoredDryingQty && !storedMethods.includes('Drying Equipment')
+              ? [...storedMethods, 'Drying Equipment']
+              : storedMethods;
+
           setFormData((prev) => ({
             ...prev,
             jobNumber: ins.job_number || prev.jobNumber,
@@ -3230,24 +3275,12 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
               isOverridden: ins.waste_disposal_is_overridden || false,
             },
             optionSelected: ins.option_selected || null,
-            selectedTreatmentMethods: (ins.treatment_methods && ins.treatment_methods.length > 0)
-              ? ins.treatment_methods
-              : [
-                  // Backward compat: derive treatment methods from surviving boolean columns
-                  // for old inspections that predate the treatment_methods array column.
-                  // NOTE: drying_equipment_enabled removed in Phase 5c (column being dropped).
-                  // Legacy records that used only that boolean will show no Drying Equipment
-                  // selection — acceptable given treatment_methods array has been canonical
-                  // since Phase 2 and all active inspections use it.
-                  ...(ins.hepa_vac ? ['HEPA Vacuuming'] : []),
-                  ...(ins.antimicrobial ? ['Surface Remediation Treatment'] : []),
-                  ...(ins.home_sanitation_fogging ? ['ULV Fogging - Property'] : []),
-                ],
+            selectedTreatmentMethods: reconciledMethods,
             hepaVac: ins.hepa_vac || false,
             antimicrobial: ins.antimicrobial || false,
             stainRemovingAntimicrobial: ins.stain_removing_antimicrobial || false,
             homeSanitationFogging: ins.home_sanitation_fogging || false,
-            dryingEquipmentEnabled: (ins.treatment_methods ?? []).includes('Drying Equipment'),
+            dryingEquipmentEnabled: reconciledMethods.includes('Drying Equipment'),
             commercialDehumidifierEnabled: (ins.commercial_dehumidifier_qty ?? 0) > 0,
             commercialDehumidifierQty: ins.commercial_dehumidifier_qty || 0,
             airMoversEnabled: (ins.air_movers_qty ?? 0) > 0,
@@ -3814,9 +3847,9 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         nonDemoHours: saveNonDemoHours,
         demolitionHours: saveDemoHours,
         subfloorHours: saveSubfloorHours,
-        dehumidifierQty: formData.commercialDehumidifierQty || 0,
-        airMoverQty: formData.airMoversQty || 0,
-        rcdQty: formData.rcdBoxQty || 0,
+        dehumidifierQty: getEffectiveDryingQty(formData, 'commercialDehumidifierQty'),
+        airMoverQty: getEffectiveDryingQty(formData, 'airMoversQty'),
+        rcdQty: getEffectiveDryingQty(formData, 'rcdBoxQty'),
         hepaAirScrubberQty: getEffectiveHepaQty(formData),
         hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
         wasteDisposalCost: saveWaste,
@@ -3853,9 +3886,9 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           nonDemoHours: saveNonDemoHours,
           demolitionHours: 0,
           subfloorHours: 0,
-          dehumidifierQty: formData.commercialDehumidifierQty || 0,
-          airMoverQty: formData.airMoversQty || 0,
-          rcdQty: formData.rcdBoxQty || 0,
+          dehumidifierQty: getEffectiveDryingQty(formData, 'commercialDehumidifierQty'),
+          airMoverQty: getEffectiveDryingQty(formData, 'airMoversQty'),
+          rcdQty: getEffectiveDryingQty(formData, 'rcdBoxQty'),
           hepaAirScrubberQty: getEffectiveHepaQty(formData),
           hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
         });
@@ -3954,9 +3987,9 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         antimicrobial: formData.selectedTreatmentMethods.includes('Surface Remediation Treatment'),
         stain_removing_antimicrobial: formData.stainRemovingAntimicrobial,
         home_sanitation_fogging: formData.selectedTreatmentMethods.includes('ULV Fogging - Property'),
-        commercial_dehumidifier_qty: formData.commercialDehumidifierQty || 0,
-        air_movers_qty: formData.airMoversQty || 0,
-        rcd_box_qty: formData.rcdBoxQty || 0,
+        commercial_dehumidifier_qty: getEffectiveDryingQty(formData, 'commercialDehumidifierQty'),
+        air_movers_qty: getEffectiveDryingQty(formData, 'airMoversQty'),
+        rcd_box_qty: getEffectiveDryingQty(formData, 'rcdBoxQty'),
         hepa_air_scrubber_qty: getEffectiveHepaQty(formData) || 0,
         // NULL = auto (HEPA follows the shared equipment days); >0 = explicit hire period
         hepa_air_scrubber_days: formData.hepaAirScrubberDays > 0 ? formData.hepaAirScrubberDays : null,
