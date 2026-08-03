@@ -113,6 +113,10 @@ interface InspectionFormData {
   additionalEquipmentComments?: string
   parkingOptions?: string
 
+  // Project duration, computed by the caller from labour hours. The model must use
+  // this figure rather than deriving day counts from the per-area hour lines.
+  totalWorkDays?: number
+
   // Cost Estimate
   laborCost?: number
   equipmentCost?: number
@@ -331,6 +335,11 @@ function buildUserPrompt(formData: InspectionFormData): string {
   if (formData.additionalInfoForTech) lines.push(`ADDITIONAL INFO: ${sanitizeField(formData.additionalInfoForTech)}`)
   if (formData.additionalEquipmentComments) lines.push(`EQUIPMENT NOTES: ${sanitizeField(formData.additionalEquipmentComments)}`)
   if (formData.internalNotes) lines.push(`\nINTERNAL NOTES: ${sanitizeField(formData.internalNotes)}`)
+
+  // Project duration — supplied so the model never does its own hours-to-days maths.
+  if (formData.totalWorkDays && formData.totalWorkDays > 0) {
+    lines.push(`\nTOTAL PROJECT WORK DAYS: ${formData.totalWorkDays} (on-site treatment and any drying run within this figure, not in addition to it)`)
+  }
 
   // Cost
   if (formData.totalIncGst && formData.totalIncGst > 0) {
@@ -709,7 +718,7 @@ IMPORTANT: Return ONLY valid JSON with no additional text. Use this exact struct
 
 {
   "what_we_found": "VALUE PROPOSITION - WHAT WE FOUND subsection. Write 1-2 concise sentences describing the main issue and its impact on the property. Keep it brief — this is a summary for the cover page.",
-  "detailed_analysis": "This is the MAIN SECTION — Problem Analysis & Recommendations. Generate using this EXACT format with subsections separated by \\n\\n:\\n\\n**WHAT WE DISCOVERED**\\n[Comprehensive paragraph: specific address, what was found, severity, impact. Reference inspection data: temp, humidity, moisture readings, areas affected. Be specific with room names and measurements.]\\n\\n**🔍 IDENTIFIED CAUSES**\\n\\n**Primary Cause:**\\n- [Single clear statement of main issue]\\n\\n**Contributing Factors:**\\n1. [Factor 1 with specific data from inspection]\\n2. [Factor 2 with specific data]\\n3. [Factor 3 with specific data]\\n4. [Factor 4 if applicable]\\n5. [Factor 5 if applicable]\\n6. [Factor 6 if applicable]\\n\\n**WHY THIS HAPPENED**\\n[Paragraph explaining mechanism: how this type of failure occurs, why moisture persists, consequences if not addressed]\\n\\n**📋 RECOMMENDATIONS**\\n\\n**IMMEDIATE ACTIONS WEEK 1**\\n1. [Urgent action 1 with explanation]\\n2. [Urgent action 2 with explanation]\\n3. [Urgent action 3 with explanation]\\n4. [Urgent action 4 with explanation]\\n\\n**LONG-TERM PROTECTION**\\n- [Protection measure 1 with explanation]\\n- [Protection measure 2 with explanation]\\n- [Protection measure 3 with explanation]\\n\\n**WHAT SUCCESS LOOKS LIKE**\\n[Paragraph describing expected outcomes, air quality restoration, timeline for reoccupancy, warranty coverage]\\n\\n**TIMELINE**\\n- MRC treatment: X days\\n- Drying equipment: X days\\n- Specialist work (if needed): X days\\n- Total project: X days\\n- Property reoccupancy: X hours/days after completion",
+  "detailed_analysis": "This is the MAIN SECTION — Problem Analysis & Recommendations. Generate using this EXACT format with subsections separated by \\n\\n:\\n\\n**WHAT WE DISCOVERED**\\n[Comprehensive paragraph: specific address, what was found, severity, impact. Reference inspection data: temp, humidity, moisture readings, areas affected. Be specific with room names and measurements.]\\n\\n**🔍 IDENTIFIED CAUSES**\\n\\n**Primary Cause:**\\n- [Single clear statement of main issue]\\n\\n**Contributing Factors:**\\n1. [Factor 1 with specific data from inspection]\\n2. [Factor 2 with specific data]\\n3. [Factor 3 with specific data]\\n4. [Factor 4 if applicable]\\n5. [Factor 5 if applicable]\\n6. [Factor 6 if applicable]\\n\\n**WHY THIS HAPPENED**\\n[Paragraph explaining mechanism: how this type of failure occurs, why moisture persists, consequences if not addressed]\\n\\n**📋 RECOMMENDATIONS**\\n\\n**IMMEDIATE ACTIONS WEEK 1**\\n1. [Urgent action 1 with explanation]\\n2. [Urgent action 2 with explanation]\\n3. [Urgent action 3 with explanation]\\n4. [Urgent action 4 with explanation]\\n\\n**LONG-TERM PROTECTION**\\n- [Protection measure 1 with explanation]\\n- [Protection measure 2 with explanation]\\n- [Protection measure 3 with explanation]\\n\\n**WHAT SUCCESS LOOKS LIKE**\\n[Paragraph describing expected outcomes, air quality restoration, timeline for reoccupancy, warranty coverage]\\n\\n**TIMELINE**\\n- Total project: [use the TOTAL PROJECT WORK DAYS figure from the inspection data verbatim — never calculate your own]\\n- On-site treatment: [days, within the total above]\\n- Drying equipment: [include this line ONLY if DRYING EQUIPMENT is listed in the data; drying runs concurrently with treatment, never added on top]\\n- Property reoccupancy: [hours/days after completion]",
   "what_we_will_do": "WHAT WE'RE GOING TO DO section — detailed treatment plan. Write 2-3 paragraphs describing: the complete remediation approach, step-by-step treatment process (HEPA vacuuming, antimicrobial application, stain removal, fogging), equipment to be deployed (specific quantities of dehumidifiers, air movers, RCD boxes), any demolition or material removal required, drying period, and expected outcomes. Be specific with quantities and timelines. This is a standalone section, not a 1-2 sentence summary.",
   ${demolitionInstruction}
 }
@@ -724,7 +733,7 @@ CRITICAL RULES:
 - Use \\n\\n to separate subsections
 - Use \\n for line breaks within lists
 - Contributing Factors MUST be numbered (1. 2. 3. etc.)
-- Include specific timelines with actual day counts calculated from treatment hours
+- Take every day count from the TOTAL PROJECT WORK DAYS figure in the inspection data; never derive durations from the hour figures yourself, and never sum treatment and drying into a longer total
 
 Return ONLY the JSON object:`
 
@@ -836,6 +845,7 @@ CRITICAL INSTRUCTIONS:
 5. ${formatNote}
 6. Use Australian English (mould not mold)
 7. Maintain professional tone for a customer-facing report
+8. Take every day count from the TOTAL PROJECT WORK DAYS figure in the inspection data; never derive durations from the hour figures, and never sum treatment and drying into a longer total
 
 [Inspection data for reference]:
 ${userDataPrompt}
@@ -924,13 +934,12 @@ Use this EXACT format with **bold** headers and emoji icons:
 [Paragraph describing expected outcomes, air quality restoration, timeline for reoccupancy, warranty coverage]
 
 **TIMELINE**
-- MRC treatment: X days
-- Drying equipment: X days
-- Specialist work (if needed): X days
-- Total project: X days
-- Property reoccupancy: X hours/days after completion
+- Total project: [use the TOTAL PROJECT WORK DAYS figure from the inspection data verbatim — never calculate your own]
+- On-site treatment: [days, within the total above]
+- Drying equipment: [include this line ONLY if DRYING EQUIPMENT is listed in the data; drying runs concurrently with treatment, never added on top]
+- Property reoccupancy: [hours/days after completion]
 
-CRITICAL: Use real data from the inspection — temperatures, humidity, moisture readings, room names. Do NOT use placeholder brackets. Australian English. Include specific timelines with actual day counts.
+CRITICAL: Use real data from the inspection — temperatures, humidity, moisture readings, room names. Do NOT use placeholder brackets. Australian English. Take every day count from the TOTAL PROJECT WORK DAYS figure in the inspection data; never derive durations from hours yourself.
 Return ONLY the formatted analysis text, no JSON wrapping.`
       }
     } else if (section === 'demolitionDetails') {

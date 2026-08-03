@@ -2814,6 +2814,7 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
     additionalInfoForTech: formData.additionalInfoForTech,
     additionalEquipmentComments: formData.additionalEquipmentComments,
     parkingOptions: formData.parkingOptions,
+    totalWorkDays: getSharedEquipmentDays(formData),
     laborCost: formData.laborCost,
     equipmentCost: formData.equipmentCost,
     subtotalExGst: formData.subtotalExGst,

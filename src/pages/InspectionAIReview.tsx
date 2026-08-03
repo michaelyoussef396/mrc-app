@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { captureBusinessError } from '@/lib/sentry';
 import { logFieldEdits } from '@/lib/api/fieldEditLog';
 import { stripBadUnicode } from '@/lib/stripBadUnicode';
+import { EQUIPMENT_RATES } from '@/lib/calculations/pricing';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import {
   AlertTriangle,
@@ -930,6 +931,21 @@ function buildEdgeFunctionPayload(
   subfloorData: any | null,
   subfloorReadings: any[],
 ) {
+  // Shared equipment days, derived from hours exactly the way
+  // TechnicianInspectionForm.getSharedEquipmentDays does, so a regen from either
+  // surface hands the model the same duration rather than letting it infer one.
+  const nonDemoHours = areas.reduce((sum: number, a: any) => sum + (a.job_time_minutes ? a.job_time_minutes / 60 : 0), 0);
+  const demoHours = areas.reduce((sum: number, a: any) => a.demolition_required ? sum + (a.demolition_time_minutes ? a.demolition_time_minutes / 60 : 0) : sum, 0);
+  const subfloorHours = subfloorData?.treatment_time_minutes ? subfloorData.treatment_time_minutes / 60 : 0;
+  const totalWorkDays = Math.max(1, Math.ceil((nonDemoHours + demoHours + subfloorHours) / 8));
+
+  // hepa_air_scrubber_qty is persisted already gated on the method toggle; a null
+  // days column means "auto", which resolves to the shared equipment days.
+  const hepaQty = inspection?.hepa_air_scrubber_qty ?? 0;
+  const hepaDays = hepaQty > 0
+    ? ((inspection?.hepa_air_scrubber_days ?? 0) > 0 ? inspection.hepa_air_scrubber_days : totalWorkDays)
+    : null;
+
   return {
     propertyAddress: lead?.property_address_street,
     clientName: lead?.full_name,
@@ -998,12 +1014,16 @@ function buildEdgeFunctionPayload(
     airMoversQty: inspection?.air_movers_qty,
     rcdBoxEnabled: (inspection?.rcd_box_qty ?? 0) > 0,
     rcdBoxQty: inspection?.rcd_box_qty,
+    hepaAirScrubberQty: hepaQty,
+    hepaAirScrubberDays: hepaDays,
+    hepaAirScrubberCost: hepaQty > 0 && hepaDays ? hepaQty * EQUIPMENT_RATES.hepaAirScrubber * hepaDays : 0,
     recommendDehumidifier: !!inspection?.recommended_dehumidifier,
     dehumidifierSize: inspection?.recommended_dehumidifier,
     causeOfMould: inspection?.cause_of_mould,
     additionalInfoForTech: inspection?.additional_info_technician,
     additionalEquipmentComments: inspection?.additional_equipment_comments,
     parkingOptions: inspection?.parking_option,
+    totalWorkDays,
     laborCost: inspection?.labour_cost_ex_gst,
     equipmentCost: inspection?.equipment_cost_ex_gst,
     subtotalExGst: inspection?.subtotal_ex_gst,
