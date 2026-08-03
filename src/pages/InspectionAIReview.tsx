@@ -81,6 +81,7 @@ interface InspectionData {
   treatment_methods: string[] | null;
   hepa_vac: boolean | null;
   antimicrobial: boolean | null;
+  stain_removing_antimicrobial: boolean | null;
   home_sanitation_fogging: boolean | null;
 }
 
@@ -187,7 +188,7 @@ export default function InspectionAIReview() {
       // latest_ai_summary view per Stage 3.4.5).
       const { data: inspData, error: inspError } = await supabase
         .from('inspections')
-        .select('id, inspection_date, inspector_name, dwelling_type, property_occupation, outdoor_temperature, outdoor_humidity, cause_of_mould, treatment_methods, hepa_vac, antimicrobial, home_sanitation_fogging')
+        .select('id, inspection_date, inspector_name, dwelling_type, property_occupation, outdoor_temperature, outdoor_humidity, cause_of_mould, treatment_methods, hepa_vac, antimicrobial, stain_removing_antimicrobial, home_sanitation_fogging')
         .eq('lead_id', leadId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -542,7 +543,13 @@ export default function InspectionAIReview() {
       ? inspection.treatment_methods
       : [
           inspection?.hepa_vac ? 'HEPA Vacuuming' : null,
-          inspection?.antimicrobial ? 'Surface Remediation Treatment' : null,
+          // Both booleans map to Surface Remediation Treatment: stain-removing
+          // antimicrobial is that method, and it has no separate toggle in the
+          // canonical list. Omitting it would falsely flag any legacy report whose
+          // narrative mentions stain removal.
+          inspection?.antimicrobial || inspection?.stain_removing_antimicrobial
+            ? 'Surface Remediation Treatment'
+            : null,
           inspection?.home_sanitation_fogging ? 'ULV Fogging - Property' : null,
         ].filter((m): m is string => m !== null);
 
