@@ -73,6 +73,87 @@ ForgotPassword placeholder rebranded. No Edge Function or Resend literal touched
 
 ---
 
+## PARKED — Per-item equipment days on the quote (launch-testing issue 15)
+
+Deferred out of the Batch C launch-fix branch (`batch-c-forms-ui`, 3 Aug 2026) because it
+needs **both** a migration and an edit to the pricing engine, and the batch was scoped to
+allow neither. Everything needed to execute it in one sitting is below. Severity is LOW —
+the shared auto day count is correct for typical jobs.
+
+**What it is.** HEPA Air Scrubber Details has a Days stepper showing `Auto (N)` with the hint
+"Days defaults to the job's equipment days", so the tech can accept or override. Commercial
+Dehumidifier, Air Movers and RCD Box have quantity steppers only. Extend the pattern.
+
+**Blocker 1 — schema.** `inspections` has exactly two day columns, `equipment_days` and
+`hepa_air_scrubber_days`. Needs a migration adding three, nullable, `NULL` = auto:
+
+```sql
+ALTER TABLE public.inspections
+  ADD COLUMN IF NOT EXISTS commercial_dehumidifier_days integer,
+  ADD COLUMN IF NOT EXISTS air_movers_days integer,
+  ADD COLUMN IF NOT EXISTS rcd_box_days integer;
+-- Rollback: DROP COLUMN for each. Additive and nullable, safe to re-run.
+```
+
+⚠️ Ordering is unforgiving: the code writes these columns on every save, so the migration
+must be applied **before** the frontend merges or every inspection save 500s with "column
+does not exist". Same trap as the HEPA/waste rollout runbook.
+
+**Blocker 2 — pricing.** `pricing.ts:234-236` gives dehumidifier, air mover and RCD the
+shared `days`. Only HEPA has a per-item branch (`:238-244`), and it lives inside
+`pricing.ts`. Without mirroring that branch for the other three, the new field would change
+nothing — recreating issue 14 from the same test run ("the field implies a pricing
+consequence that does not exist"). Sacred file: run impact analysis on
+`calculateEquipmentCost`, keep the 13% cap and the 60/60 pricing tests green, and add parity
+tests proving absent/0 days leaves every existing quote byte-identical.
+
+**Where the code goes.** Three sentinels stay consistent with HEPA: form state `0` = auto,
+pricing input `undefined`/`0` = auto, DB `NULL` = auto.
+
+- UI pattern to clone: `TechnicianInspectionForm.tsx:2174-2195` (the HEPA Days stepper,
+  including the `Auto (${sharedEquipmentDays})` label and the clamp-at-0 behaviour).
+- Target rows: `:2060-2142` (dehumidifier, air movers, RCD).
+- `EquipmentInput` / `EquipmentResult`: `pricing.ts:203-222`; `CostEstimateInput:319-328`.
+- Four `calculateCostEstimate` call sites: `:2281-2290`, `:2294-2303`, `:3798-3808`,
+  `:3837-3846`.
+- Save: `:3942-3948`. Load: `:3250-3258`. Form type: `types/inspection.ts:109-125`.
+
+Note `job_completions` already has per-item day columns (`actual_dehumidifier_days` etc.), so
+only the quote side is missing them.
+
+---
+
+## OPEN — Drying Equipment toggle does not gate its quantities
+
+Found 3 Aug 2026 while verifying launch-testing issue 16. **Issue 16 as written was already
+implemented** (`TechnicianInspectionForm.tsx:2148` gates the HEPA detail section on the
+treatment-method toggle, symmetric with Drying Equipment at `:2054`, and was present on
+`main` before the 2 Aug test run). The real divergence runs the other way.
+
+HEPA has `getEffectiveHepaQty` (`:1938-1943`), so turning its method toggle off stops the
+quantity feeding pricing and saves. Drying Equipment has no equivalent: turning it off hides
+the UI while `commercialDehumidifierQty` / `airMoversQty` / `rcdBoxQty` keep flowing into
+`calculateCostEstimate` and keep being persisted and billed. The per-item `*Enabled` booleans
+are never persisted either — on reload they are re-derived from `qty > 0` (`:3251/3253/3255`),
+so a tech who flicks one off without stepping the quantity to 0 finds it back on after a
+reload, still billing.
+
+Fix is a `getEffectiveDryingQty` mirroring the HEPA helper — `pricing.ts` untouched, only the
+quantity passed in changes. **Gated on a data check first**, because it changes the quoted
+figure on any existing row with `qty > 0` and `'Drying Equipment'` absent from
+`treatment_methods`:
+
+```sql
+SELECT id, job_number, commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty
+FROM inspections
+WHERE (COALESCE(commercial_dehumidifier_qty,0) > 0
+    OR COALESCE(air_movers_qty,0) > 0
+    OR COALESCE(rcd_box_qty,0) > 0)
+  AND NOT ('Drying Equipment' = ANY(COALESCE(treatment_methods, '{}')));
+```
+
+---
+
 ## PENDING DECISION — Sent-folder visibility for system email
 
 **Problem.** The system sends customer email via Resend. Reply-To is

@@ -696,3 +696,76 @@ and activity log.
 Note for the team guide: this page is long. Admin users will need guidance on which
 sections matter at which stage, and technicians should not be directed here at all —
 their entry point is the mobile dashboard.
+
+---
+
+## Batch C outcomes — 3 Aug 2026 (`batch-c-forms-ui`)
+
+Forms, PDF and UI batch. Three of the seven briefs did not survive contact with the code;
+those are recorded below rather than quietly reinterpreted.
+
+| Issue | Outcome |
+|---|---|
+| 13 — multiple photos per caption | **FIXED.** Seven fields, not nine. |
+| 15 — editable days on other equipment | **PARKED** — see `docs/TODO.md`. |
+| 16 — HEPA toggle reveals its section | **ALREADY IMPLEMENTED.** Inverse defect logged. |
+| 24 — PDF readings position | **HELD** — does not reproduce, see below. |
+| 30 — variation note on the invoice | **FIXED.** |
+| 34 — waste amount em-dash | **FIXED**, plus a money bug found alongside. |
+| 35 — PDF version "Unknown" | **FIXED forward**, no backfill. |
+
+**13.** The `multiple` flag is not a JSX attribute — `openFilePicker` sets `input.multiple`
+imperatively (`TechnicianInspectionForm.tsx:3505-3511`), so a grep for `multiple` finds
+nothing. Two of the nine fields named in the brief (internal and external moisture) were
+already correct via the `readingId` guard. The other seven were real. Room view and subfloor
+keep multi-select — both spread into arrays. Also stops orphan `photos` rows: the upload loop
+wrote every selected file before `newPhotos[0]` discarded the extras.
+
+**16.** `TechnicianInspectionForm.tsx:2148` already gates the HEPA detail section on the
+treatment-method toggle, symmetric with Drying Equipment at `:2054`, and was present on `main`
+before this test run — no later commit fixed it. The genuine "two states that can drift apart"
+is the opposite one: Drying Equipment hides its UI but keeps billing. Logged in `docs/TODO.md`
+with the data check it needs.
+
+**24 — verification, since the brief asked for the live template to be identified first.**
+The live template is `pdf-templates/inspection-report-template-final.html`, fetched by public
+URL at `generate-inspection-pdf/index.ts:12`, sourced from
+`src/templates/inspection-report-template.html` and renamed on upload. Fetched 3 Aug: HTTP 200,
+66,282 bytes, **byte-identical to the repo file**.
+
+The stated premise does not hold. The area page is entirely absolutely positioned inside
+`.report-page { position: relative }`, and the readings already sit above the photos:
+
+| Element | y |
+|---|---|
+| `AREA INSPECTED` | 40 |
+| navy readings box | **241 → 378** |
+| temperature / humidity | 249 |
+| dew point / visible mould | 304 |
+| internal / external moisture | 349 / 348 |
+| **photo grid** | **402 → 735** |
+
+Because the layout is absolute, a DOM reorder changes nothing visually; only coordinate edits
+would, and that means editing a page verified to render correctly. There is no second render
+path — `ReportPreviewHTML.tsx:920` injects the EF's HTML wholesale and has no area layout of
+its own. **Held pending the actual defective PDF or a screenshot.**
+
+Two things noticed while verifying, worth checking against that artefact:
+- `index.ts:1126` selects the internal reading with
+  `find(r => r.title?.toLowerCase().includes('internal')) || moistureReadings[0]` — a reading
+  titled otherwise silently falls through to the first one.
+- Only the percentage is emitted; the reading title ("near window") never reaches the PDF at
+  all, which may be what read as "separated from" its block.
+
+**34.** Root cause was a column rename, not a missing value. Both surfaces read
+`waste_disposal_amount`, the Small/Medium/Large enum superseded by `waste_disposal_m3` +
+`waste_disposal_confirmed_cost` in `20260624104911`. The data was present the whole time.
+Found alongside: `InspectionDataDisplay.tsx:712-721` omitted `wasteDisposalCost` from
+`calculateCostEstimate`, so the lead-view estimate understated every waste-bearing job by the
+waste amount plus GST — $550 + $55 on this test lead. Fixed in the same batch.
+
+**35.** `pdf_versions.created_by` is nullable with no default and no trigger, and the legacy
+EF's insert never set it. The "Legacy" badge renders exactly when `pdf_storage_path` is NULL,
+which only that insert produces — so v2 is a legacy-EF row with a genuinely empty column and
+v3 is a hard-save row. The name lookup works. Historic rows left alone; the writer now
+attributes new ones.
