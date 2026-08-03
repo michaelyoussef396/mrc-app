@@ -828,6 +828,14 @@ Return ONLY the JSON object:`
     let userPrompt: string
     let maxTokens = 800
 
+    // Prose form of the scope and conflict rules, appended to every fresh-generation
+    // section prompt. isRegeneration requires typed feedback, so regenerating a section
+    // without any lands here rather than in regenPreamble — each branch needs its own copy
+    // or that route bypasses the constraint entirely. Structured mode and regenPreamble
+    // carry the same rules as numbered list items to match their surrounding format.
+    const SCOPE_AND_CONFLICT_RULES = `Describe ONLY the services listed under TREATMENT METHODS and the equipment listed under DRYING EQUIPMENT. Never infer, suggest or describe a remediation step absent from those lists — no antimicrobial or fogging treatment, no containment, no demolition, and above all no clearance or air-quality testing, unless it is explicitly listed. An unlisted service is a commitment to unquoted work.
+Where a structured value and a free-text comment disagree, state both and mark it [DATA CONFLICT: X vs Y — confirm before sending] rather than silently choosing one.`
+
     // Regeneration preamble
     const regenPreamble = (sectionName: string, formatNote: string) => {
       const safeContent = sanitizeField(currentContent)
@@ -868,6 +876,7 @@ ${userDataPrompt}
 Write 1-2 concise sentences describing the main issue found and its impact on the property.
 This appears on the cover/summary page so keep it brief but impactful.
 Reference specific areas and severity.
+${SCOPE_AND_CONFLICT_RULES}
 Return ONLY the 1-2 sentences, nothing else.`
       }
     } else if (section === 'whatWeWillDo') {
@@ -885,8 +894,7 @@ Write 2-3 detailed paragraphs describing:
 - The equipment listed under DRYING EQUIPMENT with its quantities (omit entirely if none is listed)
 - Expected outcomes and timeline
 
-Describe ONLY the services listed under TREATMENT METHODS and the equipment listed under DRYING EQUIPMENT. Never infer, suggest or describe a remediation step absent from those lists — no antimicrobial or fogging treatment, no containment, no demolition, and above all no clearance or air-quality testing, unless it is explicitly listed. An unlisted service is a commitment to unquoted work.
-Where a structured value and a free-text comment disagree, state both and mark it [DATA CONFLICT: X vs Y — confirm before sending] rather than silently choosing one.
+${SCOPE_AND_CONFLICT_RULES}
 Be specific with quantities, methods, and timelines. This is a standalone treatment plan section.
 Australian English. Professional but reassuring tone.
 Return ONLY the paragraphs, nothing else.`
@@ -965,13 +973,15 @@ Use this format with **bold** headers:
 [Continue for all demolition areas]
 
 Reference specific rooms, materials, dimensions, and demolition hours from the data.
+${SCOPE_AND_CONFLICT_RULES}
 Return ONLY the formatted demolition details, no JSON wrapping.`
       }
     } else {
       userPrompt = `Generate a brief professional mould inspection summary based on this data:
 ${userDataPrompt}
 
-Write 2 paragraphs in flowing prose. Australian English.`
+Write 2 paragraphs in flowing prose. Australian English.
+${SCOPE_AND_CONFLICT_RULES}`
     }
 
     // Inject reviewer feedback for fresh-generation paths. Regeneration paths
