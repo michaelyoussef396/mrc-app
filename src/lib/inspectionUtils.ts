@@ -40,6 +40,57 @@ export const calculateDewPoint = (temperature: number, humidity: number): number
   return Math.round(dewPoint * 10) / 10;
 };
 
+export type EnvironmentReadingKind =
+  | 'indoorTemperature'
+  | 'outdoorTemperature'
+  | 'indoorHumidity'
+  | 'outdoorHumidity'
+  | 'moisture';
+
+// Plausible-entry bounds, inclusive. Deliberately wide: these exist to catch a
+// typo (one number entered into two fields), not to define correct readings.
+export const ENVIRONMENT_READING_RANGES: Record<
+  EnvironmentReadingKind,
+  { min: number; max: number; unit: string; subject: string }
+> = {
+  indoorTemperature: { min: 0, max: 40, unit: '°C', subject: 'an indoor reading' },
+  // Melbourne heatwaves legitimately reach 46°C outdoors, so the ceiling sits above it.
+  outdoorTemperature: { min: -5, max: 48, unit: '°C', subject: 'an outdoor reading' },
+  indoorHumidity: { min: 10, max: 100, unit: '%', subject: 'indoor humidity' },
+  // Hot north-wind days genuinely drop outdoor humidity into single digits.
+  outdoorHumidity: { min: 5, max: 100, unit: '%', subject: 'outdoor humidity' },
+  // Wood-moisture-equivalent readings above 40% are normal on a wet job — never warn on those.
+  moisture: { min: 0, max: 100, unit: '%', subject: 'a moisture reading' },
+};
+
+/**
+ * Warn — never block — when an environmental reading falls outside its plausible
+ * range. A genuine outlier must still be recordable, so this returns advisory text
+ * only; nothing here gates save or submit.
+ *
+ * Takes the raw form-state string (all these inputs store strings) and returns null
+ * for anything not yet a finite number, so no warning flashes mid-typing.
+ *
+ * NOTE: calculateDewPoint above already returns 0 for temperatures outside -40/+60,
+ * so a wildly high temperature will also blank the dew point on the form.
+ */
+export const getEnvironmentReadingWarning = (
+  kind: EnvironmentReadingKind,
+  rawValue: string,
+): string | null => {
+  const trimmed = (rawValue ?? '').trim();
+  if (trimmed === '') return null;
+
+  const value = Number(trimmed);
+  if (!Number.isFinite(value)) return null;
+
+  const { min, max, unit, subject } = ENVIRONMENT_READING_RANGES[kind];
+  if (value >= min && value <= max) return null;
+
+  const direction = value > max ? 'high' : 'low';
+  return `Unusually ${direction} for ${subject} — expected ${min}–${max}${unit}. Check before saving.`;
+};
+
 /**
  * Format currency for display
  */

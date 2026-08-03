@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { calculateDewPoint } from '@/lib/inspectionUtils';
+import { calculateDewPoint, getEnvironmentReadingWarning } from '@/lib/inspectionUtils';
 import {
   calculateCostEstimate,
   calculateWasteDisposalCost,
@@ -1029,6 +1029,12 @@ function Section3AreaInspection({
                     placeholder="--"
                     className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-3 focus:ring-2 focus:ring-[#007AFF] focus:border-transparent"
                   />
+                  {(() => {
+                    const warning = getEnvironmentReadingWarning('indoorTemperature', area.temperature);
+                    return warning ? (
+                      <p role="alert" className="text-xs text-amber-600 mt-1">{warning}</p>
+                    ) : null;
+                  })()}
                 </FormField>
                 <FormField label="Humidity %">
                   <input
@@ -1039,6 +1045,12 @@ function Section3AreaInspection({
                     placeholder="--"
                     className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-3 focus:ring-2 focus:ring-[#007AFF] focus:border-transparent"
                   />
+                  {(() => {
+                    const warning = getEnvironmentReadingWarning('indoorHumidity', area.humidity);
+                    return warning ? (
+                      <p role="alert" className="text-xs text-amber-600 mt-1">{warning}</p>
+                    ) : null;
+                  })()}
                 </FormField>
                 <FormField label="Dew Point">
                   <input
@@ -1053,6 +1065,7 @@ function Section3AreaInspection({
               {/* Internal Moisture % */}
               {area.moistureReadings[0] && (() => {
                 const reading = area.moistureReadings[0];
+                const warning = getEnvironmentReadingWarning('moisture', reading.reading);
                 return (
                   <div className="bg-blue-50 rounded-xl p-4 space-y-3 border border-blue-100">
                     <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
@@ -1087,6 +1100,9 @@ function Section3AreaInspection({
                         </button>
                       )}
                     </div>
+                    {warning && (
+                      <p role="alert" className="text-xs text-amber-600 mt-1">{warning}</p>
+                    )}
                     <input
                       type="text"
                       value={reading.title}
@@ -1101,6 +1117,7 @@ function Section3AreaInspection({
               {/* External Moisture % */}
               {area.moistureReadings[1] && (() => {
                 const reading = area.moistureReadings[1];
+                const warning = getEnvironmentReadingWarning('moisture', reading.reading);
                 return (
                   <div className="bg-amber-50 rounded-xl p-4 space-y-3 border border-amber-100">
                     <span className="text-xs font-bold uppercase tracking-wider text-amber-700">
@@ -1135,6 +1152,9 @@ function Section3AreaInspection({
                         </button>
                       )}
                     </div>
+                    {warning && (
+                      <p role="alert" className="text-xs text-amber-800 font-medium mt-1">{warning}</p>
+                    )}
                     <input
                       type="text"
                       value={reading.title}
@@ -1454,7 +1474,9 @@ function Section4Subfloor({
           Subfloor Moisture Readings
         </span>
 
-        {formData.subfloorReadings.map((reading, index) => (
+        {formData.subfloorReadings.map((reading, index) => {
+          const warning = getEnvironmentReadingWarning('moisture', reading.reading);
+          return (
           <div key={reading.id} className="bg-orange-50 rounded-xl border border-orange-100 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-orange-700">
@@ -1486,8 +1508,12 @@ function Section4Subfloor({
               max="100"
               className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-4"
             />
+            {warning && (
+              <p role="alert" className="text-xs text-amber-600 mt-1">{warning}</p>
+            )}
           </div>
-        ))}
+          );
+        })}
 
         <button
           onClick={onSubfloorReadingAdd}
@@ -1570,6 +1596,9 @@ function Section5OutdoorInfo({
   onPhotoRemove,
   onCalculateDewPoint,
 }: SectionProps) {
+  const outdoorTemperatureWarning = getEnvironmentReadingWarning('outdoorTemperature', formData.outdoorTemperature);
+  const outdoorHumidityWarning = getEnvironmentReadingWarning('outdoorHumidity', formData.outdoorHumidity);
+
   return (
     <section className="space-y-5">
       {/* Temperature & Humidity Row */}
@@ -1583,6 +1612,9 @@ function Section5OutdoorInfo({
             placeholder="--"
             className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-3"
           />
+          {outdoorTemperatureWarning && (
+            <p role="alert" className="text-xs text-amber-600 mt-1">{outdoorTemperatureWarning}</p>
+          )}
         </FormField>
         <FormField label="Humidity %">
           <input
@@ -1593,6 +1625,9 @@ function Section5OutdoorInfo({
             placeholder="--"
             className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 px-3"
           />
+          {outdoorHumidityWarning && (
+            <p role="alert" className="text-xs text-amber-600 mt-1">{outdoorHumidityWarning}</p>
+          )}
         </FormField>
         <FormField label="Dew Point">
           <input

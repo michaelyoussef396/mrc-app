@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { calculateDewPoint, formatCurrency } from '../inspectionUtils'
+import { calculateDewPoint, formatCurrency, getEnvironmentReadingWarning } from '../inspectionUtils'
 
 // Formula: Magnus-Tetens with Alduchov-Eskridge 1996 coefficients (A=17.625, B=243.04).
 // Replaces the prior simple approximation Td ≈ T − (100−RH)/5 (BUG-041).
@@ -66,6 +66,86 @@ describe('calculateDewPoint', () => {
     expect(calculateDewPoint(70, 50)).toBe(0)
     expect(consoleSpy).toHaveBeenCalled()
     consoleSpy.mockRestore()
+  })
+})
+
+// Warn-only range check (Issue 21): 46 was typed into both a kitchen temperature
+// and an internal moisture % and reached the customer's report unchallenged.
+describe('getEnvironmentReadingWarning', () => {
+  it('should return null for an in-range indoor temperature', () => {
+    expect(getEnvironmentReadingWarning('indoorTemperature', '22')).toBeNull()
+  })
+
+  it('should return null for an in-range outdoor temperature', () => {
+    expect(getEnvironmentReadingWarning('outdoorTemperature', '18')).toBeNull()
+  })
+
+  it('should return null for an in-range indoor humidity', () => {
+    expect(getEnvironmentReadingWarning('indoorHumidity', '55')).toBeNull()
+  })
+
+  it('should return null for an in-range outdoor humidity', () => {
+    expect(getEnvironmentReadingWarning('outdoorHumidity', '62')).toBeNull()
+  })
+
+  it('should return null for an in-range moisture reading', () => {
+    expect(getEnvironmentReadingWarning('moisture', '18')).toBeNull()
+  })
+
+  it('should warn that 46°C is unusually high for an indoor reading', () => {
+    expect(getEnvironmentReadingWarning('indoorTemperature', '46')).toContain('Unusually high')
+  })
+
+  it('should not warn for 46°C outdoors (Melbourne heatwaves reach it)', () => {
+    expect(getEnvironmentReadingWarning('outdoorTemperature', '46')).toBeNull()
+  })
+
+  it('should warn that 55°C is unusually high for an outdoor reading', () => {
+    expect(getEnvironmentReadingWarning('outdoorTemperature', '55')).toContain('Unusually high')
+  })
+
+  it('should warn that 5% is unusually low for indoor humidity', () => {
+    expect(getEnvironmentReadingWarning('indoorHumidity', '5')).toContain('Unusually low')
+  })
+
+  it('should not warn for 5% outdoor humidity (hot north-wind days reach it)', () => {
+    expect(getEnvironmentReadingWarning('outdoorHumidity', '5')).toBeNull()
+  })
+
+  it('should not warn for a 46% moisture reading (normal wood-moisture equivalent)', () => {
+    expect(getEnvironmentReadingWarning('moisture', '46')).toBeNull()
+  })
+
+  it('should warn that a 101% moisture reading is unusually high', () => {
+    expect(getEnvironmentReadingWarning('moisture', '101')).toContain('Unusually high')
+  })
+
+  it('should warn that a negative indoor temperature is unusually low', () => {
+    expect(getEnvironmentReadingWarning('indoorTemperature', '-3')).toContain('Unusually low')
+  })
+
+  it('should return null for an empty string', () => {
+    expect(getEnvironmentReadingWarning('indoorTemperature', '')).toBeNull()
+  })
+
+  it('should return null for a lone minus sign (mid-typing)', () => {
+    expect(getEnvironmentReadingWarning('outdoorTemperature', '-')).toBeNull()
+  })
+
+  it('should return null for a lone decimal point (mid-typing)', () => {
+    expect(getEnvironmentReadingWarning('moisture', '.')).toBeNull()
+  })
+
+  it('should return null for non-numeric text', () => {
+    expect(getEnvironmentReadingWarning('indoorHumidity', 'abc')).toBeNull()
+  })
+
+  it('should return null for whitespace only', () => {
+    expect(getEnvironmentReadingWarning('moisture', '   ')).toBeNull()
+  })
+
+  it('should name the expected range in the warning text', () => {
+    expect(getEnvironmentReadingWarning('indoorTemperature', '46')).toContain('0–40°C')
   })
 })
 
