@@ -2037,12 +2037,31 @@ Deno.serve(async (req) => {
       console.error('Failed to update inspection:', updateError)
     }
 
+    // pdf_versions.created_by has no default and no trigger, so a row is only
+    // attributed if this insert sets it. Every row this function has ever
+    // written is therefore NULL, which the Inspection Report History panel
+    // renders as "Unknown". Resolve the caller from the JWT-bound client, the
+    // same way the previewOnly branch above does.
+    let callerId: string | null = null
+    const { data: callerData, error: callerError } = await supabaseAudited.auth.getUser()
+    if (callerError) {
+      // Not fatal — the PDF is already written. Attribution degrades to NULL
+      // rather than failing the render, but say so rather than swallowing it.
+      console.warn('[generate-inspection-pdf] Caller lookup failed — pdf_versions.created_by will be NULL', callerError.message)
+    } else {
+      callerId = callerData?.user?.id ?? null
+    }
+
     // Log to pdf_versions for audit trail
     const { error: versionError } = await supabase
       .from('pdf_versions')
       .insert({
         inspection_id: inspectionId,
         version_number: newVersion,
+        created_by: callerId,
+        // Anything outside 'hard_save' / 'manual_upload_fallback' still renders
+        // as the "Legacy" badge, so naming the writer costs nothing visually.
+        generation_type: 'legacy_ef',
         pdf_url: reportUrl,
         file_size_bytes: new TextEncoder().encode(populatedHtml).length,
         changes_made: regenerate ? { type: 'regeneration', timestamp: new Date().toISOString() } : null

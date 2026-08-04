@@ -175,11 +175,12 @@ Generates AI-powered inspection report sections using Google Gemini via OpenRout
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `formData` | object | Yes | Full inspection form data (areas, readings, photos, etc.) |
+| `inspectionId` | uuid | Yes | Inspection the generation belongs to; keys the `ai_summary_versions` row |
+| `userId` | uuid | No | Acting user, for audit attribution |
 | `structured` | boolean | No | If `true`, generates all 4 sections as JSON |
 | `section` | string | No | Single section to generate: `whatWeFound`, `whatWeWillDo`, `detailedAnalysis`, `demolitionDetails` |
-| `feedback` | string | No | User feedback for regeneration |
-| `customPrompt` | string | No | Custom prompt override |
-| `currentContent` | string | No | Existing content being regenerated |
+| `regenerationFeedback` | string | No | Reviewer feedback to apply. Max 2000 characters |
+| `currentContent` | string | No | Existing content being regenerated. Only treated as a regeneration when `regenerationFeedback` is also present |
 
 **Success Response (200) - Structured mode:**
 ```json
@@ -190,25 +191,49 @@ Generates AI-powered inspection report sections using Google Gemini via OpenRout
   "what_we_will_do": "Our remediation plan includes...",
   "detailed_analysis": "## Area Analysis\n### Bathroom\n...",
   "demolition_details": "Demolition of affected materials...",
+  "version_id": "8f3c…",
+  "version_number": 3,
+  "generation_type": "regeneration",
   "generated_at": "2026-02-17T10:30:00.000Z"
 }
 ```
+
+**Success Response (200) - Section mode:** same envelope, but the content is a single
+`summary` string instead of the four named fields.
+
+`generation_type` is `initial` for the first version of an inspection and
+`regeneration` thereafter. All three `version_*` fields are `null` when the
+`ai_summary_versions` insert fails — persistence is best-effort and never fails the
+request.
 
 **Error Responses:**
 
 | Code | Body | Cause |
 |------|------|-------|
-| 400 | `{ "error": "Missing formData in request body" }` | No form data |
+| 400 | `{ "error": "Invalid request body", "issues": [...] }` | Zod validation failed (missing `formData`/`inspectionId`, feedback over 2000 chars) |
 | 405 | `{ "error": "Method not allowed" }` | Non-POST request |
 | 500 | `{ "error": "AI service not configured. Please contact support." }` | Missing OPENROUTER_API_KEY |
-| 500 | `{ "success": false, "error": "AI generation failed: ..." }` | All 3 model attempts failed |
+| 500 | `{ "success": false, "error": "AI generation failed: ..." }` | Every model in the chain was rejected |
 
 **Model Fallback Chain:**
-1. `google/gemini-2.0-flash-001`
-2. `google/gemini-2.5-flash-preview`
-3. `google/gemini-2.0-flash-thinking-exp:free`
+1. `google/gemini-2.5-flash`
+2. `google/gemini-2.5-flash-lite`
+3. `anthropic/claude-haiku-4.5`
 
-Retries on 429 rate limit. Fails on other errors.
+Source of truth is the `MODELS` array in `supabase/functions/generate-inspection-summary/index.ts`.
+
+**Falls through to the next model on *any* failure** — not just 429. A model is
+rejected on: non-OK HTTP status, a thrown fetch error, empty content, a
+`finish_reason` of `length` or `error` (both truncate the body mid-emission), or —
+in structured mode only — a body that fails `JSON.parse`. Only when every model has
+been rejected does the request 500.
+
+Reasoning is disabled on the request (`reasoning: { enabled: false }`) so the whole
+`max_tokens` budget goes to the response body rather than thinking tokens.
+
+> flash-lite was primary until 2026-08-04. It failed 3/3 structured generations on
+> DEV with `finish_reason=error`, delivering bodies cut mid-sentence, and was demoted
+> to fallback. Don't promote it back on cost grounds without re-testing.
 
 **Performance:** 30-60s (LLM inference time). Called fire-and-forget from the frontend.
 
