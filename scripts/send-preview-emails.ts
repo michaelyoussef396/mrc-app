@@ -9,8 +9,8 @@
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const PREVIEW_TO = process.env.PREVIEW_TO || 'michaelyoussef396@gmail.com';
-const SENDER = 'Mould & Restoration Co. <noreply@mrcsystem.com>';
-const REPLY_TO = 'admin@mrcsystem.com';
+const SENDER = 'Mould & Restoration Co. <admin@mouldandrestoration.com.au>';
+const REPLY_TO = 'admin@mouldandrestoration.com.au';
 const DELAY_MS = 3000;
 
 if (!RESEND_API_KEY) {
