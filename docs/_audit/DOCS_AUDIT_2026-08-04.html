@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mould &amp; Restoration Co. — Documentation Audit — 2026-08-04</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      color: #1a1a1a;
+      background-color: #f5f6f8;
+      padding: 0 0 48px 0;
+    }
+
+    .page-header {
+      background-color: #121D73;
+      color: #ffffff;
+      padding: 32px 24px 28px 24px;
+      text-align: center;
+    }
+
+    .page-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+    }
+
+    .page-header .subtitle {
+      margin-top: 10px;
+      font-size: 15px;
+      opacity: 0.9;
+      font-weight: 400;
+    }
+
+    .page-header .last-reviewed {
+      margin-top: 12px;
+      font-size: 13px;
+      opacity: 0.65;
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    .section {
+      background-color: #ffffff;
+      border-radius: 8px;
+      border: 1px solid #e0e3ea;
+      padding: 24px 20px;
+      margin-top: 20px;
+    }
+
+    .section h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #121D73;
+      margin-bottom: 14px;
+      line-height: 1.3;
+    }
+
+    .section h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #121D73;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin: 18px 0 10px 0;
+      line-height: 1.35;
+    }
+
+    .section h3:first-child {
+      margin-top: 0;
+    }
+
+    .section p {
+      margin-bottom: 12px;
+    }
+
+    .section p:last-child {
+      margin-bottom: 0;
+    }
+
+    .section ul,
+    .section ol {
+      padding-left: 22px;
+      margin-bottom: 12px;
+    }
+
+    .section ul li,
+    .section ol li {
+      margin-bottom: 10px;
+    }
+
+    .section ul li:last-child,
+    .section ol li:last-child {
+      margin-bottom: 0;
+    }
+
+    .section ul ul {
+      margin-top: 8px;
+      margin-bottom: 0;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.88em;
+      background-color: #f0f2f7;
+      border: 1px solid #e0e3ea;
+      border-radius: 4px;
+      padding: 1px 5px;
+      white-space: nowrap;
+    }
+
+    /* Destructive SQL fragments render as plain text on purpose —
+       never as a copy-friendly code element. */
+    .sql-text {
+      font-style: italic;
+    }
+
+    /* Tables */
+    .table-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-top: 14px;
+    }
+
+    .data-table {
+      width: 100%;
+      min-width: 560px;
+      border-collapse: collapse;
+      font-size: 15px;
+    }
+
+    .data-table th {
+      background-color: #121D73;
+      color: #ffffff;
+      padding: 10px 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .data-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e0e3ea;
+      vertical-align: top;
+    }
+
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .data-table tr:nth-child(even) td {
+      background-color: #f8f9fc;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 480px) {
+      .page-header h1 {
+        font-size: 19px;
+      }
+
+      .section {
+        padding: 20px 16px;
+      }
+
+      .data-table th,
+      .data-table td {
+        padding: 9px 10px;
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <h1>Mould &amp; Restoration Co. — Documentation Audit — 2026-08-04</h1>
+    <p class="subtitle">Every file in docs/ verified against the codebase — findings, gaps, contradictions, and the consolidation proposal.</p>
+    <p class="last-reviewed">Audit date: 4 August 2026 &middot; codebase at main (d49ba8b)</p>
+  </div>
+
+  <div class="container">
+
+    <div class="section">
+      <p><strong>Scope:</strong> every <code>.md</code> and <code>.html</code> file under <code>docs/</code> (recursive) plus repo-root <code>CLAUDE.md</code>, verified against the codebase at <code>main</code> (<code>d49ba8b</code>). <strong>Method:</strong> GitNexus reindexed before any query (10,567 symbols). Three parallel evidence agents (inventory, code ground-truth, HTML usability) + five verification agents, then serial synthesis. Every ACCURATE/STALE/WRONG verdict cites <code>file:line</code>; every GitNexus/negative finding was grep-confirmed. No network access, no Supabase MCP — repo evidence only. Read-only: no existing file was modified. <strong>PR #72 note:</strong> findings touching admin dashboard accuracy, Melbourne-local dates, <code>check-overdue-invoices</code> behaviour, pipeline tab ordering, <code>?status=</code> deep links, or Settings logout are tagged <strong>[PENDING-PR72]</strong> rather than STALE/WRONG.</p>
+      <p><strong>Verdict key:</strong> ACCURATE = verified, cited · STALE = was true, no longer is · WRONG = never true or actively misleading · UNVERIFIED = not confirmable from repo evidence (live DB/secret/dashboard/DNS state is UNVERIFIED by definition).</p>
+    </div>
+    <div class="section">
+      <h2>Executive summary (read this first)</h2>
+      <ol>
+        <li><strong>The email cutover already happened in code — TODO.md doesn't know it.</strong> <code>grep -rn "noreply@" src/ supabase/</code> returns <strong>zero</strong> hits; <code>@mrcsystem.com</code> appears only inside URLs, never as an email address. <code>send-email/index.ts:203</code> (from) and <code>:207</code> (reply_to) both default to <code>admin@mouldandrestoration.com.au</code>. TODO.md's open item "Envelope layer still sends from noreply@mrcsystem.com — 6 hardcoded literals" is STALE, as are the sender claims in <code>API.md:39</code>, <code>API_AUDIT.md:42</code>, and <code>NOTIFICATIONS-AND-TRIGGERS.md:184</code>. Remaining true residue: <code>seed-admin/index.ts:50</code> still uses <code>admin@mrc.com.au</code>.</li>
+        <li><strong>No two docs agree on system size.</strong> Edge Functions: docs say 8, 9, 10, or 12 — disk has <strong>14</strong> (+ <code>_shared</code>). Tables: docs say 22, 23, 31, or 38 — <code>src/integrations/supabase/types.ts</code> defines <strong>29 tables + 1 view</strong>. Inspection form: docs (and CLAUDE.md history) say 10 sections — code has <strong>9</strong> (<code>TechnicianInspectionForm.tsx:121-131</code>).</li>
+        <li><strong>The biggest team-facing doc teaches retired pricing.</strong> <code>MRC_FULL_WALKTHROUGH.html</code> (3,479 lines, last commit 2026-04-28, no date stamp visible to the reader) carries the superseded labour tiers ($612.00/$1216.99), the $132 dehumidifier, and the abandoned volume-discount table — all three of which the two current pricing HTMLs explicitly tell readers to ignore. Its PDF twin is 4 days staler again.</li>
+        <li><strong>The two freshest pricing docs contradict each other.</strong> <code>BUSINESS_LOGIC.html</code> (13 Jul) says HEPA is <em>not</em> in the up-front quote; <code>PRICING_AND_PROCESS_GUIDE.html</code> (29 Jul) says it now is (code agrees with the 29 Jul doc: <code>pricing.ts:238-244</code>).</li>
+        <li><strong>Security hygiene finding:</strong> <code>docs/SECURITY_AUDIT.md</code> — the document that reported the token leak — itself stores full-length <code>sbp_</code>, <code>github_pat_</code>, and <code>re_</code> token strings in a tracked file (L42, L73-75, L164, L170, L176). Needs redaction regardless of what happens to the doc.</li>
+        <li><strong>Consolidation is warranted.</strong> 93 files; roughly two-thirds are point-in-time diagnostics/audits that are safe to archive. The team-facing surface should collapse to ONE operations doc (proposal in §6).</li>
+      </ol>
+    </div>
+    <div class="section">
+      <h2>1. Inventory</h2>
+      <p>93 files under <code>docs/</code>: <strong>78 .md</strong>, <strong>12 .html</strong>, 1 .sql, 1 .pdf, 1 .png. Audience codes: TECH = Glen/Clayton field · ADMIN = Michael desktop · DEV = developer · SPEC = PRD/plan.</p>
+      <h3>docs/ (root)</h3>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>path</th><th>fmt</th><th>lines</th><th>last commit</th><th>audience</th><th>summary</th></tr></thead>
+          <tbody>
+            <tr><td>AI_SUMMARY_INPUT_AUDIT.md</td><td>.md</td><td>404</td><td>2026-05-13</td><td>DEV</td><td>Phase-0 audit of what the AI-summary EF receives vs what the UI sends</td></tr>
+            <tr><td>API_AUDIT.md</td><td>.md</td><td>221</td><td>2026-04-03</td><td>DEV</td><td>External-API/key inventory + rotation call</td></tr>
+            <tr><td>API.md</td><td>.md</td><td>633</td><td>2026-08-04</td><td>DEV</td><td>API reference for EFs, DB schema, auth, enums</td></tr>
+            <tr><td>AUTH-PROFILE-DOCUMENTATION.md</td><td>.md</td><td>915</td><td>2026-04-03</td><td>DEV</td><td>Login/Forgot/Reset/Profile/Settings technical doc</td></tr>
+            <tr><td>BACKUP_TABLE_CLEANUP.md</td><td>.md</td><td>176</td><td>2026-07-07</td><td>DEV</td><td>Backup-table drop review, marked COMPLETE</td></tr>
+            <tr><td>BUSINESS_LOGIC_PROMPT.md</td><td>.md</td><td>247</td><td>2026-06-04</td><td>TECH</td><td>Paste-into-AI prompt wrapper for pricing/business questions</td></tr>
+            <tr><td>BUSINESS_LOGIC.html</td><td>.html</td><td>940</td><td>2026-08-02</td><td>TECH</td><td>Plain-English business rules: pricing, pipeline, bookings</td></tr>
+            <tr><td>COST_CALCULATION_SYSTEM.md</td><td>.md</td><td>528</td><td>2026-07-28</td><td>ADMIN</td><td>Pricing reference — banner-marked SUPERSEDED</td></tr>
+            <tr><td>data-model-invariants.md</td><td>.md</td><td>87</td><td>2026-05-01</td><td>DEV</td><td>App-enforced schema invariants (inspector_id snapshot)</td></tr>
+            <tr><td>database_technical_audit.md</td><td>.md</td><td>597</td><td>2026-04-05</td><td>DEV</td><td>Feb/Apr 2026 DB audit, health 68→91</td></tr>
+            <tr><td>DEPLOYMENT.md</td><td>.md</td><td>344</td><td>2026-04-03</td><td>DEV</td><td>Branch strategy + Vercel/Supabase deploy procedure</td></tr>
+            <tr><td>DEVELOPER-GUIDE.md</td><td>.md</td><td>460</td><td>2026-02-18</td><td>DEV</td><td>Code structure, local dev, conventions</td></tr>
+            <tr><td>edge-function-attribution-manifest.md</td><td>.md</td><td>174</td><td>2026-05-02</td><td>DEV</td><td>Canonical EF audit-attribution buckets</td></tr>
+            <tr><td>end-to-end-test-plan-2026-05-01.md</td><td>.md</td><td>647</td><td>2026-05-01</td><td>DEV</td><td>Manual E2E script with SQL checks</td></tr>
+            <tr><td>FRAMER_FIELD_MAPPING.md</td><td>.md</td><td>119</td><td>2026-04-22</td><td>DEV</td><td>Framer field-name remediation checklist</td></tr>
+            <tr><td>FRAMER_WEBHOOK.md</td><td>.md</td><td>113</td><td>2026-04-22</td><td>DEV</td><td>Public lead-webhook contract</td></tr>
+            <tr><td>inline-edit-diagnosis.md</td><td>.md</td><td>353</td><td>2026-04-28</td><td>DEV</td><td>EditLeadSheet vs inline-edit diagnosis</td></tr>
+            <tr><td>inspection-workflow-audit-2026-04-30.md</td><td>.md</td><td>638</td><td>2026-05-01</td><td>DEV</td><td>44-finding inspection-integrity audit</td></tr>
+            <tr><td>inspection-workflow-fix-plan-2026-04-30.md</td><td>.md</td><td>1021</td><td>2026-05-01</td><td>SPEC</td><td>v1 fix plan (42 stages) — superseded by v2</td></tr>
+            <tr><td>inspection-workflow-fix-plan-v2-2026-04-30.md</td><td>.md</td><td>1331</td><td>2026-05-11</td><td>SPEC</td><td>v2 fix plan (48 stages), the execution map</td></tr>
+            <tr><td>internal-notes-loss-diagnosis.md</td><td>.md</td><td>248</td><td>2026-05-01</td><td>DEV</td><td>Forensics: destroyed internal notes, unrecoverable</td></tr>
+            <tr><td>INVOICE_INTEGRITY_RUNBOOK.md</td><td>.md</td><td>249</td><td>2026-07-29</td><td>DEV</td><td>Human-run SQL: empty invoices table + CHECK constraints</td></tr>
+            <tr><td>JOB_COMPLETION_PLAN.md</td><td>.md</td><td>378</td><td>2026-04-03</td><td>SPEC</td><td>Phase 2A–2F build plan</td></tr>
+            <tr><td>JOB_COMPLETION_PRD.md</td><td>.md</td><td>444</td><td>2026-07-09</td><td>SPEC</td><td>PRD for stages 7–12 (completion→review)</td></tr>
+            <tr><td>KEY_ROTATION.md</td><td>.md</td><td>159</td><td>2026-06-02</td><td>DEV</td><td>Secret inventory + rotation runbook</td></tr>
+            <tr><td>L4-environment-separation-plan.md</td><td>.md</td><td>271</td><td>2026-05-11</td><td>SPEC</td><td>Dev-Supabase / Vercel-Preview separation plan</td></tr>
+            <tr><td>LAUNCH_TESTING_FINDINGS.md</td><td>.md</td><td>840</td><td>2026-08-04</td><td>DEV</td><td>2 Aug launch-test issue log</td></tr>
+            <tr><td>LAUNCH_WEEKEND_BRIEFING.html</td><td>.html</td><td>368</td><td>2026-08-02</td><td>ADMIN</td><td>"For Glen &amp; Clayton" launch-weekend briefing</td></tr>
+            <tr><td>lead-detail-diagnosis.md</td><td>.md</td><td>268</td><td>2026-04-28</td><td>DEV</td><td>Preferred date/time render-path trace</td></tr>
+            <tr><td>MANUAL_TESTING_CHECKLIST.md</td><td>.md</td><td>429</td><td>2026-04-15</td><td>DEV</td><td>Pre-handover smoke checklist</td></tr>
+            <tr><td>MCP_STACK.md</td><td>.md</td><td>330</td><td>2026-04-03</td><td>DEV</td><td>MCP server configuration</td></tr>
+            <tr><td>morning-bugs-diagnosis.md</td><td>.md</td><td>314</td><td>2026-05-01</td><td>DEV</td><td>Two-bug diagnosis (notes pencil, schedule crash)</td></tr>
+            <tr><td>MRC_FULL_WALKTHROUGH.html</td><td>.html</td><td>3479</td><td>2026-04-28</td><td>ADMIN</td><td>"Every Path, Every Button" full system walkthrough</td></tr>
+            <tr><td>MRC_FULL_WALKTHROUGH.pdf</td><td>.pdf</td><td>—</td><td>2026-04-24</td><td>ADMIN</td><td>PDF export of the walkthrough, 4 days staler than its HTML</td></tr>
+            <tr><td>MRC_PROJECT_CONTEXT.md</td><td>.md</td><td>836</td><td>2026-04-05</td><td>DEV</td><td>Codebase reference for AI-assistant context</td></tr>
+            <tr><td>mrc-system-overview.html</td><td>.html</td><td>630</td><td>2026-04-22</td><td>ADMIN</td><td>Five-minute plain-English system tour</td></tr>
+            <tr><td>NOTIFICATIONS-AND-TRIGGERS.md</td><td>.md</td><td>944</td><td>2026-03-11</td><td>DEV</td><td>Email/Slack/trigger/cron/realtime reference</td></tr>
+            <tr><td>PDF_PIPELINE_PLAN.md</td><td>.md</td><td>135</td><td>2026-05-25</td><td>SPEC</td><td>PDF pipeline rebuild tracker</td></tr>
+            <tr><td>PHASE_2_EXECUTION.md</td><td>.md</td><td>420</td><td>2026-05-11</td><td>SPEC</td><td>Phase 2 execution plan + Phase 1 inventory</td></tr>
+            <tr><td>PHASE_2D_INVOICE_TODO.md</td><td>.md</td><td>229</td><td>2026-06-23</td><td>SPEC</td><td>Phase 2D invoice tracker/session log</td></tr>
+            <tr><td>phase-2-verification-helpers.sql</td><td>.sql</td><td>170</td><td>2026-05-01</td><td>DEV</td><td>BEGIN/ROLLBACK audit-trigger tests</td></tr>
+            <tr><td>phase-2-verification-matrix.md</td><td>.md</td><td>129</td><td>2026-05-01</td><td>DEV</td><td>Phase 2 audit-infra verification matrix</td></tr>
+            <tr><td>PLANNING.md</td><td>.md</td><td>140</td><td>2026-04-03</td><td>DEV</td><td>Architecture/stack overview</td></tr>
+            <tr><td>pr-batch-a-templates-copy.md</td><td>.md</td><td>67</td><td>2026-08-04</td><td>DEV</td><td>PR body, batch A</td></tr>
+            <tr><td>pr-batch-b-ai-prompt.md</td><td>.md</td><td>71</td><td>2026-08-04</td><td>DEV</td><td>PR body, batch B</td></tr>
+            <tr><td>pr-batch-c-forms-ui.md</td><td>.md</td><td>77</td><td>2026-08-04</td><td>DEV</td><td>PR body, batch C</td></tr>
+            <tr><td>PRD.md</td><td>.md</td><td>1987</td><td>2026-08-02</td><td>SPEC</td><td>Master PRD v2.0</td></tr>
+            <tr><td>PRE_HANDOVER_AUDIT.md</td><td>.md</td><td>176</td><td>2026-04-20</td><td>DEV</td><td>Pre-handover audit (0 blockers)</td></tr>
+            <tr><td>PRE_MERGE_TESTING_CHECKLIST.md</td><td>.md</td><td>377</td><td>2026-07-29</td><td>DEV</td><td>Combined pre-merge checklist, three streams</td></tr>
+            <tr><td>PRELAUNCH_AUDIT_2026-07-08.md</td><td>.md</td><td>48</td><td>2026-07-09</td><td>DEV</td><td>Ranked pre-launch shortlist</td></tr>
+            <tr><td>PRICING_AFD_FINDINGS.md</td><td>.md</td><td>139</td><td>2026-08-02</td><td>DEV</td><td>AFD/HEPA billing findings — banner-marked SUPERSEDED</td></tr>
+            <tr><td>PRICING_AND_PROCESS_GUIDE.html</td><td>.html</td><td>477</td><td>2026-07-29</td><td>TECH</td><td>Plain-English pricing summary ("text Michael if wrong")</td></tr>
+            <tr><td>PRODUCTION_MERGE_RUNBOOK.md</td><td>.md</td><td>330</td><td>2026-08-04</td><td>DEV</td><td>Batches A/B/C production-merge runbook</td></tr>
+            <tr><td>RUNBOOK.md</td><td>.md</td><td>262</td><td>2026-02-18</td><td>ADMIN</td><td>Daily ops checks, monitoring, incident response</td></tr>
+            <tr><td>schedule-consolidation-diagnosis.md</td><td>.md</td><td>361</td><td>2026-04-28</td><td>DEV</td><td>BookInspectionModal deletion analysis</td></tr>
+            <tr><td>SECURITY_AUDIT.md</td><td>.md</td><td>284</td><td>2026-04-05</td><td>DEV</td><td>Credential-exposure scan (contains live-format secrets!)</td></tr>
+            <tr><td>SECURITY-REMEDIATION-REPORT.md</td><td>.md</td><td>351</td><td>2026-03-11</td><td>DEV</td><td>Fixed-vs-dismissed security report</td></tr>
+            <tr><td>stage-1.4-callsite-catalog.md</td><td>.md</td><td>357</td><td>2026-05-01</td><td>DEV</td><td>handleGeneratePDF callsite catalog</td></tr>
+            <tr><td>stage-3.5-consumer-audit.md</td><td>.md</td><td>222</td><td>2026-05-02</td><td>DEV</td><td>Gate before dropping legacy AI-summary columns</td></tr>
+            <tr><td>stage-4.3-consumer-audit.md</td><td>.md</td><td>239</td><td>2026-05-10</td><td>DEV</td><td>Gate before photos soft-delete</td></tr>
+            <tr><td>SUPABASE_ADVISOR_AUDIT.md</td><td>.md</td><td>170</td><td>2026-07-09</td><td>DEV</td><td>Advisor snapshot PROD+DEV</td></tr>
+            <tr><td>system-user-uuid.md</td><td>.md</td><td>71</td><td>2026-05-01</td><td>DEV</td><td>SYSTEM_USER_UUID sentinel doc</td></tr>
+            <tr><td>TODO.md</td><td>.md</td><td>1538</td><td>2026-08-03</td><td>SPEC</td><td>Live master tracker</td></tr>
+            <tr><td>TROUBLESHOOTING.md</td><td>.md</td><td>305</td><td>2026-02-18</td><td>DEV</td><td>Common errors + fixes</td></tr>
+            <tr><td>USER-GUIDE.md</td><td>.md</td><td>292</td><td>2026-02-18</td><td>TECH</td><td>End-user guide (login, PWA install, workflows)</td></tr>
+            <tr><td>WEBHOOK_STRESS_TEST.md</td><td>.md</td><td>265</td><td>2026-04-22</td><td>DEV</td><td>100-test stress run vs webhook v18</td></tr>
+            <tr><td>WORKFLOW.md</td><td>.md</td><td>142</td><td>2026-04-03</td><td>DEV</td><td>Session history log</td></tr>
+            <tr><td>XERO_INTEGRATION_HANDOFF.md</td><td>.md</td><td>257</td><td>2026-06-23</td><td>DEV</td><td>Xero-ready invoice-flow handoff</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Subdirectories</h3>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>path</th><th>fmt</th><th>lines</th><th>last commit</th><th>audience</th><th>summary</th></tr></thead>
+          <tbody>
+            <tr><td>email-previews/README.md</td><td>.md</td><td>58</td><td>2026-05-01</td><td>DEV</td><td>Explains previews are gitignored (PII) + builder map</td></tr>
+            <tr><td>email-previews/01…07-*.html (7 files)</td><td>.html</td><td>87–96 ea</td><td>UNTRACKED</td><td>ADMIN</td><td>Rendered transactional-email previews (gitignored, <code>.gitignore:53</code>)</td></tr>
+            <tr><td>pdf-reference/forms.md</td><td>.md</td><td>294</td><td>2026-04-03</td><td>DEV</td><td>Generic (non-MRC) PDF form-filling reference — vendored skill material</td></tr>
+            <tr><td>pdf-reference/reference.md</td><td>.md</td><td>611</td><td>2026-04-03</td><td>DEV</td><td>Generic PDF-processing reference — vendored skill material</td></tr>
+            <tr><td>pdf-report/README.md</td><td>.md</td><td>154</td><td>2026-02-07</td><td>DEV</td><td>13-page report template overview, "awaiting integration"</td></tr>
+            <tr><td>pdf-report/DATA-REQUIREMENTS.md</td><td>.md</td><td>248</td><td>2026-02-07</td><td>DEV</td><td>Template variable → DB mapping</td></tr>
+            <tr><td>pdf-report/TEMPLATE-VARIABLES.md</td><td>.md</td><td>149</td><td>2026-02-07</td><td>DEV</td><td>46-placeholder catalogue</td></tr>
+            <tr><td>pdf-report/templates/complete-report-backup.html</td><td>.html</td><td>919</td><td>2026-02-07</td><td>DEV</td><td>Backup PDF template — 45 broken asset refs (see §1a)</td></tr>
+            <tr><td>testing/01_DESKTOP-13-05-2026.md</td><td>.md</td><td>1596</td><td>2026-05-14</td><td>DEV</td><td>Raw desktop test transcript</td></tr>
+            <tr><td>testing/02_DESKTOP-14-05-2026.md</td><td>.md</td><td>124</td><td>2026-05-25</td><td>DEV</td><td>Admin-path desktop test session</td></tr>
+            <tr><td>testing/inscpect1.md</td><td>.md</td><td>295</td><td>2026-05-25</td><td>DEV</td><td>Test-inspection input record (typo'd filename)</td></tr>
+            <tr><td>testing/leadview_completeness_audit_MRC-2026-0144.md</td><td>.md</td><td>371</td><td>2026-05-16</td><td>DEV</td><td>LeadView field-surfacing gap audit</td></tr>
+            <tr><td>testing/pr57_e2e_walk_MRC-2026-0144_20260516.md.md</td><td>.md</td><td>596</td><td>2026-05-25</td><td>DEV</td><td>PR #57 E2E walk (double <code>.md.md</code> extension)</td></tr>
+            <tr><td>testing/pr57_sibling_sweep.md</td><td>.md</td><td>198</td><td>2026-05-16</td><td>DEV</td><td>BUG-046 currency-display sibling sweep</td></tr>
+            <tr><td>testing/section9_verification_MRC-2026-0144.md</td><td>.md</td><td>306</td><td>2026-05-16</td><td>DEV</td><td>Section 9 pricing formula verification</td></tr>
+            <tr><td>testing/WAVE6_POST_DEPLOY_VERIFICATION.md</td><td>.md</td><td>227</td><td>2026-05-14</td><td>DEV</td><td>Wave 6 post-deploy structural audit</td></tr>
+            <tr><td>testing/new-lead-recieved slack-notification.png</td><td>.png</td><td>—</td><td>2026-05-25</td><td>DEV</td><td>Slack-notification screenshot (typo + space in filename)</td></tr>
+            <tr><td>verification/launch-checks-VERIFY.md</td><td>.md</td><td>201</td><td>2026-07-30</td><td>DEV</td><td>Per-commit verification declaration for PR #72</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>1a. The .html files as standalone team-facing artefacts</h3>
+      <p>These were shown directly to team members, so standalone-viewability matters:</p>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>file</th><th>standalone?</th><th>detail</th></tr></thead>
+          <tbody>
+            <tr><td>BUSINESS_LOGIC.html</td><td>✅ STANDALONE</td><td>Fully inline CSS, zero external refs; opens offline with no degradation</td></tr>
+            <tr><td>PRICING_AND_PROCESS_GUIDE.html</td><td>✅ STANDALONE</td><td>Fully inline; freshest date stamp in the set (29 Jul)</td></tr>
+            <tr><td>LAUNCH_WEEKEND_BRIEFING.html</td><td>✅ STANDALONE</td><td>Fully inline</td></tr>
+            <tr><td>MRC_FULL_WALKTHROUGH.html</td><td>⚠️ DEPENDS-ON-NETWORK</td><td>Google Fonts (cosmetic) + <strong>mermaid from cdn.jsdelivr.net (functional)</strong> — every diagram renders as raw source text offline (L3444-3445). Also exposes the PROD project ref in plain text (L579, L2660, L2760) and contains a sensitive data-loss incident writeup</td></tr>
+            <tr><td>mrc-system-overview.html</td><td>⚠️ DEPENDS-ON-NETWORK</td><td>Same Google Fonts + mermaid CDN pattern (L588-589); diagrams break offline</td></tr>
+            <tr><td>email-previews/01–07</td><td>⚠️ DEPENDS-ON-NETWORK + untracked</td><td>Logo loads from the live PROD Storage public URL in all 7; gitignored so what was shown to the team is unreproducible; 05 still shows the personal mobile <code>0433 553 199</code> that was scrubbed from code (no <code>0433 553</code> hit in src/ or supabase/ — only the developer line <code>0433 880 403</code> at <code>HelpSupport.tsx:12-13</code>); 06 links a real customer job-report public URL</td></tr>
+            <tr><td>pdf-report/templates/complete-report-backup.html</td><td>❌ BROKEN-ASSETS</td><td>45 local <code>/assets/...</code> refs, none exist on disk; renders with every image broken; root-absolute paths don't resolve under file:// anyway. Not a reading doc</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><code>MRC_FULL_WALKTHROUGH.pdf</code> (2.65 MB, committed 2026-04-24) is a snapshot of a pre-28-Apr walkthrough — out of sync with its own HTML, and both predate the July pricing overhaul.</p>
+    </div>
+    <div class="section">
+      <h2>2. Verification against code</h2>
+      <p>Ground truth used throughout (independently verified):</p>
+      <ul>
+        <li><strong>Routes</strong> — <code>src/App.tsx</code>: 6 public routes + catch-all (<code>App.tsx:88-93,477</code>), 18 admin routes (<code>:97-470</code> incl. <code>/admin/invoice/:leadId</code> :175, <code>/admin/render-test</code> :233), 9 technician routes (<code>:261-401</code> incl. <code>/technician/job-completion/:leadId</code> :366). <code>TechnicianJobDetail</code> is imported (<code>App.tsx:46</code>) but <strong>not routed</strong>.</li>
+        <li><strong>Edge Functions</strong> — <code>ls supabase/functions/</code>: 14 + <code>_shared</code>: calculate-travel-time, check-overdue-invoices, check-photo-moisture-orphans, export-inspection-context, fetch-resend-email, generate-inspection-pdf, generate-inspection-summary, generate-job-report-pdf, manage-users, receive-framer-lead, seed-admin, send-email, send-inspection-reminder, send-slack-notification.</li>
+        <li><strong>Pricing</strong> — <code>src/lib/calculations/pricing.ts</code>: <code>EQUIPMENT_RATES</code> dehumidifier 119 (:28), airMover 46 (:29), hepaAirScrubber 100 (:30), rcd 5 (:31); <code>GST_RATE = 0.10</code> (:49); <code>MAX_DISCOUNT = 0.13</code> (:55); <code>LABOUR_RATES</code> (:19-24) nonDemo 1019.40/1245.33 + dayRates [1245.33, 1060.34, 1054.52, 1007.18, 921.57, 921.57], demolition 1062.00/1825.87, subfloor 1322.62/2375.21, construction placeholder "not in use" (:22); 2-hour minimum (:83-86); waste bands {2:350, 4:450, 6:550, 8:703, 10:900, 12:1190} + $145/m³ extrapolation (:36-46); equipment days auto = <code>max(1, ceil(hours/8))</code> (:232) — <strong>no 5-day cap in code</strong>; HEPA carries its own optional days (:238-244). <strong>No <code>0.87</code> multiplier anywhere</strong> (<code>grep -rn "0\.87" src supabase</code> → 0 hits); volume-discount tiers are gone — <code>discountPercent</code> hardcoded 0 (:462-471).</li>
+        <li><strong>Invoices</strong> — <code>src/lib/api/invoices.ts</code>: 14-day terms (:278, :585, :888); 13% clamp (:103-108, :293, :335); equipment/waste never discounted (:93-99, :112); <code>melbourneDateISO</code> (:898-900).</li>
+        <li><strong>Status flow</strong> — <code>src/lib/statusFlow.ts:2-18</code>: 16 statuses (new_lead, inspection_waiting, inspection_ai_summary, approve_inspection_report, inspection_email_approval, job_waiting, job_scheduled, job_completed, pending_review, job_report_pdf_sent, invoicing_sent, paid, google_review, finished, closed, not_landed); terminal = closed/not_landed/finished (:215-217). DB enum in <code>types.ts:2219-2238</code> has 20 values (4 legacy).</li>
+        <li><strong>Forms</strong> — inspection form <strong>9</strong> sections (<code>TechnicianInspectionForm.tsx:121-131</code>); job completion form <strong>10</strong> sections (<code>JobCompletionForm.tsx:24-35</code>, files in <code>src/components/job-completion/</code>).</li>
+        <li><strong>Email senders</strong> — no <code>noreply@</code>, no <code>@mrcsystem.com</code> addresses in code (grep-verified); defaults <code>admin@mouldandrestoration.com.au</code> (<code>send-email/index.ts:203,207</code>); <code>seed-admin/index.ts:50</code> = <code>admin@mrc.com.au</code>.</li>
+        <li><strong>Offline/PWA</strong> — Dexie <code>mrc-offline</code> v2 with stores inspectionDrafts/photoQueue/quarantinedPhotos/syncLog; <strong>no jobCompletionDrafts</strong> (<code>src/lib/offline/db.ts:12-24</code>). PWA manifest "MRC Field", start_url <code>/technician</code> (<code>vite.config.ts:20-32</code>).</li>
+        <li><strong>Penalty ladder</strong> — <code>PENALTY_FEE_INCREMENT = 65</code> (<code>src/lib/calculations/penaltyLadder.ts:18</code>), first fee at day 1 (:77).</li>
+        <li><strong>npm scripts</strong> — <code>package.json:6-17</code>: dev, build, build:dev, typecheck, lint, preview, test, test:run, test:ui, preview-emails — nothing else.</li>
+      </ul>
+      <p>Per-doc verdicts follow, grouped. (A/S/W/U = accurate/stale/wrong/unverified counts of checked claims; historical docs were spot-checked, not line-audited.)</p>
+      <h3>2a. API &amp; architecture references</h3>
+      <p><strong>API.md</strong> (A14/S9/W3/U2) — <strong>REWRITE.</strong> Only the AI-summary section was refreshed in today's commit; the rest is Feb-2026. WRONG: sender <code>noreply@mrcsystem.com</code> (L39) vs <code>send-email/index.ts:207</code>; "Commercial Dehumidifier $132.00" (L620) vs <code>pricing.ts:28</code> ($119 — <code>equipmentRateDrift.test.ts:116-118</code> exists specifically to keep $132 out). STALE: documents 9 of 14 EFs (missing check-overdue-invoices, check-photo-moisture-orphans, fetch-resend-email, generate-job-report-pdf, receive-framer-lead); "22 tables" (L436) vs 29+1 in <code>types.ts</code>; status pipeline <code>hipages_lead → contacted → …</code> (L603-608) vs <code>statusFlow.ts:2-18</code>; 429 rate-limit paths undocumented (<code>send-email/index.ts:121,180,196</code>). ACCURATE: AI model chain gemini-2.5-flash → flash-lite → claude-haiku-4.5 (<code>generate-inspection-summary/index.ts:367-371</code>), discount cap, GST, air-mover/RCD rates, manage-users methods (<code>manage-users/index.ts:180,237,330,390</code>), calculate-travel-time actions.</p>
+      <p><strong>API_AUDIT.md</strong> (A9/S3/W1/U8) — <strong>ARCHIVE</strong> with as-of banner. WRONG-now: "Current From: noreply@mrcsystem.com / Planned: admin@mouldandrestoration.com.au (pending)" (L42-43) — the switch shipped. STALE: OpenRouter primary model (L94) vs <code>generate-inspection-summary/index.ts:368</code>; "22 hooks" vs 40 files in <code>src/hooks/</code>. Rotation statuses all UNVERIFIED (dashboard state).</p>
+      <p><strong>AUTH-PROFILE-DOCUMENTATION.md</strong> (A11/S12/W4/U4) — <strong>REWRITE.</strong> Its two foundational "Key Design Decisions" are both false today: "No <code>profiles</code> table" (L40) — restored by <code>20260209000000_restore_profiles.sql</code>, live in <code>types.ts:1748</code> and <code>AuthContext.tsx</code>; "No <code>user_roles</code> table / roles disabled" (L41, L838) — live at <code>types.ts:1985</code>, queried by <code>AuthContext.tsx</code>, <code>useTechnicians.ts</code>. STALE: data-mapping table omits <code>starting_address</code> (<code>Profile.tsx:168-175, 218-231</code>); <code>storage: window.localStorage</code> (L654) vs custom <code>rememberMeStorage</code> adapter (<code>client.ts:22-66, 106</code>); "Manage Users → /manage-users" (L506) vs <code>Settings.tsx:189</code> → <code>/admin/technicians</code> (<code>src/pages/ManageUsers.tsx</code> does not exist — ls-confirmed); seed-admin password now env-driven, not literal. Nearly every line-number citation has drifted.</p>
+      <p><strong>NOTIFICATIONS-AND-TRIGGERS.md</strong> (A13/S11/W4/U6) — <strong>REWRITE.</strong> WRONG: sender <code>noreply@mrcsystem.com</code> (L184-186); references <code>src/lib/notifications.ts</code> (L226-228, L345, L885) — file does not exist (only <code>src/lib/api/notifications.ts</code>). STALE: "7 statuses implemented / 18 in DB" (L29) vs 16 active / 20 in enum; <code>CreateLeadModal.tsx</code>, <code>Leads.tsx</code>, <code>NewLeadView.tsx</code>, <code>AddLeadDialog.tsx</code> all deleted (ls-confirmed); cron SQL superseded by <code>20260601120000_fix_cron_auth_headers.sql</code> (Vault auth headers); omits the <code>check-overdue-invoices</code> cron entirely; misses the pg_net Slack trigger path (<code>20260527023540_email_logs_slack_notify_trigger.sql</code>). Note: <code>20260802120000_sequential_job_and_inspection_numbers.sql:5-11</code> moved inspections to <code>INS-YYYY-NNNN</code> and jobs to <code>JOB-YYYY-NNNN</code> — the doc's <code>MRC-</code> claims hold for leads only. ACCURATE: reminder-cron schedule and query logic, PWA caching table, Dexie schema.</p>
+      <p><strong>edge-function-attribution-manifest.md</strong> (A12/S3/W1/U4) — <strong>KEEP</strong> (patch). Highest-accuracy doc in the set: every attribution mechanism verified line-for-line (<code>generate-inspection-pdf/index.ts:1656,2027</code>; <code>generate-inspection-summary/index.ts:749,820-822</code>; <code>send-email/index.ts:43,221</code>; <code>receive-framer-lead/index.ts:468,525</code>; <code>check-overdue-invoices/index.ts:172,270-273</code>; <code>send-inspection-reminder/index.ts:215,334</code>; manage-users JWT-only, grep-confirmed no SYSTEM_USER_UUID). Only fix: "12 Edge Functions" → 14; add <code>check-photo-moisture-orphans</code> and <code>fetch-resend-email</code> as Bucket C rows — the manifest's own "update in the same commit" rule (L3) was violated by those two.</p>
+      <p><strong>FRAMER_WEBHOOK.md</strong> (A13/S2/W1/U3) — <strong>KEEP</strong> (patch). WRONG: "5 submissions/hr/IP" (L15, L63) — <code>receive-framer-lead/index.ts:19</code> is <code>RATE_LIMIT = 100</code>, with the :14-18 comment explaining why 5 was abandoned. STALE: field-mapping table omits postcode (validated field since Jun-2026: <code>index.ts:78, 636, 788</code>). Everything else verified: 50KB body cap (:106), duplicate flagging (:794-795), auto-set fields, content-type branching.</p>
+      <p><strong>FRAMER_FIELD_MAPPING.md</strong> (A5/S1/W0/U7) — <strong>ARCHIVE.</strong> A one-off Framer-dashboard rename checklist; whether it shipped is unknowable from the repo, and its EF-side content duplicates FRAMER_WEBHOOK.md. Postcode "recently added via fallback" claim is stale (now first-class, <code>index.ts:78</code>).</p>
+      <p><strong>system-user-uuid.md</strong> (A6/S1/W2/U4) — <strong>MERGE</strong> into the attribution manifest. WRONG: claims <code>manage-users</code> reads SYSTEM_USER_UUID (L56) — grep-confirmed no matches, and the manifest itself (L42) says the opposite; claims a <code>/admin/audit</code> page renders the sentinel (L10) — <code>grep -rn "admin/audit" src/</code> → no matches. STALE: <code>VITE_SYSTEM_USER_UUID</code> "exposed to the frontend" — zero references in src/. The UUID value + rotation policy are the only unique content.</p>
+      <p><strong>data-model-invariants.md</strong> (A6/S4/W0/U2) — <strong>KEEP</strong> (refresh line numbers). The core invariant (inspector_id written once, never updated) independently re-verified today: only two write sites, <code>TechnicianInspectionForm.tsx:3962</code> and <code>SyncManager.ts:212-218</code> (doc's cited line numbers have drifted but the claims hold). "Future Phase 3/4" framing is stale — both shipped.</p>
+      <p><strong>database_technical_audit.md</strong> (A2/S6/U3 + HISTORICAL) — <strong>ARCHIVE.</strong> The Apr-2026 banner contradicts the Feb-2026 body it sits above (the "CRITICAL" blockers at L28/L30 are resolved); count claims (23/31 tables) are both stale vs 29+1.</p>
+      <p><strong>SECURITY_AUDIT.md</strong> (A5/S3/U6 + HISTORICAL) — <strong>ARCHIVE + REDACT.</strong> The <code>.gitignore</code> coverage (L119-128 vs <code>.gitignore:27-32</code>) and "no hardcoded secrets" claims re-verify clean today. But the doc itself prints full-length <code>sbp_</code>, <code>github_pat_</code>, and <code>re_</code> token strings (L42, L73-75, L164, L170, L176) in a tracked file — the exact exposure class it reports. Redact regardless of disposition.</p>
+      <p><strong>SECURITY-REMEDIATION-REPORT.md</strong> (A9/S4/W1/U5) — <strong>ARCHIVE.</strong> WRONG: "RLS 38/38 tables" (L157, L280) — never reconcilable with any known count (29 now, 31 in the same-era DB audit). STALE: CSP transcript (L148) vs the materially broader <code>vercel.json:20</code>; "8/8 Zod" vs 14 EFs. The code-level fixes it records are still in place.</p>
+      <p><strong>WEBHOOK_STRESS_TEST.md</strong> (A8/S3/W1/U6) — <strong>ARCHIVE.</strong> Test-run record against EF v18; EF is now v20 (<code>receive-framer-lead/index.ts:501</code>) with a 20× different rate limit (100 vs 5). The 9-layer defence chain description remains accurate and belongs in FRAMER_WEBHOOK.md.</p>
+      <h3>2b. Evergreen guides (USER-GUIDE, DEVELOPER-GUIDE, TROUBLESHOOTING, RUNBOOK, DEPLOYMENT, PLANNING, WORKFLOW, MCP_STACK, MANUAL_TESTING_CHECKLIST, MRC_PROJECT_CONTEXT)</h3>
+      <p><strong>USER-GUIDE.md</strong> (A14/S8/W4/U3) — <strong>REWRITE.</strong> The technician half survives: 9 inspection sections match verbatim (<code>TechnicianInspectionForm.tsx:119-131</code>), 30-second autosave confirmed (<code>:4386-4390</code> — <code>setInterval(..., 30000)</code>), 48-hour reminder confirmed (<code>20260218000001_add_reminder_scheduled_for.sql:14</code>), offline photo queue and 1600px/0.85 compression confirmed (<code>photoResizer.ts:1-2</code>), PWA install confirmed (<code>vite.config.ts:24-26</code>). WRONG: Jobs tabs "Today/This Week/This Month/Upcoming/Completed" — actual tabs are Today, This Week, This Month, <strong>Overdue</strong>, <strong>Pending Review</strong>, <strong>All</strong> (<code>TechnicianJobs.tsx:26-33</code>); "lead automatically moves to Closed after sending report" — it moves to <code>inspection_email_approval</code> → <code>job_waiting</code> (<code>statusFlow.ts:2-18</code>). STALE [PENDING-PR72]: pipeline ends at 7 statuses; dashboard shows 4 metrics (now 6 KPI cards incl. Pending Reviews and Overdue Invoices, <code>AdminDashboard.tsx:139-203</code>).</p>
+      <p><strong>DEVELOPER-GUIDE.md</strong> (A17/S9/W7/U1) — <strong>REWRITE.</strong> WRONG and day-one-dangerous: documents an <code>AppLayout</code> routing architecture that does not exist — <code>ls src/components/layout</code> → no such directory; <code>grep -rn "AppLayout" src/App.tsx</code> matches only comments saying "no AppLayout"; the doc's route-adding example (:176-182) would not compile. Real pattern is <code>ProtectedRoute &gt; RoleProtectedRoute &gt; Page</code> (<code>App.tsx:97-108</code>). Also WRONG: test example <code>calculateDewPoint(25, 0) &lt; -40</code> — code returns 0 for humidity ≤ 0 (<code>inspectionUtils.ts:21</code>). STALE: "9 Edge Functions" (14), scripts table (<code>dev</code> is <code>vite</code>, not <code>vite --host</code>; omits typecheck/build:dev/preview-emails, <code>package.json:7-16</code>), "no server-side PDF" — <code>vercel.json:4-8</code> declares <code>api/render-pdf.ts</code> (1024 MB, 60 s). Its own "No select('*')" standard is violated in 10 files (grep-confirmed). Conventions/testing sections carry over fine.</p>
+      <p><strong>TROUBLESHOOTING.md</strong> (A15/S5/W3/U9) — <strong>MERGE</strong> into a maintained troubleshooting section. WRONG: "Dehumidifier $132/day" (:153) vs <code>pricing.ts:28</code> ($119, and HEPA $100 missing); status <code>contacted</code> doesn't exist (<code>statusFlow.ts:2-18</code>); <strong>:300 gives the developer's personal mobile (0433 880 403, <code>HelpSupport.tsx:11-13</code> "Developer contact — HARDCODED") as the business/operations phone — business line is 1800 954 117 (<code>notifications.ts:161,214,283</code>)</strong>. STALE: bare <code>curl</code> of send-inspection-reminder won't authenticate since <code>20260601120000_fix_cron_auth_headers.sql</code>. The debugging methodology, status-code tables, and dew-point explanation verify clean.</p>
+      <p><strong>RUNBOOK.md</strong> (A9/S4/W1/U14) — <strong>MERGE.</strong> Daily-check SQL verifies against schema (terminal-status set exactly matches <code>statusFlow.ts:215-217</code>); Storage bucket names match EF code (<code>generate-inspection-pdf/index.ts:12,1885,2005</code>). STALE: documents an inspection-only system — no coverage of the <code>check-overdue-invoices</code> cron [PENDING-PR72], <code>invoices</code> table checks, or the second PDF-version table (<code>job_completion_pdf_versions</code>, <code>types.ts:937</code>); PDF-cleanup guidance would miss it. Caveat found: the repo template is <code>inspection-report-template.html</code>, but the EF fetches <code>inspection-report-template-final.html</code> from Storage — re-upload from repo is not byte-identical restore (:256 claim is partial). Monitoring thresholds/backup-plan claims are UNVERIFIED (live dashboard state).</p>
+      <p><strong>DEPLOYMENT.md</strong> (A16/S5/W1/U11) — <strong>KEEP with edits.</strong> Process and branch strategy sound. WRONG: <code>supabase secrets set SUPABASE_SERVICE_ROLE_KEY=…</code> (:77) — <code>SUPABASE_*</code> is a reserved prefix auto-injected by the platform; the command is rejected. STALE: deploys 9 of 14 EFs; env table omits <code>VITE_SENTRY_DSN</code>; EF-secrets table omits <code>ADMIN_FALLBACK_EMAIL</code>, <code>ADMIN_SEED_PASSWORD</code>, <code>INTERNAL_WEBHOOK_SECRET</code>, <code>SYSTEM_USER_UUID</code>; no mention of <code>api/render-pdf.ts</code> (<code>vercel.json:4-8</code>).</p>
+      <p><strong>PLANNING.md</strong> (A12/S9/W3/U6) — <strong>ARCHIVE.</strong> WRONG: points readers at <code>context/PRD.md</code> / <code>context/TODO.md</code> — <code>ls context</code> → no such directory; lists <code>calendar_events</code> (real table is <code>calendar_bookings</code>, <code>types.ts:209</code>); says reminders are 24 hr (48 hr per <code>20260218000001:14</code>). Its "Next Major Feature: Job Completion" shipped long ago (<code>JobCompletionForm.tsx</code>, <code>App.tsx:366</code>).</p>
+      <p><strong>WORKFLOW.md</strong> (A8/S3/W1/U12) — <strong>ARCHIVE.</strong> Frozen session log 4 months behind HEAD (<code>d49ba8b</code>, PR #75); internally contradictory ("dropped 9 tables" then lists 12; <code>invoices</code> listed as dropped but is back and central, <code>types.ts:823</code>); "removed developer role" contradicted by <code>types.ts:1784</code>. Git log is the authoritative record.</p>
+      <p><strong>MCP_STACK.md</strong> (A14/S3/W1/U8) — <strong>KEEP with edits.</strong> Best-aged evergreen doc: all 7 <code>.mcp.json</code> servers still match config exactly (grep-confirmed). Gaps: omits GitNexus (now central to the workflow) and the <code>.claude/hooks/block-supabase-mcp-writes.sh</code> guard that directly constrains the Supabase MCP it documents as write-capable. Note: the Resend MCP <code>SENDER_EMAIL_ADDRESS: admin@mrcsystem.com</code> is MCP-test-only — that address appears nowhere in app code.</p>
+      <p><strong>MANUAL_TESTING_CHECKLIST.md</strong> (A31/S6/W7/U9) — <strong>KEEP with edits</strong> (highest-value operational doc found). The Phase-2 half is impressively current: 6 KPI cards, KPI click-through targets, <code>?status=</code> deep links, Melbourne-local timestamps all verify [PENDING-PR72] (<code>AdminDashboard.tsx:139-203, 171-197</code>; <code>LeadsManagement.tsx:145-159</code>; <code>dateUtils.ts:1-59</code>). WRONG: describes the <em>inspection</em> form as "10 sections" with titles that actually belong to the <em>job-completion</em> form; equipment rates "132/46/75/5" vs actual 119/46/100/5 (<code>pricing.ts:28-31</code>, consumed at <code>Section7Equipment.tsx:424-463</code>); jobs tabs "Revisions/Upcoming/Completed" vs actual (<code>TechnicianJobs.tsx:26-33</code>); "IndexedDB persistence" for job completion — it's localStorage (<code>useJobCompletionForm.ts:374-423</code>), Dexie has no jobCompletionDrafts store (<code>db.ts:12-24</code>). Also stale: job numbering is now DB-side (<code>20260802120000_sequential_job_and_inspection_numbers.sql</code>; <code>grep -rn "generateJobNumber" src supabase</code> → no output).</p>
+      <p><strong>MRC_PROJECT_CONTEXT.md</strong> (A38/S21/W9/U7) — <strong>REWRITE (highest-severity finding of the audit).</strong> This file is explicitly written to be loaded as AI-assistant context, and its "SACRED" Business Rules section is wrong on every load-bearing number: labour rates $612.00/$1,216.99 (non-demo), $711.90/$1,798.90 (demo), $900.00/$2,334.69 (subfloor) — actual are 1019.40/1245.33, 1062.00/1825.87, 1322.62/2375.21 (<code>pricing.ts:20-23</code>); a five-tier volume-discount model with a 0.87 multiplier that does not exist anywhere in the repo (<code>grep -rn "0\.87" src supabase</code> → 0 hits; <code>discountPercent</code> hardcoded 0 at <code>pricing.ts:462</code>); dehumidifier $132 (actual 119). Also WRONG: <code>/lead/new/:id</code> route and <code>NewLeadView</code> component both gone (<code>grep -rn "NewLeadView" src</code> → no output); <code>generateJobNumber()</code> doesn't exist. STALE: "22 tables" (29+1), "10 EFs" (14), "Phase 2 IN PROGRESS" (shipped), 7-status flow (16), Dexie 3 stores (4). Its meta-inventory of <code>.claude/</code> agents/rules/skills verifies clean.</p>
+      <h3>2c. Pricing / business docs, team-facing HTML, and CLAUDE.md</h3>
+      <p><strong>CLAUDE.md</strong> (repo root; A11/S5/W3/U2) — <strong>REWRITE (targeted).</strong> ACCURATE: all four equipment rates (<code>pricing.ts:28-31</code>), GST 10% (:49), commands block (<code>package.json:7-10</code>), 30-second autosave. WRONG: "13% discount cap (<strong>0.87 multiplier</strong>)" (:42, :124) — the cap is real (<code>pricing.ts:55</code>, <code>invoices.ts:103-108</code>, DB CHECK <code>20260414000004:46</code>) but <strong>no 0.87 multiplier exists anywhere</strong> (<code>grep -rn "0\.87" src supabase</code> → exit 1) and there is no automatic discount (<code>pricing.ts:462</code> returns <code>discountPercent: 0</code> unconditionally); "/src/auth" directory (:31, :107) — <code>ls src/auth</code> → no such directory, auth lives at <code>src/contexts/AuthContext.tsx</code>. STALE: "12 Edge Functions" (14); "22 tables" (not repo-supportable; migrations CREATE 41 names, types.ts has 29+1); "Current State (May 2026)" block predates the June–August waves; "/src/components — UI only, no business logic" (Section7Equipment computes subtotals); "/src/lib — Supabase client + utils" (it's the whole business-logic layer).</p>
+      <p><strong>COST_CALCULATION_SYSTEM.md</strong> (A9/S12/W4) — <strong>ARCHIVE.</strong> Its 2026-07-28 SUPERSEDED banner is honest and correctly self-diagnoses the body: "Rule 1: pro-rate under 2 hours" is WRONG (flat 2-hour minimum, <code>pricing.ts:83-86</code>); the volume-discount system with <code>DISCOUNT_TIERS</code>/<code>calculateDiscount()</code>/<code>getDiscountTierDescription()</code> exports is WRONG — none of those symbols exist (grep → 0 hits); all worked examples use pre-June rates. The waste anchors, interpolation band, and equipment model verify ACCURATE but are duplicated (accurately) in PRICING_AND_PROCESS_GUIDE.html.</p>
+      <p><strong>BUSINESS_LOGIC_PROMPT.md</strong> (A8/S11/W3) — <strong>REWRITE URGENT or ARCHIVE — highest-risk doc in this group.</strong> It is an LLM system prompt commanding the model to answer <em>only</em> from its embedded reference "with EXACT figures", it has <strong>no superseded banner</strong>, and that reference contains: all six labour tier rates wrong (:68-70 vs <code>pricing.ts:20-23</code>); the retired volume-discount ladder (:105-111); "Dehumidifier $132/day" (:135, actual 119); "AFD $75 provisional… bills at $0 today" (:138-142 — HEPA is $100 and billed, <code>invoices.ts:828-829</code>); "waste recorded as Small/Medium/Large… not charged" (:148 — waste is priced by m³ and billed, <code>pricing.ts:36-46</code>). The parts that verify (2-hour minimum, GST ordering, booking rules, no-offline behaviour, caption gating) show the format works — the reference block just needs swapping for PRICING_AND_PROCESS_GUIDE content.</p>
+      <p><strong>BUSINESS_LOGIC.html</strong> (A19/S2/W0/U1) — <strong>KEEP with 3 fixes.</strong> Best long-form doc: full 18-figure rate card matches <code>pricing.ts:20-23</code>; worked example recomputes exactly ($5,105.31 incl. the $464.119→$464.12 rounding); discount-retirement, 13% double-enforcement, waste schedule, booking rules all verify. STALE: ":729/:925 HEPA is not in the up-front quote" — it now is (<code>TechnicianInspectionForm.tsx:2160-2200, 2306-2307</code>; <code>pricing.ts:238-244</code>); ":914 sender switch must wait for domain verification" — already switched in code (<code>send-email/index.ts:203,207</code>). One dangling cross-reference to a "How It Works" guide that doesn't exist under that name.</p>
+      <p><strong>PRICING_AND_PROCESS_GUIDE.html</strong> (A16/S0/W0/U1) — <strong>KEEP — promote to canonical.</strong> The single most accurate doc in the entire set: every rate, band, day-rate decline, waste interpolation ($175/$400/$626.50 all recompute), HEPA auto-days behaviour (<code>Auto (N)</code> label at <code>TechnicianInspectionForm.tsx:2191-2200</code>), and manual-only 13% discount verified against code. Only unverified item: the invoice screen's side-by-side estimate/actual selector UI (:464). It already receives "current, verified reference" pointers from COST_CALCULATION_SYSTEM.md:13 and PRICING_AFD_FINDINGS.md:22.</p>
+      <p><strong>LAUNCH_WEEKEND_BRIEFING.html</strong> (A7/S1/U3) — <strong>ARCHIVE after launch.</strong> Pricing narrative fully current; the data-safety claim about job-completion submit verifies (<code>useJobCompletionForm.ts:439-441, 496</code>). STALE: ":340 switch sending address" is framed as pending — it shipped in code. Time-boxed by design; durable content already lives in the pricing guide.</p>
+      <p><strong>MRC_FULL_WALKTHROUGH.html</strong> (A12/S13/W8/U2) — <strong>REWRITE (section-scoped, high priority).</strong> Claims ":536 every quoted string was read out of the code" — no longer true (last commit 2026-04-28). WRONG: 7× "From: noreply@mrcsystem.com / Reply-to: admin@mrcsystem.com" in the notification map (:901-973 — grep → zero hits; actual <code>send-email/index.ts:203,207</code>); "AdminInvoiceHelper is dead code, safe to delete" (:2489, :3213 — routed live at <code>App.tsx:175</code>); "SMS button does nothing" (:2318 — implemented at <code>LeadDetail.tsx:746-748</code>); <strong>":3214-3224 ship-ready DROP TABLE migration listing <code>pdf_versions</code> as unused — the table has 10 live callers</strong> (<code>reportPipeline.ts:116,199</code>; <code>pdfGeneration.ts:224</code>; <code>ViewReportPDF.tsx:502,1311,1319</code>; <code>ReportVersionHistory.tsx:70</code>; <code>StalePdfBanner.tsx:36</code>; <code>InspectionReportHistory.tsx:48</code>; <code>generate-inspection-pdf/index.ts:2057</code>) — executing it would break report versioning**; "offline ✓ BUILT with photo queue + SyncManager" (:1386-1435 — infrastructure exists but is unwired: <code>grep -rn "queuePhotoOffline" src/</code> → only its definition, one test, one comment; live behaviour is refusal, <code>TechnicianInspectionForm.tsx:3698,4356</code>). STALE: old labour tiers/$132/volume-discount table (:1825-1855); "Twelve Edge Functions" (:2527); "31 routes" (:2434 — now 34); Waste S/M/L (:1326 — now m³); overdue milestones 15/22/29/30/60 [PENDING-PR72] (EF now <code>TIER_BOUNDARY_DAYS = [1,8,15,16,29]</code> + day-60 escalation, <code>check-overdue-invoices/index.ts:44-51</code>); "no dev Supabase project" P0 (:3159 — DEV exists). ACCURATE and worth preserving: the 9-section and 10-section form inventories, permission matrix, notification-event map structure, 13% double-enforcement, cron schedules, contact block (1800 954 117 / admin@mouldandrestoration.com.au = <code>NotFound.tsx:163</code>).</p>
+      <p><strong>mrc-system-overview.html</strong> (A8/S2/W3/U1) — <strong>KEEP with corrections</strong> (or merge into the walkthrough). WRONG: "works offline at job sites… syncing automatically" (:301, :567 — forms refuse to save offline, and BUSINESS_LOGIC_PROMPT.md:185 states the opposite, correctly); "drag-to-reassign" on Schedule (:545 — <code>grep -rn "drag\|DndContext" src/pages/AdminSchedule.tsx src/components/schedule/</code> → no output). STALE: analytics KPI list (:548 vs <code>Reports.tsx:115-143</code>); screen list predates 4 shipped screens. The conceptual layers (roles, 9 business objects, lifecycle, 4 external services, 16 statuses) all verify.</p>
+      <p><strong>PRICING_AFD_FINDINGS.md</strong> — <strong>ARCHIVE.</strong> Its 2026-08-02 SUPERSEDED banner is fully accurate (all 5 correction bullets independently verified); the body is correctly disowned. Rescue first: its two still-unapplied corrections to COST_CALCULATION_SYSTEM.md (pro-rate→flat-minimum at :67; equipment direct-total→qty×rate×days at :96) die with the archive unless the target doc is retired too (it should be).</p>
+      <h3>2d. Specs, trackers, runbooks, PR bodies</h3>
+      <p><strong>PRD.md</strong> (A6/S9/W5/U1) — <strong>REWRITE.</strong> WRONG: labour rates $612.00/$1,216.99 etc. (:343-346 vs <code>pricing.ts:20-23</code>); the 0.925/0.87 volume-discount ladder (:350-351, :755-759 — <code>pricing.ts:462</code> unconditional 0); kanban drag-and-drop (:670 — no dnd library hit in LeadsManagement); an entire "Settings — Editable Pricing" feature (:840-867) that does not exist (<code>Settings.tsx</code> sections are Account/User Management/Support/Danger Zone only, <code>:141-234</code>); <code>context/TODO.md</code> references (<code>ls context</code> → no such directory). ACCURATE: the three equipment rates it lists, GST. STALE: 12-stage pipeline (16), 10-step inspection (9 + separate AI review page), waste S/M/L, localStorage key name, "Phase 2 next" framing.</p>
+      <p><strong>JOB_COMPLETION_PRD.md</strong> (A4/S4/U1) — <strong>ARCHIVE.</strong> Spec matches what shipped (10 sections verified); but the "DRAFT — Pending Michael's Review" header on a live feature is the one thing a reader acts on, and it's wrong. AFD naming superseded (HEPA rename migration <code>20260624150000</code>; column rename still parked as <code>.PENDING</code>).</p>
+      <p><strong>JOB_COMPLETION_PLAN.md</strong> (A3/S5/W1) — <strong>ARCHIVE.</strong> Its only live value: two planned tasks that silently never happened — <code>jobCompletionDrafts</code> Dexie store (v2 added <code>quarantinedPhotos</code> instead, <code>db.ts:19-24</code>) and <code>jobCompletionSchema.ts</code> (<code>ls src/lib/schemas/</code> → only inspectionSchema.ts) — both already tracked in TODO.md:860-861. WRONG-superseded: "recreate invoices table" (PHASE_2D doc: "KEEP, NEVER recreate").</p>
+      <p><strong>PHASE_2_EXECUTION.md</strong> (A5/S8/W1/U1) — <strong>ARCHIVE.</strong> The "<strong>Status: PENDING REVIEW — Do NOT implement until Michael approves</strong>" header (:5) is actively hazardous on a shipped feature. "10 Edge Functions" (14), "7 statuses" (16), "21 tables", form "3779 lines" (now 4798) all stale.</p>
+      <p><strong>PHASE_2D_INVOICE_TODO.md</strong> (A7/S5) — <strong>ARCHIVE.</strong> Its "what exists" audit still verifies; its "genuinely missing" list is 100 % obsolete — every item shipped (penaltyLadder.ts, PenaltyLadderWidget.tsx, Xero stub columns <code>20260623165447:14-18</code>, AdminInvoiceHelper + route <code>App.tsx:175</code>, <code>useOverdueInvoices</code> at <code>usePaymentTracking.ts:101</code>). Fully superseded by XERO_INTEGRATION_HANDOFF.md.</p>
+      <p><strong>PDF_PIPELINE_PLAN.md</strong> (A4/S3/U3) — <strong>ARCHIVE.</strong> Phase-2 hardening verifiably in the tree (<code>api/render-pdf.ts:66-69</code> — service-role key intentionally removed); "single Supabase project until L4" and "apply approval pending" framing 2.5 months stale.</p>
+      <p><strong>TODO.md</strong> (A12/S7/W3/U5, open items only) — <strong>REWRITE (close the dead items).</strong> The headline envelope-layer item (:38-51, :1059, :12-13) is WRONG in full: <code>grep -rn "noreply@" src supabase</code> → exit 1; all six cited line numbers point at unrelated code today (e.g. <code>receive-framer-lead:354</code> is a CSS rule; the failure alert actually at <code>:416</code> sends from <code>admin@mouldandrestoration.com.au</code>); envelope and footer now agree. The <code>ADMIN_FALLBACK_EMAIL</code> item is WRONG on both facts (consumer at <code>:410</code> not <code>:354</code>; fallback is <code>admin@mouldandrestoration.com.au</code> not <code>admin@mrcsystem.com</code> — the warned-about failure mode no longer exists, though the secret's PROD state stays UNVERIFIED). ":862 PRD/CLAUDE.md say $132" — both now say $119; ":755 australian-compliance.md says $132" — fixed in <code>dc17242</code>. Still ACCURATE and open: <code>seed-admin/index.ts:50</code> = <code>admin@mrc.com.au</code>; no <code>jobCompletionDrafts</code> store; no <code>jobCompletionSchema.ts</code>; 14-day term hardcoded ×3; <code>interpolateCost</code>/<code>formatPercent</code> dead-export findings; the PARKED per-item-equipment-days item's pricing anchors (<code>pricing.ts:234-244</code>) — though its TIF line refs drifted (file now 4798 lines). Stale internal contradiction: L4 "Phase 1 NEXT" three lines below the note that DEV already exists; "deploy 12 EFs" (14); "production @ 9fdc853" (actual <code>3d1d1e5</code>).</p>
+      <p><strong>PRODUCTION_MERGE_RUNBOOK.md</strong> (A10/S4/W1/U5) — <strong>KEEP + Stage-1-complete banner.</strong> Every repo-checkable precondition verified clean (no migrations, no sacred surfaces, no template changes, check-overdue-invoices diff empty, batch counts 12/9/11 reproduce). Stage 1 already executed — main @ <code>d49ba8b</code> carries all three batches (PR #73, #75; batch-b transitively, no PR #74), so re-running Stage 1 as written would fail; Stages 2-5 remain live and outstanding (<code>production</code> still @ <code>3d1d1e5</code>). One WRONG line: ":231 the sender stays noreply@mrcsystem.com" — untrue for Edge Functions (only possibly true of Supabase Auth SMTP config, which is UNVERIFIED live state).</p>
+      <p><strong>INVOICE_INTEGRITY_RUNBOOK.md</strong> (A5/U8) — <strong>KEEP.</strong> Best-constructed runbook in the set: the migration body it embeds is byte-for-byte <code>20260729153000_invoice_totals_integrity_checks.sql:63-78</code>; the defect-source narrative verifies (<code>handleCreate</code> gone from InvoicePaymentCard); everything live-DB is honestly framed as expectations-to-check. Apply state UNVERIFIED; TODO.md:359 still shows the run pending (gated on today's 4 Aug digest).</p>
+      <p><strong>KEY_ROTATION.md</strong> (A9/S3/W1/U4) — <strong>KEEP with 3 fixes.</strong> Git-exposure forensics reproduce exactly (all four <code>.env</code> SHAs with matching A/M/M/D status; <code>.mcp.json</code> never committed). Fix: Sentry DSN line refs (actual <code>sentry.ts:13,18</code>); add <code>fetch-resend-email</code> as a 4th RESEND_API_KEY consumer; correct the <code>ADMIN_FALLBACK_EMAIL</code> row.</p>
+      <p><strong>L4-environment-separation-plan.md</strong> (A3/S6/U2) — <strong>ARCHIVE.</strong> Goal achieved 2026-07-07 by a different route (restore-to-new-project); "88 migrations" → 113 on disk; "12 EFs" → 14.</p>
+      <p><strong>PRE_MERGE_TESTING_CHECKLIST.md</strong> (A8/S5/U7) — <strong>MERGE.</strong> §3's manual 375px/UI assertions and rate checks remain valid and untick'd [several PENDING-PR72]; §5's rollout sequence is superseded by PRODUCTION_MERGE_RUNBOOK. Test-count claim superseded (346→496/496 across 33 files, grep-confirmed 33 test files, 60 pricing tests).</p>
+      <p><strong>PRELAUNCH_AUDIT_2026-07-08.md</strong> (A4/S4/W1/U3) — <strong>ARCHIVE.</strong> Its two top findings are closed in-repo without the doc saying so: #1 job-completion silent-save — <code>useJobCompletionForm.ts:334-336</code> now re-throws; #2 anon-EXECUTE on audit RPCs — revoked next day (<code>20260709120000:55-56</code>). Residual truth it found: <code>XERO_INTEGRATION_HANDOFF.md</code> still carries $132.</p>
+      <p><strong>LAUNCH_TESTING_FINDINGS.md</strong> (A11/S4/U6) — <strong>KEEP + add resolution markers.</strong> Self-correcting log; but the Step-1 HIGH issues at the top (Google-review-link-in-every-email) were fixed by batch A (<code>notifications.ts:170-172</code> footer now confidentiality-only; review link only in the dedicated builder at <code>:453</code>) without a status line, so the doc's top reads as open. Line refs drifted post-batch-C throughout.</p>
+      <p><strong>pr-batch-a/b/c.md</strong> — <strong>ARCHIVE ×3.</strong> Merged-PR bodies; commit counts reproduce (12/9/11 — batch-c's "10" heading is self-contradicted by its own note and the runbook; 11 is right). Batch-b's "create after batch A merges" describes a process that was bypassed (no PR #74; transitive merge).</p>
+      <p><strong>XERO_INTEGRATION_HANDOFF.md</strong> (A10/S3/W2/U2) — <strong>KEEP with rate fix.</strong> Strongest Phase 2D/2F inventory — every file, migration, and test count verifies (35 penalty-ladder tests, Xero stub columns, route). But it is now the <strong>last home of the $132 dehumidifier</strong> (:73, :201) and the retired volume-discount framing (:72); its "payment terms 7/14/30/60" claim is contradicted by the three hardcoded <code>defaultDueDate(14)</code> sites.</p>
+      <h3>2e. Historical / diagnostic / testing artifacts (light-touch verification)</h3>
+      <p>These 27 files are point-in-time investigations, gates, or test records. Verdict pattern: nearly all self-identify as point-in-time, most are fully executed/superseded, and none should be read as current state. Highlights (full dispositions in §6):</p>
+      <ul>
+        <li><strong>inspection-workflow-fix-plan-v2</strong> — the most dangerous "looks live, isn't": reads as a 48-stage roadmap with no completion banner while ~60 % executed (Phase 3/4 migrations <code>20260501132838</code>…<code>20260510070000</code> shipped). Its Decision #4 (pricing constants removed after Stage 7.5) is NOT done — constants still live in <code>pricing.ts</code>.</li>
+        <li><strong>stage-4.3-consumer-audit</strong> — inverse problem: all 12 gate boxes unticked and reviewer line still <code>YYYY-MM-DD</code>, yet the work shipped (<code>20260510070000_phase4_stage_4_3_soft_delete_photos.sql</code>; <code>photoUpload.ts:341</code>). Reads as "blocked" when done.</li>
+        <li><strong>lead-detail-diagnosis</strong> — headline now false: <code>customer_preferred_date</code>/<code>customer_preferred_time</code> columns exist (<code>types.ts:1247</code>, consumed at <code>useLeadsToSchedule.ts:69-70</code>).</li>
+        <li><strong>morning-bugs-diagnosis, inline-edit-diagnosis, schedule-consolidation-diagnosis, internal-notes-loss-diagnosis, stage-1.4-callsite-catalog, stage-3.5-consumer-audit, AI_SUMMARY_INPUT_AUDIT, BACKUP_TABLE_CLEANUP, inspection-workflow-audit + fix-plan v1, end-to-end-test-plan, phase-2-verification-matrix</strong> — all executed/closed/superseded; anchor files deleted or line numbers drifted throughout. ARCHIVE.</li>
+        <li><strong>SUPABASE_ADVISOR_AUDIT</strong> — 2 of its 4 shortlist items fixed next-day (migrations <code>20260708120000</code>, <code>20260709120000</code>); items 2 (<code>webhook_submissions</code> <code>WITH CHECK (true)</code>) and 3 (<code>inspection-reports</code> public-bucket listing) have <strong>no remediation migration found</strong> — still-open candidates to rescue into the live backlog.</li>
+        <li><strong>PRE_HANDOVER_AUDIT</strong> — 2 of 5 HIGH items fixed (double-payment guard now at <code>invoices.ts:622</code>; <code>generate_invoice_number</code> hardened by <code>20260421000001</code>); H2 (in-memory rate limiter resets on cold start, <code>send-email/index.ts:15</code>) still ACCURATE and open.</li>
+        <li><strong>docs/pdf-report/</strong> — README's "13-page report awaiting integration" is WRONG: live pipeline is the EF + <code>src/templates/inspection-report-template.html</code>; the backup template differs from the live one (<code>cmp</code> → different, 919 vs 787 lines); DATA-REQUIREMENTS maps to tables/columns that don't exist (<code>inspection_photos</code>, <code>quotes</code>, <code>leads.first_name</code> — real: <code>photos</code>, <code>full_name</code>; grep-confirmed). ARCHIVE/DELETE candidates.</li>
+        <li><strong>docs/pdf-reference/</strong> — generic vendored PDF-skill material; zero inbound references (<code>grep -rn "pdf-reference"</code> across code/docs/config → no output); references Python scripts that don't exist in this repo. DELETE candidate.</li>
+        <li><strong>docs/testing/</strong> — 8 files, all commit-pinned to May 2026 states (<code>8238d9c</code> era, ~18 PRs behind). <code>section9_verification</code> asserts the retired 0.87-multiplier tier model as its expected math — do not use for pricing ground truth. <strong>Real PII across at least 5 files</strong> (names, phone, email, street address, 1 MB Slack screenshot). ARCHIVE, with a separate PII decision.</li>
+        <li><strong>docs/verification/launch-checks-VERIFY.md [PENDING-PR72]</strong> — KEEP short-term: all five cited commits are now in main's history (<code>91dd58f</code>, <code>396ca9c</code>, <code>0ee439e</code>, <code>b4d4cc3</code>, <code>d50b117</code>), so its "branch pending" framing is stale, but it is the only record of what PR #72 still needs verified on PROD; its Item 1 PASS values self-expired on 4 Aug per its own note.</li>
+        <li><strong>email-previews/README.md</strong> — the one non-point-in-time file in this group and it verifies: <code>preview-emails</code> script exists (<code>package.json:16</code>), all 7 builder functions found (<code>notifications.ts:101-446</code>; <code>receive-framer-lead/index.ts:284</code>; <code>send-inspection-reminder/index.ts:113</code>), gitignore rule confirmed (<code>.gitignore:53-54</code>). KEEP; line-number anchors drifted 13–26 lines.</li>
+        <li><strong>phase-2-verification-helpers.sql</strong> — genuinely re-runnable BEGIN/ROLLBACK test tool; KEEP as a tool (relocate out of docs/ prose).</li>
+      </ul>
+    </div>
+    <div class="section">
+      <h2>3. In-flight areas — [PENDING-PR72] rollup</h2>
+      <p>Per instructions, claims touching the PR #72 surfaces were tagged, not classified. Note: repo evidence shows PR #72's code is already <strong>on main</strong> (merge <code>8fe47e9</code>, 2026-07-30, per <code>PRODUCTION_MERGE_RUNBOOK.md:43-44</code> and git history) but <strong>not yet on <code>production</code></strong> (still <code>3d1d1e5</code>) — so "mid-merge" here means mid-way to the production branch, and these docs may resolve to plainly ACCURATE or STALE once it ships and the PROD pass in <code>docs/verification/launch-checks-VERIFY.md</code> is run.</p>
+      <ul>
+        <li><strong>Admin dashboard stats:</strong> <code>USER-GUIDE.md:153-158, 168-176</code> (4 metrics vs 6 KPI cards); <code>mrc-system-overview.html:536</code>; <code>MANUAL_TESTING_CHECKLIST.md:71, 322-340</code> (labels, KPI click-throughs — these verify against current code); <code>MRC_FULL_WALKTHROUGH.html:1574-1630</code>.</li>
+        <li><strong>Melbourne-local dates:</strong> <code>MANUAL_TESTING_CHECKLIST.md:337</code> (verifies vs <code>dateUtils.ts:1-59</code>); <code>PRE_MERGE_TESTING_CHECKLIST.md:157-179</code>.</li>
+        <li><strong><code>check-overdue-invoices</code> behaviour:</strong> <code>MRC_FULL_WALKTHROUGH.html:1929, 2122, 2612</code> (old 15/22/29/30/60 milestones vs <code>TIER_BOUNDARY_DAYS = [1,8,15,16,29]</code> + day-60 escalation, <code>check-overdue-invoices/index.ts:44-51</code>); <code>RUNBOOK.md</code>'s cron omission; TODO.md's double-fire/DST/viewed-status residuals.</li>
+        <li><strong>Pipeline tab ordering:</strong> <code>docs/verification/launch-checks-VERIFY.md</code> (commit <code>d50b117</code> in main); <code>MRC_FULL_WALKTHROUGH.html:1644</code>.</li>
+        <li><strong><code>?status=</code> deep links:</strong> <code>MANUAL_TESTING_CHECKLIST.md:72</code> (verifies vs <code>LeadsManagement.tsx:145-159</code>).</li>
+        <li><strong>Settings logout cleanup:</strong> <code>AUTH-PROFILE-DOCUMENTATION.md</code> Settings section; <code>b4d4cc3</code> in main removes "Log out from ALL devices" from Settings (capability stays on Profile).</li>
+      </ul>
+    </div>
+    <div class="section">
+      <h2>4. Gap analysis — what is documented NOWHERE</h2>
+      <p>Derived from actual user-facing surfaces in code (routes in <code>src/App.tsx</code>, the two forms, the admin flows). "Escalation" = why its absence forces a text/call to Michael.</p>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>#</th><th>Surface (code evidence)</th><th>Who needs it</th><th>Gap and escalation consequence</th></tr></thead>
+          <tbody>
+            <tr><td>G1</td><td><strong>Job completion form — 10 sections</strong> (<code>src/components/job-completion/</code>, route <code>App.tsx:366</code>)</td><td>TECHNICIAN</td><td>No user-facing how-to exists anywhere. JOB_COMPLETION_PRD is a spec; USER-GUIDE predates Phase 2. First time Glen/Clayton hit the WasteCard confirm/override, quoted-vs-actual amber highlights, or the request-review toggle, their only recourse is Michael.</td></tr>
+            <tr><td>G2</td><td><strong>Admin review→approve→send flow</strong> (<code>InspectionAIReview</code> route <code>App.tsx:159</code>; <code>ViewReportPDF</code> ×3 routes; hard-save pipeline <code>api/render-pdf.ts</code>; <code>ReportVersionHistory.tsx</code>; <code>StalePdfBanner.tsx</code>)</td><td>ADMIN</td><td>The most consequential admin flow (customer-visible PDF + email) has zero operator documentation: what "PDF is stale" means, when regeneration is needed, what the html_hash mismatch guard blocks and why. Every banner sighting is an escalation.</td></tr>
+            <tr><td>G3</td><td><strong>Invoice helper</strong> (<code>AdminInvoiceHelper</code> route <code>App.tsx:175</code>; manual 13% clamp <code>invoices.ts:103-108</code>; mark sent/paid; penalty ladder <code>penaltyLadder.ts</code>)</td><td>ADMIN</td><td>XERO_INTEGRATION_HANDOFF is developer-facing (and carries the wrong rate). No operator guide covers when to bill estimate vs actual, that discounts are manual-only now, that marking sent restarts the 14-day clock (<code>invoices.ts:585</code>), or what the Slack overdue digest means.</td></tr>
+            <tr><td>G4</td><td><strong>Offline truth</strong> (forms refuse offline save: <code>TechnicianInspectionForm.tsx:4356</code>; localStorage crash backup <code>mrc_inspection_backup_*</code> <code>:4395</code>; photo refusal <code>:3698</code>; <code>QuarantinedPhotosBanner.tsx</code>)</td><td>TECHNICIAN</td><td>Two docs claim the app works offline (<code>mrc-system-overview.html:301,567</code>; walkthrough §2.6); it does not. A tech in a black spot has no documented procedure (what survives, what is lost, what the banner means) — data loss gets attributed to "the app" and escalated after the fact.</td></tr>
+            <tr><td>G5</td><td><strong>pending_review / send-back loop</strong> (<code>pending_review</code> status <code>statusFlow.ts:11</code>; jobs tab <code>TechnicianJobs.tsx:26-33</code>)</td><td>TECH + ADMIN</td><td>Nothing tells a tech what happens after toggling "request review", or an admin how to send back and what the technician sees. Each round-trip is negotiated over the phone.</td></tr>
+            <tr><td>G6</td><td><strong>Google review + STOP handling</strong> (<code>buildGoogleReviewEmailHtml</code> <code>notifications.ts:446</code>; no STOP parser exists)</td><td>ADMIN</td><td>Documented only inside TODO.md's team-guide notes — not in any doc a team member would be given. An unhonoured opt-out is a compliance risk; admin must know handling is manual.</td></tr>
+            <tr><td>G7</td><td><strong>Starting-address dropdown requirement</strong> (<code>Profile.tsx:218-231</code> auth-metadata write; AddressAutocomplete commits only on select)</td><td>TECHNICIAN</td><td>Documented only inside TODO.md. Typing without selecting silently fails to save; travel-time estimates degrade and the eventual symptom lands on Michael.</td></tr>
+            <tr><td>G8</td><td><strong>Customer reply / Sent-folder model</strong> (Reply-To <code>admin@mouldandrestoration.com.au</code> <code>send-email/index.ts:207</code>; no Sent copies)</td><td>ADMIN</td><td>TODO.md pending-decision only. Admin sees replies without the outbound message; unexplained, this reads as "email is broken".</td></tr>
+            <tr><td>G9</td><td><strong>Login help with correct contacts</strong> (public routes <code>App.tsx:91-93</code>; business line 1800 954 117 <code>NotFound.tsx:163</code>)</td><td>TECH + ADMIN</td><td>TROUBLESHOOTING has the flow but misroutes the operations line to the developer's personal mobile (<code>HelpSupport.tsx:12</code>).</td></tr>
+            <tr><td>G10</td><td><strong>PWA install + update behaviour</strong> (<code>vite.config.ts:20-32</code>, autoUpdate + skipWaiting)</td><td>TECHNICIAN</td><td>USER-GUIDE covers install (Feb 2026); nothing explains auto-update (why the app "changed overnight").</td></tr>
+            <tr><td>G11</td><td><strong>Booking/schedule operations</strong> (7:00–19:00 hourly slots <code>bookingService.ts:397-411</code>; 30 min–8 h / 15-min steps <code>LeadBookingCard.tsx:1050-1052</code>; travel-time EF + postcode fallback)</td><td>ADMIN</td><td>Rules live only in BUSINESS_LOGIC.html §7 (accurate); travel-time failure modes and multi-day booking spans are documented nowhere operator-facing.</td></tr>
+            <tr><td>G12</td><td><strong>New-developer onboarding that is safe to trust</strong></td><td>DEVELOPER</td><td>The three docs a new dev reads first (MRC_PROJECT_CONTEXT, DEVELOPER-GUIDE, PLANNING) contain respectively wrong sacred pricing, a fictitious routing architecture, and pointers to a nonexistent <code>context/</code> dir. Day-one work requires Michael's live supervision.</td></tr>
+            <tr><td>G13</td><td><strong>Who to call, for what</strong> (contacts scattered: dev line <code>HelpSupport.tsx:11-14</code>; business 1800 954 117; admin@)</td><td>ALL</td><td>No single escalation table (app bug vs business question vs customer complaint). Everything defaults to Michael.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="section">
+      <h2>5. Overlap map — duplications and contradictions</h2>
+      <h3>Contradictions (priority findings)</h3>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>#</th><th>Contradiction</th><th>Source A</th><th>Source B / code truth</th></tr></thead>
+          <tbody>
+            <tr><td>C1</td><td>Live email sender</td><td><code>TODO.md:38-51</code> "still sends from noreply@mrcsystem.com"; <code>API.md:39</code>; <code>API_AUDIT.md:42-43</code>; <code>NOTIFICATIONS-AND-TRIGGERS.md:184-186</code>; walkthrough <code>:901-973</code> (7×); <code>PRODUCTION_MERGE_RUNBOOK.md:231</code></td><td>Code: <code>send-email/index.ts:203,207</code> = <code>admin@mouldandrestoration.com.au</code>; <code>grep -rn "noreply@" src supabase</code> → 0 hits. <code>BUSINESS_LOGIC.html:914</code> and <code>LAUNCH_WEEKEND_BRIEFING.html:340</code> frame the switch as pending — also superseded.</td></tr>
+            <tr><td>C2</td><td>Pricing model (labour rates + volume discount)</td><td><code>MRC_PROJECT_CONTEXT.md:496-509</code>; <code>PRD.md:343-351,755-759</code>; <code>BUSINESS_LOGIC_PROMPT.md:68-70,105-111</code>; walkthrough <code>:1825-1855</code>; COST_CALCULATION_SYSTEM body; <code>XERO_INTEGRATION_HANDOFF.md:72</code></td><td><code>pricing.ts:20-23</code> (1019.40/1245.33 …), <code>:462</code> (<code>discountPercent: 0</code>); correctly stated in <code>PRICING_AND_PROCESS_GUIDE.html:291-305</code> and <code>BUSINESS_LOGIC.html:571-590</code></td></tr>
+            <tr><td>C3</td><td>"0.87 multiplier"</td><td><code>CLAUDE.md:42,124</code>; <code>COST_CALCULATION_SYSTEM.md:169,191,451</code>; <code>PRICING_AFD_FINDINGS.md:87</code>; <code>docs/testing/section9_verification_*.md</code></td><td><code>grep -rn "0\.87" src supabase</code> → exit 1. The cap exists only as <code>MAX_DISCOUNT = 0.13</code> + clamp (<code>invoices.ts:103-108</code>) + DB CHECK (<code>20260414000004:46</code>)</td></tr>
+            <tr><td>C4</td><td>Dehumidifier rate</td><td>$132: <code>BUSINESS_LOGIC_PROMPT.md:135</code>; walkthrough <code>:1835</code>; <code>XERO_INTEGRATION_HANDOFF.md:73,201</code>; <code>TROUBLESHOOTING.md:154</code>; <code>MANUAL_TESTING_CHECKLIST.md:214</code>; <code>MRC_PROJECT_CONTEXT.md:507</code>; <code>API.md:620</code></td><td><code>pricing.ts:28</code> = 119; <code>equipmentRateDrift.test.ts</code> pins it; 3 docs explicitly retire $132 (<code>BUSINESS_LOGIC.html:725</code> etc.)</td></tr>
+            <tr><td>C5</td><td>HEPA on the inspection quote</td><td><code>BUSINESS_LOGIC.html:729,925-926</code> (not in quote)</td><td><code>PRICING_AND_PROCESS_GUIDE.html:461</code> (in quote) — code agrees with B: <code>TechnicianInspectionForm.tsx:2160-2200</code>, <code>pricing.ts:238-244</code></td></tr>
+            <tr><td>C6</td><td>Offline capability</td><td><code>mrc-system-overview.html:301,567-568</code>; walkthrough <code>:1386-1435</code> ("✓ BUILT")</td><td><code>BUSINESS_LOGIC_PROMPT.md:185</code> ("does not work offline") — code agrees with B: <code>TechnicianInspectionForm.tsx:4356</code>; <code>queuePhotoOffline</code> has zero component callers (grep-confirmed)</td></tr>
+            <tr><td>C7</td><td>Edge Function count</td><td>8 (<code>SECURITY-REMEDIATION-REPORT.md:277</code>), 9 (<code>DEVELOPER-GUIDE.md:69</code>), 10 (<code>SECURITY_AUDIT.md:107</code>, <code>PHASE_2_EXECUTION.md:83</code>, <code>MRC_PROJECT_CONTEXT.md:394</code>), 12 (<code>CLAUDE.md:37</code>, manifest <code>:3</code>, L4 <code>:32</code>, TODO <code>:1044</code>, walkthrough <code>:2527</code>)</td><td>Disk: 14 + <code>_shared</code> (<code>ls supabase/functions/</code>)</td></tr>
+            <tr><td>C8</td><td>Table count</td><td>16 (<code>PLANNING.md:36</code>), 21 (<code>PHASE_2_EXECUTION.md:44</code>), 22 (<code>API.md:436</code>, <code>CLAUDE.md:60</code>, <code>MRC_PROJECT_CONTEXT.md:416</code>, <code>SECURITY_AUDIT.md:252</code>), 23/31 (<code>database_technical_audit.md:3,20</code>), 38 (<code>SECURITY-REMEDIATION-REPORT.md:157</code>)</td><td><code>types.ts</code>: 29 tables + 1 view (live DB UNVERIFIED)</td></tr>
+            <tr><td>C9</td><td>Inspection form section count</td><td>10 (<code>MANUAL_TESTING_CHECKLIST.md:133</code>, <code>MRC_PROJECT_CONTEXT.md:89,121,293</code>, <code>PRD.md:723</code>)</td><td>9 (<code>TechnicianInspectionForm.tsx:119-131</code>); USER-GUIDE:99 and walkthrough <code>:1243-1366</code> are correct</td></tr>
+            <tr><td>C10</td><td>Framer webhook rate limit</td><td>5/hr (<code>FRAMER_WEBHOOK.md:15,63</code>; <code>WEBHOOK_STRESS_TEST.md:31,66</code>; <code>PLANNING.md:64</code>; <code>WORKFLOW.md:34</code>)</td><td>100 (<code>receive-framer-lead/index.ts:19</code>, abandonment rationale <code>:14-18</code>)</td></tr>
+            <tr><td>C11</td><td>AdminInvoiceHelper aliveness</td><td>Walkthrough <code>:2489,3213</code> "dead code; safe to delete"</td><td>Routed live (<code>App.tsx:175</code>); TODO.md's S3 correction agrees</td></tr>
+            <tr><td>C12</td><td>manage-users attribution</td><td><code>system-user-uuid.md:56</code> (reads SYSTEM_USER_UUID)</td><td>Manifest <code>:42</code> (does not) — grep on manage-users/index.ts confirms the manifest</td></tr>
+            <tr><td>C13</td><td>Overdue milestones + first fee day [PENDING-PR72]</td><td>Walkthrough <code>:1051,2122</code> (Day 15 first $65 fee; 15/22/29/30/60)</td><td><code>penaltyLadder.ts:18,77</code> ($65 from day 1); <code>check-overdue-invoices/index.ts:44-51</code> ([1,8,15,16,29] + 60)</td></tr>
+            <tr><td>C14</td><td>Technician jobs tabs</td><td><code>USER-GUIDE.md:70-75</code>, <code>MANUAL_TESTING_CHECKLIST.md:174,353</code> (Upcoming/Completed/Revisions)</td><td><code>TechnicianJobs.tsx:26-33</code> (Today/This Week/This Month/Overdue/Pending Review/All)</td></tr>
+            <tr><td>C15</td><td>Inspection duration</td><td>Email preview 01: "max 1 hour"</td><td><code>BUSINESS_LOGIC.html:774-778</code> / <code>LeadBookingCard.tsx:1050-1052</code> (30 min–8 h, default 60)</td></tr>
+            <tr><td>C16</td><td>AFD billing</td><td><code>BUSINESS_LOGIC_PROMPT.md:138-142</code> ("$75 provisional, bills $0")</td><td><code>pricing.ts:30</code> + <code>invoices.ts:828-829</code> (HEPA $100, billed)</td></tr>
+            <tr><td>C17</td><td>WORKFLOW.md self-contradiction</td><td>":51 dropped 9 tables" vs its own 12-name list; <code>invoices</code> "dropped"</td><td><code>types.ts:823</code> — invoices is live and central</td></tr>
+            <tr><td>C18</td><td>profiles / user_roles existence</td><td><code>AUTH-PROFILE-DOCUMENTATION.md:40-41,838</code> ("no profiles table; roles disabled")</td><td><code>types.ts:1748,1985</code>; <code>20260209000000_restore_profiles.sql</code>; queried in AuthContext</td></tr>
+            <tr><td>C19</td><td>TODO.md internal</td><td>":1042 L4 Phase 1 NEXT: create dev project"</td><td>":1041 (one line up): DEV project wired 2026-07-07"</td></tr>
+            <tr><td>C20</td><td>pdf_versions disposability</td><td>Walkthrough <code>:3214-3224</code> ship-ready drop migration ("currently unused")</td><td>10 live callers (§2c) — executing it breaks report versioning</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Duplication clusters</h3>
+      <ul>
+        <li><strong>Pricing rules ×7:</strong> PRICING_AND_PROCESS_GUIDE.html (canonical-quality) · BUSINESS_LOGIC.html · BUSINESS_LOGIC_PROMPT.md · COST_CALCULATION_SYSTEM.md · walkthrough §3.6 · PRD pricing section · MRC_PROJECT_CONTEXT §12.</li>
+        <li><strong>System tour ×2 (+1):</strong> MRC_FULL_WALKTHROUGH.html (long) · mrc-system-overview.html (short) · the stale PDF twin.</li>
+        <li><strong>Framer webhook ×3:</strong> FRAMER_WEBHOOK.md · FRAMER_FIELD_MAPPING.md · WEBHOOK_STRESS_TEST.md.</li>
+        <li><strong>Phase-2 "what shipped" ×4:</strong> PHASE_2_EXECUTION · JOB_COMPLETION_PLAN · PHASE_2D_INVOICE_TODO · XERO_INTEGRATION_HANDOFF (the accurate one).</li>
+        <li><strong>Secret inventory ×3:</strong> KEY_ROTATION.md (best) · API_AUDIT.md · DEPLOYMENT.md secrets table.</li>
+        <li><strong>Env-separation ×2:</strong> L4 plan · TODO.md L4 section (which self-contradicts, C19).</li>
+        <li><strong>Inspection fix-plan ×2:</strong> v1 explicitly superseded by v2; both 1,000+ lines, both retained.</li>
+        <li><strong>SYSTEM_USER_UUID ×2:</strong> system-user-uuid.md · edge-function-attribution-manifest.md (they contradict, C12).</li>
+      </ul>
+    </div>
+    <div class="section">
+      <h2>6. Proposal — ONE consolidated team-facing operations doc</h2>
+      <h3>6.1 Proposed structure: <code>docs/OPERATIONS_GUIDE.md</code> → rendered <code>OPERATIONS_GUIDE.html</code></h3>
+      <p>Working title <strong>"MRC Operations Guide"</strong> — one doc, three audience lanes (Field / Office / Everyone), every section stamped with a last-verified date + commit.</p>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>§</th><th>Section</th><th>One-line purpose</th><th>Source map (existing docs that feed it)</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>What this system is</td><td>5-minute orientation: roles, the 9 business objects, job lifecycle</td><td>mrc-system-overview.html (conceptual layers — verified sound)</td></tr>
+            <tr><td>2</td><td>Getting in</td><td>Login, PWA install/update, password reset, correct contact table (1800 954 117 / admin@ / dev line for app bugs only)</td><td>USER-GUIDE login+PWA (rewritten), TROUBLESHOOTING auth section (contacts fixed); closes G9, G10, G13</td></tr>
+            <tr><td>3</td><td>The pipeline, in plain English</td><td>The 16 statuses as a story: who acts at each, what moves it forward, terminal states</td><td>statusFlow.ts (generated from code), walkthrough journeys (structure only), BUSINESS_LOGIC.html §6</td></tr>
+            <tr><td>4</td><td>Field: inspection day</td><td>The 9 sections in order; photos + captions; autosave truth (30 s + localStorage backup); what offline actually does</td><td>USER-GUIDE tech half (rewritten), BUSINESS_LOGIC.html §§8-9, walkthrough §2 skeleton; closes G4</td></tr>
+            <tr><td>5</td><td>Field: job completion day</td><td>The 10 sections; quoted-vs-actual equipment; WasteCard confirm/override; request-review loop</td><td>JOB_COMPLETION_PRD behaviour (verified against code), LAUNCH_TESTING_FINDINGS step 6; closes G1, G5</td></tr>
+            <tr><td>6</td><td>Office: booking &amp; schedule</td><td>Booking rules (hours, durations, two techs), travel time + fallback, starting-address dropdown rule</td><td>BUSINESS_LOGIC.html §7 (verified accurate), TODO.md team-guide notes; closes G7, G11</td></tr>
+            <tr><td>7</td><td>Office: review, report, send</td><td>AI review + regenerate-with-feedback, PDF approve/hard-save, version history, stale-PDF banner, mismatch guard</td><td>No existing source — write from code + PDF pipeline outcome notes; closes G2</td></tr>
+            <tr><td>8</td><td>Office: invoicing &amp; payment</td><td>Invoice helper walk-through, manual 13% cap, estimate-vs-actual, mark sent (14-day clock restart), mark paid, overdue digest + penalty ladder + warranty ladder</td><td>XERO_INTEGRATION_HANDOFF (rates fixed), penaltyLadder.ts, INVOICE_INTEGRITY_RUNBOOK context; closes G3</td></tr>
+            <tr><td>9</td><td>Pricing reference</td><td>The rate card, day-rate decline, waste schedule, GST, discount rules</td><td><strong>PRICING_AND_PROCESS_GUIDE.html content verbatim</strong> (verified 16/17 — canonical) + BUSINESS_LOGIC.html worked example</td></tr>
+            <tr><td>10</td><td>Email &amp; notifications</td><td>What customers receive and when; sender/reply-to reality; replies land in admin inbox; no Sent copies (and why); review-STOP is manual</td><td>Walkthrough §4 notification map (senders corrected), email-previews README, TODO.md team-guide notes; closes G6, G8</td></tr>
+            <tr><td>11</td><td>When things go wrong</td><td>Symptom → meaning → who acts → escalation table; offline black-spot procedure; PDF/email failures</td><td>Walkthrough §5 (verified skeleton), TROUBLESHOOTING (methodology kept, facts fixed), RUNBOOK daily checks</td></tr>
+            <tr><td>12</td><td>Glossary</td><td>HEPA/AFD, subfloor, SWMS, statuses, "hard save", quarantine</td><td>Walkthrough §12 + the AFD=HEPA note from PRICING_AFD_FINDINGS' banner</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Explicitly <strong>out of scope</strong> (stays developer-side): deployment, key rotation, migrations, MCP stack, EF attribution/audit canon. Those keep their own KEEP-rated docs.</p>
+      <h3>6.2 Disposition table — every doc in docs/ (+ CLAUDE.md)</h3>
+      <p>"ARCHIVE" = move under <code>docs/_archive/</code> with an as-of banner. <strong>No file was moved by this audit — this table is the proposal.</strong></p>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Doc</th><th>Disposition</th><th>One-line reason</th></tr></thead>
+          <tbody>
+            <tr><td>PRICING_AND_PROCESS_GUIDE.html</td><td><strong>KEEP → canonical §9 source</strong></td><td>16/17 verified, 0 stale — most accurate doc in the set</td></tr>
+            <tr><td>BUSINESS_LOGIC.html</td><td><strong>MERGE-INTO §§3,6,9</strong></td><td>19/22 accurate; 3 known fixes (HEPA-on-quote ×2, sender note)</td></tr>
+            <tr><td>BUSINESS_LOGIC_PROMPT.md</td><td><strong>REWRITE (urgent)</strong></td><td>LLM prompt serving retired rates verbatim to staff; swap its reference block for §9 content</td></tr>
+            <tr><td>LAUNCH_WEEKEND_BRIEFING.html</td><td><strong>ARCHIVE</strong></td><td>Time-boxed launch artifact; durable content already in §9 sources</td></tr>
+            <tr><td>MRC_FULL_WALKTHROUGH.html</td><td><strong>MERGE-INTO §§3,4,5,10,11,12 then ARCHIVE</strong></td><td>The guide's skeleton; facts need regeneration (8 WRONG incl. the pdf_versions drop migration)</td></tr>
+            <tr><td>MRC_FULL_WALKTHROUGH.pdf</td><td><strong>ARCHIVE (delete ok)</strong></td><td>Stale twin of a stale doc</td></tr>
+            <tr><td>mrc-system-overview.html</td><td><strong>MERGE-INTO §1</strong></td><td>Conceptual layers verified; 3 capability claims wrong</td></tr>
+            <tr><td>COST_CALCULATION_SYSTEM.md</td><td><strong>ARCHIVE</strong></td><td>Self-declared superseded; surviving content duplicated accurately in §9 source</td></tr>
+            <tr><td>PRICING_AFD_FINDINGS.md</td><td><strong>ARCHIVE</strong></td><td>Banner-disowned; banner content → §12 glossary</td></tr>
+            <tr><td>USER-GUIDE.md</td><td><strong>MERGE-INTO §§2,4 then ARCHIVE</strong></td><td>Tech half salvageable; admin half predates Phase 2</td></tr>
+            <tr><td>DEVELOPER-GUIDE.md</td><td><strong>REWRITE (dev-side)</strong></td><td>AppLayout fiction + stale tree; conventions survive</td></tr>
+            <tr><td>TROUBLESHOOTING.md</td><td><strong>MERGE-INTO §11</strong></td><td>Methodology good; rates/statuses/contacts wrong</td></tr>
+            <tr><td>RUNBOOK.md</td><td><strong>MERGE-INTO §11 + keep a dev-side ops annex</strong></td><td>Sound skeleton; missing the whole invoice surface</td></tr>
+            <tr><td>DEPLOYMENT.md</td><td><strong>KEEP (dev-side), edit</strong></td><td>Process sound; EF/env tables stale; 1 wrong command</td></tr>
+            <tr><td>MANUAL_TESTING_CHECKLIST.md</td><td><strong>KEEP (dev-side), edit</strong></td><td>Best test asset; 7 WRONG items to fix</td></tr>
+            <tr><td>MCP_STACK.md</td><td><strong>KEEP (dev-side), edit</strong></td><td>Matches .mcp.json; add GitNexus + write-block hook</td></tr>
+            <tr><td>MRC_PROJECT_CONTEXT.md</td><td><strong>REWRITE (dev/AI-side)</strong></td><td>Loaded as AI context with wrong "SACRED" pricing — highest blast radius</td></tr>
+            <tr><td>PLANNING.md</td><td><strong>ARCHIVE</strong></td><td>Superseded plan; wrong pointers</td></tr>
+            <tr><td>WORKFLOW.md</td><td><strong>ARCHIVE</strong></td><td>Frozen changelog; git log is authoritative</td></tr>
+            <tr><td>PRD.md</td><td><strong>REWRITE (spec-side)</strong></td><td>Vision survives; pricing/feature sections dangerous</td></tr>
+            <tr><td>JOB_COMPLETION_PRD.md</td><td><strong>ARCHIVE</strong> (behaviour → §5)</td><td>Shipped spec wearing a DRAFT header</td></tr>
+            <tr><td>JOB_COMPLETION_PLAN.md</td><td><strong>ARCHIVE</strong></td><td>Its two never-done tasks already tracked in TODO.md:860-861</td></tr>
+            <tr><td>PHASE_2_EXECUTION.md</td><td><strong>ARCHIVE</strong></td><td>"Do NOT implement" header on shipped work</td></tr>
+            <tr><td>PHASE_2D_INVOICE_TODO.md</td><td><strong>ARCHIVE</strong></td><td>100 % superseded by XERO handoff</td></tr>
+            <tr><td>PDF_PIPELINE_PLAN.md</td><td><strong>ARCHIVE</strong></td><td>Outcome self-documented in api/render-pdf.ts:64-69</td></tr>
+            <tr><td>TODO.md</td><td><strong>REWRITE (close dead items)</strong></td><td>Headline open item factually inverted; live items kept</td></tr>
+            <tr><td>PRODUCTION_MERGE_RUNBOOK.md</td><td><strong>KEEP + Stage-1-done banner</strong></td><td>Stages 2-5 are the live path to production</td></tr>
+            <tr><td>INVOICE_INTEGRITY_RUNBOOK.md</td><td><strong>KEEP</strong></td><td>Best-constructed runbook; still pending execution</td></tr>
+            <tr><td>KEY_ROTATION.md</td><td><strong>KEEP, 3 fixes</strong></td><td>Forensics reproduce exactly</td></tr>
+            <tr><td>L4-environment-separation-plan.md</td><td><strong>ARCHIVE</strong></td><td>Goal achieved 7 weeks ago by a different route</td></tr>
+            <tr><td>PRE_MERGE_TESTING_CHECKLIST.md</td><td><strong>MERGE-INTO PRODUCTION_MERGE_RUNBOOK Stage 5</strong></td><td>§3 checks live; §5 superseded</td></tr>
+            <tr><td>PRELAUNCH_AUDIT_2026-07-08.md</td><td><strong>ARCHIVE</strong></td><td>Both top findings closed in-repo</td></tr>
+            <tr><td>LAUNCH_TESTING_FINDINGS.md</td><td><strong>KEEP + resolution markers</strong></td><td>Live findings log; top items fixed but unmarked</td></tr>
+            <tr><td>pr-batch-a-templates-copy.md</td><td><strong>ARCHIVE</strong></td><td>Merged-PR body</td></tr>
+            <tr><td>pr-batch-b-ai-prompt.md</td><td><strong>ARCHIVE</strong></td><td>Merged-PR body (stacking bypassed)</td></tr>
+            <tr><td>pr-batch-c-forms-ui.md</td><td><strong>ARCHIVE</strong></td><td>Merged-PR body (heading says 10 commits; 11 is right)</td></tr>
+            <tr><td>XERO_INTEGRATION_HANDOFF.md</td><td><strong>KEEP (dev-side), rate fix → also feeds §8</strong></td><td>Best Phase 2D inventory; last home of $132</td></tr>
+            <tr><td>API.md</td><td><strong>REWRITE (dev-side)</strong></td><td>Only the AI section is current</td></tr>
+            <tr><td>API_AUDIT.md</td><td><strong>ARCHIVE + as-of banner</strong></td><td>Two "Current"-tense claims now misleading</td></tr>
+            <tr><td>AUTH-PROFILE-DOCUMENTATION.md</td><td><strong>REWRITE (dev-side)</strong></td><td>Both foundational design claims inverted</td></tr>
+            <tr><td>NOTIFICATIONS-AND-TRIGGERS.md</td><td><strong>REWRITE (dev-side); §10 borrows its event map</strong></td><td>A third points at deleted files</td></tr>
+            <tr><td>edge-function-attribution-manifest.md</td><td><strong>KEEP, patch 12→14 + 2 Bucket-C rows</strong></td><td>Highest-accuracy dev doc</td></tr>
+            <tr><td>FRAMER_WEBHOOK.md</td><td><strong>KEEP, patch rate limit + postcode</strong></td><td>Most accurate integration doc</td></tr>
+            <tr><td>FRAMER_FIELD_MAPPING.md</td><td><strong>ARCHIVE</strong></td><td>One-off checklist; duplicates the webhook doc</td></tr>
+            <tr><td>system-user-uuid.md</td><td><strong>MERGE-INTO attribution manifest</strong></td><td>2 WRONG consumer claims; UUID + rotation policy is the only unique content</td></tr>
+            <tr><td>data-model-invariants.md</td><td><strong>KEEP, refresh line refs</strong></td><td>Core invariant independently re-verified today</td></tr>
+            <tr><td>database_technical_audit.md</td><td><strong>ARCHIVE</strong></td><td>Banner contradicts body; counts stale</td></tr>
+            <tr><td>SECURITY_AUDIT.md</td><td><strong>ARCHIVE + REDACT tokens first</strong></td><td>Contains live-format secrets in a tracked file</td></tr>
+            <tr><td>SECURITY-REMEDIATION-REPORT.md</td><td><strong>ARCHIVE</strong></td><td>38/38 RLS never reconcilable; the fixes it records stand</td></tr>
+            <tr><td>WEBHOOK_STRESS_TEST.md</td><td><strong>ARCHIVE</strong></td><td>v18 record; EF at v20</td></tr>
+            <tr><td>AI_SUMMARY_INPUT_AUDIT.md</td><td><strong>ARCHIVE</strong></td><td>Research-only, anchors drifted</td></tr>
+            <tr><td>BACKUP_TABLE_CLEANUP.md</td><td><strong>ARCHIVE</strong></td><td>Self-marked COMPLETE</td></tr>
+            <tr><td>inline-edit-diagnosis.md</td><td><strong>ARCHIVE</strong></td><td>Recommendation implemented; anchor files deleted</td></tr>
+            <tr><td>inspection-workflow-audit-2026-04-30.md</td><td><strong>ARCHIVE</strong></td><td>Historical root of Phases 1-4</td></tr>
+            <tr><td>inspection-workflow-fix-plan-2026-04-30.md (v1)</td><td><strong>ARCHIVE (delete ok)</strong></td><td>Explicitly superseded by v2</td></tr>
+            <tr><td>inspection-workflow-fix-plan-v2-2026-04-30.md</td><td><strong>ARCHIVE + "partially executed" banner</strong></td><td>Reads as live roadmap; ~60 % done; rescue unexecuted stages first</td></tr>
+            <tr><td>internal-notes-loss-diagnosis.md</td><td><strong>ARCHIVE</strong></td><td>Closed incident post-mortem</td></tr>
+            <tr><td>lead-detail-diagnosis.md</td><td><strong>ARCHIVE</strong></td><td>Headline now false (columns exist)</td></tr>
+            <tr><td>morning-bugs-diagnosis.md</td><td><strong>ARCHIVE</strong></td><td>Both bugs fixed in code</td></tr>
+            <tr><td>schedule-consolidation-diagnosis.md</td><td><strong>ARCHIVE</strong></td><td>Refactor executed</td></tr>
+            <tr><td>stage-1.4-callsite-catalog.md</td><td><strong>ARCHIVE</strong></td><td>Single-use pre-flight, consumed</td></tr>
+            <tr><td>stage-3.5-consumer-audit.md</td><td><strong>ARCHIVE</strong></td><td>Gate closed 2026-05-01</td></tr>
+            <tr><td>stage-4.3-consumer-audit.md</td><td><strong>ARCHIVE + "executed 2026-05-10" banner</strong></td><td>All boxes unticked but the work shipped — reads as blocked</td></tr>
+            <tr><td>SUPABASE_ADVISOR_AUDIT.md</td><td><strong>MERGE open items 2-3 into live backlog, then ARCHIVE</strong></td><td>2 of 4 fixed next-day; 2 unremediated</td></tr>
+            <tr><td>PRE_HANDOVER_AUDIT.md</td><td><strong>MERGE surviving items into backlog, then ARCHIVE</strong></td><td>2 of 5 HIGH fixed; H2 still open</td></tr>
+            <tr><td>end-to-end-test-plan-2026-05-01.md</td><td><strong>ARCHIVE</strong></td><td>Commit-pinned, hard-stops at its own first gate</td></tr>
+            <tr><td>phase-2-verification-matrix.md</td><td><strong>ARCHIVE</strong></td><td>Completed run record</td></tr>
+            <tr><td>phase-2-verification-helpers.sql</td><td><strong>KEEP as tool, relocate</strong></td><td>Genuinely re-runnable</td></tr>
+            <tr><td>email-previews/README.md</td><td><strong>KEEP, refresh line refs</strong></td><td>Verifies clean</td></tr>
+            <tr><td>email-previews/*.html (×7)</td><td><strong>KEEP (regenerate before showing anyone)</strong></td><td>Gitignored build output; 05 still shows the scrubbed personal mobile</td></tr>
+            <tr><td>pdf-report/README.md, DATA-REQUIREMENTS.md, TEMPLATE-VARIABLES.md, templates/complete-report-backup.html</td><td><strong>ARCHIVE (delete ok, ×4)</strong></td><td>Superseded template docs; DATA-REQUIREMENTS maps nonexistent columns; template renders broken</td></tr>
+            <tr><td>pdf-reference/forms.md, reference.md</td><td><strong>ARCHIVE (delete ok, ×2)</strong></td><td>Vendored generic material; zero inbound references</td></tr>
+            <tr><td>testing/* (8 .md + 1 .png)</td><td><strong>ARCHIVE + separate PII decision</strong></td><td>Commit-pinned May-2026 records; real PII in ≥5 files</td></tr>
+            <tr><td>verification/launch-checks-VERIFY.md</td><td><strong>KEEP until the PROD pass runs, then ARCHIVE</strong></td><td>Only record of PR #72's outstanding verification [PENDING-PR72]</td></tr>
+            <tr><td>CLAUDE.md (repo root)</td><td><strong>REWRITE (targeted)</strong></td><td>Fix /src/auth, "12 EFs", "22 tables", the 0.87 phantom, May-2026 state block; pricing lines stay verbatim</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>6.3 Format recommendation</h3>
+      <p><strong>Single Markdown source (<code>docs/OPERATIONS_GUIDE.md</code>) rendered by script to ONE fully self-contained HTML file, on the BUSINESS_LOGIC/PRICING pattern.</strong> Grounded in how the current .html files actually behaved:</p>
+      <ol>
+        <li>The three HTML docs that worked as team artefacts (BUSINESS_LOGIC, PRICING_AND_PROCESS_GUIDE, LAUNCH_WEEKEND_BRIEFING) are exactly the three with zero external dependencies — inline CSS, no CDN, no web fonts. The two mermaid-based docs lose every diagram without <code>cdn.jsdelivr.net</code>; the 7 email previews lose their logo without the live PROD Storage URL. Field viewing on phones with poor signal demands standalone.</li>
+        <li>Markdown as source keeps the doc greppable, diffable, and re-auditable — this audit was only possible because claims could be grepped. The hand-maintained 3,479-line walkthrough HTML is how facts rotted invisibly.</li>
+        <li>The PDF-twin experiment failed: MRC_FULL_WALKTHROUGH.pdf was already 4 days behind its own HTML at commit time. One rendered artefact, regenerated by a script (the <code>preview-emails</code> pattern already in the repo, <code>package.json:16</code>), avoids twins.</li>
+        <li>Every section carries a visible "Last verified: DATE @ commit" stamp. The docs that survived this audit best (PRICING guide, launch-checks-VERIFY) date themselves; the worst (walkthrough, PRD) are undated or mis-dated.</li>
+        <li>Diagrams: none, or hand-built HTML/CSS as BUSINESS_LOGIC.html does. No mermaid CDN.</li>
+      </ol>
+      <h3>6.4 Open questions for Glen and Clayton</h3>
+      <p>Field procedures and failure modes that cannot be derived from code — needed before §§4-6 and 11 can be written:</p>
+      <ol>
+        <li><strong>Rate sign-off (still flagged open inside BUSINESS_LOGIC.html):</strong> HEPA at $100/unit/day and the full waste m³ schedule (2→$350 … 12→$1,190, +$145/m³) are live-billing numbers. Confirm both, in writing, once.</li>
+        <li><strong>Waste volume measurement:</strong> who estimates the m³ figure on site and how (truck loads? bags? eyeball?), and what justifies overriding the calculated price.</li>
+        <li><strong>Equipment days in practice:</strong> how they decide dehumidifier/air-mover days on site vs accepting the auto figure (labour hours ÷ 8), and whether the shared-days model ever misprices a real job (context for the PARKED per-item-days feature).</li>
+        <li><strong>No-signal procedure:</strong> what they actually do mid-inspection in a black spot today — keep filling and trust the local backup, stop, or fall back to phone camera + paper? Their answer becomes §4's offline procedure, and what they're told must match what the code does (refuses server save, keeps a local crash backup).</li>
+        <li><strong>Photo practice:</strong> typical photo counts per area, whether the caption-before-upload gate slows gloved work, and what they do when an upload fails or the quarantine banner appears.</li>
+        <li><strong>request-review semantics:</strong> when they'd toggle "request review" vs just submitting, what they expect admin to do, and how they want send-backs communicated.</li>
+        <li><strong>Booking reality:</strong> are 7:00–19:00 hourly starts, 30 min–8 h durations, and the travel-time buffers right for real days? What happens when a job overruns into the next booking?</li>
+        <li><strong>Damages/staining disclosure:</strong> the on-site script when pre-existing damage or post-treatment staining is found — the form captures it; who tells the customer, and when?</li>
+        <li><strong>SWMS practice:</strong> what "SWMS completed" means operationally (a document? where kept?) — the toggle implies an artifact the system never stores.</li>
+        <li><strong>Customer contact routing:</strong> which number customers should ever get (1800 954 117 only?), what happens when someone rings a tech's mobile directly, and who owns the admin@ inbox day-to-day.</li>
+        <li><strong>Review requests:</strong> when NOT to send the Google review email (unhappy customer, warranty dispute) and who makes that call.</li>
+        <li><strong>ServiceM8 residue:</strong> how many jobs still live in ServiceM8, until when, and whether the guide's first edition needs dual-system instructions.</li>
+        <li><strong>Devices:</strong> the actual phone models/browsers in use (USER-GUIDE's browser matrix is unverifiable from the repo) — determines which PWA-install instructions are worth writing.</li>
+      </ol>
+      <h3>6.5 Explicit list of what this audit could NOT verify</h3>
+      <p>Repo-only evidence was mandated; everything below is UNVERIFIED by definition:</p>
+      <ul>
+        <li><strong>Live database state:</strong> actual table/trigger/policy/cron counts; row data (the 4 invoice rows, whether today's 4 Aug digest fired); applied-migration high-water mark on PROD/DEV; effective RLS; <code>webhook_submissions</code> INSERT policy; <code>inspection-reports</code> bucket listing.</li>
+        <li><strong>Deployed Edge Function state:</strong> deployed versions (code says receive-framer-lead v20; deployed unknown); which EFs exist on each project; all EF secrets (<code>SYSTEM_USER_UUID</code>, <code>ADMIN_FALLBACK_EMAIL</code>, <code>OPENROUTER_API_KEY</code>, …).</li>
+        <li><strong>Supabase Auth config:</strong> SMTP sender (TODO.md:19's noreply@mrcsystem.com claim may still be true <em>there</em> even though every EF sender is cut over), Site URL, redirect allowlist.</li>
+        <li><strong>DNS / Resend:</strong> domain verification, SPF/DKIM/DMARC state.</li>
+        <li><strong>Vercel:</strong> env vars in any scope, project link, branch→environment mapping, whether <code>api/render-pdf.ts</code>'s declared limits are active.</li>
+        <li><strong>Storage:</strong> whether PROD's <code>pdf-templates/inspection-report-template-final.html</code> matches <code>src/templates/inspection-report-template.html</code> (the RUNBOOK restore caveat); bucket publicness; object inventories.</li>
+        <li><strong>Historic test results:</strong> the 100/100 webhook stress run, the 496/496 vitest gate (not re-run — read-only audit), Playwright suites, all manual QA pass/fail records.</li>
+        <li><strong>Third-party dashboards:</strong> Framer field names (FRAMER_FIELD_MAPPING's completion state), Slack webhook config, Sentry, Google Maps key restrictions.</li>
+        <li><strong>PR #72 PROD verification:</strong> whether the launch-checks manual pass ever ran on production (its stated PASS-value window expired today, 4 Aug).</li>
+        <li><strong>Runtime UI behaviour:</strong> anything requiring a browser (drag interactions, banner rendering, 375px overflow) — structural code evidence only.</li>
+        <li><strong>Business facts:</strong> ServiceM8 state, operational sign-off of rates, staffing/process questions (§6.4).</li>
+      </ul>
+    </div>
+    <div class="section">
+      <h2>Appendix — method</h2>
+      <ul>
+        <li>GitNexus reindexed before any query (index: 10,567 symbols). Per the repo's own warning about GitNexus false negatives, it was treated as a starting point only: <strong>every negative claim above carries a bash confirmation</strong>, e.g. <code>grep -rn "0\.87" src supabase</code> → exit 1 · <code>grep -rn "noreply@" src supabase</code> → exit 1 · <code>grep -rn "NewLeadView" src</code> → no output · <code>grep -rn "queuePhotoOffline" src/</code> → definition + test + comment only · <code>grep -rn "DISCOUNT_TIERS" src/</code> → exit 1 · <code>ls src/auth</code> / <code>ls src/components/layout</code> / <code>ls context</code> → no such directory · <code>grep -rn "pdf-reference" .</code> (code/docs/config, node_modules excluded) → no output · <code>grep -rn "SYSTEM_USER_UUID" supabase/functions/manage-users/index.ts</code> → no matches.</li>
+        <li>Three parallel evidence agents (docs inventory, code ground-truth facts sheet, HTML standalone review) preceded five parallel verification agents (evergreen guides · API/architecture · pricing/business/team-HTML/CLAUDE.md · specs/trackers/runbooks · historical artifacts); synthesis of Steps 2-6 was serial.</li>
+        <li>Constraints honoured: no existing file modified/moved/deleted; no code written; no Supabase MCP, no network; consolidated doc NOT started. The GitNexus reindexer's own hook touched CLAUDE.md, AGENTS.md, and one gitnexus skill file during Step 0 — those were restored to HEAD so the working tree shows only this report.</li>
+      </ul>
+      <p><em>End of audit. Next step is Michael's call on §6; no consolidation work has been started.</em></p>
+    </div>
+
+  </div>
+
+</body>
+</html>

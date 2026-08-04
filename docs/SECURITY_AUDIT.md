@@ -4,6 +4,10 @@
 **Auditor:** Claude Code (Opus 4.6)
 **Scope:** Full codebase + git history scan for API keys, tokens, secrets, credentials
 **Status:** REPORT ONLY — no keys rotated, no files modified
+**Redaction note (2026-08-04):** credential values originally printed in this report have been
+replaced with `<REDACTED-{SERVICE}-{TYPE}>` placeholders; which key, where it lives, and what
+it is for are preserved. The original values remain recoverable from this file's git history
+(and the `.env` blob) until the Section 6 remediation and the rotations in Section 5 are done.
 
 ---
 
@@ -16,7 +20,7 @@
 | Hardcoded secrets in source code | 0 | CLEAN |
 | External services requiring rotation | 4 immediate, 3 recommended | — |
 
-**Key finding:** A `.env` file containing a Supabase access token (`sbp_2178...`) was committed to git history from Oct 2025 to Dec 2025. It was deleted but remains in git objects. The current codebase (HEAD) is clean.
+**Key finding:** A `.env` file containing a Supabase access token (`<REDACTED-SUPABASE-ACCESS-TOKEN-OLD>`) was committed to git history from Oct 2025 to Dec 2025. It was deleted but remains in git objects. The current codebase (HEAD) is clean.
 
 ---
 
@@ -39,13 +43,13 @@
 | `VITE_SUPABASE_PROJECT_ID` | `ecyivrxjpsmjmexqatym` | LOW — public project ref |
 | `VITE_SUPABASE_URL` | `https://ecyivrxjpsmjmexqatym.supabase.co` | LOW — public URL |
 | `VITE_SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIs...` (full JWT) | LOW — publishable key, RLS enforced |
-| `SUPABASE_ACCESS_TOKEN` | `sbp_21780696b00479fc75e644ead21668d40ac1d464` | **CRITICAL** — full project management access |
+| `SUPABASE_ACCESS_TOKEN` | `<REDACTED-SUPABASE-ACCESS-TOKEN-OLD>` | **CRITICAL** — full project management access |
 
 **Impact of `SUPABASE_ACCESS_TOKEN` exposure:**
 - Can manage Supabase projects, deploy functions, modify database schema
 - Can read/write all data bypassing RLS
 - Can manage auth users
-- This is a DIFFERENT token than the current one in `.mcp.json` (`sbp_066ecc...`) — both need attention
+- This is a DIFFERENT token than the current one in `.mcp.json` (`<REDACTED-SUPABASE-ACCESS-TOKEN-CURRENT>`) — both need attention
 
 ### 1.2 Commits Referencing Secret Patterns
 
@@ -70,9 +74,9 @@
 
 | Secret | Value (prefix) | Service | Risk |
 |--------|---------------|---------|------|
-| `SUPABASE_ACCESS_TOKEN` | `sbp_066eccca338d...` | Supabase MCP server | HIGH — project management |
-| `GITHUB_PERSONAL_ACCESS_TOKEN` | `github_pat_11AURY33Y05b...` | GitHub MCP server | HIGH — repo access |
-| `RESEND_API_KEY` | `re_Fi1A3fnZ_LdBL...` | Resend MCP server | HIGH — can send emails as MRC |
+| `SUPABASE_ACCESS_TOKEN` | `<REDACTED-SUPABASE-ACCESS-TOKEN-CURRENT>` | Supabase MCP server | HIGH — project management |
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | `<REDACTED-GITHUB-FINE-GRAINED-PAT>` | GitHub MCP server | HIGH — repo access |
+| `RESEND_API_KEY` | `<REDACTED-RESEND-API-KEY>` | Resend MCP server | HIGH — can send emails as MRC |
 
 **Mitigation:** These are local-only and never reached git. Risk is limited to local machine compromise. Rotation still recommended as best practice.
 
@@ -155,25 +159,25 @@ No `.env` files exist in the working directory (confirmed via glob).
 ### Priority 1 — IMMEDIATE (tokens leaked in git history or local config)
 
 #### 1a. Revoke OLD Supabase Access Token (from git history)
-- **Token:** `sbp_21780696b00479fc75e644ead21668d40ac1d464`
+- **Token:** `<REDACTED-SUPABASE-ACCESS-TOKEN-OLD>`
 - **Dashboard:** https://supabase.com/dashboard/account/tokens
 - **Action:** Find and delete this token. It may already be expired/revoked.
 - **Verify:** Confirm token no longer works
 
 #### 1b. Rotate CURRENT Supabase Access Token
-- **Token:** `sbp_066eccca338db40298e95ed3ccbdd78dfa1fb1a0` (in `.mcp.json`)
+- **Token:** `<REDACTED-SUPABASE-ACCESS-TOKEN-CURRENT>` (in `.mcp.json`)
 - **Dashboard:** https://supabase.com/dashboard/account/tokens
 - **Action:** Generate new token → update `.mcp.json` locally
 - **Verify:** `mcp__supabase__list_tables` works in Claude Code
 
 #### 1c. Rotate GitHub Personal Access Token
-- **Token:** `github_pat_11AURY33Y05beLyT58uzg4_...` (in `.mcp.json`)
+- **Token:** `<REDACTED-GITHUB-FINE-GRAINED-PAT>` (in `.mcp.json`)
 - **Dashboard:** https://github.com/settings/tokens?type=beta (fine-grained)
 - **Action:** Create new fine-grained PAT scoped to `michaelyoussef396/mrc-app` repo only → update `.mcp.json`
 - **Verify:** `mcp__github__list_issues` works in Claude Code
 
 #### 1d. Rotate Resend API Key
-- **Token:** `re_Fi1A3fnZ_LdBL8kASZP8BR7ZcZWSy6vFM` (in `.mcp.json`)
+- **Token:** `<REDACTED-RESEND-API-KEY>` (in `.mcp.json`)
 - **Dashboard:** https://resend.com/api-keys
 - **Action:** Generate new key → update in TWO places:
   1. `.mcp.json` locally (for MCP server)
@@ -271,7 +275,7 @@ Cross-referenced against `docs/API_AUDIT.md` (dated 2026-04-03):
 | Finding | API_AUDIT.md | This Audit | Delta |
 |---------|-------------|------------|-------|
 | .mcp.json secrets | Listed as needing rotation | Confirmed — 3 secrets present | Aligned |
-| .env in git history | Not mentioned | **NEW FINDING** — `sbp_2178...` token exposed in 4+ commits | Gap filled |
+| .env in git history | Not mentioned | **NEW FINDING** — `<REDACTED-SUPABASE-ACCESS-TOKEN-OLD>` token exposed in 4+ commits | Gap filled |
 | Google Maps key | Listed for rotation | Confirmed — recommend restrictions over rotation | Aligned |
 | OpenRouter key | Listed for rotation | Confirmed | Aligned |
 | Slack webhook | Listed for rotation | Confirmed — no real webhook in git history | Aligned |
