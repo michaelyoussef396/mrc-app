@@ -772,3 +772,69 @@ EF's insert never set it. The "Legacy" badge renders exactly when `pdf_storage_p
 which only that insert produces — so v2 is a legacy-EF row with a genuinely empty column and
 v3 is a hard-save row. The name lookup works. Historic rows left alone; the writer now
 attributes new ones.
+
+---
+
+## 4 Aug DEV pass — batches A/B/C verification (`45c0a71` + DEV EF v10)
+
+The 8-point verification pass ran on DEV (`ctppzqnysmzynkxjlzta`) against commit
+`45c0a71` with `generate-inspection-summary` v10. **All eight checks passed.** Two
+follow-up commits landed the same night: `9d1c723` (AI truncation guard + model chain
+reorder — the fix proven during this pass) and `4b06aa1` (API.md contract corrections).
+Full gate on the final stack: typecheck clean, build clean, Vitest 496/496.
+
+Non-blocking items carried out of the pass, none launch-gating:
+
+| # | Item | Type |
+|---|---|---|
+| 1 | Waste disposal absent as a line item in Section 9 and the lead-page admin breakdown | Display |
+| 2 | "Option 1 (Surface Treatment)" label vs 57h all-inclusive quote | Verify intent |
+| 3 | "Containment and Prep" leaking into Problem Analysis when not selected | Prompt wording |
+| 4 | Biocide phrasing more specific than the toggle warrants | Prompt wording |
+| 5 | `gemini-2.5-flash-lite` upstream stream fault, 3/3 on this record | Upstream, unexplained |
+| 6 | Email footer logo hosted on the Supabase storage domain | Repo change, separate job |
+| 7 | BIMI sender avatar — DNS + likely VMC | Infra, separate job |
+| 8 | `VITE_GOOGLE_MAPS_API_KEY` stale in Vercel Preview scope | Env var |
+
+**1.** Section 9 and the lead-page admin breakdown show no waste-disposal line; the
+subtotal is correct on both surfaces (the lead-page breakdown includes waste since
+`d83c58d`; Section 9 always did) but sits higher than the sum of its own two visible line
+items, with nothing on screen explaining the gap. Display only — the money is right, the
+itemisation isn't.
+
+**2.** The treatment option renders as "Option 1 (Surface Treatment)" on the lead page
+while the quote behind it covers all 57 hours including demolition and subfloor work.
+Either the label is wrong or the quote composition is — verify intent with Michael before
+changing either.
+
+**3.** "Containment and Prep" keeps appearing in Problem Analysis & Recommendations when
+the method is not selected. The amber guard (`summaryChecks.ts`) catches it every time,
+so nothing unbacked reaches a customer unreviewed — but the model should stop offering it.
+Prompt wording, not detection.
+
+**4.** "Australian-approved biocide" / "non-toxic mould biocide" is a more specific
+chemical claim than the Surface Remediation Treatment toggle warrants. `summaryChecks.ts`
+deliberately satisfies the `/biocid/i` pattern when that method is selected, so no flag is
+raised — by design, not oversight. If the phrasing should soften, that is a prompt
+wording change, not a checker change.
+
+**5.** `gemini-2.5-flash-lite` returned `finish_reason=error` with all-zero `usage` while
+still delivering ~1,500 chars of body cut mid-sentence — 3/3 structured generations on
+this record. An upstream stream fault, cause unknown. Demoted to fallback 1 rather than
+dropped (`9d1c723`): the evidence is one junk-data inspection, and a failure there now
+costs one wasted call instead of the whole request. `reasoning: { enabled: false }` was
+proven NOT to be the fix — successful calls already report `reasoning_tokens: 0`; it is
+kept only as a free safeguard.
+
+**6.** The email footer logo is served from the Supabase storage domain rather than the
+sending domain, and Resend flags the mismatch. Fixing it means rehosting the asset —
+a repo change, separate job.
+
+**7.** A BIMI sender avatar needs DNS records on `mouldandrestoration.com.au` and most
+likely a Verified Mark Certificate. No repo surface at all — separate infra job.
+
+**8.** `VITE_GOOGLE_MAPS_API_KEY` in the Vercel **Preview** scope is stale after the
+4 Aug server-key rotation; address autocomplete on preview deploys throws "API key
+expired". Update the Preview-scope var (project `mrc-system`). Production scope should be
+confirmed current during the next merge — the check is in
+`docs/PRODUCTION_MERGE_RUNBOOK.md` Stage 0.
