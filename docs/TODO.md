@@ -8,10 +8,11 @@ DKIM and SPF both verified. The pending-DNS blocker is CLOSED.** The earlier fra
 current working domain if it isn't verified in time") is now obsolete — the gate it
 guarded has passed.
 
-**What this unblocks, and what it does NOT.** DNS verification only makes the new
-domain *sendable*. Nothing sends from it yet: every `from` / `reply_to` in the codebase
-is still a `@mrcsystem.com` literal (see the envelope-layer item below). Verification
-was the precondition; the cutover itself is still outstanding.
+**What this unblocks, and what it does NOT.** DNS verification made the new domain
+*sendable*, and the envelope cutover has since shipped in code — verified 2026-08-04
+(`docs/_audit/DOCS_AUDIT_2026-08-04.md`, Finding 1): zero `noreply@` or `@mrcsystem.com`
+email literals remain anywhere in `src/` or `supabase/`. The only remaining
+sender-address work is the `seed-admin` item below.
 
 ### Also completed 2026-08-02 (same session)
 
@@ -35,31 +36,30 @@ was the precondition; the cutover itself is still outstanding.
 - [ ] **Site URL is `https://mrcsystem.com/admin`, should be the root
       `https://mrcsystem.com`.** Auth redirects currently resolve against an admin
       subpath.
-- [ ] **Envelope layer still sends from `noreply@mrcsystem.com`** — 6 hardcoded
-      literals across 3 Edge Functions, none env-driven, all read-only-audited
-      2026-08-02:
-      - `send-email/index.ts:200` (from) + `:204` (reply_to) — these two are the
-        highest-leverage: the EF accepts optional `from`/`replyTo` but **no caller
-        passes either** (all 6 call sites checked), so changing these two literals
-        moves every app-originated email at once.
-      - `send-inspection-reminder/index.ts:296` (from) + `:300` (reply_to)
-      - `receive-framer-lead/index.ts:809` (from) + `:813` (reply_to) — customer
-        confirmation. Same file also has the internal failure alert at `:360`/`:369`
-        (`MRC System Alerts <noreply@mrcsystem.com>`).
-      Display layer is already correct (`admin@mouldandrestoration.com.au` in every
-      email footer and both PDF templates) — which means today every email arrives
-      from one domain while its own footer prints another.
+- [x] ~~**Envelope layer still sends from `noreply@mrcsystem.com`**~~ **DONE —
+      verified 2026-08-04 (`docs/_audit/DOCS_AUDIT_2026-08-04.md`, Finding 1).**
+      The cutover shipped with the batch A merge: `grep -rn "noreply@" src supabase`
+      returns zero hits, and `@mrcsystem.com` survives only inside dashboard URLs,
+      never as an email address. `send-email/index.ts:203` (from) and `:207`
+      (reply_to) now default to `admin@mouldandrestoration.com.au`, and
+      `send-inspection-reminder` and `receive-framer-lead` (customer confirmation
+      and the internal failure alert) send from the same address. Envelope and
+      footer now agree. The six line-number references previously listed here were
+      re-checked by the audit and point at unrelated code — removed.
 - [ ] **`seed-admin` still uses `admin@mrc.com.au`** (`supabase/functions/seed-admin/index.ts:50`).
       A wrong-brand domain that is neither the old nor the new one. Left untouched in
       the 2 Aug display-layer fix because it is an Edge Function and is an account
       login address, not a display string — editing the literal alone would not rename
-      the existing account, only change what the next seed creates. Needs its own
-      decision alongside the envelope-layer work.
+      the existing account, only change what the next seed creates. **With the
+      envelope cutover done (above), this is now the single remaining open
+      sender-address item** (re-verified 2026-08-04: exact line, exact value).
 - [ ] **`ADMIN_FALLBACK_EMAIL` may be unset in PROD.** Only consumer is
-      `receive-framer-lead/index.ts:354`, which falls back to `admin@mrcsystem.com`.
-      If unset, lead-capture failure alerts land in a mailbox on the domain being
-      retired — dropped leads would go unnoticed silently. Verify with
-      `npx supabase secrets list --project-ref ecyivrxjpsmjmexqatym` before the cutover.
+      `receive-framer-lead/index.ts:410`, and the code fallback is now
+      `admin@mouldandrestoration.com.au` (facts corrected per the 2026-08-04 audit —
+      the previously cited `:354` / `admin@mrcsystem.com` are stale), so an unset
+      secret no longer routes alerts to a retiring domain. Still verify with
+      `npx supabase secrets list --project-ref ecyivrxjpsmjmexqatym` that no stale
+      override value is set.
 - [ ] **Post-cutover send test still required** — booking confirmation + inspection
       report, with headers checked to pass SPF/DKIM/DMARC before production email
       delivery is trusted. (Carried over from the original DNS item; verification
@@ -70,6 +70,150 @@ removed from the job-booking confirmation email (`notifications.ts:286`) and bot
 preview scripts; stale `support@mrc.com.au` / `1300 665 673` replaced with
 `admin@mouldandrestoration.com.au` / `1800 954 117` on NotFound and CheckEmail;
 ForgotPassword placeholder rebranded. No Edge Function or Resend literal touched.
+
+---
+
+## Email sender logo (BIMI) — researched 5 Aug 2026, parked
+
+Gmail and Outlook show a grey initial instead of the MRC logo on app-sent
+email. Researched properly; recording so this isn't re-litigated.
+
+Verified facts:
+- Outlook/Microsoft does not render BIMI at all. Sender-only stance confirmed
+  on Microsoft Q&A 2025-09-29, reaffirmed 2026-05-21. No path exists.
+- Gmail requires a certificate — VMC or CMC. Self-asserted BIMI does not
+  display in Gmail.
+- Apple Mail also requires a certificate (Apple Support article 108340).
+- Free self-asserted BIMI displays only in Yahoo, Fastmail, AOL, La Poste.
+  Negligible for an Australian residential customer base.
+- Gmail shows the Workspace profile photo on mail sent through Gmail's own
+  servers, but not on mail relayed via Resend. That is the gap BIMI fills.
+
+Prerequisites:
+- DMARC at p=quarantine or p=reject with pct=100. Changed from p=none on
+  5 Aug 2026. Verify with: dig TXT _dmarc.mouldandrestoration.com.au +short
+- Logo as SVG Tiny PS: square, under 32KB, no raster, text, scripts or
+  animation, served over HTTPS from mouldandrestoration.com.au.
+  Validator: bimigroup.org/svg-validator
+  Note: 28.2% of published BIMI records are broken (404 or failed validation).
+- CMC certificate from DigiCert or Entrust — the only two authorised CAs as of
+  2026. No registered trademark required; evidence of 12+ months logo use.
+  1-3 weeks processing. VMC is NOT required — it only adds Gmail's blue
+  checkmark and does need a registered trademark.
+
+Alternative worth evaluating first: Apple "Branded Mail" via Apple Business
+Connect, shipped iOS 18.2. Uploaded PNG/JPEG, DMARC at enforcement, no VMC, no
+CMC, no SVG. Separate programme from BIMI. Low effort, and both techs and many
+customers are on iPhone.
+
+Also outstanding: email footer logo is served from the Supabase storage domain,
+which Resend flags as suspicious. Move to mouldandrestoration.com.au.
+
+---
+
+## Post-rotation follow-ups (from docs/KEY_ROTATION_RUNBOOK.md)
+
+- [ ] URGENT — test address autocomplete on mrcsystem.com. VITE_GOOGLE_MAPS_API_KEY
+      is a single 176-day-old Vercel entry spanning Production+Preview+Development,
+      the same value throwing "API key expired" on previews and baked into the
+      production bundle. If autocomplete is dead on prod, this is an incident.
+- [ ] ADMIN_FALLBACK_EMAIL is unset on PROD (DEV only). Lead-capture failure
+      alerts currently fall back to a mailbox on the domain being retired.
+- [ ] SUPABASE_SERVICE_ROLE_KEY still present in Vercel — deletion, not rotation.
+- [ ] PROD Auth SMTP sender is still noreply@mrcsystem.com. DEV was corrected
+      and verified 5 Aug (from: admin@mouldandrestoration.com.au, DKIM signed by
+      mouldandrestoration.com.au). PROD change needs a Resend SMTP key entered
+      at the same time — the password field does not persist across a sender edit.
+
+---
+
+## PARKED — Per-item equipment days on the quote (launch-testing issue 15)
+
+Deferred out of the Batch C launch-fix branch (`batch-c-forms-ui`, 3 Aug 2026) because it
+needs **both** a migration and an edit to the pricing engine, and the batch was scoped to
+allow neither. Everything needed to execute it in one sitting is below. Severity is LOW —
+the shared auto day count is correct for typical jobs.
+
+**What it is.** HEPA Air Scrubber Details has a Days stepper showing `Auto (N)` with the hint
+"Days defaults to the job's equipment days", so the tech can accept or override. Commercial
+Dehumidifier, Air Movers and RCD Box have quantity steppers only. Extend the pattern.
+
+**Blocker 1 — schema.** `inspections` has exactly two day columns, `equipment_days` and
+`hepa_air_scrubber_days`. Needs a migration adding three, nullable, `NULL` = auto:
+
+```sql
+ALTER TABLE public.inspections
+  ADD COLUMN IF NOT EXISTS commercial_dehumidifier_days integer,
+  ADD COLUMN IF NOT EXISTS air_movers_days integer,
+  ADD COLUMN IF NOT EXISTS rcd_box_days integer;
+-- Rollback: DROP COLUMN for each. Additive and nullable, safe to re-run.
+```
+
+⚠️ Ordering is unforgiving: the code writes these columns on every save, so the migration
+must be applied **before** the frontend merges or every inspection save 500s with "column
+does not exist". Same trap as the HEPA/waste rollout runbook.
+
+**Blocker 2 — pricing.** `pricing.ts:234-236` gives dehumidifier, air mover and RCD the
+shared `days`. Only HEPA has a per-item branch (`:238-244`), and it lives inside
+`pricing.ts`. Without mirroring that branch for the other three, the new field would change
+nothing — recreating issue 14 from the same test run ("the field implies a pricing
+consequence that does not exist"). Sacred file: run impact analysis on
+`calculateEquipmentCost`, keep the 13% cap and the 60/60 pricing tests green, and add parity
+tests proving absent/0 days leaves every existing quote byte-identical.
+
+**Where the code goes.** Three sentinels stay consistent with HEPA: form state `0` = auto,
+pricing input `undefined`/`0` = auto, DB `NULL` = auto.
+
+- UI pattern to clone: `TechnicianInspectionForm.tsx:2174-2195` (the HEPA Days stepper,
+  including the `Auto (${sharedEquipmentDays})` label and the clamp-at-0 behaviour).
+- Target rows: `:2060-2142` (dehumidifier, air movers, RCD).
+- `EquipmentInput` / `EquipmentResult`: `pricing.ts:203-222`; `CostEstimateInput:319-328`.
+- Four `calculateCostEstimate` call sites: `:2281-2290`, `:2294-2303`, `:3798-3808`,
+  `:3837-3846`.
+- Save: `:3942-3948`. Load: `:3250-3258`. Form type: `types/inspection.ts:109-125`.
+
+Note `job_completions` already has per-item day columns (`actual_dehumidifier_days` etc.), so
+only the quote side is missing them.
+
+---
+
+## ✅ CLOSED — Drying Equipment toggle did not gate its quantities
+
+Found and fixed 3 Aug 2026 on `batch-c-forms-ui` while verifying launch-testing issue 16.
+**Issue 16 as written was already implemented** (`TechnicianInspectionForm.tsx:2148` gates
+the HEPA detail section on the treatment-method toggle, symmetric with Drying Equipment at
+`:2054`, and was present on `main` before the 2 Aug test run). The real divergence ran the
+other way.
+
+HEPA has `getEffectiveHepaQty` (`:1938-1943`), so turning its method toggle off stops the
+quantity feeding pricing and saves. Drying Equipment has no equivalent: turning it off hides
+the UI while `commercialDehumidifierQty` / `airMoversQty` / `rcdBoxQty` keep flowing into
+`calculateCostEstimate` and keep being persisted and billed. The per-item `*Enabled` booleans
+are never persisted either — on reload they are re-derived from `qty > 0` (`:3251/3253/3255`),
+so a tech who flicks one off without stepping the quantity to 0 finds it back on after a
+reload, still billing.
+
+**Fixed in `bcb9e99`.** `getEffectiveDryingQty` mirrors the HEPA helper — `pricing.ts`
+untouched, only the quantity passed in changes. Applied to both pricing call sites, the DB
+write, the Section 9 breakdown rows and the AI payload.
+
+**No existing quote changes, and no data migration was needed.** The load path now
+reconciles the two states rather than letting the gate act retroactively: stored quantities
+are treated as evidence the equipment was on, so a pre-gate record with `qty > 0` and
+`'Drying Equipment'` missing has the method restored on load instead of silently losing its
+equipment. Only a deliberate toggle-off from here zeroes anything.
+
+This supersedes the pre-flight SELECT originally planned for this change — the count no
+longer gates anything. If you ever want it for curiosity, it is:
+
+```sql
+SELECT id, job_number, commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty
+FROM inspections
+WHERE (COALESCE(commercial_dehumidifier_qty,0) > 0
+    OR COALESCE(air_movers_qty,0) > 0
+    OR COALESCE(rcd_box_qty,0) > 0)
+  AND NOT ('Drying Equipment' = ANY(COALESCE(treatment_methods, '{}')));
+```
 
 ---
 
@@ -117,6 +261,65 @@ email transport is the highest-risk change available and the current path was on
 stabilised 2 Aug. Revisit once the system has run clean for a week. Include in the
 team how-to doc so Glen and Clayton can weigh in, since it affects their daily
 workflow.
+
+---
+
+## Team guide doc — items to cover
+
+Content for the team how-to referenced above. Written for Glen, Clayton and Vryan,
+not for developers — keep the plain-English phrasing when the guide is authored.
+
+### Technicians (Glen, Clayton)
+
+**Updating your own starting address.** Profile → Edit → Starting Address. Start
+typing, then **pick your address from the dropdown that appears**. Don't just type it
+and hit Save.
+
+Why it matters: your starting address is where the app measures travel time from for
+your first job each day. If you type without picking from the dropdown, in the normal
+case **nothing saves at all** — the old address stays and it looks like the change
+didn't take. If Google's address lookup happens to be down, the text saves but the
+postcode is left blank, which is what the app falls back to when it can't reach Google
+for a live travel estimate. Either way, picking from the dropdown is what makes it
+stick.
+
+Technicians can do this themselves — no admin involvement needed.
+
+### Admin
+
+**Customer replies.** Replies to system emails land in the
+`admin@mouldandrestoration.com.au` inbox. Reply from there as normal.
+
+**Google review "reply STOP".** The review request email carries a line offering
+customers a way to opt out of follow-ups. **Nothing parses those replies
+automatically.** If a customer replies STOP, note it and don't trigger the review
+email for that customer again. An unsubscribe offer that isn't honoured is worse than
+not offering one.
+
+**System email doesn't appear in Sent.** Emails the system sends won't show in Gmail's
+Sent folder — only replies you write yourself. See the Sent-folder pending decision
+above; Option B is preferred but deferred until the system has run clean for a week.
+
+### Developer context (not for the guide itself)
+
+- Starting address lives in **auth `user_metadata.starting_address`**, not a table.
+  Self-service works because `Profile.tsx:218` calls `supabase.auth.updateUser()`,
+  which writes the caller's own metadata — no RLS policy involved.
+- The dropdown requirement is real: `AddressAutocomplete.tsx:209` wires the input to
+  `handleInputChange`, which only sets local state. `onChange` fires solely from
+  `handleSelectPlace` (`:109`). The `!isLoaded` fallback branch (`:167-176`) is the
+  exception — it commits typed text with empty `suburb`/`state`/`postcode`.
+- Travel time reads `starting_address.fullAddress` **as a string** for the Google
+  Distance Matrix call (`calculate-travel-time/index.ts:708, 898`); the haversine
+  fallback keys on `postcode` against `MELBOURNE_POSTCODE_COORDS` (`:602-606`). The
+  stored `lat`/`lng` are read **only** by `Profile.tsx:174-175` to repopulate the form
+  — no calculation consumes them.
+- **Clayton's address was changed Footscray → Toorak on 2026-08-02** by direct admin-API
+  update, not through the UI. `lat`/`lng` were deliberately left null rather than
+  fabricated; they self-heal the next time he saves through the dropdown. Full
+  pre-change metadata backed up at `dev-setup/clayton-address-2026-08-02/`
+  (gitignored). Both `3011` and `3142` are present in the postcode fallback table, so
+  travel calculations were correct immediately.
 
 ---
 
@@ -907,12 +1110,17 @@ Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocki
         verified in Resend.**
   - [x] ~~Update Resend configuration~~ **DONE — domain verified; PROD Auth SMTP moved onto
         Resend (`smtp.resend.com:465`, key `supabase-auth-smtp`).**
-  - [ ] **Cut the envelope over** — 6 `from`/`reply_to` literals across 3 Edge Functions still
-        say `@mrcsystem.com`. This is now the whole of L5. Detail in the closed DNS section at
+  - [x] ~~**Cut the envelope over**~~ **DONE — verified 2026-08-04
+        (`docs/_audit/DOCS_AUDIT_2026-08-04.md`, Finding 1):** zero `noreply@` /
+        `@mrcsystem.com` email literals remain in `src/` or `supabase/`; every Edge
+        Function sender defaults to `admin@mouldandrestoration.com.au`
+        (`send-email/index.ts:203`, `:207`). Remaining sender scope is only
+        `seed-admin/index.ts:50` (`admin@mrc.com.au`) — see the OUTSTANDING item at
         the top of this file.
   - [ ] Test deliverability (inbox vs spam) + verify headers pass SPF/DKIM/DMARC
-- **Blocking:** brand integrity. Customer-facing emails still send from a non-MRC domain —
-  the domain is now verified and ready, but nothing has been pointed at it yet.
+- **Blocking:** envelope no longer blocks — code sends from the MRC domain. The
+  deliverability/headers test above is the remaining gate before production email
+  delivery is fully trusted.
 
 ### L6 — Activate Glen + Clayton + Vryan production accounts ✅ COMPLETE
 - **Status:** Accounts activated (confirmed by Michael 2026-05-12). Glen + Clayton + Vryan can log in to production.
@@ -1387,3 +1595,39 @@ of the ground — those entries are left as they stand.
       generate-inspection-summary, manage-users) and manage-users answers 200.
       Corrections applied in place with strikethrough; historical records in the
       merge-reconciliation section left as written.
+
+---
+
+## Credential rotation — post SECURITY_AUDIT redaction (Aug 2026)
+
+> **NOTE:** git history rewrite was deliberately NOT performed — the values are
+> already distributed (collaborators, local clones), and a force-push across
+> `main` and `production` carries more risk than the exposure does. **Rotation is
+> the remediation.** Context: `docs/SECURITY_AUDIT.md` was redacted in the working
+> tree on 2026-08-04, but four full-length live credentials remain in git history
+> at commit `b3b3f30`. Repo is private, so exposure is limited to collaborators
+> and local clones — not urgent, but the keys are compromised. This block is
+> narrower than the DEFERRED full API key rotation (L4 Phase 6 /
+> `docs/KEY_ROTATION.md`) above and does not replace it — it covers only the keys
+> exposed via `SECURITY_AUDIT.md` / git history.
+
+- [x] **DONE — Resend API key rotated.** Verify: Supabase EF secret updated and
+      one live send through `send-email` lands from
+      `admin@mouldandrestoration.com.au`.
+- [ ] **Supabase PAT (current, `sbp_066e...`) — ROTATE.**
+      Reason: account-scoped across both PROD (`ecyivrxjpsmjmexqatym`) and DEV
+      (`ctppzqnysmzynkxjlzta`), plus the stale `SUPABASE_ACCESS_TOKEN` in
+      `~/.zshrc` is already causing 401s on EF deploys. One rotation fixes both.
+      Steps: revoke in Supabase account settings → issue new → update
+      `.mcp.json` → update `~/.zshrc` → open a FRESH shell → verify with
+      `npx supabase functions list` against both project refs.
+      Do this at the START of a session, never mid-runbook.
+- [ ] **Supabase PAT (old, `sbp_2178...`) — VERIFY ONLY.**
+      Confirm it is actually revoked in account settings rather than assumed.
+      If still active, revoke.
+- [ ] **GitHub fine-grained PAT — CHECK SCOPES FIRST.**
+      If it has write access to the repo, rotate and update `.mcp.json`.
+      If read-only, leave it. Decision, not an automatic rotation.
+- [ ] **Confirm `.env` and `.mcp.json` are both in `.gitignore` and have never
+      been committed.** Check with `git log --oneline -- .env .mcp.json`.
+      A tracked `.mcp.json` is a larger exposure than the audit doc was.

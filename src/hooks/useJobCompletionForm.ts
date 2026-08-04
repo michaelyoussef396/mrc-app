@@ -396,7 +396,7 @@ export function useJobCompletionForm(leadId: string): UseJobCompletionFormReturn
       const ageMinutes = (Date.now() - savedAt.getTime()) / 60_000
 
       if (ageMinutes < BACKUP_MAX_AGE_MINUTES && parsed.formData) {
-        const timeLabel = savedAt.toLocaleTimeString('en-AU', { timeZone: 'Australia/Melbourne' })
+        const timeLabel = savedAt.toLocaleTimeString('en-AU', { timeZone: 'Australia/Melbourne' }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase())
 
         toast('Unsaved work found', {
           description: `Backup from ${timeLabel}. Tap to restore.`,

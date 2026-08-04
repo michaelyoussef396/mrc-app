@@ -554,11 +554,37 @@ function OutdoorSection({ inspection: i, photos }: { inspection: Record<string, 
 // ============================================================================
 
 function WasteDisposalSection({ inspection: i }: { inspection: Record<string, any> }) {
+  // The m³ + confirmed-cost pair superseded the Small/Medium/Large enum in
+  // 20260624104911. Section 6 has written only the new columns ever since, so
+  // reading waste_disposal_amount showed an em-dash over live data. Legacy rows
+  // carry only the enum, so it stays as the fallback.
+  const hasVolume = i.waste_disposal_m3 != null;
+  const legacyAmount = i.waste_disposal_amount;
+
   return (
     <div className="space-y-1 divide-y divide-slate-100">
       <KV label="Required" value={fmtBool(i.waste_disposal_required)} />
       {i.waste_disposal_required && (
-        <KV label="Amount" value={<span className="capitalize">{i.waste_disposal_amount || '—'}</span>} />
+        <>
+          {!hasVolume && legacyAmount ? (
+            <KV label="Amount" value={<span className="capitalize">{legacyAmount}</span>} />
+          ) : (
+            <KV label="Volume" value={fmtNum(i.waste_disposal_m3, ' m³')} />
+          )}
+          {i.waste_disposal_confirmed_cost != null && (
+            <KV
+              label="Cost"
+              value={
+                <span>
+                  {fmtCurrency(i.waste_disposal_confirmed_cost)}
+                  <span className="ml-2 text-xs text-slate-500">
+                    {i.waste_disposal_is_overridden ? 'overridden' : 'confirmed'}
+                  </span>
+                </span>
+              }
+            />
+          )}
+        </>
       )}
     </div>
   );
@@ -718,8 +744,12 @@ function CostEstimateSection({
     rcdQty: i.rcd_box_qty || 0,
     hepaAirScrubberQty: i.hepa_air_scrubber_qty || 0,
     hepaAirScrubberDays: i.hepa_air_scrubber_days || undefined,
+    wasteDisposalCost: i.waste_disposal_confirmed_cost ?? undefined,
   });
 
+  // Option 1 in Both-options mode omits waste on purpose: it is a single
+  // job-level cost billed once via the invoice, not per option. Mirrors the
+  // form's own Both-mode call in TechnicianInspectionForm.handleSave.
   const option1Result: CostEstimateResult | null = i.option_selected === 3
     ? calculateCostEstimate({
         nonDemoHours: calculatedNonDemoHours,

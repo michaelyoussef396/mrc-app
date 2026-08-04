@@ -39,12 +39,14 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 
 // Components
 import { formatDateTimeAU } from '@/lib/dateUtils';
+import { toDisplayTitleCase } from '@/lib/utils/displayFormat';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import PipelineTabs from '@/components/leads/PipelineTabs';
 import LeadCard, { type TransformedLead } from '@/components/leads/LeadCard';
@@ -511,7 +513,7 @@ const LeadsManagement = () => {
     if (!lead) return;
     setEmailSubject(`Your Inspection Report - ${lead.property || lead.suburb}`);
     setEmailBody(
-      `Dear ${lead.name},\n\nThank you for choosing Mould & Restoration Co. for your inspection.\n\nPlease find your comprehensive inspection report for ${lead.property}.\n\nIf you have any questions, please don't hesitate to contact us on 0433 880 403.\n\nKind regards,\nMould & Restoration Co.`
+      `Dear ${toDisplayTitleCase(lead.name)},\n\nThank you for choosing Mould & Restoration Co. for your inspection.\n\nPlease find your comprehensive inspection report for ${toDisplayTitleCase(lead.property)}.\n\nIf you have any questions, please don't hesitate to contact us on 1800 954 117.\n\nKind regards,\nMould & Restoration Co.`
     );
     setEmailTargetLead(lead);
   };
@@ -1168,6 +1170,7 @@ const LeadsManagement = () => {
               <Clock className="w-5 h-5" />
               Activity History
             </DialogTitle>
+            <DialogDescription className="sr-only">Recent activity recorded for this lead.</DialogDescription>
           </DialogHeader>
           {historyLoading ? (
             <div className="flex items-center justify-center py-12">
@@ -1209,6 +1212,7 @@ const LeadsManagement = () => {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Send Email to Client</DialogTitle>
+            <DialogDescription className="sr-only">Review and send the inspection report email to the customer.</DialogDescription>
           </DialogHeader>
           {emailTargetLead && (
             <div className="space-y-4">

@@ -64,7 +64,7 @@ export async function checkBookingConflict(
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
-    });
+    }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase());
     return {
       hasConflict: true,
       conflictDetails: `Already booked at ${time} (${conflict.title})`,

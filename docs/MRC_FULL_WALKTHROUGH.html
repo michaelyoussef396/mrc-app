@@ -3210,28 +3210,21 @@ flowchart TD
           <li><strong>Orphan file:</strong> <code>src/pages/AdminInvoiceHelper.tsx</code> exists
             on disk but has no route. The route was removed when payment tracking was simplified
             into a card on Lead Detail. <em>Fix:</em> delete the file.</li>
-          <li><strong>Dead tables to drop:</strong> <code>sms_logs</code>,
-            <code>offline_queue</code>, <code>pdf_versions</code>, <code>editable_fields</code>,
-            <code>equipment</code>, <code>operating_hours</code>, <code>pricing_settings</code>,
-            <code>password_reset_tokens</code>, <code>booking_tokens</code>,
-            <code>client_booking_tokens</code>, <code>company_settings</code>. None have any
-            <code>from('&lt;name&gt;')</code> caller in <code>src/</code>. See
-            <a href="#database">Section 9.1</a> for context. <em>Ship-ready migration:</em>
-            <pre style="background: var(--surface-alt); padding: 14px 16px; border-radius: var(--radius); overflow-x: auto; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; line-height: 1.5; margin: 10px 0 0; color: var(--ink);">-- supabase/migrations/YYYYMMDDHHMMSS_drop_dead_tables.sql
-DROP TABLE IF EXISTS
-  sms_logs,
-  offline_queue,
-  pdf_versions,
-  editable_fields,
-  equipment,
-  operating_hours,
-  pricing_settings,
-  password_reset_tokens,
-  booking_tokens,
-  client_booking_tokens,
-  company_settings
-CASCADE;</pre>
-          </li>
+          <li><strong>Dead-table cleanup — migration removed (correction, 2026-08-04).</strong>
+            A ready-to-run drop migration previously printed here listed
+            <code>pdf_versions</code> as unused. That was wrong: <code>pdf_versions</code> is
+            core to the PDF pipeline rebuild and has <strong>10 live query call sites</strong>
+            (<code>from('pdf_versions')</code>, grep-verified 2026-08-04) across 7 files in
+            <code>src/</code> and <code>supabase/functions/</code> — including
+            <code>ReportVersionHistory</code>, <code>StalePdfBanner</code>,
+            <code>reportPipeline</code>, <code>ViewReportPDF</code> and the
+            <code>generate-inspection-pdf</code> Edge Function — plus two more in
+            <code>api/render-pdf.ts</code>. Dropping it would break report versioning, the
+            stale-PDF banner, and the send-time mismatch guard. The runnable SQL has been
+            deleted from this document so it cannot be pasted into Studio by mistake; see
+            <code>docs/_audit/DOCS_AUDIT_2026-08-04.md</code> (Finding 4) for the full
+            verification. Any future table cleanup must start from a fresh caller audit, not
+            from this document.</li>
           <li><strong>Stale generated types:</strong>
             <code>src/integrations/supabase/types.ts</code> predates the
             <code>invoices</code>, <code>job_completions</code>, and
@@ -3293,11 +3286,17 @@ CASCADE;</pre>
             complain:</em> add a per-lead 5-second debounce in <code>useLeadUpdate</code> that
             batches the Slack message ("Updated: phone, email, lead source"). Optional; defer
             until the noise is genuinely a problem.</li>
-          <li><strong>Drop the unused <code>leads.notes</code> column.</strong> Separate from
-            <code>internal_notes</code>; was a "general notes" field, retained for legacy data
-            tolerance but no active code path writes it. <em>Fix:</em> a future migration
-            <code>ALTER TABLE leads DROP COLUMN notes;</code> after a manual scan confirms no
-            production rows still hold meaningful values worth preserving elsewhere.</li>
+          <li><strong>The <code>leads.notes</code> column — drop SQL removed (correction,
+            2026-08-04).</strong> A runnable column-drop statement previously printed here has
+            been deleted, because this document's table-liveness claims were proven unreliable
+            (see the <code>pdf_versions</code> correction above). The column may or may not be
+            dead: a grep of <code>src/</code> and <code>supabase/</code> on 2026-08-04 found
+            <strong>1 live read site and 0 writers</strong> — <code>useLeadSearch.ts:74</code>
+            selects <code>notes</code> from <code>leads</code> (admin lead search), so dropping
+            the column as previously written would break that query, even though no code path
+            writes the column and the search UI never displays it. Any future drop must start
+            from a fresh caller audit (including updating that select) plus a proper reviewed
+            migration file — not from SQL copied out of this document.</li>
         </ul>
 
         <h3><span class="pill deliberate">DELIBERATE</span> Out of scope by decision</h3>

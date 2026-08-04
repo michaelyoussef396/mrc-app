@@ -4,7 +4,10 @@
 // for every successful generation (Bucket A audited write — JWT-bound client).
 
 import { z } from 'https://esm.sh/zod@3.22.4'
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+// deps pin: supabase-js declares functions-js ^2.1.5, which floats to a version
+// esm.sh has no denonext build for, breaking every deploy. 2.4.4 satisfies the
+// same range and builds. Remove once esm.sh serves the newer target.
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?deps=@supabase/functions-js@2.4.4'
 import { stripBadUnicode } from '../_shared/stripBadUnicode.ts'
 
 const RequestBodySchema = z.object({
@@ -112,6 +115,10 @@ interface InspectionFormData {
   additionalInfoForTech?: string
   additionalEquipmentComments?: string
   parkingOptions?: string
+
+  // Project duration, computed by the caller from labour hours. The model must use
+  // this figure rather than deriving day counts from the per-area hour lines.
+  totalWorkDays?: number
 
   // Cost Estimate
   laborCost?: number
@@ -288,9 +295,9 @@ function buildUserPrompt(formData: InspectionFormData): string {
     if (formData.stainRemovingAntimicrobial) treatments.push('Stain-Removing Antimicrobial')
     if (formData.homeSanitationFogging) treatments.push('Home Sanitation/Fogging')
   }
-  if (treatments.length > 0) {
-    lines.push(`\nTREATMENT METHODS: ${treatments.join(', ')}`)
-  }
+  // Always emitted, even when empty: an absent heading let the model fall back on
+  // generic industry defaults and describe services the customer was never quoted.
+  lines.push(`\nTREATMENT METHODS: ${treatments.length > 0 ? treatments.join(', ') : 'None selected'}`)
 
   // Equipment
   const equipment: string[] = []
@@ -332,6 +339,11 @@ function buildUserPrompt(formData: InspectionFormData): string {
   if (formData.additionalEquipmentComments) lines.push(`EQUIPMENT NOTES: ${sanitizeField(formData.additionalEquipmentComments)}`)
   if (formData.internalNotes) lines.push(`\nINTERNAL NOTES: ${sanitizeField(formData.internalNotes)}`)
 
+  // Project duration — supplied so the model never does its own hours-to-days maths.
+  if (formData.totalWorkDays && formData.totalWorkDays > 0) {
+    lines.push(`\nTOTAL PROJECT WORK DAYS: ${formData.totalWorkDays} (on-site treatment and any drying run within this figure, not in addition to it)`)
+  }
+
   // Cost
   if (formData.totalIncGst && formData.totalIncGst > 0) {
     lines.push(`\nCOST ESTIMATE:`)
@@ -346,9 +358,15 @@ function buildUserPrompt(formData: InspectionFormData): string {
 // ============================================================================
 // CALL OPENROUTER API (with model fallback)
 // ============================================================================
+// flash-lite was primary until 2026-08-04, when it failed 3/3 structured generations
+// on DEV — each time finish_reason=error with zeroed usage, delivering a body cut
+// mid-sentence. flash answered the same prompt cleanly (finish_reason=stop). Demoted
+// rather than dropped: the evidence is from one junk-data inspection, so it may well
+// be fine on normal records, and a failure there now costs one cheap wasted call
+// instead of the whole request.
 const MODELS = [
-  'google/gemini-2.5-flash-lite', // primary  — cheap, fast, ~cost-neutral vs old 2.0-flash
-  'google/gemini-2.5-flash',      // fallback 1 — same family, headroom if lite is rate-limited
+  'google/gemini-2.5-flash',      // primary  — the model that actually completes this prompt
+  'google/gemini-2.5-flash-lite', // fallback 1 — cheap; on probation, see above
   'anthropic/claude-haiku-4.5',   // fallback 2 — different provider, survives a Google-wide outage
 ]
 
@@ -356,7 +374,11 @@ async function callOpenRouter(
   apiKey: string,
   systemPrompt: string,
   userPrompt: string,
-  maxTokens: number
+  maxTokens: number,
+  // Validates a candidate body before it is accepted. Throwing rejects this model
+  // and falls through to the next — a model that returns 200 with an unparseable
+  // body is a failed model, not a failed request.
+  validate?: (text: string) => void
 ): Promise<OpenRouterResult> {
   const errors: string[] = []
 
@@ -381,7 +403,22 @@ async function callOpenRouter(
             ],
             temperature: 0.7,
             max_tokens: maxTokens,
-            top_p: 0.95
+            top_p: 0.95,
+            // Thinking tokens bill against Gemini's maxOutputTokens, which OpenRouter
+            // maps max_tokens onto, so disabling reasoning keeps the whole budget
+            // available for the body. Verified to reach the provider: the flash call
+            // reports reasoning_tokens: 0 where thinking is otherwise on by default.
+            //
+            // This did NOT fix the flash-lite truncation it was first added for —
+            // that turned out to be finish_reason=error with zeroed usage (an upstream
+            // stream failure), not budget exhaustion. Kept because it removes a real
+            // failure mode and costs nothing, not because it fixed that bug.
+            //
+            // Deliberately not a token cap: a 1024-token thinking budget would ENABLE
+            // extended thinking on the claude-haiku-4.5 fallback, which Anthropic then
+            // rejects unless temperature is 1 — breaking the very fallback this change
+            // exists to make reachable.
+            reasoning: { enabled: false }
           })
         }
       )
@@ -394,11 +431,36 @@ async function callOpenRouter(
       }
 
       const result = await response.json()
-      const text = result?.choices?.[0]?.message?.content
+      const choice = result?.choices?.[0]
+      const text = choice?.message?.content
+      // Logged unconditionally: without finish_reason and the token counts, a
+      // truncated body is indistinguishable from a short answer in the logs.
+      console.log(`Model ${model} finish_reason=${choice?.finish_reason} usage=`, JSON.stringify(result?.usage ?? null))
       if (!text) {
         console.warn(`Model ${model} returned empty content`)
         errors.push(`${model}: empty response`)
         continue
+      }
+      // 'error' is an upstream stream failure that still delivers a partial body —
+      // observed on flash-lite (DEV, 2026-08-04): finish_reason=error, usage zeroed,
+      // ~1500 chars of a JSON object cut mid-sentence. Section mode passes no
+      // validate callback, so this guard is its only protection against a
+      // half-sentence being written straight into a customer report.
+      if (choice?.finish_reason === 'length' || choice?.finish_reason === 'error') {
+        console.warn(`Model ${model} truncated (finish_reason=${choice.finish_reason}); trying next`)
+        errors.push(`${model}: truncated (${choice.finish_reason})`)
+        continue
+      }
+      if (validate) {
+        try {
+          validate(text)
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          console.warn(`Model ${model} failed validation: ${msg}; trying next`)
+          console.warn(`Rejected body (first 1500 chars):`, text.slice(0, 1500))
+          errors.push(`${model}: ${msg}`)
+          continue
+        }
       }
       console.log(`Success with model: ${model}`)
       return {
@@ -709,8 +771,8 @@ IMPORTANT: Return ONLY valid JSON with no additional text. Use this exact struct
 
 {
   "what_we_found": "VALUE PROPOSITION - WHAT WE FOUND subsection. Write 1-2 concise sentences describing the main issue and its impact on the property. Keep it brief — this is a summary for the cover page.",
-  "detailed_analysis": "This is the MAIN SECTION — Problem Analysis & Recommendations. Generate using this EXACT format with subsections separated by \\n\\n:\\n\\n**WHAT WE DISCOVERED**\\n[Comprehensive paragraph: specific address, what was found, severity, impact. Reference inspection data: temp, humidity, moisture readings, areas affected. Be specific with room names and measurements.]\\n\\n**\\ud83d\\udd0d IDENTIFIED CAUSES**\\n\\n**Primary Cause:**\\n- [Single clear statement of main issue]\\n\\n**Contributing Factors:**\\n1. [Factor 1 with specific data from inspection]\\n2. [Factor 2 with specific data]\\n3. [Factor 3 with specific data]\\n4. [Factor 4 if applicable]\\n5. [Factor 5 if applicable]\\n6. [Factor 6 if applicable]\\n\\n**WHY THIS HAPPENED**\\n[Paragraph explaining mechanism: how this type of failure occurs, why moisture persists, consequences if not addressed]\\n\\n**\\ud83d\\udccb RECOMMENDATIONS**\\n\\n**IMMEDIATE ACTIONS WEEK 1**\\n1. [Urgent action 1 with explanation]\\n2. [Urgent action 2 with explanation]\\n3. [Urgent action 3 with explanation]\\n4. [Urgent action 4 with explanation]\\n\\n**LONG-TERM PROTECTION**\\n- [Protection measure 1 with explanation]\\n- [Protection measure 2 with explanation]\\n- [Protection measure 3 with explanation]\\n\\n**WHAT SUCCESS LOOKS LIKE**\\n[Paragraph describing expected outcomes, air quality restoration, timeline for reoccupancy, warranty coverage]\\n\\n**TIMELINE**\\n- MRC treatment: X days\\n- Drying equipment: X days\\n- Specialist work (if needed): X days\\n- Total project: X days\\n- Property reoccupancy: X hours/days after completion",
-  "what_we_will_do": "WHAT WE'RE GOING TO DO section — detailed treatment plan. Write 2-3 paragraphs describing: the complete remediation approach, step-by-step treatment process (HEPA vacuuming, antimicrobial application, stain removal, fogging), equipment to be deployed (specific quantities of dehumidifiers, air movers, RCD boxes), any demolition or material removal required, drying period, and expected outcomes. Be specific with quantities and timelines. This is a standalone section, not a 1-2 sentence summary.",
+  "detailed_analysis": "This is the MAIN SECTION — Problem Analysis & Recommendations. Generate using this EXACT format with subsections separated by \\n\\n:\\n\\n**WHAT WE DISCOVERED**\\n[Comprehensive paragraph: specific address, what was found, severity, impact. Reference inspection data: temp, humidity, moisture readings, areas affected. Be specific with room names and measurements.]\\n\\n**🔍 IDENTIFIED CAUSES**\\n\\n**Primary Cause:**\\n- [Single clear statement of main issue]\\n\\n**Contributing Factors:**\\n1. [Factor 1 with specific data from inspection]\\n2. [Factor 2 with specific data]\\n3. [Factor 3 with specific data]\\n4. [Factor 4 if applicable]\\n5. [Factor 5 if applicable]\\n6. [Factor 6 if applicable]\\n\\n**WHY THIS HAPPENED**\\n[Paragraph explaining mechanism: how this type of failure occurs, why moisture persists, consequences if not addressed]\\n\\n**📋 RECOMMENDATIONS**\\n\\n**IMMEDIATE ACTIONS WEEK 1**\\n1. [Urgent action 1 with explanation]\\n2. [Urgent action 2 with explanation]\\n3. [Urgent action 3 with explanation]\\n4. [Urgent action 4 with explanation]\\n\\n**LONG-TERM PROTECTION**\\n- [Protection measure 1 with explanation]\\n- [Protection measure 2 with explanation]\\n- [Protection measure 3 with explanation]\\n\\n**WHAT SUCCESS LOOKS LIKE**\\n[Paragraph describing expected outcomes, air quality restoration, timeline for reoccupancy, warranty coverage]\\n\\n**TIMELINE**\\n- Total project: [use the TOTAL PROJECT WORK DAYS figure from the inspection data verbatim — never calculate your own]\\n- On-site treatment: [days, within the total above]\\n- Drying equipment: [include this line ONLY if DRYING EQUIPMENT is listed in the data; drying runs concurrently with treatment, never added on top]\\n- Property reoccupancy: [hours/days after completion]",
+  "what_we_will_do": "WHAT WE'RE GOING TO DO section — detailed treatment plan. Write 2-3 paragraphs describing: the complete remediation approach, the step-by-step process for EACH method listed under TREATMENT METHODS in the inspection data (and no others), the equipment listed under DRYING EQUIPMENT with its quantities (omit entirely if no equipment is listed), and the expected outcomes. Be specific with quantities and timelines. This is a standalone section, not a 1-2 sentence summary.",
   ${demolitionInstruction}
 }
 
@@ -724,7 +786,9 @@ CRITICAL RULES:
 - Use \\n\\n to separate subsections
 - Use \\n for line breaks within lists
 - Contributing Factors MUST be numbered (1. 2. 3. etc.)
-- Include specific timelines with actual day counts calculated from treatment hours
+- Take every day count from the TOTAL PROJECT WORK DAYS figure in the inspection data; never derive durations from the hour figures yourself, and never sum treatment and drying into a longer total
+- Describe ONLY the services listed under TREATMENT METHODS and the equipment listed under DRYING EQUIPMENT. Never infer, suggest or describe any remediation step absent from those lists — no antimicrobial or fogging treatment, no containment, no demolition, and above all no clearance or air-quality testing, unless it is explicitly listed. An unlisted service is a commitment to unquoted work
+- Where a structured value and a free-text comment disagree (a moisture reading against a range quoted in the comments, a recorded dwelling type against the customer's description), do not silently pick one. State both and mark it [DATA CONFLICT: X vs Y — confirm before sending]
 
 Return ONLY the JSON object:`
 
@@ -732,7 +796,10 @@ Return ONLY the JSON object:`
 
       let cleanedText = ''
       try {
-        const aiResult = await callOpenRouter(openrouterApiKey, MRC_SYSTEM_PROMPT, structuredUserPrompt, 5000)
+        const aiResult = await callOpenRouter(
+          openrouterApiKey, MRC_SYSTEM_PROMPT, structuredUserPrompt, 5000,
+          (t) => { JSON.parse(extractJson(t)) }
+        )
         console.log('Raw AI response (first 1500 chars):', aiResult.text.slice(0, 1500))
 
         cleanedText = extractJson(aiResult.text)
@@ -817,6 +884,17 @@ Return ONLY the JSON object:`
     let userPrompt: string
     let maxTokens = 800
 
+    // Prose form of the scope, duration and conflict rules, appended to every
+    // fresh-generation section prompt. isRegeneration requires typed feedback, so
+    // regenerating a section without any lands here rather than in regenPreamble — each
+    // branch needs its own copy or that route bypasses the constraints entirely. Several
+    // of these prompts ask for a timeline in passing, so the duration rule travels with
+    // them. Structured mode and regenPreamble carry the same rules as numbered list items
+    // to match their surrounding format.
+    const NARRATIVE_ACCURACY_RULES = `Describe ONLY the services listed under TREATMENT METHODS and the equipment listed under DRYING EQUIPMENT. Never infer, suggest or describe a remediation step absent from those lists — no antimicrobial or fogging treatment, no containment, no demolition, and above all no clearance or air-quality testing, unless it is explicitly listed. An unlisted service is a commitment to unquoted work.
+Take any day count from the TOTAL PROJECT WORK DAYS figure in the inspection data; never derive durations from the hour figures, and never sum treatment and drying into a longer total.
+Where a structured value and a free-text comment disagree, state both and mark it [DATA CONFLICT: X vs Y — confirm before sending] rather than silently choosing one.`
+
     // Regeneration preamble
     const regenPreamble = (sectionName: string, formatNote: string) => {
       const safeContent = sanitizeField(currentContent)
@@ -836,6 +914,9 @@ CRITICAL INSTRUCTIONS:
 5. ${formatNote}
 6. Use Australian English (mould not mold)
 7. Maintain professional tone for a customer-facing report
+8. Take every day count from the TOTAL PROJECT WORK DAYS figure in the inspection data; never derive durations from the hour figures, and never sum treatment and drying into a longer total
+9. Describe ONLY the services listed under TREATMENT METHODS and the equipment listed under DRYING EQUIPMENT — never introduce a remediation step absent from those lists, and never mention clearance or air-quality testing
+10. Where a structured value and a free-text comment disagree, state both and mark it [DATA CONFLICT: X vs Y — confirm before sending] rather than silently choosing one
 
 [Inspection data for reference]:
 ${userDataPrompt}
@@ -854,6 +935,7 @@ ${userDataPrompt}
 Write 1-2 concise sentences describing the main issue found and its impact on the property.
 This appears on the cover/summary page so keep it brief but impactful.
 Reference specific areas and severity.
+${NARRATIVE_ACCURACY_RULES}
 Return ONLY the 1-2 sentences, nothing else.`
       }
     } else if (section === 'whatWeWillDo') {
@@ -867,12 +949,11 @@ ${userDataPrompt}
 
 Write 2-3 detailed paragraphs describing:
 - The complete remediation approach and step-by-step treatment process
-- Treatment methods: HEPA vacuuming, antimicrobial application, stain removal, fogging
-- Equipment to be deployed with specific quantities (dehumidifiers, air movers, RCD boxes)
-- Any demolition or material removal required
-- Drying period and monitoring
+- The step-by-step process for EACH method listed under TREATMENT METHODS in the data, and no others
+- The equipment listed under DRYING EQUIPMENT with its quantities (omit entirely if none is listed)
 - Expected outcomes and timeline
 
+${NARRATIVE_ACCURACY_RULES}
 Be specific with quantities, methods, and timelines. This is a standalone treatment plan section.
 Australian English. Professional but reassuring tone.
 Return ONLY the paragraphs, nothing else.`
@@ -924,13 +1005,12 @@ Use this EXACT format with **bold** headers and emoji icons:
 [Paragraph describing expected outcomes, air quality restoration, timeline for reoccupancy, warranty coverage]
 
 **TIMELINE**
-- MRC treatment: X days
-- Drying equipment: X days
-- Specialist work (if needed): X days
-- Total project: X days
-- Property reoccupancy: X hours/days after completion
+- Total project: [use the TOTAL PROJECT WORK DAYS figure from the inspection data verbatim — never calculate your own]
+- On-site treatment: [days, within the total above]
+- Drying equipment: [include this line ONLY if DRYING EQUIPMENT is listed in the data; drying runs concurrently with treatment, never added on top]
+- Property reoccupancy: [hours/days after completion]
 
-CRITICAL: Use real data from the inspection — temperatures, humidity, moisture readings, room names. Do NOT use placeholder brackets. Australian English. Include specific timelines with actual day counts.
+CRITICAL: Use real data from the inspection — temperatures, humidity, moisture readings, room names. Do NOT use placeholder brackets. Australian English. Take every day count from the TOTAL PROJECT WORK DAYS figure in the inspection data; never derive durations from hours yourself. Reference ONLY the services listed under TREATMENT METHODS — never introduce a remediation step absent from that list, and never mention clearance or air-quality testing. Where a structured value and a free-text comment disagree, state both and mark it [DATA CONFLICT: X vs Y — confirm before sending].
 Return ONLY the formatted analysis text, no JSON wrapping.`
       }
     } else if (section === 'demolitionDetails') {
@@ -952,13 +1032,15 @@ Use this format with **bold** headers:
 [Continue for all demolition areas]
 
 Reference specific rooms, materials, dimensions, and demolition hours from the data.
+${NARRATIVE_ACCURACY_RULES}
 Return ONLY the formatted demolition details, no JSON wrapping.`
       }
     } else {
       userPrompt = `Generate a brief professional mould inspection summary based on this data:
 ${userDataPrompt}
 
-Write 2 paragraphs in flowing prose. Australian English.`
+Write 2 paragraphs in flowing prose. Australian English.
+${NARRATIVE_ACCURACY_RULES}`
     }
 
     // Inject reviewer feedback for fresh-generation paths. Regeneration paths
