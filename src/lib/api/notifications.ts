@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { toDisplayTitleCase } from '@/lib/utils/displayFormat';
 
 // ============================================================================
 // CONSTANTS
@@ -128,8 +129,6 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
   .sig-details-cell p { margin: 0 0 2px !important; font-size: 13px; color: #555; }
   .sig-details-cell a { color: #121D73; text-decoration: none; }
   .sig-inquiries { font-size: 13px; color: #666; margin: 14px 0 6px !important; }
-  .sig-review { font-size: 13px; margin: 0 !important; }
-  .sig-review a { color: #121D73; font-weight: 600; text-decoration: none; }
   .footer { background: #f8f9fa; padding: 0 24px 24px; text-align: center; }
   .footer p { margin: 0; font-size: 11px; color: #999; line-height: 1.5; }
   @media only screen and (max-width: 620px) {
@@ -151,14 +150,14 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
       ${bodyHtml}
     </div>
     <div class="signature">
-      <p class="sign-off">Best Regards,<br>The MRC Team – Mould &amp; Restoration Experts</p>
+      <p class="sign-off">Best Regards,<br>The MRC Team – Mould &amp; Restoration Co.</p>
       <table class="sig-table" cellpadding="0" cellspacing="0">
         <tr>
           <td class="sig-logo-cell">
             <img src="${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
           </td>
           <td class="sig-details-cell">
-            <p class="sig-company">Mould and Restoration Co.</p>
+            <p class="sig-company">Mould &amp; Restoration Co.</p>
             <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
             <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
             <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
@@ -167,10 +166,9 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
         </tr>
       </table>
       <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
-      <p class="sig-review">Write a Review: <a href="${GOOGLE_REVIEW_URL}">Leave us a Google Review</a></p>
     </div>
     <div class="footer">
-      <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it. Mould and Restoration Co. does not accept liability for any damage caused by this email or its attachments.</p>
+      <p>This email and any attachments are confidential and intended solely for the addressee — if you've received it in error, please notify the sender and delete it.</p>
     </div>
   </div>
 </div>
@@ -200,13 +198,13 @@ export interface ReportApprovedData {
 export function buildBookingConfirmationHtml(data: BookingConfirmationData): string {
   return wrapInBrandedTemplate(`
     <h2>Booking Confirmed</h2>
-    <p>Hi ${data.customerName},</p>
+    <p>Hi ${toDisplayTitleCase(data.customerName)},</p>
     <p>Your mould inspection has been confirmed. Here are the details:</p>
     <div class="details-box">
       <table>
         <tr><td>Date</td><td>${data.date}</td></tr>
         <tr><td>Time</td><td>${data.time}</td></tr>
-        <tr><td>Address</td><td>${data.address}</td></tr>
+        <tr><td>Address</td><td>${toDisplayTitleCase(data.address)}</td></tr>
         ${data.technicianName ? `<tr><td>Technician</td><td>${data.technicianName}</td></tr>` : ''}
       </table>
     </div>
@@ -226,18 +224,17 @@ export function buildReportApprovedHtml(data: ReportApprovedData): string {
   return wrapInBrandedTemplate(`
     <h2>Your Inspection Report is Ready</h2>
     ${customMessageHtml || `
-    <p>Hi ${data.customerName},</p>
-    <p>Great news — your mould inspection report for <strong>${data.address}</strong> has been completed and approved${data.jobNumber ? ` (Ref: ${data.jobNumber})` : ''}.</p>
+    <p>Hi ${toDisplayTitleCase(data.customerName)},</p>
+    <p>Great news — your mould inspection report for <strong>${toDisplayTitleCase(data.address)}</strong> has been completed and approved${data.jobNumber ? ` (Ref: ${data.jobNumber})` : ''}.</p>
     <p>Our team has thoroughly reviewed the findings and the report is now ready for you.</p>
     `}
     <div class="details-box">
       <table>
-        <tr><td>Property</td><td>${data.address}</td></tr>
+        <tr><td>Property</td><td>${toDisplayTitleCase(data.address)}</td></tr>
         ${data.jobNumber ? `<tr><td>Reference</td><td>${data.jobNumber}</td></tr>` : ''}
         <tr><td>Status</td><td style="color:#16a34a; font-weight:600;">Approved &amp; Ready</td></tr>
       </table>
     </div>
-    <p>If you have any questions about the report or would like to discuss remediation options, please don't hesitate to get in touch.</p>
     <p style="margin-top:24px;">
       <a href="tel:1800954117" class="cta-button">Call Us to Discuss</a>
     </p>
@@ -269,8 +266,8 @@ export function buildJobBookingConfirmationHtml(data: JobBookingConfirmationData
   const durationLabel = `${data.durationDays} ${data.durationDays === 1 ? 'day' : 'days'} (${data.totalHours} hours)`;
   return wrapInBrandedTemplate(`
     <h2>Job Booking Confirmed</h2>
-    <p>Hi ${data.customerName},</p>
-    <p>Great news — your mould remediation job at <strong>${data.address}</strong> has been confirmed and scheduled.</p>
+    <p>Hi ${toDisplayTitleCase(data.customerName)},</p>
+    <p>Great news — your mould remediation job at <strong>${toDisplayTitleCase(data.address)}</strong> has been confirmed and scheduled.</p>
     <div class="details-box">
       <table>
         <tr><td>Reference</td><td>${data.leadNumber}</td></tr>
@@ -278,7 +275,7 @@ export function buildJobBookingConfirmationHtml(data: JobBookingConfirmationData
         <tr><td>Start Time</td><td>${data.startTime} daily</td></tr>
         <tr><td>Duration</td><td>${durationLabel}</td></tr>
         <tr><td>Technician</td><td>${data.technicianName}</td></tr>
-        <tr><td>Address</td><td>${data.address}</td></tr>
+        <tr><td>Address</td><td>${toDisplayTitleCase(data.address)}</td></tr>
       </table>
     </div>
     <p><strong>What to expect:</strong></p>
@@ -290,13 +287,13 @@ export function buildJobBookingConfirmationHtml(data: JobBookingConfirmationData
 export function buildInspectionReminderHtml(data: InspectionReminderData): string {
   return wrapInBrandedTemplate(`
     <h2>Inspection Reminder</h2>
-    <p>Hi ${data.customerName},</p>
+    <p>Hi ${toDisplayTitleCase(data.customerName)},</p>
     <p>This is a friendly reminder that your mould inspection is coming up in <strong>2 days</strong>.</p>
     <div class="details-box">
       <table>
         <tr><td>Date</td><td>${data.date}</td></tr>
         <tr><td>Time</td><td>${data.time}</td></tr>
-        <tr><td>Address</td><td>${data.address}</td></tr>
+        <tr><td>Address</td><td>${toDisplayTitleCase(data.address)}</td></tr>
       </table>
     </div>
     <p><strong>Please ensure:</strong></p>
@@ -373,12 +370,12 @@ export function buildJobReportEmailHtml(params: {
   return wrapInBrandedTemplate(`
     <h2>Job Completion Report</h2>
     ${customMessageHtml || `
-    <p>Dear ${params.customerName},</p>
+    <p>Dear ${toDisplayTitleCase(params.customerName)},</p>
     <p>Please find your job completion report for the remediation work carried out at:</p>
     `}
     <div class="details-box">
       <table>
-        <tr><td>Property</td><td>${params.propertyAddress}</td></tr>
+        <tr><td>Property</td><td>${toDisplayTitleCase(params.propertyAddress)}</td></tr>
         <tr><td>Job Number</td><td>${params.jobNumber}</td></tr>
         <tr><td>Completion Date</td><td>${params.completionDate}</td></tr>
         ${params.technicianName ? `<tr><td>Technician</td><td>${params.technicianName}</td></tr>` : ''}
@@ -449,8 +446,8 @@ export interface GoogleReviewEmailParams {
 export function buildGoogleReviewEmailHtml(params: GoogleReviewEmailParams): string {
   return wrapInBrandedTemplate(`
     <h2>Thank You — Would You Leave Us a Review?</h2>
-    <p>Dear ${params.customerName},</p>
-    <p>Thank you for trusting Mould &amp; Restoration Co with your remediation work (${params.jobNumber}). We hope you're thrilled with the result.</p>
+    <p>Dear ${toDisplayTitleCase(params.customerName)},</p>
+    <p>Thank you for trusting Mould &amp; Restoration Co. with your remediation work (${params.jobNumber}). We hope you're thrilled with the result.</p>
     <p>Your feedback means the world to small businesses like ours. If you have 30 seconds, a quick Google review would genuinely make our day:</p>
     <p style="margin-top:24px;text-align:center;">
       <a href="${GOOGLE_REVIEW_URL}" class="cta-button">Leave us a Google Review</a>

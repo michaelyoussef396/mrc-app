@@ -39,8 +39,6 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
   .sig-details-cell p { margin: 0 0 2px !important; font-size: 13px; color: #555; }
   .sig-details-cell a { color: #121D73; text-decoration: none; }
   .sig-inquiries { font-size: 13px; color: #666; margin: 14px 0 6px !important; }
-  .sig-review { font-size: 13px; margin: 0 !important; }
-  .sig-review a { color: #121D73; font-weight: 600; text-decoration: none; }
   .footer { background: #f8f9fa; padding: 0 24px 24px; text-align: center; }
   .footer p { margin: 0; font-size: 11px; color: #999; line-height: 1.5; }
   @media only screen and (max-width: 620px) {
@@ -62,14 +60,14 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
       ${bodyHtml}
     </div>
     <div class="signature">
-      <p class="sign-off">Best Regards,<br>The MRC Team – Mould &amp; Restoration Experts</p>
+      <p class="sign-off">Best Regards,<br>The MRC Team – Mould &amp; Restoration Co.</p>
       <table class="sig-table" cellpadding="0" cellspacing="0">
         <tr>
           <td class="sig-logo-cell">
             <img src="${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
           </td>
           <td class="sig-details-cell">
-            <p class="sig-company">Mould and Restoration Co.</p>
+            <p class="sig-company">Mould &amp; Restoration Co.</p>
             <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
             <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
             <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
@@ -78,15 +76,35 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
         </tr>
       </table>
       <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
-      <p class="sig-review">Write a Review: <a href="https://g.page/r/CSmcatb7uSq9EBM/review">Leave us a Google Review</a></p>
     </div>
     <div class="footer">
-      <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it. Mould and Restoration Co. does not accept liability for any damage caused by this email or its attachments.</p>
+      <p>This email and any attachments are confidential and intended solely for the addressee — if you've received it in error, please notify the sender and delete it.</p>
     </div>
   </div>
 </div>
 </body>
 </html>`;
+}
+
+// Display-only copy of src/lib/utils/displayFormat.ts (Deno can't import src/).
+// Keep the two implementations in sync.
+const AU_STATE_ABBREVIATIONS = new Set(['VIC', 'NSW', 'QLD', 'SA', 'WA', 'NT', 'ACT', 'TAS']);
+
+function toDisplayTitleCase(value: string): string {
+  if (!value) return value;
+  return value
+    .split(/(\s+)/)
+    .map((token) => {
+      if (!/[a-zA-Z]/.test(token) || /\d/.test(token)) return token;
+      const isAllCaps = token === token.toUpperCase();
+      const isAllLower = token === token.toLowerCase();
+      if (isAllCaps && AU_STATE_ABBREVIATIONS.has(token.replace(/[^a-zA-Z]/g, ''))) return token;
+      if (!isAllCaps && !isAllLower) return token;
+      return token
+        .toLowerCase()
+        .replace(/(^|['’-])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase());
+    })
+    .join('');
 }
 
 function buildReminderHtml(data: {
@@ -97,13 +115,13 @@ function buildReminderHtml(data: {
 }): string {
   return wrapInBrandedTemplate(`
     <h2>Inspection Reminder</h2>
-    <p>Hi ${data.customerName},</p>
+    <p>Hi ${toDisplayTitleCase(data.customerName)},</p>
     <p>This is a friendly reminder that your mould inspection is coming up in <strong>2 days</strong>.</p>
     <div class="details-box">
       <table>
         <tr><td>Date</td><td>${data.date}</td></tr>
         <tr><td>Time</td><td>${data.time}</td></tr>
-        <tr><td>Address</td><td>${data.address}</td></tr>
+        <tr><td>Address</td><td>${toDisplayTitleCase(data.address)}</td></tr>
       </table>
     </div>
     <p><strong>Please ensure:</strong></p>
@@ -263,11 +281,11 @@ Deno.serve(async (_req) => {
         timeZone: 'Australia/Melbourne',
       });
       const timeStr = startDate.toLocaleTimeString('en-AU', {
-        hour: '2-digit',
+        hour: 'numeric',
         minute: '2-digit',
         hour12: true,
         timeZone: 'Australia/Melbourne',
-      });
+      }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase());
       const dayOfWeek = startDate.toLocaleDateString('en-AU', {
         weekday: 'long',
         timeZone: 'Australia/Melbourne',
@@ -293,7 +311,7 @@ Deno.serve(async (_req) => {
 
       // Send email
       const result = await sendWithRetry({
-        from: 'Mould & Restoration Co <admin@mouldandrestoration.com.au>',
+        from: 'Mould & Restoration Co. <admin@mouldandrestoration.com.au>',
         to: [lead.email],
         subject,
         html,

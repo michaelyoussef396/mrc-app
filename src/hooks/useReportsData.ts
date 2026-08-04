@@ -283,7 +283,7 @@ export function generateTimeline(
       label = current.toLocaleDateString('en-AU', { month: 'short' });
       current.setMonth(current.getMonth() + 1);
     } else if (period === 'today') {
-      label = current.toLocaleTimeString('en-AU', { hour: 'numeric', hour12: true });
+      label = current.toLocaleTimeString('en-AU', { hour: 'numeric', hour12: true }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase());
       current.setHours(current.getHours() + 1);
     } else {
       label = current.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });

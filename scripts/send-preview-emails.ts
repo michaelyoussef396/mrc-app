@@ -9,7 +9,7 @@
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const PREVIEW_TO = process.env.PREVIEW_TO || 'michaelyoussef396@gmail.com';
-const SENDER = 'Mould & Restoration Co <noreply@mrcsystem.com>';
+const SENDER = 'Mould & Restoration Co. <noreply@mrcsystem.com>';
 const REPLY_TO = 'admin@mrcsystem.com';
 const DELAY_MS = 3000;
 
@@ -97,8 +97,6 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
   .sig-details-cell p { margin: 0 0 2px !important; font-size: 13px; color: #555; }
   .sig-details-cell a { color: #121D73; text-decoration: none; }
   .sig-inquiries { font-size: 13px; color: #666; margin: 14px 0 6px !important; }
-  .sig-review { font-size: 13px; margin: 0 !important; }
-  .sig-review a { color: #121D73; font-weight: 600; text-decoration: none; }
   .footer { background: #f8f9fa; padding: 0 24px 24px; text-align: center; }
   .footer p { margin: 0; font-size: 11px; color: #999; line-height: 1.5; }
   @media only screen and (max-width: 620px) {
@@ -120,14 +118,14 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
       ${bodyHtml}
     </div>
     <div class="signature">
-      <p class="sign-off">Best Regards,<br>The MRC Team – Mould &amp; Restoration Experts</p>
+      <p class="sign-off">Best Regards,<br>The MRC Team – Mould &amp; Restoration Co.</p>
       <table class="sig-table" cellpadding="0" cellspacing="0">
         <tr>
           <td class="sig-logo-cell">
             <img src="https://ecyivrxjpsmjmexqatym.supabase.co/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
           </td>
           <td class="sig-details-cell">
-            <p class="sig-company">Mould and Restoration Co.</p>
+            <p class="sig-company">Mould &amp; Restoration Co.</p>
             <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
             <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
             <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
@@ -136,10 +134,9 @@ function wrapInBrandedTemplate(bodyHtml: string): string {
         </tr>
       </table>
       <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
-      <p class="sig-review">Write a Review: <a href="https://g.page/r/CSmcatb7uSq9EBM/review">Leave us a Google Review</a></p>
     </div>
     <div class="footer">
-      <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it. Mould and Restoration Co. does not accept liability for any damage caused by this email or its attachments.</p>
+      <p>This email and any attachments are confidential and intended solely for the addressee — if you've received it in error, please notify the sender and delete it.</p>
     </div>
   </div>
 </div>
@@ -252,7 +249,6 @@ function buildReportApprovedHtml(d: { customerName: string; address: string; job
         <tr><td>Status</td><td style="color:#16a34a; font-weight:600;">Approved &amp; Ready</td></tr>
       </table>
     </div>
-    <p>If you have any questions about the report or would like to discuss remediation options, please don't hesitate to get in touch.</p>
     <p style="margin-top:24px;">
       <a href="tel:1800954117" class="cta-button">Call Us to Discuss</a>
     </p>
@@ -317,7 +313,7 @@ function buildGoogleReviewEmailHtml(p: { customerName: string; jobNumber: string
   return wrapInBrandedTemplate(`
     <h2>Thank You — Would You Leave Us a Review?</h2>
     <p>Dear ${p.customerName},</p>
-    <p>Thank you for trusting Mould &amp; Restoration Co with your remediation work (${p.jobNumber}). We hope you're thrilled with the result.</p>
+    <p>Thank you for trusting Mould &amp; Restoration Co. with your remediation work (${p.jobNumber}). We hope you're thrilled with the result.</p>
     <p>Your feedback means the world to small businesses like ours. If you have 30 seconds, a quick Google review would genuinely make our day:</p>
     <p style="margin-top:24px;text-align:center;">
       <a href="https://g.page/r/CSmcatb7uSq9EBM/review" class="cta-button">Leave a Google Review</a>
@@ -350,7 +346,7 @@ const emails = [
   {
     n: 1,
     name: 'Enquiry confirmation',
-    subject: '[PREVIEW] Thank you for your enquiry - Mould & Restoration Co',
+    subject: '[PREVIEW] Thank you for your enquiry - Mould & Restoration Co.',
     html: buildConfirmationEmailHtml(),
   },
   {
@@ -419,7 +415,7 @@ const emails = [
   {
     n: 7,
     name: 'Google Review Request',
-    subject: '[PREVIEW] Thank you from Mould & Restoration Co',
+    subject: '[PREVIEW] Thank you from Mould & Restoration Co.',
     html: buildGoogleReviewEmailHtml({
       customerName: LEAD.full_name,
       jobNumber: JOB_COMPLETION.job_number,

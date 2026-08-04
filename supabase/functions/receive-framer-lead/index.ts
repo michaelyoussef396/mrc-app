@@ -232,6 +232,52 @@ function buildSlackBlocks(lead: FramerLeadPayload, createdAt: string, isPossible
 // Confirmation email – branded MRC template
 // ---------------------------------------------------------------------------
 
+// Display-only copy of src/lib/utils/displayFormat.ts (Deno can't import src/).
+// Keep the two implementations in sync.
+const AU_STATE_ABBREVIATIONS = new Set(['VIC', 'NSW', 'QLD', 'SA', 'WA', 'NT', 'ACT', 'TAS'])
+
+function toDisplayTitleCase(value: string): string {
+  if (!value) return value
+  return value
+    .split(/(\s+)/)
+    .map((token) => {
+      if (!/[a-zA-Z]/.test(token) || /\d/.test(token)) return token
+      const isAllCaps = token === token.toUpperCase()
+      const isAllLower = token === token.toLowerCase()
+      if (isAllCaps && AU_STATE_ABBREVIATIONS.has(token.replace(/[^a-zA-Z]/g, ''))) return token
+      if (!isAllCaps && !isAllLower) return token
+      return token
+        .toLowerCase()
+        .replace(/(^|['’-])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase())
+    })
+    .join('')
+}
+
+// Port of src/lib/bookingService.ts formatTimeForDisplay, widened to accept
+// the suffixed values TIME_RE admits ("14:30", "9:30 am", "2:30PM").
+// Label strings like "Morning (8am–12pm)" pass through unchanged.
+function formatPreferredTimeForDisplay(timeStr: string): string {
+  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(am|pm)?$/i)
+  if (!match) return timeStr
+  let hours = Number(match[1])
+  const minutes = match[2]
+  const meridiem = match[3]?.toUpperCase()
+  if (meridiem === 'PM' && hours < 12) hours += 12
+  if (meridiem === 'AM' && hours === 12) hours = 0
+  const period = hours >= 12 ? 'PM' : 'AM'
+  const displayHour = hours % 12 || 12
+  return `${displayHour}:${minutes} ${period}`
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
   let formattedDate = ''
   if (lead.preferred_date) {
@@ -240,10 +286,11 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
   }
 
   const detailRows = [
-    `<tr><td>Name</td><td>${lead.full_name}</td></tr>`,
-    `<tr><td>Address</td><td>${lead.street}${lead.suburb ? ', ' + lead.suburb : ''}</td></tr>`,
+    `<tr><td>Name</td><td>${toDisplayTitleCase(lead.full_name)}</td></tr>`,
+    `<tr><td>Address</td><td>${toDisplayTitleCase(lead.street)}${lead.suburb ? ', ' + toDisplayTitleCase(lead.suburb) : ''}</td></tr>`,
+    lead.postcode ? `<tr><td>Postcode</td><td>${lead.postcode}</td></tr>` : '',
     formattedDate ? `<tr><td>Preferred Date</td><td>${formattedDate}</td></tr>` : '',
-    lead.preferred_time ? `<tr><td>Preferred Time</td><td>${lead.preferred_time}</td></tr>` : '',
+    lead.preferred_time ? `<tr><td>Preferred Time</td><td>${formatPreferredTimeForDisplay(lead.preferred_time)}</td></tr>` : '',
     lead.preferred_day ? `<tr><td>Preferred Day</td><td>${lead.preferred_day}</td></tr>` : '',
     lead.issue_type ? `<tr><td>Type of Issue</td><td>${lead.issue_type}</td></tr>` : '',
     lead.property_type ? `<tr><td>Property Type</td><td>${lead.property_type}</td></tr>` : '',
@@ -252,13 +299,17 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
 
   const bodyHtml = `
       <h2>Thank You for Your Enquiry</h2>
-      <p>Hi ${lead.full_name},</p>
+      <p>Hi ${toDisplayTitleCase(lead.full_name)},</p>
       <p>Thank you for reaching out to Mould &amp; Restoration Co. We have received your enquiry and a member of our team will be in touch shortly to confirm your booking.</p>
       <div class="details-box">
         <table>
           ${detailRows}
         </table>
       </div>
+      ${lead.issue_description ? `
+      <p><strong>What you told us:</strong></p>
+      <p>${escapeHtml(lead.issue_description).replace(/\n/g, '<br>')}</p>
+      ` : ''}
       <p><strong>What happens next?</strong></p>
       <ol style="margin:16px 0;padding-left:20px;font-size:14px;color:#333;">
         <li style="padding:4px 0;">Our team will call you to confirm the inspection date and time</li>
@@ -298,8 +349,6 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
   .sig-details-cell p { margin: 0 0 2px !important; font-size: 13px; color: #555; }
   .sig-details-cell a { color: #121D73; text-decoration: none; }
   .sig-inquiries { font-size: 13px; color: #666; margin: 14px 0 6px !important; }
-  .sig-review { font-size: 13px; margin: 0 !important; }
-  .sig-review a { color: #121D73; font-weight: 600; text-decoration: none; }
   .footer { background: #f8f9fa; padding: 0 24px 24px; text-align: center; }
   .footer p { margin: 0; font-size: 11px; color: #999; line-height: 1.5; }
   @media only screen and (max-width: 620px) {
@@ -321,14 +370,14 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
       ${bodyHtml}
     </div>
     <div class="signature">
-      <p class="sign-off">Best Regards,<br>The MRC Team – Mould &amp; Restoration Experts</p>
+      <p class="sign-off">Best Regards,<br>The MRC Team – Mould &amp; Restoration Co.</p>
       <table class="sig-table" cellpadding="0" cellspacing="0">
         <tr>
           <td class="sig-logo-cell">
             <img src="${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png" alt="MRC Logo" width="120" style="display:block;">
           </td>
           <td class="sig-details-cell">
-            <p class="sig-company">Mould and Restoration Co.</p>
+            <p class="sig-company">Mould &amp; Restoration Co.</p>
             <p>Phone: <a href="tel:1800954117">1800 954 117</a></p>
             <p>Email: <a href="mailto:admin@mouldandrestoration.com.au">admin@mouldandrestoration.com.au</a></p>
             <p>Website: <a href="https://mouldandrestoration.com.au">mouldandrestoration.com.au</a></p>
@@ -337,10 +386,9 @@ function buildConfirmationEmailHtml(lead: FramerLeadPayload): string {
         </tr>
       </table>
       <p class="sig-inquiries">For inquiries, assistance, or bookings, feel free to reach out during business hours.</p>
-      <p class="sig-review">Write a Review: <a href="https://g.page/r/CSmcatb7uSq9EBM/review">Leave us a Google Review</a></p>
     </div>
     <div class="footer">
-      <p>This email and any attachments are confidential and intended solely for the addressee. If you have received this email in error, please notify the sender immediately and delete it. Mould and Restoration Co. does not accept liability for any damage caused by this email or its attachments.</p>
+      <p>This email and any attachments are confidential and intended solely for the addressee — if you've received it in error, please notify the sender and delete it.</p>
     </div>
   </div>
 </div>
@@ -811,9 +859,9 @@ Deno.serve(async (req) => {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            from: 'Mould & Restoration Co <admin@mouldandrestoration.com.au>',
+            from: 'Mould & Restoration Co. <admin@mouldandrestoration.com.au>',
             to: [email],
-            subject: 'Thank you for your enquiry - Mould & Restoration Co',
+            subject: 'Thank you for your enquiry - Mould & Restoration Co.',
             html,
             reply_to: 'admin@mouldandrestoration.com.au',
           }),
@@ -823,7 +871,7 @@ Deno.serve(async (req) => {
           console.error('Resend error:', errBody)
           await supabase.from('email_logs').insert({
             recipient_email: email,
-            subject: 'Thank you for your enquiry - Mould & Restoration Co',
+            subject: 'Thank you for your enquiry - Mould & Restoration Co.',
             template_name: 'framer_lead_confirmation',
             status: 'failed',
             error_message: JSON.stringify(errBody).slice(0, 500),
@@ -835,7 +883,7 @@ Deno.serve(async (req) => {
           const emailData = await res.json()
           await supabase.from('email_logs').insert({
             recipient_email: email,
-            subject: 'Thank you for your enquiry - Mould & Restoration Co',
+            subject: 'Thank you for your enquiry - Mould & Restoration Co.',
             template_name: 'framer_lead_confirmation',
             status: 'sent', provider: 'resend',
             provider_message_id: emailData?.id || null,
@@ -848,7 +896,7 @@ Deno.serve(async (req) => {
         console.error('Confirmation email failed:', err)
         await supabase.from('email_logs').insert({
           recipient_email: email,
-          subject: 'Thank you for your enquiry - Mould & Restoration Co',
+          subject: 'Thank you for your enquiry - Mould & Restoration Co.',
           template_name: 'framer_lead_confirmation',
           status: 'failed',
           error_message: String(err),

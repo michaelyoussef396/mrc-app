@@ -125,7 +125,7 @@ function formatTime(datetime: string): string {
       minute: '2-digit',
       hour12: true,
       timeZone: 'Australia/Melbourne',
-    });
+    }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase());
   } catch {
     return 'TBD';
   }

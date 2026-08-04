@@ -10,6 +10,7 @@ import { CalendarDays, CalendarPlus, Menu } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -242,6 +243,10 @@ export default function AdminSchedule() {
               </button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Leads to schedule</SheetTitle>
+                <SheetDescription>Select a lead from the queue to book its inspection.</SheetDescription>
+              </SheetHeader>
               <LeadsQueue technicians={technicians} initialExpandedLeadId={deepLinkLeadId} />
             </SheetContent>
           </Sheet>

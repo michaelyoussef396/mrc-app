@@ -21,7 +21,7 @@ export function formatTimeAU(input: string | Date | null | undefined): string {
     minute: '2-digit',
     hour12: true,
     timeZone: MELBOURNE_TZ,
-  });
+  }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase());
 }
 
 export function formatDateTimeAU(input: string | Date | null | undefined): string {

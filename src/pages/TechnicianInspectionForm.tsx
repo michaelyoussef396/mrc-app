@@ -229,7 +229,7 @@ function formatDisplayDate(dateStr: string): string {
       minute: '2-digit',
       hour12: true,
       timeZone: 'Australia/Melbourne',
-    });
+    }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase());
   } catch {
     return dateStr;
   }
@@ -4339,7 +4339,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         if (ageMinutes < 1440 && parsed.formData) {
           toast({
             title: 'Unsaved work found',
-            description: `You have a backup from ${savedAt.toLocaleTimeString('en-AU')}. Tap to restore.`,
+            description: `You have a backup from ${savedAt.toLocaleTimeString('en-AU').replace(/\b[ap]m\b/gi, (m) => m.toUpperCase())}. Tap to restore.`,
             duration: 10000,
             action: {
               label: 'Restore',
