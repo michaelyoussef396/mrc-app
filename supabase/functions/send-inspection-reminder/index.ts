@@ -148,9 +148,15 @@ interface SendResult {
   status?: number;
 }
 
+// The idempotency key makes a retry of the SAME logical email a no-op at Resend:
+// same key + same payload returns the original response without sending again.
+// Same key + a DIFFERENT payload returns 409 invalid_idempotent_request, which the
+// 4xx branch below correctly treats as permanent — the Resend docs state retrying
+// is useless without changing the key or the payload. Keys are retained for 24h.
 async function sendWithRetry(
   payload: Record<string, unknown>,
   apiKey: string,
+  idempotencyKey: string,
   maxRetries = 3
 ): Promise<SendResult> {
   let lastError = '';
@@ -163,6 +169,7 @@ async function sendWithRetry(
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
         },
         body: JSON.stringify(payload),
       });
@@ -259,6 +266,8 @@ Deno.serve(async (_req) => {
     let sent = 0;
     let failed = 0;
     let skipped = 0;
+    let alreadyClaimed = 0;
+    let released = 0;
 
     for (const booking of bookings) {
       const lead = (booking as Record<string, unknown>).leads as {
@@ -271,6 +280,32 @@ Deno.serve(async (_req) => {
       if (!lead?.email) {
         console.warn(`Booking ${booking.id}: no customer email, skipping`);
         skipped++;
+        continue;
+      }
+
+      // Claim the reminder BEFORE sending. The conditional UPDATE is the atomic
+      // tie-breaker: concurrent invocations serialise on the row, so only the
+      // first one still sees reminder_sent = false and the others match zero
+      // rows. The SELECT above cannot do this job — both invocations clear it
+      // before either writes, which is what caused the duplicate sends.
+      const { data: claimedRows, error: claimError } = await supabase
+        .from('calendar_bookings')
+        .update({ reminder_sent: true, reminder_sent_at: new Date().toISOString() })
+        .eq('id', booking.id)
+        .eq('reminder_sent', false)
+        .select('id');
+
+      if (claimError) {
+        console.error(`Booking ${booking.id}: claim failed - ${claimError.message}`);
+        failed++;
+        continue;
+      }
+
+      // Zero rows means another invocation owns this reminder. Expected under
+      // duplicate delivery — not an error state.
+      if (!claimedRows || claimedRows.length === 0) {
+        alreadyClaimed++;
+        console.log(`Booking ${booking.id}: already claimed by another invocation, skipping send`);
         continue;
       }
 
@@ -312,6 +347,12 @@ Deno.serve(async (_req) => {
 
       const subject = `Reminder: Your Mould Inspection \u2014 ${dayOfWeek} ${shortDate}`;
 
+      // Stable per logical email: one reminder exists per booking, so the booking
+      // id plus the template type identifies it. Retries of this same send reuse
+      // the key; a different booking gets a different key. Resend's recommended
+      // <event-type>/<entity-id> format, well inside the 256-character limit.
+      const idempotencyKey = `inspection-reminder/${booking.id}`;
+
       // Send email
       const result = await sendWithRetry({
         from: 'Mould & Restoration Co. <admin@mouldandrestoration.com.au>',
@@ -319,7 +360,7 @@ Deno.serve(async (_req) => {
         subject,
         html,
         reply_to: 'admin@mouldandrestoration.com.au',
-      }, RESEND_API_KEY);
+      }, RESEND_API_KEY, idempotencyKey);
 
       // Log to email_logs
       await supabase.from('email_logs').insert({
@@ -336,20 +377,59 @@ Deno.serve(async (_req) => {
       });
 
       if (result.success) {
-        // Mark reminder as sent
-        await supabase
-          .from('calendar_bookings')
-          .update({
-            reminder_sent: true,
-            reminder_sent_at: new Date().toISOString(),
-          })
-          .eq('id', booking.id);
-
+        // The claim above already set reminder_sent — nothing further to write.
         sent++;
         console.log(`Booking ${booking.id}: reminder sent to ${lead.email}`);
+        continue;
+      }
+
+      failed++;
+      console.error(`Booking ${booking.id}: failed to send reminder - ${result.error}`);
+
+      // Send-failure policy, chosen deliberately: RELEASE the claim on transient
+      // failures so the next hourly tick retries, RETAIN it on permanent ones.
+      //
+      // Releasing is safe because the retry reuses the same Idempotency-Key: if
+      // the failure was a false negative (Resend accepted but the response was
+      // lost) Resend returns the original result instead of sending again. A
+      // missed reminder two days out risks a missed inspection, which is a worse
+      // outcome than the residual duplicate risk this leaves.
+      //
+      // Retaining on 4xx (bad recipient, 409 invalid_idempotent_request) is what
+      // bounds the retries. There is no attempt-counter column and adding one
+      // would be a schema change, so the status class is the only stop condition
+      // available; without it a permanently-failing address would be retried
+      // every hour until the booking left 'scheduled'.
+      const isPermanentFailure =
+        typeof result.status === 'number' &&
+        result.status >= 400 && result.status < 500 && result.status !== 429;
+
+      if (isPermanentFailure) {
+        console.error(
+          `Booking ${booking.id}: permanent failure (${result.status}) — claim retained, will not retry`
+        );
+        continue;
+      }
+
+      // Ownership is proven by reminder_sent still being true, not by matching a
+      // timestamp. Claiming requires the false->true transition and we performed
+      // it, so while the flag stands the claim can only be ours — no other
+      // invocation can hold it. A boolean has no precision, serialisation or
+      // normalisation surface, so this cannot silently match zero rows the way an
+      // exact timestamptz comparison could if anything ever rewrote the column.
+      // If an external actor did reset the flag, we match nothing and correctly
+      // leave their state alone.
+      const { error: releaseError } = await supabase
+        .from('calendar_bookings')
+        .update({ reminder_sent: false, reminder_sent_at: null })
+        .eq('id', booking.id)
+        .eq('reminder_sent', true);
+
+      if (releaseError) {
+        console.error(`Booking ${booking.id}: claim release failed - ${releaseError.message}`);
       } else {
-        failed++;
-        console.error(`Booking ${booking.id}: failed to send reminder - ${result.error}`);
+        released++;
+        console.log(`Booking ${booking.id}: transient failure — claim released for retry`);
       }
     }
 
@@ -359,6 +439,8 @@ Deno.serve(async (_req) => {
         sent,
         failed,
         skipped,
+        alreadyClaimed,
+        released,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );

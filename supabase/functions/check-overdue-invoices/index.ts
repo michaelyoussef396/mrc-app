@@ -51,6 +51,15 @@ const TIER_BOUNDARY_DAYS = [1, 8, 15, 16, 29] as const
 const ESCALATION_DAY = 60
 const ESCALATION_LABEL = 'Admin escalation — stop chasing, escalate (not a warranty tier)'
 
+// Guard state for the Slack digest. The per-invoice guards protect the DB writes
+// but not the post, which is why near-simultaneous invocations could still
+// double-post. Deliberately NOT in activities: that table renders on the
+// customer's lead timeline and a system marker does not belong there.
+// app_settings is a system key/value table with no customer-facing surface, added
+// in 20251111000012 to fix the inspection-number race — coordination state is
+// what it is for. One key per Melbourne day; rows accumulate at 1/day.
+const DIGEST_CLAIM_KEY_PREFIX = 'digest:invoice-overdue:'
+
 function ladderTierLabel(daysOverdue: number): string {
   if (daysOverdue <= 0) return 'Current'
   if (daysOverdue <= 7) return 'Overdue'
@@ -327,15 +336,72 @@ Deno.serve(async (req) => {
     const outstandingCount = outstandingRows?.length ?? 0
     const outstandingTotal = (outstandingRows ?? []).reduce((sum, r) => sum + Number(r.total_amount ?? 0), 0)
 
+    // Digest guard. A single INSERT into app_settings, whose PRIMARY KEY (key)
+    // makes it an atomic compare-and-set: exactly one invocation can create
+    // today's key and every other one gets a 23505 unique violation. There is no
+    // read-then-write window, so unlike the per-invoice guards above this needs
+    // no re-read to arbitrate — the database decides the winner.
+    const claimTodaysDigest = async (): Promise<{ won: boolean; reason: string }> => {
+      const { error } = await supabase
+        .from('app_settings')
+        .insert({ key: `${DIGEST_CLAIM_KEY_PREFIX}${melToday}`, value: new Date().toISOString() })
+
+      if (!error) return { won: true, reason: 'claimed' }
+      if (error.code === '23505') return { won: false, reason: 'digest already posted today' }
+      throw new Error(error.message)
+    }
+
     // One digest per run, only when something happened this run.
     let slackPosted = false
     let digest: string | null = null
+    let digestSuppressed: string | null = null
     if (newlyFlagged.length + milestones.length + escalations.length > 0) {
       digest = buildDigest(melToday, newlyFlagged, milestones, escalations, outstandingCount, outstandingTotal, dryRun)
-      if (SLACK_WEBHOOK_URL) {
-        slackPosted = await postSlack(SLACK_WEBHOOK_URL, digest)
-      } else {
-        console.warn('[check-overdue-invoices] SLACK_WEBHOOK_URL not set — digest not posted')
+
+      // Dry runs write nothing, so they must neither claim nor consume the guard.
+      let mayPost = true
+      if (!dryRun) {
+        try {
+          const claim = await claimTodaysDigest()
+          mayPost = claim.won
+          if (!claim.won) {
+            digestSuppressed = claim.reason
+            console.log(`[check-overdue-invoices] digest suppressed: ${claim.reason}`)
+          }
+        } catch (err) {
+          // Same stance as the idempotency lookup above: guard data unavailable,
+          // so abort the post rather than risk a duplicate digest.
+          const msg = err instanceof Error ? err.message : String(err)
+          mayPost = false
+          digestSuppressed = `digest guard failed: ${msg}`
+          errors.push(`Digest guard failed: ${msg}`)
+        }
+      }
+
+      if (mayPost) {
+        if (SLACK_WEBHOOK_URL) {
+          slackPosted = await postSlack(SLACK_WEBHOOK_URL, digest)
+        } else {
+          console.warn('[check-overdue-invoices] SLACK_WEBHOOK_URL not set — digest not posted')
+        }
+
+        // The claim is taken before the post, so a post that never happened has
+        // to give it back. Otherwise a Slack outage — or an unset webhook —
+        // silently consumes today's key and blocks the retry as well, including
+        // a manual re-invocation. Only the invocation holding the claim reaches
+        // here, and only when nothing was posted, so the delete cannot take a
+        // claim belonging to another run.
+        if (!dryRun && !slackPosted) {
+          const { error: releaseErr } = await supabase
+            .from('app_settings')
+            .delete()
+            .eq('key', `${DIGEST_CLAIM_KEY_PREFIX}${melToday}`)
+          if (releaseErr) {
+            errors.push(`Digest claim release failed: ${releaseErr.message}`)
+          } else {
+            console.warn('[check-overdue-invoices] digest not posted — claim released for retry')
+          }
+        }
       }
     } else {
       console.log(`[check-overdue-invoices] ${melToday}: nothing newly overdue, no tier crossings — no digest posted`)
@@ -351,6 +417,7 @@ Deno.serve(async (req) => {
         escalations,
         outstanding: { count: outstandingCount, total: Math.round(outstandingTotal * 100) / 100 },
         slackPosted,
+        digestSuppressed,
         digest,
         errors,
         checkedAt: new Date().toISOString(),
