@@ -105,6 +105,10 @@ function isValidCalendarDate(iso: string): boolean {
 
 const MAX_BODY_SIZE = 50_000
 
+// Sent as the Resend subject AND written to email_logs.subject — the two must
+// match for the health check's send-vs-log reconciliation to line up.
+const CONFIRMATION_EMAIL_SUBJECT = 'Thank you for your enquiry - Mould & Restoration Co.'
+
 interface FramerLeadPayload {
   full_name: string
   phone: string
@@ -498,7 +502,7 @@ Deno.serve(async (req) => {
   // --- Health check (GET) ---
   if (req.method === 'GET') {
     return new Response(
-      JSON.stringify({ status: 'ok', timestamp: new Date().toISOString(), version: 20 }),
+      JSON.stringify({ status: 'ok', timestamp: new Date().toISOString(), version: 21 }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   }
@@ -853,6 +857,42 @@ Deno.serve(async (req) => {
       } catch (err) { console.error('Slack notification failed:', err) }
     })()
 
+    // email_logs is the only durable record that a confirmation email was
+    // attempted, so a failure here must be visible — but it must never take
+    // lead intake down. Both the PostgREST error result and any thrown error
+    // are captured and logged; nothing propagates out of this helper.
+    // NOTE: the supabase-js query builder is a PromiseLike, not a Promise —
+    // it has no .catch(). Chaining one throws TypeError before the insert is
+    // ever issued, which is what silently emptied this table.
+    async function logConfirmationEmail(
+      fields: { status: 'sent' | 'failed'; provider_message_id?: string | null; error_message?: string },
+    ): Promise<void> {
+      const leadRef = leadData?.id ?? 'unknown'
+      try {
+        const { error } = await supabase.from('email_logs').insert({
+          recipient_email: email,
+          subject: CONFIRMATION_EMAIL_SUBJECT,
+          template_name: 'framer_lead_confirmation',
+          provider: 'resend',
+          lead_id: leadData?.id ?? null,
+          sent_by: systemUserUuid || null,
+          sent_at: new Date().toISOString(),
+          ...fields,
+        })
+        if (error) {
+          console.error(
+            `[receive-framer-lead] email_logs insert failed (lead ${leadRef}, status ${fields.status}):`,
+            error.code ?? 'no-code', error.message ?? String(error), error.details ?? '',
+          )
+        }
+      } catch (err) {
+        console.error(
+          `[receive-framer-lead] email_logs insert threw (lead ${leadRef}, status ${fields.status}):`,
+          err instanceof Error ? err.message : String(err),
+        )
+      }
+    }
+
     const emailPromise = (async () => {
       try {
         const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
@@ -864,7 +904,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             from: 'Mould & Restoration Co. <admin@mouldandrestoration.com.au>',
             to: [email],
-            subject: 'Thank you for your enquiry - Mould & Restoration Co.',
+            subject: CONFIRMATION_EMAIL_SUBJECT,
             html,
             reply_to: 'admin@mouldandrestoration.com.au',
           }),
@@ -872,41 +912,20 @@ Deno.serve(async (req) => {
         if (!res.ok) {
           const errBody = await res.json().catch(() => ({}))
           console.error('Resend error:', errBody)
-          await supabase.from('email_logs').insert({
-            recipient_email: email,
-            subject: 'Thank you for your enquiry - Mould & Restoration Co.',
-            template_name: 'framer_lead_confirmation',
+          await logConfirmationEmail({
             status: 'failed',
             error_message: JSON.stringify(errBody).slice(0, 500),
-            lead_id: leadData?.id ?? null,
-            sent_by: systemUserUuid || null,
-            sent_at: new Date().toISOString(),
-          }).catch(() => {})
+          })
         } else {
           const emailData = await res.json()
-          await supabase.from('email_logs').insert({
-            recipient_email: email,
-            subject: 'Thank you for your enquiry - Mould & Restoration Co.',
-            template_name: 'framer_lead_confirmation',
-            status: 'sent', provider: 'resend',
+          await logConfirmationEmail({
+            status: 'sent',
             provider_message_id: emailData?.id || null,
-            lead_id: leadData?.id ?? null,
-            sent_by: systemUserUuid || null,
-            sent_at: new Date().toISOString(),
-          }).catch(() => {})
+          })
         }
       } catch (err) {
         console.error('Confirmation email failed:', err)
-        await supabase.from('email_logs').insert({
-          recipient_email: email,
-          subject: 'Thank you for your enquiry - Mould & Restoration Co.',
-          template_name: 'framer_lead_confirmation',
-          status: 'failed',
-          error_message: String(err),
-          lead_id: leadData?.id ?? null,
-          sent_by: systemUserUuid || null,
-          sent_at: new Date().toISOString(),
-        }).catch(() => {})
+        await logConfirmationEmail({ status: 'failed', error_message: String(err) })
       }
     })()
 
