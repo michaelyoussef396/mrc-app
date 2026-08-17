@@ -1871,6 +1871,51 @@ deliberately NOT re-granted" — that describes the intent, not the achieved out
 file is left unmodified because it is already applied and is the historical record of what
 ran; this entry is the correction.
 
+### CONVENTION — `src/integrations/supabase/types.ts` is generated from **PROD**, never DEV
+
+Established 2026-08-17 after finding the committed file carried DEV's values.
+
+**The rule.** The committed `types.ts` must always be generated from PROD:
+
+```bash
+npx supabase gen types typescript --project-id ecyivrxjpsmjmexqatym > src/integrations/supabase/types.ts
+```
+
+Regenerating from DEV **locally** while testing a DEV-only migration is fine and often
+necessary — just don't commit that output. Re-run against PROD once the migration has
+actually landed there, and commit that.
+
+**Why it matters.** This file compiles into the production bundle, and it is not only a
+schema map: `__InternalSupabase.PostgrestVersion` feeds
+`createClient<Database, { PostgrestVersion: 'XX' }>`, so it can shift inferred types
+across the app. The two projects genuinely differ — verified with the same CLI in the
+same minute on 2026-08-17:
+
+| Project | `PostgrestVersion` |
+|---|---|
+| PROD `ecyivrxjpsmjmexqatym` | `13.0.5` |
+| DEV `ctppzqnysmzynkxjlzta` | `14.5` |
+
+**What happened.** `0362c39` ("chore(types): regenerate from DEV after HEPA +
+job-completion waste migrations", 28 Jul) committed DEV's `14.5`. It sat wrong until
+2026-08-17, when the regeneration for `audited_mark_invoice_overdue`'s `boolean` return
+corrected it to `13.0.5`. Traced with `git log -S'PostgrestVersion: "14.5"'`.
+
+**No harm done that time** — the diff was only those two lines, so DEV and PROD schemas
+were identical and nothing else was mistyped. That is luck, not a guarantee: DEV is a
+restore-to-new-project clone and migrations are applied to it first, so a DEV-generated
+file can carry columns PROD does not have yet. Committing that would type the frontend
+against a schema production cannot serve.
+
+**Known, accepted wrinkle.** Local dev points at DEV via `.env.development.local`, so
+after a PROD regeneration the `PostgrestVersion` marker is "wrong" for local dev. This is
+deliberate — it is a type-level hint only, the schemas are identical, and PROD is what
+ships. Do not "fix" it by regenerating from DEV.
+
+**Check before committing this file:** `git diff src/integrations/supabase/types.ts`
+should show only what your migration changed. A `PostgrestVersion` flip to `14.5` means
+it came from DEV — regenerate from PROD.
+
 ### P2 — DEV shares the PRODUCTION Resend account
 
 The same API key that sends real customer mail is used on DEV. **One mistyped address in
