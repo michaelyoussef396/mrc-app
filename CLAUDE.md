@@ -29,13 +29,8 @@ the exact command; Michael runs it. Same discipline for migrations.
 ## Architecture
 
 - /src/auth — auth logic (HIGH RISK — always ask before touching)
-- /src/pages — page components
 - /src/components — UI only, no business logic
-- /src/hooks — custom hooks
-- /src/types — all TypeScript types
-- /src/lib — Supabase client + utils
 - /supabase/functions — 12 Edge Functions (canonical list: `docs/edge-function-attribution-manifest.md`)
-- /supabase/migrations — DB migrations
 
 ## Business Rules (Non-Negotiable)
 
@@ -56,8 +51,7 @@ the exact command; Michael runs it. Same discipline for migrations.
 
 ## Database
 
-- Supabase project ref: ecyivrxjpsmjmexqatym
-- 22 tables with RLS on all tables
+- RLS on all tables
 - Never modify schema without migration + explicit approval
 
 ## Co-Owner Rules
@@ -72,12 +66,17 @@ the exact command; Michael runs it. Same discipline for migrations.
 - Phase 2: COMPLETE — job completion workflow (2 known gaps tracked as L1 + L2 in TODO.md)
 - Phase 3: COMPLETE — AI summary versioning (Stages 3.1-3.5 shipped 2026-05-02)
 - Phase 4: PARTIAL — photo integrity Stages 4.1/4.1.5/4.2/4.3 shipped (2026-05-05 to 2026-05-11); Stages 4.4-4.7 deferred post-launch
-- PDF Pipeline Rebuild: CODE COMPLETE (2026-05-24) — server-rendered hard-save via api/render-pdf with html_hash mismatch guard at send time + ReportVersionHistory UI. Migration applied + EF deployed in same wave. See @docs/PDF_PIPELINE_PLAN.md. Post-launch cleanup tracked as PDF-CL1..7 in TODO.md.
-- Pre-launch hardening underway. See @docs/TODO.md for current tasks (Launch Model + L/S/T sections)
-- See @docs/PHASE_2_EXECUTION.md for build plan
-- See @docs/JOB_COMPLETION_PRD.md for full spec
+- PDF Pipeline Rebuild: CODE COMPLETE (2026-05-24) — server-rendered hard-save via api/render-pdf with html_hash mismatch guard at send time + ReportVersionHistory UI. Migration applied + EF deployed in same wave. See docs/PDF_PIPELINE_PLAN.md. Post-launch cleanup tracked as PDF-CL1..7 in TODO.md.
+- Pre-launch hardening underway. See docs/TODO.md for current tasks (Launch Model + L/S/T sections)
+- See docs/PHASE_2_EXECUTION.md for build plan
+- See docs/JOB_COMPLETION_PRD.md for full spec
 
 ## Deep Docs (read on-demand with Read tool, NOT auto-loaded)
+
+**Docs are NOT auto-loaded.** Every brief must explicitly name what to read, e.g.
+`Read: @docs/TODO.md @docs/JOB_COMPLETION_PRD.md`. Without this, work proceeds from
+stale assumptions — a stale claim in TODO.md was caught on 2026-08-17 only because
+that file was auto-loaded at the time.
 
 - docs/PRD.md — full product requirements
 - docs/JOB_COMPLETION_PRD.md — job completion spec (ACTIVE BUILD)
@@ -141,7 +140,7 @@ the exact command; Michael runs it. Same discipline for migrations.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **mrc-app** (6361 symbols, 11434 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **mrc-app** (6893 symbols, 12257 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -180,18 +179,17 @@ This project is indexed by GitNexus as **mrc-app** (6361 symbols, 11434 relation
 | Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
 | Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-| Work in the Pages area (248 symbols) | `.claude/skills/generated/pages/SKILL.md` |
-| Work in the Api area (158 symbols) | `.claude/skills/generated/api/SKILL.md` |
-| Work in the Hooks area (130 symbols) | `.claude/skills/generated/hooks/SKILL.md` |
-| Work in the Leads area (124 symbols) | `.claude/skills/generated/leads/SKILL.md` |
-| Work in the Ui area (119 symbols) | `.claude/skills/generated/ui/SKILL.md` |
+| Work in the Pages area (278 symbols) | `.claude/skills/generated/pages/SKILL.md` |
+| Work in the Hooks area (155 symbols) | `.claude/skills/generated/hooks/SKILL.md` |
+| Work in the Api area (150 symbols) | `.claude/skills/generated/api/SKILL.md` |
+| Work in the Leads area (132 symbols) | `.claude/skills/generated/leads/SKILL.md` |
+| Work in the Ui area (102 symbols) | `.claude/skills/generated/ui/SKILL.md` |
 | Work in the Scripts area (74 symbols) | `.claude/skills/generated/scripts/SKILL.md` |
-| Work in the Pdf area (41 symbols) | `.claude/skills/generated/pdf/SKILL.md` |
-| Work in the Job-completion area (34 symbols) | `.claude/skills/generated/job-completion/SKILL.md` |
-| Work in the Schedule area (32 symbols) | `.claude/skills/generated/schedule/SKILL.md` |
+| Work in the Job-completion area (46 symbols) | `.claude/skills/generated/job-completion/SKILL.md` |
+| Work in the Schedule area (43 symbols) | `.claude/skills/generated/schedule/SKILL.md` |
+| Work in the Pdf area (34 symbols) | `.claude/skills/generated/pdf/SKILL.md` |
 | Work in the Generate-inspection-pdf area (32 symbols) | `.claude/skills/generated/generate-inspection-pdf/SKILL.md` |
 | Work in the Photos area (29 symbols) | `.claude/skills/generated/photos/SKILL.md` |
-| Work in the Calculations area (25 symbols) | `.claude/skills/generated/calculations/SKILL.md` |
 | Work in the Cluster_16 area (23 symbols) | `.claude/skills/generated/cluster-16/SKILL.md` |
 | Work in the Offline area (21 symbols) | `.claude/skills/generated/offline/SKILL.md` |
 | Work in the Testsprite_tests area (17 symbols) | `.claude/skills/generated/testsprite-tests/SKILL.md` |
@@ -200,5 +198,6 @@ This project is indexed by GitNexus as **mrc-app** (6361 symbols, 11434 relation
 | Work in the Admin area (13 symbols) | `.claude/skills/generated/admin/SKILL.md` |
 | Work in the Technicians area (13 symbols) | `.claude/skills/generated/technicians/SKILL.md` |
 | Work in the Dashboard area (12 symbols) | `.claude/skills/generated/dashboard/SKILL.md` |
+| Work in the Components area (12 symbols) | `.claude/skills/generated/components/SKILL.md` |
 
 <!-- gitnexus:end -->
