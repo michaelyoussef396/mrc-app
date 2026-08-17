@@ -226,6 +226,48 @@ Deno.serve(async (_req) => {
       console.error('[send-inspection-reminder] SYSTEM_USER_UUID env var not set — email_logs.sent_by will be NULL');
     }
 
+    // email_logs is the only durable record that a reminder email was attempted,
+    // so a failure here must be visible — but it must never take the reminder run
+    // down. Both the PostgREST error result and any thrown error are captured and
+    // logged; nothing propagates out of this helper. The send has already happened
+    // by the time this is called, so a lost log row must not undo it, skip the
+    // claim-release decision below, or abort the remaining bookings.
+    // NOTE: the supabase-js query builder is a PromiseLike, not a Promise — it has
+    // no .catch(). Chaining one throws TypeError before the insert is ever issued,
+    // which is what silently emptied this table on the Framer path.
+    async function logReminderEmail(
+      bookingId: string,
+      fields: {
+        recipient_email: string;
+        subject: string;
+        status: 'sent' | 'failed';
+        provider_message_id?: string | null;
+        error_message?: string | null;
+        lead_id: string | null;
+      },
+    ): Promise<void> {
+      try {
+        const { error } = await supabase.from('email_logs').insert({
+          template_name: 'inspection_reminder',
+          provider: 'resend',
+          sent_by: SYSTEM_USER_UUID || null,
+          sent_at: new Date().toISOString(),
+          ...fields,
+        });
+        if (error) {
+          console.error(
+            `[send-inspection-reminder] email_logs insert failed (booking ${bookingId}, recipient ${fields.recipient_email}, status ${fields.status}):`,
+            error.code ?? 'no-code', error.message ?? String(error), error.details ?? '',
+          );
+        }
+      } catch (err) {
+        console.error(
+          `[send-inspection-reminder] email_logs insert threw (booking ${bookingId}, recipient ${fields.recipient_email}, status ${fields.status}):`,
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
+
     // 1. Query bookings that need reminders
     const { data: bookings, error: queryError } = await supabase
       .from('calendar_bookings')
@@ -363,17 +405,13 @@ Deno.serve(async (_req) => {
       }, RESEND_API_KEY, idempotencyKey);
 
       // Log to email_logs
-      await supabase.from('email_logs').insert({
+      await logReminderEmail(booking.id, {
         recipient_email: lead.email,
         subject,
-        template_name: 'inspection_reminder',
         status: result.success ? 'sent' : 'failed',
-        provider: 'resend',
         provider_message_id: result.data?.id || null,
         error_message: result.error || null,
         lead_id: booking.lead_id,
-        sent_by: SYSTEM_USER_UUID || null,
-        sent_at: new Date().toISOString(),
       });
 
       if (result.success) {
