@@ -10,12 +10,19 @@
 // 2. sent + past-due invoices transition to 'overdue' via the audited RPC
 //    (audited_mark_invoice_overdue — SYSTEM_USER_UUID attribution, see
 //    docs/edge-function-attribution-manifest.md Bucket B).
-// 3. Idempotency: duplicate deliveries of the same cron tick (observed 28 Jul —
-//    two invocations 35ms apart) must no-op. The guard derives from the EF's own
-//    persisted effects — the atomic sent→overdue transition plus the activity
-//    rows each action writes — so a second same-day invocation finds nothing to
-//    flag, no milestone left to record, and therefore posts no Slack. No new
-//    schema needed.
+// 3. Idempotency: duplicate deliveries of the same cron tick must no-op. This is
+//    a permanent condition, not a transient bug — EVERY tick is delivered twice
+//    (100% of ticks, both invocations running the full body), between pg_net and
+//    the Edge Functions gateway. Ticket open with Supabase; not fixable here.
+//    Three independent guards, every one a compare-and-set, none a
+//    read-then-write:
+//      sent→overdue      — audited_mark_invoice_overdue's conditional UPDATE,
+//                          which RETURNS BOOLEAN so the loser knows it lost;
+//      milestone rows    — app_settings PRIMARY KEY claim, one key per invoice
+//                          per Melbourne day (a milestone transitions no column,
+//                          so there is nothing for an UPDATE to arbitrate);
+//      Slack digest      — app_settings PRIMARY KEY claim, one key per day.
+//    No new schema needed — app_settings already exists.
 // 4. Slack: one digest per run, only when something happened. The digest is
 //    informational — MRC never auto-contacts customers; the admin does.
 //
@@ -59,6 +66,16 @@ const ESCALATION_LABEL = 'Admin escalation — stop chasing, escalate (not a war
 // in 20251111000012 to fix the inspection-number race — coordination state is
 // what it is for. One key per Melbourne day; rows accumulate at 1/day.
 const DIGEST_CLAIM_KEY_PREFIX = 'digest:invoice-overdue:'
+
+// Guard state for the per-invoice milestone rows, same table and same reasoning as
+// the digest claim above. A milestone changes no column, so the conditional-UPDATE
+// trick that arbitrates the sent→overdue transition has nothing to key on here —
+// the app_settings PRIMARY KEY is the only atomic mechanism available.
+// invoice_number is UNIQUE and at most one tier boundary can be crossed on a given
+// day, so one key per invoice per Melbourne day identifies a milestone exactly.
+// Rows accrue at most 6 per invoice across its whole life (5 ladder tiers + the
+// escalation prompt).
+const MILESTONE_CLAIM_KEY_PREFIX = 'milestone:invoice-overdue:'
 
 function ladderTierLabel(daysOverdue: number): string {
   if (daysOverdue <= 0) return 'Current'
@@ -201,6 +218,14 @@ Deno.serve(async (req) => {
   const escalations: DigestLine[] = []
   const errors: string[] = []
 
+  // Guard-hit counters. Both are reported in the response so the guards can be
+  // observed firing in PROD — under duplicate delivery the losing invocation is
+  // the one that increments them, and without these there is no evidence in the
+  // logs that either guard ever arbitrated anything. Mirrors alreadyClaimed in
+  // send-inspection-reminder.
+  let alreadyFlagged = 0
+  let alreadyMilestoned = 0
+
   try {
     // Past-due candidates. due_date is a DATE column, so comparing against the
     // Melbourne calendar day keeps the whole run in Melbourne reckoning.
@@ -220,14 +245,21 @@ Deno.serve(async (req) => {
 
     const rows = (invoices ?? []) as InvoiceRow[]
 
-    // Idempotency lookup: activity rows already written today (Melbourne) by an
-    // earlier invocation. 26h window then exact Melbourne-day filter client-side,
-    // which avoids computing the UTC instant of Melbourne midnight across DST.
+    // Cheap early-out only — NOT a concurrency guard. This is a plain SELECT, so
+    // two near-simultaneous invocations both see the same (empty) result; it can
+    // only skip work an EARLIER, already-committed run did, e.g. a manual
+    // re-invocation later the same day. The actual arbitration is the RPC's
+    // boolean and the app_settings claims. 26h window then exact Melbourne-day
+    // filter client-side, which avoids computing the UTC instant of Melbourne
+    // midnight across DST.
+    // Only 'invoice_overdue' is fetched: the milestone path no longer consults
+    // this set (it claims an app_settings key instead), so selecting
+    // 'invoice_milestone' rows would be work nothing reads.
     const lookbackISO = new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString()
     const { data: todaysActivities, error: actErr } = await supabase
       .from('activities')
-      .select('activity_type, title, description, lead_id, created_at')
-      .in('activity_type', ['invoice_overdue', 'invoice_milestone'])
+      .select('activity_type, description, lead_id, created_at')
+      .eq('activity_type', 'invoice_overdue')
       .gte('created_at', lookbackISO)
     if (actErr) {
       // Guard data unavailable — safer to abort a real run than risk duplicate
@@ -245,6 +277,37 @@ Deno.serve(async (req) => {
         .map((a) => `${a.activity_type}:${a.lead_id}:${a.description?.match(/INV-\d{4}-\d{4}/)?.[0] ?? ''}`),
     )
 
+    const milestoneClaimKey = (invoiceNumber: string) =>
+      `${MILESTONE_CLAIM_KEY_PREFIX}${invoiceNumber}:${melToday}`
+
+    // Milestone guard — the same atomic compare-and-set as claimTodaysDigest
+    // below: exactly one invocation can INSERT the key and every other gets a
+    // 23505 unique violation, so there is no read-then-write window to lose.
+    // Dry runs write nothing and so must never consume the guard; they check for
+    // the key read-only instead, which keeps the [DRY RUN] digest faithful
+    // without claiming anything.
+    const mayRecordMilestone = async (invoiceNumber: string): Promise<boolean> => {
+      const key = milestoneClaimKey(invoiceNumber)
+
+      if (dryRun) {
+        const { data, error } = await supabase
+          .from('app_settings')
+          .select('key')
+          .eq('key', key)
+          .maybeSingle()
+        if (error) throw new Error(error.message)
+        return data === null
+      }
+
+      const { error } = await supabase
+        .from('app_settings')
+        .insert({ key, value: new Date().toISOString() })
+
+      if (!error) return true
+      if (error.code === '23505') return false
+      throw new Error(error.message)
+    }
+
     for (const inv of rows) {
       try {
         const daysOverdue = daysOverdueOn(inv.due_date, melToday)
@@ -257,8 +320,15 @@ Deno.serve(async (req) => {
           // Guard 2: an earlier invocation already flagged it today
           if (doneToday.has(flagKey)) continue
 
-          // Guard 1: re-read the status — the atomic transition is the
-          // tie-breaker between near-simultaneous invocations
+          // Cheap early-out, NOT the tie-breaker. This SELECT and the RPC below
+          // are two separate statements, so two invocations can and routinely do
+          // both read 'sent' here — under duplicate delivery that is the normal
+          // case, not the edge case. It earns its keep only by skipping an RPC
+          // round-trip when the loser is far enough behind to observe the
+          // winner's commit. The real tie-breaker is the conditional UPDATE
+          // inside audited_mark_invoice_overdue and the boolean it returns.
+          // (send-inspection-reminder:328-352 is the reference for a guard that
+          // genuinely arbitrates: one conditional UPDATE, no preceding read.)
           const { data: fresh, error: freshErr } = await supabase
             .from('invoices')
             .select('status')
@@ -275,10 +345,12 @@ Deno.serve(async (req) => {
             continue
           }
 
-          // Audited write: routed through audited_mark_invoice_overdue RPC so
-          // set_config('app.acting_user_id', SYSTEM_USER_UUID) and the UPDATE
-          // run in one transaction. See docs/edge-function-attribution-manifest.md.
-          const { error: updateErr } = await supabase.rpc('audited_mark_invoice_overdue', {
+          // Audited compare-and-set. The RPC pulls
+          // set_config('app.acting_user_id', SYSTEM_USER_UUID) and a conditional
+          // UPDATE (WHERE status = 'sent') into one transaction, and returns TRUE
+          // only if THIS call moved the row. See
+          // docs/edge-function-attribution-manifest.md.
+          const { data: didTransition, error: updateErr } = await supabase.rpc('audited_mark_invoice_overdue', {
             p_acting_user_id: SYSTEM_USER_UUID || null,
             p_invoice_id: inv.id,
           })
@@ -287,13 +359,40 @@ Deno.serve(async (req) => {
             continue
           }
 
+          // A non-boolean means the deployed RPC is still the pre-compare-and-set
+          // RETURNS void version, which yields null and cannot say who won.
+          // Deploying this function before its migration lands is the one ordering
+          // mistake that would otherwise cost every activity row with nothing
+          // surfaced, so it is reported rather than assumed away.
+          if (typeof didTransition !== 'boolean') {
+            errors.push(
+              `${inv.invoice_number}: audited_mark_invoice_overdue returned ${JSON.stringify(didTransition)}, ` +
+              `expected boolean — deployed RPC predates the compare-and-set migration; activity row skipped`,
+            )
+            continue
+          }
+
+          // FALSE: a concurrent invocation made the transition. It owns the
+          // activity row AND the digest line, so this one writes neither — and
+          // skips the milestone block below for the same reason.
+          if (!didTransition) {
+            alreadyFlagged++
+            console.log(`[check-overdue-invoices] ${inv.invoice_number}: sent→overdue already done by another invocation, skipping`)
+            continue
+          }
+
           if (inv.lead_id) {
-            await supabase.from('activities').insert({
+            const { error: overdueActErr } = await supabase.from('activities').insert({
               lead_id: inv.lead_id,
               activity_type: 'invoice_overdue',
               title: 'Invoice marked overdue',
               description: `Invoice ${inv.invoice_number} is ${daysOverdue} days overdue (${formatAUD(inv.total_amount)})`,
             })
+            if (overdueActErr) {
+              // The status transition is already committed and is the record that
+              // matters; a missing timeline row must not undo it or abort the run.
+              errors.push(`${inv.invoice_number}: invoice_overdue activity insert failed: ${overdueActErr.message}`)
+            }
           }
           newlyFlagged.push({ invoice_number: inv.invoice_number, customer_name: inv.customer_name, total_amount: inv.total_amount, days_overdue: daysOverdue, tier })
         }
@@ -302,12 +401,27 @@ Deno.serve(async (req) => {
         const isTierBoundary = TIER_BOUNDARY_DAYS.includes(daysOverdue as typeof TIER_BOUNDARY_DAYS[number])
         const isEscalation = daysOverdue === ESCALATION_DAY
         if (isTierBoundary || isEscalation) {
-          const milestoneKey = `invoice_milestone:${inv.lead_id}:${inv.invoice_number}`
-          if (doneToday.has(milestoneKey)) continue
+          let mayRecord: boolean
+          try {
+            mayRecord = await mayRecordMilestone(inv.invoice_number)
+          } catch (err) {
+            // Guard data unavailable — same stance as the digest claim and the
+            // idempotency lookup: skip rather than risk a duplicate row.
+            const msg = err instanceof Error ? err.message : String(err)
+            errors.push(`${inv.invoice_number}: milestone guard failed: ${msg}`)
+            continue
+          }
+
+          if (!mayRecord) {
+            alreadyMilestoned++
+            console.log(`[check-overdue-invoices] ${inv.invoice_number}: day-${daysOverdue} milestone already recorded, skipping`)
+            continue
+          }
 
           const label = isEscalation ? ESCALATION_LABEL : tier
+          let milestoneRecorded = false
           if (!dryRun && inv.lead_id) {
-            await supabase.from('activities').insert({
+            const { error: milestoneActErr } = await supabase.from('activities').insert({
               lead_id: inv.lead_id,
               activity_type: 'invoice_milestone',
               title: `Invoice milestone: day ${daysOverdue}`,
@@ -315,7 +429,29 @@ Deno.serve(async (req) => {
                 ? `Invoice ${inv.invoice_number} is ${daysOverdue} days past due — ${ESCALATION_LABEL}`
                 : `Invoice ${inv.invoice_number} entered penalty tier "${tier}" (day ${daysOverdue} past due)`,
             })
+            if (milestoneActErr) {
+              errors.push(`${inv.invoice_number}: invoice_milestone activity insert failed: ${milestoneActErr.message}`)
+            } else {
+              milestoneRecorded = true
+            }
           }
+
+          // The claim is taken before the write, so a write that never happened
+          // has to give it back — otherwise a failed insert, or a null lead_id,
+          // silently burns the key and the milestone can never be recorded. Only
+          // the invocation holding the claim reaches here, so this cannot release
+          // someone else's key. Dry runs never claimed, so they never release.
+          // Mirrors the digest claim release below.
+          if (!dryRun && !milestoneRecorded) {
+            const { error: releaseErr } = await supabase
+              .from('app_settings')
+              .delete()
+              .eq('key', milestoneClaimKey(inv.invoice_number))
+            if (releaseErr) {
+              errors.push(`${inv.invoice_number}: milestone claim release failed: ${releaseErr.message}`)
+            }
+          }
+
           const line: DigestLine = { invoice_number: inv.invoice_number, customer_name: inv.customer_name, total_amount: inv.total_amount, days_overdue: daysOverdue, tier: label }
           if (isEscalation) escalations.push(line)
           else milestones.push(line)
@@ -415,6 +551,8 @@ Deno.serve(async (req) => {
         newlyFlagged,
         milestones,
         escalations,
+        alreadyFlagged,
+        alreadyMilestoned,
         outstanding: { count: outstandingCount, total: Math.round(outstandingTotal * 100) / 100 },
         slackPosted,
         digestSuppressed,

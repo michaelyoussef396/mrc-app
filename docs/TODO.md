@@ -705,9 +705,14 @@ null-vs-zero semantics, and legacy-card behaviour all verified clean.
   left STAGED (2/3 dehumidifier, 4/3 air mover, 2/3 HEPA, 1/3 RCD, 6 m³/$550 waste,
   demolition=true) for the UI smoke.
 - ~~AI-summary EF deploy to DEV~~ — DONE (Michael, 29 Jul). Probe-verified the new code
-  is live: it fails fast with 500 "AI service not configured" because **DEV has ONLY the
+  is live: it fails fast with 500 "AI service not configured" because ~~**DEV has ONLY the
   platform-auto secrets** (CLI-verified 29 Jul: no OPENROUTER_API_KEY, no SYSTEM_USER_UUID,
-  no Resend/Slack/INTERNAL_WEBHOOK_SECRET — the L4 "set dev EF secrets" step never ran).
+  no Resend/Slack/INTERNAL_WEBHOOK_SECRET — the L4 "set dev EF secrets" step never ran)~~
+  **[STALE — corrected 2026-08-08: CLI-verified `secrets list` on DEV now returns
+  ADMIN_FALLBACK_EMAIL, GOOGLE_MAPS_API_KEY, OPENROUTER_API_KEY, RESEND_API_KEY and
+  SYSTEM_USER_UUID. SLACK_WEBHOOK_URL was still absent and was set 2026-08-08 for the
+  duplicate-guard testing (see the 8 Aug session log). INTERNAL_WEBHOOK_SECRET remains
+  unset.]**
   AI generation on DEV works once Michael runs
   `npx supabase secrets set OPENROUTER_API_KEY=<from vault> --project-ref ctppzqnysmzynkxjlzta`
   (value from his own vault, never via chat). CC can then run a generation against the
@@ -777,7 +782,7 @@ pending.
 - [ ] "Needs attention" wording collision: Leads-to-Assign card subtitle vs the Needs Attention panel — rename the subtitle (one-liner, cosmetic).
 - [ ] Locate the "27 July" element from the dashboard date-contradiction report (Michael — no dashboard code path can render it for a 28 Jul view; need the exact element/screenshot).
 - [x] ~~`check-overdue-invoices` cron not firing on PROD~~ **RESOLVED 2026-07-29 — misdiagnosis.** Cron fired at 23:00 UTC (9am AEST) and correctly flagged INV-2026-0003 the first morning it was eligible; the 22-day gap was the invoice sitting in `draft` (cron only scans `sent`), the exact trap the `markInvoiceSent` due-date restart now closes. EF deployed (v8), Vault auth header working, audit row attributed to SYSTEM_USER_UUID.
-- [ ] `check-overdue-invoices` double-fired 28 Jul: two identical `invoice_overdue` activity rows 35ms apart (23:00:00.863/.898 UTC). Duplicate schedule RULED OUT 29 Jul — `cron.job` has exactly one job (jobid 3, `0 23 * * *`); internal double-processing ruled out by code path. Remaining hypothesis: duplicate HTTP delivery of a single cron tick (pg_net retry or gateway). Attributing it needs the EF request logs in the Supabase dashboard (Michael, low priority — the idempotency guard shipped 29 Jul makes duplicates a no-op either way).
+- [ ] `check-overdue-invoices` double-fired 28 Jul: two identical `invoice_overdue` activity rows 35ms apart (23:00:00.863/.898 UTC). Duplicate schedule RULED OUT 29 Jul — `cron.job` has exactly one job (jobid 3, `0 23 * * *`); internal double-processing ruled out by code path. Remaining hypothesis: duplicate HTTP delivery of a single cron tick (pg_net retry or gateway). Attributing it needs the EF request logs in the Supabase dashboard (Michael, low priority — ~~the idempotency guard shipped 29 Jul makes duplicates a no-op either way~~ **[CORRECTED 2026-08-08: the 29 Jul guard does NOT make duplicates a no-op. Reproduced on DEV under a genuine race — two `invoice_overdue` rows 193ms apart, two `invoice_milestone` rows 191ms apart, the same signature as this 28 Jul observation. The Slack digest is now guarded (v12, 8 Aug); the per-invoice DB writes are NOT. See P1 in the 8 Aug backlog.]**). **Root cause of the double delivery itself was localised 2026-08-08 — see the 8 Aug session log: the duplication is below our code, between pg_net and the Edge Functions gateway.**
 - [x] ~~`check-overdue-invoices` EF computes daysOverdue from server UTC midnight~~ **RESOLVED 2026-07-29** — EF rewritten (Melbourne day-math, ladder-aligned milestones [1/8/15/16/29] + 60-day admin-escalation prompt, idempotency guard, single Slack digest with dry-run). Residuals below.
 - [ ] Overdue-EF residual (accepted 2026-07-29): near-simultaneous invocations <~20ms apart can still double-post the Slack digest — closing it needs an advisory-lock RPC (migration); declined for now.
 - [ ] Overdue-EF residual: invoices in `viewed` status are never scanned for overdue flagging (status quo preserved; nothing sets `viewed` today — latent until something does).
@@ -1416,7 +1421,13 @@ Written 2026-07-29 at session close. PR #72 stays OPEN until the other session's
 work lands and both branches reconcile. The open items in "Follow-ups from 28 Jul
 2026 session" above are the merge-day checklist — do not tidy them away.
 
-### ⚠️ CRITICAL — EF runtime is ahead of every branch
+### ~~⚠️ CRITICAL — EF runtime is ahead of every branch~~ RESOLVED 2026-07-30
+
+> **[STALE — corrected 2026-08-08.]** The divergence closed when `launch/checks`
+> merged: `check-overdue-invoices/index.ts` has been byte-identical on `main` and
+> `production` since `8fe47e9` (30/07), so the deploy-from-the-wrong-branch hazard
+> below no longer exists. PROD now runs v12 (8 Aug, adds the Slack digest claim).
+> Left in place as the historical record of why PR #72 was ordered the way it was.
 
 PROD's `check-overdue-invoices` Edge Function is ALREADY RUNNING the `0a2fbac`
 rewrite (deployed 2026-07-29, v9): Melbourne day-math, ladder-aligned milestones
@@ -1631,3 +1642,268 @@ of the ground — those entries are left as they stand.
 - [ ] **Confirm `.env` and `.mcp.json` are both in `.gitignore` and have never
       been committed.** Check with `git log --oneline -- .env .mcp.json`.
       A tracked `.mcp.json` is a larger exposure than the audit doc was.
+- [ ] **Slack webhook for `#mrc-dev-test` was exposed in a chat transcript**
+      (2026-08-08, set as the DEV `SLACK_WEBHOOK_URL`). Anyone holding it can post
+      to that channel. Dev channel only, so low severity — rotate with the batch.
+
+---
+
+## Session log — 8 Aug 2026 (duplicate-invocation fixes + DEV verification)
+
+Three concurrency fixes shipped to PRODUCTION and verified on DEV. The duplicate-cron
+root cause was localised but is **not ours to fix**. Two pre-existing defects surfaced
+during verification — logged in the backlog section below, deliberately not fixed here.
+
+### Shipped (commit `c9761b6`, pushed to `main`)
+
+**No `production` branch merge required — Edge-Function-only. Vercel does not build
+`supabase/functions`, so EFs deploy independently of the branch.**
+
+| Function | Ver | Fix |
+|---|---|---|
+| `send-inspection-reminder` | v20 | **Fix 1 — atomic claim** replacing read-then-write. Conditional UPDATE on `reminder_sent`; ownership guard via `.eq('reminder_sent', true)` rather than timestamp equality. |
+| `send-inspection-reminder` | v20 | **Fix 2 — Resend `Idempotency-Key`**, derived as `inspection-reminder/${booking.id}`. |
+| `check-overdue-invoices` | v12 | **Fix 3 — `app_settings` PRIMARY KEY compare-and-set** guarding the Slack digest, with release-on-failure when `postSlack` returns false (covers a Slack outage *and* an unset `SLACK_WEBHOOK_URL`). |
+
+**Send-failure policy, chosen deliberately:** release the claim on transient failure
+(5xx / 429 / network), retain it on permanent 4xx. The reminder lands 2 days
+pre-inspection, so a silently dropped reminder is worse for MRC than a rare duplicate
+— and Fix 2 is what makes releasing safe, because the retry reuses the same key.
+
+### DEV verification (`ctppzqnysmzynkxjlzta`) — all three PASS
+
+Both races were genuine, not sequential: 0.0 ms start gap, both invocations in flight
+simultaneously (fired from a thread barrier). For Fix 1 **both invocations returned
+`processed: 1`** — i.e. both cleared the SELECT before either wrote, which is the exact
+race the fix exists to arbitrate.
+
+| Guard | Verdict | Evidence |
+|---|---|---|
+| Fix 1 | ✅ PASS | One `sent:1/alreadyClaimed:0`, one `sent:0/alreadyClaimed:1`. Single `reminder_sent_at` stamp. **Resend recorded exactly 1 email.** |
+| Fix 2 | ✅ PASS | Claim reset, re-invoked once → **no new email**; Resend returned the original email ID and timestamp. Key honoured. |
+| Fix 3 | ✅ PASS | One `slackPosted:true`, one `digestSuppressed`. One `app_settings` key, **one Slack message** in `#mrc-dev-test`. |
+| Fix 1 transient-release | ⬜ UNTESTED | Cannot induce a Resend 5xx by configuration alone. Not faked. |
+| Fix 3 release-on-failure | ⬜ UNTESTED | Needs an invalid webhook **plus** DB re-arm (reset invoice to `sent`, clear activity rows and the claim key). |
+
+Note on Fix 2: Resend's API does **not** expose received headers, so the key value was
+never read back directly. The pass rests on behaviour — an independent invocation with
+a re-claimed row produced no second email, which nothing else in the path could cause.
+
+### Duplicate cron invocation — root cause localised, NOT fixed by us
+
+Three-layer trace proves the duplication sits **below our code**:
+
+| Layer | Fires |
+|---|---|
+| pg_cron (`cron.job_run_details`, 48 h) | **once** per slot — all `succeeded`, `"1 row"` |
+| pg_net (`net._http_response`) | **once** per tick — ids sequential, no gaps |
+| Edge Function | **twice** — distinct request ids, both `200`, both full execution |
+
+21 of 23 hourly ticks (~91%), gap 5–537 ms. Scope is pg_net-specific — browser-invoked
+functions are single. Exactly **one** pg_net worker (0.19.5), so "two workers" is ruled
+out. Leading hypothesis: HTTP request replay on a stale keep-alive connection (libcurl
+re-sends when a pooled connection closes mid-flight); gateway-side retry cannot be
+excluded without inbound gateway logs. **Support ticket raised with Supabase.**
+
+The three fixes above do not stop the duplication — they make it harmless.
+
+### Sentry "3-day outage" — DISPROVEN
+
+The apparent baseline (177 events 9 days ago) was `environment:development` — Michael's
+laptop. Production has produced **13 events in 30 days**; three quiet days is that
+curve's normal shape. Live bundle confirmed instrumented: DSN inlined,
+`environment:"production"`, source maps uploading.
+
+### Also done this session
+
+- **Automated health check live.** Twice-daily scheduled task (08:00 / 20:00 Melbourne)
+  covering Sentry, Resend, Supabase EF logs, DB state, and Slack notification
+  reconciliation. Delivery by push + email. Prompt hardened after the first run produced
+  a **FALSE CLEAN** by checking only the Sentry Issues stream.
+- **Google Maps referrer block FIXED.** `API_KEY_HTTP_REFERRER_BLOCKED` on
+  `https://www.mrcsystem.com/` since 04/08 — **Places autocomplete had been dead in
+  production for 4 days.** The `www.` subdomain was added to the browser key's HTTP
+  referrer restrictions.
+- **Four uncontacted real leads actioned** (oldest 67 h). Admin notified.
+
+### Open verification — nothing below is proven in PRODUCTION
+
+- [ ] **Fix 1 claim path unproven in PROD** — `calendar_bookings` is empty. First signal
+      is `alreadyClaimed > 0` on the tick after the first real booking. Ask Glen or
+      Clayton to flag when they book one.
+- [ ] **Fix 3 digest guard unproven in PROD** — `invoices` is empty. First signal is
+      exactly one Slack digest on the first genuinely overdue invoice.
+- [ ] **Health check email delivery not confirmed end to end.** Verify an email actually
+      arrives after the 20:00 run.
+
+---
+
+## Backlog from the 8 Aug 2026 session (defects found, none fixed)
+
+### P1 — `email_logs` insert fails silently in production code
+
+`await supabase.from('email_logs').insert({...})` in `send-inspection-reminder` has no
+`.select()` and no error check, so any failure is invisible. Observed on DEV: the
+function reported `sent: 1` while writing **zero** log rows.
+
+**This bears directly on Fix 1.** The retain-on-4xx policy means the `status:'failed'`
+row is the ONLY record that a reminder will never be retried. If the insert can fail
+invisibly, a permanently-failed reminder leaves the booking reading `reminder_sent=true`
+forever — indistinguishable from success.
+
+Separately, `email_logs` has **0 rows all-time in production**, so no sends are being
+logged at all. That also blocks the health check's silent-suppression cross-reference,
+which depends on the table. (Supersedes the S1 verification item above, which currently
+has nothing to check.)
+
+*DEV-specific cause, not the production one:* `email_logs.sent_by` has a FK to
+`auth.users(id)` and `SYSTEM_USER_UUID` (`a5ae96f1-…`) does not exist in DEV's
+`auth.users`, so every DEV insert is a FK violation. The silence is what generalises.
+
+### P1 — `check-overdue-invoices` per-invoice guard does not hold under concurrency
+
+Verified on DEV: **two `invoice_overdue` rows 193 ms apart, two `invoice_milestone` rows
+191 ms apart.** Reproduces the 28/07 production signature.
+
+Mechanism — **corrected 2026-08-17** (the earlier wording said the RPC's UPDATE was
+unconditional; that was wrong, and rebuilding a guard that already exists is the mistake
+it invites). `audited_mark_invoice_overdue`'s UPDATE has **always** been conditional
+(`AND status <> 'overdue'`), and under READ COMMITTED Postgres re-evaluates that predicate
+against the committed new row version once the row lock releases, so the second invocation
+matches **zero rows**. `audit_invoices_update` is `AFTER UPDATE … FOR EACH ROW`, so the
+loser fires no trigger either. **`invoices` and `audit_logs` were never racing.**
+
+The real defect is one layer up: the RPC `RETURNS void`, so supabase-js hands *both*
+invocations `(data: null, error: null)`. The EF cannot tell the winner from the loser and
+both fall through to an unconditional `activities` INSERT. `doneToday` cannot help — it is
+built from a plain SELECT at invocation start, which both invocations see empty.
+
+Separately, the `invoice_milestone` insert has **no** DB-level guard at all: it transitions
+no column, so there is nothing for a conditional UPDATE to arbitrate.
+
+**The code comment at `check-overdue-invoices/index.ts:260` asserting "the atomic
+transition is the tie-breaker between near-simultaneous invocations" IS FALSE** — a
+SELECT followed by an RPC UPDATE is read-then-write, not compare-and-set. **Correct that
+comment as part of the fix so nobody trusts it again.**
+
+Fix requires a **migration to the RPC** (narrow the UPDATE to `status = 'sent'` and return
+rows-affected so the caller can tell a win from a loss), which is why it was not done in the
+8 Aug session.
+
+**WRITTEN 2026-08-17, NOT YET APPLIED —
+`supabase/migrations/20260817120000_invoice_overdue_compare_and_set.sql`.** `RETURNS BOOLEAN`
+via `GET DIAGNOSTICS ROW_COUNT`; `DROP` + `CREATE` because the return type changes. It also
+**drops `authenticated` EXECUTE** (service_role only — closes the
+`authenticated_security_definer_function_executable` WARN in
+`docs/SUPABASE_ADVISOR_AUDIT.md`), and re-`REVOKE`s `PUBLIC`/`anon` because `CREATE FUNCTION`
+restores the default `PUBLIC EXECUTE` and would otherwise silently undo
+`20260709120000_revoke_anon_execute_audit_rpcs.sql`. The matching `check-overdue-invoices`
+changes are committed alongside it: boolean consumed, a `typeof !== 'boolean'` guard for the
+wrong-order case, `alreadyFlagged` + `alreadyMilestoned` counters in the response, both
+`activities` inserts error-checked, and the milestone path moved onto an `app_settings`
+PRIMARY KEY claim (no schema change — mirrors `claimTodaysDigest`).
+
+⚠️ **Apply order: migration in Studio FIRST, EF deploy SECOND.** The reverse leaves the new
+EF receiving `null` from the old RPC, tripping the typeof guard and skipping **every**
+activity row until the migration lands. Migration-first is safe — the old EF ignores the
+return value. Regenerate `src/integrations/supabase/types.ts` **after** applying (it still
+says `Returns: undefined`). The `'viewed'` status gap stays deliberately open and gets its
+own change.
+
+Impact bounded: final invoice status correct, no money touched, no customer email, and
+Fix 3 correctly prevented the duplicate Slack. Cost is duplicate rows on the lead's
+activity timeline.
+
+### P1 — `ALTER DEFAULT PRIVILEGES`: every new `public` function auto-grants `anon` + `authenticated` EXECUTE
+
+Surfaced 2026-08-17 while applying `20260817120000_invoice_overdue_compare_and_set.sql`.
+That migration's `REVOKE`s of `PUBLIC` and `anon` held, but `authenticated` came back
+anyway — because `DROP` + `CREATE FUNCTION` re-runs the schema default ACL, and nothing
+in the migration revoked `authenticated` explicitly.
+
+**Verified on PROD 2026-08-17 (`pg_default_acl`, read-only). TWO default ACLs on
+`public` functions, one per granting role, and both grant `anon` and `authenticated`:**
+
+```
+granting_role  | default_acl
+---------------+-------------------------------------------------------------------------------
+postgres       | {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+supabase_admin | {postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin}
+```
+
+**Consequence — this is the part that matters.**
+`20260709120000_revoke_anon_execute_audit_rpcs.sql` is **not permanent**. It revoked a
+grant; it did not change the default that re-creates it. Any migration that `DROP`s and
+re-`CREATE`s a `SECURITY DEFINER` function in `public` silently regains `anon EXECUTE` at
+the moment of `CREATE`. For `audited_mark_invoice_overdue` and
+`audited_insert_lead_via_framer` that means an unauthenticated caller could execute an
+RLS-bypassing function with a forged `p_acting_user_id`.
+
+**Interim rule — follow it until the proper fix lands.** Every migration that
+`DROP`/`CREATE`s a function in `public` MUST carry, inside the same transaction:
+
+```sql
+REVOKE ALL ON FUNCTION public.<fn>(<args>) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.<fn>(<args>) FROM anon;
+-- and, if the function should not be reachable by logged-in users:
+REVOKE ALL ON FUNCTION public.<fn>(<args>) FROM authenticated;
+```
+
+…then verify with `information_schema.routine_privileges` in the same session. The verify
+step is not optional: the failure is silent and widens access rather than narrowing it.
+
+**Proper fix — needs its own session and a security review.** `ALTER DEFAULT PRIVILEGES`
+against **both** granting roles (`postgres` and `supabase_admin`) to stop auto-granting
+`anon`/`authenticated` EXECUTE on new `public` functions. This is **schema-wide and affects
+every future function**, including ones PostgREST is expected to expose to `anon` (e.g.
+`calculate_gst`, `calculate_dew_point`, `generate_lead_number`). Deliberately NOT done as a
+footnote to the invoice work. Scope it properly: inventory which `public` functions are
+*meant* to be anon/authenticated-callable first, because flipping the default will break
+any that rely on it.
+
+**Current state of `audited_mark_invoice_overdue` (PROD, 2026-08-17, post-apply):**
+`returns = bool`, `security_definer = true`, `owner = postgres`, grantees =
+`authenticated, postgres, service_role`. `anon` and `PUBLIC` are **absent** — so this is
+identical to the pre-migration grant set, **no widening, no open hole**. The
+`authenticated` tightening the migration intended simply did not take, and is deferred to
+the session above. NOTE: the migration file's own comment claims `authenticated` "is
+deliberately NOT re-granted" — that describes the intent, not the achieved outcome. The
+file is left unmodified because it is already applied and is the historical record of what
+ran; this entry is the correction.
+
+### P2 — DEV shares the PRODUCTION Resend account
+
+The same API key that sends real customer mail is used on DEV. **One mistyped address in
+a DEV test reaches a real customer.** Needs a separate DEV key, or at minimum a
+documented rule that DEV only ever sends to `delivered@resend.dev`.
+
+### P2 — Sentry `ignoreErrors` contains `"Failed to fetch"`
+
+Confirmed harmful, not theoretical: it swallowed a real production failure on 07/08
+13:44 — `[useTechnicianStats] Failed to fetch users`, a Supabase connectivity error, and
+the admin technician view silently rendered an empty user list. It reached the `logs`
+dataset only because of `consoleLoggingIntegration`; `captureException` discarded it.
+
+### P2 — Edge Functions have no Sentry SDK
+
+`send-email`, `generate-inspection-summary` and `check-overdue-invoices` have never
+reported to Sentry and cannot under the current config. Supabase EF logs (24 h
+retention) are the only server-side source.
+
+### P2 — Swallow-and-continue audit
+
+`useTechnicianStats` catches, returns an empty list, and renders as if valid. Same shape
+as the known `TechnicianInspectionForm` defect where area save errors are swallowed and
+"Saved" shows unconditionally. **Audit whether this is a codebase-wide pattern.**
+
+### P3
+
+- [ ] Sentry release is always `mrc-app@0.0.0` (`package.json` version never bumped).
+      No per-release regression detection.
+- [ ] `property_type` NULL on all Framer-sourced leads — intake never populates it.
+      Upstream cause of the inspection-vs-job-completion mismatch.
+- [ ] `notifications` table 0 rows all-time. In-app notification surface dead while
+      Slack works.
+- [ ] Supabase EF log retention is 24 h. Log invocations to a table for durable history.
+- [ ] Supabase CLI is v2.101.0; current is v2.112.0.
+- [ ] `toDisplayTitleCase` renders "JR Smith" as "Jr Smith". Cosmetic.
