@@ -1952,3 +1952,192 @@ as the known `TechnicianInspectionForm` defect where area save errors are swallo
 - [ ] Supabase EF log retention is 24 h. Log invocations to a table for durable history.
 - [ ] Supabase CLI is v2.101.0; current is v2.112.0.
 - [ ] `toDisplayTitleCase` renders "JR Smith" as "Jr Smith". Cosmetic.
+
+---
+
+## Recon findings — 24 Aug 2026
+
+Source: Batch B read-only reconnaissance, **`docs/TONIGHT_BATCH_RECON.md`** (live PROD reads via
+`npx supabase db query --linked`, SELECT-only; grep-backed code inventory, adversarially verified).
+That doc carries the evidence, file:line inventories and the proposed DDL. This section carries the
+item, the blocker, and the sequence. Nothing below has been built, migrated, or committed.
+
+### CRITICAL / STANDING RULE
+
+### R1 — Migration history fork is far worse than previously documented
+- **Live count (24 Aug):** 16 versions shared / **104 local-only** / **102 remote-only**. The prior
+  figure — "five remote-only migrations have no local file" in
+  `docs/NOTIFICATIONS_SCHEMA_RECONCILIATION.md:27` — was wrong.
+- **`supabase db push` would replay 104 files. NEVER run it on this repo.** (The repo is linked to
+  PROD; a bare push hits production.)
+- `supabase migration list` output is unreliable as a description of the live database — its
+  version stamps say nothing about what is deployed. Ignore it as evidence.
+- At least one repo trigger body **differs** from the deployed one
+  (`20260218000001_add_reminder_scheduled_for.sql` references a `'no_show'` status that does not
+  exist in the live `booking_status` enum; the live `set_reminder_scheduled_for` body does not).
+  Therefore: **`supabase/migrations/**` is an archive of intentions, NOT a description of the live
+  database. Any claim about live schema must come from a live read.**
+- Only safe path for schema change remains: **Studio paste + `npx supabase migration repair
+  --status applied <version> --linked`** (the path used for `20260821000000`, see
+  `docs/NOTIFICATIONS_SCHEMA_RECONCILIATION.md:215`).
+- [ ] Remediation of the fork is its own project — not scheduled, not part of any item below.
+
+### R2 — Supabase MCP token is dead; known-good live-read path
+- `mcp__supabase` still rejects every `execute_sql` / `list_tables` call ("Unauthorized…
+  SUPABASE_ACCESS_TOKEN"). **`get_project_url` answering is a FALSE POSITIVE** — it is derived from
+  local config, not a live call. Do not treat it as proof the server works.
+- Known-good path for live reads: **`npx supabase db query --linked -o json -f <file.sql>`**
+  (CLI 2.101.0, Management API, linked = PROD `ecyivrxjpsmjmexqatym` — state that before running;
+  SELECT-only). `information_schema`, `pg_policies`, `pg_get_functiondef()` all work.
+- [ ] Token replacement itself is already tracked under "Follow-ups from 23 Jul 2026 session"
+  (`Replace dead SUPABASE_ACCESS_TOKEN…`). Update that item's fallback text to the `db query` path
+  when it is next touched; do not duplicate it here.
+
+### READY TO BUILD — code-only, no migration
+
+### R3 — Non-client bookings (equipment pickup / blocked time)
+- **Live state:** `calendar_bookings.lead_id` already nullable (FK ON DELETE SET NULL);
+  `event_type` already a free varchar with no CHECK/enum (live values: `inspection`, `job`). The
+  table's only RLS policy reads neither column. **No DDL required.**
+- Conflict engine `src/lib/bookingService.ts:42-75` (`checkBookingConflict`) reads
+  `calendar_bookings` directly with no type/lead filter — **blocked time ALREADY blocks slots.**
+- **Real work:**
+  - [ ] `src/hooks/useTechnicianJobs.ts:269` uses `lead:leads!inner(...)` — silently hides
+    lead-less rows. A technician would be blocked out of a slot and unable to see why. Needs a
+    deliberate second query or relaxed join for non-client types.
+  - [ ] Engagement keying `${lead_id}|${event_type}` (`useTechnicianDetail.ts:310`,
+    `useTechnicianStats.ts:261`) merges all null-lead rows of one type into a single "Unknown"
+    engagement — key non-client rows by `id`.
+  - [ ] Creation UI for a lead-less row (both insert paths currently require a lead prop and derive
+    `title` / `location_address` from it); filter pills `AdminSchedule.tsx:174-176`, colour/label
+    maps, hide "Start Inspection" (`EventDetailsPanel.tsx:181-187`) for non-client types.
+- [ ] **Optional hardening:** CHECK constraint on `event_type` (proposed DDL in recon §3.6; 28
+  live rows already conform). Decide the label set first (`equipment_pickup`, `blocked`, …).
+  Do NOT add a `lead_id IS NOT NULL` CHECK for client types — the FK is ON DELETE SET NULL and
+  lead deletion would then fail.
+
+### R4 — Preferred date/time optional on manual lead entry
+- **Live state:** `leads.customer_preferred_date` and `customer_preferred_time` already nullable,
+  no default, no CHECK, no trigger. **No DDL required.**
+- Blocked only by the hand-rolled `CreateNewLeadModal.validateForm()`
+  (`src/components/leads/CreateNewLeadModal.tsx:353-361`). **There is NO Zod schema behind the
+  manual form** — the documented `normalLeadSchema` (`lead-creation.schemas.ts:245-263`) is dead
+  code with zero callers and no preferred keys.
+- [ ] ~6 lines: drop the two required branches (:353-361), labels (:604, :648), insert
+  `:435-436` → `formData.preferredDate || null` / `formData.preferredTime || null` (an empty
+  string into a `date` column errors), Slack payload `:467-468` → `|| undefined`.
+- Does **not** conflict with the PR #39 never-clear rule — that rule governs UPDATE
+  (`LeadDetail.tsx:506-541` clear-lists; column COMMENTs), not requiredness at CREATE.
+- [ ] Optional tidy-up: delete the dead `normalLeadSchema` / `hiPagesLeadSchema` exports so nobody
+  later wires them in and silently changes the required set.
+
+### R5 — Allow duplicate leads (repeat real-estate clients)
+- **Live state:** no unique constraint or index on email / phone / name / any address column
+  (only `id` and `lead_number` are unique; `idx_leads_email_phone` is non-unique). **PROD ALREADY
+  holds 5 duplicate-email groups and 3 duplicate-phone groups — the DB never blocked this.** No
+  trigger, no Zod refine, no upsert/onConflict. The Framer EF only flags
+  (`is_possible_duplicate`, 24 h exact match) and always inserts. **No DDL required.**
+- Blocked only by the admin modal: `checkForDuplicates` (`CreateNewLeadModal.tsx:264-288`) +
+  gate (`:398-403`) — hard-blocks on phone-OR-email with **no override** AND **counts archived /
+  not_landed leads** (no `archived_at` filter), so a re-created archived customer is a dead end the
+  admin cannot even find.
+- [ ] **Target: warn-and-allow.** Keep the lookup, show "Existing lead: <name> (MRC-…)", always
+  permit submit; add `.is('archived_at', null)` to the check. Banner `:565-576` becomes
+  informational.
+- Known format drift (modal stores digits, Framer raw, in-app keeps `+`) means the warning will
+  miss some repeats — acceptable for warn-only; not worth fixing in this batch.
+
+### NEEDS ITS OWN SESSION — one migration
+
+### R6 — Google Maps unit numbers
+- **Live state:** address stored as components (`property_address_street / _suburb / _state /
+  _postcode` + `property_lat/lng`). **NO unit column exists anywhere** in the public schema.
+  Single Places parser `src/hooks/useGoogleMaps.ts:211-220` (`getPlaceDetails`) extracts 5
+  component types and **never reads `subpremise`** — the unit is silently dropped whenever Google
+  returns `street_number` + `route`. `grep -ri subpremise` over the repo → nothing.
+- [ ] **Migration (Studio paste + `migration repair`, per R1):** add `leads.property_address_unit`
+  (nullable); optional `search_text` generated-column rebuild (drop + re-add + reindex
+  `idx_leads_search_text_trgm`); **MUST redefine `audited_insert_lead_via_framer`** — its live
+  body whitelists columns, so a unit sent by the Framer EF is silently dropped until the RPC is
+  extended. Exact DDL in recon §1.3.
+- [ ] **Blocker before the column is added:** 33 consumer files, 5 writers
+  (`CreateNewLeadModal.tsx:423`, `LeadBookingCard.tsx:336-347`,
+  `InlineEditAddress.tsx:76-83`→`useLeadUpdate.ts`, `ViewReportPDF.tsx:2044-2054`,
+  `receive-framer-lead/index.ts:810-829`) and **no shared address formatter** — 15+ inline
+  4-part concatenations. Write one `formatAddress` helper and migrate the concatenations to it
+  FIRST, or the unit format will fragment. Two parsers assume no comma in the street segment
+  (`useScheduleCalendar.ts:320-328`, `useCancelledBookings.ts:143-151`).
+- [ ] Decide the display format (`Unit 3/12 Smith St` vs `3/12 Smith St`) before touching either.
+- Note: `TechnicianInspectionForm.tsx:791-797` "Address" field is editable but never persisted
+  (feeds the AI prompt only) — don't mistake it for a writer.
+
+### BLOCKED ON GLEN/CLAYTON DECISION
+
+### R7 — Multiple technicians per job/inspection (equal, no lead/assist hierarchy)
+- **Live state:** single nullable FK `leads.assigned_to → auth.users`. **No junction table.**
+  `calendar_bookings.assigned_to` NOT NULL. **13 RLS policies** key on `leads.assigned_to`
+  (leads ×2, inspections ×3, inspection_areas, photos ×4, photo_history ×2, invoices) — PLUS
+  `ai_summary_versions.technicians_see_assigned` (keyed on `inspections.inspector_id`) and the
+  three `job_completions` policies (keyed on `completed_by`) would **STILL lock out technician #2
+  even after a junction table lands.** Full policy table in recon §2.2.
+- **Scope:** `lead_assignments` junction + `is_assigned_to_lead()` helper + backfill + **16
+  `ALTER POLICY`** (names kept). Bookings: **Option A** (one row per technician +
+  `booking_group_id`; recommended — conflict engine, realtime filter and partial indexes keep
+  working) vs **Option B** (junction; every booking reader changes). **88 code hits / 24 files**;
+  two single-select pickers → multi-select; four `assigned_to IS NULL` queues → `NOT EXISTS`.
+  Full DDL in recon §2.4.
+- **BLOCKER — `job_completions.completed_by` is singular** (NOT NULL, stamped from the saving
+  user; `inspections.inspector_id` likewise, re-stamped on every save incl. admin edits). If both
+  technicians attend and are equal, **who signs the completion report?** This is Phase 2 (active
+  workstream) — building the junction before answering means immediate rework of the completion
+  form. **Glen/Clayton must decide** (options: first saver; any member; explicit signer picker;
+  both names on the PDF). Also decide whether technicians may self-assign (junction RLS grants).
+- [ ] Fix the two stale-`assigned_to` paths (R8) as PART of this work, not separately.
+- [ ] Audit triggers on `lead_assignments` are a separate explicit decision (29-trigger rule).
+
+### BUGS FOUND, NOT SCHEDULED
+
+### R8 — Two "back to new_lead" paths leave `leads.assigned_to` stale
+- `LeadDetail.tsx:514` clears `assigned_to` on reversion; `EventDetailsPanel.tsx:59-63` (inspection
+  cancel) and `LeadsManagement.tsx:203-205 / 307-310` (reactivate) do **not**. Result: a `new_lead`
+  with a non-null `assigned_to` vanishes from every `assigned_to IS NULL` queue
+  (`useLeadsToSchedule.ts:74`, `useUnassignedLeads.ts:42`, `AdminSidebar.tsx:50`,
+  `useAdminDashboardStats.ts:98`) while the old technician keeps RLS access.
+- `LeadDetail` doubles as the technician job page (`App.tsx:349-362` `/technician/job/:id`), so
+  these reversion CTAs are technician-reachable.
+- [ ] Fix with R7.
+
+### R9 — Archiving a lead never cancels its bookings
+- `LeadsManagement.tsx:529-532` / `LeadDetail.tsx:706-709` set `archived_at` only; no booking
+  consumer filters on it. Archived leads keep blocking technician slots via `checkBookingConflict`,
+  keep rendering on the admin calendar / Today's Schedule, and still get the 48 h reminder email.
+  Same gap for `job_scheduled → job_waiting`, `not_landed`, `closed` (only the rank<1 reversion
+  bulk-cancels, `LeadDetail.tsx:563`). Recon §3.7.
+- [ ] Not scheduled. Natural home: the R3 booking batch, if scope allows.
+
+### R10 — `BookJobSheet` is technician-reachable with no rollback on partial writes
+- `src/components/leads/BookJobSheet.tsx:409-466`: deletes prior job rows → inserts new rows →
+  updates `leads` (`assigned_to`, status). No compensating rollback if step 3 fails
+  (`bookingService.ts:177-181` does roll back). `calendar_bookings` RLS is open to any
+  authenticated user while `leads` UPDATE is gated on `assigned_to = auth.uid()` — a technician
+  picking another tech succeeds at steps 1-2 and fails at 3, leaving
+  `calendar_bookings.assigned_to ≠ leads.assigned_to`. Entry via the ungated `job_waiting` CTA
+  (`LeadDetail.tsx:959-968`). Its picker also lists all active users, not technician-role only
+  (`:166-184`).
+- [ ] Not scheduled. Folds into R7 (write ordering must change for multi-tech anyway).
+
+### R11 — `useRevisionJobs.ts` is live despite the CLAUDE.md "dormant" rule
+- CLAUDE.md:131 says "useRevisionJobs.ts left dormant — do not activate", but
+  `src/pages/TechnicianDashboard.tsx:5` imports it and `:37` calls it (queries `leads` with
+  `status = job_scheduled`, `assigned_to = user.id`). Rule and reality disagree.
+- [ ] Decide which is right (see "Revision Lifecycle — Tech Debt" / PR-T1 above), then either
+  remove the call or rewrite the rule. Until then, treat the hook as live when estimating R7.
+
+### SUGGESTED SEQUENCE
+- **A.** R3 + R4 + R5 as **one code-only batch** — no migration, no approval gate. Verify at
+  375px; one E2E at the end, not piecemeal.
+- **B.** R6 (unit numbers) — own session, one migration via Studio + `migration repair`;
+  formatter helper lands before the column.
+- **C.** R7 (multi-tech) — only after the Glen/Clayton decision on `completed_by`; R8 + R10 ride
+  along.
+- R1 / R2 are standing rules, not work items. R9 / R11 unscheduled.
