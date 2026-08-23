@@ -34,6 +34,7 @@
 // NOTE: Does NOT auto-charge late fees. Admin handles fee charges manually.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { fanOutNotification } from '../_shared/fanout.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -76,6 +77,10 @@ const DIGEST_CLAIM_KEY_PREFIX = 'digest:invoice-overdue:'
 // Rows accrue at most 6 per invoice across its whole life (5 ladder tiers + the
 // escalation prompt).
 const MILESTONE_CLAIM_KEY_PREFIX = 'milestone:invoice-overdue:'
+// In-app digest fan-out claims its own per-day key: the Slack digest claim is
+// released when the Slack post fails, and a retry re-entering that branch must
+// not duplicate the already-inserted notification rows.
+const FANOUT_CLAIM_KEY_PREFIX = 'digest-fanout:invoice-overdue:'
 
 function ladderTierLabel(daysOverdue: number): string {
   if (daysOverdue <= 0) return 'Current'
@@ -519,6 +524,45 @@ Deno.serve(async (req) => {
           slackPosted = await postSlack(SLACK_WEBHOOK_URL, digest)
         } else {
           console.warn('[check-overdue-invoices] SLACK_WEBHOOK_URL not set — digest not posted')
+        }
+
+        // Additive in-app mirror of the digest above (mapping row 8,
+        // overdue_invoice_digest). It takes its OWN per-day compare-and-set
+        // claim rather than riding the Slack claim: that one is released when
+        // the Slack post fails, and a retry re-entering this branch must not
+        // duplicate the already-inserted notification rows. The claim is
+        // released only when the fan-out itself fails, so a retry can redo it.
+        // Dry runs are skipped entirely — unlike the [DRY RUN] Slack post,
+        // notification rows persist for every recipient. All failures are
+        // non-fatal, recorded in the existing errors[] pattern.
+        if (!dryRun) {
+          const fanOutClaimKey = `${FANOUT_CLAIM_KEY_PREFIX}${melToday}`
+          const { error: fanClaimErr } = await supabase
+            .from('app_settings')
+            .insert({ key: fanOutClaimKey, value: new Date().toISOString() })
+          if (fanClaimErr && fanClaimErr.code === '23505') {
+            console.log('[check-overdue-invoices] in-app digest already fanned out today — skipped')
+          } else if (fanClaimErr) {
+            errors.push(`Notification fan-out claim failed: ${fanClaimErr.message}`)
+          } else {
+            const fanOutResult = await fanOutNotification(supabase, {
+              type: 'overdue_invoice_digest',
+              title: `Overdue invoice digest — ${formatDateAU(melToday)}`,
+              message: digest,
+              actionUrl: '/admin',
+              priority: 'normal',
+            })
+            if (!fanOutResult.ok) {
+              errors.push(`Notification fan-out failed: ${fanOutResult.error ?? 'unknown error'}`)
+              const { error: fanReleaseErr } = await supabase
+                .from('app_settings')
+                .delete()
+                .eq('key', fanOutClaimKey)
+              if (fanReleaseErr) {
+                errors.push(`Notification fan-out claim release failed: ${fanReleaseErr.message}`)
+              }
+            }
+          }
         }
 
         // The claim is taken before the post, so a post that never happened has

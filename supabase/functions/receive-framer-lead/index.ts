@@ -4,6 +4,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 // same range and builds. Remove once esm.sh serves the newer target.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?deps=@supabase/functions-js@2.4.4'
 import { z } from 'https://esm.sh/zod@3.22.4'
+import { fanOutNotification } from '../_shared/fanout.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -566,6 +567,26 @@ Deno.serve(async (req) => {
     } catch { /* non-fatal */ }
   }
 
+  // Additive in-app mirror of sendFailureSlack (mapping row 7,
+  // lead_capture_failure) — never touches sendFailureSlack itself.
+  // fanOutNotification never throws, so no try/catch is needed here.
+  async function sendFailureFanOut(rawPayload: string, errorMsg: string): Promise<void> {
+    // Mirrors sendFailureSlack's raw-payload preview (pretty-printed JSON
+    // when parseable, else the raw first 500 chars) so metadata.payload_preview
+    // matches what admins already see in the Slack post for this event.
+    let preview = rawPayload.substring(0, 500)
+    try { preview = JSON.stringify(JSON.parse(rawPayload), null, 2).substring(0, 500) } catch { /* keep raw */ }
+
+    await fanOutNotification(supabase, {
+      type: 'lead_capture_failure',
+      title: 'Lead capture FAILURE',
+      message: errorMsg,
+      actionUrl: '/admin/leads',
+      priority: 'high',
+      metadata: { payload_preview: preview },
+    })
+  }
+
   // --- Body size check ---
   if (rawBody.length > MAX_BODY_SIZE) {
     const sizeMsg = 'Body too large: ' + rawBody.length + ' bytes'
@@ -573,6 +594,7 @@ Deno.serve(async (req) => {
     await Promise.allSettled([
       sendFailureEmail(rawBody.substring(0, 5000), sizeMsg),
       sendFailureSlack(rawBody.substring(0, 500), sizeMsg),
+      sendFailureFanOut(rawBody.substring(0, 500), sizeMsg),
     ])
     return new Response(
       JSON.stringify({ error: 'Request body too large' }),
@@ -587,6 +609,7 @@ Deno.serve(async (req) => {
     await Promise.allSettled([
       sendFailureEmail(rawBody, rlMsg),
       sendFailureSlack(rawBody, rlMsg),
+      sendFailureFanOut(rawBody, rlMsg),
     ])
     return new Response(
       JSON.stringify({ error: 'Too many submissions. Please try again later.' }),
@@ -759,6 +782,7 @@ Deno.serve(async (req) => {
       await Promise.allSettled([
         sendFailureEmail(rawBody, errMsg),
         sendFailureSlack(rawBody, errMsg),
+        sendFailureFanOut(rawBody, errMsg),
       ])
       return new Response(
         JSON.stringify({ error: 'Invalid lead data', details: parsedLead.error.flatten() }),
@@ -818,6 +842,7 @@ Deno.serve(async (req) => {
       await Promise.allSettled([
         sendFailureEmail(rawBody, errMsg),
         sendFailureSlack(rawBody, errMsg),
+        sendFailureFanOut(rawBody, errMsg),
       ])
       return new Response(
         JSON.stringify({ error: 'Failed to save lead. Please call us at 1800 954 117.' }),
@@ -856,6 +881,19 @@ Deno.serve(async (req) => {
         if (!res.ok) console.error('Slack error:', await res.text())
       } catch (err) { console.error('Slack notification failed:', err) }
     })()
+
+    // Additive in-app mirror of the Slack post above (mapping row 6,
+    // new_lead). fanOutNotification never throws, so unlike slackPromise
+    // this needs no wrapping try/catch of its own.
+    const fanOutPromise = fanOutNotification(supabase, {
+      type: 'new_lead',
+      title: isPossibleDuplicate ? 'New lead received (possible repeat)' : 'New lead received',
+      message: [fullName, suburb, phone].filter(Boolean).join(' — '),
+      leadId: leadData?.id ?? null,
+      actionUrl: '/admin/leads',
+      priority: 'high',
+      metadata: { source: 'framer', isPossibleDuplicate },
+    })
 
     // email_logs is the only durable record that a confirmation email was
     // attempted, so a failure here must be visible — but it must never take
@@ -929,7 +967,7 @@ Deno.serve(async (req) => {
       }
     })()
 
-    await Promise.allSettled([slackPromise, emailPromise])
+    await Promise.allSettled([slackPromise, emailPromise, fanOutPromise])
 
     return new Response(
       JSON.stringify({ success: true, message: 'Lead received' }),
@@ -942,6 +980,7 @@ Deno.serve(async (req) => {
     await Promise.allSettled([
       sendFailureEmail(rawBody, errMsg),
       sendFailureSlack(rawBody, errMsg),
+      sendFailureFanOut(rawBody, errMsg),
     ])
     return new Response(
       JSON.stringify({ error: 'An unexpected error occurred. Please call us at 1800 954 117.' }),

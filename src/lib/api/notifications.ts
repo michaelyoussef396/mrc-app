@@ -410,11 +410,164 @@ export async function sendJobReportEmail(params: {
 }
 
 // ============================================================================
+// FAN-OUT NOTIFICATIONS (in-app) — additive, RPC-backed
+// ============================================================================
+//
+// Mirrors a subset of Slack events into public.notifications via the
+// fan_out_notification RPC, so admins/technicians get an in-app + realtime
+// notification, not just a Slack message. See docs/NOTIFICATIONS_INVESTIGATION.md
+// for the full Slack event inventory this fans out from.
+//
+// fan_out_notification ships in a migration Michael applies by hand (never
+// auto-applied), so until then it is also absent from the generated Database
+// types. FanOutRpcClient is a narrow local type that lets us call it without
+// hand-editing the generated src/integrations/supabase/types.ts.
+
+/** Admin leads list — landing page for events with no single lead to deep-link to. */
+const ADMIN_LEADS_LIST_PATH = '/admin/leads';
+
+/** Lead detail route, confirmed against src/App.tsx (`path="/leads/:id"`). */
+const LEAD_DETAIL_PATH_PREFIX = '/leads/';
+
+function buildLeadDetailPath(leadId: string): string {
+  return `${LEAD_DETAIL_PATH_PREFIX}${leadId}`;
+}
+
+export interface FanOutParams {
+  type: string;
+  title: string;
+  message: string;
+  leadId?: string | null;
+  actionUrl?: string | null;
+  priority?: 'normal' | 'high';
+  metadata?: Record<string, unknown> | null;
+  relatedEntityType?: string | null;
+  relatedEntityId?: string | null;
+}
+
+/**
+ * Maps a Slack notification event to its in-app notification, or null when the
+ * event has no in-app equivalent — 'custom' events (invoice/payment notices build
+ * their own FanOutParams directly, see notifyInvoiceSent/notifyPaymentReceived)
+ * and any event not yet wired (report_ready, report_approved stay Slack-only
+ * dead code, untouched by design).
+ */
+export function buildNotificationFromSlackEvent(params: SendSlackNotificationParams): FanOutParams | null {
+  switch (params.event) {
+    case 'new_lead': {
+      const message = [params.full_name, params.suburb, params.phone]
+        .filter((part): part is string => Boolean(part))
+        .join(' — ');
+      return {
+        type: 'new_lead',
+        title: 'New lead received',
+        message,
+        leadId: params.leadId ?? null,
+        actionUrl: ADMIN_LEADS_LIST_PATH,
+        priority: 'high',
+        // Deliberately NOT { ...params }: the full payload (email, address,
+        // issue description) would be duplicated into one stored row per
+        // recipient. The message already carries name/suburb/phone; keep
+        // metadata to routing-relevant fields, matching the Framer EF writer.
+        metadata: {
+          lead_source: params.lead_source ?? null,
+          preferred_date: params.preferred_date ?? null,
+          preferred_time: params.preferred_time ?? null,
+        },
+      };
+    }
+
+    case 'inspection_booked': {
+      const message = [params.leadName, params.propertyAddress, params.technicianName, params.bookingDate]
+        .filter((part): part is string => Boolean(part))
+        .join(' — ');
+      return {
+        type: 'inspection_booked',
+        title: 'Inspection booked',
+        message,
+        leadId: params.leadId ?? null,
+        actionUrl: params.leadId ? buildLeadDetailPath(params.leadId) : null,
+        priority: 'normal',
+      };
+    }
+
+    case 'status_changed': {
+      return {
+        type: 'status_changed',
+        title: 'Lead status changed',
+        message: `${params.leadName}: ${params.oldStatusLabel} → ${params.newStatusLabel}`,
+        leadId: params.leadId,
+        actionUrl: buildLeadDetailPath(params.leadId),
+        priority: 'normal',
+        metadata: {
+          oldStatus: params.oldStatus,
+          newStatus: params.newStatus,
+          oldStatusLabel: params.oldStatusLabel,
+          newStatusLabel: params.newStatusLabel,
+          propertyAddress: params.propertyAddress,
+        },
+      };
+    }
+
+    case 'lead_updated': {
+      return {
+        type: 'lead_updated',
+        title: 'Lead details updated',
+        message: `${params.leadName} — fields: ${params.changedFields}`,
+        leadId: params.leadId,
+        actionUrl: buildLeadDetailPath(params.leadId),
+        priority: 'normal',
+      };
+    }
+
+    default:
+      return null;
+  }
+}
+
+/** Narrow local shape for the pending fan_out_notification RPC — see section note above. */
+interface FanOutRpcClient {
+  rpc(fn: 'fan_out_notification', args: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }>;
+}
+
+/**
+ * Fires the fan_out_notification RPC. Fire-and-forget: every error (including
+ * "function does not exist" before the migration lands) is caught and logged,
+ * never thrown, so a failure here can never break Slack or the calling flow.
+ */
+export async function fanOutNotification(params: FanOutParams): Promise<void> {
+  try {
+    const { error } = await (supabase as unknown as FanOutRpcClient).rpc('fan_out_notification', {
+      p_type: params.type,
+      p_title: params.title,
+      p_message: params.message,
+      p_lead_id: params.leadId ?? null,
+      p_action_url: params.actionUrl ?? null,
+      p_priority: params.priority ?? 'normal',
+      p_metadata: params.metadata ?? null,
+      p_related_entity_type: params.relatedEntityType ?? null,
+      p_related_entity_id: params.relatedEntityId ?? null,
+    });
+
+    if (error) {
+      console.error('[Notifications] fan_out_notification RPC error:', error);
+    }
+  } catch (err) {
+    console.error('[Notifications] fan_out_notification RPC error:', err);
+  }
+}
+
+// ============================================================================
 // INVOICE EMAIL
 // ============================================================================
 
 export async function sendSlackNotification(params: SendSlackNotificationParams): Promise<void> {
   try {
+    // Fan out the in-app copy BEFORE the Slack invoke so a thrown invoke
+    // rejection cannot skip it — the two channels must fail independently.
+    const mapped = buildNotificationFromSlackEvent(params);
+    if (mapped) void fanOutNotification(mapped);
+
     const { data, error } = await supabase.functions.invoke('send-slack-notification', {
       body: params,
     });
@@ -491,6 +644,14 @@ export async function notifyInvoiceSent(params: {
       leadName: params.leadName,
       message: `💰 Invoice ${params.invoiceNumber} marked as sent for ${params.leadName} — $${params.totalAmount.toFixed(2)}`,
     });
+    void fanOutNotification({
+      type: 'invoice_sent',
+      title: 'Invoice sent',
+      message: `💰 Invoice ${params.invoiceNumber} marked as sent for ${params.leadName} — $${params.totalAmount.toFixed(2)}`,
+      leadId: params.leadId,
+      priority: 'normal',
+      metadata: { invoiceNumber: params.invoiceNumber, totalAmount: params.totalAmount },
+    });
   } catch (err) {
     console.error('[Notifications] notifyInvoiceSent failed:', err);
   }
@@ -509,6 +670,14 @@ export async function notifyPaymentReceived(params: {
       leadId: params.leadId,
       leadName: params.leadName,
       message: `✅ Payment received for ${params.invoiceNumber} from ${params.leadName} — $${params.totalAmount.toFixed(2)} via ${params.paymentMethod}`,
+    });
+    void fanOutNotification({
+      type: 'payment_received',
+      title: 'Payment received',
+      message: `✅ Payment received for ${params.invoiceNumber} from ${params.leadName} — $${params.totalAmount.toFixed(2)} via ${params.paymentMethod}`,
+      leadId: params.leadId,
+      priority: 'normal',
+      metadata: { invoiceNumber: params.invoiceNumber, totalAmount: params.totalAmount, paymentMethod: params.paymentMethod },
     });
   } catch (err) {
     console.error('[Notifications] notifyPaymentReceived failed:', err);
