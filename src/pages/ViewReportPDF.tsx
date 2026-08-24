@@ -66,6 +66,10 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 
+// Hard-save failures block the send path — keep the toast up long enough
+// that a technician mid-task cannot miss it (sonner default is 4s).
+const HARD_SAVE_ERROR_TOAST_MS = 10_000
+
 interface Inspection {
   id: string
   job_number: string
@@ -1252,7 +1256,7 @@ export default function ViewReportPDF() {
         const msg = error instanceof HardSaveJobReportError
           ? `Hard-save failed: ${error.message}`
           : 'Hard-save failed. Please try again.'
-        toast.error(msg, { id: 'download' })
+        toast.error(msg, { id: 'download', duration: HARD_SAVE_ERROR_TOAST_MS })
       }
       return
     }
@@ -1280,7 +1284,7 @@ export default function ViewReportPDF() {
       const msg = error instanceof HardSaveError
         ? `Hard-save failed: ${error.message}`
         : 'Hard-save failed. Try the manual upload fallback below.'
-      toast.error(msg, { id: 'download' })
+      toast.error(msg, { id: 'download', duration: HARD_SAVE_ERROR_TOAST_MS })
     }
   }
 

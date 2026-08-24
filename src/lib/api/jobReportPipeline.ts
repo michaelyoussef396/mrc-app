@@ -16,9 +16,12 @@
 // ~/.claude/plans/silly-inventing-neumann.md (this job-side mirror).
 
 import { supabase } from '@/integrations/supabase/client'
+import { HARD_SAVE_NETWORK_ERROR_MESSAGE } from '@/lib/api/reportPipeline'
+import { captureBusinessError } from '@/lib/sentry'
 import { hashHtml } from '@/lib/utils/reportHash'
 
 const RENDER_PDF_ENDPOINT = '/api/render-job-report-pdf'
+const NETWORK_ERROR_STATUS = 0
 const REPORT_PDFS_BUCKET = 'report-pdfs'
 
 export interface HardSaveJobReportResult {
@@ -41,6 +44,17 @@ export class HardSaveJobReportError extends Error {
   }
 }
 
+// Mirror of reportPipeline's toHardSaveNetworkError — see that function for
+// why transport TypeErrors must be reported and rethrown typed.
+function toJobReportNetworkError(err: unknown, endpoint: string): HardSaveJobReportError {
+  captureBusinessError(`Hard-save endpoint unreachable: POST ${endpoint}`, {
+    endpoint,
+    origin: window.location.origin,
+    cause: String(err),
+  })
+  return new HardSaveJobReportError(HARD_SAVE_NETWORK_ERROR_MESSAGE, NETWORK_ERROR_STATUS)
+}
+
 /**
  * Render-and-persist the job-completion report. Returns a Blob the caller can
  * trigger a browser download from, plus the metadata of the newly-written
@@ -52,14 +66,19 @@ export async function hardSaveJobReport(jobCompletionId: string): Promise<HardSa
     throw new HardSaveJobReportError('Not authenticated', 401)
   }
 
-  const response = await fetch(RENDER_PDF_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ jobCompletionId, mode: 'hard_save' }),
-  })
+  let response: Response
+  try {
+    response = await fetch(RENDER_PDF_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ jobCompletionId, mode: 'hard_save' }),
+    })
+  } catch (err) {
+    throw toJobReportNetworkError(err, RENDER_PDF_ENDPOINT)
+  }
 
   if (!response.ok) {
     let serverError: string | undefined
@@ -94,7 +113,12 @@ export async function hardSaveJobReport(jobCompletionId: string): Promise<HardSa
     throw new HardSaveJobReportError('Invalid X-Mrc-Version-Number header', 500)
   }
 
-  const pdfBlob = await response.blob()
+  let pdfBlob: Blob
+  try {
+    pdfBlob = await response.blob()
+  } catch (err) {
+    throw toJobReportNetworkError(err, RENDER_PDF_ENDPOINT)
+  }
   return { versionId, versionNumber, pdfStoragePath, htmlStoragePath, htmlHash, pdfBlob }
 }
 
