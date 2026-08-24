@@ -122,17 +122,3 @@ export const propertyTypeOptions = [
   { label: 'Commercial Industrial', value: 'commercial_industrial' },
   { label: 'Strata', value: 'strata' },
 ];
-
-/**
- * Australian states
- */
-export const stateOptions = [
-  { label: 'VIC', value: 'VIC' },
-  { label: 'NSW', value: 'NSW' },
-  { label: 'QLD', value: 'QLD' },
-  { label: 'SA', value: 'SA' },
-  { label: 'WA', value: 'WA' },
-  { label: 'TAS', value: 'TAS' },
-  { label: 'NT', value: 'NT' },
-  { label: 'ACT', value: 'ACT' },
-];

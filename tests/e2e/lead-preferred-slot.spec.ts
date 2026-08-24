@@ -54,17 +54,16 @@ async function createLeadWithPreferredSlot(page: Page): Promise<CreatedLead> {
   await page.getByPlaceholder('e.g. John Smith').fill(name);
   await page.locator('input[type="date"]').first().fill(preferredDate);
   await page.getByPlaceholder('04XX XXX XXX').fill(sampleLead.phone);
-  // Selects, in DOM order: 0 Preferred Time, 1 State, 2 Lead Source.
+  // Selects, in DOM order: 0 Preferred Time, 1 Lead Source.
   await page.locator('select').nth(0).selectOption(PREFERRED_TIME);
   await page.getByPlaceholder('Start typing address...').fill('1 Test Street');
   await page.getByPlaceholder('e.g. Melbourne').fill('Melbourne');
-  await page.locator('select').nth(1).selectOption('VIC');
   await page.getByPlaceholder('e.g. 3000').fill('3000');
   await page.getByPlaceholder('email@example.com').fill(sampleLead.email());
   await page
     .getByPlaceholder('Describe the mould issue in detail...')
     .fill('Playwright preferred-slot verification lead. Mould across the bathroom ceiling.');
-  await page.locator('select').nth(2).selectOption('google');
+  await page.locator('select').nth(1).selectOption('google');
 
   await page.getByRole('button', { name: /^Create Lead$/ }).click();
 

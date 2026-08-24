@@ -208,6 +208,7 @@ export default function TechnicianDashboard() {
             timeSlot={nextJob.time}
             address={nextJob.address || ''}
             jobType={nextJob.jobType}
+            eventType={techJobMap.get(nextJob.id)?.eventType}
             area={nextJob.area}
             travelTime={techJobMap.get(nextJob.id)?.travelTimeMinutes ?? undefined}
             onStartInspection={() => handleStartInspection(nextJob.id)}

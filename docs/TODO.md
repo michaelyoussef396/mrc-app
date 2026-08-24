@@ -1957,6 +1957,97 @@ as the known `TechnicianInspectionForm` defect where area save errors are swallo
 
 ## Recon findings — 24 Aug 2026
 
+---
+
+## Deferred — 24 Aug 2026 session
+
+Found during the five-change presentation-layer session (label rename, card button
+wording, type colour scheme, state selector removal, shared time picker). Everything
+below was found but deliberately NOT built. Documentation only — no separate docs.
+
+### 1. Shared 15-min wheel picker component
+
+- **Premise failure:** the three-column wheel above "Confirm Booking" is iOS rendering
+  a plain `<input type="time">` at `BookJobSheet.tsx:784`. No component exists to
+  extract.
+- iOS ignores `step` on time inputs, so `step="900"` will not deliver 15-min
+  increments on the technicians' phones — a custom component is required.
+- Scope: hours | 00/15/30/45 | AM/PM, 07:00–19:00 bounds, emits `"HH:mm"`,
+  48px touch targets at 375px.
+- Conversion targets when built: `BookJobSheet.tsx:784` (job booking, currently 1-min
+  native input) and `CreateNewLeadModal.tsx:650-667` (admin preferred time, currently
+  30-min `<select>` whose comment says "to 6pm" but whose maths ends at 17:30). The
+  preferred-time save path must stay insert-only (PR #39 — `customer_preferred_time`
+  is never updated).
+
+### 2. Inspection booking on 15-min increments — BLOCKED
+
+- `LeadBookingCard` is an availability-constrained hourly slot selector feeding the
+  `calculate-travel-time` Edge Function, which assumes a strict 1-hour grid
+  (zod `/^\d{2}:\d{2}$/`, `+60`-minute appointment blocks).
+- Cannot move to 15-min without changing that EF's grid. Edge Function work, not
+  presentation. Needs its own scoped session.
+
+### 3. RequestInspection public form — deliberately NOT changing
+
+- Stores band strings ("Morning (8am–12pm)") per a prior product decision. Correct
+  for a customer-facing form. Recorded so it is not "fixed" later.
+
+### 4. Stale assigned_to on LeadDetail
+
+- LeadDetail doubles as the technician job page. Two "back to new_lead" paths leave
+  `assigned_to` stale.
+- Live data bug. Fix alongside the multi-technician junction table work, not
+  separately — the same paths are affected.
+
+### 5. Repo-vs-live enum drift
+
+- `'no_show'` present in the repo's reminder trigger, absent from the live enum.
+- Another symptom of the forked migration history.
+
+### 6. ✅ Migration file header is wrong — FIXED 24 Aug 2026
+
+- `supabase/migrations/20260823090000_notifications_fan_out.sql` read
+  "STATUS: DRAFT ... It has NOT been applied." It WAS applied and repaired on
+  23 Aug 2026, so the stale header invited a double-apply attempt.
+- **Header corrected 24 Aug 2026 on Michael's explicit instruction** (named
+  file, comment-only carve-out from the never-modify-migrations rule). New
+  STATUS: APPLIED to PROD (`ecyivrxjpsmjmexqatym`) 23 Aug 2026 via Studio
+  paste, history repaired with
+  `npx supabase migration repair --status applied 20260823090000 --linked`.
+  Diff verified comment-only — zero executable statements touched.
+
+### Colour collision note (from the Task 3 audit — recorded, NOT resolved)
+
+Booking-type scheme (corrected 24 Aug 2026 — an earlier build had it reversed):
+**inspection = blue `#137fec` (unchanged from before this session), job =
+orange-500 `#f97316` accent with orange-700 `#c2410c` text** (replaces the retired
+green). Orange-500 deliberately matches the `job_waiting` status colour — same
+domain, reinforcing — and avoids orange-600 (PDF edit mode) and amber-600
+(Confirm Booking CTA). Collisions that remain because `src/lib/statusFlow.ts` and
+the status pill maps are out of scope:
+
+- **Confirm Booking CTA** (`BookJobSheet.tsx:951`) is `bg-amber-600` (32°) —
+  same warm family as the job orange (25°), and it sits *inside the job booking
+  sheet*, adjacent to job-orange identity in the same flow.
+- **statusFlow blue statuses** vs the inspection-card blue (pre-existing — blue
+  meant inspection before this session too): `new_lead` (217°), `job_scheduled`
+  (217° ≈ #3B82F6, near-identical to `#137fec` — a blue status pill on an
+  orange *job* card reads inspection-ish), `job_report_pdf_sent` (210°),
+  `inspection_email_approval` (200°).
+- **statusFlow orange/amber statuses**: `job_waiting` orange-500 is now the SAME
+  domain as the job type colour (not a clash); but `inspection_waiting` (38°),
+  `pending_review` (45°) and `google_review` (48°) are near-orange hues with
+  non-job meanings.
+- PDF edit mode uses `bg-orange-600` (~90 occurrences in ViewReportPDF /
+  ReportPreviewHTML) — different surface, same family as the job orange.
+- EventDetailsPanel: the blue *inspection type* pill can sit beside a blue
+  `scheduled` *status* pill (`:99-104`) — same-hue pills with different
+  meanings (pre-existing pairing, unchanged by this session).
+- Technician-identity chip palette (`useScheduleCalendar.ts:286`) still contains
+  green `#34C759` and orange `#FF9500` and can visually duplicate the job orange
+  on the same card.
+
 Source: Batch B read-only reconnaissance, **`docs/TONIGHT_BATCH_RECON.md`** (live PROD reads via
 `npx supabase db query --linked`, SELECT-only; grep-backed code inventory, adversarially verified).
 That doc carries the evidence, file:line inventories and the proposed DDL. This section carries the

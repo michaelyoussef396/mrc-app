@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { CalendarEvent } from '@/hooks/useScheduleCalendar';
 import { formatTimeForDisplay } from '@/lib/bookingService';
+import { bookingTypePillClasses } from '@/lib/bookingTypeColors';
 import { captureBusinessError } from '@/lib/sentry';
 import {
   Sheet,
@@ -119,7 +120,7 @@ export function EventDetailsPanel({ event, open, onClose }: EventDetailsPanelPro
         <div className="p-5 space-y-5 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 80px)' }}>
           {/* Type + Status */}
           <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${isInspection ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${bookingTypePillClasses[event.eventType]}`}>
               {isInspection ? 'Inspection' : 'Job'}
             </span>
             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyle.bg} ${statusStyle.text}`}>
@@ -184,7 +185,7 @@ export function EventDetailsPanel({ event, open, onClose }: EventDetailsPanelPro
                   className="w-full h-11 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                 >
                   <Play className="h-5 w-5" />
-                  Start Inspection
+                  {isInspection ? 'Start Inspection' : 'Start Job'}
                 </button>
                 <button
                   onClick={handleViewLead}

@@ -302,7 +302,7 @@ export default function TechnicianJobDetail() {
     // Address fields
     if (editAddress.street !== (lead.property_address_street || '')) payload.property_address_street = editAddress.street || null;
     if (editAddress.suburb !== (lead.property_address_suburb || '')) payload.property_address_suburb = editAddress.suburb || null;
-    if (editAddress.state !== (lead.property_address_state || '')) payload.property_address_state = editAddress.state || null;
+    if ((lead.property_address_state || '') !== 'VIC') payload.property_address_state = 'VIC';
     if (editAddress.postcode !== (lead.property_address_postcode || '')) payload.property_address_postcode = editAddress.postcode || null;
     if (editAddress.lat !== (lead.property_lat ?? undefined)) payload.property_lat = editAddress.lat ?? null;
     if (editAddress.lng !== (lead.property_lng ?? undefined)) payload.property_lng = editAddress.lng ?? null;

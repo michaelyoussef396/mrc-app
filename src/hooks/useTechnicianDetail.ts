@@ -4,6 +4,7 @@ import { getInitials, getTechnicianColor, formatRevenue, formatLastSeen } from '
 import { formatTimeAU, parseLocalDate } from '@/lib/dateUtils';
 import { getPaidInvoices, sumPaidRevenueFor } from '@/lib/api/invoices';
 import { getWorkloadBucket } from '@/lib/statusFlow';
+import { bookingTypeAccentClass, bookingTypeBadgeClasses, toBookingType } from '@/lib/bookingTypeColors';
 
 // ============================================================================
 // TYPES
@@ -100,26 +101,14 @@ export function formatJobDateTime(date: Date): string {
  * Get color for event type badge
  */
 export function getEventTypeColor(eventType: string): { bg: string; text: string; border: string } {
-  if (eventType === 'inspection') {
-    return {
-      bg: 'bg-blue-50 dark:bg-blue-900/20',
-      text: 'text-blue-700 dark:text-blue-300',
-      border: 'border-blue-100 dark:border-blue-800',
-    };
-  }
-  // job / restoration
-  return {
-    bg: 'bg-orange-50 dark:bg-orange-900/20',
-    text: 'text-orange-700 dark:text-orange-300',
-    border: 'border-orange-100 dark:border-orange-800',
-  };
+  return bookingTypeBadgeClasses[toBookingType(eventType)];
 }
 
 /**
  * Get accent color for job card left border
  */
 export function getJobAccentColor(eventType: string): string {
-  return eventType === 'inspection' ? 'bg-[#007AFF]' : 'bg-orange-500';
+  return bookingTypeAccentClass[toBookingType(eventType)];
 }
 
 // ============================================================================

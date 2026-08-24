@@ -1,15 +1,14 @@
 -- ============================================================================
--- DRAFT MIGRATION — DO NOT APPLY AUTOMATICALLY
+-- APPLIED MIGRATION — DO NOT RE-APPLY
 -- 20260823090000_notifications_fan_out.sql
 --
--- STATUS: DRAFT for human review only. Per this project's standing rule
--- (no auto-apply migrations — CLAUDE.md "Database" section / memory
--- feedback_no_auto_apply_migrations.md), this file must be reviewed and run
--- manually by Michael in Supabase Studio (or `supabase db push` after
--- explicit ref confirmation per CLAUDE.md's PROD/DEV ref discipline). It has
--- NOT been applied. After applying, repair the CLI's migration history with
--- `npx supabase migration repair --status applied 20260823090000 --linked`
--- so a future `db push` does not try to re-run it.
+-- STATUS: APPLIED to PROD (ecyivrxjpsmjmexqatym) on 23 Aug 2026, pasted
+-- manually in Supabase Studio per this project's standing rule (no auto-apply
+-- migrations — CLAUDE.md "Database" section / memory
+-- feedback_no_auto_apply_migrations.md). The CLI's migration history was
+-- repaired the same day with
+-- `npx supabase migration repair --status applied 20260823090000 --linked`,
+-- so a future `db push` will not try to re-run it. Do not re-apply.
 --
 -- PURPOSE
 -- -------

@@ -3,9 +3,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
 import { sendSlackNotification } from '@/lib/api/notifications';
-import { calculatePropertyZone, leadSourceOptions, stateOptions } from '@/lib/leadUtils';
+import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
 import {
-  isValidAustralianState,
   isValidVictorianPostcode,
   leadSourceSchema,
 } from '@/lib/validators/lead-creation.schemas';
@@ -39,7 +38,6 @@ interface LeadFormData {
   propertyAddress: string;
   suburb: string;
   postcode: string;
-  state: string;
   lat: number | null;
   lng: number | null;
   preferredDate: string;
@@ -54,7 +52,6 @@ interface FormErrors {
   email?: string;
   propertyAddress?: string;
   suburb?: string;
-  state?: string;
   postcode?: string;
   preferredDate?: string;
   preferredTime?: string;
@@ -76,7 +73,6 @@ const initialFormData: LeadFormData = {
   propertyAddress: '',
   suburb: '',
   postcode: '',
-  state: 'VIC',
   lat: null,
   lng: null,
   preferredDate: '',
@@ -246,7 +242,6 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         propertyAddress: streetAddress,
         suburb: details.suburb || prev.suburb,
         postcode: details.postcode || prev.postcode,
-        state: details.state || prev.state,
         lat: details.lat || null,
         lng: details.lng || null,
       }));
@@ -340,10 +335,6 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
       newErrors.suburb = 'Suburb is required';
     }
 
-    if (!isValidAustralianState(formData.state)) {
-      newErrors.state = 'Please select a state';
-    }
-
     if (!formData.postcode.trim()) {
       newErrors.postcode = 'Postcode is required';
     } else if (!isValidVictorianPostcode(formData.postcode)) {
@@ -423,7 +414,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         property_address_street: sanitizeInput(formData.propertyAddress),
         property_address_suburb: sanitizeInput(formData.suburb),
         property_address_postcode: formData.postcode,
-        property_address_state: formData.state,
+        property_address_state: 'VIC',
         issue_description: sanitizeInput(formData.issueDescription),
         lead_source: sourceParseResult.data,
         status: 'new_lead',
@@ -461,7 +452,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         street_address: formData.propertyAddress,
         suburb: formData.suburb,
         postcode: formData.postcode,
-        state: formData.state,
+        state: 'VIC',
         issue_description: formData.issueDescription,
         lead_source: formData.source,
         preferred_date: formData.preferredDate,
@@ -752,36 +743,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                 )}
               </div>
 
-              {/* 7. State (auto-filled from Places, editable) */}
-              <div className="flex flex-col">
-                <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
-                  State *
-                </label>
-                <div className="relative">
-                  <select
-                    value={formData.state}
-                    onChange={e => handleInputChange('state', e.target.value)}
-                    className={`w-full rounded-xl h-12 px-4 pr-10 text-base transition-all bg-white appearance-none cursor-pointer ${
-                      errors.state
-                        ? 'border-2 border-[#FF3B30] focus:border-[#FF3B30] focus:ring-2 focus:ring-[#FF3B30]/20'
-                        : 'border border-gray-200 focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20'
-                    }`}
-                    style={{ outline: 'none', color: '#1d1d1f' }}
-                  >
-                    {stateOptions.map(opt => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="h-5 w-5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#617589' }} />
-                </div>
-                {errors.state && (
-                  <p className="text-xs mt-1 ml-1" style={{ color: '#FF3B30' }}>{errors.state}</p>
-                )}
-              </div>
-
-              {/* 8. Postcode (auto-filled from Places, editable) */}
+              {/* 7. Postcode (auto-filled from Places, editable) */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
                   Postcode *
@@ -806,7 +768,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                 )}
               </div>
 
-              {/* 9. Email Address */}
+              {/* 8. Email Address */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
                   Email Address *
@@ -828,7 +790,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                 )}
               </div>
 
-              {/* 10. Brief Description */}
+              {/* 9. Brief Description */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
                   Brief Description *
@@ -857,7 +819,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                 </div>
               </div>
 
-              {/* 11. Lead Source */}
+              {/* 10. Lead Source */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
                   Lead Source *
