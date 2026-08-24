@@ -3,6 +3,7 @@ import { Clock, Eye, MapPin, Navigation } from 'lucide-react';interface NextJobC
   timeSlot: string;
   address: string;
   jobType: string;
+  eventType?: string;
   area?: string;
   travelTime?: number;
   onStartInspection: () => void;
@@ -15,12 +16,15 @@ export default function NextJobCard({
   timeSlot,
   address,
   jobType,
+  eventType = 'inspection',
   area,
   travelTime,
   onStartInspection,
   onGetDirections,
   onViewLead,
 }: NextJobCardProps) {
+  const isJob = eventType.toLowerCase().includes('job') || eventType.toLowerCase().includes('removal');
+
   return (
     <section className="px-4 py-4 w-full max-w-lg mx-auto">
       <div
@@ -70,7 +74,7 @@ export default function NextJobCard({
 
         {/* Action Buttons */}
         <div className="flex flex-col gap-3 mt-1">
-          {/* Primary Action - Start Inspection */}
+          {/* Primary Action - Start Inspection / Start Job */}
           <button
             onClick={onStartInspection}
             className="flex w-full cursor-pointer items-center justify-center rounded-xl px-6 text-white text-lg font-bold transition-colors"
@@ -81,7 +85,7 @@ export default function NextJobCard({
               boxShadow: '0 4px 12px rgba(0, 122, 255, 0.2)',
             }}
           >
-            <span>Start Inspection</span>
+            <span>{isJob ? 'Start Job' : 'Start Inspection'}</span>
           </button>
 
           {/* Secondary Action - Get Directions */}

@@ -76,7 +76,7 @@ export function InlineEditAddress({
     const success = await onSave({
       property_address_street: draft.street || null,
       property_address_suburb: draft.suburb || null,
-      property_address_state: draft.state || null,
+      property_address_state: 'VIC',
       property_address_postcode: draft.postcode || null,
       property_lat: draft.lat ?? null,
       property_lng: draft.lng ?? null,
@@ -104,7 +104,7 @@ export function InlineEditAddress({
           <SheetHeader>
             <SheetTitle>Edit Property Address</SheetTitle>
             <SheetDescription>
-              Search to update street, suburb, state, postcode and map
+              Search to update street, suburb, postcode and map
               coordinates in one save.
             </SheetDescription>
           </SheetHeader>

@@ -3,23 +3,12 @@ import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { captureBusinessError } from '@/lib/sentry';
+import type { Database } from '@/integrations/supabase/types';
 
-// Types
-export interface Notification {
-  id: string;
-  type: string;
-  title: string;
-  message: string;
-  lead_id: string | null;
-  related_entity_type: string | null;
-  related_entity_id: string | null;
-  metadata: Record<string, any>;
-  is_read: boolean;
-  read_at: string | null;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-}
+// Derived from the generated schema so new columns (e.g. action_url, priority)
+// and nullability always match the live notifications table instead of drifting
+// out of sync with a hand-maintained interface.
+export type Notification = Database['public']['Tables']['notifications']['Row'];
 
 export interface NotificationFilters {
   is_read?: boolean;

@@ -1,3 +1,5 @@
+import { bookingTypeHex } from '@/lib/bookingTypeColors';
+
 import type { CalendarEvent } from '@/hooks/useScheduleCalendar';
 
 /**
@@ -32,11 +34,11 @@ export function getEventStyles(event: CalendarEvent) {
       strikethrough: false,
     };
   }
-  const isInspection = event.eventType === 'inspection';
+  const typeColors = bookingTypeHex[event.eventType];
   return {
-    bg: isInspection ? 'rgba(19, 127, 236, 0.1)' : 'rgba(34, 197, 94, 0.1)',
-    border: isInspection ? '#137fec' : '#22c55e',
-    text: isInspection ? '#137fec' : '#15803d',
+    bg: typeColors.bg,
+    border: typeColors.border,
+    text: typeColors.text,
     opacity: 1,
     strikethrough: false,
   };

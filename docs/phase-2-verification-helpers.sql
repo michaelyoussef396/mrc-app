@@ -149,13 +149,44 @@ UPDATE public.invoices
   SET status = 'sent'
   WHERE id = (SELECT id FROM public.invoices LIMIT 1);
 
--- 2. Call the helper
-SELECT public.audited_mark_invoice_overdue(
-  'a5ae96f1-af3d-4e50-b7ec-1cab01bdec3f'::uuid,
-  (SELECT id FROM public.invoices LIMIT 1)
-);
+-- 2. Call the helper TWICE. Since 20260817120000_invoice_overdue_compare_and_set
+--    it RETURNS BOOLEAN — TRUE only for the call that actually moved the row — so
+--    the pair is the compare-and-set assertion: the first call wins, the second
+--    finds status already 'overdue' and matches zero rows.
+--    Expect: first_call = t, second_call = f, cas_pass = t.
+--    (Before that migration the function RETURNS void and both columns are NULL,
+--    which is itself the signal that the migration has not been applied here.)
+SELECT
+  'Test 6a — audited_mark_invoice_overdue compare-and-set' AS test,
+  first_call,
+  second_call,
+  first_call IS TRUE AND second_call IS FALSE AS cas_pass
+FROM (
+  SELECT
+    public.audited_mark_invoice_overdue(
+      'a5ae96f1-af3d-4e50-b7ec-1cab01bdec3f'::uuid,
+      (SELECT id FROM public.invoices LIMIT 1)
+    ) AS first_call,
+    public.audited_mark_invoice_overdue(
+      'a5ae96f1-af3d-4e50-b7ec-1cab01bdec3f'::uuid,
+      (SELECT id FROM public.invoices LIMIT 1)
+    ) AS second_call
+) AS calls;
 
--- 3. Verify
+-- 2b. Grants must be EXACTLY postgres (owner) + service_role. `authenticated` was
+--     dropped by 20260817120000; `anon` and PUBLIC must never appear.
+SELECT
+  'Test 6b — audited_mark_invoice_overdue grants' AS test,
+  grantee,
+  privilege_type
+FROM information_schema.routine_privileges
+WHERE routine_schema = 'public'
+  AND routine_name = 'audited_mark_invoice_overdue'
+ORDER BY grantee;
+
+-- 3. Verify attribution. Only the FIRST call above transitioned the row, so
+--    exactly ONE new update_invoice audit row is expected from the pair — a
+--    second row would mean the compare-and-set is not holding.
 SELECT
   'Test 6 — audited_mark_invoice_overdue' AS test,
   user_id,

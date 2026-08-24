@@ -705,9 +705,14 @@ null-vs-zero semantics, and legacy-card behaviour all verified clean.
   left STAGED (2/3 dehumidifier, 4/3 air mover, 2/3 HEPA, 1/3 RCD, 6 m³/$550 waste,
   demolition=true) for the UI smoke.
 - ~~AI-summary EF deploy to DEV~~ — DONE (Michael, 29 Jul). Probe-verified the new code
-  is live: it fails fast with 500 "AI service not configured" because **DEV has ONLY the
+  is live: it fails fast with 500 "AI service not configured" because ~~**DEV has ONLY the
   platform-auto secrets** (CLI-verified 29 Jul: no OPENROUTER_API_KEY, no SYSTEM_USER_UUID,
-  no Resend/Slack/INTERNAL_WEBHOOK_SECRET — the L4 "set dev EF secrets" step never ran).
+  no Resend/Slack/INTERNAL_WEBHOOK_SECRET — the L4 "set dev EF secrets" step never ran)~~
+  **[STALE — corrected 2026-08-08: CLI-verified `secrets list` on DEV now returns
+  ADMIN_FALLBACK_EMAIL, GOOGLE_MAPS_API_KEY, OPENROUTER_API_KEY, RESEND_API_KEY and
+  SYSTEM_USER_UUID. SLACK_WEBHOOK_URL was still absent and was set 2026-08-08 for the
+  duplicate-guard testing (see the 8 Aug session log). INTERNAL_WEBHOOK_SECRET remains
+  unset.]**
   AI generation on DEV works once Michael runs
   `npx supabase secrets set OPENROUTER_API_KEY=<from vault> --project-ref ctppzqnysmzynkxjlzta`
   (value from his own vault, never via chat). CC can then run a generation against the
@@ -777,7 +782,7 @@ pending.
 - [ ] "Needs attention" wording collision: Leads-to-Assign card subtitle vs the Needs Attention panel — rename the subtitle (one-liner, cosmetic).
 - [ ] Locate the "27 July" element from the dashboard date-contradiction report (Michael — no dashboard code path can render it for a 28 Jul view; need the exact element/screenshot).
 - [x] ~~`check-overdue-invoices` cron not firing on PROD~~ **RESOLVED 2026-07-29 — misdiagnosis.** Cron fired at 23:00 UTC (9am AEST) and correctly flagged INV-2026-0003 the first morning it was eligible; the 22-day gap was the invoice sitting in `draft` (cron only scans `sent`), the exact trap the `markInvoiceSent` due-date restart now closes. EF deployed (v8), Vault auth header working, audit row attributed to SYSTEM_USER_UUID.
-- [ ] `check-overdue-invoices` double-fired 28 Jul: two identical `invoice_overdue` activity rows 35ms apart (23:00:00.863/.898 UTC). Duplicate schedule RULED OUT 29 Jul — `cron.job` has exactly one job (jobid 3, `0 23 * * *`); internal double-processing ruled out by code path. Remaining hypothesis: duplicate HTTP delivery of a single cron tick (pg_net retry or gateway). Attributing it needs the EF request logs in the Supabase dashboard (Michael, low priority — the idempotency guard shipped 29 Jul makes duplicates a no-op either way).
+- [ ] `check-overdue-invoices` double-fired 28 Jul: two identical `invoice_overdue` activity rows 35ms apart (23:00:00.863/.898 UTC). Duplicate schedule RULED OUT 29 Jul — `cron.job` has exactly one job (jobid 3, `0 23 * * *`); internal double-processing ruled out by code path. Remaining hypothesis: duplicate HTTP delivery of a single cron tick (pg_net retry or gateway). Attributing it needs the EF request logs in the Supabase dashboard (Michael, low priority — ~~the idempotency guard shipped 29 Jul makes duplicates a no-op either way~~ **[CORRECTED 2026-08-08: the 29 Jul guard does NOT make duplicates a no-op. Reproduced on DEV under a genuine race — two `invoice_overdue` rows 193ms apart, two `invoice_milestone` rows 191ms apart, the same signature as this 28 Jul observation. The Slack digest is now guarded (v12, 8 Aug); the per-invoice DB writes are NOT. See P1 in the 8 Aug backlog.]**). **Root cause of the double delivery itself was localised 2026-08-08 — see the 8 Aug session log: the duplication is below our code, between pg_net and the Edge Functions gateway.**
 - [x] ~~`check-overdue-invoices` EF computes daysOverdue from server UTC midnight~~ **RESOLVED 2026-07-29** — EF rewritten (Melbourne day-math, ladder-aligned milestones [1/8/15/16/29] + 60-day admin-escalation prompt, idempotency guard, single Slack digest with dry-run). Residuals below.
 - [ ] Overdue-EF residual (accepted 2026-07-29): near-simultaneous invocations <~20ms apart can still double-post the Slack digest — closing it needs an advisory-lock RPC (migration); declined for now.
 - [ ] Overdue-EF residual: invoices in `viewed` status are never scanned for overdue flagging (status quo preserved; nothing sets `viewed` today — latent until something does).
@@ -1416,7 +1421,13 @@ Written 2026-07-29 at session close. PR #72 stays OPEN until the other session's
 work lands and both branches reconcile. The open items in "Follow-ups from 28 Jul
 2026 session" above are the merge-day checklist — do not tidy them away.
 
-### ⚠️ CRITICAL — EF runtime is ahead of every branch
+### ~~⚠️ CRITICAL — EF runtime is ahead of every branch~~ RESOLVED 2026-07-30
+
+> **[STALE — corrected 2026-08-08.]** The divergence closed when `launch/checks`
+> merged: `check-overdue-invoices/index.ts` has been byte-identical on `main` and
+> `production` since `8fe47e9` (30/07), so the deploy-from-the-wrong-branch hazard
+> below no longer exists. PROD now runs v12 (8 Aug, adds the Slack digest claim).
+> Left in place as the historical record of why PR #72 was ordered the way it was.
 
 PROD's `check-overdue-invoices` Edge Function is ALREADY RUNNING the `0a2fbac`
 rewrite (deployed 2026-07-29, v9): Melbourne day-math, ladder-aligned milestones
@@ -1631,3 +1642,593 @@ of the ground — those entries are left as they stand.
 - [ ] **Confirm `.env` and `.mcp.json` are both in `.gitignore` and have never
       been committed.** Check with `git log --oneline -- .env .mcp.json`.
       A tracked `.mcp.json` is a larger exposure than the audit doc was.
+- [ ] **Slack webhook for `#mrc-dev-test` was exposed in a chat transcript**
+      (2026-08-08, set as the DEV `SLACK_WEBHOOK_URL`). Anyone holding it can post
+      to that channel. Dev channel only, so low severity — rotate with the batch.
+
+---
+
+## Session log — 8 Aug 2026 (duplicate-invocation fixes + DEV verification)
+
+Three concurrency fixes shipped to PRODUCTION and verified on DEV. The duplicate-cron
+root cause was localised but is **not ours to fix**. Two pre-existing defects surfaced
+during verification — logged in the backlog section below, deliberately not fixed here.
+
+### Shipped (commit `c9761b6`, pushed to `main`)
+
+**No `production` branch merge required — Edge-Function-only. Vercel does not build
+`supabase/functions`, so EFs deploy independently of the branch.**
+
+| Function | Ver | Fix |
+|---|---|---|
+| `send-inspection-reminder` | v20 | **Fix 1 — atomic claim** replacing read-then-write. Conditional UPDATE on `reminder_sent`; ownership guard via `.eq('reminder_sent', true)` rather than timestamp equality. |
+| `send-inspection-reminder` | v20 | **Fix 2 — Resend `Idempotency-Key`**, derived as `inspection-reminder/${booking.id}`. |
+| `check-overdue-invoices` | v12 | **Fix 3 — `app_settings` PRIMARY KEY compare-and-set** guarding the Slack digest, with release-on-failure when `postSlack` returns false (covers a Slack outage *and* an unset `SLACK_WEBHOOK_URL`). |
+
+**Send-failure policy, chosen deliberately:** release the claim on transient failure
+(5xx / 429 / network), retain it on permanent 4xx. The reminder lands 2 days
+pre-inspection, so a silently dropped reminder is worse for MRC than a rare duplicate
+— and Fix 2 is what makes releasing safe, because the retry reuses the same key.
+
+### DEV verification (`ctppzqnysmzynkxjlzta`) — all three PASS
+
+Both races were genuine, not sequential: 0.0 ms start gap, both invocations in flight
+simultaneously (fired from a thread barrier). For Fix 1 **both invocations returned
+`processed: 1`** — i.e. both cleared the SELECT before either wrote, which is the exact
+race the fix exists to arbitrate.
+
+| Guard | Verdict | Evidence |
+|---|---|---|
+| Fix 1 | ✅ PASS | One `sent:1/alreadyClaimed:0`, one `sent:0/alreadyClaimed:1`. Single `reminder_sent_at` stamp. **Resend recorded exactly 1 email.** |
+| Fix 2 | ✅ PASS | Claim reset, re-invoked once → **no new email**; Resend returned the original email ID and timestamp. Key honoured. |
+| Fix 3 | ✅ PASS | One `slackPosted:true`, one `digestSuppressed`. One `app_settings` key, **one Slack message** in `#mrc-dev-test`. |
+| Fix 1 transient-release | ⬜ UNTESTED | Cannot induce a Resend 5xx by configuration alone. Not faked. |
+| Fix 3 release-on-failure | ⬜ UNTESTED | Needs an invalid webhook **plus** DB re-arm (reset invoice to `sent`, clear activity rows and the claim key). |
+
+Note on Fix 2: Resend's API does **not** expose received headers, so the key value was
+never read back directly. The pass rests on behaviour — an independent invocation with
+a re-claimed row produced no second email, which nothing else in the path could cause.
+
+### Duplicate cron invocation — root cause localised, NOT fixed by us
+
+Three-layer trace proves the duplication sits **below our code**:
+
+| Layer | Fires |
+|---|---|
+| pg_cron (`cron.job_run_details`, 48 h) | **once** per slot — all `succeeded`, `"1 row"` |
+| pg_net (`net._http_response`) | **once** per tick — ids sequential, no gaps |
+| Edge Function | **twice** — distinct request ids, both `200`, both full execution |
+
+21 of 23 hourly ticks (~91%), gap 5–537 ms. Scope is pg_net-specific — browser-invoked
+functions are single. Exactly **one** pg_net worker (0.19.5), so "two workers" is ruled
+out. Leading hypothesis: HTTP request replay on a stale keep-alive connection (libcurl
+re-sends when a pooled connection closes mid-flight); gateway-side retry cannot be
+excluded without inbound gateway logs. **Support ticket raised with Supabase.**
+
+The three fixes above do not stop the duplication — they make it harmless.
+
+### Sentry "3-day outage" — DISPROVEN
+
+The apparent baseline (177 events 9 days ago) was `environment:development` — Michael's
+laptop. Production has produced **13 events in 30 days**; three quiet days is that
+curve's normal shape. Live bundle confirmed instrumented: DSN inlined,
+`environment:"production"`, source maps uploading.
+
+### Also done this session
+
+- **Automated health check live.** Twice-daily scheduled task (08:00 / 20:00 Melbourne)
+  covering Sentry, Resend, Supabase EF logs, DB state, and Slack notification
+  reconciliation. Delivery by push + email. Prompt hardened after the first run produced
+  a **FALSE CLEAN** by checking only the Sentry Issues stream.
+- **Google Maps referrer block FIXED.** `API_KEY_HTTP_REFERRER_BLOCKED` on
+  `https://www.mrcsystem.com/` since 04/08 — **Places autocomplete had been dead in
+  production for 4 days.** The `www.` subdomain was added to the browser key's HTTP
+  referrer restrictions.
+- **Four uncontacted real leads actioned** (oldest 67 h). Admin notified.
+
+### Open verification — nothing below is proven in PRODUCTION
+
+- [ ] **Fix 1 claim path unproven in PROD** — `calendar_bookings` is empty. First signal
+      is `alreadyClaimed > 0` on the tick after the first real booking. Ask Glen or
+      Clayton to flag when they book one.
+- [ ] **Fix 3 digest guard unproven in PROD** — `invoices` is empty. First signal is
+      exactly one Slack digest on the first genuinely overdue invoice.
+- [ ] **Health check email delivery not confirmed end to end.** Verify an email actually
+      arrives after the 20:00 run.
+
+---
+
+## Backlog from the 8 Aug 2026 session (defects found, none fixed)
+
+### P1 — `email_logs` insert fails silently in production code
+
+`await supabase.from('email_logs').insert({...})` in `send-inspection-reminder` has no
+`.select()` and no error check, so any failure is invisible. Observed on DEV: the
+function reported `sent: 1` while writing **zero** log rows.
+
+**This bears directly on Fix 1.** The retain-on-4xx policy means the `status:'failed'`
+row is the ONLY record that a reminder will never be retried. If the insert can fail
+invisibly, a permanently-failed reminder leaves the booking reading `reminder_sent=true`
+forever — indistinguishable from success.
+
+Separately, `email_logs` has **0 rows all-time in production**, so no sends are being
+logged at all. That also blocks the health check's silent-suppression cross-reference,
+which depends on the table. (Supersedes the S1 verification item above, which currently
+has nothing to check.)
+
+*DEV-specific cause, not the production one:* `email_logs.sent_by` has a FK to
+`auth.users(id)` and `SYSTEM_USER_UUID` (`a5ae96f1-…`) does not exist in DEV's
+`auth.users`, so every DEV insert is a FK violation. The silence is what generalises.
+
+### P1 — `check-overdue-invoices` per-invoice guard does not hold under concurrency
+
+Verified on DEV: **two `invoice_overdue` rows 193 ms apart, two `invoice_milestone` rows
+191 ms apart.** Reproduces the 28/07 production signature.
+
+Mechanism — **corrected 2026-08-17** (the earlier wording said the RPC's UPDATE was
+unconditional; that was wrong, and rebuilding a guard that already exists is the mistake
+it invites). `audited_mark_invoice_overdue`'s UPDATE has **always** been conditional
+(`AND status <> 'overdue'`), and under READ COMMITTED Postgres re-evaluates that predicate
+against the committed new row version once the row lock releases, so the second invocation
+matches **zero rows**. `audit_invoices_update` is `AFTER UPDATE … FOR EACH ROW`, so the
+loser fires no trigger either. **`invoices` and `audit_logs` were never racing.**
+
+The real defect is one layer up: the RPC `RETURNS void`, so supabase-js hands *both*
+invocations `(data: null, error: null)`. The EF cannot tell the winner from the loser and
+both fall through to an unconditional `activities` INSERT. `doneToday` cannot help — it is
+built from a plain SELECT at invocation start, which both invocations see empty.
+
+Separately, the `invoice_milestone` insert has **no** DB-level guard at all: it transitions
+no column, so there is nothing for a conditional UPDATE to arbitrate.
+
+**The code comment at `check-overdue-invoices/index.ts:260` asserting "the atomic
+transition is the tie-breaker between near-simultaneous invocations" IS FALSE** — a
+SELECT followed by an RPC UPDATE is read-then-write, not compare-and-set. **Correct that
+comment as part of the fix so nobody trusts it again.**
+
+Fix requires a **migration to the RPC** (narrow the UPDATE to `status = 'sent'` and return
+rows-affected so the caller can tell a win from a loss), which is why it was not done in the
+8 Aug session.
+
+**WRITTEN 2026-08-17, NOT YET APPLIED —
+`supabase/migrations/20260817120000_invoice_overdue_compare_and_set.sql`.** `RETURNS BOOLEAN`
+via `GET DIAGNOSTICS ROW_COUNT`; `DROP` + `CREATE` because the return type changes. It also
+**drops `authenticated` EXECUTE** (service_role only — closes the
+`authenticated_security_definer_function_executable` WARN in
+`docs/SUPABASE_ADVISOR_AUDIT.md`), and re-`REVOKE`s `PUBLIC`/`anon` because `CREATE FUNCTION`
+restores the default `PUBLIC EXECUTE` and would otherwise silently undo
+`20260709120000_revoke_anon_execute_audit_rpcs.sql`. The matching `check-overdue-invoices`
+changes are committed alongside it: boolean consumed, a `typeof !== 'boolean'` guard for the
+wrong-order case, `alreadyFlagged` + `alreadyMilestoned` counters in the response, both
+`activities` inserts error-checked, and the milestone path moved onto an `app_settings`
+PRIMARY KEY claim (no schema change — mirrors `claimTodaysDigest`).
+
+⚠️ **Apply order: migration in Studio FIRST, EF deploy SECOND.** The reverse leaves the new
+EF receiving `null` from the old RPC, tripping the typeof guard and skipping **every**
+activity row until the migration lands. Migration-first is safe — the old EF ignores the
+return value. Regenerate `src/integrations/supabase/types.ts` **after** applying (it still
+says `Returns: undefined`). The `'viewed'` status gap stays deliberately open and gets its
+own change.
+
+Impact bounded: final invoice status correct, no money touched, no customer email, and
+Fix 3 correctly prevented the duplicate Slack. Cost is duplicate rows on the lead's
+activity timeline.
+
+### P1 — `ALTER DEFAULT PRIVILEGES`: every new `public` function auto-grants `anon` + `authenticated` EXECUTE
+
+Surfaced 2026-08-17 while applying `20260817120000_invoice_overdue_compare_and_set.sql`.
+That migration's `REVOKE`s of `PUBLIC` and `anon` held, but `authenticated` came back
+anyway — because `DROP` + `CREATE FUNCTION` re-runs the schema default ACL, and nothing
+in the migration revoked `authenticated` explicitly.
+
+**Verified on PROD 2026-08-17 (`pg_default_acl`, read-only). TWO default ACLs on
+`public` functions, one per granting role, and both grant `anon` and `authenticated`:**
+
+```
+granting_role  | default_acl
+---------------+-------------------------------------------------------------------------------
+postgres       | {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+supabase_admin | {postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin}
+```
+
+**Consequence — this is the part that matters.**
+`20260709120000_revoke_anon_execute_audit_rpcs.sql` is **not permanent**. It revoked a
+grant; it did not change the default that re-creates it. Any migration that `DROP`s and
+re-`CREATE`s a `SECURITY DEFINER` function in `public` silently regains `anon EXECUTE` at
+the moment of `CREATE`. For `audited_mark_invoice_overdue` and
+`audited_insert_lead_via_framer` that means an unauthenticated caller could execute an
+RLS-bypassing function with a forged `p_acting_user_id`.
+
+**Interim rule — follow it until the proper fix lands.** Every migration that
+`DROP`/`CREATE`s a function in `public` MUST carry, inside the same transaction:
+
+```sql
+REVOKE ALL ON FUNCTION public.<fn>(<args>) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.<fn>(<args>) FROM anon;
+-- and, if the function should not be reachable by logged-in users:
+REVOKE ALL ON FUNCTION public.<fn>(<args>) FROM authenticated;
+```
+
+…then verify with `information_schema.routine_privileges` in the same session. The verify
+step is not optional: the failure is silent and widens access rather than narrowing it.
+
+**Proper fix — needs its own session and a security review.** `ALTER DEFAULT PRIVILEGES`
+against **both** granting roles (`postgres` and `supabase_admin`) to stop auto-granting
+`anon`/`authenticated` EXECUTE on new `public` functions. This is **schema-wide and affects
+every future function**, including ones PostgREST is expected to expose to `anon` (e.g.
+`calculate_gst`, `calculate_dew_point`, `generate_lead_number`). Deliberately NOT done as a
+footnote to the invoice work. Scope it properly: inventory which `public` functions are
+*meant* to be anon/authenticated-callable first, because flipping the default will break
+any that rely on it.
+
+**Current state of `audited_mark_invoice_overdue` (PROD, 2026-08-17, post-apply):**
+`returns = bool`, `security_definer = true`, `owner = postgres`, grantees =
+`authenticated, postgres, service_role`. `anon` and `PUBLIC` are **absent** — so this is
+identical to the pre-migration grant set, **no widening, no open hole**. The
+`authenticated` tightening the migration intended simply did not take, and is deferred to
+the session above. NOTE: the migration file's own comment claims `authenticated` "is
+deliberately NOT re-granted" — that describes the intent, not the achieved outcome. The
+file is left unmodified because it is already applied and is the historical record of what
+ran; this entry is the correction.
+
+### CONVENTION — `src/integrations/supabase/types.ts` is generated from **PROD**, never DEV
+
+Established 2026-08-17 after finding the committed file carried DEV's values.
+
+**The rule.** The committed `types.ts` must always be generated from PROD:
+
+```bash
+npx supabase gen types typescript --project-id ecyivrxjpsmjmexqatym > src/integrations/supabase/types.ts
+```
+
+Regenerating from DEV **locally** while testing a DEV-only migration is fine and often
+necessary — just don't commit that output. Re-run against PROD once the migration has
+actually landed there, and commit that.
+
+**Why it matters.** This file compiles into the production bundle, and it is not only a
+schema map: `__InternalSupabase.PostgrestVersion` feeds
+`createClient<Database, { PostgrestVersion: 'XX' }>`, so it can shift inferred types
+across the app. The two projects genuinely differ — verified with the same CLI in the
+same minute on 2026-08-17:
+
+| Project | `PostgrestVersion` |
+|---|---|
+| PROD `ecyivrxjpsmjmexqatym` | `13.0.5` |
+| DEV `ctppzqnysmzynkxjlzta` | `14.5` |
+
+**What happened.** `0362c39` ("chore(types): regenerate from DEV after HEPA +
+job-completion waste migrations", 28 Jul) committed DEV's `14.5`. It sat wrong until
+2026-08-17, when the regeneration for `audited_mark_invoice_overdue`'s `boolean` return
+corrected it to `13.0.5`. Traced with `git log -S'PostgrestVersion: "14.5"'`.
+
+**No harm done that time** — the diff was only those two lines, so DEV and PROD schemas
+were identical and nothing else was mistyped. That is luck, not a guarantee: DEV is a
+restore-to-new-project clone and migrations are applied to it first, so a DEV-generated
+file can carry columns PROD does not have yet. Committing that would type the frontend
+against a schema production cannot serve.
+
+**Known, accepted wrinkle.** Local dev points at DEV via `.env.development.local`, so
+after a PROD regeneration the `PostgrestVersion` marker is "wrong" for local dev. This is
+deliberate — it is a type-level hint only, the schemas are identical, and PROD is what
+ships. Do not "fix" it by regenerating from DEV.
+
+**Check before committing this file:** `git diff src/integrations/supabase/types.ts`
+should show only what your migration changed. A `PostgrestVersion` flip to `14.5` means
+it came from DEV — regenerate from PROD.
+
+### P2 — DEV shares the PRODUCTION Resend account
+
+The same API key that sends real customer mail is used on DEV. **One mistyped address in
+a DEV test reaches a real customer.** Needs a separate DEV key, or at minimum a
+documented rule that DEV only ever sends to `delivered@resend.dev`.
+
+### P2 — Sentry `ignoreErrors` contains `"Failed to fetch"`
+
+Confirmed harmful, not theoretical: it swallowed a real production failure on 07/08
+13:44 — `[useTechnicianStats] Failed to fetch users`, a Supabase connectivity error, and
+the admin technician view silently rendered an empty user list. It reached the `logs`
+dataset only because of `consoleLoggingIntegration`; `captureException` discarded it.
+
+### P2 — Edge Functions have no Sentry SDK
+
+`send-email`, `generate-inspection-summary` and `check-overdue-invoices` have never
+reported to Sentry and cannot under the current config. Supabase EF logs (24 h
+retention) are the only server-side source.
+
+### P2 — Swallow-and-continue audit
+
+`useTechnicianStats` catches, returns an empty list, and renders as if valid. Same shape
+as the known `TechnicianInspectionForm` defect where area save errors are swallowed and
+"Saved" shows unconditionally. **Audit whether this is a codebase-wide pattern.**
+
+### P3
+
+- [ ] Sentry release is always `mrc-app@0.0.0` (`package.json` version never bumped).
+      No per-release regression detection.
+- [ ] `property_type` NULL on all Framer-sourced leads — intake never populates it.
+      Upstream cause of the inspection-vs-job-completion mismatch.
+- [ ] `notifications` table 0 rows all-time. In-app notification surface dead while
+      Slack works.
+- [ ] Supabase EF log retention is 24 h. Log invocations to a table for durable history.
+- [ ] Supabase CLI is v2.101.0; current is v2.112.0.
+- [ ] `toDisplayTitleCase` renders "JR Smith" as "Jr Smith". Cosmetic.
+
+---
+
+## Recon findings — 24 Aug 2026
+
+---
+
+## Deferred — 24 Aug 2026 session
+
+Found during the five-change presentation-layer session (label rename, card button
+wording, type colour scheme, state selector removal, shared time picker). Everything
+below was found but deliberately NOT built. Documentation only — no separate docs.
+
+### 1. Shared 15-min wheel picker component
+
+- **Premise failure:** the three-column wheel above "Confirm Booking" is iOS rendering
+  a plain `<input type="time">` at `BookJobSheet.tsx:784`. No component exists to
+  extract.
+- iOS ignores `step` on time inputs, so `step="900"` will not deliver 15-min
+  increments on the technicians' phones — a custom component is required.
+- Scope: hours | 00/15/30/45 | AM/PM, 07:00–19:00 bounds, emits `"HH:mm"`,
+  48px touch targets at 375px.
+- Conversion targets when built: `BookJobSheet.tsx:784` (job booking, currently 1-min
+  native input) and `CreateNewLeadModal.tsx:650-667` (admin preferred time, currently
+  30-min `<select>` whose comment says "to 6pm" but whose maths ends at 17:30). The
+  preferred-time save path must stay insert-only (PR #39 — `customer_preferred_time`
+  is never updated).
+
+### 2. Inspection booking on 15-min increments — BLOCKED
+
+- `LeadBookingCard` is an availability-constrained hourly slot selector feeding the
+  `calculate-travel-time` Edge Function, which assumes a strict 1-hour grid
+  (zod `/^\d{2}:\d{2}$/`, `+60`-minute appointment blocks).
+- Cannot move to 15-min without changing that EF's grid. Edge Function work, not
+  presentation. Needs its own scoped session.
+
+### 3. RequestInspection public form — deliberately NOT changing
+
+- Stores band strings ("Morning (8am–12pm)") per a prior product decision. Correct
+  for a customer-facing form. Recorded so it is not "fixed" later.
+
+### 4. Stale assigned_to on LeadDetail
+
+- LeadDetail doubles as the technician job page. Two "back to new_lead" paths leave
+  `assigned_to` stale.
+- Live data bug. Fix alongside the multi-technician junction table work, not
+  separately — the same paths are affected.
+
+### 5. Repo-vs-live enum drift
+
+- `'no_show'` present in the repo's reminder trigger, absent from the live enum.
+- Another symptom of the forked migration history.
+
+### 6. ✅ Migration file header is wrong — FIXED 24 Aug 2026
+
+- `supabase/migrations/20260823090000_notifications_fan_out.sql` read
+  "STATUS: DRAFT ... It has NOT been applied." It WAS applied and repaired on
+  23 Aug 2026, so the stale header invited a double-apply attempt.
+- **Header corrected 24 Aug 2026 on Michael's explicit instruction** (named
+  file, comment-only carve-out from the never-modify-migrations rule). New
+  STATUS: APPLIED to PROD (`ecyivrxjpsmjmexqatym`) 23 Aug 2026 via Studio
+  paste, history repaired with
+  `npx supabase migration repair --status applied 20260823090000 --linked`.
+  Diff verified comment-only — zero executable statements touched.
+
+### Colour collision note (from the Task 3 audit — recorded, NOT resolved)
+
+Booking-type scheme (corrected 24 Aug 2026 — an earlier build had it reversed):
+**inspection = blue `#137fec` (unchanged from before this session), job =
+orange-500 `#f97316` accent with orange-700 `#c2410c` text** (replaces the retired
+green). Orange-500 deliberately matches the `job_waiting` status colour — same
+domain, reinforcing — and avoids orange-600 (PDF edit mode) and amber-600
+(Confirm Booking CTA). Collisions that remain because `src/lib/statusFlow.ts` and
+the status pill maps are out of scope:
+
+- **Confirm Booking CTA** (`BookJobSheet.tsx:951`) is `bg-amber-600` (32°) —
+  same warm family as the job orange (25°), and it sits *inside the job booking
+  sheet*, adjacent to job-orange identity in the same flow.
+- **statusFlow blue statuses** vs the inspection-card blue (pre-existing — blue
+  meant inspection before this session too): `new_lead` (217°), `job_scheduled`
+  (217° ≈ #3B82F6, near-identical to `#137fec` — a blue status pill on an
+  orange *job* card reads inspection-ish), `job_report_pdf_sent` (210°),
+  `inspection_email_approval` (200°).
+- **statusFlow orange/amber statuses**: `job_waiting` orange-500 is now the SAME
+  domain as the job type colour (not a clash); but `inspection_waiting` (38°),
+  `pending_review` (45°) and `google_review` (48°) are near-orange hues with
+  non-job meanings.
+- PDF edit mode uses `bg-orange-600` (~90 occurrences in ViewReportPDF /
+  ReportPreviewHTML) — different surface, same family as the job orange.
+- EventDetailsPanel: the blue *inspection type* pill can sit beside a blue
+  `scheduled` *status* pill (`:99-104`) — same-hue pills with different
+  meanings (pre-existing pairing, unchanged by this session).
+- Technician-identity chip palette (`useScheduleCalendar.ts:286`) still contains
+  green `#34C759` and orange `#FF9500` and can visually duplicate the job orange
+  on the same card.
+
+Source: Batch B read-only reconnaissance, **`docs/TONIGHT_BATCH_RECON.md`** (live PROD reads via
+`npx supabase db query --linked`, SELECT-only; grep-backed code inventory, adversarially verified).
+That doc carries the evidence, file:line inventories and the proposed DDL. This section carries the
+item, the blocker, and the sequence. Nothing below has been built, migrated, or committed.
+
+### CRITICAL / STANDING RULE
+
+### R1 — Migration history fork is far worse than previously documented
+- **Live count (24 Aug):** 16 versions shared / **104 local-only** / **102 remote-only**. The prior
+  figure — "five remote-only migrations have no local file" in
+  `docs/NOTIFICATIONS_SCHEMA_RECONCILIATION.md:27` — was wrong.
+- **`supabase db push` would replay 104 files. NEVER run it on this repo.** (The repo is linked to
+  PROD; a bare push hits production.)
+- `supabase migration list` output is unreliable as a description of the live database — its
+  version stamps say nothing about what is deployed. Ignore it as evidence.
+- At least one repo trigger body **differs** from the deployed one
+  (`20260218000001_add_reminder_scheduled_for.sql` references a `'no_show'` status that does not
+  exist in the live `booking_status` enum; the live `set_reminder_scheduled_for` body does not).
+  Therefore: **`supabase/migrations/**` is an archive of intentions, NOT a description of the live
+  database. Any claim about live schema must come from a live read.**
+- Only safe path for schema change remains: **Studio paste + `npx supabase migration repair
+  --status applied <version> --linked`** (the path used for `20260821000000`, see
+  `docs/NOTIFICATIONS_SCHEMA_RECONCILIATION.md:215`).
+- [ ] Remediation of the fork is its own project — not scheduled, not part of any item below.
+
+### R2 — Supabase MCP token is dead; known-good live-read path
+- `mcp__supabase` still rejects every `execute_sql` / `list_tables` call ("Unauthorized…
+  SUPABASE_ACCESS_TOKEN"). **`get_project_url` answering is a FALSE POSITIVE** — it is derived from
+  local config, not a live call. Do not treat it as proof the server works.
+- Known-good path for live reads: **`npx supabase db query --linked -o json -f <file.sql>`**
+  (CLI 2.101.0, Management API, linked = PROD `ecyivrxjpsmjmexqatym` — state that before running;
+  SELECT-only). `information_schema`, `pg_policies`, `pg_get_functiondef()` all work.
+- [ ] Token replacement itself is already tracked under "Follow-ups from 23 Jul 2026 session"
+  (`Replace dead SUPABASE_ACCESS_TOKEN…`). Update that item's fallback text to the `db query` path
+  when it is next touched; do not duplicate it here.
+
+### READY TO BUILD — code-only, no migration
+
+### R3 — Non-client bookings (equipment pickup / blocked time)
+- **Live state:** `calendar_bookings.lead_id` already nullable (FK ON DELETE SET NULL);
+  `event_type` already a free varchar with no CHECK/enum (live values: `inspection`, `job`). The
+  table's only RLS policy reads neither column. **No DDL required.**
+- Conflict engine `src/lib/bookingService.ts:42-75` (`checkBookingConflict`) reads
+  `calendar_bookings` directly with no type/lead filter — **blocked time ALREADY blocks slots.**
+- **Real work:**
+  - [ ] `src/hooks/useTechnicianJobs.ts:269` uses `lead:leads!inner(...)` — silently hides
+    lead-less rows. A technician would be blocked out of a slot and unable to see why. Needs a
+    deliberate second query or relaxed join for non-client types.
+  - [ ] Engagement keying `${lead_id}|${event_type}` (`useTechnicianDetail.ts:310`,
+    `useTechnicianStats.ts:261`) merges all null-lead rows of one type into a single "Unknown"
+    engagement — key non-client rows by `id`.
+  - [ ] Creation UI for a lead-less row (both insert paths currently require a lead prop and derive
+    `title` / `location_address` from it); filter pills `AdminSchedule.tsx:174-176`, colour/label
+    maps, hide "Start Inspection" (`EventDetailsPanel.tsx:181-187`) for non-client types.
+- [ ] **Optional hardening:** CHECK constraint on `event_type` (proposed DDL in recon §3.6; 28
+  live rows already conform). Decide the label set first (`equipment_pickup`, `blocked`, …).
+  Do NOT add a `lead_id IS NOT NULL` CHECK for client types — the FK is ON DELETE SET NULL and
+  lead deletion would then fail.
+
+### R4 — Preferred date/time optional on manual lead entry
+- **Live state:** `leads.customer_preferred_date` and `customer_preferred_time` already nullable,
+  no default, no CHECK, no trigger. **No DDL required.**
+- Blocked only by the hand-rolled `CreateNewLeadModal.validateForm()`
+  (`src/components/leads/CreateNewLeadModal.tsx:353-361`). **There is NO Zod schema behind the
+  manual form** — the documented `normalLeadSchema` (`lead-creation.schemas.ts:245-263`) is dead
+  code with zero callers and no preferred keys.
+- [ ] ~6 lines: drop the two required branches (:353-361), labels (:604, :648), insert
+  `:435-436` → `formData.preferredDate || null` / `formData.preferredTime || null` (an empty
+  string into a `date` column errors), Slack payload `:467-468` → `|| undefined`.
+- Does **not** conflict with the PR #39 never-clear rule — that rule governs UPDATE
+  (`LeadDetail.tsx:506-541` clear-lists; column COMMENTs), not requiredness at CREATE.
+- [ ] Optional tidy-up: delete the dead `normalLeadSchema` / `hiPagesLeadSchema` exports so nobody
+  later wires them in and silently changes the required set.
+
+### R5 — Allow duplicate leads (repeat real-estate clients)
+- **Live state:** no unique constraint or index on email / phone / name / any address column
+  (only `id` and `lead_number` are unique; `idx_leads_email_phone` is non-unique). **PROD ALREADY
+  holds 5 duplicate-email groups and 3 duplicate-phone groups — the DB never blocked this.** No
+  trigger, no Zod refine, no upsert/onConflict. The Framer EF only flags
+  (`is_possible_duplicate`, 24 h exact match) and always inserts. **No DDL required.**
+- Blocked only by the admin modal: `checkForDuplicates` (`CreateNewLeadModal.tsx:264-288`) +
+  gate (`:398-403`) — hard-blocks on phone-OR-email with **no override** AND **counts archived /
+  not_landed leads** (no `archived_at` filter), so a re-created archived customer is a dead end the
+  admin cannot even find.
+- [ ] **Target: warn-and-allow.** Keep the lookup, show "Existing lead: <name> (MRC-…)", always
+  permit submit; add `.is('archived_at', null)` to the check. Banner `:565-576` becomes
+  informational.
+- Known format drift (modal stores digits, Framer raw, in-app keeps `+`) means the warning will
+  miss some repeats — acceptable for warn-only; not worth fixing in this batch.
+
+### NEEDS ITS OWN SESSION — one migration
+
+### R6 — Google Maps unit numbers
+- **Live state:** address stored as components (`property_address_street / _suburb / _state /
+  _postcode` + `property_lat/lng`). **NO unit column exists anywhere** in the public schema.
+  Single Places parser `src/hooks/useGoogleMaps.ts:211-220` (`getPlaceDetails`) extracts 5
+  component types and **never reads `subpremise`** — the unit is silently dropped whenever Google
+  returns `street_number` + `route`. `grep -ri subpremise` over the repo → nothing.
+- [ ] **Migration (Studio paste + `migration repair`, per R1):** add `leads.property_address_unit`
+  (nullable); optional `search_text` generated-column rebuild (drop + re-add + reindex
+  `idx_leads_search_text_trgm`); **MUST redefine `audited_insert_lead_via_framer`** — its live
+  body whitelists columns, so a unit sent by the Framer EF is silently dropped until the RPC is
+  extended. Exact DDL in recon §1.3.
+- [ ] **Blocker before the column is added:** 33 consumer files, 5 writers
+  (`CreateNewLeadModal.tsx:423`, `LeadBookingCard.tsx:336-347`,
+  `InlineEditAddress.tsx:76-83`→`useLeadUpdate.ts`, `ViewReportPDF.tsx:2044-2054`,
+  `receive-framer-lead/index.ts:810-829`) and **no shared address formatter** — 15+ inline
+  4-part concatenations. Write one `formatAddress` helper and migrate the concatenations to it
+  FIRST, or the unit format will fragment. Two parsers assume no comma in the street segment
+  (`useScheduleCalendar.ts:320-328`, `useCancelledBookings.ts:143-151`).
+- [ ] Decide the display format (`Unit 3/12 Smith St` vs `3/12 Smith St`) before touching either.
+- Note: `TechnicianInspectionForm.tsx:791-797` "Address" field is editable but never persisted
+  (feeds the AI prompt only) — don't mistake it for a writer.
+
+### BLOCKED ON GLEN/CLAYTON DECISION
+
+### R7 — Multiple technicians per job/inspection (equal, no lead/assist hierarchy)
+- **Live state:** single nullable FK `leads.assigned_to → auth.users`. **No junction table.**
+  `calendar_bookings.assigned_to` NOT NULL. **13 RLS policies** key on `leads.assigned_to`
+  (leads ×2, inspections ×3, inspection_areas, photos ×4, photo_history ×2, invoices) — PLUS
+  `ai_summary_versions.technicians_see_assigned` (keyed on `inspections.inspector_id`) and the
+  three `job_completions` policies (keyed on `completed_by`) would **STILL lock out technician #2
+  even after a junction table lands.** Full policy table in recon §2.2.
+- **Scope:** `lead_assignments` junction + `is_assigned_to_lead()` helper + backfill + **16
+  `ALTER POLICY`** (names kept). Bookings: **Option A** (one row per technician +
+  `booking_group_id`; recommended — conflict engine, realtime filter and partial indexes keep
+  working) vs **Option B** (junction; every booking reader changes). **88 code hits / 24 files**;
+  two single-select pickers → multi-select; four `assigned_to IS NULL` queues → `NOT EXISTS`.
+  Full DDL in recon §2.4.
+- **BLOCKER — `job_completions.completed_by` is singular** (NOT NULL, stamped from the saving
+  user; `inspections.inspector_id` likewise, re-stamped on every save incl. admin edits). If both
+  technicians attend and are equal, **who signs the completion report?** This is Phase 2 (active
+  workstream) — building the junction before answering means immediate rework of the completion
+  form. **Glen/Clayton must decide** (options: first saver; any member; explicit signer picker;
+  both names on the PDF). Also decide whether technicians may self-assign (junction RLS grants).
+- [ ] Fix the two stale-`assigned_to` paths (R8) as PART of this work, not separately.
+- [ ] Audit triggers on `lead_assignments` are a separate explicit decision (29-trigger rule).
+
+### BUGS FOUND, NOT SCHEDULED
+
+### R8 — Two "back to new_lead" paths leave `leads.assigned_to` stale
+- `LeadDetail.tsx:514` clears `assigned_to` on reversion; `EventDetailsPanel.tsx:59-63` (inspection
+  cancel) and `LeadsManagement.tsx:203-205 / 307-310` (reactivate) do **not**. Result: a `new_lead`
+  with a non-null `assigned_to` vanishes from every `assigned_to IS NULL` queue
+  (`useLeadsToSchedule.ts:74`, `useUnassignedLeads.ts:42`, `AdminSidebar.tsx:50`,
+  `useAdminDashboardStats.ts:98`) while the old technician keeps RLS access.
+- `LeadDetail` doubles as the technician job page (`App.tsx:349-362` `/technician/job/:id`), so
+  these reversion CTAs are technician-reachable.
+- [ ] Fix with R7.
+
+### R9 — Archiving a lead never cancels its bookings
+- `LeadsManagement.tsx:529-532` / `LeadDetail.tsx:706-709` set `archived_at` only; no booking
+  consumer filters on it. Archived leads keep blocking technician slots via `checkBookingConflict`,
+  keep rendering on the admin calendar / Today's Schedule, and still get the 48 h reminder email.
+  Same gap for `job_scheduled → job_waiting`, `not_landed`, `closed` (only the rank<1 reversion
+  bulk-cancels, `LeadDetail.tsx:563`). Recon §3.7.
+- [ ] Not scheduled. Natural home: the R3 booking batch, if scope allows.
+
+### R10 — `BookJobSheet` is technician-reachable with no rollback on partial writes
+- `src/components/leads/BookJobSheet.tsx:409-466`: deletes prior job rows → inserts new rows →
+  updates `leads` (`assigned_to`, status). No compensating rollback if step 3 fails
+  (`bookingService.ts:177-181` does roll back). `calendar_bookings` RLS is open to any
+  authenticated user while `leads` UPDATE is gated on `assigned_to = auth.uid()` — a technician
+  picking another tech succeeds at steps 1-2 and fails at 3, leaving
+  `calendar_bookings.assigned_to ≠ leads.assigned_to`. Entry via the ungated `job_waiting` CTA
+  (`LeadDetail.tsx:959-968`). Its picker also lists all active users, not technician-role only
+  (`:166-184`).
+- [ ] Not scheduled. Folds into R7 (write ordering must change for multi-tech anyway).
+
+### R11 — `useRevisionJobs.ts` is live despite the CLAUDE.md "dormant" rule
+- CLAUDE.md:131 says "useRevisionJobs.ts left dormant — do not activate", but
+  `src/pages/TechnicianDashboard.tsx:5` imports it and `:37` calls it (queries `leads` with
+  `status = job_scheduled`, `assigned_to = user.id`). Rule and reality disagree.
+- [ ] Decide which is right (see "Revision Lifecycle — Tech Debt" / PR-T1 above), then either
+  remove the call or rewrite the rule. Until then, treat the hook as live when estimating R7.
+
+### SUGGESTED SEQUENCE
+- **A.** R3 + R4 + R5 as **one code-only batch** — no migration, no approval gate. Verify at
+  375px; one E2E at the end, not piecemeal.
+- **B.** R6 (unit numbers) — own session, one migration via Studio + `migration repair`;
+  formatter helper lands before the column.
+- **C.** R7 (multi-tech) — only after the Glen/Clayton decision on `completed_by`; R8 + R10 ride
+  along.
+- R1 / R2 are standing rules, not work items. R9 / R11 unscheduled.

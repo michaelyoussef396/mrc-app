@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
@@ -2177,7 +2177,7 @@ export type Database = {
       }
       audited_mark_invoice_overdue: {
         Args: { p_acting_user_id: string; p_invoice_id: string }
-        Returns: undefined
+        Returns: boolean
       }
       calculate_dew_point: {
         Args: { humidity: number; temperature: number }

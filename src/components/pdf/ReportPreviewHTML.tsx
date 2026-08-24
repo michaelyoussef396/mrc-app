@@ -975,16 +975,10 @@ export function ReportPreviewHTML({
                               />
                               <div className="flex gap-1.5">
                                 <input
-                                  value={editP1Address.state}
-                                  onChange={(e) => setEditP1Address(prev => ({ ...prev, state: e.target.value }))}
-                                  placeholder="State"
-                                  className="w-1/2 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                />
-                                <input
                                   value={editP1Address.postcode}
                                   onChange={(e) => setEditP1Address(prev => ({ ...prev, postcode: e.target.value }))}
                                   placeholder="Postcode"
-                                  className="w-1/2 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                 />
                               </div>
                             </div>

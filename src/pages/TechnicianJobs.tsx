@@ -424,7 +424,7 @@ export default function TechnicianJobs() {
       <JobsHeader activeTab={activeTab} onTabChange={setActiveTab} counts={counts} />
 
       {/* Scrollable Content */}
-      <main className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
+      <main className="flex-1 overflow-y-auto p-4 space-y-4 pb-bottom-nav">
         {isLoading ? (
           <LoadingState />
         ) : error ? (

@@ -797,7 +797,7 @@ export function BookJobSheet({
               {/* Total Hours with stepper */}
               <div className="space-y-1.5">
                 <Label htmlFor="totalHours" className="text-sm">
-                  Total Hours (from inspection)
+                  Job Hours
                 </Label>
                 <div className="flex items-center gap-2">
                   <Button

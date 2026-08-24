@@ -2048,7 +2048,7 @@ export default function ViewReportPDF() {
           .update({
             property_address_street: addr.street,
             property_address_suburb: addr.suburb,
-            property_address_state: addr.state,
+            property_address_state: 'VIC',
             property_address_postcode: addr.postcode,
           })
           .eq('id', inspection.lead_id)

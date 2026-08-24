@@ -132,7 +132,7 @@ export default function TechnicianDashboard() {
 
   return (
     <div
-      className="min-h-screen relative pb-24"
+      className="min-h-screen relative pb-bottom-nav"
       style={{ backgroundColor: '#f5f7f8', color: '#1d1d1f' }}
     >
       {/* Header */}
@@ -208,6 +208,7 @@ export default function TechnicianDashboard() {
             timeSlot={nextJob.time}
             address={nextJob.address || ''}
             jobType={nextJob.jobType}
+            eventType={techJobMap.get(nextJob.id)?.eventType}
             area={nextJob.area}
             travelTime={techJobMap.get(nextJob.id)?.travelTimeMinutes ?? undefined}
             onStartInspection={() => handleStartInspection(nextJob.id)}

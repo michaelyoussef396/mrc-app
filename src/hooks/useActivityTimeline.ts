@@ -22,6 +22,10 @@ export interface TimelineEvent {
   actorName: string | null;
   timestamp: string;
   metadata?: Record<string, unknown>;
+  /** Notification-sourced events only — carried through for click-through and priority badges. */
+  actionUrl?: string | null;
+  priority?: string | null;
+  isRead?: boolean | null;
 }
 
 // Map activity types to icon info
@@ -102,7 +106,7 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
 
       let notificationsQuery = supabase
         .from('notifications')
-        .select('id, type, title, message, created_at, lead_id, leads(full_name, lead_number)')
+        .select('id, type, title, message, created_at, lead_id, is_read, action_url, priority, leads(full_name, lead_number)')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -203,6 +207,9 @@ export function useActivityTimeline(limit: number = 15, leadId?: string) {
             leadNumber: lead?.lead_number || null,
             actorName: null,
             timestamp: n.created_at,
+            actionUrl: n.action_url,
+            priority: n.priority,
+            isRead: n.is_read,
           });
         }
       }

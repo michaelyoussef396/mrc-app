@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import {
   Collapsible,
@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import type { TimelineEvent, FieldEditMetadata } from '@/hooks/useActivityTimeline';
 import { formatDateTimeAU } from '@/lib/dateUtils';
+import { isInternalPath } from '@/lib/utils/navigation';
 import { getFieldLabel } from '@/lib/utils/fieldLabels';
 import { STATUS_FLOW } from '@/lib/statusFlow';
 
@@ -175,6 +176,16 @@ function getSourceBadge(source: TimelineEvent['source']) {
   }
 }
 
+// 'normal' is the notifications table default and carries no visual weight.
+function getPriorityBadge(priority: string | null | undefined) {
+  if (!priority || priority === 'normal') return null;
+  const className =
+    priority === 'urgent' || priority === 'high'
+      ? 'bg-red-100 text-red-700'
+      : 'bg-amber-100 text-amber-700';
+  return { label: priority.charAt(0).toUpperCase() + priority.slice(1), className };
+}
+
 interface ActivityTimelineProps {
   events: TimelineEvent[];
   isLoading: boolean;
@@ -188,6 +199,8 @@ export function ActivityTimeline({
   showLeadName = true,
   compact = false,
 }: ActivityTimelineProps) {
+  const navigate = useNavigate();
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -221,14 +234,40 @@ export function ActivityTimeline({
         // Parse the icon color classes: "text-blue-600 bg-blue-100" -> separate
         const [textColor, bgColor] = event.iconColor.split(' ');
         const sourceBadge = showLeadName ? getSourceBadge(event.source) : null;
+        const priorityBadge =
+          event.source === 'notification' ? getPriorityBadge(event.priority) : null;
         const isLast = index === events.length - 1;
 
         if (compact) {
+          // Notification events carrying an action_url become clickable rows —
+          // this is the merged-timeline equivalent of the dropdown's click-through.
+          // Excludes rows that also show a leadName Link: nesting that anchor inside
+          // a role="button" row would create nested interactive controls, which
+          // WCAG 2.1 discourages even though the click handlers themselves don't conflict.
+          const hasClickThrough =
+            event.source === 'notification' &&
+            !!event.actionUrl &&
+            isInternalPath(event.actionUrl) &&
+            !(showLeadName && event.leadName);
+
           // Compact view for dashboard
           return (
             <div
               key={event.id}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors"
+              role={hasClickThrough ? 'button' : undefined}
+              tabIndex={hasClickThrough ? 0 : undefined}
+              onClick={hasClickThrough ? () => navigate(event.actionUrl as string) : undefined}
+              onKeyDown={
+                hasClickThrough
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        navigate(event.actionUrl as string);
+                      }
+                    }
+                  : undefined
+              }
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors ${hasClickThrough ? 'cursor-pointer' : ''}`}
             >
               <div className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${bgColor}`}>
                 <IconComponent className={`h-4 w-4 ${textColor}`} />
@@ -238,6 +277,11 @@ export function ActivityTimeline({
                   <p className="text-sm font-medium text-gray-900 truncate">
                     {event.title}
                   </p>
+                  {priorityBadge && (
+                    <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 flex-shrink-0 ${priorityBadge.className}`}>
+                      {priorityBadge.label}
+                    </Badge>
+                  )}
                   {sourceBadge && (
                     <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 flex-shrink-0 ${sourceBadge.className}`}>
                       {sourceBadge.label}
@@ -299,6 +343,11 @@ export function ActivityTimeline({
                   </span>
                 )}
                 <p className="text-sm font-medium">{event.title}</p>
+                {priorityBadge && (
+                  <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${priorityBadge.className}`}>
+                    {priorityBadge.label}
+                  </Badge>
+                )}
                 {sourceBadge && (
                   <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${sourceBadge.className}`}>
                     {sourceBadge.label}
