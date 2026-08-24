@@ -68,7 +68,7 @@ export default function TechnicianBottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white pt-2 pb-safe"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white pt-2"
       style={{
         borderTop: '1px solid #e5e5e5',
         boxShadow: '0 -4px 20px rgba(0,0,0,0.03)',

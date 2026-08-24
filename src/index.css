@@ -3571,20 +3571,27 @@
   flex-shrink: 0;
 }
 
-/* Enable document scrolling - html is the scroll container */
+/* Viewport-scrolling model: no height cap on html, so the viewport (not a
+   height-capped html box scrolled as an element) is the scroller and
+   position:fixed stays compositor-pinned on iOS. overflow-x on the root
+   propagates to the viewport without sizing the html box. */
 html {
-  height: 100vh;
-  height: 100dvh; /* Dynamic viewport height for mobile */
-  overflow-y: auto;
+  min-height: 100%;
   overflow-x: hidden;
   scroll-behavior: smooth;
+  overscroll-behavior-y: contain; /* Chrome >=93 no longer propagates this from body */
 }
 
-/* Body flows naturally, no scroll container */
 body {
-  min-height: 100%;
-  overflow: visible;
+  min-height: 100vh;
+  min-height: 100dvh; /* html height is auto now, so 100% would resolve to auto */
   overscroll-behavior-y: contain;
+}
+
+/* Reserves TechnicianBottomNav height (~80px idle, ~108px with the sync row)
+   plus the iOS safe area (env() is 0 until viewport-fit=cover ships) */
+.pb-bottom-nav {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 7rem);
 }
 
 /* ============================================
@@ -6401,14 +6408,14 @@ a.contact-value:hover {
     pointer-events: none;
   }
 
+  /* Opacity-only: a transform here makes .page-content a containing block for
+     position:fixed during the animation, detaching the bottom nav on mount */
   @keyframes contentFadeIn {
     from {
       opacity: 0;
-      transform: translateY(10px);
     }
     to {
       opacity: 1;
-      transform: translateY(0);
     }
   }
 

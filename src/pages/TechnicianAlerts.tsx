@@ -125,7 +125,7 @@ interface EmptyStateProps {
 
 function EmptyState({ onRefresh }: EmptyStateProps) {
   return (
-    <main className="flex-1 flex flex-col items-center justify-center p-6 pb-24">
+    <main className="flex-1 flex flex-col items-center justify-center p-6 pb-bottom-nav">
       <div className="flex flex-col items-center gap-4">
         {/* Icon with checkmark badge */}
         <div className="relative mb-2">
@@ -171,7 +171,7 @@ function EmptyState({ onRefresh }: EmptyStateProps) {
 
 function LoadingState() {
   return (
-    <main className="flex-1 flex flex-col items-center justify-center p-6 pb-24">
+    <main className="flex-1 flex flex-col items-center justify-center p-6 pb-bottom-nav">
       <div className="flex flex-col items-center gap-4">
         <div className="w-12 h-12 border-4 border-[#007AFF] border-t-transparent rounded-full animate-spin" />
         <p className="text-[#86868b] text-sm">Loading alerts...</p>
@@ -209,7 +209,7 @@ export default function TechnicianAlerts() {
       ) : !hasAlerts ? (
         <EmptyState onRefresh={refetch} />
       ) : (
-        <main className="flex-1 overflow-y-auto px-4 pt-4 pb-24 space-y-3">
+        <main className="flex-1 overflow-y-auto px-4 pt-4 pb-bottom-nav space-y-3">
           {/* Recent Alerts */}
           {recentAlerts.map((alert) => (
             <AlertCard key={alert.id} alert={alert} onNavigate={handleNavigate} />
