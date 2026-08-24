@@ -6,10 +6,15 @@
 // pdf_versions row reference. See docs/PDF_PIPELINE_PLAN.md.
 
 import { supabase } from '@/integrations/supabase/client'
+import { captureBusinessError } from '@/lib/sentry'
 import { hashHtml } from '@/lib/utils/reportHash'
 
 const RENDER_PDF_ENDPOINT = '/api/render-pdf'
 const REPORT_PDFS_BUCKET = 'report-pdfs'
+const NETWORK_ERROR_STATUS = 0
+
+export const HARD_SAVE_NETWORK_ERROR_MESSAGE =
+  'Could not reach the PDF service. The report was NOT saved — check your connection and try again.'
 
 export interface HardSaveResult {
   versionId: string
@@ -31,6 +36,19 @@ export class HardSaveError extends Error {
   }
 }
 
+// Transport-level fetch failures (offline, DNS, blocked cross-origin
+// redirect) throw TypeError, whose messages ("Failed to fetch" et al.) are
+// on the Sentry ignoreErrors list — so report via captureBusinessError with
+// a message that list can't match, and rethrow typed so callers surface it.
+function toHardSaveNetworkError(err: unknown, endpoint: string): HardSaveError {
+  captureBusinessError(`Hard-save endpoint unreachable: POST ${endpoint}`, {
+    endpoint,
+    origin: window.location.origin,
+    cause: String(err),
+  })
+  return new HardSaveError(HARD_SAVE_NETWORK_ERROR_MESSAGE, NETWORK_ERROR_STATUS)
+}
+
 /**
  * Render-and-persist the inspection report. Returns a Blob the caller can
  * trigger a browser download from, plus the metadata of the newly-written
@@ -42,14 +60,19 @@ export async function hardSaveReport(inspectionId: string): Promise<HardSaveResu
     throw new HardSaveError('Not authenticated', 401)
   }
 
-  const response = await fetch(RENDER_PDF_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ inspectionId, mode: 'hard_save' }),
-  })
+  let response: Response
+  try {
+    response = await fetch(RENDER_PDF_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ inspectionId, mode: 'hard_save' }),
+    })
+  } catch (err) {
+    throw toHardSaveNetworkError(err, RENDER_PDF_ENDPOINT)
+  }
 
   if (!response.ok) {
     let serverError: string | undefined
@@ -84,7 +107,12 @@ export async function hardSaveReport(inspectionId: string): Promise<HardSaveResu
     throw new HardSaveError('Invalid X-Mrc-Version-Number header', 500)
   }
 
-  const pdfBlob = await response.blob()
+  let pdfBlob: Blob
+  try {
+    pdfBlob = await response.blob()
+  } catch (err) {
+    throw toHardSaveNetworkError(err, RENDER_PDF_ENDPOINT)
+  }
   return { versionId, versionNumber, pdfStoragePath, htmlStoragePath, htmlHash, pdfBlob }
 }
 

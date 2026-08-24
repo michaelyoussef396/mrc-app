@@ -1170,6 +1170,124 @@ function computeAreaHeadingLayout(areaName: string): { headingStyle: string; int
   return { headingStyle: `font-size: ${floor}px;`, introStyle: `top: ${introTop}px;` }
 }
 
+// VISIBLE MOULD fit inside the navy readings box. Layout contract on the
+// Area page: the VISIBLE MOULD cell is absolute at top:304px (width 250px)
+// and EXTERNAL MOISTURE sits at top:348.5px — a 44.5px budget. The navy box
+// ends at 377.92px and cannot grow (photo grid at 402px, AREA NOTES heading
+// at 409px). When the mould list wraps past one line, all six reading cells
+// shrink together via {{env_reading_style}} (a lone shrunken cell would sit
+// beside DEW POINT on the same row and look wrong); past the 11px floor the
+// mould cell is clamped via {{visible_mould_clamp}} so it clips instead of
+// painting over EXTERNAL MOISTURE. Empty strings = template defaults, so
+// single-line values render exactly as before this change.
+// Glyph advances measured from Galvji.ttc at 15px via canvas measureText in
+// Chromium (calibrated against rendered pages 2026-08-24). Unknown chars use
+// the widest glyph ('m'): they can only wrap earlier.
+const GALVJI_WIDTHS_15: Record<string, number> = {
+  '0': 9.8657, '1': 7.3462, '2': 9.0527, '3': 9.2065, '4': 9.4482, '5': 9.4336,
+  '6': 9.6826, '7': 8.6426, '8': 9.6167, '9': 9.646, ' ': 3.7061, '!': 4.4971,
+  '"': 6.6138, '#': 9.8657, '$': 8.9941, '%': 11.5869, '&': 10.7153, "'": 3.6401,
+  '(': 5.1343, ')': 5.1343, '*': 7.8369, '+': 8.9941, ',': 4.021, '-': 6.6943,
+  '.': 4.7241, '/': 5.9473, ':': 5.0317, ';': 5.0317, '<': 8.9941, '=': 8.9941,
+  '>': 8.9941, '?': 7.9248, '@': 13.6743, 'A': 9.9097, 'B': 10.1221, 'C': 10.3345,
+  'D': 10.6714, 'E': 9.1333, 'F': 8.584, 'G': 10.5322, 'H': 11.25, 'I': 4.3579,
+  'J': 7.9907, 'K': 9.7705, 'L': 8.2617, 'M': 13.0005, 'N': 11.25, 'O': 10.8398,
+  'P': 9.5288, 'Q': 10.8545, 'R': 10.0269, 'S': 9.5581, 'T': 8.7012, 'U': 10.9937,
+  'V': 9.895, 'W': 13.6743, 'X': 9.3018, 'Y': 9.0088, 'Z': 9.5288, '[': 5.3687,
+  '\\': 5.9473, ']': 5.3687, '^': 6.3135, '_': 7.1191, '`': 7.9761, 'a': 8.8257,
+  'b': 9.5435, 'c': 8.5693, 'd': 9.5581, 'e': 8.855, 'f': 6.2988, 'g': 9.2505,
+  'h': 9.668, 'i': 4.6069, 'j': 4.6069, 'k': 8.3716, 'l': 4.27, 'm': 14.1943,
+  'n': 9.6021, 'o': 9.2065, 'p': 9.5435, 'q': 9.5288, 'r': 6.2622, 's': 8.2031,
+  't': 6.0059, 'u': 9.5581, 'v': 8.1738, 'w': 11.9238, 'x': 8.4009, 'y': 8.5986,
+  'z': 8.0786, '{': 5.8813, '|': 5.6543, '}': 5.8813, '~': 9.3018,
+}
+const GALVJI_FALLBACK_WIDTH_15 = 14.1943
+
+const ENV_MOULD_PREFIX = 'VISIBLE MOULD: '
+const ENV_CELL_WIDTH = 250
+const ENV_LETTER_SPACING = 0.0252 // px, absolute — does not scale with font-size
+const ENV_LINE_HEIGHT_RATIO = 1.2
+const ENV_MAX_HEIGHT = 40.5 // 44.5px budget minus 4px clearance
+const ENV_CLAMP_HEIGHT = 40 // fits 3 lines at the 11px floor, clips the 4th
+const ENV_FONT_SIZES = [15, 14, 13, 12, 11]
+
+function envGlyphAdvance(ch: string, fontSize: number): number {
+  const w15 = GALVJI_WIDTHS_15[ch] ?? GALVJI_FALLBACK_WIDTH_15
+  return (w15 * fontSize) / 15 + ENV_LETTER_SPACING
+}
+
+// Same greedy `word-wrap: break-word` simulation as countHeadingLines,
+// against the Galvji table and the 250px reading cell.
+function countEnvLines(text: string, fontSize: number): number {
+  const atoms: { frag: string; spaceBefore: boolean }[] = []
+  for (const word of text.split(' ')) {
+    if (word === '') continue
+    const fragments = word.match(/[^/-]*[/-]|[^/-]+/g) || [word]
+    fragments.forEach((frag, i) => atoms.push({ frag, spaceBefore: i === 0 }))
+  }
+
+  let lines = 1
+  let lineWidth = 0
+  const spaceWidth = envGlyphAdvance(' ', fontSize)
+
+  for (const { frag, spaceBefore } of atoms) {
+    const fragWidth = [...frag].reduce((w, ch) => w + envGlyphAdvance(ch, fontSize), 0)
+    const joinWidth = lineWidth > 0 && spaceBefore ? spaceWidth : 0
+
+    if (lineWidth === 0 || lineWidth + joinWidth + fragWidth <= ENV_CELL_WIDTH) {
+      lineWidth += joinWidth + fragWidth
+      if (lineWidth <= ENV_CELL_WIDTH) continue
+    } else {
+      lines++
+      lineWidth = fragWidth
+      if (lineWidth <= ENV_CELL_WIDTH) continue
+    }
+
+    // fragment alone overflows the cell: break-word splits it char by char
+    let w = 0
+    for (const ch of frag) {
+      const a = envGlyphAdvance(ch, fontSize)
+      if (w + a > ENV_CELL_WIDTH && w > 0) {
+        lines++
+        w = 0
+      }
+      w += a
+    }
+    lineWidth = w
+  }
+  return lines
+}
+
+// Single-line values return empty tails — same substitution result as before
+// this change. Multi-line values pin line-height 1.2 (Galvji's `normal`
+// metrics vary by renderer) and step the whole grid down until the wrapped
+// height fits the budget.
+function computeEnvReadingsLayout(mouldValue: string): { envReadingStyle: string; visibleMouldClamp: string } {
+  const text = (ENV_MOULD_PREFIX + mouldValue).replace(/\s+/g, ' ').trim()
+
+  if (countEnvLines(text, ENV_FONT_SIZES[0]) <= 1) {
+    return { envReadingStyle: '', visibleMouldClamp: '' }
+  }
+
+  for (const size of ENV_FONT_SIZES) {
+    const height = countEnvLines(text, size) * size * ENV_LINE_HEIGHT_RATIO
+    if (height <= ENV_MAX_HEIGHT) {
+      return {
+        envReadingStyle: `font-size: ${size}px; line-height: ${ENV_LINE_HEIGHT_RATIO};`,
+        visibleMouldClamp: '',
+      }
+    }
+  }
+
+  // Floor size still overflows (~130+ char lists or free text): clamp the
+  // mould cell so it clips at the cell boundary instead of overlapping.
+  const floor = ENV_FONT_SIZES[ENV_FONT_SIZES.length - 1]
+  return {
+    envReadingStyle: `font-size: ${floor}px; line-height: ${ENV_LINE_HEIGHT_RATIO};`,
+    visibleMouldClamp: `max-height: ${ENV_CLAMP_HEIGHT}px; overflow: hidden;`,
+  }
+}
+
 // Extract the Areas Inspected page block from the template
 // The template has a single Area page with {{area_*}} placeholders
 // We duplicate it once per inspected area
@@ -1190,6 +1308,8 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
     const emptyPage = areaTemplate
       .replace(/\{\{area_heading_style\}\}/g, '')
       .replace(/\{\{area_intro_style\}\}/g, '')
+      .replace(/\{\{env_reading_style\}\}/g, '')
+      .replace(/\{\{visible_mould_clamp\}\}/g, '')
       .replace(/\{\{area_name\}\}/g, 'None')
       .replace(/\{\{area_temperature\}\}/g, '-')
       .replace(/\{\{area_humidity\}\}/g, '-')
@@ -1235,8 +1355,12 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
     page = page.replace(/\{\{area_humidity\}\}/g, `${area.humidity || 0}%`)
     page = page.replace(/\{\{area_dew_point\}\}/g, `${area.dew_point || 0}°C`)
 
-    // Mould description
+    // Mould description (style tails ordered before {{visible_mould}} so a
+    // value containing literal placeholder text can never be re-substituted)
     const mouldLocations = getMouldDescription(area)
+    const envLayout = computeEnvReadingsLayout(mouldLocations)
+    page = page.replace(/\{\{env_reading_style\}\}/g, envLayout.envReadingStyle)
+    page = page.replace(/\{\{visible_mould_clamp\}\}/g, envLayout.visibleMouldClamp)
     page = page.replace(/\{\{visible_mould\}\}/g, escapeHtml(mouldLocations))
 
     // Moisture readings

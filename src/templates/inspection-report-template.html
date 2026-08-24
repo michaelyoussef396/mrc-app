@@ -250,19 +250,19 @@
             <div style="width: 542.447px; height: 136.814px; left: 126.02px; top: 241.11px; position: absolute; background: #121D73; border-radius: 20px;"></div>
 
             <!-- Row 1: Temperature and Humidity -->
-            <div style="width: 250px; left: 158.25px; top: 249.5px; position: absolute; color: white; font-size: 15px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">TEMPERATURE: {{area_temperature}}</div>
+            <div style="width: 250px; left: 158.25px; top: 249.5px; position: absolute; color: white; font-size: 15px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word; {{env_reading_style}}">TEMPERATURE: {{area_temperature}}</div>
 
-            <div style="width: 180px; left: 461.25px; top: 249.5px; position: absolute; color: white; font-size: 15px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">HUMIDITY: {{area_humidity}}</div>
+            <div style="width: 180px; left: 461.25px; top: 249.5px; position: absolute; color: white; font-size: 15px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word; {{env_reading_style}}">HUMIDITY: {{area_humidity}}</div>
 
             <!-- Row 2: Dew Point and Visible Mould -->
-            <div style="width: 200px; left: 158.25px; top: 304.5px; position: absolute; color: white; font-size: 15px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">DEW POINT: {{area_dew_point}}</div>
+            <div style="width: 200px; left: 158.25px; top: 304.5px; position: absolute; color: white; font-size: 15px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word; {{env_reading_style}}">DEW POINT: {{area_dew_point}}</div>
 
-            <div style="width: 250px; left: 414.25px; top: 304px; position: absolute; color: white; font-size: 15px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word; overflow: hidden; text-overflow: ellipsis;">VISIBLE MOULD: {{visible_mould}}</div>
+            <div style="width: 250px; left: 414.25px; top: 304px; position: absolute; color: white; font-size: 15px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word; overflow: hidden; text-overflow: ellipsis; {{env_reading_style}} {{visible_mould_clamp}}">VISIBLE MOULD: {{visible_mould}}</div>
 
             <!-- Row 3: Internal and External Moisture -->
-            <div style="width: 250px; left: 140.25px; top: 349.5px; position: absolute; color: white; font-size: 15px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">INTERNAL MOISTURE: {{internal_moisture}}</div>
+            <div style="width: 250px; left: 140.25px; top: 349.5px; position: absolute; color: white; font-size: 15px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word; {{env_reading_style}}">INTERNAL MOISTURE: {{internal_moisture}}</div>
 
-            <div style="width: 250px; left: 414.25px; top: 348.5px; position: absolute; color: white; font-size: 15px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word">EXTERNAL MOISTURE: {{external_moisture}}</div>
+            <div style="width: 250px; left: 414.25px; top: 348.5px; position: absolute; color: white; font-size: 15px; font-family: 'Galvji', sans-serif; font-weight: 400; line-height: normal; letter-spacing: 0.0252px; word-wrap: break-word; {{env_reading_style}}">EXTERNAL MOISTURE: {{external_moisture}}</div>
 
             <!-- Photo grid (left side) - 2x2 grid -->
             <div style="width: 418px; height: 333px; left: 34px; top: 402px; position: absolute; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px;">

@@ -8,9 +8,14 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }))
 
+vi.mock('@/lib/sentry', () => ({
+  captureBusinessError: vi.fn(),
+}))
+
 // Re-import after mock so the SUT picks up the mocked client.
-import { hardSaveReport, HardSaveError } from './reportPipeline'
+import { hardSaveReport, HardSaveError, HARD_SAVE_NETWORK_ERROR_MESSAGE } from './reportPipeline'
 import { supabase } from '@/integrations/supabase/client'
+import { captureBusinessError } from '@/lib/sentry'
 
 const VALID_HEADERS = {
   'X-Mrc-Version-Id': 'aaa-bbb-ccc',
@@ -103,6 +108,52 @@ describe('hardSaveReport', () => {
 
     await expect(hardSaveReport('11111111-1111-1111-1111-111111111111'))
       .rejects.toThrow('Invalid X-Mrc-Version-Number header')
+  })
+
+  it('throws HardSaveError with the network message when fetch fails at transport level', async () => {
+    mockSession()
+    // @ts-expect-error global override
+    global.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+
+    await expect(hardSaveReport('11111111-1111-1111-1111-111111111111'))
+      .rejects.toMatchObject({
+        name: 'HardSaveError',
+        status: 0,
+        message: HARD_SAVE_NETWORK_ERROR_MESSAGE,
+      })
+  })
+
+  it('reports transport failures to Sentry via captureBusinessError', async () => {
+    mockSession()
+    // @ts-expect-error global override
+    global.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+
+    await hardSaveReport('11111111-1111-1111-1111-111111111111').catch(() => undefined)
+
+    expect(captureBusinessError).toHaveBeenCalledWith(
+      'Hard-save endpoint unreachable: POST /api/render-pdf',
+      expect.objectContaining({
+        endpoint: '/api/render-pdf',
+        cause: 'TypeError: Failed to fetch',
+      }),
+    )
+  })
+
+  it('throws HardSaveError with the network message when the PDF body stream fails', async () => {
+    mockSession()
+    // @ts-expect-error global override
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers(VALID_HEADERS),
+      blob: () => Promise.reject(new TypeError('Failed to fetch')),
+    })
+
+    await expect(hardSaveReport('11111111-1111-1111-1111-111111111111'))
+      .rejects.toMatchObject({
+        name: 'HardSaveError',
+        status: 0,
+        message: HARD_SAVE_NETWORK_ERROR_MESSAGE,
+      })
   })
 
   it('sends the inspectionId and mode=hard_save in the request body', async () => {

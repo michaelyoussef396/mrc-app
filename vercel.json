@@ -7,6 +7,17 @@
       "maxDuration": 60
     }
   },
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        { "type": "host", "value": "mrcsystem.com" },
+        { "type": "header", "key": "sec-fetch-mode", "value": "navigate" }
+      ],
+      "destination": "https://www.mrcsystem.com/$1",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/" }
