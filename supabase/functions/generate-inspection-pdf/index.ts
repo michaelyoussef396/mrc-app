@@ -1061,6 +1061,115 @@ function buildInfraredObservationsBlock(area: InspectionArea): string {
   return `<div style="color:#111; font-size:13px; font-family:'Garet Heavy',sans-serif; font-weight:400; margin-bottom:6px;">INFRARED OBSERVATIONS</div><div style="display:flex; flex-wrap:wrap;">${tagSpans}</div>`
 }
 
+// AREA INSPECTED heading fit. Layout contract on the Area page:
+// heading box absolute at top:40.5px (width 650px, line-height 1.2,
+// letter-spacing 0.195px), intro paragraph absolute at top:165px, navy
+// readings box at top:241.11px — so heading height + 8px clearance must fit
+// in 165 - 40.5 = 124.5px. Fills the {{area_heading_style}} /
+// {{area_intro_style}} style-tail placeholders; empty string = template
+// defaults (48px heading, intro at 165px).
+// Glyph advances measured from Garet-Heavy.otf at 48px via canvas
+// measureText in Chromium (calibrated against rendered pages 2026-08-24).
+// Unknown chars use the widest glyph ('W'): they can only wrap earlier.
+const GARET_WIDTHS_48: Record<string, number> = {
+  '0': 34.08, '1': 22.464, '2': 31.2, '3': 30.768, '4': 33.264, '5': 30.768,
+  '6': 31.536, '7': 28.608, '8': 31.152, '9': 31.536, ' ': 10.704, '!': 15.264,
+  '"': 24.48, '#': 38.544, '$': 31.392, '%': 47.856, '&': 36.672, "'": 12.48,
+  '(': 24.384, ')': 24.384, '*': 23.952, '+': 27.792, ',': 14.448, '-': 21.408,
+  '.': 13.728, '/': 29.616, ':': 13.728, ';': 14.448, '<': 29.28, '=': 29.616,
+  '>': 29.28, '?': 27.888, '@': 50.64, 'A': 37.392, 'B': 34.704, 'C': 38.4,
+  'D': 37.824, 'E': 29.568, 'F': 27.792, 'G': 38.832, 'H': 37.152, 'I': 17.616,
+  'J': 25.104, 'K': 37.488, 'L': 28.608, 'M': 45.792, 'N': 37.632, 'O': 39.744,
+  'P': 33.936, 'Q': 39.744, 'R': 35.472, 'S': 31.392, 'T': 33.744, 'U': 36.432,
+  'V': 36.48, 'W': 55.056, 'X': 38.448, 'Y': 35.76, 'Z': 30.672, '[': 22.368,
+  '\\': 29.616, ']': 22.368, '^': 28.944, '_': 22.848, '`': 16.032, 'a': 31.392,
+  'b': 34.416, 'c': 32.016, 'd': 34.416, 'e': 32.016, 'f': 23.184, 'g': 33.84,
+  'h': 33.024, 'i': 16.416, 'j': 16.56, 'k': 32.976, 'l': 16.416, 'm': 49.44,
+  'n': 33.024, 'o': 32.832, 'p': 34.416, 'q': 34.416, 'r': 23.616, 's': 27.456,
+  't': 23.952, 'u': 32.928, 'v': 31.68, 'w': 47.424, 'x': 32.256, 'y': 31.68,
+  'z': 26.352, '{': 25.056, '|': 17.136, '}': 25.056, '~': 32.304,
+}
+const GARET_FALLBACK_WIDTH_48 = 55.056
+
+const HEADING_PREFIX = 'AREA INSPECTED: '
+const HEADING_BOX_WIDTH = 650
+const HEADING_TOP = 40.5
+const HEADING_LINE_HEIGHT_RATIO = 1.2
+const HEADING_LETTER_SPACING = 0.195 // px, absolute — does not scale with font-size
+const HEADING_CLEARANCE = 8
+const INTRO_TOP = 165
+const INTRO_MAX_TOP = 176 // intro bottom must stay clear of the navy box at top:241.11
+const HEADING_FONT_SIZES = [48, 44, 40, 36, 32, 28, 24, 21]
+
+function glyphAdvance(ch: string, fontSize: number): number {
+  const w48 = GARET_WIDTHS_48[ch] ?? GARET_FALLBACK_WIDTH_48
+  return (w48 * fontSize) / 48 + HEADING_LETTER_SPACING
+}
+
+// Greedy line-break simulation of the browser's wrapping for
+// `word-wrap: break-word` text: break at spaces and after '-' or '/',
+// with char-level splitting only for fragments wider than the box.
+// Line counts verified against rendered pages for 1-11-line names.
+function countHeadingLines(text: string, fontSize: number): number {
+  const atoms: { frag: string; spaceBefore: boolean }[] = []
+  for (const word of text.split(' ')) {
+    if (word === '') continue
+    const fragments = word.match(/[^/-]*[/-]|[^/-]+/g) || [word]
+    fragments.forEach((frag, i) => atoms.push({ frag, spaceBefore: i === 0 }))
+  }
+
+  let lines = 1
+  let lineWidth = 0
+  const spaceWidth = glyphAdvance(' ', fontSize)
+
+  for (const { frag, spaceBefore } of atoms) {
+    const fragWidth = [...frag].reduce((w, ch) => w + glyphAdvance(ch, fontSize), 0)
+    const joinWidth = lineWidth > 0 && spaceBefore ? spaceWidth : 0
+
+    if (lineWidth === 0 || lineWidth + joinWidth + fragWidth <= HEADING_BOX_WIDTH) {
+      lineWidth += joinWidth + fragWidth
+      if (lineWidth <= HEADING_BOX_WIDTH) continue
+    } else {
+      lines++
+      lineWidth = fragWidth
+      if (lineWidth <= HEADING_BOX_WIDTH) continue
+    }
+
+    // fragment alone overflows the box: break-word splits it char by char
+    let w = 0
+    for (const ch of frag) {
+      const a = glyphAdvance(ch, fontSize)
+      if (w + a > HEADING_BOX_WIDTH && w > 0) {
+        lines++
+        w = 0
+      }
+      w += a
+    }
+    lineWidth = w
+  }
+  return lines
+}
+
+// Default is 48px; step down only when the measured wrap breaks the 165px
+// budget — names that render without overlap at 48px today keep 48px.
+function computeAreaHeadingLayout(areaName: string): { headingStyle: string; introStyle: string } {
+  const text = (HEADING_PREFIX + areaName).replace(/\s+/g, ' ').trim()
+
+  for (const size of HEADING_FONT_SIZES) {
+    const height = countHeadingLines(text, size) * size * HEADING_LINE_HEIGHT_RATIO
+    if (HEADING_TOP + height + HEADING_CLEARANCE <= INTRO_TOP) {
+      return { headingStyle: size === 48 ? '' : `font-size: ${size}px;`, introStyle: '' }
+    }
+  }
+
+  // Floor size still overflows (~190+ char names): shift the intro down as far
+  // as the navy box allows; beyond that the layout degrades gracefully.
+  const floor = HEADING_FONT_SIZES[HEADING_FONT_SIZES.length - 1]
+  const height = countHeadingLines(text, floor) * floor * HEADING_LINE_HEIGHT_RATIO
+  const introTop = Math.min(Math.round(HEADING_TOP + height + HEADING_CLEARANCE), INTRO_MAX_TOP)
+  return { headingStyle: `font-size: ${floor}px;`, introStyle: `top: ${introTop}px;` }
+}
+
 // Extract the Areas Inspected page block from the template
 // The template has a single Area page with {{area_*}} placeholders
 // We duplicate it once per inspected area
@@ -1079,6 +1188,8 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
   if (!areas || areas.length === 0) {
     // No areas — replace with a "None" page
     const emptyPage = areaTemplate
+      .replace(/\{\{area_heading_style\}\}/g, '')
+      .replace(/\{\{area_intro_style\}\}/g, '')
       .replace(/\{\{area_name\}\}/g, 'None')
       .replace(/\{\{area_temperature\}\}/g, '-')
       .replace(/\{\{area_humidity\}\}/g, '-')
@@ -1111,6 +1222,12 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
         areaPhotos = [primaryPhoto, ...others]
       }
     }
+
+    // Heading fit (ordered before {{area_name}} so a name containing literal
+    // placeholder text can never be re-substituted)
+    const headingLayout = computeAreaHeadingLayout(area.area_name || 'Unnamed Area')
+    page = page.replace(/\{\{area_heading_style\}\}/g, headingLayout.headingStyle)
+    page = page.replace(/\{\{area_intro_style\}\}/g, headingLayout.introStyle)
 
     // Environmental readings
     page = page.replace(/\{\{area_name\}\}/g, escapeHtml(area.area_name || 'Unnamed Area'))
