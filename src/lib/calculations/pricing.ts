@@ -17,10 +17,10 @@
 // the historic 13% cap. This per-day model REPLACES the previous volume-discount tier system.
 // dayRates[0] === tier8h by construction — Day 1 is always the full 8h rate.
 export const LABOUR_RATES = {
-  nonDemo: { tier2h: 1019.40, tier8h: 1245.33, dayRates: [1245.33, 1060.34, 1054.52, 1007.18, 921.57, 921.57] },
-  demolition: { tier2h: 1062.00, tier8h: 1825.87, dayRates: [1825.87, 1550.05, 1552.23, 1475.57, 1345.86, 1345.86] },
+  nonDemo: { tier2h: 615.27, tier8h: 1245.33, dayRates: [1245.33, 1060.34, 1054.52, 1007.18, 921.57, 921.57] },
+  demolition: { tier2h: 715.73, tier8h: 1825.87, dayRates: [1825.87, 1550.05, 1552.23, 1475.57, 1345.86, 1345.86] },
   construction: { tier2h: 661.96, tier8h: 1507.95, dayRates: [1507.95, 1507.95, 1507.95, 1507.95, 1507.95, 1507.95] }, // placeholder — not in use
-  subfloor: { tier2h: 1322.62, tier8h: 2375.21, dayRates: [2375.21, 2015.47, 2025.15, 1917.76, 1743.59, 1743.59] },
+  subfloor: { tier2h: 905.84, tier8h: 2375.21, dayRates: [2375.21, 2015.47, 2025.15, 1917.76, 1743.59, 1743.59] },
 } as const;
 
 // Equipment daily rates
