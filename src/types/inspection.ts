@@ -145,6 +145,15 @@ export interface InspectionFormData {
   manualPriceOverride: boolean;
   manualTotal: number;         // Manual total inc GST
 
+  // Editable Estimate overrides (ex GST). null/absent = use auto-calc.
+  // DB stores only the effective values + manual_labour_override; these are
+  // rehydrated on load via reconcileLoadedOverride (estimate-override.ts).
+  // Optional so the legacy admin InspectionForm compiles unchanged.
+  labourOverride?: number | null;
+  equipmentOverride?: number | null;
+  option1LabourOverride?: number | null;    // "Both" mode Option 1 card
+  option1EquipmentOverride?: number | null; // "Both" mode Option 1 card
+
   // Calculated Values (auto-calculated from tier pricing)
   // Labour uses tier interpolation: 2h=$X, 8h=$Y with linear interpolation
   laborCost: number;           // Labour cost after discount (ex GST)
