@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   calculateCostEstimate,
   calculateLabourCost,
+  calculateLabourCostWithBreakdown,
   calculateWasteDisposalCost,
+  interpolateCost,
   EQUIPMENT_RATES,
   LABOUR_RATES,
   MAX_DISCOUNT,
@@ -17,8 +19,8 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('calculateLabourCost — nonDemo per-day anchors', () => {
-  it('should pro-rate $509.70 for 1h (below the 2-hour minimum extrapolation)', () => {
-    expect(calculateLabourCost(1, 'nonDemo')).toBe(509.70);
+  it('should pro-rate $307.64 for 1h (below the 2-hour minimum extrapolation)', () => {
+    expect(calculateLabourCost(1, 'nonDemo')).toBe(307.64);
   });
 
   it('should charge tier8h $1,245.33 at 8h (Day 1)', () => {
@@ -74,9 +76,102 @@ describe('calculateLabourCost — Day-6 floor (beyond 48h)', () => {
 describe('calculateLabourCost — sub-8h band unchanged', () => {
   it('should interpolate 4h nonDemo between tier2h and tier8h', () => {
     expect(calculateLabourCost(4, 'nonDemo')).toBeCloseTo(
-      1019.40 + (2 / 6) * (1245.33 - 1019.40),
+      615.27 + (2 / 6) * (1245.33 - 615.27),
       2
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2-hour anchor rates — 2026-08-25 rate card correction (owner-supplied).
+// The previous anchors ($1,019.40 / $1,062.00 / $1,322.62) over-quoted every
+// job under 8 hours. 8h/16h anchors and the interpolation band are unchanged.
+// ---------------------------------------------------------------------------
+
+describe('2-hour anchor rates (2026-08-25 rate card)', () => {
+  it('should charge exactly $615.27 for 2h surface (nonDemo)', () => {
+    expect(calculateLabourCost(2, 'nonDemo')).toBe(615.27);
+  });
+
+  it('should charge exactly $715.73 for 2h demolition', () => {
+    expect(calculateLabourCost(2, 'demolition')).toBe(715.73);
+  });
+
+  it('should charge exactly $905.84 for 2h subfloor', () => {
+    expect(calculateLabourCost(2, 'subfloor')).toBe(905.84);
+  });
+});
+
+describe('8-hour anchor rates unchanged', () => {
+  it('should charge exactly $1,245.33 for 8h surface (nonDemo)', () => {
+    expect(calculateLabourCost(8, 'nonDemo')).toBe(1245.33);
+  });
+
+  it('should charge exactly $1,825.87 for 8h demolition', () => {
+    expect(calculateLabourCost(8, 'demolition')).toBe(1825.87);
+  });
+
+  it('should charge exactly $2,375.21 for 8h subfloor', () => {
+    expect(calculateLabourCost(8, 'subfloor')).toBe(2375.21);
+  });
+});
+
+describe('interpolation boundary continuity at 8h', () => {
+  it('should return tier8h when interpolating to exactly 8h for nonDemo', () => {
+    const { tier2h, tier8h } = LABOUR_RATES.nonDemo;
+    expect(interpolateCost(8, tier2h, tier8h)).toBeCloseTo(tier8h, 2);
+  });
+
+  it('should return tier8h when interpolating to exactly 8h for demolition', () => {
+    const { tier2h, tier8h } = LABOUR_RATES.demolition;
+    expect(interpolateCost(8, tier2h, tier8h)).toBeCloseTo(tier8h, 2);
+  });
+
+  it('should return tier8h when interpolating to exactly 8h for subfloor', () => {
+    const { tier2h, tier8h } = LABOUR_RATES.subfloor;
+    expect(interpolateCost(8, tier2h, tier8h)).toBeCloseTo(tier8h, 2);
+  });
+});
+
+describe('4-hour interpolated rates (2026-08-25 rate card)', () => {
+  it('should charge $825.29 within 1 cent for 4h surface (nonDemo)', () => {
+    expect(calculateLabourCost(4, 'nonDemo')).toBeCloseTo(825.29, 2);
+  });
+
+  it('should charge $1,085.78 within 1 cent for 4h demolition', () => {
+    expect(calculateLabourCost(4, 'demolition')).toBeCloseTo(1085.78, 2);
+  });
+
+  it('should charge $1,395.63 within 1 cent for 4h subfloor', () => {
+    expect(calculateLabourCost(4, 'subfloor')).toBeCloseTo(1395.63, 2);
+  });
+});
+
+describe('sub-2h minimum charge floor (real charging path)', () => {
+  it('should charge the flat 2h rate $615.27 for 1h surface (nonDemo)', () => {
+    expect(calculateLabourCostWithBreakdown(1, 'nonDemo').cost).toBe(615.27);
+  });
+
+  it('should charge the flat 2h rate $715.73 for 1h demolition', () => {
+    expect(calculateLabourCostWithBreakdown(1, 'demolition').cost).toBe(715.73);
+  });
+
+  it('should charge the flat 2h rate $905.84 for 1h subfloor', () => {
+    expect(calculateLabourCostWithBreakdown(1, 'subfloor').cost).toBe(905.84);
+  });
+});
+
+describe('16-hour totals (dayRates[0] + dayRates[1])', () => {
+  it('should sum to $2,305.67 at 16h surface (nonDemo)', () => {
+    expect(calculateLabourCost(16, 'nonDemo')).toBe(2305.67);
+  });
+
+  it('should sum to $3,375.92 at 16h demolition', () => {
+    expect(calculateLabourCost(16, 'demolition')).toBe(3375.92);
+  });
+
+  it('should sum to $4,390.68 at 16h subfloor', () => {
+    expect(calculateLabourCost(16, 'subfloor')).toBe(4390.68);
   });
 });
 

@@ -828,24 +828,28 @@ function CostEstimateSection({
               <tr className="text-left text-xs text-slate-500 border-b">
                 <th className="pb-2 pr-4">Type</th>
                 <th className="pb-2 pr-4 text-right">2h Rate</th>
-                <th className="pb-2 text-right">8h Rate</th>
+                <th className="pb-2 pr-4 text-right">8h Rate</th>
+                <th className="pb-2 text-right">16h Rate</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               <tr>
                 <td className="py-1.5 pr-4 font-medium text-slate-700">Surface Treatment</td>
                 <td className="py-1.5 pr-4 text-right">{fmtCurrency(LABOUR_RATES.nonDemo.tier2h)}</td>
-                <td className="py-1.5 text-right">{fmtCurrency(LABOUR_RATES.nonDemo.tier8h)}</td>
+                <td className="py-1.5 pr-4 text-right">{fmtCurrency(LABOUR_RATES.nonDemo.tier8h)}</td>
+                <td className="py-1.5 text-right">{fmtCurrency(LABOUR_RATES.nonDemo.dayRates[0] + LABOUR_RATES.nonDemo.dayRates[1])}</td>
               </tr>
               <tr>
                 <td className="py-1.5 pr-4 font-medium text-slate-700">Demolition</td>
                 <td className="py-1.5 pr-4 text-right">{fmtCurrency(LABOUR_RATES.demolition.tier2h)}</td>
-                <td className="py-1.5 text-right">{fmtCurrency(LABOUR_RATES.demolition.tier8h)}</td>
+                <td className="py-1.5 pr-4 text-right">{fmtCurrency(LABOUR_RATES.demolition.tier8h)}</td>
+                <td className="py-1.5 text-right">{fmtCurrency(LABOUR_RATES.demolition.dayRates[0] + LABOUR_RATES.demolition.dayRates[1])}</td>
               </tr>
               <tr>
                 <td className="py-1.5 pr-4 font-medium text-slate-700">Subfloor</td>
                 <td className="py-1.5 pr-4 text-right">{fmtCurrency(LABOUR_RATES.subfloor.tier2h)}</td>
-                <td className="py-1.5 text-right">{fmtCurrency(LABOUR_RATES.subfloor.tier8h)}</td>
+                <td className="py-1.5 pr-4 text-right">{fmtCurrency(LABOUR_RATES.subfloor.tier8h)}</td>
+                <td className="py-1.5 text-right">{fmtCurrency(LABOUR_RATES.subfloor.dayRates[0] + LABOUR_RATES.subfloor.dayRates[1])}</td>
               </tr>
             </tbody>
           </table>

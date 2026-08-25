@@ -41,9 +41,14 @@ The MRC cost calculation system uses **tier-based pricing with linear interpolat
 
 | Labour Type                | 2-Hour Rate | 8-Hour Rate |
 |----------------------------|-------------|-------------|
-| Non-Demolition (Treatment) | $1,019.40   | $1,245.33   |
-| Demolition                 | $1,062.00   | $1,825.87   |
-| Subfloor                   | $1,322.62   | $2,375.21   |
+| Non-Demolition (Treatment) | $615.27     | $1,245.33   |
+| Demolition                 | $715.73     | $1,825.87   |
+| Subfloor                   | $905.84     | $2,375.21   |
+
+> **2026-08-25 correction (owner-supplied rate card):** the 2-hour rates above replace
+> the previous wrong anchors ($1,019.40 / $1,062.00 / $1,322.62), which had been
+> over-quoting every job under 8 hours. 8h/16h rates and the interpolation method are
+> unchanged.
 
 **Note:** Construction labour ($661.96 / $1,507.95) is not currently implemented but may be added in future phases.
 
@@ -59,7 +64,7 @@ for any job under 2 hours).
 
 | Hours | Treatment   | Demolition  | Subfloor    |
 |-------|-------------|-------------|-------------|
-| 1h    | $509.70     | $531.00     | $661.31     |
+| 1h    | $307.64     | $357.87     | $452.92     |
 | 8h    | $1,245.33   | $1,825.87   | $2,375.21   |
 | 16h   | $2,305.67   | $3,375.92   | $4,390.68   |
 | 24h   | $3,360.19   | $4,928.15   | $6,415.83   |
@@ -522,6 +527,7 @@ If costs don't match expected:
 |------|---------|---------|
 | 2026-01-08 | 1.0 | Initial tier pricing implementation |
 | 2026-06-24 | 1.1 | New labour tier rates + equipment rates (dehumidifier $119); AFD → HEPA Air Scrubber ($100/day, wired into equipment total); equipment doc corrected to qty×rate×days; Glen/Clayton reference chart added. Methodology unchanged. |
+| 2026-08-25 | 1.2 | 2-hour anchor rates corrected to the owner-supplied rate card: Surface $615.27, Demolition $715.73, Subfloor $905.84 (previous values over-quoted all sub-8h jobs). 1h extrapolation row updated to match. 8h/16h rates and methodology unchanged. |
 
 ---
 
