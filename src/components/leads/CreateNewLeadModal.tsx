@@ -4,10 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
 import { sendSlackNotification } from '@/lib/api/notifications';
 import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
+import { leadSourceSchema } from '@/lib/validators/lead-creation.schemas';
 import {
-  isValidVictorianPostcode,
-  leadSourceSchema,
-} from '@/lib/validators/lead-creation.schemas';
+  toNullableField,
+  validateCreateLeadForm,
+  type CreateLeadFormErrors,
+  type CreateLeadFormValues,
+} from '@/lib/validators/create-lead-form';
 import { captureBusinessError } from '@/lib/sentry';
 import {
   AlertCircle,
@@ -31,32 +34,12 @@ interface CreateNewLeadModalProps {
   onSuccess?: (leadId: string) => void;
 }
 
-interface LeadFormData {
-  fullName: string;
-  phone: string;
-  email: string;
-  propertyAddress: string;
-  suburb: string;
-  postcode: string;
+interface LeadFormData extends CreateLeadFormValues {
   lat: number | null;
   lng: number | null;
-  preferredDate: string;
-  preferredTime: string;
-  issueDescription: string;
-  source: string;
 }
 
-interface FormErrors {
-  fullName?: string;
-  phone?: string;
-  email?: string;
-  propertyAddress?: string;
-  suburb?: string;
-  postcode?: string;
-  preferredDate?: string;
-  preferredTime?: string;
-  issueDescription?: string;
-  source?: string;
+interface FormErrors extends CreateLeadFormErrors {
   general?: string;
 }
 
@@ -302,67 +285,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
   };
 
   const validateForm = (): boolean => {
-    const newErrors: FormErrors = {};
-
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required';
-    } else if (formData.fullName.trim().length < 2) {
-      newErrors.fullName = 'Name must be at least 2 characters';
-    } else if (formData.fullName.trim().length > 255) {
-      newErrors.fullName = 'Name must be less than 255 characters';
-    }
-
-    const phoneDigits = formData.phone.replace(/\D/g, '');
-    if (!phoneDigits) {
-      newErrors.phone = 'Phone number is required';
-    } else if (phoneDigits.length < 10) {
-      newErrors.phone = 'Please enter a valid Australian phone number';
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-
-    if (!formData.propertyAddress.trim()) {
-      newErrors.propertyAddress = 'Street address is required';
-    } else if (formData.propertyAddress.trim().length < 5) {
-      newErrors.propertyAddress = 'Please enter a complete address';
-    }
-
-    if (!formData.suburb.trim()) {
-      newErrors.suburb = 'Suburb is required';
-    }
-
-    if (!formData.postcode.trim()) {
-      newErrors.postcode = 'Postcode is required';
-    } else if (!isValidVictorianPostcode(formData.postcode)) {
-      newErrors.postcode = 'Must be a 4-digit Victorian postcode (3XXX)';
-    }
-
-    if (!formData.preferredDate) {
-      newErrors.preferredDate = 'Preferred date is required';
-    } else if (formData.preferredDate < minDate) {
-      newErrors.preferredDate = 'Date must be in the future';
-    }
-
-    if (!formData.preferredTime) {
-      newErrors.preferredTime = 'Preferred time is required';
-    }
-
-    if (!formData.issueDescription.trim()) {
-      newErrors.issueDescription = 'Brief description is required';
-    } else if (formData.issueDescription.trim().length < 20) {
-      newErrors.issueDescription = 'Please provide more detail (at least 20 characters)';
-    } else if (formData.issueDescription.trim().length > 1000) {
-      newErrors.issueDescription = 'Description must be less than 1000 characters';
-    }
-
-    if (!formData.source) {
-      newErrors.source = 'Lead source is required';
-    }
-
+    const newErrors = validateCreateLeadForm(formData, minDate);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -423,8 +346,8 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         // Advisory only. inspection_scheduled_date / scheduled_time stay NULL until
         // bookInspection confirms a real booking — a new_lead must not carry a
         // scheduled date. See 20260428174022_add_customer_preferred_columns.sql.
-        customer_preferred_date: formData.preferredDate,
-        customer_preferred_time: formData.preferredTime,
+        customer_preferred_date: toNullableField(formData.preferredDate),
+        customer_preferred_time: toNullableField(formData.preferredTime),
       };
 
       if (formData.lat != null && formData.lng != null) {
@@ -455,8 +378,8 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         state: 'VIC',
         issue_description: formData.issueDescription,
         lead_source: formData.source,
-        preferred_date: formData.preferredDate,
-        preferred_time: formData.preferredTime,
+        preferred_date: toNullableField(formData.preferredDate) ?? undefined,
+        preferred_time: toNullableField(formData.preferredTime) ?? undefined,
         created_at: new Date().toISOString(),
       });
 
@@ -592,7 +515,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
               {/* 2. Preferred Date */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
-                  Preferred Date *
+                  Preferred Date <span className="font-normal" style={{ color: '#86868b' }}>(optional)</span>
                 </label>
                 <input
                   type="date"
@@ -636,7 +559,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
               {/* 4. Preferred Time */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
-                  Preferred Time *
+                  Preferred Time <span className="font-normal" style={{ color: '#86868b' }}>(optional)</span>
                 </label>
                 <div className="relative">
                   <select
