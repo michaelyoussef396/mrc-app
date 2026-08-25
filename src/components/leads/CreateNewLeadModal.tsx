@@ -289,13 +289,9 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
       return;
     }
 
-    // Advisory only: surface the colliding lead once, then let the next
-    // submit go through — duplicates are legitimate (repeat customers).
-    const match = await runDuplicateCheck();
-    if (match && match.id !== duplicateLead?.id) {
-      setModalState('idle');
-      return;
-    }
+    // Advisory only — duplicates are legitimate (repeat customers), so the
+    // warning renders alongside the insert instead of gating it.
+    await runDuplicateCheck();
 
     setModalState('submitting');
     recordAttempt();
@@ -389,6 +385,32 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
 
   if (!isOpen) return null;
 
+  const duplicateBanner = duplicateLead && (
+    <div
+      role="status"
+      className="p-4 rounded-xl flex items-start gap-3"
+      style={{ backgroundColor: 'rgba(255, 149, 0, 0.1)' }}
+    >
+      <AlertTriangle className="h-5 w-5 shrink-0" style={{ color: '#FF9500' }} />
+      <div>
+        <p className="text-sm font-medium" style={{ color: '#FF9500' }}>Possible duplicate lead</p>
+        <p className="text-sm mt-1" style={{ color: '#86868b' }}>
+          A lead with this {duplicateLead.matchType} already exists:{' '}
+          <a
+            href={`/leads/${duplicateLead.id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium underline underline-offset-2"
+            style={{ color: '#1d1d1f' }}
+          >
+            {duplicateLead.fullName}
+          </a>
+          {modalState === 'success' ? '. This lead was created anyway.' : '. You can still create this lead.'}
+        </p>
+      </div>
+    </div>
+  );
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
@@ -438,6 +460,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
             <p className="text-sm text-center" style={{ color: '#86868b' }}>
               {formData.fullName} has been added to your pipeline
             </p>
+            {duplicateBanner && <div className="w-full mt-6">{duplicateBanner}</div>}
           </div>
         )}
 
@@ -457,31 +480,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
               )}
 
               {/* Duplicate Warning — advisory, submit stays enabled */}
-              {duplicateLead && (
-                <div
-                  role="status"
-                  className="p-4 rounded-xl flex items-start gap-3"
-                  style={{ backgroundColor: 'rgba(255, 149, 0, 0.1)' }}
-                >
-                  <AlertTriangle className="h-5 w-5 shrink-0" style={{ color: '#FF9500' }} />
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: '#FF9500' }}>Possible duplicate lead</p>
-                    <p className="text-sm mt-1" style={{ color: '#86868b' }}>
-                      A lead with this {duplicateLead.matchType} already exists:{' '}
-                      <a
-                        href={`/leads/${duplicateLead.id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-medium underline underline-offset-2"
-                        style={{ color: '#1d1d1f' }}
-                      >
-                        {duplicateLead.fullName}
-                      </a>
-                      . You can still create this lead.
-                    </p>
-                  </div>
-                </div>
-              )}
+              {duplicateBanner}
 
               {/* 1. Full Name */}
               <div className="flex flex-col">
