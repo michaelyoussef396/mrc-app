@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
 import { sendSlackNotification } from '@/lib/api/notifications';
+import { findDuplicateLead, type DuplicateLeadMatch } from '@/lib/api/leadDuplicates';
 import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
 import { leadSourceSchema } from '@/lib/validators/lead-creation.schemas';
 import {
@@ -146,7 +147,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
   const [errors, setErrors] = useState<FormErrors>({});
   const [modalState, setModalState] = useState<ModalState>('idle');
   const [showPredictions, setShowPredictions] = useState(false);
-  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [duplicateLead, setDuplicateLead] = useState<DuplicateLeadMatch | null>(null);
 
   const { user } = useAuth();
   const modalRef = useRef<HTMLDivElement>(null);
@@ -171,7 +172,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         setErrors({});
         setModalState('idle');
         setShowPredictions(false);
-        setDuplicateWarning(null);
+        setDuplicateLead(null);
         clearPredictions();
       }, 300);
     }
@@ -192,8 +193,8 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
     if (errors[field as keyof FormErrors]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
-    if ((field === 'phone' || field === 'email') && duplicateWarning) {
-      setDuplicateWarning(null);
+    if ((field === 'phone' || field === 'email') && duplicateLead) {
+      setDuplicateLead(null);
     }
   };
 
@@ -239,31 +240,10 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
     }
   }, [getPlaceDetails, clearPredictions]);
 
-  const checkForDuplicates = async (): Promise<{ isDuplicate: boolean; message: string | null }> => {
-    const phoneDigits = formData.phone.replace(/\D/g, '');
-    const emailLower = formData.email.toLowerCase().trim();
-
-    try {
-      const { data: existingLeads, error } = await supabase
-        .from('leads')
-        .select('id, full_name, phone, email')
-        .or(`phone.eq.${phoneDigits},email.ilike.${emailLower}`)
-        .limit(1);
-
-      if (error) return { isDuplicate: false, message: null };
-
-      if (existingLeads && existingLeads.length > 0) {
-        const existing = existingLeads[0];
-        const matchType = existing.phone === phoneDigits ? 'phone number' : 'email address';
-        return {
-          isDuplicate: true,
-          message: `A lead with this ${matchType} already exists: ${existing.full_name}`,
-        };
-      }
-      return { isDuplicate: false, message: null };
-    } catch {
-      return { isDuplicate: false, message: null };
-    }
+  const runDuplicateCheck = async (): Promise<DuplicateLeadMatch | null> => {
+    const match = await findDuplicateLead({ phone: formData.phone, email: formData.email });
+    setDuplicateLead(match);
+    return match;
   };
 
   const logAuditEntry = async (leadId: string) => {
@@ -309,10 +289,10 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
       return;
     }
 
-    setDuplicateWarning(null);
-    const duplicateCheck = await checkForDuplicates();
-    if (duplicateCheck.isDuplicate) {
-      setDuplicateWarning(duplicateCheck.message);
+    // Advisory only: surface the colliding lead once, then let the next
+    // submit go through — duplicates are legitimate (repeat customers).
+    const match = await runDuplicateCheck();
+    if (match && match.id !== duplicateLead?.id) {
       setModalState('idle');
       return;
     }
@@ -476,16 +456,29 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                 </div>
               )}
 
-              {/* Duplicate Warning */}
-              {duplicateWarning && (
+              {/* Duplicate Warning — advisory, submit stays enabled */}
+              {duplicateLead && (
                 <div
+                  role="status"
                   className="p-4 rounded-xl flex items-start gap-3"
                   style={{ backgroundColor: 'rgba(255, 149, 0, 0.1)' }}
                 >
-                  <AlertTriangle className="h-5 w-5" style={{ color: '#FF9500' }} />
+                  <AlertTriangle className="h-5 w-5 shrink-0" style={{ color: '#FF9500' }} />
                   <div>
-                    <p className="text-sm font-medium" style={{ color: '#FF9500' }}>Duplicate Lead Detected</p>
-                    <p className="text-sm mt-1" style={{ color: '#86868b' }}>{duplicateWarning}</p>
+                    <p className="text-sm font-medium" style={{ color: '#FF9500' }}>Possible duplicate lead</p>
+                    <p className="text-sm mt-1" style={{ color: '#86868b' }}>
+                      A lead with this {duplicateLead.matchType} already exists:{' '}
+                      <a
+                        href={`/leads/${duplicateLead.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium underline underline-offset-2"
+                        style={{ color: '#1d1d1f' }}
+                      >
+                        {duplicateLead.fullName}
+                      </a>
+                      . You can still create this lead.
+                    </p>
                   </div>
                 </div>
               )}
@@ -543,6 +536,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                   type="tel"
                   value={formData.phone}
                   onChange={e => handleInputChange('phone', e.target.value)}
+                  onBlur={runDuplicateCheck}
                   placeholder="04XX XXX XXX"
                   className={`w-full rounded-xl h-12 p-4 text-base transition-all ${
                     errors.phone
@@ -700,6 +694,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                   type="email"
                   value={formData.email}
                   onChange={e => handleInputChange('email', e.target.value)}
+                  onBlur={runDuplicateCheck}
                   placeholder="email@example.com"
                   className={`w-full rounded-xl h-12 p-4 text-base transition-all ${
                     errors.email
