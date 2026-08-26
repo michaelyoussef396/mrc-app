@@ -10,6 +10,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
 import type { Page1Data, VPData, OutdoorData, AreaRecord, SubfloorEditData, CostData } from '@/components/pdf/ReportPreviewHTML'
+import { BOTH_OPTIONS, computeInspectionEstimate } from '@/lib/calculations/inspectionEstimate'
+import { OVERRIDE_EPSILON } from '@/lib/calculations/estimate-override'
 import { EditFieldModal } from '@/components/pdf/EditFieldModal'
 import { ImageUploadModal } from '@/components/pdf/ImageUploadModal'
 import { Button } from '@/components/ui/button'
@@ -117,6 +119,12 @@ interface Inspection {
   option_1_total_inc_gst?: number | null
   option_2_total_inc_gst?: number | null
   waste_disposal_confirmed_cost?: number | null
+  manual_labour_override?: boolean | null
+  commercial_dehumidifier_qty?: number | null
+  air_movers_qty?: number | null
+  rcd_box_qty?: number | null
+  hepa_air_scrubber_qty?: number | null
+  hepa_air_scrubber_days?: number | null
   lead?: {
     id: string
     full_name: string
@@ -187,6 +195,12 @@ const INSPECTION_SELECT = `
   option_1_total_inc_gst,
   option_2_total_inc_gst,
   waste_disposal_confirmed_cost,
+  manual_labour_override,
+  commercial_dehumidifier_qty,
+  air_movers_qty,
+  rcd_box_qty,
+  hepa_air_scrubber_qty,
+  hepa_air_scrubber_days,
   lead:leads(
     id,
     full_name,
@@ -417,7 +431,7 @@ export default function ViewReportPDF() {
   const [savingNewArea, setSavingNewArea] = useState(false)
 
   // Subfloor data + photos
-  const [subfloorData, setSubfloorData] = useState<{ id: string; observations: string; comments: string; landscape: string } | null>(null)
+  const [subfloorData, setSubfloorData] = useState<{ id: string; observations: string; comments: string; landscape: string; treatment_time_minutes?: number | null } | null>(null)
   const [subfloorReadings, setSubfloorReadings] = useState<Array<{ id: string; location: string; moisture_percentage: number; reading_order: number }>>([])
   const [subfloorPhotos, setSubfloorPhotos] = useState<Array<{ id: string; storage_path: string; signed_url: string; caption?: string | null }>>([])
   const [subfloorPhotosLoading, setSubfloorPhotosLoading] = useState(false)
@@ -624,7 +638,7 @@ export default function ViewReportPDF() {
       // Fetch inspection_areas for inline editing
       const { data: areas, error: areasError } = await supabase
         .from('inspection_areas')
-        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes, infrared_enabled')
+        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes, infrared_enabled, job_time_minutes, demolition_time_minutes, demolition_required')
         .eq('inspection_id', inspId)
         .order('area_order', { ascending: true })
 
@@ -642,7 +656,7 @@ export default function ViewReportPDF() {
         if (!subfloorOff) {
           const { data: sfData } = await supabase
             .from('subfloor_data')
-            .select('id, observations, comments, landscape')
+            .select('id, observations, comments, landscape, treatment_time_minutes')
             .eq('inspection_id', inspId)
             .single()
 
@@ -1473,8 +1487,27 @@ export default function ViewReportPDF() {
     readings: subfloorReadings,
   } : null
 
+  // Auto-calc at current pricing.ts rates, from live area times — NOT the stored
+  // snapshot. The cost editor compares the two so a rate correction reaches saved
+  // inspections instead of being frozen out by whatever was persisted first.
+  const autoEstimate = inspection
+    ? computeInspectionEstimate({
+        areas: areasData,
+        subfloorTreatmentMinutes: subfloorData?.treatment_time_minutes,
+        equipment: {
+          dehumidifierQty: inspection.commercial_dehumidifier_qty ?? 0,
+          airMoverQty: inspection.air_movers_qty ?? 0,
+          rcdQty: inspection.rcd_box_qty ?? 0,
+          hepaAirScrubberQty: inspection.hepa_air_scrubber_qty ?? 0,
+          hepaAirScrubberDays: inspection.hepa_air_scrubber_days ?? undefined,
+        },
+        wasteDisposalCost: inspection.waste_disposal_confirmed_cost,
+        optionSelected: inspection.option_selected,
+      })
+    : null
+
   // Cost data for cleaning estimate editing
-  const costData: CostData | null = inspection ? {
+  const costData: CostData | null = inspection && autoEstimate ? {
     labour_cost_ex_gst: inspection.labour_cost_ex_gst ?? 0,
     equipment_cost_ex_gst: inspection.equipment_cost_ex_gst ?? 0,
     subtotal_ex_gst: inspection.subtotal_ex_gst ?? 0,
@@ -1487,6 +1520,11 @@ export default function ViewReportPDF() {
     option_1_total_inc_gst: inspection.option_1_total_inc_gst ?? 0,
     option_2_total_inc_gst: inspection.option_2_total_inc_gst ?? 0,
     waste_disposal_cost: inspection.waste_disposal_confirmed_cost ?? 0,
+    auto_labour_ex_gst: autoEstimate.full.labourAfterDiscount,
+    auto_equipment_ex_gst: autoEstimate.full.equipmentCost,
+    auto_option_1_labour_ex_gst: autoEstimate.option1.labourAfterDiscount,
+    auto_option_1_equipment_ex_gst: autoEstimate.option1.equipmentCost,
+    manual_labour_override: inspection.manual_labour_override ?? false,
   } : null
 
   // Stage 3.4.5: inline AI summary edits create a new ai_summary_versions row
@@ -1724,10 +1762,24 @@ export default function ViewReportPDF() {
   async function handleCostSave(costs: CostData) {
     if (!inspection?.id) return
 
+    // A figure typed here that differs from the auto-calc is a deliberate override, and
+    // must be recorded as one — otherwise the next open cannot tell it apart from a stale
+    // snapshot and silently recomputes over the operator's entry.
+    const differsFromAuto = (entered: number, auto: number) =>
+      Math.abs(entered - auto) > OVERRIDE_EPSILON
+    const manualLabourOverride =
+      differsFromAuto(costs.labour_cost_ex_gst, costs.auto_labour_ex_gst) ||
+      differsFromAuto(costs.equipment_cost_ex_gst, costs.auto_equipment_ex_gst) ||
+      (costs.option_selected === BOTH_OPTIONS && (
+        differsFromAuto(costs.option_1_labour_ex_gst, costs.auto_option_1_labour_ex_gst) ||
+        differsFromAuto(costs.option_1_equipment_ex_gst, costs.auto_option_1_equipment_ex_gst)
+      ))
+
     try {
       const { error } = await supabase
         .from('inspections')
         .update({
+          manual_labour_override: manualLabourOverride,
           labour_cost_ex_gst: costs.labour_cost_ex_gst,
           equipment_cost_ex_gst: costs.equipment_cost_ex_gst,
           subtotal_ex_gst: costs.subtotal_ex_gst,
@@ -1749,6 +1801,7 @@ export default function ViewReportPDF() {
       // Update local state so UI reflects the saved changes
       setInspection(prev => prev ? {
         ...prev,
+        manual_labour_override: manualLabourOverride,
         labour_cost_ex_gst: costs.labour_cost_ex_gst,
         equipment_cost_ex_gst: costs.equipment_cost_ex_gst,
         subtotal_ex_gst: costs.subtotal_ex_gst,
