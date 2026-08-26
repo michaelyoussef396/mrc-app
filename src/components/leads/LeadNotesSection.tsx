@@ -1,0 +1,620 @@
+// Internal notes feed for a lead — text, @mentions and file attachments.
+// Both roles read and write; author-only soft delete. Backed by
+// src/lib/api/leadNotes.ts and src/lib/api/leadNoteAttachments.ts.
+// NEVER customer-visible. Sits beside the frozen legacy "Internal Notes" card
+// in LeadDetail; the two are separate surfaces.
+
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AtSign, Download, Loader2, MessageSquare, Paperclip, RefreshCw, Send, Trash2, X } from 'lucide-react';
+import { toast } from 'sonner';
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  addLeadNoteMentions,
+  createLeadNote,
+  listLeadNotes,
+  listNoteMentions,
+  listStaffForMentions,
+  parseMentions,
+  segmentNoteBody,
+  softDeleteLeadNote,
+  LEAD_NOTE_MAX_LENGTH,
+  type LeadNote,
+  type MentionCandidate,
+} from '@/lib/api/leadNotes';
+import {
+  ALLOWED_ATTACHMENT_MIME_TYPES,
+  formatFileSize,
+  getAttachmentSignedUrl,
+  listNoteAttachments,
+  softDeleteAttachment,
+  uploadNoteAttachment,
+  validateAttachment,
+  type LeadNoteAttachment,
+} from '@/lib/api/leadNoteAttachments';
+import { sendSlackNotification } from '@/lib/api/notifications';
+import { formatDateTimeAU, formatRelativeOrDateAU } from '@/lib/dateUtils';
+
+interface LeadNotesSectionProps {
+  leadId: string;
+}
+
+const OPTIMISTIC_ID_PREFIX = 'optimistic-';
+const UNKNOWN_AUTHOR = 'Unknown';
+const STAFF_STALE_TIME_MS = 5 * 60_000;
+/** send-slack-notification caps `message` at 1000 characters. */
+const SLACK_MESSAGE_MAX = 1000;
+
+function leadNotesKey(leadId: string) {
+  return ['lead-notes', leadId] as const;
+}
+
+function isOptimistic(note: LeadNote) {
+  return note.id.startsWith(OPTIMISTIC_ID_PREFIX);
+}
+
+/**
+ * The "@…" the caret currently sits inside, if any. The query may contain
+ * spaces so multi-word names stay searchable; the picker closes on its own
+ * once nothing matches.
+ */
+function activeMentionQuery(value: string, caret: number): { query: string; start: number } | null {
+  const before = value.slice(0, caret);
+  const match = before.match(/(?:^|\s)@([^@\n]*)$/);
+  if (!match) return null;
+  return { query: match[1], start: caret - match[1].length - 1 };
+}
+
+export function LeadNotesSection({ leadId }: LeadNotesSectionProps) {
+  const { user, profile } = useAuth();
+  const queryClient = useQueryClient();
+  const [draft, setDraft] = useState('');
+  const [caret, setCaret] = useState(0);
+  const [highlighted, setHighlighted] = useState(0);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<LeadNote | null>(null);
+  const [pendingAttachmentDelete, setPendingAttachmentDelete] = useState<LeadNoteAttachment | null>(null);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const listboxId = useId();
+  const optionId = (id: string) => `${listboxId}-${id}`;
+
+  const authorName = profile?.full_name?.trim() || user?.email || UNKNOWN_AUTHOR;
+  const queryKey = leadNotesKey(leadId);
+
+  const {
+    data: notes = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: () => listLeadNotes(leadId),
+    staleTime: 15_000,
+  });
+
+  // Both keyed on leadId, so they run alongside the notes query rather than
+  // waterfalling behind it.
+  const { data: mentionsByNote } = useQuery({
+    queryKey: ['lead-note-mentions', leadId],
+    queryFn: () => listNoteMentions(leadId),
+    staleTime: 15_000,
+  });
+
+  const { data: attachmentsByNote } = useQuery({
+    queryKey: ['lead-note-attachments', leadId],
+    queryFn: () => listNoteAttachments(leadId),
+    staleTime: 15_000,
+  });
+
+  const { data: staff = [] } = useQuery({
+    queryKey: ['mention-candidates'],
+    queryFn: listStaffForMentions,
+    staleTime: STAFF_STALE_TIME_MS,
+  });
+
+  const mentionState = activeMentionQuery(draft, caret);
+  const matches = useMemo(() => {
+    if (!mentionState) return [];
+    const needle = mentionState.query.trim().toLowerCase();
+    return staff
+      .filter((candidate) => candidate.fullName.toLowerCase().includes(needle))
+      .slice(0, 6);
+  }, [mentionState, staff]);
+  const isPickerOpen = mentionState !== null && matches.length > 0;
+
+  const invalidateNotes = () => {
+    queryClient.invalidateQueries({ queryKey });
+    queryClient.invalidateQueries({ queryKey: ['lead-note-mentions', leadId] });
+    queryClient.invalidateQueries({ queryKey: ['lead-note-attachments', leadId] });
+    queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
+    queryClient.invalidateQueries({ queryKey: ['technician-alerts'] });
+  };
+
+  const syncCaret = (element: HTMLTextAreaElement) => {
+    setCaret(element.selectionStart ?? 0);
+    setHighlighted(0);
+  };
+
+  const insertMention = useCallback(
+    (candidate: MentionCandidate) => {
+      const active = activeMentionQuery(draft, caret);
+      if (!active) return;
+
+      const next = `${draft.slice(0, active.start)}@${candidate.fullName} ${draft.slice(caret)}`;
+      const nextCaret = active.start + candidate.fullName.length + 2;
+      setDraft(next);
+      setCaret(nextCaret);
+      setHighlighted(0);
+
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange(nextCaret, nextCaret);
+      });
+    },
+    [caret, draft],
+  );
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!isPickerOpen) return;
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        setHighlighted((index) => Math.min(index + 1, matches.length - 1));
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        setHighlighted((index) => Math.max(index - 1, 0));
+        break;
+      case 'Enter':
+      case 'Tab':
+        event.preventDefault();
+        insertMention(matches[highlighted]);
+        break;
+      case 'Escape':
+        event.preventDefault();
+        setCaret(-1);
+        break;
+      default:
+    }
+  };
+
+  const handleFilesPicked = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(event.target.files ?? []);
+    const accepted: File[] = [];
+
+    for (const file of picked) {
+      try {
+        validateAttachment(file);
+        accepted.push(file);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : `Couldn't attach ${file.name}`);
+      }
+    }
+
+    if (accepted.length > 0) setPendingFiles((current) => [...current, ...accepted]);
+    // Reset so picking the same file twice in a row still fires onChange.
+    event.target.value = '';
+  };
+
+  const addNote = useMutation({
+    mutationFn: async (body: string) => {
+      const note = await createLeadNote({ leadId, body, authorName });
+      const files = pendingFiles;
+
+      const mentionedIds = parseMentions(body, staff);
+      const mentionedNames = staff
+        .filter((candidate) => mentionedIds.includes(candidate.id))
+        .map((candidate) => candidate.fullName);
+
+      // A note is saved the moment createLeadNote returns. Everything after it
+      // is best-effort enrichment: each failure is surfaced on its own rather
+      // than discarding a note the user already wrote.
+      if (mentionedIds.length > 0) {
+        try {
+          await addLeadNoteMentions(note.id, mentionedIds);
+          // Slack deliberately carries the body: mentions post to the shared
+          // channel so the whole team sees them. The in-app notification does
+          // NOT, because it would cross the lead's own RLS boundary.
+          await sendSlackNotification({
+            event: 'custom',
+            leadId,
+            message: `${authorName} mentioned ${mentionedNames.join(', ')} on a lead note:\n${body}`.slice(
+              0,
+              SLACK_MESSAGE_MAX,
+            ),
+          });
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : 'Note saved, but the mentions failed');
+        }
+      }
+
+      for (const file of files) {
+        try {
+          await uploadNoteAttachment({ noteId: note.id, leadId, file });
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : `Couldn't attach ${file.name}`);
+        }
+      }
+
+      return note;
+    },
+    onMutate: async (body) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<LeadNote[]>(queryKey) ?? [];
+      const now = new Date().toISOString();
+      const optimistic: LeadNote = {
+        id: `${OPTIMISTIC_ID_PREFIX}${now}`,
+        lead_id: leadId,
+        author_id: user?.id ?? '',
+        body: body.trim(),
+        created_at: now,
+        updated_at: now,
+        deleted_at: null,
+        authorName,
+      };
+      queryClient.setQueryData<LeadNote[]>(queryKey, [optimistic, ...previous]);
+      const files = pendingFiles;
+      setDraft('');
+      setPendingFiles([]);
+      return { previous, body, files };
+    },
+    onError: (error, _body, context) => {
+      if (context) {
+        queryClient.setQueryData(queryKey, context.previous);
+        setDraft(context.body);
+        setPendingFiles(context.files);
+      }
+      toast.error(error instanceof Error ? error.message : 'Could not save note — please try again');
+    },
+    onSettled: invalidateNotes,
+  });
+
+  const deleteNote = useMutation({
+    mutationFn: (noteId: string) => softDeleteLeadNote(noteId),
+    onMutate: async (noteId) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<LeadNote[]>(queryKey) ?? [];
+      queryClient.setQueryData<LeadNote[]>(
+        queryKey,
+        previous.filter((note) => note.id !== noteId),
+      );
+      return { previous };
+    },
+    onError: (error, _noteId, context) => {
+      if (context) queryClient.setQueryData(queryKey, context.previous);
+      toast.error(error instanceof Error ? error.message : 'Could not delete note — please try again');
+    },
+    onSettled: invalidateNotes,
+  });
+
+  const deleteAttachment = useMutation({
+    mutationFn: (attachmentId: string) => softDeleteAttachment(attachmentId),
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Could not remove attachment — please try again');
+    },
+    onSettled: invalidateNotes,
+  });
+
+  const handleDownload = async (attachment: LeadNoteAttachment) => {
+    try {
+      const url = await getAttachmentSignedUrl(attachment.storage_path);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not open that file');
+    }
+  };
+
+  const canSubmit = draft.trim().length > 0 && !addNote.isPending;
+
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    addNote.mutate(draft);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!pendingDelete) return;
+    deleteNote.mutate(pendingDelete.id);
+    setPendingDelete(null);
+  };
+
+  const handleConfirmAttachmentDelete = () => {
+    if (!pendingAttachmentDelete) return;
+    deleteAttachment.mutate(pendingAttachmentDelete.id);
+    setPendingAttachmentDelete(null);
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <MessageSquare className="h-4 w-4" />
+          Notes
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">Internal to the team — never shown to customers.</p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1.5">
+          <label className="text-xs font-normal text-muted-foreground" htmlFor="lead-note-draft">
+            Add a note
+          </label>
+          <div className="relative">
+            <Textarea
+              id="lead-note-draft"
+              ref={textareaRef}
+              value={draft}
+              onChange={(event) => {
+                setDraft(event.target.value);
+                syncCaret(event.target);
+              }}
+              onClick={(event) => syncCaret(event.currentTarget)}
+              onKeyUp={(event) => {
+                if (!['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(event.key)) {
+                  syncCaret(event.currentTarget);
+                }
+              }}
+              onKeyDown={handleKeyDown}
+              rows={3}
+              maxLength={LEAD_NOTE_MAX_LENGTH}
+              placeholder="What happened, what's next… type @ to mention someone"
+              disabled={addNote.isPending}
+              role="combobox"
+              aria-expanded={isPickerOpen}
+              aria-controls={isPickerOpen ? listboxId : undefined}
+              aria-activedescendant={
+                isPickerOpen && matches[highlighted] ? optionId(matches[highlighted].id) : undefined
+              }
+              aria-autocomplete="list"
+            />
+            {isPickerOpen && (
+              <ul
+                id={listboxId}
+                role="listbox"
+                aria-label="Mention a team member"
+                className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border bg-popover shadow-md"
+              >
+                {matches.map((candidate, index) => (
+                  <li
+                    key={candidate.id}
+                    id={optionId(candidate.id)}
+                    role="option"
+                    aria-selected={index === highlighted}
+                    onMouseDown={(event) => {
+                      // mousedown, not click — the textarea must not blur first.
+                      event.preventDefault();
+                      insertMention(candidate);
+                    }}
+                    onMouseEnter={() => setHighlighted(index)}
+                    className={`flex h-12 cursor-pointer items-center gap-2 px-3 text-sm ${
+                      index === highlighted ? 'bg-accent text-accent-foreground' : ''
+                    }`}
+                  >
+                    <AtSign className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                    <span className="truncate">{candidate.fullName}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {pendingFiles.length > 0 && (
+            <ul className="space-y-1" aria-label="Files to attach">
+              {pendingFiles.map((file, index) => (
+                <li
+                  key={`${file.name}-${index}`}
+                  className="flex items-center gap-2 rounded-md border bg-slate-50 px-2 py-1"
+                >
+                  <Paperclip className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate text-xs">{file.name}</span>
+                  <span className="flex-shrink-0 text-[11px] text-muted-foreground">
+                    {formatFileSize(file.size)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPendingFiles((current) => current.filter((_, i) => i !== index))}
+                    aria-label={`Remove ${file.name}`}
+                    className="h-12 w-12 -mr-2 flex flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-slate-100 hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            accept={ALLOWED_ATTACHMENT_MIME_TYPES.join(',')}
+            onChange={handleFilesPicked}
+          />
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              className="h-12 w-full sm:w-auto"
+            >
+              {addNote.isPending ? <Loader2 className="animate-spin" /> : <Send />}
+              {addNote.isPending ? 'Saving…' : 'Add Note'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={addNote.isPending}
+              className="h-12 w-full sm:w-auto"
+            >
+              <Paperclip />
+              Attach file
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-2" aria-live="polite" aria-label="Lead notes">
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading notes…
+            </div>
+          ) : isError ? (
+            <div className="rounded-md border border-dashed bg-slate-50/50 p-3 space-y-2">
+              <p className="text-sm text-destructive">Couldn't load notes.</p>
+              <Button type="button" variant="outline" onClick={() => refetch()} className="h-12 w-full sm:w-auto">
+                <RefreshCw />
+                Retry
+              </Button>
+            </div>
+          ) : notes.length === 0 ? (
+            <div className="rounded-md border border-dashed bg-slate-50/50 p-3">
+              <p className="text-sm italic text-muted-foreground">No notes yet.</p>
+            </div>
+          ) : (
+            notes.map((note) => {
+              const isOwn = note.author_id === user?.id;
+              const mentionNames = (mentionsByNote?.get(note.id) ?? [])
+                .map((mention) => mention.fullName)
+                .filter((name): name is string => Boolean(name));
+              const attachments = attachmentsByNote?.get(note.id) ?? [];
+
+              return (
+                <article key={note.id} className="rounded-md border bg-slate-50 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                        <span className="font-medium truncate">{note.authorName ?? UNKNOWN_AUTHOR}</span>
+                        <time dateTime={note.created_at} title={formatDateTimeAU(note.created_at)}>
+                          {isOptimistic(note) ? 'Saving…' : formatRelativeOrDateAU(note.created_at)}
+                        </time>
+                      </div>
+                      <p className="text-sm whitespace-pre-line leading-relaxed text-foreground break-words">
+                        {segmentNoteBody(note.body, mentionNames).map((segment, index) =>
+                          segment.isMention ? (
+                            <span key={index} className="font-medium text-primary">
+                              {segment.text}
+                            </span>
+                          ) : (
+                            <span key={index}>{segment.text}</span>
+                          ),
+                        )}
+                      </p>
+
+                      {attachments.length > 0 && (
+                        <ul className="space-y-1 pt-1" aria-label="Attachments">
+                          {attachments.map((attachment) => (
+                            <li
+                              key={attachment.id}
+                              className="flex items-center gap-2 rounded-md border bg-white px-2 py-1"
+                            >
+                              <Paperclip className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                              <span className="min-w-0 flex-1 truncate text-xs" title={attachment.file_name}>
+                                {attachment.file_name}
+                              </span>
+                              <span className="flex-shrink-0 text-[11px] text-muted-foreground">
+                                {formatFileSize(attachment.file_size)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleDownload(attachment)}
+                                aria-label={`Download ${attachment.file_name}`}
+                                className="h-12 w-12 flex flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-slate-100 hover:text-foreground"
+                              >
+                                <Download className="h-4 w-4" />
+                              </button>
+                              {attachment.uploaded_by === user?.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPendingAttachmentDelete(attachment)}
+                                  disabled={deleteAttachment.isPending}
+                                  aria-label={`Remove ${attachment.file_name}`}
+                                  className="h-12 w-12 -mr-2 flex flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-slate-100 hover:text-destructive disabled:opacity-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    {isOwn && !isOptimistic(note) && (
+                      <button
+                        type="button"
+                        onClick={() => setPendingDelete(note)}
+                        disabled={deleteNote.isPending}
+                        aria-label="Delete this note"
+                        className="h-12 w-12 -mr-2 -mt-2 flex items-center justify-center rounded-md text-muted-foreground hover:bg-slate-100 hover:text-destructive transition-colors flex-shrink-0 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+      </CardContent>
+
+      <AlertDialog open={pendingDelete !== null} onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this note?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It will be removed from the feed for everyone, along with its attachments. The activity log
+              entry is kept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-12">Keep it</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="h-12 bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingAttachmentDelete !== null}
+        onOpenChange={(open) => !open && setPendingAttachmentDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this attachment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It will disappear from the note for everyone. Only you can remove a file you uploaded.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-12">Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmAttachmentDelete}
+              className="h-12 bg-red-600 hover:bg-red-700"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Card>
+  );
+}

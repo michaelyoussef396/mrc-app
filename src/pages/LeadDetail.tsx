@@ -88,6 +88,7 @@ import { TechnicianBottomNav } from "@/components/technician";
 import { useAuth } from "@/contexts/AuthContext";
 import InspectionDataDisplay from "@/components/leads/InspectionDataDisplay";
 import { InspectionReportHistory } from "@/components/leads/InspectionReportHistory";
+import { LeadNotesSection } from "@/components/leads/LeadNotesSection";
 import { hardSaveReport } from "@/lib/api/reportPipeline";
 import { fetchCompleteInspectionData, type CompleteInspectionData } from "@/lib/api/inspections";
 import { getJobCompletionByLeadId } from "@/lib/api/jobCompletions";
@@ -2002,6 +2003,10 @@ export default function LeadDetail() {
             )}
           </CardContent>
         </Card>
+
+        {/* Lead notes feed (lead_notes table) — both roles read and write.
+            Separate from the frozen internal_notes log above. */}
+        <LeadNotesSection leadId={lead.id} />
 
         {/* Quote/Cost Estimate - if available */}
         {inspection?.total_inc_gst > 0 && (
