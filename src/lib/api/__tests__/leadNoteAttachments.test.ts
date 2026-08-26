@@ -123,6 +123,11 @@ describe('validateAttachment', () => {
     expect(() => validateAttachment(makeFile('photos.zip', 'application/zip'))).not.toThrow()
   })
 
+  it('should accept a 22 MB PDF, the largest file the team has attached in practice', () => {
+    const real = makeFile('inspection-report.pdf', 'application/pdf', 22 * 1024 * 1024)
+    expect(() => validateAttachment(real)).not.toThrow()
+  })
+
   it('should reject a file over the 25 MiB bucket limit', () => {
     const tooBig = makeFile('huge.pdf', 'application/pdf', MAX_ATTACHMENT_BYTES + 1)
     expect(() => validateAttachment(tooBig)).toThrow(LeadNoteAttachmentError)
