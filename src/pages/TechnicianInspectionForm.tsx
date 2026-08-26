@@ -15,6 +15,11 @@ import {
   formatPercent,
 } from '@/lib/calculations/pricing';
 import {
+  parseOverrideInput,
+  reconcileLoadedOverride,
+  resolveOverridableValue,
+} from '@/lib/calculations/estimate-override';
+import {
   uploadInspectionPhoto,
   deleteInspectionPhoto,
   loadInspectionPhotos,
@@ -2323,6 +2328,25 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
 
   const totalLabourHours = calculatedNonDemoHours + calculatedDemoHours + calculatedSubfloorHours;
 
+  // Editable Estimate overrides: write the parsed override (null = revert to
+  // auto-calc) and keep manualPriceOverride equal to "any override present"
+  // so the save path and completion validator see the canonical flag.
+  const setOverride = (
+    field: 'labourOverride' | 'equipmentOverride' | 'option1LabourOverride' | 'option1EquipmentOverride',
+    raw: string
+  ) => {
+    const next = parseOverrideInput(raw);
+    onChange(field, next);
+    const overrides = {
+      labourOverride: formData.labourOverride ?? null,
+      equipmentOverride: formData.equipmentOverride ?? null,
+      option1LabourOverride: formData.option1LabourOverride ?? null,
+      option1EquipmentOverride: formData.option1EquipmentOverride ?? null,
+      [field]: next,
+    };
+    onChange('manualPriceOverride', Object.values(overrides).some((v) => v != null));
+  };
+
   return (
     <section className="space-y-5">
       {/* Labour Hours — Auto-calculated from Sections 3 & 4 */}
@@ -2549,30 +2573,18 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
       {formData.optionSelected === 3 && option1Result ? (
         /* Dual editable pricing for "Both" mode */
         (() => {
-          // Option 1 values: honour manual override; otherwise use live calc.
-          // BUG-047 follow-up: prior `||` short-circuit treated any non-zero
-          // stale DB value as an override, freezing the display on yesterday's
-          // tier when nonDemoHours changed between saves.
-          const o1Labour = formData.manualPriceOverride
-            ? formData.option1LabourCost
-            : option1Result.labourAfterDiscount;
-          const o1Equipment = formData.manualPriceOverride
-            ? formData.option1EquipmentCost
-            : option1Result.equipmentCost;
+          // Per-field override precedence: an override present wins, null falls
+          // back to live auto-calc. Replaces the all-or-nothing
+          // manualPriceOverride gate, which no UI could ever switch on — typed
+          // overrides were silently ignored (BUG-047's successor).
+          const o1Labour = resolveOverridableValue(formData.option1LabourOverride, option1Result.labourAfterDiscount);
+          const o1Equipment = resolveOverridableValue(formData.option1EquipmentOverride, option1Result.equipmentCost);
           const o1Subtotal = o1Labour + o1Equipment;
           const o1Gst = o1Subtotal * 0.1;
           const o1Total = o1Subtotal + o1Gst;
 
-          // Option 2 values: honour manual override when set, else use live auto-calc.
-          // BUG-047: prior `formData.laborCost || ...` short-circuit treated any non-zero
-          // stale DB value as an intentional override, suppressing live recalc when
-          // subfloor hours were added after a partial save.
-          const o2Labour = formData.manualPriceOverride
-            ? formData.laborCost
-            : costResult.labourAfterDiscount;
-          const o2Equipment = formData.manualPriceOverride
-            ? formData.equipmentCost
-            : costResult.equipmentCost;
+          const o2Labour = resolveOverridableValue(formData.labourOverride, costResult.labourAfterDiscount);
+          const o2Equipment = resolveOverridableValue(formData.equipmentOverride, costResult.equipmentCost);
           const o2Subtotal = o2Labour + o2Equipment;
           const o2Gst = o2Subtotal * 0.1;
           const o2Total = o2Subtotal + o2Gst;
@@ -2600,7 +2612,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                         <input
                           type="number"
                           value={o1Labour ? Number(o1Labour).toFixed(2) : ''}
-                          onChange={(e) => onChange('option1LabourCost', parseFloat(e.target.value) || 0)}
+                          onChange={(e) => setOverride('option1LabourOverride', e.target.value)}
                           step={0.01}
                           className="w-full h-10 bg-white text-[#1d1d1f] text-sm rounded-lg border border-blue-200 pl-6 pr-2"
                         />
@@ -2613,7 +2625,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                         <input
                           type="number"
                           value={o1Equipment ? Number(o1Equipment).toFixed(2) : ''}
-                          onChange={(e) => onChange('option1EquipmentCost', parseFloat(e.target.value) || 0)}
+                          onChange={(e) => setOverride('option1EquipmentOverride', e.target.value)}
                           step={0.01}
                           className="w-full h-10 bg-white text-[#1d1d1f] text-sm rounded-lg border border-blue-200 pl-6 pr-2"
                         />
@@ -2650,7 +2662,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                         <input
                           type="number"
                           value={o2Labour ? Number(o2Labour).toFixed(2) : ''}
-                          onChange={(e) => onChange('laborCost', parseFloat(e.target.value) || 0)}
+                          onChange={(e) => setOverride('labourOverride', e.target.value)}
                           step={0.01}
                           className="w-full h-10 bg-white text-[#1d1d1f] text-sm rounded-lg border border-[#007AFF]/20 pl-6 pr-2"
                         />
@@ -2663,7 +2675,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                         <input
                           type="number"
                           value={o2Equipment ? Number(o2Equipment).toFixed(2) : ''}
-                          onChange={(e) => onChange('equipmentCost', parseFloat(e.target.value) || 0)}
+                          onChange={(e) => setOverride('equipmentOverride', e.target.value)}
                           step={0.01}
                           className="w-full h-10 bg-white text-[#1d1d1f] text-sm rounded-lg border border-[#007AFF]/20 pl-6 pr-2"
                         />
@@ -2699,13 +2711,10 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
       ) : (
         /* Single option — editable estimate */
         (() => {
-          // BUG-047: gate on manualPriceOverride, not on the field being non-zero.
-          const labour = formData.manualPriceOverride
-            ? formData.laborCost
-            : costResult.labourAfterDiscount;
-          const equipment = formData.manualPriceOverride
-            ? formData.equipmentCost
-            : costResult.equipmentCost;
+          // Per-field override precedence — override present wins, null falls
+          // back to live auto-calc (see estimate-override.ts).
+          const labour = resolveOverridableValue(formData.labourOverride, costResult.labourAfterDiscount);
+          const equipment = resolveOverridableValue(formData.equipmentOverride, costResult.equipmentCost);
           // Waste disposal: confirmed, job-level pass-through — never discounted.
           const waste = formData.wasteDisposal?.confirmedCost ?? 0;
           const subtotal = labour + equipment + waste;
@@ -2729,7 +2738,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                     <input
                       type="number"
                       value={labour ? Number(labour).toFixed(2) : ''}
-                      onChange={(e) => onChange('laborCost', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => setOverride('labourOverride', e.target.value)}
                       step={0.01}
                       className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 pl-8 pr-4"
                     />
@@ -2744,7 +2753,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                     <input
                       type="number"
                       value={equipment ? Number(equipment).toFixed(2) : ''}
-                      onChange={(e) => onChange('equipmentCost', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => setOverride('equipmentOverride', e.target.value)}
                       step={0.01}
                       className="w-full h-12 bg-white text-[#1d1d1f] text-base rounded-lg border border-gray-200 pl-8 pr-4"
                     />
@@ -2982,6 +2991,10 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
     equipmentCost: 0,
     manualPriceOverride: false,
     manualTotal: 0,
+    labourOverride: null,
+    equipmentOverride: null,
+    option1LabourOverride: null,
+    option1EquipmentOverride: null,
     laborCost: 0,
     discountPercent: 0,
     subtotalExGst: 0,
@@ -3237,6 +3250,50 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
               ? [...storedMethods, 'Drying Equipment']
               : storedMethods;
 
+          // Rehydrate Editable Estimate overrides. The DB stores EFFECTIVE
+          // values plus one manual_labour_override flag, so recompute the auto
+          // values from the same saved inputs (hours/quantities are saved
+          // atomically with them) and treat only differing values as overrides.
+          const loadedOverrideFlag = ins.manual_labour_override || false;
+          const loadAutoInput = {
+            nonDemoHours: ins.no_demolition_hours ? Number(ins.no_demolition_hours) : 0,
+            demolitionHours: ins.demolition_hours ? Number(ins.demolition_hours) : 0,
+            subfloorHours: ins.subfloor_hours ? Number(ins.subfloor_hours) : 0,
+            dehumidifierQty: ins.commercial_dehumidifier_qty || 0,
+            airMoverQty: ins.air_movers_qty || 0,
+            rcdQty: ins.rcd_box_qty || 0,
+            hepaAirScrubberQty: ins.hepa_air_scrubber_qty || 0,
+            hepaAirScrubberDays: ins.hepa_air_scrubber_days || undefined,
+          };
+          const loadAuto = calculateCostEstimate(loadAutoInput);
+          const loadOpt1Auto = ins.option_selected === 3
+            ? calculateCostEstimate({ ...loadAutoInput, demolitionHours: 0, subfloorHours: 0 })
+            : null;
+          const loadedLabourOverride = reconcileLoadedOverride(
+            loadedOverrideFlag,
+            ins.labour_cost_ex_gst != null ? Number(ins.labour_cost_ex_gst) : null,
+            loadAuto.labourAfterDiscount
+          );
+          const loadedEquipmentOverride = reconcileLoadedOverride(
+            loadedOverrideFlag,
+            ins.equipment_cost_ex_gst != null ? Number(ins.equipment_cost_ex_gst) : null,
+            loadAuto.equipmentCost
+          );
+          const loadedOption1LabourOverride = loadOpt1Auto
+            ? reconcileLoadedOverride(
+                loadedOverrideFlag,
+                ins.option_1_labour_ex_gst != null ? Number(ins.option_1_labour_ex_gst) : null,
+                loadOpt1Auto.labourAfterDiscount
+              )
+            : null;
+          const loadedOption1EquipmentOverride = loadOpt1Auto
+            ? reconcileLoadedOverride(
+                loadedOverrideFlag,
+                ins.option_1_equipment_ex_gst != null ? Number(ins.option_1_equipment_ex_gst) : null,
+                loadOpt1Auto.equipmentCost
+              )
+            : null;
+
           setFormData((prev) => ({
             ...prev,
             jobNumber: ins.job_number || prev.jobNumber,
@@ -3303,7 +3360,15 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             demolitionHours: ins.demolition_hours ? Number(ins.demolition_hours) : 0,
             subfloorHours: ins.subfloor_hours ? Number(ins.subfloor_hours) : 0,
             equipmentCost: ins.equipment_cost_ex_gst ? Number(ins.equipment_cost_ex_gst) : 0,
-            manualPriceOverride: ins.manual_labour_override || false,
+            labourOverride: loadedLabourOverride,
+            equipmentOverride: loadedEquipmentOverride,
+            option1LabourOverride: loadedOption1LabourOverride,
+            option1EquipmentOverride: loadedOption1EquipmentOverride,
+            manualPriceOverride:
+              loadedLabourOverride != null ||
+              loadedEquipmentOverride != null ||
+              loadedOption1LabourOverride != null ||
+              loadedOption1EquipmentOverride != null,
             manualTotal: ins.manual_total_inc_gst ? Number(ins.manual_total_inc_gst) : 0,
             laborCost: ins.labour_cost_ex_gst ? Number(ins.labour_cost_ex_gst) : 0,
             // NOTE: DB stores percent scale (0–13); form state uses decimal (0–0.13).
@@ -3859,24 +3924,23 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         wasteDisposalCost: saveWaste,
       });
 
-      // BUG-047: gate on manualPriceOverride rather than field non-zero check.
-      // A non-zero laborCost/equipmentCost from a prior partial save is stale state,
-      // not a deliberate override — the flag is the canonical signal.
-      const saveLabour = formData.manualPriceOverride
-        ? formData.laborCost
-        : saveFullResult.labourAfterDiscount;
-      const saveEquipment = formData.manualPriceOverride
-        ? formData.equipmentCost
-        : saveFullResult.equipmentCost;
-      const saveSubtotal = formData.manualPriceOverride
-        ? round2(saveLabour + saveEquipment + saveWaste)
-        : saveFullResult.subtotalExGst;
-      const saveGst = formData.manualPriceOverride
-        ? round2(saveSubtotal * 0.1)
-        : saveFullResult.gstAmount;
-      const saveTotal = formData.manualPriceOverride
-        ? round2(saveSubtotal + saveGst)
-        : saveFullResult.totalIncGst;
+      // Per-field override precedence (estimate-override.ts): an override
+      // present wins, null falls back to auto-calc. The DB stores the
+      // EFFECTIVE values; manual_labour_override records that at least one
+      // override is active (reconcileLoadedOverride splits them back apart on
+      // load). GST is always recomputed from the effective values — an
+      // override can never bypass it. With no overrides these equal
+      // saveFullResult.subtotalExGst/gstAmount/totalIncGst exactly.
+      const anyOverride =
+        formData.labourOverride != null ||
+        formData.equipmentOverride != null ||
+        (formData.optionSelected === 3 &&
+          (formData.option1LabourOverride != null || formData.option1EquipmentOverride != null));
+      const saveLabour = round2(resolveOverridableValue(formData.labourOverride, saveFullResult.labourAfterDiscount));
+      const saveEquipment = round2(resolveOverridableValue(formData.equipmentOverride, saveFullResult.equipmentCost));
+      const saveSubtotal = round2(saveLabour + saveEquipment + saveWaste);
+      const saveGst = round2(saveSubtotal * 0.1);
+      const saveTotal = round2(saveSubtotal + saveGst);
 
       // Per-option totals
       let saveOption1Total: number | null = null;
@@ -3896,17 +3960,11 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           hepaAirScrubberQty: getEffectiveHepaQty(formData),
           hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
         });
-        // BUG-047 follow-up: gate on manualPriceOverride, not field non-zero.
-        // Save path mirror of the render-side fix at the Option 1 Both-mode block.
-        const o1Labour = formData.manualPriceOverride
-          ? formData.option1LabourCost
-          : opt1AutoResult.labourAfterDiscount;
-        const o1Equipment = formData.manualPriceOverride
-          ? formData.option1EquipmentCost
-          : opt1AutoResult.equipmentCost;
-        saveOption1Total = formData.manualPriceOverride
-          ? round2((o1Labour + o1Equipment) + (o1Labour + o1Equipment) * 0.1)
-          : opt1AutoResult.totalIncGst;
+        // Save path mirror of the render-side per-field override precedence.
+        const o1Labour = round2(resolveOverridableValue(formData.option1LabourOverride, opt1AutoResult.labourAfterDiscount));
+        const o1Equipment = round2(resolveOverridableValue(formData.option1EquipmentOverride, opt1AutoResult.equipmentCost));
+        const o1Subtotal = round2(o1Labour + o1Equipment);
+        saveOption1Total = round2(o1Subtotal + round2(o1Subtotal * 0.1));
         saveOption1Labour = o1Labour;
         saveOption1Equipment = o1Equipment;
         saveOption2Total = saveTotal;
@@ -4016,14 +4074,14 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         subtotal_ex_gst: saveSubtotal || 0,
         gst_amount: saveGst || 0,
         total_inc_gst: saveTotal || 0,
-        // BUG-021: persist manual override state so reload restores the override
-        // correctly. manual_labour_override mirrors manualPriceOverride at the DB
-        // boundary (the form field is named manualPriceOverride; both boolean
-        // columns track the same user intent — one for the labour calc, one for
-        // the overall price gate). manual_total_inc_gst is cleared when not in
-        // override mode to avoid stale totals misleading the invoice generation.
-        manual_labour_override: formData.manualPriceOverride,
-        manual_total_inc_gst: formData.manualPriceOverride ? parseFloat(String(formData.manualTotal)) : null,
+        // BUG-021: persist override state so reload restores it. The flag now
+        // means "at least one Editable Estimate field override is active";
+        // reconcileLoadedOverride tells the overridden field(s) apart from
+        // auto snapshots on load. manual_total_inc_gst only carries the legacy
+        // whole-total override (no technician UI writes it) — null otherwise
+        // so stale totals never mislead invoice generation.
+        manual_labour_override: anyOverride,
+        manual_total_inc_gst: formData.manualTotal > 0 ? parseFloat(String(formData.manualTotal)) : null,
         option_1_labour_ex_gst: saveOption1Labour,
         option_1_equipment_ex_gst: saveOption1Equipment,
         option_1_total_inc_gst: saveOption1Total,

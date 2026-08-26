@@ -1004,7 +1004,9 @@ function CostEstimateSection({
       {i.manual_labour_override && (
         <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
           <p className="text-xs font-medium text-amber-700">
-            Manual price override applied — {fmtCurrency(i.manual_total_inc_gst)}
+            {i.manual_total_inc_gst != null
+              ? `Manual price override applied — ${fmtCurrency(i.manual_total_inc_gst)}`
+              : 'Technician edited the estimate — labour/equipment figures above include a manual override'}
           </p>
         </div>
       )}

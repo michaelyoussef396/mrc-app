@@ -83,10 +83,13 @@ export function EventDetailsPanel({ event, open, onClose }: EventDetailsPanelPro
   };
 
   const handleStartInspection = () => {
-    if (event.leadId) {
+    if (!event.leadId) return;
+    if (event.eventType === 'job') {
+      navigate(`/technician/job-completion/${event.leadId}`);
+    } else {
       navigate(`/technician/inspection?leadId=${event.leadId}`);
-      onClose();
     }
+    onClose();
   };
 
   const handleViewLead = () => {

@@ -3,11 +3,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
 import { sendSlackNotification } from '@/lib/api/notifications';
+import { findDuplicateLead, type DuplicateLeadMatch } from '@/lib/api/leadDuplicates';
 import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
+import { leadSourceSchema } from '@/lib/validators/lead-creation.schemas';
 import {
-  isValidVictorianPostcode,
-  leadSourceSchema,
-} from '@/lib/validators/lead-creation.schemas';
+  toNullableField,
+  validateCreateLeadForm,
+  type CreateLeadFormErrors,
+  type CreateLeadFormValues,
+} from '@/lib/validators/create-lead-form';
 import { captureBusinessError } from '@/lib/sentry';
 import {
   AlertCircle,
@@ -31,32 +35,12 @@ interface CreateNewLeadModalProps {
   onSuccess?: (leadId: string) => void;
 }
 
-interface LeadFormData {
-  fullName: string;
-  phone: string;
-  email: string;
-  propertyAddress: string;
-  suburb: string;
-  postcode: string;
+interface LeadFormData extends CreateLeadFormValues {
   lat: number | null;
   lng: number | null;
-  preferredDate: string;
-  preferredTime: string;
-  issueDescription: string;
-  source: string;
 }
 
-interface FormErrors {
-  fullName?: string;
-  phone?: string;
-  email?: string;
-  propertyAddress?: string;
-  suburb?: string;
-  postcode?: string;
-  preferredDate?: string;
-  preferredTime?: string;
-  issueDescription?: string;
-  source?: string;
+interface FormErrors extends CreateLeadFormErrors {
   general?: string;
 }
 
@@ -163,7 +147,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
   const [errors, setErrors] = useState<FormErrors>({});
   const [modalState, setModalState] = useState<ModalState>('idle');
   const [showPredictions, setShowPredictions] = useState(false);
-  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [duplicateLead, setDuplicateLead] = useState<DuplicateLeadMatch | null>(null);
 
   const { user } = useAuth();
   const modalRef = useRef<HTMLDivElement>(null);
@@ -188,7 +172,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         setErrors({});
         setModalState('idle');
         setShowPredictions(false);
-        setDuplicateWarning(null);
+        setDuplicateLead(null);
         clearPredictions();
       }, 300);
     }
@@ -209,8 +193,8 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
     if (errors[field as keyof FormErrors]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
-    if ((field === 'phone' || field === 'email') && duplicateWarning) {
-      setDuplicateWarning(null);
+    if ((field === 'phone' || field === 'email') && duplicateLead) {
+      setDuplicateLead(null);
     }
   };
 
@@ -256,31 +240,10 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
     }
   }, [getPlaceDetails, clearPredictions]);
 
-  const checkForDuplicates = async (): Promise<{ isDuplicate: boolean; message: string | null }> => {
-    const phoneDigits = formData.phone.replace(/\D/g, '');
-    const emailLower = formData.email.toLowerCase().trim();
-
-    try {
-      const { data: existingLeads, error } = await supabase
-        .from('leads')
-        .select('id, full_name, phone, email')
-        .or(`phone.eq.${phoneDigits},email.ilike.${emailLower}`)
-        .limit(1);
-
-      if (error) return { isDuplicate: false, message: null };
-
-      if (existingLeads && existingLeads.length > 0) {
-        const existing = existingLeads[0];
-        const matchType = existing.phone === phoneDigits ? 'phone number' : 'email address';
-        return {
-          isDuplicate: true,
-          message: `A lead with this ${matchType} already exists: ${existing.full_name}`,
-        };
-      }
-      return { isDuplicate: false, message: null };
-    } catch {
-      return { isDuplicate: false, message: null };
-    }
+  const runDuplicateCheck = async (): Promise<DuplicateLeadMatch | null> => {
+    const match = await findDuplicateLead({ phone: formData.phone, email: formData.email });
+    setDuplicateLead(match);
+    return match;
   };
 
   const logAuditEntry = async (leadId: string) => {
@@ -302,67 +265,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
   };
 
   const validateForm = (): boolean => {
-    const newErrors: FormErrors = {};
-
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required';
-    } else if (formData.fullName.trim().length < 2) {
-      newErrors.fullName = 'Name must be at least 2 characters';
-    } else if (formData.fullName.trim().length > 255) {
-      newErrors.fullName = 'Name must be less than 255 characters';
-    }
-
-    const phoneDigits = formData.phone.replace(/\D/g, '');
-    if (!phoneDigits) {
-      newErrors.phone = 'Phone number is required';
-    } else if (phoneDigits.length < 10) {
-      newErrors.phone = 'Please enter a valid Australian phone number';
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-
-    if (!formData.propertyAddress.trim()) {
-      newErrors.propertyAddress = 'Street address is required';
-    } else if (formData.propertyAddress.trim().length < 5) {
-      newErrors.propertyAddress = 'Please enter a complete address';
-    }
-
-    if (!formData.suburb.trim()) {
-      newErrors.suburb = 'Suburb is required';
-    }
-
-    if (!formData.postcode.trim()) {
-      newErrors.postcode = 'Postcode is required';
-    } else if (!isValidVictorianPostcode(formData.postcode)) {
-      newErrors.postcode = 'Must be a 4-digit Victorian postcode (3XXX)';
-    }
-
-    if (!formData.preferredDate) {
-      newErrors.preferredDate = 'Preferred date is required';
-    } else if (formData.preferredDate < minDate) {
-      newErrors.preferredDate = 'Date must be in the future';
-    }
-
-    if (!formData.preferredTime) {
-      newErrors.preferredTime = 'Preferred time is required';
-    }
-
-    if (!formData.issueDescription.trim()) {
-      newErrors.issueDescription = 'Brief description is required';
-    } else if (formData.issueDescription.trim().length < 20) {
-      newErrors.issueDescription = 'Please provide more detail (at least 20 characters)';
-    } else if (formData.issueDescription.trim().length > 1000) {
-      newErrors.issueDescription = 'Description must be less than 1000 characters';
-    }
-
-    if (!formData.source) {
-      newErrors.source = 'Lead source is required';
-    }
-
+    const newErrors = validateCreateLeadForm(formData, minDate);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -386,13 +289,9 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
       return;
     }
 
-    setDuplicateWarning(null);
-    const duplicateCheck = await checkForDuplicates();
-    if (duplicateCheck.isDuplicate) {
-      setDuplicateWarning(duplicateCheck.message);
-      setModalState('idle');
-      return;
-    }
+    // Advisory only — duplicates are legitimate (repeat customers), so the
+    // warning renders alongside the insert instead of gating it.
+    await runDuplicateCheck();
 
     setModalState('submitting');
     recordAttempt();
@@ -423,8 +322,8 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         // Advisory only. inspection_scheduled_date / scheduled_time stay NULL until
         // bookInspection confirms a real booking — a new_lead must not carry a
         // scheduled date. See 20260428174022_add_customer_preferred_columns.sql.
-        customer_preferred_date: formData.preferredDate,
-        customer_preferred_time: formData.preferredTime,
+        customer_preferred_date: toNullableField(formData.preferredDate),
+        customer_preferred_time: toNullableField(formData.preferredTime),
       };
 
       if (formData.lat != null && formData.lng != null) {
@@ -455,8 +354,8 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         state: 'VIC',
         issue_description: formData.issueDescription,
         lead_source: formData.source,
-        preferred_date: formData.preferredDate,
-        preferred_time: formData.preferredTime,
+        preferred_date: toNullableField(formData.preferredDate) ?? undefined,
+        preferred_time: toNullableField(formData.preferredTime) ?? undefined,
         created_at: new Date().toISOString(),
       });
 
@@ -485,6 +384,32 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
   const minDate = tomorrow.toISOString().split('T')[0];
 
   if (!isOpen) return null;
+
+  const duplicateBanner = duplicateLead && (
+    <div
+      role="status"
+      className="p-4 rounded-xl flex items-start gap-3"
+      style={{ backgroundColor: 'rgba(255, 149, 0, 0.1)' }}
+    >
+      <AlertTriangle className="h-5 w-5 shrink-0" style={{ color: '#FF9500' }} />
+      <div>
+        <p className="text-sm font-medium" style={{ color: '#FF9500' }}>Possible duplicate lead</p>
+        <p className="text-sm mt-1" style={{ color: '#86868b' }}>
+          A lead with this {duplicateLead.matchType} already exists:{' '}
+          <a
+            href={`/leads/${duplicateLead.id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium underline underline-offset-2"
+            style={{ color: '#1d1d1f' }}
+          >
+            {duplicateLead.fullName}
+          </a>
+          {modalState === 'success' ? '. This lead was created anyway.' : '. You can still create this lead.'}
+        </p>
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -535,6 +460,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
             <p className="text-sm text-center" style={{ color: '#86868b' }}>
               {formData.fullName} has been added to your pipeline
             </p>
+            {duplicateBanner && <div className="w-full mt-6">{duplicateBanner}</div>}
           </div>
         )}
 
@@ -553,19 +479,8 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                 </div>
               )}
 
-              {/* Duplicate Warning */}
-              {duplicateWarning && (
-                <div
-                  className="p-4 rounded-xl flex items-start gap-3"
-                  style={{ backgroundColor: 'rgba(255, 149, 0, 0.1)' }}
-                >
-                  <AlertTriangle className="h-5 w-5" style={{ color: '#FF9500' }} />
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: '#FF9500' }}>Duplicate Lead Detected</p>
-                    <p className="text-sm mt-1" style={{ color: '#86868b' }}>{duplicateWarning}</p>
-                  </div>
-                </div>
-              )}
+              {/* Duplicate Warning — advisory, submit stays enabled */}
+              {duplicateBanner}
 
               {/* 1. Full Name */}
               <div className="flex flex-col">
@@ -592,7 +507,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
               {/* 2. Preferred Date */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
-                  Preferred Date *
+                  Preferred Date <span className="font-normal" style={{ color: '#86868b' }}>(optional)</span>
                 </label>
                 <input
                   type="date"
@@ -620,6 +535,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                   type="tel"
                   value={formData.phone}
                   onChange={e => handleInputChange('phone', e.target.value)}
+                  onBlur={runDuplicateCheck}
                   placeholder="04XX XXX XXX"
                   className={`w-full rounded-xl h-12 p-4 text-base transition-all ${
                     errors.phone
@@ -636,7 +552,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
               {/* 4. Preferred Time */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
-                  Preferred Time *
+                  Preferred Time <span className="font-normal" style={{ color: '#86868b' }}>(optional)</span>
                 </label>
                 <div className="relative">
                   <select
@@ -777,6 +693,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                   type="email"
                   value={formData.email}
                   onChange={e => handleInputChange('email', e.target.value)}
+                  onBlur={runDuplicateCheck}
                   placeholder="email@example.com"
                   className={`w-full rounded-xl h-12 p-4 text-base transition-all ${
                     errors.email
