@@ -2351,3 +2351,63 @@ shipped since the 24 Aug recon and what was found while verifying it. Live reads
       confirm auto mode is OFF") are not working. Needs a hook (`.claude/settings.json`
       `PreToolUse` / session-start guard) rather than another instruction.
 
+
+---
+
+## 26 Aug 2026 — post-launch findings from the lead notes production test
+
+### P1 — Activity timeline and notifications lack detail
+
+Raised by Michael 26 Aug after testing lead notes on production. Timeline rows and in-app
+notifications carry a type and an actor but almost no content. A "Note added" row shows only
+`Note added — just now — michael test`, so you cannot tell what the note said or why it matters
+without clicking through to the lead. Michael's words: *"it just says note added and not the note,
+same with the rest — most of the notifications are just basic and lack the actual lead
+information."*
+
+**This is not specific to notes.** Most event types on the timeline and in the notification list
+have the same shape.
+
+What to look at when this is picked up:
+
+- [ ] `ActivityTimeline.tsx` already renders a `note_added` body as a blockquote in **FULL** mode
+      but title-only in **COMPACT** mode. Establish which surfaces use which, and whether compact
+      mode is the actual problem rather than the data.
+- [ ] `activities.metadata` is a jsonb bag and already carries `note_text` and `author` for
+      `note_added`. Check what other event types put in there — **the detail may already exist and
+      simply not be rendered.**
+- [ ] The `notifications` table has `title` and `message` columns. Establish what each event type
+      writes into `message` today.
+
+**HARD CONSTRAINT — do not undo a deliberate security decision.** `note_mention` notifications are
+content-free ON PURPOSE. `add_lead_note_mentions` is `SECURITY DEFINER`, and lead visibility for
+technicians is `assigned_to = auth.uid()`. Putting the note body or the customer name into the
+notification would hand that content to someone the lead is not assigned to, straight past the
+lead's own RLS. Slack carries the body because the channel is shared and Michael chose that; the
+asymmetry is intentional.
+
+So: enriching the **TIMELINE** (read under the caller's own RLS) is safe. Enriching **NOTIFICATION**
+rows is not, unless the RLS implications are worked through per event type. Whoever picks this up
+must treat those as two separate problems.
+
+### Caveats recorded the same day — flagged, not scheduled
+
+- [ ] **DEV cannot test anything touching Slack, AI summaries, or 7 other Edge Functions.** Nine
+      PROD Edge Functions do not exist on DEV at all. This bit twice on 26 Aug: a preview test
+      showed no Slack post purely because DEV has no `send-slack-notification`. **Preview testing
+      cannot prove anything about those paths** — they can only be exercised on production.
+      (Related: the "Sync DEV to PROD" item in the 25 Aug section, which inventories the gap but
+      does not draw this consequence.)
+- [ ] **Storage objects do not cascade.** Deleting a lead removes every child row —
+      `lead_notes`, `lead_note_mentions`, `lead_note_attachments`, `notifications`, `activities`,
+      `inspections`, `job_completions` are all `CASCADE` — but leaves files in the
+      `lead-note-attachments` bucket orphaned with no way to locate them, since nothing references
+      the paths any more. **`DELETE FROM storage.objects` is NOT a fix** — it removes the index row
+      and leaves the backing blob. Use the Dashboard Storage delete or the Storage API, and do it
+      **before** deleting the lead — afterwards there is no query that can find the files.
+- [ ] **`sendSlackNotification` is fire-and-forget for all ~10 callers** — every failure is
+      `console.error` and `return`, so no caller can detect one. Combined with Supabase CLI 2.101
+      having no `functions logs` subcommand, and `error_logs` only receiving *thrown* EF exceptions
+      (a 400/401/429 early-return writes nothing), **a failed Slack post leaves no trace anywhere
+      reachable from the CLI.** Changing that signature is a shared-surface change touching every
+      caller — flagged, not scheduled.
