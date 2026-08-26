@@ -7,6 +7,12 @@ import DOMPurify from 'dompurify'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/integrations/supabase/client'
 import {
+  reconcileLoadedOverride,
+  resolveOverridableValue,
+} from '@/lib/calculations/estimate-override'
+import { GST_RATE, round2 } from '@/lib/calculations/pricing'
+import { BOTH_OPTIONS } from '@/lib/calculations/inspectionEstimate'
+import {
   Loader2,
   ZoomIn,
   ZoomOut,
@@ -137,6 +143,10 @@ export interface AreaRecord {
   comments: string | null
   extra_notes: string | null
   infrared_enabled: boolean | null
+  // Labour time — drives the auto-calculated estimate (see inspectionEstimate.ts).
+  job_time_minutes?: number | null
+  demolition_time_minutes?: number | null
+  demolition_required?: boolean | null
 }
 
 export interface SubfloorEditData {
@@ -161,6 +171,14 @@ export interface CostData {
   option_1_equipment_ex_gst: number
   option_1_total_inc_gst: number
   option_2_total_inc_gst: number
+  // Auto-calculated at the CURRENT pricing.ts rates. The stored figures above are
+  // snapshots; comparing the two is what tells a deliberate override apart from a
+  // stale value, so the editor can recompute instead of serving a frozen number.
+  auto_labour_ex_gst: number
+  auto_equipment_ex_gst: number
+  auto_option_1_labour_ex_gst: number
+  auto_option_1_equipment_ex_gst: number
+  manual_labour_override: boolean
 }
 
 interface ReportPreviewHTMLProps {
@@ -270,7 +288,7 @@ export function ReportPreviewHTML({
 
   // Cleaning Estimate — cost editing state
   const [editingCost, setEditingCost] = useState(false)
-  const [costForm, setCostForm] = useState<CostData>({ labour_cost_ex_gst: 0, equipment_cost_ex_gst: 0, subtotal_ex_gst: 0, gst_amount: 0, total_inc_gst: 0, waste_disposal_cost: 0, option_selected: null, treatment_methods: [], option_1_labour_ex_gst: 0, option_1_equipment_ex_gst: 0, option_1_total_inc_gst: 0, option_2_total_inc_gst: 0 })
+  const [costForm, setCostForm] = useState<CostData>({ labour_cost_ex_gst: 0, equipment_cost_ex_gst: 0, subtotal_ex_gst: 0, gst_amount: 0, total_inc_gst: 0, waste_disposal_cost: 0, option_selected: null, treatment_methods: [], option_1_labour_ex_gst: 0, option_1_equipment_ex_gst: 0, option_1_total_inc_gst: 0, option_2_total_inc_gst: 0, auto_labour_ex_gst: 0, auto_equipment_ex_gst: 0, auto_option_1_labour_ex_gst: 0, auto_option_1_equipment_ex_gst: 0, manual_labour_override: false })
   const [savingCost, setSavingCost] = useState(false)
   const [costPageTop, setCostPageTop] = useState<number | null>(null)
 
@@ -765,16 +783,28 @@ export function ReportPreviewHTML({
 
   function startCostEdit() {
     if (!costData) return
-    const initial = { ...costData }
-    // If Option 1 fields are empty (new columns, legacy data), pre-fill from Option 2 values
-    if (!initial.option_1_labour_ex_gst && initial.labour_cost_ex_gst) {
-      initial.option_1_labour_ex_gst = initial.labour_cost_ex_gst
-    }
-    if (!initial.option_1_equipment_ex_gst && initial.equipment_cost_ex_gst) {
-      initial.option_1_equipment_ex_gst = initial.equipment_cost_ex_gst
-    }
+    const saved = costData
+
+    // A saved figure only survives when the override flag marks it as deliberate;
+    // otherwise it is an auto-calc snapshot and must be re-derived at current rates.
+    // Previously Option 1 was seeded once from whatever labour_cost_ex_gst happened to
+    // hold and never re-derived, so a corrected rate card could never reach an inspection
+    // that had been opened here before.
+    const effective = (stored: number, auto: number) => resolveOverridableValue(
+      reconcileLoadedOverride(saved.manual_labour_override, stored, auto),
+      auto
+    )
+
     setEditingCost(true)
-    setCostForm(recalcTotals(initial))
+    setCostForm(recalcTotals({
+      ...saved,
+      labour_cost_ex_gst: effective(saved.labour_cost_ex_gst, saved.auto_labour_ex_gst),
+      equipment_cost_ex_gst: effective(saved.equipment_cost_ex_gst, saved.auto_equipment_ex_gst),
+      option_1_labour_ex_gst: effective(
+        saved.option_1_labour_ex_gst, saved.auto_option_1_labour_ex_gst),
+      option_1_equipment_ex_gst: effective(
+        saved.option_1_equipment_ex_gst, saved.auto_option_1_equipment_ex_gst),
+    }))
   }
 
   function recalcTotals(form: CostData): CostData {
@@ -783,16 +813,34 @@ export function ReportPreviewHTML({
     // mode (option 3) — it is a single job-level cost billed once, so per-option
     // totals stay labour+equipment only. The customer PDF renders it as its own
     // "billed once" line via the {{waste_disposal}} placeholder (2026-07-28).
-    const waste = next.option_selected === 3 ? 0 : (next.waste_disposal_cost || 0)
+    const isBothOptions = next.option_selected === BOTH_OPTIONS
+    const waste = isBothOptions ? 0 : (next.waste_disposal_cost || 0)
     // Option 2 / single-option totals
-    next.subtotal_ex_gst = Math.round((next.labour_cost_ex_gst + next.equipment_cost_ex_gst + waste) * 100) / 100
-    next.gst_amount = Math.round(next.subtotal_ex_gst * 0.1 * 100) / 100
-    next.total_inc_gst = Math.round((next.subtotal_ex_gst + next.gst_amount) * 100) / 100
-    // Option 1 totals
-    const o1Sub = Math.round((next.option_1_labour_ex_gst + next.option_1_equipment_ex_gst) * 100) / 100
-    next.option_1_total_inc_gst = Math.round((o1Sub + o1Sub * 0.1) * 100) / 100
-    // Option 2 total = total_inc_gst (same as full calc)
-    next.option_2_total_inc_gst = next.total_inc_gst
+    next.subtotal_ex_gst = round2(next.labour_cost_ex_gst + next.equipment_cost_ex_gst + waste)
+    next.gst_amount = round2(next.subtotal_ex_gst * GST_RATE)
+    next.total_inc_gst = round2(next.subtotal_ex_gst + next.gst_amount)
+
+    // Per-option columns mirror TechnicianInspectionForm.handleSave: only "Both" mode
+    // carries a distinct Option 1 breakdown, and the unused option is zeroed so a stale
+    // price cannot survive a mode switch (handleCostSave persists 0 as NULL).
+    if (isBothOptions) {
+      const o1Sub = round2(next.option_1_labour_ex_gst + next.option_1_equipment_ex_gst)
+      next.option_1_total_inc_gst = round2(o1Sub + o1Sub * GST_RATE)
+      next.option_2_total_inc_gst = next.total_inc_gst
+    } else if (next.option_selected === 2) {
+      next.option_1_labour_ex_gst = 0
+      next.option_1_equipment_ex_gst = 0
+      next.option_1_total_inc_gst = 0
+      next.option_2_total_inc_gst = next.total_inc_gst
+    } else if (next.option_selected === 1) {
+      next.option_1_labour_ex_gst = 0
+      next.option_1_equipment_ex_gst = 0
+      next.option_1_total_inc_gst = next.total_inc_gst
+      next.option_2_total_inc_gst = 0
+    }
+    // option_selected === null is a legacy row with no option chosen. handleSave leaves
+    // the per-option columns alone in that case, so this does too — picking an option in
+    // the editor is what resolves them.
     return next
   }
 
@@ -816,7 +864,22 @@ export function ReportPreviewHTML({
       if (option === 1) {
         methods = methods.filter(m => !OPTION_2_ONLY_METHODS.includes(m))
       }
-      return { ...prev, option_selected: option, treatment_methods: methods }
+      // Switching into "Both" exposes the Option 1 fields for the first time — seed them
+      // from the current auto-calc rather than whatever a previous mode left behind.
+      const optionOneSeed = option === BOTH_OPTIONS && !prev.option_1_labour_ex_gst
+        ? {
+            option_1_labour_ex_gst: prev.auto_option_1_labour_ex_gst,
+            option_1_equipment_ex_gst: prev.auto_option_1_equipment_ex_gst,
+          }
+        : {}
+      // recalcTotals zeroes whichever option the new mode does not use, so a stale price
+      // cannot survive the switch.
+      return recalcTotals({
+        ...prev,
+        ...optionOneSeed,
+        option_selected: option,
+        treatment_methods: methods,
+      })
     })
   }
 
