@@ -3,8 +3,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { CalendarEvent } from '@/hooks/useScheduleCalendar';
-import { formatTimeForDisplay } from '@/lib/bookingService';
 import { bookingTypePillClasses } from '@/lib/bookingTypeColors';
+import { getDurationLabel } from '@/components/schedule/scheduleUtils';
 import { captureBusinessError } from '@/lib/sentry';
 import {
   Sheet,
@@ -40,9 +40,7 @@ export function EventDetailsPanel({ event, open, onClose }: EventDetailsPanelPro
   const endTime = formatTimeAU(event.endDatetime);
   const dateStr = formatWeekdayDateAU(event.startDatetime);
 
-  const durationMs = event.endDatetime.getTime() - event.startDatetime.getTime();
-  const durationHours = Math.max(durationMs / (1000 * 60 * 60), 0);
-  const durationLabel = durationHours === 1 ? '1 hour' : `${durationHours}h`;
+  const durationLabel = getDurationLabel(event);
 
   const handleCancelBooking = async () => {
     const confirmed = window.confirm('Are you sure you want to cancel this booking?');

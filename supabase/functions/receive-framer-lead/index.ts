@@ -148,7 +148,11 @@ function buildSlackBlocks(lead: FramerLeadPayload, createdAt: string, isPossible
     formattedDate = `${d}/${m}/${y}`
   }
 
-  const formattedTime = lead.preferred_time || 'N/A'
+  // Same formatter the confirmation email uses — Slack was printing the raw 24-hour
+  // string while every other surface showed 12-hour.
+  const formattedTime = lead.preferred_time
+    ? formatPreferredTimeForDisplay(lead.preferred_time)
+    : 'N/A'
 
   const headerText = isPossibleDuplicate
     ? '🔁 Possible repeat — 🏠 New Lead Received'

@@ -13,12 +13,12 @@ import {
   type CreateLeadFormValues,
 } from '@/lib/validators/create-lead-form';
 import { captureBusinessError } from '@/lib/sentry';
+import { TimePicker } from '@/components/ui/TimePicker';
 import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
-  Clock,
   MapPin,
   Search,
   X,
@@ -65,17 +65,8 @@ const initialFormData: LeadFormData = {
   source: '',
 };
 
-// 30-min slots from 7am to 6pm
-const TIME_SLOTS = Array.from({ length: 22 }, (_, i) => {
-  const totalMinutes = 7 * 60 + i * 30;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  const time = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-  const h12 = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  const label = `${h12}:${String(minutes).padStart(2, '0')} ${ampm}`;
-  return { time, label };
-});
+const OPENING_TIME = '07:00';
+const CLOSING_TIME = '19:00';
 
 // ============================================================================
 // HELPERS
@@ -554,24 +545,13 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
                 <label className="text-sm font-medium pb-1.5 ml-1" style={{ color: '#374151' }}>
                   Preferred Time <span className="font-normal" style={{ color: '#86868b' }}>(optional)</span>
                 </label>
-                <div className="relative">
-                  <select
-                    value={formData.preferredTime}
-                    onChange={e => handleInputChange('preferredTime', e.target.value)}
-                    className={`w-full rounded-xl h-12 px-4 pr-10 text-base transition-all bg-white appearance-none cursor-pointer ${
-                      errors.preferredTime
-                        ? 'border-2 border-[#FF3B30] focus:border-[#FF3B30] focus:ring-2 focus:ring-[#FF3B30]/20'
-                        : 'border border-gray-200 focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/20'
-                    }`}
-                    style={{ outline: 'none', color: formData.preferredTime ? '#1d1d1f' : '#86868b' }}
-                  >
-                    <option value="">Select time...</option>
-                    {TIME_SLOTS.map(slot => (
-                      <option key={slot.time} value={slot.time}>{slot.label}</option>
-                    ))}
-                  </select>
-                  <Clock className="h-5 w-5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#617589' }} />
-                </div>
+                <TimePicker
+                  value={formData.preferredTime}
+                  onChange={value => handleInputChange('preferredTime', value)}
+                  minTime={OPENING_TIME}
+                  maxTime={CLOSING_TIME}
+                  placeholder="Select time..."
+                />
                 {errors.preferredTime && (
                   <p className="text-xs mt-1 ml-1" style={{ color: '#FF3B30' }}>{errors.preferredTime}</p>
                 )}

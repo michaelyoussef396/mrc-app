@@ -90,6 +90,16 @@ async function selectFirstTechnician(page: Page): Promise<void> {
   await technician.click();
 }
 
+/**
+ * The time control is a three-column hour/minute/AM-PM picker, not a `<select>` —
+ * iOS substitutes its own wheel for `<input type="time">` and ignores step/min/max.
+ * Choosing any single option commits a complete "HH:mm".
+ */
+async function pickFirstAvailableTime(page: Page): Promise<void> {
+  await page.locator('[data-testid="inspection-time"]:visible').first().click();
+  await page.getByRole('listbox', { name: 'Hour' }).first().getByRole('option').first().click();
+}
+
 for (const vp of VIEWPORTS) {
   test.describe(`LeadBookingCard @ ${vp.name} (${vp.width}px)`, () => {
     test.beforeEach(async ({ page }) => {
@@ -109,7 +119,9 @@ for (const vp of VIEWPORTS) {
       const dateInput = await expandFirstInspectionCard(page);
       if (!dateInput) test.skip(true, 'No inspection leads in the scheduling queue');
 
-      await expect(page.locator('[data-testid="inspection-time"]:visible').first()).toHaveValue('');
+      await expect(page.locator('[data-testid="inspection-time"]:visible').first()).toHaveText(
+        /Select time slot/i,
+      );
     });
 
     test('a failed recommendation lookup renders the amber alert banner', async ({ page }) => {
@@ -178,7 +190,7 @@ for (const vp of VIEWPORTS) {
 
       // The availability check only fires once date AND time are both set.
       await page.locator('[data-testid="inspection-date"]:visible').first().fill(TOMORROW_ISO);
-      await page.locator('[data-testid="inspection-time"]:visible').first().selectOption({ index: 1 });
+      await pickFirstAvailableTime(page);
 
       const alert = page.locator('[data-testid="availability-error"]');
       await expect(alert).toBeVisible({ timeout: 20_000 });
@@ -197,7 +209,7 @@ for (const vp of VIEWPORTS) {
       await page.getByRole('button', { name: /Address is Correct/i }).first().click();
       await selectFirstTechnician(page);
       await page.locator('[data-testid="inspection-date"]:visible').first().fill(TOMORROW_ISO);
-      await page.locator('[data-testid="inspection-time"]:visible').first().selectOption({ index: 1 });
+      await pickFirstAvailableTime(page);
 
       await expect(page.locator('[data-testid="availability-error"]')).toBeVisible({ timeout: 20_000 });
       // Neither the travel panel nor the red buffer banner may claim anything.

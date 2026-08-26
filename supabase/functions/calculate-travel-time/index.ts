@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import { z } from 'https://esm.sh/zod@3.22.4'
 
 const corsHeaders = {
@@ -27,6 +27,13 @@ function isRateLimited(ip: string): boolean {
 // ZOD SCHEMAS
 // ============================================================================
 
+/**
+ * Every minute of every hour is valid — booking is no longer on a 1-hour grid —
+ * but the shape stays strict: "99:99" and "24:00" are still rejected.
+ */
+const TIME_OF_DAY_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/
+const TIME_OF_DAY_MESSAGE = 'Time must be HH:MM in 24-hour form'
+
 const TriageLeadSchema = z.object({
   action: z.literal('triage_lead'),
   lead_id: z.string().uuid(),
@@ -36,7 +43,7 @@ const CheckAvailabilitySchema = z.object({
   action: z.literal('check_availability'),
   technician_id: z.string().uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
-  requested_time: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be HH:MM'),
+  requested_time: z.string().regex(TIME_OF_DAY_PATTERN, TIME_OF_DAY_MESSAGE),
   destination_address: z.string().min(1),
   override_start_address: z.string().optional(),
   duration_minutes: z.number().positive().optional(),
@@ -50,7 +57,8 @@ const RecommendedDatesSchema = z.object({
   days_ahead: z.number().positive().optional(),
   duration_minutes: z.number().positive().optional(),
   preferred_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD').optional(),
-  preferred_time: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be HH:MM').optional(),
+  preferred_time: z.string().regex(TIME_OF_DAY_PATTERN, TIME_OF_DAY_MESSAGE).optional(),
+  slot_interval_minutes: z.number().int().positive().max(60).optional(),
 })
 
 const TravelTimeSchema = z.object({
@@ -103,6 +111,7 @@ interface RecommendedDatesRequest {
   duration_minutes?: number  // Default 60
   preferred_date?: string  // YYYY-MM-DD — customer's preferred date to boost in scoring
   preferred_time?: string  // HH:MM — customer's preferred time to prioritize in slots
+  slot_interval_minutes?: number  // Default 60 — granularity of the suggested slots
 }
 
 interface DateRecommendation {
@@ -428,6 +437,113 @@ function generateSuggestions(
   return suggestions
 }
 
+const MELBOURNE_TZ = 'Australia/Melbourne'
+const MINUTES_PER_DAY = 24 * 60
+const DEFAULT_APPOINTMENT_MINUTES = 60
+const DEFAULT_SLOT_INTERVAL_MINUTES = 60
+const BUSINESS_START_MINUTES = 8 * 60
+const BUSINESS_END_MINUTES = 18 * 60
+const TRAVEL_BUFFER_MINUTES = 15
+
+/** Bookings are stored as timestamptz; the schedule grid is Melbourne wall-clock. */
+const melbourneFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: MELBOURNE_TZ,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
+function toMelbourneDateAndMinutes(iso: string): { date: string; minutes: number } | null {
+  const parsed = new Date(iso)
+  if (Number.isNaN(parsed.getTime())) return null
+
+  const parts = melbourneFormatter.formatToParts(parsed)
+  const read = (type: string) => parts.find((part) => part.type === type)?.value ?? ''
+  const year = read('year')
+  const month = read('month')
+  const day = read('day')
+  const hour = Number(read('hour'))
+  const minute = Number(read('minute'))
+
+  if (!year || !month || !day || Number.isNaN(hour) || Number.isNaN(minute)) return null
+  return { date: `${year}-${month}-${day}`, minutes: hour * 60 + minute }
+}
+
+/** No generated Database types ship with the Edge Functions, so rows come back loose. */
+// deno-lint-ignore no-explicit-any
+type ServiceClient = SupabaseClient<any, 'public', any>
+
+interface NormalizedBooking {
+  leadId: string | null
+  date: string
+  startMinutes: number
+  endMinutes: number
+}
+
+/**
+ * A technician's real booked windows over the given Melbourne dates.
+ *
+ * Reads calendar_bookings.start_datetime/end_datetime — the actual stored end —
+ * rather than deriving one as leads.scheduled_time + 60 minutes. Under the old
+ * derivation an eight-hour remediation job read as a one-hour block, so this
+ * engine recommended slots on top of work already scheduled.
+ */
+async function fetchMelbourneBookings(
+  supabase: ServiceClient,
+  technicianId: string,
+  dateStrings: string[],
+): Promise<NormalizedBooking[]> {
+  if (dateStrings.length === 0) return []
+
+  // Widen the UTC window a day either side so each Melbourne-local date is fully
+  // covered whatever the current offset is.
+  const sorted = [...dateStrings].sort()
+  const from = new Date(`${sorted[0]}T00:00:00Z`)
+  from.setUTCDate(from.getUTCDate() - 1)
+  const to = new Date(`${sorted[sorted.length - 1]}T00:00:00Z`)
+  to.setUTCDate(to.getUTCDate() + 2)
+
+  const { data, error } = await supabase
+    .from('calendar_bookings')
+    .select('lead_id, start_datetime, end_datetime')
+    .eq('assigned_to', technicianId)
+    .neq('status', 'cancelled')
+    .gte('start_datetime', from.toISOString())
+    .lt('start_datetime', to.toISOString())
+
+  if (error) {
+    console.error('Error fetching calendar bookings:', error)
+    return []
+  }
+
+  const wanted = new Set(dateStrings)
+  const bookings: NormalizedBooking[] = []
+
+  for (const row of data || []) {
+    const start = toMelbourneDateAndMinutes(row.start_datetime as string)
+    const end = toMelbourneDateAndMinutes(row.end_datetime as string)
+    if (!start || !end || !wanted.has(start.date)) continue
+
+    bookings.push({
+      leadId: (row.lead_id as string | null) ?? null,
+      date: start.date,
+      startMinutes: start.minutes,
+      // A booking running past midnight blocks the remainder of its starting day.
+      endMinutes: end.date === start.date ? end.minutes : MINUTES_PER_DAY,
+    })
+  }
+
+  return bookings
+}
+
+/** Half-open overlap: touching intervals do not conflict. */
+function overlapsAny(start: number, end: number, ranges: Array<[number, number]>): boolean {
+  return ranges.some(([rangeStart, rangeEnd]) => start < rangeEnd && end > rangeStart)
+}
+
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
@@ -469,8 +585,8 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: 'Validation failed',
-          details: parseResult.error.flatten()
-        } as ErrorResponse),
+          details: JSON.stringify(parseResult.error.flatten())
+        } satisfies ErrorResponse),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -729,12 +845,26 @@ Deno.serve(async (req) => {
         console.error('Error fetching appointments:', apptError)
       }
 
-      const daySchedule = (appointments || []).map(apt => ({
-        time: apt.scheduled_time || '09:00',
-        client_name: apt.full_name,
-        suburb: apt.property_address_suburb || '',
-        ends_at: minutesToTime(timeToMinutes(apt.scheduled_time || '09:00') + 60) // 1-hour appointments
-      }))
+      // leads.scheduled_time records only a start. The real end lives on
+      // calendar_bookings; fall back to a nominal hour when a lead has no booking row.
+      const dayBookings = await fetchMelbourneBookings(supabase, technician_id, [date])
+      const endMinutesByLead: Record<string, number> = {}
+      for (const booking of dayBookings) {
+        if (booking.leadId) endMinutesByLead[booking.leadId] = booking.endMinutes
+      }
+
+      const daySchedule = (appointments || []).map(apt => {
+        const startTime = apt.scheduled_time || '09:00'
+        const bookedEnd = endMinutesByLead[apt.id as string]
+        return {
+          time: startTime,
+          client_name: apt.full_name,
+          suburb: apt.property_address_suburb || '',
+          ends_at: minutesToTime(
+            bookedEnd ?? timeToMinutes(startTime) + DEFAULT_APPOINTMENT_MINUTES
+          ),
+        }
+      })
 
       // 3. Determine previous appointment (the one ending just before requested time)
       const requestedMinutes = timeToMinutes(requested_time)
@@ -865,7 +995,8 @@ Deno.serve(async (req) => {
         destination_address,
         destination_suburb,
         days_ahead = 7,
-        duration_minutes = 60,
+        duration_minutes = DEFAULT_APPOINTMENT_MINUTES,
+        slot_interval_minutes = DEFAULT_SLOT_INTERVAL_MINUTES,
         preferred_date,
         preferred_time
       } = body as RecommendedDatesRequest
@@ -943,6 +1074,18 @@ Deno.serve(async (req) => {
       }
 
       // Group appointments by date
+      // Real booked windows, keyed by Melbourne date. The leads rows above still
+      // drive the suburb/count scoring; only the busy ranges come from here.
+      const bookings = await fetchMelbourneBookings(supabase, technician_id, dateStrings)
+      const busyByDate: Record<string, Array<[number, number]>> = {}
+      for (const booking of bookings) {
+        if (!busyByDate[booking.date]) busyByDate[booking.date] = []
+        busyByDate[booking.date].push([booking.startMinutes, booking.endMinutes])
+      }
+      const bookedLeadIds = new Set(
+        bookings.map((booking) => booking.leadId).filter((id): id is string => Boolean(id))
+      )
+
       const appointmentsByDate: Record<string, typeof appointments> = {}
       for (const apt of (appointments || [])) {
         const date = apt.inspection_scheduled_date
@@ -962,40 +1105,53 @@ Deno.serve(async (req) => {
         const dayAppts = appointmentsByDate[dateStr] || []
         const appointmentCount = dayAppts.length
 
-        // Calculate available slots (8 AM to 5 PM)
-        // Build booked ranges as [startMinutes, endMinutes] — assume each existing
-        // booking is 1 hour unless we have end_datetime info
-        // +15 min travel buffer after each booking to prevent back-to-back scheduling
-        const TRAVEL_BUFFER_MINUTES = 15
-        const bookedRanges = dayAppts.map(a => {
-          const startMin = timeToMinutes(a.scheduled_time || '09:00')
-          return [startMin, startMin + 60 + TRAVEL_BUFFER_MINUTES] as [number, number]
-        })
+        // A lead scheduled without a calendar_bookings row would otherwise be invisible
+        // here. None exist today; this keeps the coverage the leads-only version had.
+        const orphanRanges = dayAppts
+          .filter((apt) => apt.scheduled_time && !bookedLeadIds.has(apt.id as string))
+          .map((apt) => {
+            const startMin = timeToMinutes(apt.scheduled_time as string)
+            return [startMin, startMin + DEFAULT_APPOINTMENT_MINUTES] as [number, number]
+          })
 
-        // A candidate slot [candidateStart, candidateStart + duration] is available
-        // only if it doesn't overlap with any booked range
+        // Each window padded with a travel buffer so the engine never recommends a
+        // back-to-back arrival.
+        const bookedRanges = [...(busyByDate[dateStr] || []), ...orphanRanges].map(
+          ([startMin, endMin]) => [startMin, endMin + TRAVEL_BUFFER_MINUTES] as [number, number]
+        )
+
+        // Candidates step by slot_interval_minutes, so the grid is a parameter rather
+        // than a hardcoded hour.
         const durationMins = duration_minutes
         const availableSlots: string[] = []
-        for (let hour = 8; hour <= 17; hour++) {
-          const candidateStart = hour * 60
-          const candidateEnd = candidateStart + durationMins
-          // Don't let the inspection run past 6 PM (1080 minutes)
-          if (candidateEnd > 18 * 60) break
-          const hasOverlap = bookedRanges.some(
-            ([bStart, bEnd]) => candidateStart < bEnd && candidateEnd > bStart
-          )
-          if (!hasOverlap) {
-            availableSlots.push(`${hour.toString().padStart(2, '0')}:00`)
+        const lastCandidateStart = BUSINESS_END_MINUTES - durationMins
+        for (
+          let candidateStart = BUSINESS_START_MINUTES;
+          candidateStart <= lastCandidateStart;
+          candidateStart += slot_interval_minutes
+        ) {
+          if (!overlapsAny(candidateStart, candidateStart + durationMins, bookedRanges)) {
+            availableSlots.push(minutesToTime(candidateStart))
           }
         }
 
-        // On the preferred date, put preferred_time (or nearest hour slot) first
-        if (preferred_date && dateStr === preferred_date && preferred_time && availableSlots.length > 0) {
-          const hourOnly = preferred_time.split(':')[0].padStart(2, '0') + ':00'
-          const idx = availableSlots.indexOf(hourOnly)
-          if (idx > 0) {
-            availableSlots.splice(idx, 1)
-            availableSlots.unshift(hourOnly)
+        // The customer's exact preferred time, not the hour it happens to fall in.
+        // Truncating to HH:00 used to promote a slot the customer never asked for and
+        // to report a 09:07 preference as feasible whenever 09:00 was free.
+        let preferredTimeFeasible: boolean | undefined = undefined
+        if (preferred_date && dateStr === preferred_date && preferred_time) {
+          const preferredStart = timeToMinutes(preferred_time)
+          const preferredEnd = preferredStart + durationMins
+          preferredTimeFeasible =
+            preferredStart >= BUSINESS_START_MINUTES &&
+            preferredEnd <= BUSINESS_END_MINUTES &&
+            !overlapsAny(preferredStart, preferredEnd, bookedRanges)
+
+          if (preferredTimeFeasible) {
+            const exactSlot = minutesToTime(preferredStart)
+            const existingIndex = availableSlots.indexOf(exactSlot)
+            if (existingIndex >= 0) availableSlots.splice(existingIndex, 1)
+            availableSlots.unshift(exactSlot)
           }
         }
 
@@ -1053,20 +1209,13 @@ Deno.serve(async (req) => {
         }
 
         // Boost score if this is the customer's preferred date
-        let preferredTimeFeasible: boolean | undefined = undefined
         if (preferred_date && dateStr === preferred_date) {
           score += 30
 
-          // Check if preferred time slot is available (not blocked by existing bookings)
           if (preferred_time) {
-            const prefHour = preferred_time.split(':')[0].padStart(2, '0') + ':00'
-            if (availableSlots.includes(prefHour)) {
-              preferredTimeFeasible = true
-              reason = `Customer's preferred time available · ${reason}`
-            } else {
-              preferredTimeFeasible = false
-              reason = `Customer's preferred time conflicts — alternatives available`
-            }
+            reason = preferredTimeFeasible
+              ? `Customer's preferred time available · ${reason}`
+              : `Customer's preferred time conflicts — alternatives available`
           } else {
             reason = `Customer's preferred date · ${reason}`
           }
@@ -1187,8 +1336,8 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         error: 'Internal server error',
-        details: error.message
-      } as ErrorResponse),
+        details: error instanceof Error ? error.message : String(error)
+      } satisfies ErrorResponse),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
