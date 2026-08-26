@@ -54,6 +54,18 @@ interface LeadNotesSectionProps {
   leadName: string;
 }
 
+/**
+ * Staged files travel WITH the mutation rather than being read from component
+ * state inside mutationFn. onMutate clears pendingFiles to reset the composer,
+ * and react-query v5 hands a re-rendered mutationFn to the in-flight mutation —
+ * so a closure read there sees the already-emptied array and silently uploads
+ * nothing.
+ */
+interface AddNoteInput {
+  body: string;
+  files: File[];
+}
+
 const OPTIMISTIC_ID_PREFIX = 'optimistic-';
 const UNKNOWN_AUTHOR = 'Unknown';
 const STAFF_STALE_TIME_MS = 5 * 60_000;
@@ -222,9 +234,8 @@ export function LeadNotesSection({ leadId, leadName }: LeadNotesSectionProps) {
   };
 
   const addNote = useMutation({
-    mutationFn: async (body: string) => {
+    mutationFn: async ({ body, files }: AddNoteInput) => {
       const note = await createLeadNote({ leadId, body, authorName });
-      const files = pendingFiles;
 
       const mentionedIds = parseMentions(body, staff);
       const mentionedNames = staff
@@ -268,7 +279,7 @@ export function LeadNotesSection({ leadId, leadName }: LeadNotesSectionProps) {
 
       return note;
     },
-    onMutate: async (body) => {
+    onMutate: async ({ body, files }: AddNoteInput) => {
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<LeadNote[]>(queryKey) ?? [];
       const now = new Date().toISOString();
@@ -283,12 +294,11 @@ export function LeadNotesSection({ leadId, leadName }: LeadNotesSectionProps) {
         authorName,
       };
       queryClient.setQueryData<LeadNote[]>(queryKey, [optimistic, ...previous]);
-      const files = pendingFiles;
       setDraft('');
       setPendingFiles([]);
       return { previous, body, files };
     },
-    onError: (error, _body, context) => {
+    onError: (error, _input, context) => {
       if (context) {
         queryClient.setQueryData(queryKey, context.previous);
         setDraft(context.body);
@@ -325,11 +335,23 @@ export function LeadNotesSection({ leadId, leadName }: LeadNotesSectionProps) {
     onSettled: invalidateNotes,
   });
 
-  const handleDownload = async (attachment: LeadNoteAttachment) => {
+  const handleOpenAttachment = async (attachment: LeadNoteAttachment) => {
+    // Opened synchronously, while the tap is still the active user gesture:
+    // iOS Safari blocks window.open once an await has ended that window, which
+    // made the button look dead on exactly the phones the techs use. `noopener`
+    // is omitted deliberately — it makes window.open return null, and we need
+    // the handle to navigate; opener is severed manually instead.
+    const tab = window.open('', '_blank');
+    if (tab) tab.opener = null;
+
     try {
       const url = await getAttachmentSignedUrl(attachment.storage_path);
-      window.open(url, '_blank', 'noopener,noreferrer');
+      // No `download` option on the signed URL, so images and PDFs render
+      // inline with their stored content-type instead of forcing a save.
+      if (tab) tab.location.replace(url);
+      else window.location.href = url;
     } catch (error) {
+      tab?.close();
       toast.error(error instanceof Error ? error.message : 'Could not open that file');
     }
   };
@@ -338,7 +360,7 @@ export function LeadNotesSection({ leadId, leadName }: LeadNotesSectionProps) {
 
   const handleSubmit = () => {
     if (!canSubmit) return;
-    addNote.mutate(draft);
+    addNote.mutate({ body: draft, files: pendingFiles });
   };
 
   const handleConfirmDelete = () => {
@@ -555,8 +577,8 @@ export function LeadNotesSection({ leadId, leadName }: LeadNotesSectionProps) {
                               </span>
                               <button
                                 type="button"
-                                onClick={() => handleDownload(attachment)}
-                                aria-label={`Download ${attachment.file_name}`}
+                                onClick={() => handleOpenAttachment(attachment)}
+                                aria-label={`Open ${attachment.file_name}`}
                                 className="h-12 w-12 flex flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-slate-100 hover:text-foreground"
                               >
                                 <Download className="h-4 w-4" />
