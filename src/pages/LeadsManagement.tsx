@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useDebounce } from '@/hooks/useDebounce';
+import { applyLeadSearch } from '@/lib/leadSearch';
 import { generateInspectionPDF } from '@/lib/api/pdfGeneration';
 import { sendEmail, buildReportApprovedHtml } from '@/lib/api/notifications';
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
@@ -135,6 +137,7 @@ async function fetchTechnicianNames(userIds: string[]): Promise<Record<string, s
 // ============================================================================
 
 const PAGE_SIZE = 50;
+const SEARCH_DEBOUNCE_MS = 300;
 
 // Only fetch columns needed for the lead cards
 const LEAD_COLUMNS = 'id,full_name,email,phone,property_address_street,property_address_suburb,property_address_state,property_address_postcode,status,lead_source,created_at,updated_at,quoted_amount,issue_description,notes,lead_number,inspection_scheduled_date,scheduled_time,assigned_to,job_scheduled_date' as const;
@@ -152,6 +155,9 @@ const LeadsManagement = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
+  // Drops responses from superseded loads so fast typing can't paint stale results
+  const loadRequestRef = useRef(0);
   const [statusFilter, setStatusFilter] = useState(
     isValidStatusFilter(statusParam) ? statusParam : 'all'
   );
@@ -336,7 +342,7 @@ const LeadsManagement = () => {
 
   useEffect(() => {
     loadLeads();
-  }, [statusFilter, sortBy]);
+  }, [statusFilter, sortBy, debouncedSearchQuery]);
 
   const transformLead = (lead: any): TransformedLead => ({
     id: lead.id,
@@ -360,16 +366,22 @@ const LeadsManagement = () => {
     assigned_to: lead.assigned_to,
   });
 
+  // Same server-side filter as the topbar search (useLeadSearch), so both
+  // surfaces return the same leads for the same query — searching over a
+  // client-side page slice missed anything beyond the first PAGE_SIZE rows.
+  const buildLeadsQuery = () =>
+    applyLeadSearch(
+      supabase.from('leads').select(LEAD_COLUMNS).is('archived_at', null),
+      debouncedSearchQuery,
+    ).order('created_at', { ascending: false });
+
   const loadLeads = async () => {
+    const requestId = ++loadRequestRef.current;
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from('leads')
-        .select(LEAD_COLUMNS)
-        .is('archived_at', null)
-        .order('created_at', { ascending: false })
-        .limit(PAGE_SIZE);
+      const { data, error } = await buildLeadsQuery().limit(PAGE_SIZE);
+      if (requestId !== loadRequestRef.current) return;
 
       if (error) {
         console.error('Error loading leads:', error);
@@ -385,6 +397,7 @@ const LeadsManagement = () => {
         // Batch-fetch technician names for any assigned_to UUIDs we see
         const technicianIds = [...new Set(rows.map((r: any) => r.assigned_to).filter(Boolean))];
         const technicianNameMap = await fetchTechnicianNames(technicianIds as string[]);
+        if (requestId !== loadRequestRef.current) return;
         setLeads(rows.map((r: any) => ({
           ...transformLead(r),
           assigned_technician: r.assigned_to ? technicianNameMap[r.assigned_to] : undefined,
@@ -392,6 +405,7 @@ const LeadsManagement = () => {
         setHasMore(rows.length === PAGE_SIZE);
       }
     } catch (err) {
+      if (requestId !== loadRequestRef.current) return;
       console.error('Unexpected error loading leads:', err);
       toast({
         title: 'Error',
@@ -401,7 +415,7 @@ const LeadsManagement = () => {
       setLeads([]);
       setHasMore(false);
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestRef.current) setLoading(false);
     }
   };
 
@@ -409,12 +423,7 @@ const LeadsManagement = () => {
     setLoadingMore(true);
 
     try {
-      const { data, error } = await supabase
-        .from('leads')
-        .select(LEAD_COLUMNS)
-        .is('archived_at', null)
-        .order('created_at', { ascending: false })
-        .range(leads.length, leads.length + PAGE_SIZE - 1);
+      const { data, error } = await buildLeadsQuery().range(leads.length, leads.length + PAGE_SIZE - 1);
 
       if (error) {
         console.error('Error loading more leads:', error);
@@ -440,18 +449,6 @@ const LeadsManagement = () => {
 
     if (statusFilter !== 'all') {
       filtered = filtered.filter(lead => lead.status === statusFilter);
-    }
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        lead =>
-          lead.name.toLowerCase().includes(query) ||
-          lead.property.toLowerCase().includes(query) ||
-          lead.suburb.toLowerCase().includes(query) ||
-          lead.email.toLowerCase().includes(query) ||
-          lead.phone.includes(searchQuery)
-      );
     }
 
     filtered.sort((a, b) => {

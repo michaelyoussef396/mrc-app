@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { TechnicianBottomNav } from '@/components/technician';
 import { useTechnicianJobs, TabFilter, TechnicianJob } from '@/hooks/useTechnicianJobs';
 import { formatWeekdayDateAU } from '@/lib/dateUtils';
+import { isRemediationJob } from '@/lib/utils/jobType';
 import {
   AlertCircle,
   ArrowRight,
@@ -84,11 +85,6 @@ function getJobTypeLabel(eventType: string): string {
     return 'Remediation Job';
   }
   return 'Mould Inspection';
-}
-
-function isRemediationJob(eventType: string): boolean {
-  const t = eventType.toLowerCase();
-  return t.includes('job') || t.includes('removal');
 }
 
 function getButtonLabel(eventType: string, status: string): string {

@@ -13,6 +13,7 @@ import {
   Job,
 } from '@/components/technician';
 import { AlertTriangle, ArrowRight, MapPin } from 'lucide-react';
+import { isRemediationJob } from '@/lib/utils/jobType';
 
 /** Map a TechnicianJob (from Supabase) to the Job shape the UI components expect. */
 function mapToJob(tj: TechnicianJob): Job {
@@ -63,7 +64,11 @@ export default function TechnicianDashboard() {
   const handleStartInspection = (jobId: string) => {
     const tj = techJobMap.get(jobId);
     const leadId = tj?.leadId || jobId;
-    navigate(`/technician/inspection?leadId=${leadId}`);
+    if (isRemediationJob(tj?.eventType)) {
+      navigate(`/technician/job-completion/${leadId}`);
+    } else {
+      navigate(`/technician/inspection?leadId=${leadId}`);
+    }
   };
 
   const handleViewLead = (jobId: string) => {
