@@ -2375,3 +2375,33 @@ shipped since the 24 Aug recon and what was found while verifying it. Live reads
       has `"files": []` and only project references, so `tsc --noEmit` checks nothing. The real
       commands are `npx tsc -p tsconfig.app.json --noEmit` for the app (135 pre-existing errors as
       of this date) and `deno check <path>` for each Edge Function.
+
+## 26 Aug 2026 — report price now quoted ex GST
+
+- [ ] **Add a stored `option_1_subtotal_ex_gst` column.** The customer report now quotes prices
+      **ex GST** with a `+GST` suffix. Single-option modes read `inspections.subtotal_ex_gst`
+      directly, but **Both mode has no ex-GST subtotal column for Option 1**, so
+      `generate-inspection-pdf/index.ts` sums `option_1_labour_ex_gst + option_1_equipment_ex_gst`
+      inline (null-safe, `?? 0`).
+
+      **This breaks the standing principle that the Edge Function computes nothing and only
+      formats stored values** — it is the first pricing arithmetic in that file. Accepted
+      deliberately on 26 Aug 2026 to avoid a migration late in the day; recorded so it is a known
+      exception rather than drift.
+
+      Proper fix: add `option_1_subtotal_ex_gst`, populate it from the same writers that set
+      `option_1_labour_ex_gst` / `option_1_equipment_ex_gst` (`TechnicianInspectionForm.handleSave`
+      and `ViewReportPDF.handleCostSave`), backfill existing Both-mode rows, then reduce the EF
+      back to a single column read. Requires a migration — generated file, applied by hand.
+
+      Note the two components are NULL on most rows today (`option_1_equipment_ex_gst` on 12 of
+      13, `option_1_labour_ex_gst` on 7), so any backfill must handle that.
+
+- [ ] **Open question: equipment day rates carry no GST qualifier.** The report renders
+      `$119/day`, `$46/day`, `$5/day`, `$100/day` (`generate-inspection-pdf/index.ts:1662-1668`)
+      with **no** `+GST` or `ex GST` label, while the quoted price and the waste-disposal line now
+      both read `… +GST`. The rates are genuinely ex GST, so the figures are right — but one page
+      mixes a labelled and an unlabelled basis, which a customer could read either way.
+
+      Deliberately left unchanged on 26 Aug 2026. Needs a wording decision from Michael before
+      anyone "tidies" it: add `+GST` to the equipment lines, or leave them bare as day rates.

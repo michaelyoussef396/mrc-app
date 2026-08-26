@@ -83,8 +83,8 @@ This document maps template variables to their database sources and defines the 
 | Variable | Source | Transform |
 |----------|--------|-----------|
 | `{{investment_total}}` | Calculated from quote | Format as $X,XXX.XX |
-| `{{option_1_price}}` | `quotes.option_1_total` | Format as $X,XXX.XX — value is GST-inclusive, never suffix "+GST" |
-| `{{option_2_price}}` | `quotes.option_2_total` | Format as $X,XXX.XX — value is GST-inclusive, never suffix "+GST" |
+| `{{option_1_price}}` | `quotes.option_1_total` | Format as $X,XXX.XX +GST — value is GST-EXCLUSIVE; the EF appends the suffix |
+| `{{option_2_price}}` | `quotes.option_2_total` | Format as $X,XXX.XX +GST — value is GST-EXCLUSIVE; the EF appends the suffix |
 | `{{equipment_dehumidifier}}` | Static | $132/day |
 | `{{equipment_air_mover}}` | Static | $46/day |
 | `{{equipment_rcd_box}}` | Static | $5/day |
