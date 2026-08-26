@@ -217,4 +217,20 @@ describe('AdminHeader notification coherence', () => {
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['unread-count'] })
     )
   })
+
+  it('should badge a high-priority notification as High', async () => {
+    renderAdminHeader()
+    await openNotificationDropdown()
+
+    const list = await screen.findByTestId('notification-list')
+    expect(within(list).getByText('High')).toBeInTheDocument()
+  })
+
+  it('should not badge a normal-priority notification', async () => {
+    renderAdminHeader()
+    await openNotificationDropdown()
+
+    const list = await screen.findByTestId('notification-list')
+    expect(within(list).getAllByText('High')).toHaveLength(1)
+  })
 })

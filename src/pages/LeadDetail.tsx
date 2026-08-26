@@ -96,6 +96,7 @@ import { generateJobReportPdf } from "@/lib/api/jobReportPdf";
 import type { JobCompletionRow } from "@/types/jobCompletion";
 import { STATUS_FLOW, ALL_STATUSES, LeadStatus } from "@/lib/statusFlow";
 import { sendSlackNotification, sendGoogleReviewEmail } from "@/lib/api/notifications";
+import { postLeadNoteToSlack } from "@/lib/api/leadNoteSlack";
 import { useActivityTimeline } from "@/hooks/useActivityTimeline";
 import { captureBusinessError } from "@/lib/sentry";
 import { ActivityTimeline } from "@/components/dashboard/ActivityTimeline";
@@ -492,6 +493,16 @@ export default function LeadDetail() {
     if (success) {
       setNotesValue("");
       refetch();
+      // The only change to this frozen surface: a Slack post. Storage, the diff
+      // and the UI are untouched — useLeadUpdate splits internal_notes out of the
+      // field diff, so fieldChanges is empty for a note-only save and nothing
+      // else fires. No double post.
+      await postLeadNoteToSlack({
+        leadId: lead.id,
+        leadName: lead.full_name || "Unknown",
+        authorName,
+        body: trimmed,
+      });
     }
     setIsSavingNotes(false);
   };
@@ -2006,7 +2017,7 @@ export default function LeadDetail() {
 
         {/* Lead notes feed (lead_notes table) — both roles read and write.
             Separate from the frozen internal_notes log above. */}
-        <LeadNotesSection leadId={lead.id} />
+        <LeadNotesSection leadId={lead.id} leadName={lead.full_name || "Unknown"} />
 
         {/* Quote/Cost Estimate - if available */}
         {inspection?.total_inc_gst > 0 && (
