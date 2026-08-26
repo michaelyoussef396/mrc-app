@@ -1810,17 +1810,17 @@ function generateReportHtml(
   if (optionSelected === 3) {
     // "Both" mode: show each option's stored price
     const opt1Price = inspection.option_1_total_inc_gst
-      ? `${formatCurrency(inspection.option_1_total_inc_gst)} +GST`
+      ? formatCurrency(inspection.option_1_total_inc_gst)
       : 'N/A'
     const opt2Price = inspection.option_2_total_inc_gst
-      ? `${formatCurrency(inspection.option_2_total_inc_gst)} +GST`
+      ? formatCurrency(inspection.option_2_total_inc_gst)
       : 'N/A'
     html = html.replace(/\{\{option_1_price\}\}/g, opt1Price)
     html = html.replace(/\{\{option_2_price\}\}/g, opt2Price)
   } else {
     // Single option: one price, one N/A
-    html = html.replace(/\{\{option_1_price\}\}/g, optionSelected === 2 ? 'N/A' : `${formatCurrency(inspection.total_inc_gst)} +GST`)
-    html = html.replace(/\{\{option_2_price\}\}/g, optionSelected === 2 ? `${formatCurrency(inspection.total_inc_gst)} +GST` : 'N/A')
+    html = html.replace(/\{\{option_1_price\}\}/g, optionSelected === 2 ? 'N/A' : formatCurrency(inspection.total_inc_gst))
+    html = html.replace(/\{\{option_2_price\}\}/g, optionSelected === 2 ? formatCurrency(inspection.total_inc_gst) : 'N/A')
   }
   // Waste disposal — job-level pass-through. In Both mode the option totals deliberately
   // exclude it (billed once, whichever option proceeds), so the line says so explicitly.
