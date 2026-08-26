@@ -2354,7 +2354,7 @@ shipped since the 24 Aug recon and what was found while verifying it. Live reads
 
 ## 26 Aug 2026 — logged, not fixed
 
-- [ ] **Pre-existing `deno check` failure in `generate-inspection-pdf`.** `supabase/functions/generate-inspection-pdf/index.ts:1730` reads
+- [x] **FIXED 27 Aug 2026 — `deno check` failure in `generate-inspection-pdf`.** `supabase/functions/generate-inspection-pdf/index.ts:1730` reads
       `inspection.subfloor_required`, but the local `Inspection` interface in that file does not
       declare the field, so `deno check` fails with
       `TS2339: Property 'subfloor_required' does not exist on type 'Inspection'`.
@@ -2368,8 +2368,9 @@ shipped since the 24 Aug recon and what was found while verifying it. Live reads
       introduced by that change. Logged here so it is not rediscovered and mis-triaged as a new
       regression.
 
-      Fix is a one-line addition to the interface (`subfloor_required?: boolean | null`).
-      Deliberately left out of the label-fix PR to keep that change display-only.
+      **Fixed** by declaring `subfloor_required: boolean | null` on the interface, folded into
+      the ex-GST price PR (#99) since that PR was already editing the same interface.
+      `deno check` on this Edge Function now exits 0 with no errors.
 
       **Note:** `npm run typecheck` does not cover Edge Functions at all — the root `tsconfig.json`
       has `"files": []` and only project references, so `tsc --noEmit` checks nothing. The real

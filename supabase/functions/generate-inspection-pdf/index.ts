@@ -120,6 +120,9 @@ interface Inspection {
   total_inc_gst: number
   discount_percent: number
   waste_disposal_amount: string
+  // Section gate: only an explicit false strips the Subfloor page. Null (legacy rows,
+  // written before the toggle existed) renders it, matching the check at generateReportHtml.
+  subfloor_required: boolean | null
   hepa_vac: boolean
   antimicrobial: boolean
   stain_removing_antimicrobial: boolean
