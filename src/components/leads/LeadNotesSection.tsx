@@ -66,6 +66,17 @@ interface AddNoteInput {
   files: File[];
 }
 
+/**
+ * Body for a note that carries files but no typed text. Attaching a file
+ * without a comment is a normal thing to want to do, but `lead_notes` enforces
+ * CHECK (body ~ '\\S'), so an empty body is impossible without a migration —
+ * one is generated instead. File names are not repeated here: they already
+ * render as attachment rows directly beneath the body.
+ */
+function describeAttachments(files: File[]): string {
+  return files.length === 1 ? `Attached ${files[0].name}` : `Attached ${files.length} files`;
+}
+
 const OPTIMISTIC_ID_PREFIX = 'optimistic-';
 const UNKNOWN_AUTHOR = 'Unknown';
 const STAFF_STALE_TIME_MS = 5 * 60_000;
@@ -356,11 +367,12 @@ export function LeadNotesSection({ leadId, leadName }: LeadNotesSectionProps) {
     }
   };
 
-  const canSubmit = draft.trim().length > 0 && !addNote.isPending;
+  const canSubmit = (draft.trim().length > 0 || pendingFiles.length > 0) && !addNote.isPending;
 
   const handleSubmit = () => {
     if (!canSubmit) return;
-    addNote.mutate({ body: draft, files: pendingFiles });
+    const typed = draft.trim();
+    addNote.mutate({ body: typed || describeAttachments(pendingFiles), files: pendingFiles });
   };
 
   const handleConfirmDelete = () => {
@@ -408,7 +420,7 @@ export function LeadNotesSection({ leadId, leadName }: LeadNotesSectionProps) {
               onBlur={() => setPickerDismissed(true)}
               rows={3}
               maxLength={LEAD_NOTE_MAX_LENGTH}
-              placeholder="What happened, what's next… type @ to mention someone"
+              placeholder="What happened, what's next… type @ to mention someone, or just attach a file"
               disabled={addNote.isPending}
               role="combobox"
               aria-expanded={isPickerOpen}
