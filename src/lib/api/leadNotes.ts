@@ -30,13 +30,28 @@ export interface LeadNote extends LeadNoteRow {
   authorName: string | null;
 }
 
+/** One @mention on a note. fullName resolves through get_staff_names. */
+export interface NoteMention {
+  noteId: string;
+  userId: string;
+  fullName: string | null;
+}
+
+/** A staff member who can be @mentioned. */
+export interface MentionCandidate {
+  id: string;
+  fullName: string;
+}
+
 export type LeadNoteErrorCode =
   | 'EMPTY_BODY'
   | 'BODY_TOO_LONG'
   | 'NOT_AUTHENTICATED'
   | 'INSERT_FAILED'
   | 'LIST_FAILED'
-  | 'DELETE_FAILED';
+  | 'DELETE_FAILED'
+  | 'MENTION_FAILED'
+  | 'STAFF_LIST_FAILED';
 
 export class LeadNoteError extends Error {
   readonly code: LeadNoteErrorCode;
@@ -52,7 +67,10 @@ export class LeadNoteError extends Error {
 export const LEAD_NOTE_MAX_LENGTH = 10000;
 
 const LEAD_NOTES_TABLE = 'lead_notes';
+const LEAD_NOTE_MENTIONS_TABLE = 'lead_note_mentions';
+const USER_ROLES_TABLE = 'user_roles';
 const STAFF_NAMES_RPC = 'get_staff_names';
+const ADD_MENTIONS_RPC = 'add_lead_note_mentions';
 const LEAD_NOTE_COLUMNS = 'id, lead_id, author_id, body, created_at, updated_at, deleted_at';
 
 interface StaffNameRow {
@@ -170,4 +188,175 @@ async function fetchStaffNames(authorIds: string[]): Promise<Map<string, string>
     if (row.full_name) names.set(row.id, row.full_name);
   }
   return names;
+}
+
+// ---------------------------------------------------------------------------
+// @mentions
+//
+// public.profiles is own-row-only, so names for anyone but yourself can only
+// come from get_staff_names (SECURITY DEFINER). user_roles, by contrast, is
+// readable by any authenticated user, so the candidate id list is a plain
+// select and only the names need the RPC.
+// ---------------------------------------------------------------------------
+
+interface MentionRange {
+  start: number;
+  end: number;
+  name: string;
+}
+
+/**
+ * Locate "@Full Name" spans in a note body.
+ *
+ * Candidates are matched longest-first and claimed spans are never reused, so
+ * a staff member called "Clay" can never match inside "@Clayton Jenkins".
+ * Matching is case-insensitive; offsets index the ORIGINAL body.
+ */
+function findMentionRanges(body: string, names: string[]): MentionRange[] {
+  const lower = body.toLowerCase();
+  const ranges: MentionRange[] = [];
+  const ordered = [...names]
+    .filter((name) => name.trim().length > 0)
+    .sort((a, b) => b.trim().length - a.trim().length);
+
+  for (const name of ordered) {
+    const token = `@${name.trim().toLowerCase()}`;
+    let from = 0;
+    for (;;) {
+      const start = lower.indexOf(token, from);
+      if (start === -1) break;
+      const end = start + token.length;
+      const overlaps = ranges.some((range) => start < range.end && end > range.start);
+      if (!overlaps) ranges.push({ start, end, name });
+      from = end;
+    }
+  }
+
+  return ranges.sort((a, b) => a.start - b.start);
+}
+
+/**
+ * Resolve the "@Full Name" tokens in a body to staff user ids. Two staff
+ * sharing a full name both resolve, so an ambiguous mention over-notifies
+ * rather than silently notifying the wrong person.
+ */
+export function parseMentions(body: string, staff: MentionCandidate[]): string[] {
+  const idsByName = new Map<string, string[]>();
+  for (const candidate of staff) {
+    const key = candidate.fullName.trim().toLowerCase();
+    idsByName.set(key, [...(idsByName.get(key) ?? []), candidate.id]);
+  }
+
+  const ids = new Set<string>();
+  for (const range of findMentionRanges(body, staff.map((candidate) => candidate.fullName))) {
+    for (const id of idsByName.get(range.name.trim().toLowerCase()) ?? []) ids.add(id);
+  }
+  return Array.from(ids);
+}
+
+export interface NoteBodySegment {
+  text: string;
+  isMention: boolean;
+}
+
+/**
+ * Split a body into plain and mention segments for rendering. Returns the
+ * original text as a single plain segment when nothing matches, so the caller
+ * can always render segments rather than branching.
+ */
+export function segmentNoteBody(body: string, mentionNames: string[]): NoteBodySegment[] {
+  const ranges = findMentionRanges(body, mentionNames);
+  if (ranges.length === 0) return [{ text: body, isMention: false }];
+
+  const segments: NoteBodySegment[] = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    if (range.start > cursor) {
+      segments.push({ text: body.slice(cursor, range.start), isMention: false });
+    }
+    segments.push({ text: body.slice(range.start, range.end), isMention: true });
+    cursor = range.end;
+  }
+  if (cursor < body.length) segments.push({ text: body.slice(cursor), isMention: false });
+  return segments;
+}
+
+/** Every staff member who can be @mentioned, by display name. */
+export async function listStaffForMentions(): Promise<MentionCandidate[]> {
+  const { data, error } = await db.from(USER_ROLES_TABLE).select('user_id');
+
+  if (error) {
+    captureBusinessError('Failed to list mention candidates', { error: error.message });
+    throw new LeadNoteError('STAFF_LIST_FAILED', `Failed to load the team list: ${error.message}`);
+  }
+
+  const ids = Array.from(
+    new Set(
+      ((data ?? []) as Array<{ user_id: string | null }>)
+        .map((row) => row.user_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  if (ids.length === 0) return [];
+
+  const names = await fetchStaffNames(ids);
+  return ids
+    .filter((id) => names.has(id))
+    .map((id) => ({ id, fullName: names.get(id) as string }))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+}
+
+/**
+ * Mentions for every live note on a lead, grouped by note id. Keyed on
+ * lead_id (not note ids) so it runs in parallel with listLeadNotes instead of
+ * waterfalling behind it. Failure degrades to an empty map — mentions are
+ * decoration, and the feed must still render without them.
+ */
+export async function listNoteMentions(leadId: string): Promise<Map<string, NoteMention[]>> {
+  const byNote = new Map<string, NoteMention[]>();
+
+  const { data, error } = await db
+    .from(LEAD_NOTE_MENTIONS_TABLE)
+    .select('note_id, mentioned_user_id')
+    .eq('lead_id', leadId);
+
+  if (error) {
+    captureBusinessError('Failed to list lead note mentions', { leadId, error: error.message });
+    return byNote;
+  }
+
+  const rows = (data ?? []) as Array<{ note_id: string; mentioned_user_id: string }>;
+  if (rows.length === 0) return byNote;
+
+  const names = await fetchStaffNames(rows.map((row) => row.mentioned_user_id));
+  for (const row of rows) {
+    const mention: NoteMention = {
+      noteId: row.note_id,
+      userId: row.mentioned_user_id,
+      fullName: names.get(row.mentioned_user_id) ?? null,
+    };
+    byNote.set(row.note_id, [...(byNote.get(row.note_id) ?? []), mention]);
+  }
+  return byNote;
+}
+
+/**
+ * Persist the mention linkage and notify each mentioned person, via the
+ * author-only SECURITY DEFINER RPC. Returns the number of people notified.
+ * The RPC is idempotent: calling it twice never re-notifies.
+ */
+export async function addLeadNoteMentions(noteId: string, userIds: string[]): Promise<number> {
+  if (userIds.length === 0) return 0;
+
+  const { data, error } = await db.rpc(ADD_MENTIONS_RPC, {
+    p_note_id: noteId,
+    p_user_ids: userIds,
+  });
+
+  if (error) {
+    captureBusinessError('Failed to persist lead note mentions', { noteId, error: error.message });
+    throw new LeadNoteError('MENTION_FAILED', `Note saved, but the mentions could not be recorded: ${error.message}`);
+  }
+
+  return typeof data === 'number' ? data : 0;
 }
