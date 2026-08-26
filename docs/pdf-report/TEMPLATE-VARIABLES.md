@@ -102,8 +102,8 @@
 
 | Variable | Description | Data Type | Example | Required |
 |----------|-------------|-----------|---------|----------|
-| `{{option_1_price}}` | Surface treatment price | currency | $1,850.00 (inc GST) | Yes |
-| `{{option_2_price}}` | Comprehensive treatment price | currency | $3,250.00 (inc GST) | Yes |
+| `{{option_1_price}}` | Surface treatment price | currency | $1,850.00 +GST | Yes |
+| `{{option_2_price}}` | Comprehensive treatment price | currency | $3,250.00 +GST | Yes |
 | `{{equipment_dehumidifier}}` | Dehumidifier daily rate | currency | $132/day | Yes |
 | `{{equipment_air_mover}}` | Air mover daily rate | currency | $46/day | Yes |
 | `{{equipment_rcd_box}}` | RCD box daily rate | currency | $5/day | Yes |

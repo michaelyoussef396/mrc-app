@@ -120,6 +120,9 @@ interface Inspection {
   total_inc_gst: number
   discount_percent: number
   waste_disposal_amount: string
+  // Section gate: only an explicit false strips the Subfloor page. Null (legacy rows,
+  // written before the toggle existed) renders it, matching the check at generateReportHtml.
+  subfloor_required: boolean | null
   hepa_vac: boolean
   antimicrobial: boolean
   stain_removing_antimicrobial: boolean
@@ -135,6 +138,9 @@ interface Inspection {
   option_selected: number | null
   option_1_total_inc_gst: number | null
   option_2_total_inc_gst: number | null
+  // Both-mode Option 1 ex-GST breakdown. Null on rows saved before these columns existed.
+  option_1_labour_ex_gst: number | null
+  option_1_equipment_ex_gst: number | null
   pdf_url?: string
   pdf_version: number
   // Page 2 AI-generated fields
@@ -1807,20 +1813,27 @@ function generateReportHtml(
   html = html.replace(/\{\{option_1_steps\}\}/g, opt1StepsHtml)
   html = html.replace(/\{\{option_2_steps\}\}/g, opt2StepsHtml)
 
+  // Quoted prices are shown EX GST with an explicit "+GST" suffix, matching the waste line
+  // below. The suffix sits INSIDE each ternary so the option that was not quoted renders a
+  // bare 'N/A' and never "N/A +GST" — which is why it cannot live in the template.
+  const withGst = (exGst: number) => `${formatCurrency(exGst)} +GST`
+
   if (optionSelected === 3) {
-    // "Both" mode: show each option's stored price
-    const opt1Price = inspection.option_1_total_inc_gst
-      ? formatCurrency(inspection.option_1_total_inc_gst)
-      : 'N/A'
-    const opt2Price = inspection.option_2_total_inc_gst
-      ? formatCurrency(inspection.option_2_total_inc_gst)
-      : 'N/A'
+    // "Both" mode: Option 1 carries its own stored ex-GST breakdown; Option 2 is the whole
+    // job, so it is the job subtotal. There is no option_1 subtotal column, so the two
+    // components are summed here — null-safe, because rows saved before those columns
+    // existed leave them empty. A stored column is the right fix; see docs/TODO.md.
+    const opt1ExGst = Number(inspection.option_1_labour_ex_gst ?? 0)
+      + Number(inspection.option_1_equipment_ex_gst ?? 0)
+    const opt1Price = opt1ExGst > 0 ? withGst(opt1ExGst) : 'N/A'
+    const opt2Price = inspection.subtotal_ex_gst ? withGst(inspection.subtotal_ex_gst) : 'N/A'
     html = html.replace(/\{\{option_1_price\}\}/g, opt1Price)
     html = html.replace(/\{\{option_2_price\}\}/g, opt2Price)
   } else {
     // Single option: one price, one N/A
-    html = html.replace(/\{\{option_1_price\}\}/g, optionSelected === 2 ? 'N/A' : formatCurrency(inspection.total_inc_gst))
-    html = html.replace(/\{\{option_2_price\}\}/g, optionSelected === 2 ? formatCurrency(inspection.total_inc_gst) : 'N/A')
+    const price = inspection.subtotal_ex_gst ? withGst(inspection.subtotal_ex_gst) : 'N/A'
+    html = html.replace(/\{\{option_1_price\}\}/g, optionSelected === 2 ? 'N/A' : price)
+    html = html.replace(/\{\{option_2_price\}\}/g, optionSelected === 2 ? price : 'N/A')
   }
   // Waste disposal — job-level pass-through. In Both mode the option totals deliberately
   // exclude it (billed once, whichever option proceeds), so the line says so explicitly.

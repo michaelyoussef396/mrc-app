@@ -2351,3 +2351,58 @@ shipped since the 24 Aug recon and what was found while verifying it. Live reads
       confirm auto mode is OFF") are not working. Needs a hook (`.claude/settings.json`
       `PreToolUse` / session-start guard) rather than another instruction.
 
+
+## 26 Aug 2026 — logged, not fixed
+
+- [x] **FIXED 27 Aug 2026 — `deno check` failure in `generate-inspection-pdf`.** `supabase/functions/generate-inspection-pdf/index.ts:1730` reads
+      `inspection.subfloor_required`, but the local `Inspection` interface in that file does not
+      declare the field, so `deno check` fails with
+      `TS2339: Property 'subfloor_required' does not exist on type 'Inspection'`.
+
+      **Type-only. No runtime impact, and it does NOT block deployment** — `supabase functions
+      deploy` bundles with esbuild and never runs `deno check`, so the EF ships and behaves
+      correctly (the row genuinely carries the column; only the interface is incomplete).
+
+      Confirmed pre-existing on 26 Aug 2026 while shipping the "+GST" label fix: the identical
+      error at the identical line reproduces on unmodified `origin/main`, so it was **not**
+      introduced by that change. Logged here so it is not rediscovered and mis-triaged as a new
+      regression.
+
+      **Fixed** by declaring `subfloor_required: boolean | null` on the interface, folded into
+      the ex-GST price PR (#99) since that PR was already editing the same interface.
+      `deno check` on this Edge Function now exits 0 with no errors.
+
+      **Note:** `npm run typecheck` does not cover Edge Functions at all — the root `tsconfig.json`
+      has `"files": []` and only project references, so `tsc --noEmit` checks nothing. The real
+      commands are `npx tsc -p tsconfig.app.json --noEmit` for the app (135 pre-existing errors as
+      of this date) and `deno check <path>` for each Edge Function.
+
+## 26 Aug 2026 — report price now quoted ex GST
+
+- [ ] **Add a stored `option_1_subtotal_ex_gst` column.** The customer report now quotes prices
+      **ex GST** with a `+GST` suffix. Single-option modes read `inspections.subtotal_ex_gst`
+      directly, but **Both mode has no ex-GST subtotal column for Option 1**, so
+      `generate-inspection-pdf/index.ts` sums `option_1_labour_ex_gst + option_1_equipment_ex_gst`
+      inline (null-safe, `?? 0`).
+
+      **This breaks the standing principle that the Edge Function computes nothing and only
+      formats stored values** — it is the first pricing arithmetic in that file. Accepted
+      deliberately on 26 Aug 2026 to avoid a migration late in the day; recorded so it is a known
+      exception rather than drift.
+
+      Proper fix: add `option_1_subtotal_ex_gst`, populate it from the same writers that set
+      `option_1_labour_ex_gst` / `option_1_equipment_ex_gst` (`TechnicianInspectionForm.handleSave`
+      and `ViewReportPDF.handleCostSave`), backfill existing Both-mode rows, then reduce the EF
+      back to a single column read. Requires a migration — generated file, applied by hand.
+
+      Note the two components are NULL on most rows today (`option_1_equipment_ex_gst` on 12 of
+      13, `option_1_labour_ex_gst` on 7), so any backfill must handle that.
+
+- [ ] **Open question: equipment day rates carry no GST qualifier.** The report renders
+      `$119/day`, `$46/day`, `$5/day`, `$100/day` (`generate-inspection-pdf/index.ts:1662-1668`)
+      with **no** `+GST` or `ex GST` label, while the quoted price and the waste-disposal line now
+      both read `… +GST`. The rates are genuinely ex GST, so the figures are right — but one page
+      mixes a labelled and an unlabelled basis, which a customer could read either way.
+
+      Deliberately left unchanged on 26 Aug 2026. Needs a wording decision from Michael before
+      anyone "tidies" it: add `+GST` to the equipment lines, or leave them bare as day rates.
