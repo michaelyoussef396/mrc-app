@@ -2351,3 +2351,27 @@ shipped since the 24 Aug recon and what was found while verifying it. Live reads
       confirm auto mode is OFF") are not working. Needs a hook (`.claude/settings.json`
       `PreToolUse` / session-start guard) rather than another instruction.
 
+
+## 26 Aug 2026 — logged, not fixed
+
+- [ ] **Pre-existing `deno check` failure in `generate-inspection-pdf`.** `supabase/functions/generate-inspection-pdf/index.ts:1730` reads
+      `inspection.subfloor_required`, but the local `Inspection` interface in that file does not
+      declare the field, so `deno check` fails with
+      `TS2339: Property 'subfloor_required' does not exist on type 'Inspection'`.
+
+      **Type-only. No runtime impact, and it does NOT block deployment** — `supabase functions
+      deploy` bundles with esbuild and never runs `deno check`, so the EF ships and behaves
+      correctly (the row genuinely carries the column; only the interface is incomplete).
+
+      Confirmed pre-existing on 26 Aug 2026 while shipping the "+GST" label fix: the identical
+      error at the identical line reproduces on unmodified `origin/main`, so it was **not**
+      introduced by that change. Logged here so it is not rediscovered and mis-triaged as a new
+      regression.
+
+      Fix is a one-line addition to the interface (`subfloor_required?: boolean | null`).
+      Deliberately left out of the label-fix PR to keep that change display-only.
+
+      **Note:** `npm run typecheck` does not cover Edge Functions at all — the root `tsconfig.json`
+      has `"files": []` and only project references, so `tsc --noEmit` checks nothing. The real
+      commands are `npx tsc -p tsconfig.app.json --noEmit` for the app (135 pre-existing errors as
+      of this date) and `deno check <path>` for each Edge Function.
