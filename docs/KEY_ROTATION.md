@@ -64,6 +64,7 @@ Supabase and must **never** be set/rotated manually.
 | `SLACK_WEBHOOK_URL` | `send-slack-notification`, `receive-framer-lead` | Medium | **dev = NEW channel webhook** (decision 5) |
 | `OPENROUTER_API_KEY` | `generate-inspection-summary` | High (billable) | reuse prod in dev (Q2) |
 | `GOOGLE_MAPS_API_KEY` | `calculate-travel-time` | High (billable) | reuse prod in dev (Q5) |
+| `SENTRY_DSN` | `calculate-travel-time` (via `_shared/errorReporting.ts`) | Low — write-only ingest, public by design | ⚠️ **NOT SET on any project.** The Sentry sink is gated on this and is inert until it is. The `error_logs` sink works regardless, so failures are still recorded. Same DSN value as the frontend's `VITE_SENTRY_DSN`. Verify with `npx supabase secrets list \| grep SENTRY_DSN` — never by chat confirmation. |
 | `INTERNAL_WEBHOOK_SECRET` | `send-slack-notification` | Medium (internal auth) | ⚠️ **not in the L4 doc** — surfaced here; must be set in dev |
 | `SYSTEM_USER_UUID` | `send-inspection-reminder`, `receive-framer-lead`, `generate-*` | Not secret (in CLAUDE.md) | canonical constant `a5ae96f1-…`; **not rotated** |
 | `ADMIN_FALLBACK_EMAIL` | `receive-framer-lead` | Not secret | Q4 → current mrcsystem.com admin email |

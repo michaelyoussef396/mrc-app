@@ -17,8 +17,13 @@ const BASE_PARAMS = {
   destinationAddress: '12 Example St, Richmond VIC 3121',
 }
 
-function availabilityPayload(overrides: Partial<AvailabilityResult> = {}): AvailabilityResult {
+// Overrides are deliberately loose rather than Partial<AvailabilityResult>: the whole
+// point of several tests below is to build the wire shapes the Edge Function sends when
+// travel is UNKNOWN, where every derived field is null. Partial<> types those fields as
+// number/string/boolean and would reject exactly the payloads under test.
+function availabilityPayload(overrides: Record<string, unknown> = {}): AvailabilityResult {
   return {
+    source: 'google_api',
     available: true,
     technician_name: 'Glen',
     technician_home: '5 Depot Rd, Preston',
@@ -33,7 +38,19 @@ function availabilityPayload(overrides: Partial<AvailabilityResult> = {}): Avail
     travel_origin_address: '5 Depot Rd, Preston',
     is_feasible: true,
     ...overrides,
-  }
+  } as AvailabilityResult
+}
+
+/** The wire shape for any response that could not produce a travel figure. */
+const UNKNOWN_TRAVEL_FIELDS = {
+  available: null,
+  earliest_start: null,
+  requested_time_works: null,
+  buffer_minutes: null,
+  suggestions: [],
+  travel_time_minutes: null,
+  travel_distance_km: null,
+  is_feasible: null,
 }
 
 function mockJsonResponse(body: unknown, status = 200) {
@@ -88,16 +105,16 @@ describe('checkAvailability', () => {
   })
 
   it('should not report "ok" when the technician has no starting address', async () => {
-    // The Edge Function answers HTTP 200 for this case, with placeholder zeroes in
-    // every numeric field. Treating it as success rendered "0 min / Buffer: 0 min".
+    // The Edge Function answers HTTP 200 for this case with the whole derived cluster
+    // nulled out and no suggestions. It used to answer with placeholder zeroes, which
+    // rendered as a confident "0 min travel / Buffer: 0 min".
     vi.mocked(fetch).mockResolvedValue(
       mockJsonResponse(
         availabilityPayload({
+          ...UNKNOWN_TRAVEL_FIELDS,
+          source: 'no_origin',
           error: 'no_starting_address',
           message: "Cannot calculate travel time - Glen's starting address is not set.",
-          is_feasible: false,
-          travel_time_minutes: 0,
-          buffer_minutes: 0,
         }),
       ),
     )
@@ -105,6 +122,59 @@ describe('checkAvailability', () => {
     const outcome = await callCheckAvailability()
 
     expect(outcome.status).toBe('unavailable')
+  })
+
+  it('should not report "ok" when the mapping service does not answer', async () => {
+    // No legacy `error` flag on this one — `source` is the only signal that the numbers
+    // are absent. Before the guard widened, this took the success path and the booking
+    // panel rendered "undefined min" and "NaN min short" against a null payload.
+    vi.mocked(fetch).mockResolvedValue(
+      mockJsonResponse(
+        availabilityPayload({
+          ...UNKNOWN_TRAVEL_FIELDS,
+          source: 'unavailable',
+          message: 'Travel time could not be calculated - the mapping service did not respond.',
+        }),
+      ),
+    )
+
+    const outcome = await callCheckAvailability()
+
+    expect(outcome.status).toBe('unavailable')
+  })
+
+  it('should route a no_origin source to unavailable without the legacy error flag', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      mockJsonResponse(
+        availabilityPayload({ ...UNKNOWN_TRAVEL_FIELDS, source: 'no_origin' }),
+      ),
+    )
+
+    const outcome = await callCheckAvailability()
+
+    expect(outcome.status).toBe('unavailable')
+  })
+
+  it('should report "ok" when the function states a google_api source', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      mockJsonResponse(availabilityPayload({ source: 'google_api' })),
+    )
+
+    const outcome = await callCheckAvailability()
+
+    expect(outcome.status).toBe('ok')
+  })
+
+  it('should report "ok" for a response from a function that predates the source field', async () => {
+    // Edge Functions deploy separately from the frontend, so a build talking to an older
+    // deployment is a real state. That deployment still sends real numbers, and an
+    // absent `source` must not be read as a failure.
+    const { source: _omitted, ...withoutSource } = availabilityPayload()
+    vi.mocked(fetch).mockResolvedValue(mockJsonResponse(withoutSource))
+
+    const outcome = await callCheckAvailability()
+
+    expect(outcome.status).toBe('ok')
   })
 
   it('should surface the function\'s own message when travel cannot be computed', async () => {
