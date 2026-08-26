@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useLeadUpdate } from '@/hooks/useLeadUpdate';
 import { useAuth } from '@/contexts/AuthContext';
 import { appendInternalNote, parseInternalNotesLog } from '@/lib/utils/internalNotes';
+import { postLeadNoteToSlack } from '@/lib/api/leadNoteSlack';
 import { leadSourceOptions } from '@/lib/leadUtils';
 import { AddressAutocomplete, type AddressValue } from '@/components/booking/AddressAutocomplete';
 import { formatDistanceToNow } from 'date-fns';
@@ -329,6 +330,14 @@ export default function TechnicianJobDetail() {
     if (success) {
       setNotesValue('');
       fetchJobData();
+      // Same rule as the admin Internal Notes card: every authored note reaches
+      // Slack. Storage and behaviour are otherwise untouched.
+      await postLeadNoteToSlack({
+        leadId: lead.id,
+        leadName: lead.full_name || 'Unknown',
+        authorName,
+        body: trimmed,
+      });
     }
     setIsSavingNotes(false);
   };

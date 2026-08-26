@@ -27,7 +27,6 @@ import {
   addLeadNoteMentions,
   createLeadNote,
   listLeadNotes,
-  listNoteMentions,
   listStaffForMentions,
   parseMentions,
   segmentNoteBody,
@@ -46,18 +45,18 @@ import {
   validateAttachment,
   type LeadNoteAttachment,
 } from '@/lib/api/leadNoteAttachments';
-import { sendSlackNotification } from '@/lib/api/notifications';
+import { postLeadNoteToSlack } from '@/lib/api/leadNoteSlack';
 import { formatDateTimeAU, formatRelativeOrDateAU } from '@/lib/dateUtils';
 
 interface LeadNotesSectionProps {
   leadId: string;
+  /** Customer name, for the Slack post. Required so a new mount site cannot forget it. */
+  leadName: string;
 }
 
 const OPTIMISTIC_ID_PREFIX = 'optimistic-';
 const UNKNOWN_AUTHOR = 'Unknown';
 const STAFF_STALE_TIME_MS = 5 * 60_000;
-/** send-slack-notification caps `message` at 1000 characters. */
-const SLACK_MESSAGE_MAX = 1000;
 
 function leadNotesKey(leadId: string) {
   return ['lead-notes', leadId] as const;
@@ -79,12 +78,17 @@ function activeMentionQuery(value: string, caret: number): { query: string; star
   return { query: match[1], start: caret - match[1].length - 1 };
 }
 
-export function LeadNotesSection({ leadId }: LeadNotesSectionProps) {
+export function LeadNotesSection({ leadId, leadName }: LeadNotesSectionProps) {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState('');
   const [caret, setCaret] = useState(0);
   const [highlighted, setHighlighted] = useState(0);
+  // Escape, blur and a completed selection all close the picker. Dismissal is
+  // its own state rather than a caret sentinel: activeMentionQuery slices the
+  // draft on caret, so an out-of-range caret corrupts the query instead of
+  // closing anything.
+  const [pickerDismissed, setPickerDismissed] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [pendingDelete, setPendingDelete] = useState<LeadNote | null>(null);
   const [pendingAttachmentDelete, setPendingAttachmentDelete] = useState<LeadNoteAttachment | null>(null);
@@ -108,14 +112,8 @@ export function LeadNotesSection({ leadId }: LeadNotesSectionProps) {
     staleTime: 15_000,
   });
 
-  // Both keyed on leadId, so they run alongside the notes query rather than
+  // Keyed on leadId, so it runs alongside the notes query rather than
   // waterfalling behind it.
-  const { data: mentionsByNote } = useQuery({
-    queryKey: ['lead-note-mentions', leadId],
-    queryFn: () => listNoteMentions(leadId),
-    staleTime: 15_000,
-  });
-
   const { data: attachmentsByNote } = useQuery({
     queryKey: ['lead-note-attachments', leadId],
     queryFn: () => listNoteAttachments(leadId),
@@ -128,6 +126,12 @@ export function LeadNotesSection({ leadId }: LeadNotesSectionProps) {
     staleTime: STAFF_STALE_TIME_MS,
   });
 
+  // Highlighting resolves against the live staff list, not the per-note
+  // lead_note_mentions rows: those exclude self-mentions by design, do not exist
+  // for pre-Phase-2 notes, and come back empty on several silent-failure paths.
+  // Purely presentational — it changes nothing about who is notified.
+  const staffNames = useMemo(() => staff.map((candidate) => candidate.fullName), [staff]);
+
   const mentionState = activeMentionQuery(draft, caret);
   const matches = useMemo(() => {
     if (!mentionState) return [];
@@ -136,11 +140,10 @@ export function LeadNotesSection({ leadId }: LeadNotesSectionProps) {
       .filter((candidate) => candidate.fullName.toLowerCase().includes(needle))
       .slice(0, 6);
   }, [mentionState, staff]);
-  const isPickerOpen = mentionState !== null && matches.length > 0;
+  const isPickerOpen = mentionState !== null && matches.length > 0 && !pickerDismissed;
 
   const invalidateNotes = () => {
     queryClient.invalidateQueries({ queryKey });
-    queryClient.invalidateQueries({ queryKey: ['lead-note-mentions', leadId] });
     queryClient.invalidateQueries({ queryKey: ['lead-note-attachments', leadId] });
     queryClient.invalidateQueries({ queryKey: ['activity-timeline'] });
     queryClient.invalidateQueries({ queryKey: ['technician-alerts'] });
@@ -149,6 +152,8 @@ export function LeadNotesSection({ leadId }: LeadNotesSectionProps) {
   const syncCaret = (element: HTMLTextAreaElement) => {
     setCaret(element.selectionStart ?? 0);
     setHighlighted(0);
+    // Typing or moving the caret is fresh intent — re-arm the picker.
+    setPickerDismissed(false);
   };
 
   const insertMention = useCallback(
@@ -161,6 +166,9 @@ export function LeadNotesSection({ leadId }: LeadNotesSectionProps) {
       setDraft(next);
       setCaret(nextCaret);
       setHighlighted(0);
+      // Close after selecting: the draft now ends "@Full Name " and
+      // activeMentionQuery would otherwise still match it.
+      setPickerDismissed(true);
 
       requestAnimationFrame(() => {
         textareaRef.current?.focus();
@@ -189,7 +197,7 @@ export function LeadNotesSection({ leadId }: LeadNotesSectionProps) {
         break;
       case 'Escape':
         event.preventDefault();
-        setCaret(-1);
+        setPickerDismissed(true);
         break;
       default:
     }
@@ -229,29 +237,34 @@ export function LeadNotesSection({ leadId }: LeadNotesSectionProps) {
       if (mentionedIds.length > 0) {
         try {
           await addLeadNoteMentions(note.id, mentionedIds);
-          // Slack deliberately carries the body: mentions post to the shared
-          // channel so the whole team sees them. The in-app notification does
-          // NOT, because it would cross the lead's own RLS boundary.
-          await sendSlackNotification({
-            event: 'custom',
-            leadId,
-            message: `${authorName} mentioned ${mentionedNames.join(', ')} on a lead note:\n${body}`.slice(
-              0,
-              SLACK_MESSAGE_MAX,
-            ),
-          });
         } catch (error) {
           toast.error(error instanceof Error ? error.message : 'Note saved, but the mentions failed');
         }
       }
 
+      const attachedNames: string[] = [];
       for (const file of files) {
         try {
           await uploadNoteAttachment({ noteId: note.id, leadId, file });
+          attachedNames.push(file.name);
         } catch (error) {
           toast.error(error instanceof Error ? error.message : `Couldn't attach ${file.name}`);
         }
       }
+
+      // Every note posts to Slack, plain or mentioned. It sits outside every
+      // guard above so neither a failed mention RPC nor a failed upload can skip
+      // it, and last so it names only the files that actually landed. Slack
+      // deliberately carries the body; the in-app notification does NOT, because
+      // that would cross the lead's own RLS boundary.
+      await postLeadNoteToSlack({
+        leadId,
+        leadName,
+        authorName,
+        body,
+        mentionedNames,
+        attachmentNames: attachedNames,
+      });
 
       return note;
     },
@@ -370,6 +383,7 @@ export function LeadNotesSection({ leadId }: LeadNotesSectionProps) {
                 }
               }}
               onKeyDown={handleKeyDown}
+              onBlur={() => setPickerDismissed(true)}
               rows={3}
               maxLength={LEAD_NOTE_MAX_LENGTH}
               placeholder="What happened, what's next… type @ to mention someone"
@@ -387,7 +401,7 @@ export function LeadNotesSection({ leadId }: LeadNotesSectionProps) {
                 id={listboxId}
                 role="listbox"
                 aria-label="Mention a team member"
-                className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border bg-popover shadow-md"
+                className="mt-1 w-full max-h-48 overflow-y-auto rounded-md border bg-popover shadow-md"
               >
                 {matches.map((candidate, index) => (
                   <li
@@ -491,13 +505,17 @@ export function LeadNotesSection({ leadId }: LeadNotesSectionProps) {
           ) : (
             notes.map((note) => {
               const isOwn = note.author_id === user?.id;
-              const mentionNames = (mentionsByNote?.get(note.id) ?? [])
-                .map((mention) => mention.fullName)
-                .filter((name): name is string => Boolean(name));
+              const segments = segmentNoteBody(note.body, staffNames);
+              const hasMention = segments.some((segment) => segment.isMention);
               const attachments = attachmentsByNote?.get(note.id) ?? [];
 
               return (
-                <article key={note.id} className="rounded-md border bg-slate-50 p-3">
+                <article
+                  key={note.id}
+                  className={`rounded-md border bg-slate-50 p-3 ${
+                    hasMention ? 'border-l-2 border-l-violet-400' : ''
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
@@ -507,9 +525,12 @@ export function LeadNotesSection({ leadId }: LeadNotesSectionProps) {
                         </time>
                       </div>
                       <p className="text-sm whitespace-pre-line leading-relaxed text-foreground break-words">
-                        {segmentNoteBody(note.body, mentionNames).map((segment, index) =>
+                        {segments.map((segment, index) =>
                           segment.isMention ? (
-                            <span key={index} className="font-medium text-primary">
+                            <span
+                              key={index}
+                              className="rounded bg-violet-100 px-1 font-medium text-violet-600"
+                            >
                               {segment.text}
                             </span>
                           ) : (
