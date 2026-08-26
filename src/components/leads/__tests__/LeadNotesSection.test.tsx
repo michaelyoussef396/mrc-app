@@ -6,8 +6,8 @@
 // D2: mentions were highlighted off the persisted lead_note_mentions rows, which
 //     never contain a self-mention, and styled in a colour 1.22:1 against body text.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -37,11 +37,18 @@ vi.mock('@/lib/api/leadNotes', async (importOriginal) => ({
 vi.mock('@/lib/api/leadNoteAttachments', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/api/leadNoteAttachments')>()),
   listNoteAttachments: vi.fn(),
+  uploadNoteAttachment: vi.fn(),
+  getAttachmentSignedUrl: vi.fn(),
 }))
 
 import { LeadNotesSection } from '../LeadNotesSection'
-import { listLeadNotes, listStaffForMentions } from '@/lib/api/leadNotes'
-import { listNoteAttachments } from '@/lib/api/leadNoteAttachments'
+import { toast } from 'sonner'
+import { listLeadNotes, listStaffForMentions, createLeadNote } from '@/lib/api/leadNotes'
+import {
+  listNoteAttachments,
+  uploadNoteAttachment,
+  getAttachmentSignedUrl,
+} from '@/lib/api/leadNoteAttachments'
 
 const STAFF = [
   { id: 'user-glen', fullName: 'Glen Marshall' },
@@ -65,7 +72,7 @@ function renderSection() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  render(
+  return render(
     <QueryClientProvider client={queryClient}>
       <LeadNotesSection leadId="lead-1" leadName="Jane Citizen" />
     </QueryClientProvider>,
@@ -77,6 +84,8 @@ beforeEach(() => {
   vi.mocked(listLeadNotes).mockResolvedValue([])
   vi.mocked(listStaffForMentions).mockResolvedValue(STAFF)
   vi.mocked(listNoteAttachments).mockResolvedValue(new Map())
+  vi.mocked(uploadNoteAttachment).mockResolvedValue(undefined as never)
+  vi.mocked(createLeadNote).mockResolvedValue(note('saved') as never)
 })
 
 /** Type an @-query into the composer and wait for the picker. */
@@ -185,5 +194,169 @@ describe('LeadNotesSection — mention rendering (D2)', () => {
 
     const body = await screen.findByText('Called the customer, no answer.')
     expect(body.tagName).toBe('SPAN')
+  })
+})
+
+describe('LeadNotesSection — staged attachments survive submit', () => {
+  it('should upload a staged file when the note is submitted', async () => {
+    const user = userEvent.setup()
+    const { container } = renderSection()
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['x'], 'report.pdf', { type: 'application/pdf' })
+    fireEvent.change(input, { target: { files: [file] } })
+
+    await screen.findByText('report.pdf')
+    await user.type(await screen.findByLabelText(/add a note/i), 'here is the report')
+    await user.click(screen.getByRole('button', { name: /add note/i }))
+
+    await waitFor(() => expect(uploadNoteAttachment).toHaveBeenCalledTimes(1))
+  })
+})
+
+const OTHER_USER = 'user-glen'
+
+function attachment(overrides = {}) {
+  return {
+    id: 'att-1',
+    note_id: 'note-1',
+    lead_id: 'lead-1',
+    storage_path: 'lead-1/note-1/report.pdf',
+    file_name: 'report.pdf',
+    file_size: 2_400_000,
+    mime_type: 'application/pdf',
+    uploaded_by: AUTHOR_ID,
+    created_at: '2026-08-26T01:00:00.000Z',
+    deleted_at: null,
+    ...overrides,
+  }
+}
+
+/** One note that already carries one committed attachment. */
+function renderWithAttachment(overrides = {}) {
+  vi.mocked(listLeadNotes).mockResolvedValue([note('see attached')])
+  vi.mocked(listNoteAttachments).mockResolvedValue(
+    new Map([['note-1', [attachment(overrides)]]]) as never,
+  )
+  return renderSection()
+}
+
+/** A stand-in for the tab opened synchronously on tap. */
+function stubTab() {
+  const tab = { location: { replace: vi.fn() }, close: vi.fn(), opener: {} }
+  vi.stubGlobal('open', vi.fn(() => tab))
+  return tab
+}
+
+describe('LeadNotesSection — committed attachments', () => {
+  it('should render a committed attachment with its file name', async () => {
+    renderWithAttachment()
+    expect(await screen.findByText('report.pdf')).toBeInTheDocument()
+  })
+
+  it('should render the attachment size in human units', async () => {
+    renderWithAttachment()
+    expect(await screen.findByText('2.3 MB')).toBeInTheDocument()
+  })
+
+  it('should give the open control a 48px touch target', async () => {
+    renderWithAttachment()
+    const open = await screen.findByRole('button', { name: /open report/i })
+    expect(open.className).toContain('h-12 w-12')
+  })
+
+  it('should show the remove control to the uploader', async () => {
+    renderWithAttachment()
+    expect(await screen.findByRole('button', { name: /remove report/i })).toBeInTheDocument()
+  })
+
+  it('should hide the remove control from everyone but the uploader', async () => {
+    renderWithAttachment({ uploaded_by: OTHER_USER })
+    await screen.findByText('report.pdf')
+    expect(screen.queryByRole('button', { name: /remove report/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('LeadNotesSection — opening an attachment', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('should navigate the opened tab to the signed url', async () => {
+    const tab = stubTab()
+    vi.mocked(getAttachmentSignedUrl).mockResolvedValue('https://signed.example/report.pdf')
+    const user = userEvent.setup()
+    renderWithAttachment()
+
+    await user.click(await screen.findByRole('button', { name: /open report/i }))
+
+    await waitFor(() =>
+      expect(tab.location.replace).toHaveBeenCalledWith('https://signed.example/report.pdf'),
+    )
+  })
+
+  it('should sign the stored path of the attachment that was clicked', async () => {
+    stubTab()
+    vi.mocked(getAttachmentSignedUrl).mockResolvedValue('https://signed.example/report.pdf')
+    const user = userEvent.setup()
+    renderWithAttachment()
+
+    await user.click(await screen.findByRole('button', { name: /open report/i }))
+
+    await waitFor(() =>
+      expect(getAttachmentSignedUrl).toHaveBeenCalledWith('lead-1/note-1/report.pdf'),
+    )
+  })
+
+  it('should open the tab before awaiting, so iOS Safari does not block it', async () => {
+    const tab = { location: { replace: vi.fn() }, close: vi.fn(), opener: {} }
+    const openSpy = vi.fn(() => tab)
+    vi.stubGlobal('open', openSpy)
+    let release: (url: string) => void = () => {}
+    vi.mocked(getAttachmentSignedUrl).mockReturnValue(
+      new Promise<string>((resolve) => {
+        release = resolve
+      }),
+    )
+    const user = userEvent.setup()
+    renderWithAttachment()
+
+    await user.click(await screen.findByRole('button', { name: /open report/i }))
+
+    // The tab exists while the signing promise is still unresolved.
+    expect(openSpy).toHaveBeenCalledTimes(1)
+    release('https://signed.example/report.pdf')
+  })
+
+  it('should surface an error when the signed url cannot be generated', async () => {
+    stubTab()
+    vi.mocked(getAttachmentSignedUrl).mockRejectedValue(new Error('Object not found'))
+    const user = userEvent.setup()
+    renderWithAttachment()
+
+    await user.click(await screen.findByRole('button', { name: /open report/i }))
+
+    await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Object not found'))
+  })
+
+  it('should close the blank tab when signing fails', async () => {
+    const tab = stubTab()
+    vi.mocked(getAttachmentSignedUrl).mockRejectedValue(new Error('Object not found'))
+    const user = userEvent.setup()
+    renderWithAttachment()
+
+    await user.click(await screen.findByRole('button', { name: /open report/i }))
+
+    await waitFor(() => expect(tab.close).toHaveBeenCalledTimes(1))
+  })
+
+  it('should never navigate to a url when signing fails', async () => {
+    const tab = stubTab()
+    vi.mocked(getAttachmentSignedUrl).mockRejectedValue(new Error('Object not found'))
+    const user = userEvent.setup()
+    renderWithAttachment()
+
+    await user.click(await screen.findByRole('button', { name: /open report/i }))
+
+    await waitFor(() => expect(tab.close).toHaveBeenCalled())
+    expect(tab.location.replace).not.toHaveBeenCalled()
   })
 })
