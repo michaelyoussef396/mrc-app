@@ -5,12 +5,19 @@ import { supabase } from '@/integrations/supabase/client'
 // TYPES
 // ============================================================================
 
+/**
+ * Where a travel figure came from — or why there isn't one. Mirrors the union the
+ * `calculate-travel-time` Edge Function now returns on every travel-carrying response.
+ */
+export type TravelTimeSource = 'google_api' | 'haversine' | 'unavailable' | 'no_origin'
+
 interface PreviousAppointment {
   ends_at: string
   location: string
   suburb: string
   client_name: string
-  travel_time_minutes: number
+  /** null when this leg was never measured — an override origin, or a failed Maps call. */
+  travel_time_minutes: number | null
 }
 
 interface DayScheduleItem {
@@ -34,6 +41,14 @@ export interface AvailabilityResult {
   travel_distance_km: number | null
   travel_origin_address: string
   is_feasible: boolean
+  /**
+   * Provenance of `travel_time_minutes`. Optional on purpose: Edge Functions deploy
+   * separately from the frontend, so a build talking to a function that predates this
+   * field is a real state, and a missing `source` must not read as a failure. Anything
+   * other than 'google_api' means the numeric fields above are null on the wire and the
+   * `checkAvailability` guard below routes the response away from consumers.
+   */
+  source?: TravelTimeSource
   error?: 'no_starting_address'  // Error flag when starting address is missing
   message?: string  // Error message for user display
   used_override_address?: boolean  // Flag indicating manual address was used
@@ -268,10 +283,21 @@ export function useBookingValidation() {
 
       setResult(data)
 
-      // The function answers 200 with this flag when the technician has no starting
-      // address. Every numeric field is a placeholder zero, so treating it as a real
-      // answer renders "0 min travel, 0 min buffer" as fact.
-      if (data.error === 'no_starting_address') {
+      // The function answers 200 without a usable travel time in three cases: the
+      // technician has no starting address (the legacy `error` flag, still sent), and the
+      // two `source` states introduced when the 30-minute fallback was removed. In all
+      // three, every derived field — earliest_start, buffer_minutes, is_feasible,
+      // suggestions — is null or empty on the wire, so taking the success path would put
+      // nulls in front of the admin who is booking against them.
+      //
+      // An ABSENT source is an Edge Function deployment older than that change, which
+      // still sends real numbers: treat it as ok.
+      const travelUnknown =
+        data.error === 'no_starting_address' ||
+        data.source === 'unavailable' ||
+        data.source === 'no_origin'
+
+      if (travelUnknown) {
         const message = data.message ?? 'Travel time could not be calculated for this technician.'
         setError(message)
         return { status: 'unavailable', message, data }
@@ -401,8 +427,13 @@ export function useBookingValidation() {
 
 /**
  * Format time string (HH:MM) to display format (9:00 AM)
+ *
+ * Accepts null/undefined because `earliest_start` is now genuinely absent whenever
+ * travel time could not be measured. Unguarded, `time.split(':')` throws a TypeError
+ * that unmounts the whole booking panel rather than showing a missing value.
  */
-export function formatTimeDisplay(time: string): string {
+export function formatTimeDisplay(time: string | null | undefined): string {
+  if (!time) return '—'
   const [hours, minutes] = time.split(':').map(Number)
   const period = hours >= 12 ? 'PM' : 'AM'
   const displayHour = hours % 12 || 12

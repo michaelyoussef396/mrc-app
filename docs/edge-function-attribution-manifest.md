@@ -47,7 +47,7 @@ No Phase 2 attribution work required.
 
 | EF | Reason |
 |---|---|
-| `calculate-travel-time` | Read-only Google Maps proxy; no DB writes. |
+| `calculate-travel-time` | Google Maps proxy. Its only DB write is a fire-and-forget `error_logs` INSERT on a Maps failure (added by the travel-time provenance change; it was a pure read-only proxy before). `error_logs` carries no audit trigger, so it stays in Bucket C — no attribution work required. |
 | `send-slack-notification` | No DB writes (informational only). |
 | `seed-admin` | One-time bootstrap utility; not exercised in normal operation. |
 | `export-inspection-context` | Read-only data export. |

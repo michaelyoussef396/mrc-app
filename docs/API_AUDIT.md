@@ -133,8 +133,8 @@
 | Detail | Value |
 |--------|-------|
 | **Purpose** | Error tracking, performance monitoring, session replay |
-| **DSN Env Var** | `VITE_SENTRY_DSN` |
-| **Used By** | Client-side (`src/lib/sentry.ts`, `main.tsx`, `ErrorBoundary.tsx`) |
+| **DSN Env Var** | `VITE_SENTRY_DSN` (frontend) · `SENTRY_DSN` (Edge Function secret — **not yet set**) |
+| **Used By** | Client-side (`src/lib/sentry.ts`, `main.tsx`, `ErrorBoundary.tsx`) **and** server-side from `calculate-travel-time` via `supabase/functions/_shared/errorReporting.ts` |
 | **Client-side** | YES (DSN is intended to be public) |
 | **Rotation Status** | NOT REQUIRED — DSNs are designed to be public. Sentry rate limits by project. |
 
@@ -143,6 +143,15 @@
 - `src/main.tsx` — Init call
 - `src/components/ErrorBoundary.tsx` — Error capture
 - `src/contexts/AuthContext.tsx` — User context
+- `supabase/functions/_shared/errorReporting.ts` — Edge Function capture
+
+**Edge Function capture (added by the travel-time provenance change):** EFs run on Deno
+and post a hand-built Sentry envelope rather than importing an SDK. It is gated on
+`Deno.env.get('SENTRY_DSN')` and inert until that secret is set (see
+`docs/KEY_ROTATION.md` §B); the parallel `error_logs` write works regardless. Note that
+`src/lib/sentry.ts:26-31` deliberately excludes `/functions/` from `tracePropagationTargets`
+— EF CORS headers do not allow `baggage`/`sentry-trace` — so EF events are standalone and
+carry no parent trace. Error capture does not require trace propagation.
 
 ---
 
