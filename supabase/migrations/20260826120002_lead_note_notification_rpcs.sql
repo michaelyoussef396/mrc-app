@@ -20,6 +20,15 @@
 --   GRANT  EXECUTE ... TO authenticated;
 -- Both signatures list ALL parameters including defaulted ones, or the
 -- REVOKE/GRANT would not match the registered function.
+--
+-- EXCEPTION — notify_users is NOT granted to authenticated. It has no client
+-- caller: add_lead_note_mentions is SECURITY DEFINER owned by postgres, so it
+-- invokes notify_users as postgres and is unaffected by the grant. Leaving the
+-- grant in place would let any signed-in staff member push a notification with
+-- an arbitrary title, message, type and priority into any other staff member's
+-- feed — a spoofing surface with nothing using it. Revoked on PROD 2026-08-26
+-- and verified: has_function_privilege('authenticated', ...) = false, while
+-- add_lead_note_mentions still returns notified=1 end to end.
 -- =====================================================================
 
 BEGIN;
@@ -118,7 +127,10 @@ COMMENT ON FUNCTION public.notify_users(uuid[], text, text, text, uuid, text, js
   'Addresses a notification to specific users with a per-recipient, role-aware action_url. Complements fan_out_notification, which is role-only. SECURITY DEFINER: callers must pass identifiers, never RLS-protected content, in p_title/p_message.';
 
 REVOKE EXECUTE ON FUNCTION public.notify_users(uuid[], text, text, text, uuid, text, jsonb, text, uuid) FROM PUBLIC, anon;
-GRANT  EXECUTE ON FUNCTION public.notify_users(uuid[], text, text, text, uuid, text, jsonb, text, uuid) TO authenticated;
+-- Deliberately NOT granted to authenticated — see the EXCEPTION note in the
+-- header. Only postgres (via the SECURITY DEFINER caller below) and
+-- service_role can execute this.
+REVOKE EXECUTE ON FUNCTION public.notify_users(uuid[], text, text, text, uuid, text, jsonb, text, uuid) FROM authenticated;
 
 -- ---------------------------------------------------------------------
 -- SECTION 6 — public.add_lead_note_mentions
@@ -221,6 +233,17 @@ COMMIT;
 -- V5  *** anon has EXECUTE on nothing new *** (must still be 18)
 --   SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
 --   WHERE n.nspname='public' AND has_function_privilege('anon', p.oid, 'EXECUTE');
+--
+-- V12 notify_users is reachable ONLY by postgres and service_role
+--     (authenticated and anon must both be false; expected end-state ACL is
+--      {postgres=X/postgres,service_role=X/postgres})
+--   SELECT
+--     has_function_privilege('authenticated','public.notify_users(uuid[], text, text, text, uuid, text, jsonb, text, uuid)','EXECUTE') AS authenticated,
+--     has_function_privilege('anon','public.notify_users(uuid[], text, text, text, uuid, text, jsonb, text, uuid)','EXECUTE') AS anon,
+--     has_function_privilege('postgres','public.notify_users(uuid[], text, text, text, uuid, text, jsonb, text, uuid)','EXECUTE') AS postgres;
+--
+-- V13 add_lead_note_mentions is STILL reachable by authenticated (must be true)
+--   SELECT has_function_privilege('authenticated','public.add_lead_note_mentions(uuid, uuid[])','EXECUTE');
 --
 -- V8  function security + ACL (prosecdef true, no anon in proacl)
 --   SELECT proname, prosecdef, proconfig::text, proacl::text
