@@ -2,6 +2,18 @@
 
 **Date:** 2026-08-20
 **Scope:** Reconnaissance for building in-app notifications (admin + technician) mirroring what currently only goes to Slack. No code changes were made. The routing decision (who sees what) is deliberately deferred to a follow-up session — this document contains findings only, no routing/permissions design.
+> **⚠️ SUPERSEDED IN PART — 2026-08-25.** This document predates the fan-out migration
+> (`supabase/migrations/20260823090000_notifications_fan_out.sql`, applied to PROD 23 Aug 2026).
+> Every statement below that `notifications` has "0 rows all-time" / "zero writers" is now
+> FALSE: `public.fan_out_notification()` has been writing since 24 Aug — verified 25 Aug at
+> **64 rows / 16 events / exactly 4 rows per event**, DISTINCT dedup on `user_id` correct, one
+> Slack post per event, read state per-recipient. The `user_metadata.last_alerts_read_at`
+> watermark read model described in Q3 **no longer exists**. Superseded lines are marked inline
+> with `[SUPERSEDED 2026-08-25]`. Still-open gap: `notifications` is not in the
+> `supabase_realtime` publication, so the `useNotifications.ts` subscription never fires — see
+> `docs/TODO.md`, 25 Aug section. The Slack-event inventory (Q1) and the `activities` facts (Q4)
+> are unaffected.
+
 **Method:** Multi-agent sweep (4 investigation agents, 1 adversarial verifier, 1 completeness critic, 1 schema-fit synthesizer; 271 tool calls). Every Slack-event claim below was re-verified against the cited file:line by an independent agent instructed to refute it — **17/17 events confirmed, zero corrections, zero missed senders**. Known limitations are listed in the Appendix.
 
 ---
@@ -107,11 +119,11 @@ The brief quoted 8 columns. The **PROD-regenerated types** (`src/integrations/su
 
 **RLS (from migrations):** SELECT/UPDATE/DELETE are per-user (`user_id = auth.uid()`, `20260217074235:106-120`). The sole INSERT policy — "System can insert notifications", `20260217081500_fix_rls_always_true.sql:56-60` — is `TO authenticated WITH CHECK (auth.uid() IS NOT NULL)`. Two structural facts: (a) it does **not** bind `user_id` to `auth.uid()` — any authenticated session may insert a row addressed to any user; (b) it is **unsatisfiable** from the contexts where several events originate (unauthenticated `receive-framer-lead`, pg_cron-driven `check-overdue-invoices`, the email_logs DB trigger — none has an `auth.uid()`). `service_role` bypasses RLS entirely.
 
-**Writers: zero.** No code path in `src/`, `supabase/functions/`, `api/`, or any migration inserts into `notifications` (five independent search strategies documented in the sweep; the only trigger on the table is the BEFORE UPDATE `updated_at` stamp, `20251029103512:83-86`). Consistent with `docs/TODO.md:1950-1951`: "0 rows all-time. In-app notification surface dead while Slack works." There is nothing to extend — any event carried into this table requires net-new insertion code.
+**[SUPERSEDED 2026-08-25 — see banner: `fan_out_notification()` now writes; 64 rows at 25 Aug.]** ~~**Writers: zero.**~~ No code path in `src/`, `supabase/functions/`, `api/`, or any migration inserts into `notifications` (five independent search strategies documented in the sweep; the only trigger on the table is the BEFORE UPDATE `updated_at` stamp, `20251029103512:83-86`). Consistent with `docs/TODO.md:1950-1951`: "0 rows all-time. In-app notification surface dead while Slack works." There is nothing to extend — any event carried into this table requires net-new insertion code.
 
 ### Per-event fit
 
-Because `type` is unconstrained free text and the table has zero rows and zero writers, **"needs a new type value" is not a schema constraint for any event** — every type string is definitionally new. Column-wise, **all 14 live events fit** the 15-column shape (title/message/type/lead_id/metadata/related_entity_* can carry each payload). What varies is which structural gaps below apply:
+Because `type` is unconstrained free text and the table ~~has zero rows and zero writers~~ **[SUPERSEDED 2026-08-25: it now has rows and one writer, the fan-out RPC]**, **"needs a new type value" is not a schema constraint for any event** — every type string is definitionally new. Column-wise, **all 14 live events fit** the 15-column shape (title/message/type/lead_id/metadata/related_entity_* can carry each payload). What varies is which structural gaps below apply:
 
 | Event | lead_id available? | Notable fit facts |
 |---|---|---|
@@ -159,7 +171,7 @@ The mock survives only in git history — commit `0b259f3` ("feat: Technician Ro
 
 - `TechnicianAlert` = `{ id, type: 'new_job'|'schedule_change'|'reminder'|'cancelled'|'system', title, message, timestamp: Date, isRead, leadId? }` (`useTechnicianAlerts.ts:13-23`). The mock-era `bookingId` field was **removed** — booking identity is lost even though the query starts from `calendar_bookings`; all taps navigate lead-scoped to `/technician/job/{leadId}` (`TechnicianAlerts.tsx:199-201`), type-agnostic.
 - Title/message come **verbatim** from `activities.title` / `activities.description || ''` (`:179-180`) — the alert copy is whatever each of the ~44 activities writers wrote.
-- **Read state is a single watermark, not per-row**: `isRead = timestamp <= user.user_metadata.last_alerts_read_at` (`:129-131, :174`); `markAllAsRead` does `supabase.auth.updateUser(...)` (`:215-217`), silent on failure. No per-alert markAsRead exists (the mock era had one). Fresh technicians see all 50 rows as unread.
+- **[SUPERSEDED 2026-08-25 — this watermark read model no longer exists; read state is per-recipient on `notifications.is_read`.]** ~~**Read state is a single watermark, not per-row**~~: `isRead = timestamp <= user.user_metadata.last_alerts_read_at` (`:129-131, :174`); `markAllAsRead` does `supabase.auth.updateUser(...)` (`:215-217`), silent on failure. No per-alert markAsRead exists (the mock era had one). Fresh technicians see all 50 rows as unread.
 - Recent/older bucketing: strict `> now − 24h` (`:189-205`). `formatTimeAgo` buckets down to `DD/MM` en-AU beyond 7 days (`:86-106`, `dateUtils.ts:44-52`).
 - **Three** mounts of the hook (critic-verified): the page (`TechnicianAlerts.tsx:197`), the bottom-nav badge (`TechnicianBottomNav.tsx:28`), and `TechnicianDashboard.tsx:36` → bell + unread dot in `TechnicianHeader.tsx:69-84` — deduped by the shared query key.
 - **Error state is invisible**: the hook surfaces `error` (`:234`) but the page never renders it — a failed query is indistinguishable from "All caught up!" (`TechnicianAlerts.tsx:207-211`).
@@ -207,13 +219,13 @@ Current indexes: `idx_activities_lead_id`, `idx_activities_lead_created_type`, `
 | read state / routing / target | none | `is_read`, `read_at`, `action_url`, `priority`, `related_entity_*` |
 | RLS | every authenticated user sees every row | per-user isolation |
 | Writers | ~44 sites | **zero** |
-| Rows (per TODO.md:1950) | live, high volume | 0 all-time |
+| Rows | live, high volume | ~~0 all-time (per TODO.md at 20 Aug)~~ **64 rows / 16 events at 25 Aug — [SUPERSEDED 2026-08-25]** |
 
 The sharpest structural fact: nullability inverts on both linking columns — an activities row cannot exist apart from a lead; a notifications row cannot exist apart from a person but need not concern any lead. `user_id` overlaps in name but **inverts in meaning** (actor vs. addressee).
 
-**Observed coupling in AdminHeader** (`AdminHeader.tsx:214-296`): one dropdown runs three hooks over two tables. The red badge is per-user, read-state-aware, from `notifications` (`useUnreadCount`, 30s poll); the list beneath it is the global, read-state-less merged timeline (5s poll); "Mark all as read" mutates only the notifications table — **it changes nothing about the five events displayed**. Badge count and list contents are drawn from disjoint populations, and since notifications has 0 rows, the badge can only ever count rows created outside this repo, and the realtime subscription (`useNotifications.ts:76-93`) listens for INSERTs no code emits. The shared renderer badges notification rows with a blue pill but leaves activities rows bare (`ActivityTimeline.tsx:165-175`).
+**[SUPERSEDED 2026-08-25 — the "0 rows" / "INSERTs no code emits" reasoning below is stale; the fan-out RPC now populates the table and the badge counts real rows. The realtime subscription still never fires, but because the table is missing from the `supabase_realtime` publication, not because nothing writes.]** **Observed coupling in AdminHeader** (`AdminHeader.tsx:214-296`): one dropdown runs three hooks over two tables. The red badge is per-user, read-state-aware, from `notifications` (`useUnreadCount`, 30s poll); the list beneath it is the global, read-state-less merged timeline (5s poll); "Mark all as read" mutates only the notifications table — **it changes nothing about the five events displayed**. Badge count and list contents are drawn from disjoint populations, and since notifications has 0 rows, the badge can only ever count rows created outside this repo, and the realtime subscription (`useNotifications.ts:76-93`) listens for INSERTs no code emits. The shared renderer badges notification rows with a blue pill but leaves activities rows bare (`ActivityTimeline.tsx:165-175`).
 
-**Three parallel unread/inbox mechanisms coexist today**: `notifications.is_read` (admin badge), the auth-metadata watermark (technician badge), and none at all (the merged timeline list). Whether the tables should remain separate or feed each other is a design decision **deferred with the routing work** — the facts above are what that decision must reconcile.
+**Three parallel unread/inbox mechanisms coexist today** **[SUPERSEDED 2026-08-25 — the auth-metadata watermark is gone; read state is per-recipient on `notifications.is_read`]**: `notifications.is_read` (admin badge), ~~the auth-metadata watermark (technician badge)~~, and none at all (the merged timeline list). Whether the tables should remain separate or feed each other is a design decision **deferred with the routing work** — the facts above are what that decision must reconcile.
 
 ### Adjacent modalities checked (for completeness)
 

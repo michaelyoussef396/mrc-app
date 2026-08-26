@@ -488,6 +488,11 @@ writes on job creation · invoice seeding precedence on real rows.
 
 ### DEV environment state (prepared this session)
 
+> **[UPDATED 2026-08-25]** Everything below is a 28 Jul–1 Aug snapshot. The 1 Aug "DEV now has
+> 4 EFs" correction is itself stale — see the L4 STATUS block for the current drift
+> (`generate-inspection-pdf` v9 vs PROD v107, template 66,282 B vs PROD 66,486 B, 9 PROD EFs
+> absent on DEV, 9 more stale).
+
 - Both migrations applied to DEV (`ctppzqnysmzynkxjlzta`) by Michael, probe-verified.
 - DEV Storage seeded via Storage API: `pdf-templates` + `pdf-assets` created PUBLIC,
   90/90 objects copied from PROD (incl. Galvji.ttc re-uploaded as octet-stream), and
@@ -1093,20 +1098,32 @@ Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocki
 ### L4 — Environment separation (dev Supabase + Vercel preview env vars)
 - **Estimate:** 3-4h
 - **Scope:** Stop preview deploys hitting production DB. Stand up dev Supabase project; run all migrations; wire Vercel Preview env vars.
+- **STATUS 2026-08-25 — DEV EXISTS AND IS AUDITED. The Phase 1–5 checklist below is superseded.**
+  DEV (`ctppzqnysmzynkxjlzta`) audited 25 Aug: **29 tables matching PROD name-for-name, RLS
+  enforcing, 4 auth users, Vercel Preview scope points at DEV.** The real gaps are drift, not
+  absence — DEV is ~3 weeks stale: `generate-inspection-pdf` **v9 vs PROD v107**; storage
+  template **66,282 B vs PROD 66,486 B**; **9 PROD Edge Functions do not exist on DEV at all**
+  (`seed-admin`, `generate-ai-summary`, `modify-ai-summary`, `send-slack-notification`,
+  `export-inspection-context`, `create-user-admin`, `sync-job-template`,
+  `check-photo-moisture-orphans`, `fetch-resend-email`); **9 more trail PROD badly**. RLS policy
+  parity **UNVERIFIED (2026-08-25)**. The sync itself is tracked in the 25 Aug section at the
+  end of this file.
 - **Runbook:** `docs/L4-environment-separation-plan.md` (Phases 1–5) + `docs/KEY_ROTATION.md` (Phase 6 full rotation). Tagged [HUMAN]/[CC] sequence agreed 2026-06-02.
 - **Progress (2026-06-02):**
   - [x] **Phase 0 [CC] — env-aware refs (prod-safe, on `main`):** Supabase origin de-hardcoded — `sentry.ts` trace target derives from `VITE_SUPABASE_URL`; `vercel.json` CSP uses `https://*.supabase.co` + `wss://*.supabase.co`; PDF-viewer fonts bundled locally (`public/fonts/`, `index.css`); `reportHash.test.ts` fixture neutralised. Commits `734a2af` / `8ee3aec` / `942e9b5`. Only remaining hardcoded ref is the server-rendered PDF template (intentional — public read-only fonts).
   - [x] **KEY_ROTATION.md added** (`e34dbec`) — secret inventory + Phase 6 runbook. Surfaced `INTERNAL_WEBHOOK_SECRET` (missing from the original L4 doc); confirmed `.env` git-history exposure (Oct–Dec 2025).
   - [x] **Dev project wired + local override live (2026-07-07):** Separate DEV Supabase project (ref `ctppzqnysmzynkxjlzta`) created via **Restore-to-New-Project** — schema + Storage + extensions verified present. Local `npm run dev` now points at DEV through `.env.development.local` (`VITE_SUPABASE_URL` override); production (mrcsystem.com) confirmed still on prod ref `ecyivrxjpsmjmexqatym`, verified by reading both deployed bundles. Satisfies the intent of Phases 1–2 via the restore path (not the planned empty-project + 86-migration replay). **Remaining optional check:** end-to-end write-divergence test — create a record → confirm it lands in DEV and is absent in PROD.
-  - [ ] **Phase 1 [HUMAN] — NEXT (deferred):** create `mrc-system-dev` Supabase project (same org, `ap-southeast-2`, free tier), enable `pg_cron` + `pg_net`, paste dev ref/URL/anon/service_role → [CC] verifies `public` schema empty.
-  - [ ] Phase 2 [HUMAN] apply 86 migrations (skip the 2 cron) + seed Storage; [CC] schema diff.
-  - [ ] Phase 3 [HUMAN] set dev EF secrets (incl. `INTERNAL_WEBHOOK_SECRET` + new Slack dev webhook) + deploy 12 EFs; [CC] smoke test.
-  - [ ] Phase 4 [HUMAN] 🔴 set Vercel **Preview-scope** env → dev (Preview only — the one prod-risk step).
-  - [ ] Phase 5 [CC] verify preview hits DEV + prod untouched.
+  - [x] ~~**Phase 1 [HUMAN] — NEXT (deferred):**~~ **SUPERSEDED 2026-08-25 — DEV exists via restore (7 Jul).** create `mrc-system-dev` Supabase project (same org, `ap-southeast-2`, free tier), enable `pg_cron` + `pg_net`, paste dev ref/URL/anon/service_role → [CC] verifies `public` schema empty.
+  - [x] ~~Phase 2 [HUMAN] apply 86 migrations (skip the 2 cron) + seed Storage; [CC] schema diff.~~ **SUPERSEDED 2026-08-25 — 29 tables match PROD name-for-name (restore path); Storage seeded 28 Jul but template now 204 B behind PROD.**
+  - [ ] Phase 3 [HUMAN] set dev EF secrets (incl. `INTERNAL_WEBHOOK_SECRET` + new Slack dev webhook) + deploy 12 EFs; [CC] smoke test. **PARTIAL (2026-08-25): 9 PROD EFs absent on DEV, 9 more stale — see STATUS above; this is the DEV sync item.**
+  - [x] ~~Phase 4 [HUMAN] 🔴 set Vercel **Preview-scope** env → dev (Preview only — the one prod-risk step).~~ **DONE — verified 2026-08-25: Vercel Preview scope points at DEV.**
+  - [x] ~~Phase 5 [CC] verify preview hits DEV + prod untouched.~~ **DONE — verified 2026-08-25 (Preview → DEV; production bundle carries the PROD ref only, per the 2 Aug redeploy check).**
   - [ ] Phase 6 [HUMAN] full key rotation (new→verify→revoke; Supabase/GitHub PATs LAST) per KEY_ROTATION.md.
   - [ ] Create test technician accounts in dev for walkthrough.
 - **Open input:** Q4 `ADMIN_FALLBACK_EMAIL` (dev) = current mrcsystem.com admin email — set literal at Phase 3.
-- **Blocking:** can't safely run Glen/Clayton walkthrough on prod data.
+- **Blocking:** ~~can't safely run Glen/Clayton walkthrough on prod data.~~ DEV exists; the
+  remaining blocker is DEV drift — a walkthrough on a three-week-stale DEV will pass things that
+  fail live. Sync first (25 Aug section).
 
 ### L5 — Email domain switch to `mouldandrestoration.com.au`
 - **Estimate:** ~1h remaining (the DNS wait is spent)
@@ -1132,7 +1149,9 @@ Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocki
 
 ### L7 — Glen/Clayton E2E walkthrough on dev
 - **Estimate:** 1 day wall-clock (mostly human time)
-- **Dependency:** L4 (dev environment must exist). L1 parked, L2 cancelled — neither blocks.
+- **Dependency:** ~~L4 (dev environment must exist)~~ DEV exists (audited 2026-08-25); the
+  dependency is now the DEV→PROD sync (25 Aug section) so the walkthrough runs on current code.
+  L1 parked, L2 cancelled — neither blocks.
 - **Tasks:**
   - [ ] Run the 18 smoke scenarios in the T section against dev DB with a test tech account
   - [ ] Fix anything material before scheduling Glen + Clayton
@@ -1306,7 +1325,9 @@ Tonight's deploy passed typecheck + unit tests + audit verification + programmat
   - Sequence: migration in Studio (human) → npx supabase gen types →
     backfill in Studio (human) → code merge → preview QA on tech
     account → prod promote. /plan + manager agent required.
-  - BLOCKED until dev Supabase project exists (see Environment Separation)
+  - ~~BLOCKED until dev Supabase project exists (see Environment Separation)~~ DEV exists
+    since 7 Jul (audited 2026-08-25). Rehearse the enum migration on DEV — after the DEV sync
+    (25 Aug section), since DEV is three weeks behind PROD.
 
 - [ ] PR-T2-cleanup: collapse the discriminator override JSX in
   LeadDetail.tsx to a one-line statusConfig check. Only after PR-T1 lands.
@@ -1947,8 +1968,15 @@ as the known `TechnicianInspectionForm` defect where area save errors are swallo
       No per-release regression detection.
 - [ ] `property_type` NULL on all Framer-sourced leads — intake never populates it.
       Upstream cause of the inspection-vs-job-completion mismatch.
-- [ ] `notifications` table 0 rows all-time. In-app notification surface dead while
-      Slack works.
+- [x] ~~`notifications` table 0 rows all-time. In-app notification surface dead while
+      Slack works.~~ **STALE — corrected 2026-08-25.** Fan-out has been WORKING since
+      24 Aug: verified 25 Aug at **64 rows / 16 events / exactly 4 rows per event**,
+      DISTINCT dedup on `user_id` correct, one Slack post per event, read state
+      per-recipient. Three paths have simply not fired since deploy — the frontend RPC
+      path (`status_changed`, `lead_updated`, `inspection_booked`), the `email_logs`
+      trigger path, and the overdue-invoice digest — **unexercised, not broken**.
+      The remaining defect is realtime, not writes — see the 25 Aug section at the
+      end of this file.
 - [ ] Supabase EF log retention is 24 h. Log invocations to a table for durable history.
 - [ ] Supabase CLI is v2.101.0; current is v2.112.0.
 - [ ] `toDisplayTitleCase` renders "JR Smith" as "Jr Smith". Cosmetic.
@@ -2017,9 +2045,12 @@ below was found but deliberately NOT built. Documentation only — no separate d
   `npx supabase migration repair --status applied 20260823090000 --linked`.
   Diff verified comment-only — zero executable statements touched.
 
-### Colour collision note (from the Task 3 audit — recorded, NOT resolved)
+### Colour collision note (from the Task 3 audit — scheme CORRECT and live; adjacent collisions recorded, not resolved)
 
-Booking-type scheme (corrected 24 Aug 2026 — an earlier build had it reversed):
+Booking-type scheme (corrected 24 Aug 2026 — an earlier build had it reversed;
+**re-verified 2026-08-25: inspection blue / job orange is CORRECT and live on production.
+Nothing about the scheme itself is unresolved** — the list below is only the neighbouring
+status/CTA hues that share a family with it):
 **inspection = blue `#137fec` (unchanged from before this session), job =
 orange-500 `#f97316` accent with orange-700 `#c2410c` text** (replaces the retired
 green). Orange-500 deliberately matches the `job_waiting` status colour — same
@@ -2107,22 +2138,26 @@ item, the blocker, and the sequence. Nothing below has been built, migrated, or 
   Do NOT add a `lead_id IS NOT NULL` CHECK for client types — the FK is ON DELETE SET NULL and
   lead deletion would then fail.
 
-### R4 — Preferred date/time optional on manual lead entry
+### R4 — Preferred date/time optional on manual lead entry ✅ FIXED 2026-08-25 (PR #79 `a82d1f1`, on main, awaiting production merge)
 - **Live state:** `leads.customer_preferred_date` and `customer_preferred_time` already nullable,
   no default, no CHECK, no trigger. **No DDL required.**
 - Blocked only by the hand-rolled `CreateNewLeadModal.validateForm()`
   (`src/components/leads/CreateNewLeadModal.tsx:353-361`). **There is NO Zod schema behind the
   manual form** — the documented `normalLeadSchema` (`lead-creation.schemas.ts:245-263`) is dead
   code with zero callers and no preferred keys.
-- [ ] ~6 lines: drop the two required branches (:353-361), labels (:604, :648), insert
+- [x] ~~~6 lines: drop the two required branches (:353-361), labels (:604, :648), insert
   `:435-436` → `formData.preferredDate || null` / `formData.preferredTime || null` (an empty
-  string into a `date` column errors), Slack payload `:467-468` → `|| undefined`.
+  string into a `date` column errors), Slack payload `:467-468` → `|| undefined`.~~ **DONE
+  `a82d1f1`:** validation extracted to `src/lib/validators/create-lead-form.ts`
+  (`validateCreateLeadForm`, unit-tested); `toNullableField()` writes NULL for both columns and
+  the Slack payload; labels read "(optional)". Write-once at creation still holds — no update path.
+
 - Does **not** conflict with the PR #39 never-clear rule — that rule governs UPDATE
   (`LeadDetail.tsx:506-541` clear-lists; column COMMENTs), not requiredness at CREATE.
 - [ ] Optional tidy-up: delete the dead `normalLeadSchema` / `hiPagesLeadSchema` exports so nobody
   later wires them in and silently changes the required set.
 
-### R5 — Allow duplicate leads (repeat real-estate clients)
+### R5 — Allow duplicate leads (repeat real-estate clients) ✅ FIXED 2026-08-25 (PR #79 `d782e7b` + `d3b9a0a`, on main, awaiting production merge)
 - **Live state:** no unique constraint or index on email / phone / name / any address column
   (only `id` and `lead_number` are unique; `idx_leads_email_phone` is non-unique). **PROD ALREADY
   holds 5 duplicate-email groups and 3 duplicate-phone groups — the DB never blocked this.** No
@@ -2132,9 +2167,13 @@ item, the blocker, and the sequence. Nothing below has been built, migrated, or 
   gate (`:398-403`) — hard-blocks on phone-OR-email with **no override** AND **counts archived /
   not_landed leads** (no `archived_at` filter), so a re-created archived customer is a dead end the
   admin cannot even find.
-- [ ] **Target: warn-and-allow.** Keep the lookup, show "Existing lead: <name> (MRC-…)", always
+- [x] ~~**Target: warn-and-allow.** Keep the lookup, show "Existing lead: <name> (MRC-…)", always
   permit submit; add `.is('archived_at', null)` to the check. Banner `:565-576` becomes
-  informational.
+  informational.~~ **DONE:** lookup moved to `src/lib/api/leadDuplicates.ts`
+  (`findDuplicateLead`, `.is('archived_at', null)`, unit-tested with archived fixtures); banner
+  names + links the colliding lead (`/leads/{id}`); runs on phone/email blur. `d3b9a0a`: the Save
+  click that first discovers a collision now inserts immediately — the warning is informational,
+  never a gate (component-tested).
 - Known format drift (modal stores digits, Framer raw, in-app keeps `+`) means the warning will
   miss some repeats — acceptable for warn-only; not worth fixing in this batch.
 
@@ -2225,10 +2264,76 @@ item, the blocker, and the sequence. Nothing below has been built, migrated, or 
   remove the call or rewrite the rule. Until then, treat the hook as live when estimating R7.
 
 ### SUGGESTED SEQUENCE
-- **A.** R3 + R4 + R5 as **one code-only batch** — no migration, no approval gate. Verify at
-  375px; one E2E at the end, not piecemeal.
+- **A.** ~~R3 + R4 + R5 as **one code-only batch**~~ **R4 + R5 shipped 2026-08-25 (PR #79).
+  R3 remains** — code-only, no migration, no approval gate. Verify at 375px; one E2E at the end,
+  not piecemeal. (375px for PR #79 is still unverified — see the Chrome-extension item, 25 Aug.)
 - **B.** R6 (unit numbers) — own session, one migration via Studio + `migration repair`;
   formatter helper lands before the column.
 - **C.** R7 (multi-tech) — only after the Glen/Clayton decision on `completed_by`; R8 + R10 ride
   along.
 - R1 / R2 are standing rules, not work items. R9 / R11 unscheduled.
+
+---
+
+## 25 Aug 2026 — corrections against live state + new items
+
+Corrections above are marked inline (`STALE`, `SUPERSEDED`, `FIXED`). This section records what
+shipped since the 24 Aug recon and what was found while verifying it. Live reads via
+`npx supabase db query --linked` (PROD, SELECT-only) and the DEV audit of the same day.
+
+### Fixed — verified or shipped
+
+- ✅ **Pricing 2h anchor rates — FIXED and LIVE on production** (PR #76 `fa8e49c`): Surface
+  **615.27**, Demolition **715.73**, Subfloor **905.84**, matching the owner rate card. No open
+  item remains for this.
+- ✅ **Editable estimate override — FIXED, on main, awaiting production merge** (PR #78
+  `dacd7cf`). Root cause: `manualPriceOverride` had **no setter in the UI** and could never become
+  `true` — the override card was non-functional since it shipped. Now persists to labour and
+  equipment.
+- ✅ **Booking-type colours — inspection blue / job orange is CORRECT and live.** The 24 Aug
+  "reversed" build is history; nothing unresolved about the scheme (collision note above is
+  observational only).
+- ✅ **R4 / R5 / lead search / Start Job routing — FIXED, on main via PR #79, awaiting production
+  merge.** `a82d1f1` R4; `d782e7b` + `d3b9a0a` R5; `89fffa9` Leads Management search (root cause:
+  client-side filter over a 50-row paginated slice — both surfaces now share `src/lib/leadSearch.ts`
+  against `search_text`); `d426b74` NextJobCard + EventDetailsPanel "Start Job" now route to
+  `/technician/job-completion/:leadId` instead of the inspection form.
+- ✅ **Notifications fan-out — WORKING since 24 Aug** (see the corrected P3 item). The "0 rows
+  all-time" claims in this file and in `docs/NOTIFICATIONS_INVESTIGATION.md` were stale; the
+  investigation doc now carries a superseded banner.
+
+### New items
+
+- [ ] **Override sanity warning.** A technician can enter a multi-million-dollar estimate override
+      and nothing flags it. Suggested: non-blocking inline warning when the override exceeds
+      **10× the auto-calculated value**. **Warning only — never clamp, never block.** Code-only.
+- [ ] **Per-field override columns (migration).** `manual_labour_override` is ONE boolean encoding
+      FOUR fields (labour, equipment, and both Both-mode option-1 fields). Lossy: it forces
+      `reconcileLoadedOverride` to guess by recomputing the auto value and comparing. Nullable
+      per-field override columns remove the guessing. **Requires a migration** (Studio paste +
+      `migration repair`, per R1).
+- [ ] **Realtime on `notifications` (migration, one line).** The table is NOT in the
+      `supabase_realtime` publication — only `calendar_bookings` is — so the `postgres_changes`
+      subscription in `useNotifications.ts` never fires and the bell only updates on the 30 s poll.
+      Fix: `ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;` — applied by hand
+      in Studio, then `migration repair`. This is the only remaining notifications defect.
+- [ ] **LeadsManagement status filter + sort are still client-side over the paginated slice.**
+      Same bug class as the search issue fixed in PR #79, different fields: `getFilteredLeads()`
+      filters `statusFilter` and sorts over whatever page is loaded, and the status-tab counts are
+      computed from that slice. Sorting by status only sorts the loaded page. Push `statusFilter`
+      into the query (`.eq('status', …)`) and the sort into `.order()`; the `loadLeads` effect
+      already re-runs on both but ignores them.
+- [ ] **Sync DEV to PROD.** DEV is three weeks behind (L4 STATUS block: EF versions, 9 missing
+      EFs, template bytes, RLS parity unverified). A stale DEV will eventually pass something that
+      fails live. Redeploy the EF set to `ctppzqnysmzynkxjlzta` (state the ref + role before every
+      command), re-upsert the template, then diff `pg_policies` against PROD.
+- [ ] **Chrome extension not connected → 375px / E2E claims are unverified.** Claude Code cannot
+      log into the app (no `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `TECH_EMAIL` / `TECH_PASSWORD` in
+      the shell, extension disconnected), so every "verified at 375px" or end-to-end claim in a
+      session is unverified until Michael looks personally. **Happened four times on 25 Aug
+      alone.** Either reconnect the extension or export the four E2E vars before a session that
+      needs UI verification; treat any 375px claim without a screenshot as unverified.
+- [ ] **Auto mode left on for eight consecutive sessions.** Prompt instructions ("Shift+Tab —
+      confirm auto mode is OFF") are not working. Needs a hook (`.claude/settings.json`
+      `PreToolUse` / session-start guard) rather than another instruction.
+
