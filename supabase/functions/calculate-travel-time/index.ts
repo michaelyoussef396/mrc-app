@@ -2,6 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import { z } from 'https://esm.sh/zod@3.22.4'
 
+import { redactAddress, reportEdgeErrorInBackground } from '../_shared/errorReporting.ts'
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -114,6 +116,21 @@ interface RecommendedDatesRequest {
   slot_interval_minutes?: number  // Default 60 — granularity of the suggested slots
 }
 
+/**
+ * Where a travel figure came from — or why there isn't one.
+ *
+ * This function used to answer with a number no matter what: a 30-minute stand-in when
+ * Google didn't reply, a zero when the technician had no starting address. Both rendered
+ * as fact in the booking panel, indistinguishable from a real measurement. Every response
+ * that carries — or withholds — a travel figure now says which of these it is.
+ *
+ *   google_api   Distance Matrix answered. The number is real.
+ *   haversine    Straight-line postcode estimate. Approximate, but honestly derived.
+ *   unavailable  A Maps call was made and produced no answer. Retryable.
+ *   no_origin    No Maps call was possible: there is no starting address. Not retryable.
+ */
+type TravelTimeSource = 'google_api' | 'haversine' | 'unavailable' | 'no_origin'
+
 interface DateRecommendation {
   date: string  // YYYY-MM-DD
   day_name: string  // "Mon", "Tue", etc.
@@ -122,7 +139,14 @@ interface DateRecommendation {
   rating: 'best' | 'good' | 'available' | 'unknown'
   reason: string  // "Free all day, 20 min from home"
   appointment_count: number
+  /** null whenever travel_from_home_source is not 'google_api'. */
   travel_from_home_minutes: number | null
+  /**
+   * Mirrors the response-level field. One Maps call feeds every day, so this holds the
+   * same value on every item today; it lives here so a row that renders a travel number
+   * carries the provenance of that number right next to it.
+   */
+  travel_from_home_source: TravelTimeSource
   available_slots: string[]  // ["08:00", "09:00", etc.]
   needs_manual_address?: boolean  // True when no starting address for empty days
   preferred_time_feasible?: boolean  // True if customer's preferred time slot is available
@@ -132,6 +156,13 @@ interface RecommendedDatesResponse {
   recommendations: DateRecommendation[]
   technician_name: string
   technician_home: string | null
+  /**
+   * ONE Distance Matrix call (home -> destination) is made per request and shared by
+   * every day. This is its provenance, and unlike the per-day copy it survives when
+   * `recommendations` is empty — which is exactly when a caller most needs to tell
+   * "no free days" apart from "we never worked out the travel time".
+   */
+  travel_from_home_source: TravelTimeSource
   has_missing_address_warning?: boolean  // True if any day has unknown travel due to missing address
 }
 
@@ -140,31 +171,71 @@ interface PreviousAppointment {
   location: string
   suburb: string
   client_name: string
-  travel_time_minutes: number
+  /**
+   * null when this leg was never measured — either Maps failed, or an override address
+   * replaced this appointment as the travel origin, so the measured leg starts somewhere
+   * else entirely. It used to ship as a hardcoded 0.
+   */
+  travel_time_minutes: number | null
 }
 
-interface AvailabilityResponse {
-  available: boolean
+interface DayScheduleEntry {
+  time: string
+  client_name: string
+  suburb: string
+  ends_at: string
+}
+
+/** True regardless of whether travel could be computed. */
+interface AvailabilityResponseBase {
   technician_name: string
   technician_home: string | null
+  day_schedule: DayScheduleEntry[]
+  used_override_address: boolean
+}
+
+/** Travel was measured. Every derived field is meaningful. */
+interface ResolvedAvailabilityResponse extends AvailabilityResponseBase {
+  source: 'google_api'
+  available: boolean
   previous_appointment: PreviousAppointment | null
   earliest_start: string
   requested_time_works: boolean
   buffer_minutes: number
   suggestions: string[]
-  day_schedule: Array<{
-    time: string
-    client_name: string
-    suburb: string
-    ends_at: string
-  }>
   travel_time_minutes: number
-  travel_distance_km: number | null
+  travel_distance_km: number
   travel_origin_address: string
   is_feasible: boolean
-  error?: 'no_starting_address'  // Error flag when starting address is missing
+}
+
+/**
+ * Travel is unknown. Every derived field below is typed as the literal `null`, so
+ * `deno check` REJECTS any attempt to put a number, a time or a boolean here — a
+ * stronger guard than a test, and the reason this is a union rather than a bag of
+ * optionals. `suggestions` is the empty-tuple type for the same reason: only `[]`
+ * assigns to it, so a suggestion list computed from an assumed start time cannot be
+ * emitted. Do not "fix" it to `string[]` or `never[]`.
+ */
+interface UnknownAvailabilityResponse extends AvailabilityResponseBase {
+  source: 'unavailable' | 'no_origin'
+  available: null
+  previous_appointment: PreviousAppointment | null
+  earliest_start: null
+  requested_time_works: null
+  buffer_minutes: null
+  suggestions: []
+  travel_time_minutes: null
+  travel_distance_km: null
+  travel_origin_address: string | null
+  is_feasible: null
+  /**
+   * Back-compat. useBookingValidation.ts gates on this exact literal, and a frontend
+   * deployment that predates the `source` guard is the only thing standing between an
+   * admin and a fabricated answer. Only the no_origin variant sets it. Do not remove.
+   */
+  error?: 'no_starting_address'
   message?: string  // Error message for user display
-  used_override_address?: boolean  // Flag indicating manual address was used
 }
 
 interface TriageLeadRequest {
@@ -177,7 +248,7 @@ interface TriageResult {
   technician_name: string
   travel_time_minutes: number | null
   distance_km: number | null
-  source: 'google_api' | 'haversine'
+  source: TravelTimeSource
 }
 
 interface TriageLeadResponse {
@@ -196,11 +267,22 @@ interface ErrorResponse {
 // HELPER FUNCTIONS
 // ============================================================================
 
+/** Identifies which caller a Maps failure came from, for the error report. */
+interface MapsCallContext {
+  action: 'check_availability' | 'get_recommended_dates' | 'triage_lead' | 'direct'
+  technician_id?: string
+  lead_id?: string
+  date?: string
+  origin: string
+  destination: string
+}
+
 // Calculate travel time using Google Maps Distance Matrix API
 async function calculateTravelTime(
   origin: string,
   destination: string,
-  apiKey: string
+  apiKey: string,
+  ctx: MapsCallContext
 ): Promise<{ duration_minutes: number; distance_km: number } | null> {
   try {
     const params = new URLSearchParams({
@@ -217,13 +299,71 @@ async function calculateTravelTime(
     const data = await response.json()
 
     if (data.status !== 'OK') {
-      console.error('Google Maps API error:', data.status, data.error_message)
+      // Google's own error_message, verbatim — the string that actually says
+      // "REQUEST_DENIED / The provided API key is expired". It used to reach a
+      // console.error nobody reads while the caller invented 30 minutes.
+      reportEdgeErrorInBackground({
+        message: `Google Distance Matrix returned ${data.status}${data.error_message ? `: ${data.error_message}` : ''}`,
+        severity: 'error',
+        exceptionType: 'GoogleMapsDistanceMatrixError',
+        logger: 'calculate-travel-time',
+        transaction: `calculate-travel-time/${ctx.action}`,
+        fingerprint: ['calculate-travel-time', ctx.action, String(data.status)],
+        dedupeKey: `maps-api:${ctx.action}:${data.status}`,
+        tags: {
+          function: 'calculate-travel-time',
+          action: ctx.action,
+          google_status: String(data.status),
+          failure_stage: 'api',
+        },
+        extra: {
+          google_status: data.status,
+          google_error_message: data.error_message ?? null,
+          address_hint: redactAddress(ctx.destination),
+        },
+        context: {
+          function: 'calculate-travel-time',
+          ...ctx,
+          google_status: data.status,
+          google_error_message: data.error_message ?? null,
+        },
+      })
       return null
     }
 
     const element = data.rows?.[0]?.elements?.[0]
     if (!element || element.status !== 'OK') {
-      console.error('Route calculation failed:', element?.status)
+      // No error_message exists at element level — element.status is the whole story
+      // (ZERO_RESULTS, NOT_FOUND, MAX_ROUTE_LENGTH_EXCEEDED). Warning, not error: this
+      // is almost always a bad address on the lead, not a broken integration.
+      reportEdgeErrorInBackground({
+        message: `Google Distance Matrix route element failed: ${element?.status ?? 'MISSING_ELEMENT'}`,
+        severity: 'warning',
+        exceptionType: 'GoogleMapsRouteUnavailable',
+        logger: 'calculate-travel-time',
+        transaction: `calculate-travel-time/${ctx.action}`,
+        fingerprint: ['calculate-travel-time', ctx.action, 'element', String(element?.status ?? 'MISSING_ELEMENT')],
+        dedupeKey: `maps-element:${ctx.action}:${element?.status ?? 'MISSING_ELEMENT'}`,
+        tags: {
+          function: 'calculate-travel-time',
+          action: ctx.action,
+          element_status: String(element?.status ?? 'MISSING_ELEMENT'),
+          failure_stage: 'element',
+        },
+        extra: {
+          top_status: data.status,  // 'OK' — the row is what failed
+          element_status: element?.status ?? null,
+          google_error_message: null,  // none exists at this level
+          origin_hint: redactAddress(ctx.origin),
+          address_hint: redactAddress(ctx.destination),
+        },
+        context: {
+          function: 'calculate-travel-time',
+          ...ctx,
+          top_status: data.status,
+          element_status: element?.status ?? null,
+        },
+      })
       return null
     }
 
@@ -234,7 +374,20 @@ async function calculateTravelTime(
       distance_km: Math.round((element.distance.value / 1000) * 10) / 10
     }
   } catch (error) {
-    console.error('Travel time calculation error:', error)
+    // Network failure, DNS, non-JSON body. Unlike the two above, this one has a stack.
+    reportEdgeErrorInBackground({
+      message: `Distance Matrix request threw: ${error instanceof Error ? error.message : String(error)}`,
+      severity: 'error',
+      exceptionType: 'GoogleMapsRequestFailed',
+      stack: error instanceof Error ? (error.stack ?? null) : null,
+      logger: 'calculate-travel-time',
+      transaction: `calculate-travel-time/${ctx.action}`,
+      fingerprint: ['calculate-travel-time', ctx.action, 'threw'],
+      dedupeKey: `maps-threw:${ctx.action}`,
+      tags: { function: 'calculate-travel-time', action: ctx.action, failure_stage: 'transport' },
+      extra: { address_hint: redactAddress(ctx.destination) },
+      context: { function: 'calculate-travel-time', ...ctx },
+    })
     return null
   }
 }
@@ -376,11 +529,39 @@ async function calculateMultiOriginTravelTimes(
     const data = await response.json()
 
     if (data.status !== 'OK') {
-      console.error('Google Maps API error:', data.status, data.error_message)
+      reportEdgeErrorInBackground({
+        message: `Google Distance Matrix (multi-origin) returned ${data.status}${data.error_message ? `: ${data.error_message}` : ''}`,
+        severity: 'error',
+        exceptionType: 'GoogleMapsDistanceMatrixError',
+        logger: 'calculate-travel-time',
+        transaction: 'calculate-travel-time/triage_lead',
+        fingerprint: ['calculate-travel-time', 'triage_lead', 'multi_origin', String(data.status)],
+        dedupeKey: `maps-multi:${data.status}`,
+        tags: {
+          function: 'calculate-travel-time',
+          action: 'triage_lead',
+          google_status: String(data.status),
+          failure_stage: 'api',
+        },
+        extra: {
+          google_status: data.status,
+          google_error_message: data.error_message ?? null,
+          origin_count: origins.length,
+          address_hint: redactAddress(destination),
+        },
+        context: {
+          function: 'calculate-travel-time',
+          action: 'triage_lead',
+          destination,
+          origin_count: origins.length,
+          google_status: data.status,
+          google_error_message: data.error_message ?? null,
+        },
+      })
       return origins.map(() => null)
     }
 
-    return data.rows.map((row: any) => {
+    const results = data.rows.map((row: any) => {
       const element = row.elements?.[0]
       if (!element || element.status !== 'OK') return null
       return {
@@ -390,8 +571,54 @@ async function calculateMultiOriginTravelTimes(
         distance_km: Math.round((element.distance.value / 1000) * 10) / 10
       }
     })
+
+    // One aggregate report, not one per technician — a batch of N unroutable origins is
+    // a single fact about the destination address, not N separate incidents.
+    const failedCount = results.filter((result: unknown) => result === null).length
+    if (failedCount > 0) {
+      reportEdgeErrorInBackground({
+        message: `Distance Matrix returned no route for ${failedCount}/${origins.length} technician origins`,
+        severity: 'warning',
+        exceptionType: 'GoogleMapsRouteUnavailable',
+        logger: 'calculate-travel-time',
+        transaction: 'calculate-travel-time/triage_lead',
+        fingerprint: ['calculate-travel-time', 'triage_lead', 'multi_origin_partial'],
+        dedupeKey: 'maps-multi-partial',
+        tags: {
+          function: 'calculate-travel-time',
+          action: 'triage_lead',
+          failure_stage: 'element',
+        },
+        extra: {
+          failed_count: failedCount,
+          origin_count: origins.length,
+          address_hint: redactAddress(destination),
+        },
+        context: {
+          function: 'calculate-travel-time',
+          action: 'triage_lead',
+          destination,
+          failed_count: failedCount,
+          origin_count: origins.length,
+        },
+      })
+    }
+
+    return results
   } catch (error) {
-    console.error('Multi-origin travel time error:', error)
+    reportEdgeErrorInBackground({
+      message: `Distance Matrix (multi-origin) request threw: ${error instanceof Error ? error.message : String(error)}`,
+      severity: 'error',
+      exceptionType: 'GoogleMapsRequestFailed',
+      stack: error instanceof Error ? (error.stack ?? null) : null,
+      logger: 'calculate-travel-time',
+      transaction: 'calculate-travel-time/triage_lead',
+      fingerprint: ['calculate-travel-time', 'triage_lead', 'multi_origin', 'threw'],
+      dedupeKey: 'maps-multi-threw',
+      tags: { function: 'calculate-travel-time', action: 'triage_lead', failure_stage: 'transport' },
+      extra: { origin_count: origins.length, address_hint: redactAddress(destination) },
+      context: { function: 'calculate-travel-time', action: 'triage_lead', destination, origin_count: origins.length },
+    })
     return origins.map(() => null)
   }
 }
@@ -728,12 +955,15 @@ Deno.serve(async (req) => {
               source: 'haversine'
             })
           } else {
+            // Google failed AND the postcode is missing from MELBOURNE_POSTCODE_COORDS,
+            // so no estimate of any kind was produced. This used to claim 'haversine'
+            // next to two nulls — the same laundering of uncertainty this change removes.
             rankedTechnicians.push({
               technician_id: tech.id,
               technician_name: tech.name,
               travel_time_minutes: null,
               distance_km: null,
-              source: 'haversine'
+              source: 'unavailable'
             })
           }
         }
@@ -755,12 +985,14 @@ Deno.serve(async (req) => {
             source: 'haversine'
           })
         } else {
+          // No starting address at all, and no usable postcode to fall back on. Nothing
+          // was measured or estimated; 'haversine' here was never true.
           rankedTechnicians.push({
             technician_id: tech.id,
             technician_name: tech.name,
             travel_time_minutes: null,
             distance_km: null,
-            source: 'haversine'
+            source: 'no_origin'
           })
         }
       }
@@ -871,7 +1103,6 @@ Deno.serve(async (req) => {
       let previousAppointment: PreviousAppointment | null = null
       let travelOrigin: string | null = null
       let usedOverrideAddress = false
-      let earliestStartMinutes = 8 * 60 // 8:00 AM default start
 
       // Find the appointment that ends closest to (but before) the requested time
       const sortedAppts = [...daySchedule].sort((a, b) =>
@@ -895,7 +1126,9 @@ Deno.serve(async (req) => {
             location: fullAddress,
             suburb: apt.suburb,
             client_name: apt.client_name,
-            travel_time_minutes: 0 // Will be calculated below
+            // Not measured yet. A `0 // Will be calculated below` used to sit here and
+            // survived to the wire on the override path, where nothing overwrote it.
+            travel_time_minutes: null
           }
           travelOrigin = fullAddress
         }
@@ -910,48 +1143,119 @@ Deno.serve(async (req) => {
         travelOrigin = technicianHome
       }
 
-      // If no travel origin available, return error (no longer fall back to "Melbourne VIC")
+      // No travel origin means nothing downstream of a travel time can be computed. This
+      // used to answer 200 with travel 0 / buffer 0 / earliest 08:00 and three booking
+      // suggestions — every one of them derived from an assumed zero-minute drive.
+      //
+      // previousAppointment is almost always null here, since setting it also sets
+      // travelOrigin — but not quite always: a lead whose address columns are all empty
+      // joins to `''`, which is falsy. So report whatever is actually there rather than
+      // hardcoding null, which is how the placeholder zeroes got here in the first place.
       if (!travelOrigin) {
-        const noAddressResponse: AvailabilityResponse = {
-          available: false,
+        const noAddressResponse: UnknownAvailabilityResponse = {
+          source: 'no_origin',
+          available: null,
           technician_name: technicianName,
-          technician_home: null,
-          previous_appointment: null,
-          earliest_start: '08:00',
-          requested_time_works: false,
-          buffer_minutes: 0,
-          suggestions: generateSuggestions(8 * 60, 3),
+          technician_home: technicianHome,
+          previous_appointment: previousAppointment,
+          earliest_start: null,
+          requested_time_works: null,
+          buffer_minutes: null,
+          suggestions: [],
           day_schedule: daySchedule,
-          travel_time_minutes: 0,
+          travel_time_minutes: null,
           travel_distance_km: null,
-          travel_origin_address: '',
-          is_feasible: false,
+          travel_origin_address: null,
+          is_feasible: null,
+          used_override_address: usedOverrideAddress,
           error: 'no_starting_address',
           message: `Cannot calculate travel time - ${technicianName}'s starting address is not set. Please set their address in Profile, or provide a manual starting location.`
         }
+
+        reportEdgeErrorInBackground({
+          message: `No starting address for technician ${technicianName} — travel time not computable`,
+          severity: 'warning',
+          exceptionType: 'TravelOriginMissing',
+          logger: 'calculate-travel-time',
+          transaction: 'calculate-travel-time/check_availability',
+          fingerprint: ['calculate-travel-time', 'check_availability', 'no_origin'],
+          // The booking form re-fires this on every date/time change, so without a
+          // dedupe window one address-less technician writes an error_logs row per keystroke.
+          dedupeKey: `no_origin:${technician_id}`,
+          tags: {
+            function: 'calculate-travel-time',
+            action: 'check_availability',
+            travel_source: 'no_origin',
+          },
+          extra: { technician_id, date, requested_time },
+          context: {
+            function: 'calculate-travel-time',
+            action: 'check_availability',
+            technician_id,
+            technician_name: technicianName,
+            date,
+            requested_time,
+            destination_address,
+          },
+        })
+
         return new Response(
           JSON.stringify(noAddressResponse),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      // 4. Calculate travel time from origin to destination
-      let travelTimeMinutes = 30 // Default 30 min if API fails
-      let travelDistanceKm: number | null = null
+      // 4. Calculate travel time from origin to destination.
+      //
+      // There is no fallback. `let travelTimeMinutes = 30 // Default 30 min if API fails`
+      // used to open this block, and its 30 flowed into earliest_start, buffer_minutes,
+      // is_feasible, the suggestion list and previous_appointment.travel_time_minutes —
+      // all returned as HTTP 200 with nothing to mark them as invented.
+      const travelResult = await calculateTravelTime(travelOrigin, destination_address, apiKey, {
+        action: 'check_availability',
+        technician_id,
+        date,
+        origin: travelOrigin,
+        destination: destination_address,
+      })
 
-      const travelResult = await calculateTravelTime(travelOrigin, destination_address, apiKey)
-      if (travelResult) {
-        travelTimeMinutes = travelResult.duration_minutes
-        travelDistanceKm = travelResult.distance_km
+      if (!travelResult) {
+        // calculateTravelTime has already reported the specific Google status and
+        // error_message. Everything downstream of a travel time is withheld, not guessed.
+        const unknownTravelResponse: UnknownAvailabilityResponse = {
+          source: 'unavailable',
+          available: null,
+          technician_name: technicianName,
+          technician_home: technicianHome,
+          previous_appointment: previousAppointment,
+          earliest_start: null,
+          requested_time_works: null,
+          buffer_minutes: null,
+          suggestions: [],
+          day_schedule: daySchedule,
+          travel_time_minutes: null,
+          travel_distance_km: null,
+          travel_origin_address: travelOrigin,
+          is_feasible: null,
+          used_override_address: usedOverrideAddress,
+          message: 'Travel time could not be calculated - the mapping service did not respond. Try again, or book without a travel estimate.'
+        }
+        return new Response(
+          JSON.stringify(unknownTravelResponse),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
 
+      const travelTimeMinutes = travelResult.duration_minutes
+      const travelDistanceKm = travelResult.distance_km
+
+      let earliestStartMinutes = BUSINESS_START_MINUTES
       if (previousAppointment && !usedOverrideAddress) {
         // Previous appointment takes priority unless we're using an override
-        previousAppointment.travel_time_minutes = travelTimeMinutes
         earliestStartMinutes = timeToMinutes(previousAppointment.ends_at) + travelTimeMinutes
       } else if (usedOverrideAddress || technicianHome) {
-        // Using override address or home - calculate from 8 AM + travel time
-        earliestStartMinutes = 8 * 60 + travelTimeMinutes // 8 AM + travel from starting point
+        // Using override address or home - business start + travel from that point
+        earliestStartMinutes = BUSINESS_START_MINUTES + travelTimeMinutes
       }
 
       // 5. Check if requested time works
@@ -963,11 +1267,20 @@ Deno.serve(async (req) => {
         ? []
         : generateSuggestions(earliestStartMinutes, 3)
 
-      const response: AvailabilityResponse = {
+      const response: ResolvedAvailabilityResponse = {
+        source: 'google_api',
         available: requestedTimeWorks,
         technician_name: technicianName,
         technician_home: technicianHome,
-        previous_appointment: previousAppointment,
+        previous_appointment: previousAppointment
+          ? {
+              ...previousAppointment,
+              // The measured leg is travelOrigin -> destination. With an override the
+              // origin is the override address, so this appointment's own leg was never
+              // measured and must not claim a number.
+              travel_time_minutes: usedOverrideAddress ? null : travelTimeMinutes,
+            }
+          : null,
         earliest_start: minutesToTime(earliestStartMinutes),
         requested_time_works: requestedTimeWorks,
         buffer_minutes: bufferMinutes,
@@ -1028,12 +1341,25 @@ Deno.serve(async (req) => {
       const technicianName = `${techMeta.first_name || ''} ${techMeta.last_name || ''}`.trim() || 'Unknown'
       const technicianHome = techMeta.starting_address?.fullAddress || null
 
-      // 2. Calculate travel time from home to destination (once)
+      // 2. Travel time from home to destination. ONE Distance Matrix call, shared by
+      // every day scored below — which is why its provenance is a property of the whole
+      // response, not of an individual day.
       let travelFromHomeMinutes: number | null = null
+      let travelFromHomeSource: TravelTimeSource = 'no_origin'
       if (technicianHome) {
-        const homeTravel = await calculateTravelTime(technicianHome, destination_address, apiKey)
+        const homeTravel = await calculateTravelTime(technicianHome, destination_address, apiKey, {
+          action: 'get_recommended_dates',
+          technician_id,
+          origin: technicianHome,
+          destination: destination_address,
+        })
         if (homeTravel) {
           travelFromHomeMinutes = homeTravel.duration_minutes
+          travelFromHomeSource = 'google_api'
+        } else {
+          // Already reported by calculateTravelTime. Days keep their appointment-based
+          // score below; they just stop claiming a travel time.
+          travelFromHomeSource = 'unavailable'
         }
       }
 
@@ -1169,18 +1495,18 @@ Deno.serve(async (req) => {
             reason = 'Free all day (set starting address for accurate time)'
             rating = 'unknown'
             needsManualAddress = true
+          } else if (travelFromHomeMinutes !== null) {
+            score = 100 - travelFromHomeMinutes
+            reason = `Free all day, ${travelFromHomeMinutes} min from home`
+            rating = travelFromHomeMinutes <= 25 ? 'best' : 'good'
           } else {
-            score = 100 - (travelFromHomeMinutes || 30)
-            if (travelFromHomeMinutes && travelFromHomeMinutes <= 25) {
-              reason = `Free all day, ${travelFromHomeMinutes} min from home`
-              rating = 'best'
-            } else if (travelFromHomeMinutes) {
-              reason = `Free all day, ${travelFromHomeMinutes} min from home`
-              rating = 'good'
-            } else {
-              reason = 'Free all day'
-              rating = 'good'
-            }
+            // Maps did not answer. `100 - (travelFromHomeMinutes || 30)` used to sit on
+            // the line above: a second, hidden 30-minute drive that quietly demoted every
+            // empty day by 30 points whenever Google was unreachable. The day keeps its
+            // appointment-based score and simply makes no travel claim.
+            score = 100
+            reason = 'Free all day'
+            rating = 'good'
           }
         } else if (appointmentCount >= 6) {
           // Day is nearly full
@@ -1233,6 +1559,7 @@ Deno.serve(async (req) => {
           reason,
           appointment_count: appointmentCount,
           travel_from_home_minutes: travelFromHomeMinutes,
+          travel_from_home_source: travelFromHomeSource,
           available_slots: availableSlots,
           needs_manual_address: needsManualAddress,
           preferred_time_feasible: preferredTimeFeasible,
@@ -1257,6 +1584,7 @@ Deno.serve(async (req) => {
         recommendations: topRecommendations,
         technician_name: technicianName,
         technician_home: technicianHome,
+        travel_from_home_source: travelFromHomeSource,
         has_missing_address_warning: hasMissingAddressWarning
       }
 
@@ -1293,6 +1621,36 @@ Deno.serve(async (req) => {
     console.log('Google Maps API response status:', data.status)
 
     if (data.status !== 'OK') {
+      // This path already tells the caller the truth (HTTP 400 carrying error_message),
+      // but it has never been recorded anywhere the team can see after the fact.
+      reportEdgeErrorInBackground({
+        message: `Google Distance Matrix returned ${data.status}${data.error_message ? `: ${data.error_message}` : ''}`,
+        severity: 'error',
+        exceptionType: 'GoogleMapsDistanceMatrixError',
+        logger: 'calculate-travel-time',
+        transaction: 'calculate-travel-time/direct',
+        fingerprint: ['calculate-travel-time', 'direct', String(data.status)],
+        dedupeKey: `maps-api:direct:${data.status}`,
+        tags: {
+          function: 'calculate-travel-time',
+          action: 'direct',
+          google_status: String(data.status),
+          failure_stage: 'api',
+        },
+        extra: {
+          google_status: data.status,
+          google_error_message: data.error_message ?? null,
+          address_hint: redactAddress(destination),
+        },
+        context: {
+          function: 'calculate-travel-time',
+          action: 'direct',
+          origin,
+          destination,
+          google_status: data.status,
+          google_error_message: data.error_message ?? null,
+        },
+      })
       return new Response(
         JSON.stringify({
           error: 'Google Maps API error',
@@ -1305,6 +1663,36 @@ Deno.serve(async (req) => {
     const element = data.rows?.[0]?.elements?.[0]
 
     if (!element || element.status !== 'OK') {
+      reportEdgeErrorInBackground({
+        message: `Google Distance Matrix route element failed: ${element?.status ?? 'MISSING_ELEMENT'}`,
+        severity: 'warning',
+        exceptionType: 'GoogleMapsRouteUnavailable',
+        logger: 'calculate-travel-time',
+        transaction: 'calculate-travel-time/direct',
+        fingerprint: ['calculate-travel-time', 'direct', 'element', String(element?.status ?? 'MISSING_ELEMENT')],
+        dedupeKey: `maps-element:direct:${element?.status ?? 'MISSING_ELEMENT'}`,
+        tags: {
+          function: 'calculate-travel-time',
+          action: 'direct',
+          element_status: String(element?.status ?? 'MISSING_ELEMENT'),
+          failure_stage: 'element',
+        },
+        extra: {
+          top_status: data.status,
+          element_status: element?.status ?? null,
+          google_error_message: null,
+          origin_hint: redactAddress(origin),
+          address_hint: redactAddress(destination),
+        },
+        context: {
+          function: 'calculate-travel-time',
+          action: 'direct',
+          origin,
+          destination,
+          top_status: data.status,
+          element_status: element?.status ?? null,
+        },
+      })
       return new Response(
         JSON.stringify({
           error: 'Could not calculate route',
