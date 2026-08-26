@@ -360,3 +360,90 @@ describe('LeadNotesSection — opening an attachment', () => {
     expect(tab.location.replace).not.toHaveBeenCalled()
   })
 })
+
+describe('LeadNotesSection — attaching without typing a note', () => {
+  /** Stage a file in the composer without typing anything. */
+  async function stageFile(container: HTMLElement, name = 'report.pdf') {
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, {
+      target: { files: [new File(['x'], name, { type: 'application/pdf' })] },
+    })
+    await screen.findByText(name)
+  }
+
+  it('should enable Add Note when a file is staged and nothing is typed', async () => {
+    const { container } = renderSection()
+    await stageFile(container)
+
+    expect(screen.getByRole('button', { name: /add note/i })).toBeEnabled()
+  })
+
+  it('should keep Add Note disabled when nothing is typed and nothing is staged', async () => {
+    renderSection()
+    await screen.findByLabelText(/add a note/i)
+
+    expect(screen.getByRole('button', { name: /add note/i })).toBeDisabled()
+  })
+
+  it('should save a file-only note with a body naming the file', async () => {
+    const user = userEvent.setup()
+    const { container } = renderSection()
+    await stageFile(container)
+
+    await user.click(screen.getByRole('button', { name: /add note/i }))
+
+    await waitFor(() =>
+      expect(createLeadNote).toHaveBeenCalledWith(
+        expect.objectContaining({ body: 'Attached report.pdf' }),
+      ),
+    )
+  })
+
+  it('should upload the staged file when no text was typed', async () => {
+    const user = userEvent.setup()
+    const { container } = renderSection()
+    await stageFile(container)
+
+    await user.click(screen.getByRole('button', { name: /add note/i }))
+
+    await waitFor(() => expect(uploadNoteAttachment).toHaveBeenCalledTimes(1))
+  })
+
+  it('should count the files when several are attached without text', async () => {
+    const user = userEvent.setup()
+    const { container } = renderSection()
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, {
+      target: {
+        files: [
+          new File(['x'], 'a.pdf', { type: 'application/pdf' }),
+          new File(['y'], 'b.pdf', { type: 'application/pdf' }),
+        ],
+      },
+    })
+    await screen.findByText('a.pdf')
+
+    await user.click(screen.getByRole('button', { name: /add note/i }))
+
+    await waitFor(() =>
+      expect(createLeadNote).toHaveBeenCalledWith(
+        expect.objectContaining({ body: 'Attached 2 files' }),
+      ),
+    )
+  })
+
+  it('should keep the typed text when both text and a file are present', async () => {
+    const user = userEvent.setup()
+    const { container } = renderSection()
+    await stageFile(container)
+    await user.type(await screen.findByLabelText(/add a note/i), 'roof cavity')
+
+    await user.click(screen.getByRole('button', { name: /add note/i }))
+
+    await waitFor(() =>
+      expect(createLeadNote).toHaveBeenCalledWith(
+        expect.objectContaining({ body: 'roof cavity' }),
+      ),
+    )
+  })
+})
