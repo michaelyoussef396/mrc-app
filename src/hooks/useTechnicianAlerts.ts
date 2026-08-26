@@ -4,13 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatShortDateAU } from '@/lib/dateUtils';
 import type { LucideIcon } from 'lucide-react';
-import { ClipboardList, Clock, Bell, XCircle, Info } from 'lucide-react';
+import { ClipboardList, Clock, Bell, XCircle, Info, AtSign } from 'lucide-react';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export type AlertType = 'new_job' | 'schedule_change' | 'reminder' | 'cancelled' | 'system';
+export type AlertType = 'new_job' | 'schedule_change' | 'reminder' | 'cancelled' | 'system' | 'mention';
 
 export interface TechnicianAlert {
   id: string;
@@ -58,10 +58,40 @@ export const ALERT_TYPE_CONFIG: Record<AlertType, AlertTypeConfig> = {
     iconBg: '#E5E5E5',
     iconColor: '#86868b',
   },
+  mention: {
+    icon: AtSign,
+    iconBg: '#EDE7F6',
+    iconColor: '#5856D6',
+  },
 };
 
 // ============================================================================
-// ACTIVITY TYPE → ALERT TYPE MAPPING
+// SOURCE ROWS
+// ============================================================================
+
+/** Newest-N cap applied to each source and again to the merged list. */
+const ALERT_LIMIT = 50;
+
+interface ActivityRow {
+  id: string;
+  lead_id: string | null;
+  activity_type: string;
+  title: string;
+  description: string | null;
+  created_at: string;
+}
+
+interface NotificationRow {
+  id: string;
+  type: string;
+  title: string;
+  message: string | null;
+  created_at: string;
+  lead_id: string | null;
+}
+
+// ============================================================================
+// ACTIVITY / NOTIFICATION TYPE → ALERT TYPE MAPPING
 // ============================================================================
 
 function mapActivityType(activityType: string): AlertType {
@@ -74,6 +104,21 @@ function mapActivityType(activityType: string): AlertType {
       return 'schedule_change';
     case 'email_sent':
       return 'system';
+    default:
+      return 'system';
+  }
+}
+
+function mapNotificationType(notificationType: string): AlertType {
+  switch (notificationType) {
+    case 'note_mention':
+      return 'mention';
+    case 'new_lead':
+      return 'new_job';
+    case 'inspection_booked':
+      return 'new_job';
+    case 'status_changed':
+      return 'schedule_change';
     default:
       return 'system';
   }
@@ -130,60 +175,109 @@ export function useTechnicianAlerts(): UseTechnicianAlertsResult {
     ? new Date(user.user_metadata.last_alerts_read_at)
     : null;
 
-  // Fetch activities for leads assigned to this technician
-  const { data: activities, isLoading, error } = useQuery({
+  // Two sources: activities on leads booked to this technician, and
+  // notifications addressed to them personally. The notifications table is the
+  // only place a @mention lands, so without it a mentioned technician sees
+  // nothing here.
+  const { data: alertSources, isLoading, error } = useQuery({
     queryKey: ['technician-alerts', user?.id],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!user?.id) return { activities: [], notifications: [] };
 
-      // First get lead_ids from bookings assigned to this technician
-      const { data: bookings, error: bookingsError } = await supabase
-        .from('calendar_bookings')
-        .select('lead_id')
-        .eq('assigned_to', user.id);
+      const [bookingsResult, notificationsResult] = await Promise.all([
+        supabase
+          .from('calendar_bookings')
+          .select('lead_id')
+          .eq('assigned_to', user.id),
+        // RLS on notifications is user_id = auth.uid(); the filter is belt and
+        // braces so the intent is readable at the call site.
+        supabase
+          .from('notifications')
+          .select('id, type, title, message, created_at, lead_id')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(ALERT_LIMIT),
+      ]);
 
-      if (bookingsError) throw bookingsError;
+      if (bookingsResult.error) throw bookingsResult.error;
+      if (notificationsResult.error) throw notificationsResult.error;
 
       const leadIds = [...new Set(
-        (bookings || []).map(b => b.lead_id).filter(Boolean) as string[]
+        (bookingsResult.data || []).map(b => b.lead_id).filter(Boolean) as string[]
       )];
 
-      if (leadIds.length === 0) return [];
+      let activities: ActivityRow[] = [];
+      if (leadIds.length > 0) {
+        const { data, error: activitiesError } = await supabase
+          .from('activities')
+          .select('id, lead_id, activity_type, title, description, created_at')
+          .in('lead_id', leadIds)
+          .order('created_at', { ascending: false })
+          .limit(ALERT_LIMIT);
 
-      // Fetch activities for those leads, most recent first
-      const { data, error: activitiesError } = await supabase
-        .from('activities')
-        .select('id, lead_id, activity_type, title, description, created_at')
-        .in('lead_id', leadIds)
-        .order('created_at', { ascending: false })
-        .limit(50);
+        if (activitiesError) throw activitiesError;
+        activities = (data || []) as ActivityRow[];
+      }
 
-      if (activitiesError) throw activitiesError;
-      return data || [];
+      return {
+        activities,
+        notifications: (notificationsResult.data || []) as NotificationRow[],
+      };
     },
     enabled: !!user?.id,
     refetchInterval: 60000,
   });
 
-  // Transform activities into alerts
+  // Transform both sources into one alert list, newest first.
   const alerts: TechnicianAlert[] = useMemo(() => {
-    if (!activities) return [];
+    if (!alertSources) return [];
 
-    return activities.map((activity) => {
-      const timestamp = new Date(activity.created_at);
-      const isRead = lastReadAt ? timestamp <= lastReadAt : false;
-
+    const toAlert = (
+      id: string,
+      type: AlertType,
+      title: string,
+      message: string,
+      createdAt: string,
+      leadId: string | null | undefined,
+    ): TechnicianAlert => {
+      const timestamp = new Date(createdAt);
       return {
-        id: activity.id,
-        type: mapActivityType(activity.activity_type),
-        title: activity.title,
-        message: activity.description || '',
+        id,
+        type,
+        title,
+        message,
         timestamp,
-        isRead,
-        leadId: activity.lead_id,
+        isRead: lastReadAt ? timestamp <= lastReadAt : false,
+        leadId: leadId ?? undefined,
       };
-    });
-  }, [activities, lastReadAt]);
+    };
+
+    const fromActivities = alertSources.activities.map((activity) =>
+      toAlert(
+        activity.id,
+        mapActivityType(activity.activity_type),
+        activity.title,
+        activity.description || '',
+        activity.created_at,
+        activity.lead_id,
+      ),
+    );
+
+    const fromNotifications = alertSources.notifications.map((notification) =>
+      toAlert(
+        notification.id,
+        mapNotificationType(notification.type),
+        notification.title,
+        notification.message || '',
+        notification.created_at,
+        notification.lead_id,
+      ),
+    );
+
+    return [...fromActivities, ...fromNotifications]
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+      .slice(0, ALERT_LIMIT);
+  }, [alertSources, lastReadAt]);
 
   // Split alerts into recent (< 24h) and older
   const { recentAlerts, olderAlerts } = useMemo(() => {

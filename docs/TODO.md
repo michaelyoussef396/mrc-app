@@ -1140,6 +1140,20 @@ Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocki
   - [ ] Address walkthrough feedback (variable — could be 0h to 1-2 days)
   - [ ] Author `docs/walkthrough-YYYY-MM-DD.md` per plan v2 §6.1.C Definition of Done (sign-off artefact)
 
+### L8 — `storage.objects` policies on `pdf-assets` / `pdf-templates` have no auth predicate
+- **Severity:** P0 security. Pre-existing (not introduced by any current branch). Verified live against PROD `ecyivrxjpsmjmexqatym` on 2026-08-26.
+- **Finding:** five live policies on `storage.objects` each grant `TO public` with no authentication check whatsoever — the entire `USING` / `WITH CHECK` expression is just a bucket_id comparison:
+  - `Allow uploads to pdf-templates` — INSERT TO public, `WITH CHECK (bucket_id = 'pdf-templates')`
+  - `Allow updates to pdf-templates` — UPDATE TO public, `USING (bucket_id = 'pdf-templates')`
+  - `Allow service role upload to pdf-assets` — INSERT TO public, `WITH CHECK (bucket_id = 'pdf-assets')`
+  - `Allow update pdf-assets` — UPDATE TO public, `USING` / `WITH CHECK (bucket_id = 'pdf-assets')`
+  - `Allow service role delete from pdf-assets` — DELETE TO public, `USING (bucket_id = 'pdf-assets')`
+- **Impact:** in Postgres the `public` role includes `anon`, so an UNAUTHENTICATED caller can upload to, overwrite, and delete objects in both buckets. Three of the five are named "service role" but contain no role check at all — the name is misleading, not protective.
+- **Blast radius:** `pdf-templates` holds `inspection-report-template-final.html`, the HTML template behind every customer-facing report; `pdf-assets` holds the fonts and images that template pulls in. Both buckets feed the customer-facing PDF pipeline (`generate-inspection-pdf` / `generate-job-report-pdf`). An attacker overwriting the template alters every report generated afterwards. Current contents: `pdf-assets` 88 objects, `pdf-templates` 2.
+- **Not the read path:** both buckets are `public = true`, so read is intended to be open. It is the write and delete paths that are the problem.
+- **Suggested remediation (NOT implemented — do not fix in the lead-notes branch):** replace `TO public` with `TO service_role` (or add an `auth.role() = 'service_role'` predicate) on the five INSERT/UPDATE/DELETE policies above, keeping the public SELECT policy intact so the PDF pipeline can still read. Needs verification that nothing currently writes to these buckets as `anon` before tightening.
+- **Found:** during the lead-notes Phase 2 storage work, 2026-08-26. Deliberately out of scope for that feature.
+
 ---
 
 ## Should-Fix Before Launch (high-impact, not blockers)
