@@ -16,12 +16,16 @@ import { formatCurrency, EQUIPMENT_RATES } from '@/lib/calculations/pricing'
 import { sendEmail, buildJobBookingConfirmationHtml } from '@/lib/api/notifications'
 import { logFieldEdits, logNoteAdded, type FieldChange } from '@/lib/api/fieldEditLog'
 import { appendInternalNote } from '@/lib/utils/internalNotes'
+import { formatTimeLabel } from '@/lib/utils/timeOfDay'
+import { TimePicker } from '@/components/ui/TimePicker'
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
 const MAX_HOURS_PER_DAY = 8
+const OPENING_TIME = '07:00'
+const CLOSING_TIME = '19:00'
 
 // ============================================================================
 // TYPES
@@ -104,14 +108,6 @@ function formatDayLabel(dateStr: string): string {
     month: 'short',
     timeZone: 'UTC',
   }).format(date)
-}
-
-/** Format HH:MM time string to "8:00 AM" */
-function formatTimeLabel(timeStr: string): string {
-  const [h, m] = timeStr.split(':').map(Number)
-  const d = new Date()
-  d.setHours(h, m, 0, 0)
-  return d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase())
 }
 
 /** Format an ISO datetime as "DD/MM/YYYY h:mm a" en-AU Australia/Melbourne */
@@ -781,15 +777,12 @@ export function BookJobSheet({
                   <Clock className="h-4 w-4" />
                   Start Time <span className="text-destructive">*</span>
                 </Label>
-                <Input
+                <TimePicker
                   id="startTime"
-                  type="time"
                   value={startTime}
-                  min="07:00"
-                  max="19:00"
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="h-12"
-                  required
+                  onChange={setStartTime}
+                  minTime={OPENING_TIME}
+                  maxTime={CLOSING_TIME}
                 />
                 <p className="text-xs text-[#86868b]">Operating hours: 7:00 AM – 7:00 PM</p>
               </div>
