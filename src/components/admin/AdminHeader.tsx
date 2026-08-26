@@ -12,6 +12,7 @@ import {
 } from '@/hooks/useNotifications';
 import {
   ArrowLeft,
+  AtSign,
   Bell,
   Calendar,
   CheckCircle2,
@@ -228,6 +229,7 @@ interface NotificationDropdownProps {
  */
 function getNotificationTypeIcon(type: string): typeof Bell {
   const lower = type.toLowerCase();
+  if (lower.includes('mention')) return AtSign;
   if (lower.includes('lead')) return UserPlus;
   if (lower.includes('inspection') || lower.includes('booking')) return Calendar;
   if (lower.includes('invoice') || lower.includes('payment')) return DollarSign;
@@ -358,23 +360,45 @@ const NotificationDropdown = forwardRef<HTMLDivElement, NotificationDropdownProp
                 notifications.map((notification) => {
                   const TypeIcon = getNotificationTypeIcon(notification.type);
                   const unread = isNotificationUnread(notification);
+                  // Same vocabulary as ActivityTimeline.getPriorityBadge: red for
+                  // high/urgent, nothing at all for normal.
+                  const isHighPriority =
+                    notification.priority === 'high' || notification.priority === 'urgent';
+                  // Priority is a property of the event, so the badge stays once read.
+                  // The row tint is a call to action, so it clears once read.
+                  const isUrgentUnread = isHighPriority && unread;
                   return (
                     <button
                       key={notification.id}
                       onClick={() => handleNotificationClick(notification)}
-                      className="w-full min-h-[48px] flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors text-left"
+                      className={`w-full min-h-[48px] flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors text-left ${
+                        isUrgentUnread ? 'bg-red-50 border-l-2 border-l-red-500' : ''
+                      }`}
                     >
                       <div
-                        className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${unread ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}
+                        className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          isUrgentUnread
+                            ? 'bg-red-100 text-red-600'
+                            : unread
+                              ? 'bg-blue-100 text-blue-600'
+                              : 'bg-gray-100 text-gray-500'
+                        }`}
                       >
                         <TypeIcon className="h-4 w-4" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-sm truncate ${unread ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}
-                        >
-                          {notification.title}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p
+                            className={`min-w-0 flex-1 truncate text-sm ${unread ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}
+                          >
+                            {notification.title}
+                          </p>
+                          {isHighPriority && (
+                            <span className="flex-shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
+                              High
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-500 line-clamp-2">{notification.message}</p>
                         <p className="text-[11px] text-gray-400 mt-0.5">
                           {formatNotificationTime(notification.created_at)}
@@ -382,7 +406,7 @@ const NotificationDropdown = forwardRef<HTMLDivElement, NotificationDropdownProp
                       </div>
                       {unread && (
                         <span
-                          className="h-2 w-2 rounded-full bg-blue-600 flex-shrink-0 mt-1.5"
+                          className={`h-2 w-2 rounded-full flex-shrink-0 mt-1.5 ${isUrgentUnread ? 'bg-red-600' : 'bg-blue-600'}`}
                           aria-label="Unread"
                         />
                       )}
