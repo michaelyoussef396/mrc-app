@@ -3,6 +3,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { sendEmail, sendSlackNotification, buildBookingConfirmationHtml } from '@/lib/api/notifications';
 import { captureBusinessError, addBusinessBreadcrumb } from '@/lib/sentry';
 import { formatMediumDateAU } from '@/lib/dateUtils';
+import { formatTimeLabel } from '@/lib/utils/timeOfDay';
 import { appendInternalNote } from '@/lib/utils/internalNotes';
 import { logFieldEdits, logNoteAdded, type FieldChange } from '@/lib/api/fieldEditLog';
 
@@ -356,13 +357,14 @@ export function formatDateForDisplay(dateStr: string): string {
 }
 
 /**
- * Format time from HH:MM to "9:00 AM"
+ * Format time from HH:MM to "9:00 AM".
+ *
+ * Values that are not 24-hour times pass through unchanged — the public request
+ * form stores band labels ("Morning (8am–12pm)") in the same
+ * customer_preferred_time column, and those reach this function via LeadDetail.
  */
 export function formatTimeForDisplay(timeStr: string): string {
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const displayHour = hours % 12 || 12;
-  return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
+  return formatTimeLabel(timeStr);
 }
 
 /**

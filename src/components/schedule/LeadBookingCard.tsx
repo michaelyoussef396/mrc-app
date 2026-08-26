@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { LeadToSchedule } from '@/hooks/useLeadsToSchedule';
-import { bookInspection, TIME_SLOTS, formatTimeForDisplay } from '@/lib/bookingService';
+import { bookInspection, checkBookingConflict, formatTimeForDisplay } from '@/lib/bookingService';
+import { TimePicker } from '@/components/ui/TimePicker';
 import { useBookingValidation, RECOMMENDED_DATES_FAILURE_MESSAGES, AVAILABILITY_FAILURE_MESSAGES, type DateRecommendation, type AvailabilityResult, formatTimeDisplay } from '@/hooks/useBookingValidation';
 import { captureBusinessError } from '@/lib/sentry';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
@@ -71,6 +72,11 @@ interface ValidatedAddress {
 
 // Medal icons for recommendation ranking
 const MEDAL_ICONS = ['🥇', '🥈', '🥉'] as const;
+
+const OPENING_TIME = '07:00';
+const CLOSING_TIME = '19:00';
+const CONFLICT_CHECK_DEBOUNCE_MS = 300;
+const CONFLICT_FALLBACK_MESSAGE = 'Overlaps an existing booking';
 
 const RATING_LABELS: Record<string, string> = {
   best: 'High Availability',
@@ -219,6 +225,11 @@ export function LeadBookingCard({
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
+  // Overlap warning. The picker offers every minute, so the availability engine's
+  // hourly recommendations can no longer gate the choice — this surfaces the same
+  // verdict the submit path enforces, before the admin commits to it.
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+
   // Get minimum date (today)
   const today = new Date().toISOString().split('T')[0];
 
@@ -283,6 +294,40 @@ export function LeadBookingCard({
 
     return () => { cancelled = true; };
   }, [selectedDate, selectedTime, selectedTechnician, lead.propertyAddress, lead.id, checkAvailability]);
+
+  // Deliberately the same function bookInspection calls, so the warning shown here and
+  // the hard block at submit can never disagree.
+  useEffect(() => {
+    if (!selectedDate || !selectedTime || !selectedTechnician) {
+      setConflictWarning(null);
+      return;
+    }
+
+    let cancelled = false;
+    const start = new Date(`${selectedDate}T${selectedTime}:00`);
+    const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+
+    const timer = setTimeout(async () => {
+      try {
+        const { hasConflict, conflictDetails } = await checkBookingConflict(
+          selectedTechnician,
+          start,
+          end,
+        );
+        if (cancelled) return;
+        setConflictWarning(hasConflict ? conflictDetails ?? CONFLICT_FALLBACK_MESSAGE : null);
+      } catch {
+        // A failed lookup must not read as "no conflict"; stay silent and let the
+        // submit-time check be the gate.
+        if (!cancelled) setConflictWarning(null);
+      }
+    }, CONFLICT_CHECK_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [selectedDate, selectedTime, selectedTechnician, durationMinutes]);
 
   // ---- Address validation handlers ----
 
@@ -473,16 +518,6 @@ export function LeadBookingCard({
     setAvailabilityError(null);
   };
 
-  const getTimeSlots = () => {
-    if (selectedRecDate) {
-      const rec = recommendations.find((r) => r.date === selectedRecDate);
-      if (rec?.available_slots?.length) {
-        return TIME_SLOTS.filter((slot) => rec.available_slots.includes(slot.time));
-      }
-    }
-    return TIME_SLOTS;
-  };
-
   const handleBookInspection = (e: React.MouseEvent) => {
     e.stopPropagation();
 
@@ -545,7 +580,6 @@ export function LeadBookingCard({
   };
 
   const canBook = selectedDate && selectedTime && selectedTechnician && !isSubmitting;
-  const availableSlots = getTimeSlots();
 
   // Build display address from lead data
   const displayAddress = [lead.propertyAddress].filter(Boolean).join(', ');
@@ -1296,28 +1330,27 @@ export function LeadBookingCard({
               >
                 Time Slot
               </label>
-              <div className="relative">
-                <select
+              <div onClick={(e) => e.stopPropagation()}>
+                <TimePicker
                   data-testid="inspection-time"
                   value={selectedTime}
-                  onChange={(e) => setSelectedTime(e.target.value)}
-                  className="w-full h-12 px-4 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[#007AFF] outline-none transition-all appearance-none cursor-pointer pr-10"
-                  style={{
-                    backgroundColor: 'white',
-                    border: selectedTime ? '2px solid #007AFF' : '1px solid #e5e5e5',
-                    color: selectedTime ? '#1d1d1f' : '#86868b',
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <option value="">Select time slot...</option>
-                  {availableSlots.map((slot) => (
-                    <option key={slot.time} value={slot.time}>
-                      {slot.label}
-                    </option>
-                  ))}
-                </select>
-                <Clock className="h-5 w-5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#617589' }} />
+                  onChange={setSelectedTime}
+                  minTime={OPENING_TIME}
+                  maxTime={CLOSING_TIME}
+                  placeholder="Select time slot..."
+                />
               </div>
+              {conflictWarning && (
+                <p
+                  role="alert"
+                  data-testid="booking-conflict-warning"
+                  className="flex items-start gap-1.5 text-xs"
+                  style={{ color: '#FF9500' }}
+                >
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                  {conflictWarning}
+                </p>
+              )}
             </div>
 
             {/* Travel Info Panel */}

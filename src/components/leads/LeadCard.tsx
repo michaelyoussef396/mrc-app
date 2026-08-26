@@ -22,6 +22,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { formatDateAU, formatShortDateAU } from '@/lib/dateUtils';
+import { formatTimeLabel } from '@/lib/utils/timeOfDay';
 /**
  * LeadCard Component
  * Status-specific card for the lead pipeline with action buttons
@@ -173,14 +174,9 @@ export default function LeadCard({
   if (lead.status === 'inspection_waiting' && lead.inspection_scheduled_date) {
     const date = new Date(lead.inspection_scheduled_date + 'T00:00:00');
     const dateStr = formatShortDateAU(date);
-    if (lead.scheduled_time) {
-      const [h, m] = lead.scheduled_time.split(':').map(Number);
-      const period = h >= 12 ? 'PM' : 'AM';
-      const hour = h % 12 || 12;
-      statusLabel = `Scheduled — ${dateStr}, ${hour}:${m.toString().padStart(2, '0')} ${period}`;
-    } else {
-      statusLabel = `Scheduled — ${dateStr}`;
-    }
+    statusLabel = lead.scheduled_time
+      ? `Scheduled — ${dateStr}, ${formatTimeLabel(lead.scheduled_time)}`
+      : `Scheduled — ${dateStr}`;
   }
 
   const handleArchive = () => {
@@ -295,7 +291,7 @@ export default function LeadCard({
             {lead.job_scheduled_date && (
               <span className="text-xs text-slate-600">
                 Starts {formatDate(lead.job_scheduled_date)}
-                {lead.scheduled_time && ` at ${lead.scheduled_time}`}
+                {lead.scheduled_time && ` at ${formatTimeLabel(lead.scheduled_time)}`}
               </span>
             )}
           </div>
