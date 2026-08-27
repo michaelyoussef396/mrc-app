@@ -5,6 +5,7 @@ import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps
 import { sendSlackNotification } from '@/lib/api/notifications';
 import { findDuplicateLead, type DuplicateLeadMatch } from '@/lib/api/leadDuplicates';
 import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
+import { buildStreetLine, fallbackStreetLine } from '@/lib/utils/addressFormat';
 import { leadSourceSchema } from '@/lib/validators/lead-creation.schemas';
 import {
   toNullableField,
@@ -208,9 +209,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
 
     const details = await getPlaceDetails(placeId);
     if (details) {
-      const streetAddress = details.street_number && details.street_name
-        ? `${details.street_number} ${details.street_name}`
-        : details.formatted_address.split(',')[0];
+      const streetAddress = buildStreetLine(details) || fallbackStreetLine(description);
 
       setFormData(prev => ({
         ...prev,
@@ -227,7 +226,7 @@ export default function CreateNewLeadModal({ isOpen, onClose, onSuccess }: Creat
         suburb: undefined,
       }));
     } else {
-      setFormData(prev => ({ ...prev, propertyAddress: description.split(',')[0] }));
+      setFormData(prev => ({ ...prev, propertyAddress: fallbackStreetLine(description) }));
     }
   }, [getPlaceDetails, clearPredictions]);
 
