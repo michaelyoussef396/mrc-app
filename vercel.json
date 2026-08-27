@@ -5,6 +5,10 @@
     "api/render-pdf.ts": {
       "memory": 1024,
       "maxDuration": 60
+    },
+    "api/render-job-report-pdf.ts": {
+      "memory": 1024,
+      "maxDuration": 60
     }
   },
   "redirects": [

@@ -1,17 +1,25 @@
 // Server-rendered inspection-report PDF endpoint. Phase 2 hardened —
 // admin-role check + caller-JWT storage read. No service-role usage.
 //
+// Neither mode returns PDF bytes. Vercel buffers a function's response body
+// and caps it at ~4.5 MB; every report this system has produced is larger
+// (5.5-29 MB), so a body-carrying response died in transit on every call
+// while the server-side save had already succeeded. Both modes now upload to
+// Storage and return JSON metadata plus a short-lived signed URL, and the
+// client fetches the file from Storage directly.
+//
 // Modes (selected via POST body `mode` field):
 //
 //   'legacy' (default) — Phase 1 fidelity test. Reads existing HTML from
-//   the inspection-reports bucket, renders PDF, streams back. No persistence.
+//   the inspection-reports bucket, renders PDF, uploads it under a scratch
+//   prefix and returns a signed URL. No pdf_versions row is written.
 //   Used by /admin/render-test for browser-print comparison.
 //
 //   'hard_save' — Phase 4b production flow. Asks the EF for fresh HTML
 //   (previewOnly:true), hashes it, renders PDF, uploads PDF + HTML to
-//   report-pdfs/{inspectionId}/v{N}.{pdf,html}, INSERTs a pdf_versions row
-//   tagged generation_type='hard_save', and streams PDF back with
-//   X-Mrc-Version-* metadata headers so the client can show toast + history.
+//   report-pdfs/{inspectionId}/v-{ts}.{pdf,html}, INSERTs a pdf_versions row
+//   tagged generation_type='hard_save', and returns that row's metadata plus
+//   a signed URL so the client can download, toast, and refresh history.
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -38,6 +46,14 @@ const DEVICE_SCALE_FACTOR = 2;
 
 const REPORT_PDFS_BUCKET = 'report-pdfs';
 const MAX_VERSION_INSERT_ATTEMPTS = 3;
+// Matches every other report-pdfs signed URL in the app (see
+// InspectionReportHistory.tsx). The client fetches immediately, so this only
+// has to outlive a single download.
+const SIGNED_URL_TTL_SECONDS = 300;
+// Scratch namespace for /admin/render-test output, deliberately outside the
+// {inspectionId}/ prefix the real pipeline writes to, so a fidelity-test
+// render can never be mistaken for a saved version.
+const RENDER_TEST_PREFIX = '_render-test';
 
 type RenderMode = 'legacy' | 'hard_save';
 
@@ -225,6 +241,38 @@ async function insertHardSaveVersion(
   return { error: 'Version insert exhausted retries' };
 }
 
+// A signed URL is a convenience, never a precondition: by the time we mint
+// one the PDF is already in Storage and, in hard_save mode, the version row
+// is committed. Failing here must not turn a completed save into an error,
+// so this returns null and the client falls back to an authenticated
+// storage download.
+async function createPdfSignedUrl(
+  client: SupabaseClient,
+  storageKey: string,
+): Promise<string | null> {
+  const { data, error } = await client.storage
+    .from(REPORT_PDFS_BUCKET)
+    .createSignedUrl(storageKey, SIGNED_URL_TTL_SECONDS);
+  if (error || !data?.signedUrl) {
+    console.error('[render-pdf] signed url failed', { storageKey, err: error });
+    return null;
+  }
+  return data.signedUrl;
+}
+
+interface RenderPdfResponse {
+  mode: RenderMode;
+  bucket: string;
+  pdfStoragePath: string;
+  fileSizeBytes: number;
+  filename: string;
+  signedUrl: string | null;
+  versionId: string | null;
+  versionNumber: number | null;
+  htmlStoragePath: string | null;
+  htmlHash: string | null;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   applyCors(req, res);
   if (req.method === 'OPTIONS') {
@@ -344,15 +392,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const filenameJob = inspection.job_number ?? 'Report';
   const downloadFilename = `MRC-${filenameJob}-Inspection-Report.pdf`;
 
-  // === Legacy mode: stream back, no persistence ===================
+  // === Legacy mode: scratch upload, no pdf_versions row ============
   if (mode === 'legacy') {
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
+    const testStorageKey = `${RENDER_TEST_PREFIX}/${inspectionId}/${Date.now()}.pdf`;
+    const testUpload = await callerClient.storage
+      .from(REPORT_PDFS_BUCKET)
+      .upload(testStorageKey, Buffer.from(pdf), {
+        contentType: 'application/pdf',
+        upsert: false,
+      });
+    if (testUpload.error) {
+      console.error('[render-pdf] render-test upload failed', { callerId, inspectionId, err: testUpload.error });
+      return res.status(500).json({ error: 'PDF storage upload failed' });
+    }
+    const legacyBody: RenderPdfResponse = {
+      mode: 'legacy',
+      bucket: REPORT_PDFS_BUCKET,
+      pdfStoragePath: testStorageKey,
+      fileSizeBytes: pdf.length,
+      filename: downloadFilename,
+      signedUrl: await createPdfSignedUrl(callerClient, testStorageKey),
+      versionId: null,
+      versionNumber: null,
+      htmlStoragePath: null,
+      htmlHash: null,
+    };
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(200).send(Buffer.from(pdf));
+    return res.status(200).json(legacyBody);
   }
 
-  // === Hard-save mode: hash + upload + version row + metadata headers ===
+  // === Hard-save mode: hash + upload + version row + signed URL ===
   let htmlHash: string;
   try {
     htmlHash = await hashHtml(html);
@@ -406,17 +475,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: inserted.error });
   }
 
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
+  const body: RenderPdfResponse = {
+    mode: 'hard_save',
+    bucket: REPORT_PDFS_BUCKET,
+    pdfStoragePath: pdfStorageKey,
+    fileSizeBytes: pdf.length,
+    filename: downloadFilename,
+    signedUrl: await createPdfSignedUrl(callerClient, pdfStorageKey),
+    versionId: inserted.versionId,
+    versionNumber: inserted.versionNumber,
+    htmlStoragePath: htmlStorageKey,
+    htmlHash,
+  };
   res.setHeader('Cache-Control', 'no-store');
-  // Surface version metadata so the client can show toast + history without
-  // a follow-up DB roundtrip. CORS expose lets the browser fetch read them.
-  res.setHeader('Access-Control-Expose-Headers',
-    'X-Mrc-Version-Id, X-Mrc-Version-Number, X-Mrc-Pdf-Storage-Path, X-Mrc-Html-Storage-Path, X-Mrc-Html-Hash');
-  res.setHeader('X-Mrc-Version-Id', inserted.versionId);
-  res.setHeader('X-Mrc-Version-Number', String(inserted.versionNumber));
-  res.setHeader('X-Mrc-Pdf-Storage-Path', pdfStorageKey);
-  res.setHeader('X-Mrc-Html-Storage-Path', htmlStorageKey);
-  res.setHeader('X-Mrc-Html-Hash', htmlHash);
-  return res.status(200).send(Buffer.from(pdf));
+  return res.status(200).json(body);
 }

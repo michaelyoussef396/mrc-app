@@ -4,13 +4,14 @@
 // job-completion reports. The send-time guarantee is identical: the email
 // always attaches the latest server-rendered, hash-verified PDF.
 //
-// Phase 2b: hardSaveJobReport calls POST /api/render-job-report-pdf with
-// mode='hard_save'. The server returns PDF bytes in the body plus version
-// metadata in X-Mrc-* response headers — one round-trip yields the file AND
-// the job_completion_pdf_versions row reference.
+// Like the inspection endpoint, /api/render-job-report-pdf returns JSON
+// metadata plus a signed URL rather than PDF bytes — Vercel caps a buffered
+// response body at ~4.5 MB and job reports are the larger of the two payloads,
+// because generate-job-report-pdf embeds photos as base64 data URIs.
 //
-// downloadBlobAs is intentionally NOT re-exported here; callers import it
-// from @/lib/api/reportPipeline (it's generic — no inspection coupling).
+// Retrieval, signed-URL and attachment-size helpers are imported from
+// reportPipeline rather than duplicated: both pipelines write to the same
+// report-pdfs bucket and the version shapes are identical.
 //
 // See docs/PDF_PIPELINE_PLAN.md (inspection rebuild) and
 // ~/.claude/plans/silly-inventing-neumann.md (this job-side mirror).
@@ -24,13 +25,19 @@ const RENDER_PDF_ENDPOINT = '/api/render-job-report-pdf'
 const NETWORK_ERROR_STATUS = 0
 const REPORT_PDFS_BUCKET = 'report-pdfs'
 
+// See reportPipeline.RECONCILE_WINDOW_MS — same reasoning, same window.
+const RECONCILE_WINDOW_MS = 5 * 60 * 1000
+
 export interface HardSaveJobReportResult {
   versionId: string
   versionNumber: number
   pdfStoragePath: string
   htmlStoragePath: string
   htmlHash: string
-  pdfBlob: Blob
+  bucket: string
+  fileSizeBytes: number
+  /** Null when the server could not mint one; retrieval falls back to an authenticated download. */
+  signedUrl: string | null
 }
 
 export class HardSaveJobReportError extends Error {
@@ -56,15 +63,17 @@ function toJobReportNetworkError(err: unknown, endpoint: string): HardSaveJobRep
 }
 
 /**
- * Render-and-persist the job-completion report. Returns a Blob the caller can
- * trigger a browser download from, plus the metadata of the newly-written
- * job_completion_pdf_versions row. Throws HardSaveJobReportError on failure.
+ * Render-and-persist the job-completion report. Returns the metadata of the
+ * newly-written job_completion_pdf_versions row; call fetchVersionPdfBlob to
+ * get the file. Throws HardSaveJobReportError only when no row exists.
  */
 export async function hardSaveJobReport(jobCompletionId: string): Promise<HardSaveJobReportResult> {
   const { data: { session }, error: sessionError } = await supabase.auth.getSession()
   if (sessionError || !session) {
     throw new HardSaveJobReportError('Not authenticated', 401)
   }
+
+  const startedAt = new Date(Date.now() - RECONCILE_WINDOW_MS).toISOString()
 
   let response: Response
   try {
@@ -77,6 +86,10 @@ export async function hardSaveJobReport(jobCompletionId: string): Promise<HardSa
       body: JSON.stringify({ jobCompletionId, mode: 'hard_save' }),
     })
   } catch (err) {
+    // The row is committed before the server responds, so check the database
+    // before claiming the report was lost. See reportPipeline for the full note.
+    const recovered = await findRecentJobHardSave(jobCompletionId, startedAt)
+    if (recovered) return recovered
     throw toJobReportNetworkError(err, RENDER_PDF_ENDPOINT)
   }
 
@@ -95,31 +108,77 @@ export async function hardSaveJobReport(jobCompletionId: string): Promise<HardSa
     )
   }
 
-  const versionId = response.headers.get('X-Mrc-Version-Id')
-  const versionNumberRaw = response.headers.get('X-Mrc-Version-Number')
-  const pdfStoragePath = response.headers.get('X-Mrc-Pdf-Storage-Path')
-  const htmlStoragePath = response.headers.get('X-Mrc-Html-Storage-Path')
-  const htmlHash = response.headers.get('X-Mrc-Html-Hash')
+  let payload: Partial<HardSaveJobReportResult>
+  try {
+    payload = (await response.json()) as Partial<HardSaveJobReportResult>
+  } catch {
+    const recovered = await findRecentJobHardSave(jobCompletionId, startedAt)
+    if (recovered) return recovered
+    throw new HardSaveJobReportError('Render endpoint returned a malformed response', 500)
+  }
 
-  if (!versionId || !versionNumberRaw || !pdfStoragePath || !htmlStoragePath || !htmlHash) {
+  const { versionId, versionNumber, pdfStoragePath, htmlStoragePath, htmlHash } = payload
+  if (
+    typeof versionId !== 'string' ||
+    typeof versionNumber !== 'number' ||
+    !Number.isFinite(versionNumber) ||
+    typeof pdfStoragePath !== 'string' ||
+    typeof htmlStoragePath !== 'string' ||
+    typeof htmlHash !== 'string'
+  ) {
     throw new HardSaveJobReportError(
-      'Render endpoint succeeded but version metadata headers were missing',
+      'Render endpoint succeeded but returned incomplete version metadata',
       500,
     )
   }
 
-  const versionNumber = Number.parseInt(versionNumberRaw, 10)
-  if (!Number.isFinite(versionNumber)) {
-    throw new HardSaveJobReportError('Invalid X-Mrc-Version-Number header', 500)
+  return {
+    versionId,
+    versionNumber,
+    pdfStoragePath,
+    htmlStoragePath,
+    htmlHash,
+    bucket: payload.bucket ?? REPORT_PDFS_BUCKET,
+    fileSizeBytes: typeof payload.fileSizeBytes === 'number' ? payload.fileSizeBytes : 0,
+    signedUrl: typeof payload.signedUrl === 'string' ? payload.signedUrl : null,
   }
+}
 
-  let pdfBlob: Blob
-  try {
-    pdfBlob = await response.blob()
-  } catch (err) {
-    throw toJobReportNetworkError(err, RENDER_PDF_ENDPOINT)
+async function findRecentJobHardSave(
+  jobCompletionId: string,
+  sinceIso: string,
+): Promise<HardSaveJobReportResult | null> {
+  const { data, error } = await supabase
+    .from('job_completion_pdf_versions')
+    .select('id, version_number, pdf_storage_path, html_storage_path, html_hash, file_size_bytes')
+    .eq('job_completion_id', jobCompletionId)
+    .eq('generation_type', 'hard_save')
+    .not('pdf_storage_path', 'is', null)
+    .gte('created_at', sinceIso)
+    .order('version_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !data) return null
+
+  const row = data as unknown as {
+    id: string
+    version_number: number
+    pdf_storage_path: string
+    html_storage_path: string | null
+    html_hash: string | null
+    file_size_bytes: number | null
   }
-  return { versionId, versionNumber, pdfStoragePath, htmlStoragePath, htmlHash, pdfBlob }
+  return {
+    versionId: row.id,
+    versionNumber: row.version_number,
+    pdfStoragePath: row.pdf_storage_path,
+    htmlStoragePath: row.html_storage_path ?? '',
+    htmlHash: row.html_hash ?? '',
+    bucket: REPORT_PDFS_BUCKET,
+    fileSizeBytes: row.file_size_bytes ?? 0,
+    signedUrl: null,
+  }
 }
 
 // ============================================================================
@@ -132,6 +191,7 @@ export interface HardSaveJobReportVersionRow {
   pdf_storage_path: string
   html_storage_path: string | null
   html_hash: string | null
+  file_size_bytes: number | null
   created_at: string
 }
 
@@ -148,7 +208,7 @@ export type JobReportMismatchResult =
 export async function checkJobReportSendMismatch(jobCompletionId: string): Promise<JobReportMismatchResult> {
   const { data: latest, error: latestError } = await supabase
     .from('job_completion_pdf_versions')
-    .select('id, version_number, pdf_storage_path, html_storage_path, html_hash, created_at')
+    .select('id, version_number, pdf_storage_path, html_storage_path, html_hash, file_size_bytes, created_at')
     .eq('job_completion_id', jobCompletionId)
     .eq('generation_type', 'hard_save')
     .not('pdf_storage_path', 'is', null)
@@ -202,24 +262,6 @@ async function fetchPreviewHtml(jobCompletionId: string): Promise<string> {
     throw new Error('Job-report mismatch check: previewOnly EF returned no HTML')
   }
   return payload.html
-}
-
-/**
- * Download the stored PDF for a given hard-save version and return its base64
- * body — the shape the existing sendEmail()/Resend attachment path wants.
- */
-export async function downloadJobVersionPdfAsBase64(pdfStoragePath: string): Promise<string> {
-  const { data, error } = await supabase.storage
-    .from(REPORT_PDFS_BUCKET)
-    .download(pdfStoragePath)
-  if (error || !data) {
-    throw new Error(`Failed to download PDF v${pdfStoragePath}: ${error?.message ?? 'unknown'}`)
-  }
-  const buf = await data.arrayBuffer()
-  let binary = ''
-  const bytes = new Uint8Array(buf)
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-  return btoa(binary)
 }
 
 /**
