@@ -143,6 +143,10 @@ export interface AreaRecord {
   comments: string | null
   extra_notes: string | null
   infrared_enabled: boolean | null
+  // Presentation-only flag (migration 20260827200000). false = hidden from the
+  // report PDF. Deliberately NOT a pricing input — job_time_minutes below is
+  // still summed for hidden areas.
+  include_in_report?: boolean | null
   // Labour time — drives the auto-calculated estimate (see inspectionEstimate.ts).
   job_time_minutes?: number | null
   demolition_time_minutes?: number | null

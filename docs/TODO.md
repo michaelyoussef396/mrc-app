@@ -994,6 +994,54 @@ After the PDF Pipeline Rebuild (server-render + versioning + mismatch guard) lan
 - **PDF-CL16 — `report-pdfs` has NO DELETE policy, so every "best-effort cleanup" in the render endpoints is dead code.** `20251028135212_*.sql:984-999` creates only INSERT and SELECT policies for this bucket. `inspection-photos` (`:976-982`) and `profile-photos` (`20260415000000_profile_photos_bucket.sql:19`) both got DELETE policies; `report-pdfs` never did. Supabase Storage `remove()` under RLS returns `{ data: [], error: null }` when the policy filters the row — **a silent no-op, not an error**. Consequences: (1) the orphan-PDF cleanup at `api/render-pdf.ts:391` and `:405`, and the same calls in `api/render-job-report-pdf.ts`, have never removed anything — a failed HTML upload after a successful PDF upload leaves the orphan PDF in the bucket permanently, and the code logs nothing because there is no error to log; (2) nothing in the app can prune `report-pdfs`, including the `_email-test/` and `_render-test/` scratch prefixes (see PDF-CL15). Verified empirically on DEV 2026-08-27: an authenticated `remove()` on an object the same session had just uploaded returned 0 removed with no error, and the object remained fetchable via a fresh signed URL. Action: add a DELETE policy for `report-pdfs` (admin-scoped), then either check the `remove()` result length at both call sites or drop the misleading cleanup calls.
 - **PDF-CL17 — Switch `generate-job-report-pdf` to signed photo URLs; job reports are the ones that will cross Resend's ceiling.** The job EF downloads every photo and embeds it as a base64 data URI (`supabase/functions/generate-job-report-pdf/index.ts:230`, `:259-261`), where the inspection EF generates signed URLs instead (`supabase/functions/generate-inspection-pdf/index.ts:2115`, `:2140`). Base64 inflates each photo by 4/3 *inside the HTML*, before Chromium ever renders it, so job-report PDFs are systematically the larger of the two for the same photo count. That compounds with a second constraint: Resend caps a message at 40 MB **after** base64 encoding, and the largest report measured on PROD (27.56 MB, 2026-08-27) already encodes to 36.75 MB — roughly **9% headroom**. Job reports are therefore the ones that will cross it first, and when they do `assertEmailableAttachment` will correctly refuse the send, which is honest but still a report nobody can email. Two further knock-ons of the data-URI approach: the hash normalization in `_shared/reportHash.ts` strips query strings off storage URLs, which does nothing for data URIs, so the job hash covers the entire embedded photo payload; and `checkJobReportSendMismatch` pulls that whole multi-MB HTML into the browser on every send pre-check just to compute a hash. Fix: mirror the inspection EF's `createSignedUrl` approach. **Own session** — it is an EF change to the job render path, not something to fold into unrelated work.
 
+## AREA-HIDE — per-area report visibility (`include_in_report`), 2026-08-27
+
+Admin can hide an individual area's page from the **inspection** report without
+deleting the area. Presentation only — the row, its readings and its photos
+survive, and its `job_time_minutes` still counts toward the quote. Job reports
+are unaffected: `generate-job-report-pdf` has no per-area pages at all (its
+"TREATED AREAS" pages are before/after photo pairs keyed off `photo_category`).
+
+- **AH1 — DEPLOY GATE (blocking).** Migration `20260827200000_inspection_area_include_in_report.sql`
+  is APPLIED to PROD (verified: 35/35 rows `true`). The frontend toggle is merged-ready,
+  but `generate-inspection-pdf` **must be deployed before or with the frontend**:
+  `npx supabase functions deploy generate-inspection-pdf --project-ref ecyivrxjpsmjmexqatym`
+  run from `~/mrc-app-prod`. If the frontend ships first, hiding an area writes
+  `include_in_report=false`, the old EF keeps rendering every area, and because the
+  rendered HTML never changes `checkSendMismatch` reports "no changes since v{N}" —
+  a confidently wrong all-clear, not a visible breakage.
+- **AH2 — AI narrative can still name a hidden area.** `problem_analysis_content` and
+  `demolition_content` are free text generated from the full area set
+  (`InspectionAIReview.tsx` selects `*` with no filter). Hiding an area drops its page
+  and its name from the cover list, but Pages 6/7 prose may still reference it. No code
+  fix — the admin must edit the narrative. Consider a warning at hide time.
+- **AH3 — FIX (backlog, ~half a day): Demolition page survives a hide when
+  `demolition_content` is set.** `hasDemolition` (`generate-inspection-pdf/index.ts:1842`)
+  short-circuits on `demolition_content`, so the page still renders when its only
+  demolition-required area is hidden. This is a **behaviour gap, not just a wart**: the
+  admin hides the area expecting the page to go, and it doesn't — the plan's stated
+  behaviour ("whether the Demolition page exists" follows the filter) is only honoured
+  when `demolition_content` is empty. Not deferred because it's acceptable, deferred
+  because a correct fix needs a product call: when the last demolition-required area is
+  hidden, either drop the page (discards AI prose that may describe several areas) or
+  keep it and prompt the admin to re-edit the narrative. Do NOT just flip the gate —
+  `hasDemolitionWork` (`:1715`) must stay unfiltered, since it feeds `optionSelected`
+  (`:1857`) and therefore the quoted scope. Blast radius is a customer-facing price.
+- **AH4 — Hidden state is invisible outside the Edit Areas sheet.** The lead view
+  (`InspectionDataDisplay.tsx`) lists every area with no hidden indicator, so a co-owner
+  reading the lead sees areas the emailed report does not contain. Cosmetic; leave.
+- **AH5 — PATTERN TO WATCH: divergent `.select()` column lists silently drop fields.**
+  Second sighting of this class. In `ViewReportPDF.tsx` the four `inspection_areas`
+  selects had drifted — the initial load fetched `job_time_minutes`, the post-save and
+  post-add refetches did not — so editing an area dropped labour minutes out of
+  `areasData` and `autoEstimate` recomputed the job at **$0 labour** until a reload.
+  Fixed here by hoisting one `AREA_SELECT_COLUMNS` const (single string literal +
+  `as const`, or supabase-js loses row-type inference and returns `GenericStringError`).
+  Nothing typed catches this: the dropped field is simply absent and `|| 0` swallows it.
+  Worth a sweep of other multi-select-site tables (`photos`, `moisture_readings`,
+  `job_completions`) for the same drift. Not a workstream — a check to fold into the
+  next session that touches those files.
+
 ## Wave 6.1 — Cleanup PR (post-Wave-6 deploy, target: within 48h)
 
 Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocking nits surfaced by the Phase 8 audit pass.

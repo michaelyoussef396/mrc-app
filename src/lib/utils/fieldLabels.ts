@@ -136,6 +136,9 @@ export const FIELD_LABELS: Record<string, string> = {
   infrared_observation_condensation: 'IR: Condensation Pattern',
   infrared_observation_missing_insulation: 'IR: Missing Insulation',
 
+  // inspection_areas — report visibility
+  include_in_report: 'Shown in Report',
+
   // inspection_areas — job / demo
   job_time_minutes: 'Job Time (mins)',
   demolition_required: 'Demolition Required',

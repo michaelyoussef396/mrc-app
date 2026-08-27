@@ -56,6 +56,11 @@ interface InspectionArea {
   moisture_readings?: MoistureReading[]
   external_moisture: number | null
   primary_photo_id?: string | null
+  // Presentation-only flag (migration 20260827200000). false = admin hid this
+  // area's page from the report; the row, its readings and its photos all
+  // survive, and its job_time_minutes still counts toward the quote.
+  // Optional here so a payload predating the column reads as included.
+  include_in_report?: boolean | null
   // Infrared block — single toggle gates both photos AND observations
   // (matches lead view InspectionDataDisplay.tsx:247, :314, :352).
   infrared_enabled: boolean | null
@@ -1297,7 +1302,14 @@ function computeEnvReadingsLayout(mouldValue: string): { envReadingStyle: string
 // Extract the Areas Inspected page block from the template
 // The template has a single Area page with {{area_*}} placeholders
 // We duplicate it once per inspected area
-function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, photos: Photo[] | undefined): string {
+function duplicateAreaPages(
+  html: string,
+  areas: InspectionArea[] | undefined,
+  photos: Photo[] | undefined,
+  // How many areas exist but were hidden by an admin. Only used to keep the
+  // "None" page from asserting something false — see the zero-area branch.
+  hiddenAreaCount = 0,
+): string {
   // Find the Area page block: between "Page 5: Areas Inspected" comment and "Page 6:" comment
   const areaPageRegex = /(<!-- Page 3: Areas Inspected[\s\S]*?<\/div>\s*<\/div>)\s*(?=\s*<!-- Page 4)/
   const match = html.match(areaPageRegex)
@@ -1309,9 +1321,28 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
 
   const areaTemplate = match[1]
 
+  const EMPTY_CELL = '<div style="width: 100%; height: 100%; background: #f3f4f6; border-radius: 8px;"></div>'
+
   if (!areas || areas.length === 0) {
-    // No areas — replace with a "None" page
-    const emptyPage = areaTemplate
+    // No areas to render — either none were inspected, or an admin hid every
+    // one of them. Emit a single "None" page.
+    //
+    // Photo slots swap the whole <img> tag for EMPTY_CELL, exactly as the
+    // populated path does below. Blanking only the {{placeholder}} would leave
+    // `<img src="">` behind, which Chromium paints as a broken-image box plus
+    // the alt text — six of them across this page.
+    let emptyPage = areaTemplate
+      .replace(/<img[^>]*src="\{\{area_photo_[1-4]\}\}"[^>]*\/>/g, EMPTY_CELL)
+
+    // A "None" page has no infrared and no inspector free-text, so strip those
+    // bands the same way the infrared-OFF path does. Nothing is re-emitted in
+    // their place: unlike a real area, there is no extra_notes to widen out.
+    emptyPage = emptyPage.replace(/<!-- Extra photos grid \(bottom left\)[\s\S]*?<\/div>\s*\n/, '')
+    emptyPage = emptyPage.replace(/<!-- INFRARED OBSERVATIONS[\s\S]*?<\/div>\s*\n/, '')
+    emptyPage = emptyPage.replace(/<!-- EXTRA NOTES heading -->[\s\S]*?<\/div>\s*\n/, '')
+    emptyPage = emptyPage.replace(/<!-- EXTRA NOTES content -->[\s\S]*?<\/div>\s*\n/, '')
+
+    emptyPage = emptyPage
       .replace(/\{\{area_heading_style\}\}/g, '')
       .replace(/\{\{area_intro_style\}\}/g, '')
       .replace(/\{\{env_reading_style\}\}/g, '')
@@ -1323,17 +1354,22 @@ function duplicateAreaPages(html: string, areas: InspectionArea[] | undefined, p
       .replace(/\{\{visible_mould\}\}/g, 'N/A')
       .replace(/\{\{internal_moisture\}\}/g, '-')
       .replace(/\{\{external_moisture\}\}/g, '-')
-      .replace(/\{\{area_photo_[1-4]\}\}/g, '')
+      // Safety net — the containing divs were stripped above, so these should
+      // already be gone.
       .replace(/\{\{area_infrared_photo\}\}/g, '')
       .replace(/\{\{area_natural_infrared_photo\}\}/g, '')
       .replace(/\{\{infrared_observations_block\}\}/g, '')
-      .replace(/\{\{area_notes\}\}/g, 'No areas were inspected during this assessment.')
+      // "None inspected" is only true when the inspection genuinely has no areas.
+      // When areas exist but an admin hid them all, that sentence is a false
+      // statement on a customer-facing document that may still be billing their
+      // labour hours.
+      .replace(/\{\{area_notes\}\}/g, hiddenAreaCount > 0
+        ? 'No areas are included in this report.'
+        : 'No areas were inspected during this assessment.')
       .replace(/\{\{extra_notes\}\}/g, '')
 
     return html.replace(areaPageRegex, emptyPage + '\n\n')
   }
-
-  const EMPTY_CELL = '<div style="width: 100%; height: 100%; background: #f3f4f6; border-radius: 8px;"></div>'
 
   // Generate one page per area
   const areaPages = areas.map(area => {
@@ -1625,8 +1661,22 @@ function generateReportHtml(
     lead.property_address_postcode
   ].filter(Boolean).join(', ') : 'Address not available'
 
+  // Areas an admin has hidden from the report (include_in_report = false,
+  // migration 20260827200000) are dropped once, here, so every area-derived
+  // part of the render agrees: the per-area pages, the cover's examined-areas
+  // list, and whether the Demolition page exists at all. Filtering at only
+  // some of those sites would contradict itself — a hidden area's page gone
+  // but its name still printed on the cover.
+  //
+  // `!== false` and not `=== true`: a payload predating the column reads as
+  // included, so a stale cache can never silently hide an area.
+  //
+  // NOT a pricing input. inspectionEstimate.ts still sums job_time_minutes
+  // across every area, hidden or not — the work was quoted either way.
+  const reportAreas = inspection.areas?.filter(a => a.include_in_report !== false)
+
   // Build examined areas list
-  const examinedAreas = inspection.areas?.map(a => a.area_name).join(', ') || 'None'
+  const examinedAreas = reportAreas?.map(a => a.area_name).join(', ') || 'None'
 
   // Get cover photo - prioritize front_house, then general, then first outdoor photo
   const frontHousePhoto = inspection.photos?.find(p => p.caption === 'front_house')
@@ -1655,7 +1705,15 @@ function generateReportHtml(
   const defaultAnalysis = `During our comprehensive inspection at ${escapeHtml(propertyAddress)}, we identified mould growth in the examined areas requiring professional treatment.`
 
   // Demolition content — use AI-generated field, fall back to area descriptions
-  const demolitionAreas = inspection.areas?.filter(a => a.demolition_required) || []
+  // Page content: only areas that appear in the report.
+  const demolitionAreas = reportAreas?.filter(a => a.demolition_required) || []
+  // Quote input: EVERY area, hidden or not. This value feeds the option_selected
+  // fallback below, which decides WHICH PRICE Page 8 prints. Deriving it from the
+  // filtered set would let a presentation flag move the quote — hiding the only
+  // demolition area on an inspection with option_selected NULL would silently
+  // drop it from Option 2 to Option 1.
+  const hasDemolitionWork = (inspection.areas?.some(a => a.demolition_required) ?? false)
+    || !!inspection.demolition_content?.trim()
   const demolitionContent = inspection.demolition_content?.trim()
     ? markdownToHtml(inspection.demolition_content)
     : demolitionAreas.length > 0
@@ -1721,7 +1779,12 @@ function generateReportHtml(
   html = html.replace(/\{\{what_you_get_text\}\}/g, '')
 
   // ===== PAGE 5: AREAS INSPECTED (duplicate per area) =====
-  html = duplicateAreaPages(html, inspection.areas, inspection.photos)
+  html = duplicateAreaPages(
+    html,
+    reportAreas,
+    inspection.photos,
+    (inspection.areas?.length ?? 0) - (reportAreas?.length ?? 0),
+  )
 
   // ===== PAGE 6: OUTDOOR ENVIRONMENT =====
   html = html.replace(/\{\{outdoor_temperature\}\}/g, String(inspection.outdoor_temperature || 0))
@@ -1788,8 +1851,10 @@ function generateReportHtml(
   // ===== PAGE 8: VISUAL MOULD CLEANING ESTIMATE =====
   // Use pre-computed option_selected if available, fall back to algorithmic derivation
   const hasSubfloor = subfloorData != null
+  // hasDemolitionWork, NOT hasDemolition — the quote option must be derived from
+  // the real scope of work, never from which pages an admin chose to show.
   const optionSelected = inspection.option_selected
-    ?? ((hasDemolition || hasSubfloor) ? 2 : 1)
+    ?? ((hasDemolitionWork || hasSubfloor) ? 2 : 1)
 
   // Scope-of-work steps: the template carries {{option_1_steps}} / {{option_2_steps}}
   // placeholders inside the fixed description areas; render the selected treatment
