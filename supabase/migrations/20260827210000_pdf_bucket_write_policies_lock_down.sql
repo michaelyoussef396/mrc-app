@@ -1,0 +1,536 @@
+-- =============================================================================
+-- pdf-assets / pdf-templates — remove anonymous write access             [L8]
+--
+-- STATUS: NOT APPLIED. Prepared 2026-08-27 for Michael's manual apply.
+--   Apply DEV first (ctppzqnysmzynkxjlzta), verify, then PROD
+--   (ecyivrxjpsmjmexqatym, LIVE — mrcsystem.com) on explicit APPLY only.
+--   NOT to be registered in migration history (no `migration repair`).
+--   Never `db push`, `db reset` or `migration repair` — migration history is
+--   forked over 100 files deep.
+--
+-- BLOCKING PRE-APPLY CHECK — do not apply to PROD until this is answered.
+--   PROD hosts 18 Edge Functions; four are absent from this repo, one named
+--   `sync-job-template` (docs/NOTIFICATIONS_SCHEMA_RECONCILIATION.md:216,
+--   docs/TODO.md:1163). The name implies it writes to pdf-templates, its
+--   source is not in this worktree, and its credential is undocumented. If it
+--   holds the anon key, this migration breaks it — and per the SILENT FAILURE
+--   note below, it breaks without raising an error. Clear it first:
+--     npx supabase functions download sync-job-template --project-ref ecyivrxjpsmjmexqatym
+--   then grep for pdf-templates / pdf-assets / SERVICE_ROLE / ANON.
+--   A DEV rehearsal CANNOT clear this: `sync-job-template` is one of the 9
+--   PROD functions that do not exist on DEV at all (docs/TODO.md:1157-1166).
+--
+-- SEQUENCING — do the pending template upload FIRST, then drop.
+--   docs/TODO.md:634 step 3 ("Upload BOTH templates to PROD Storage") is still
+--   UNTICKED, and the sizes confirm it is genuinely outstanding: repo
+--   src/templates/inspection-report-template.html is 66,480 B against a last
+--   recorded PROD size of 66,486 B (docs/TODO.md:1161), with three further
+--   template commits landed since (2c3d9a6, fd6d70c, 1b0c31a). The same step
+--   is duplicated at docs/PRE_MERGE_TESTING_CHECKLIST.md:275-287.
+--   Doing that upload BEFORE this drop exercises the Dashboard write path
+--   while the permissive policies are still in place as a live fallback, and
+--   removes the highest-likelihood collision from the change window.
+--   Note it will also change the template's html_hash and therefore
+--   mass-invalidate previously-matching pdf_versions rows — expected
+--   behaviour of that step, not of this file.
+--
+-- THE LOAD-BEARING ASSUMPTION, and how to test it before PROD.
+--   This change is safe only if a Supabase Dashboard Storage upload acts as
+--   service_role. Every documented template deploy AND every documented
+--   template rollback is a Dashboard upload (docs/RUNBOOK.md:254-258,
+--   docs/PRE_MERGE_TESTING_CHECKLIST.md:275-287), so if the Dashboard writes
+--   as `authenticated` instead, this drop strands both procedures.
+--   DO NOT take this on reasoning. P9 below turns it into a measurement that
+--   is non-destructive and runs on BOTH projects BEFORE anything changes. It
+--   is the hard gate on this entire file. Run it first.
+--   Then, on DEV after applying, also confirm the full write path end to end:
+--   Dashboard-upload a new file, Dashboard-OVERWRITE an existing one (the
+--   UPDATE path, which is the one that can fail silently), and
+--   Dashboard-delete it — verifying each by SQL and by re-reading the public
+--   URL with a cache-buster, never by the toast.
+--
+-- WHY
+--   Five policies on storage.objects grant write TO public with no auth
+--   predicate — the whole USING / WITH CHECK expression is a bucket_id
+--   comparison. In Postgres `public` includes `anon`, so an unauthenticated
+--   caller can upload to, overwrite and delete objects in the two buckets
+--   feeding the customer-facing PDF pipeline. Overwriting
+--   pdf-templates/inspection-report-template-final.html alters every report
+--   generated afterwards.
+--   Verified live against PROD 2026-08-26. docs/TODO.md:1218-1234 (L8), and
+--   restated at 20260826120001_lead_note_attachments_storage.sql:159-173.
+--
+--   Three of the five are NAMED "service role" but carry no role check. The
+--   names are the surviving record of the original intent; the predicates
+--   never implemented it. No document anywhere in the repo records a reason
+--   for `TO public` — this is a defect, not a deliberate grant.
+--
+--   Nothing in this codebase writes to either bucket under any credential:
+--   no .storage.from('pdf-assets') or .storage.from('pdf-templates') call
+--   exists in src/, api/, supabase/functions/, scripts/ or tests/. There is
+--   no CI that could write (.github/workflows/ does not exist; package.json
+--   has no upload script). The only documented writer is a human at
+--   Dashboard -> Storage -> Upload, which acts as service_role
+--   (docs/PRE_MERGE_TESTING_CHECKLIST.md:275-287, docs/RUNBOOK.md:254-258).
+--   Dropping these policies therefore breaks no code path in this repo.
+--
+-- WHY DROP, AND NOT `TO service_role`
+--   L8's suggested wording says "replace TO public with TO service_role".
+--   That would create INERT policies: service_role is provisioned BYPASSRLS,
+--   so it never consults RLS at all. Such a policy grants nothing BYPASSRLS
+--   does not already grant, while implying to a future reader that the policy
+--   is what is doing the work. Leaving these buckets with ZERO write policies
+--   denies anon and authenticated and still permits service_role and the
+--   Dashboard. This comment block is the intent record that the absent
+--   policies cannot carry.
+--   A TO service_role policy is also a live trap: the next person who opens
+--   Dashboard -> Storage -> Policies and sees one will reasonably infer "to
+--   let the app write here, add `authenticated` to this role list" — a
+--   two-click reopening of the hole. Zero policies offers no such affordance.
+--
+--   AND NOT A RESTRICTIVE DENY POLICY EITHER. The tempting third option —
+--   AS RESTRICTIVE FOR ALL TO anon, authenticated USING (bucket_id NOT IN
+--   ('pdf-assets','pdf-templates')) — is a landmine. RESTRICTIVE policies are
+--   AND-ed with EVERY other policy on the table, and storage.objects is shared
+--   by inspection-photos, report-pdfs, profile-photos and
+--   lead-note-attachments. One typo breaks photo upload, PDF hard-save and
+--   lead-note attachments simultaneously. It is also bucket-agnostic in the
+--   dangerous direction — the exact inverse of the house rule at
+--   20260826120001_lead_note_attachments_storage.sql:99-101.
+--
+--   Confirm before applying: SELECT rolname, rolbypassrls FROM pg_roles
+--   WHERE rolname IN ('anon','authenticated','service_role');
+--   Expect service_role = true, anon/authenticated = false. If service_role
+--   comes back false, STOP — this file is wrong for this project and must
+--   instead create explicit TO service_role write policies.
+--
+-- READ PATH DELIBERATELY UNTOUCHED
+--   Both buckets are public = true and every consumer fetches over
+--   /storage/v1/object/public/... with NO credential; there is no
+--   createSignedUrl fallback anywhere in the repo. Consumers:
+--     generate-inspection-pdf/index.ts:11-12, :2227
+--     generate-job-report-pdf/index.ts:10, :282
+--     api/render-pdf.ts:133            (headless Chromium subresources)
+--     src/components/pdf/ReportPreviewHTML.tsx:987
+--     src/lib/api/notifications.ts:161 (logo in every customer email)
+--     supabase/templates/*.html:54-57  (six GoTrue auth emails)
+--     src/templates/inspection-report-template.html:13,20  (@font-face)
+--   The SELECT policy "Allow public read access on pdf-assets" is left in
+--   place, and neither bucket's `public` flag is touched. Do NOT "tidy"
+--   either while applying — flipping either bucket private, or narrowing
+--   SELECT, breaks PDF generation outright.
+--   Out of scope, separate ticket: the public_bucket_allows_listing advisor
+--   warnings (docs/SUPABASE_ADVISOR_AUDIT.md:132-133). Hardening listing
+--   means changing a SELECT policy, which is the path that can break
+--   rendering. Not bundled here.
+--   EXPECT THE ADVISOR TO STILL WARN AFTER THIS CHANGE. That warning is
+--   driven by the SELECT policy "Allow public read access on pdf-assets"
+--   (docs/SUPABASE_ADVISOR_AUDIT.md:66, :133), which this file deliberately
+--   leaves alone. A persisting WARN is NOT evidence the change failed.
+--
+--   And do NOT "finish the job" by flipping buckets.public to false. That
+--   instantly kills TEMPLATE_URL in both Edge Functions and every ASSET_BASE
+--   URL inside the rendered HTML — no fallback, no signed-URL path. Precedent:
+--   docs/TODO.md:849-855 records DEV unable to render any PDF for exactly
+--   this reason.
+--
+-- SILENT FAILURE NOTE — how to verify this, and how not to.
+--   Verified empirically on this project (docs/TODO.md:994, PDF-CL16, DEV
+--   2026-08-27): an RLS-filtered Storage write returns {data: [], error: null}
+--   — success, with no error. Precisely: an INSERT blocked by WITH CHECK
+--   raises 42501 and is LOUD; an UPDATE or DELETE blocked by USING matches
+--   zero rows and is SILENT. Overwriting an existing template is the UPDATE
+--   path. So "no error" proves nothing in either direction. Verify with the
+--   observed HTTP status code and the object counts below, never with the
+--   absence of an error.
+--
+-- ROLLBACK (restores the vulnerability — break-glass only, on explicit
+-- instruction. This is not a resting state.):
+--   BEGIN;
+--   CREATE POLICY "Allow uploads to pdf-templates" ON storage.objects
+--     FOR INSERT TO public WITH CHECK (bucket_id = 'pdf-templates');
+--   CREATE POLICY "Allow updates to pdf-templates" ON storage.objects
+--     FOR UPDATE TO public USING (bucket_id = 'pdf-templates');
+--   CREATE POLICY "Allow service role upload to pdf-assets" ON storage.objects
+--     FOR INSERT TO public WITH CHECK (bucket_id = 'pdf-assets');
+--   CREATE POLICY "Allow update pdf-assets" ON storage.objects
+--     FOR UPDATE TO public USING (bucket_id = 'pdf-assets')
+--     WITH CHECK (bucket_id = 'pdf-assets');
+--   CREATE POLICY "Allow service role delete from pdf-assets" ON storage.objects
+--     FOR DELETE TO public USING (bucket_id = 'pdf-assets');
+--   COMMIT;
+--   These definitions are RECONSTRUCTED from the 2026-08-26 record, not read
+--   live. P2 below is the authoritative source — paste its real output over
+--   this block BEFORE applying, or the rollback restores the wrong thing.
+--   Nothing else needs reverting for the policy state itself: no data moves,
+--   no objects are deleted, and CDN-cached public objects are unaffected
+--   because reads never change.
+--   What a policy recreate does NOT undo: if some out-of-repo writer loses an
+--   overwrite or delete during the window, recreating the policy does not
+--   restore the bytes. pdf-assets holds 88 objects (docs/TODO.md:1227), 44 of
+--   them listed as load-bearing in required-images.txt, and most have no copy
+--   in this repo — public/ does not carry them. Supabase also purges the CDN
+--   only on a SUCCESSFUL write, so a silently-lost overwrite leaves stale
+--   bytes with no purge issued, and neither EF cache-busts
+--   (generate-inspection-pdf/index.ts:12, generate-job-report-pdf/index.ts:10).
+--   During the window "the fix didn't take" is indistinguishable from CDN lag.
+--
+-- PRIVILEGE NOTE — lower risk than the sibling file's warning implies.
+--   storage.objects is owned by supabase_storage_admin, and DROP POLICY
+--   requires table ownership, so this can in principle raise 42501 "must be
+--   owner of table objects" (the trap documented at
+--   20260826120001_...sql:22-33). But that same file's STATUS block (:4-7)
+--   records CREATE POLICY on storage.objects SUCCEEDING on PROD as `postgres`
+--   on 2026-08-26 — so the privilege is present and DROP should work.
+--   P5 below confirms it BEFORE you run anything. Treat 42501 as unlikely
+--   but handled, not as the expected outcome.
+--   On 42501: STOP. Apply through Supabase Dashboard -> Storage -> Policies
+--   instead, deleting the five policies by name. Do NOT reshape these
+--   statements into something that applies, and do NOT leave the buckets
+--   writable by anon.
+--
+-- LOCK NOTE — DROP POLICY takes ACCESS EXCLUSIVE on storage.objects, the
+--   busiest table in the project. lock_timeout below makes this fail fast
+--   instead of queueing every storage read in the project behind it.
+-- =============================================================================
+
+BEGIN;
+
+SET LOCAL lock_timeout = '3s';
+SET LOCAL statement_timeout = '60s';
+
+-- ---------------------------------------------------------------------
+-- SECTION 1 — drop the five permissive TO public write policies.
+--
+-- Ordered MOST-DANGEROUS-CAPABILITY FIRST. Irrelevant inside this transaction
+-- (all or nothing), but IDENTICAL to the order in the Dashboard fallback,
+-- which is NOT transactional and can be interrupted half-way. Keep them in
+-- step so the two paths degrade the same way.
+-- ---------------------------------------------------------------------
+
+-- 1. UPDATE on pdf-templates — overwrite inspection-report-template-final.html
+--    and every report generated afterwards changes. THE P0.
+DROP POLICY IF EXISTS "Allow updates to pdf-templates"            ON storage.objects;
+
+-- 2. UPDATE on pdf-assets — replace assets/logos/logo-mrc.png, embedded in six
+--    auth emails and every customer notification. Brand / phishing vector.
+DROP POLICY IF EXISTS "Allow update pdf-assets"                   ON storage.objects;
+
+-- 3. DELETE on pdf-assets — strip fonts/Garet-Heavy.otf, fonts/Galvji.ttc and
+--    the logo. Reports render in fallback fonts, emails show a broken image.
+DROP POLICY IF EXISTS "Allow service role delete from pdf-assets" ON storage.objects;
+
+-- 4. INSERT on pdf-assets — host arbitrary content on a public company URL.
+DROP POLICY IF EXISTS "Allow service role upload to pdf-assets"   ON storage.objects;
+
+-- 5. INSERT on pdf-templates — lowest impact: both consumed keys already
+--    exist, so an INSERT on them raises 23505 rather than clobbering.
+DROP POLICY IF EXISTS "Allow uploads to pdf-templates"            ON storage.objects;
+
+-- No policy is created. See "WHY DROP, AND NOT `TO service_role`" above:
+-- zero write policies is the intended resting state for these two buckets.
+
+-- ---------------------------------------------------------------------
+-- SECTION 2 — self-verifying assertion, INSIDE the transaction.
+--
+-- `DROP POLICY IF EXISTS` is idempotent, which is what makes the DEV and PROD
+-- pastes safe — but it also means a policy name that has DRIFTED since the
+-- 2026-08-26 capture silently no-ops and the file reports success while the
+-- hole stays open. This block closes that: it also catches a typo in SECTION 1
+-- and any SIXTH write policy nobody knew about.
+--
+-- On failure the whole transaction rolls back and the pre-existing (vulnerable
+-- but intact) state is preserved — the correct direction to fail. Re-run P2,
+-- reconcile the exact policynames, retry.
+--
+-- cmd <> 'SELECT' deliberately also catches a FOR ALL policy.
+-- ---------------------------------------------------------------------
+DO $$
+DECLARE
+  remaining int;
+  leftovers text;
+BEGIN
+  SELECT count(*), COALESCE(string_agg(policyname || ' [' || cmd || ']', ', '), '')
+    INTO remaining, leftovers
+  FROM pg_policies
+  WHERE schemaname = 'storage'
+    AND tablename  = 'objects'
+    AND cmd <> 'SELECT'
+    AND (COALESCE(qual, '') || COALESCE(with_check, ''))
+        LIKE ANY (ARRAY['%pdf-assets%', '%pdf-templates%']);
+
+  IF remaining <> 0 THEN
+    RAISE EXCEPTION
+      'ABORT: % write polic(y/ies) still reference the pdf buckets after the DROPs: %. '
+      'Re-run P2, reconcile the exact policynames, retry. Nothing was changed.',
+      remaining, leftovers;
+  END IF;
+END $$;
+
+COMMIT;
+
+-- =============================================================================
+-- LIVE STATE AS FOUND — to be filled in from P1/P2 before apply.
+--
+-- Neither pdf-assets nor pdf-templates, nor any of their six policies, exists
+-- anywhere in supabase/migrations/. Both buckets and all their policies were
+-- created out-of-band in the Dashboard, so the repo has never described them.
+-- (docs/L4-environment-separation-plan.md:69-72 claims they were created by a
+-- migration — that claim is false.)
+--
+-- Per the action already stated for the identical failure mode at
+-- docs/TODO.md:989 (PDF-CL11): paste the real P1 bucket rows and the real P2
+-- policy rows here, so the repo stops being silent about these buckets.
+--
+--   pdf-assets     : public=?, file_size_limit=?, allowed_mime_types=?
+--   pdf-templates  : public=?, file_size_limit=?, allowed_mime_types=?
+--   surviving SELECT policy: "Allow public read access on pdf-assets" — ?
+-- =============================================================================
+
+-- =============================================================================
+-- PRE-FLIGHT (read-only; run BEFORE apply, on DEV and PROD)
+--
+-- P1  bucket flags — expect pdf-assets / pdf-templates public = true
+--   SELECT id, public, file_size_limit, allowed_mime_types
+--   FROM storage.buckets ORDER BY id;
+--
+-- P2  every storage policy, in full. THE authoritative record.
+--   SELECT tablename, policyname, cmd, roles::text AS granted_to,
+--          COALESCE(qual,'-') AS using_expr,
+--          COALESCE(with_check,'-') AS with_check_expr
+--   FROM pg_policies WHERE schemaname='storage'
+--   ORDER BY tablename, cmd, policyname;
+--
+-- P3  object manifest — the "zero bytes moved" baseline. RECORD manifest_md5.
+--   SELECT bucket_id, count(*) AS objects,
+--          sum((metadata->>'size')::bigint) AS total_bytes,
+--          md5(string_agg(name||':'||COALESCE(metadata->>'eTag',''),'|' ORDER BY name))
+--            AS manifest_md5
+--   FROM storage.objects WHERE bucket_id IN ('pdf-assets','pdf-templates')
+--   GROUP BY bucket_id ORDER BY bucket_id;
+--   PROD expectation (docs/TODO.md:1227): pdf-assets 88, pdf-templates 2.
+--   Any deviation means the L8 capture is stale — re-baseline before applying.
+--
+-- P4  object inventory across all buckets, for context
+--   SELECT bucket_id, count(*) AS objects, max(updated_at) AS last_write
+--   FROM storage.objects GROUP BY 1 ORDER BY 1;
+--
+-- P5  can this session even DROP these policies? (the 42501 risk, up front)
+--     DROP POLICY and CREATE POLICY share the identical permission check —
+--     pg_class_ownercheck() == has_privs_of_role(current_user, relowner) —
+--     so this boolean answers it definitively before you run anything.
+--   SELECT current_user, session_user,
+--          c.relowner::regrole::text AS objects_owner,
+--          pg_has_role(current_user, c.relowner, 'USAGE') AS can_drop,
+--          c.relrowsecurity  AS rls_enabled,
+--          c.relforcerowsecurity AS rls_FORCED
+--   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+--   WHERE n.nspname='storage' AND c.relname='objects';
+--   Expect owner=supabase_storage_admin, can_drop=true, rls_enabled=true,
+--   rls_FORCED=false. If rls_FORCED is TRUE, STOP and re-think — the owner
+--   would itself be subject to policies, which changes the whole analysis.
+--
+-- P5b BYPASSRLS is not a GRANT. service_role must also hold table-level DML
+--     on storage.objects, or the Dashboard write path breaks for a reason
+--     unrelated to RLS. (anon/authenticated will hold them too — that is
+--     precisely why RLS is the ONLY barrier here, and why removing the
+--     policies IS the fix.)
+--   SELECT grantee, string_agg(privilege_type, ', ' ORDER BY privilege_type)
+--   FROM information_schema.role_table_grants
+--   WHERE table_schema='storage' AND table_name='objects'
+--   GROUP BY grantee ORDER BY grantee;
+--
+-- P6  which roles bypass RLS? Settles drop-vs-TO-service_role empirically.
+--   SELECT rolname, rolbypassrls, rolsuper FROM pg_roles
+--   WHERE rolname IN ('anon','authenticated','service_role','postgres',
+--                     'supabase_storage_admin','authenticator') ORDER BY rolname;
+--
+-- P7  no bucket-agnostic policy can keep these buckets open after the drop.
+--     RLS policies are PERMISSIVE and OR'd, so a policy WITHOUT a bucket_id
+--     predicate would leave the hole open even with all five dropped — the
+--     drop would look successful and change nothing. Expect 0.
+--     (Re-run of V10 from 20260826120001_...sql:187-189, which measured 25
+--     policies on 2026-08-26. More have been added since; re-measure.)
+--   SELECT policyname, cmd, roles::text FROM pg_policies
+--   WHERE schemaname='storage' AND tablename='objects'
+--     AND (COALESCE(qual,'')||COALESCE(with_check,'')) NOT LIKE '%bucket_id%';
+--
+-- P8  THE STRONGEST EVIDENCE AVAILABLE, and nobody has run it yet.
+--     Supabase Dashboard -> Logs -> Storage, last 90 days. Look for any
+--     POST / PUT / DELETE on /storage/v1/object/pdf-assets/* or
+--     /storage/v1/object/pdf-templates/*, projected with the JWT `role` claim.
+--       zero non-service_role writes -> the change is empirically safe and the
+--         static analysis above is confirmed by observed traffic.
+--       any anon/authenticated write  -> STOP. Identify the caller first.
+--     This single query outweighs all the code searching behind this file.
+--
+-- P9  *** THE GATE. *** Prove what role a Dashboard upload actually acts as,
+--     WITHOUT changing anything, on BOTH projects, BEFORE applying this file.
+--
+--     This works because of the asymmetry noted above: pdf-templates has
+--     INSERT and UPDATE policies but NO DELETE POLICY FOR ANY ROLE. So a
+--     Dashboard delete on that bucket can ONLY succeed by bypassing RLS.
+--     That makes it a clean, non-destructive discriminator.
+--
+--     1. Dashboard -> Storage -> pdf-templates -> Upload
+--        a throwaway file at  _rlsprobe/dash-probe.txt
+--        (proves nothing yet — INSERT TO public currently permits everyone)
+--     2. Dashboard -> delete that file (row's ... menu -> Delete)
+--     3. Verify in SQL, NOT by the toast — this is the PDF-CL16 trap:
+--        SELECT count(*) AS probe_rows_remaining FROM storage.objects
+--        WHERE bucket_id='pdf-templates' AND name LIKE '_rlsprobe/%';
+--
+--        0  -> the Dashboard deleted a row on a bucket with no DELETE policy,
+--              so it is service_role/BYPASSRLS. Dropping all five write
+--              policies CANNOT break the documented template deploy. PROCEED.
+--        1  -> the Dashboard IS subject to RLS (silent no-op, or a visible
+--              error). *** STOP. DO NOT APPLY THIS FILE. *** The fix becomes
+--              DROP + one narrow policy FOR INSERT/UPDATE TO authenticated
+--              gated on public.is_admin() — a different migration needing its
+--              own review. Do not improvise it here.
+--
+--     Why this matters more than anything else in this file: EVERY documented
+--     template deploy AND every documented template rollback is a Dashboard
+--     upload (docs/RUNBOOK.md:254-258,
+--     docs/PRE_MERGE_TESTING_CHECKLIST.md:275-287). If the Dashboard writes as
+--     `authenticated`, this migration strands both procedures at once.
+--
+-- GATES: P2 differs from the five policies named above -> STOP, rewrite this
+--        file against reality. P5 can_drop=false -> use the Dashboard path.
+--        P5 rls_FORCED=true -> STOP, re-think.
+--        P6 service_role rolbypassrls=false -> STOP, this file is wrong.
+--        P7 returns any row -> STOP, the drop would not close the hole.
+--        P8 shows a non-service_role write -> STOP, there is a live writer.
+--        P9 probe_rows_remaining=1 -> STOP, wrong design. THE HARD GATE.
+-- =============================================================================
+
+-- =============================================================================
+-- VERIFICATION (read-only; run after apply)
+--
+-- V1  the five are gone (expect 0)
+--   SELECT count(*) FROM pg_policies
+--   WHERE schemaname='storage' AND tablename='objects' AND policyname IN (
+--     'Allow uploads to pdf-templates','Allow updates to pdf-templates',
+--     'Allow service role upload to pdf-assets','Allow update pdf-assets',
+--     'Allow service role delete from pdf-assets');
+--
+-- V2  no write policy on these buckets grants anon/public any more (expect 0 rows)
+--   SELECT policyname, cmd, roles::text FROM pg_policies
+--   WHERE schemaname='storage' AND tablename='objects' AND cmd <> 'SELECT'
+--     AND (COALESCE(qual,'')||COALESCE(with_check,'')) ~ 'pdf-(assets|templates)';
+--
+-- V3  read path intact — buckets still public, SELECT policies untouched
+--   SELECT id, public FROM storage.buckets WHERE id IN ('pdf-assets','pdf-templates');
+--   SELECT policyname, cmd, roles::text FROM pg_policies
+--   WHERE schemaname='storage' AND tablename='objects' AND cmd='SELECT'
+--     AND COALESCE(qual,'') ~ 'pdf-(assets|templates)';
+--   Must match P2's SELECT rows EXACTLY. It is NORMAL for pdf-templates to
+--   have no SELECT policy at all: on a public=true bucket the /object/public/
+--   route serves objects without evaluating RLS, which is why the 2026-07-07
+--   advisor flagged pdf-assets but not pdf-templates
+--   (docs/SUPABASE_ADVISOR_AUDIT.md:64-67, :133). Compare to P2, not to an
+--   assumption.
+--   THE TRAP: because the buckets are public, public-URL reads keep working
+--   EVEN IF the SELECT policy is dropped by mistake. So "the PDFs still
+--   render" is NOT proof the drop hit only the intended five. Assert the
+--   SELECT policy BY NAME against P2 — that is the only real check.
+--
+-- V4  ZERO bytes moved — manifest_md5 must EQUAL the P3 value, per bucket
+--   SELECT bucket_id, count(*) AS objects,
+--          sum((metadata->>'size')::bigint) AS total_bytes,
+--          md5(string_agg(name||':'||COALESCE(metadata->>'eTag',''),'|' ORDER BY name))
+--            AS manifest_md5
+--   FROM storage.objects WHERE bucket_id IN ('pdf-assets','pdf-templates')
+--   GROUP BY bucket_id ORDER BY bucket_id;
+--
+-- ---------------------------------------------------------------------------
+-- HTTP CONTROLS. Run the NEGATIVE control (V6) BEFORE the positive one — the
+-- "did I break the customer path" check comes first.
+--
+--   SB=https://<REF>.supabase.co
+--   ANON=<anon key>     SVC=<service_role key>   # PROD SVC: Michael's terminal only
+--
+-- TWO RULES, both learned the hard way on this project:
+--   * NEVER accept an HTTP status or a Studio toast as proof a Storage write
+--     succeeded or failed. Prove it by re-reading the object over the
+--     unauthenticated public URL, or by SELECT against storage.objects.
+--     An INSERT blocked by WITH CHECK raises 42501 (loud). An UPDATE or DELETE
+--     blocked by USING matches zero rows — storage-api may return a misleading
+--     404 "Object not found", or a silent 200 with {data: [], error: null}
+--     (docs/TODO.md:994, PDF-CL16).
+--   * ALWAYS append ?cb=$(date +%s). Public objects are CDN-cached with a
+--     default 3600s TTL and NEITHER Edge Function cache-busts
+--     (generate-inspection-pdf/index.ts:12, generate-job-report-pdf/index.ts:10).
+--     A stale render inside the first hour is NOT evidence of breakage.
+-- ---------------------------------------------------------------------------
+--
+-- V5  POSITIVE CONTROL — prove anon can no longer write. Uses a canary so the
+--     dangerous UPDATE path is tested without ever aiming at a real object.
+--
+--   C-0  plant the canary WITH THE SERVICE KEY. Doubles as proof that
+--        service_role writes still work — the thing this change depends on.
+--     curl -i -X POST "$SB/storage/v1/object/pdf-templates/_rlsprobe/canary.html" \
+--       -H "apikey: $SVC" -H "Authorization: Bearer $SVC" \
+--       -H "Content-Type: text/html" -H "x-upsert: true" \
+--       --data-binary 'CANARY-ORIGINAL'
+--     EXPECT 200. If this FAILS, service_role writes are broken -> ROLL BACK.
+--
+--   P-1  anon INSERT of a NEW key -> must be refused LOUDLY (the 42501 path)
+--     curl -i -X POST "$SB/storage/v1/object/pdf-templates/_rlsprobe/anon-new.txt" \
+--       -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+--       -H "Content-Type: text/plain" --data-binary 'should-not-land'
+--     EXPECT 4xx {"statusCode":"403", ... "new row violates row-level security policy"}
+--
+--   P-2  anon UPSERT over an EXISTING key -> THE ACTUAL EXPLOIT
+--     curl -i -X POST "$SB/storage/v1/object/pdf-templates/_rlsprobe/canary.html" \
+--       -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+--       -H "x-upsert: true" -H "Content-Type: text/html" \
+--       --data-binary 'CANARY-OVERWRITTEN-BY-ANON'
+--     Status code is NOT the evidence. Verify by content:
+--     curl -s "$SB/storage/v1/object/public/pdf-templates/_rlsprobe/canary.html?cb=$(date +%s)"
+--     EXPECT exactly: CANARY-ORIGINAL
+--     If it reads CANARY-OVERWRITTEN-BY-ANON the hole is STILL OPEN — re-read
+--     P7/V6 for a bucket-agnostic policy. The migration did not work.
+--
+--   P-3  anon DELETE -> the SILENT no-op path. Verify in SQL, not HTTP.
+--     curl -i -X DELETE "$SB/storage/v1/object/pdf-templates/_rlsprobe/canary.html" \
+--       -H "apikey: $ANON" -H "Authorization: Bearer $ANON"
+--     SELECT count(*) FROM storage.objects
+--     WHERE bucket_id='pdf-templates' AND name='_rlsprobe/canary.html';  -- EXPECT 1
+--
+--   P-4  repeat P-1/P-3 against pdf-assets (it carried all three verbs), incl.
+--        an anon DELETE attempt on assets/logos/logo-mrc.png — after which
+--        V6(b) MUST still return 200.
+--
+--   C-9  clean up with the service key, then re-run V4: manifest_md5 must
+--        return to its P3 baseline.
+--     curl -i -X DELETE "$SB/storage/v1/object/pdf-templates/_rlsprobe/canary.html" \
+--       -H "apikey: $SVC" -H "Authorization: Bearer $SVC"
+--
+--   DEV ONLY, optional but honest: run P-1/P-2/P-3 on DEV while the five
+--   policies are still present and watch them all return 200 and actually
+--   corrupt the canary. That proves the probes DISCRIMINATE rather than
+--   failing for some unrelated reason. Never run this half on PROD.
+--
+-- V6  NEGATIVE CONTROL — prove the read path survives. Record (a) and (b)
+--     BEFORE the apply and compare after; do not compare to a remembered
+--     number (DEV and PROD differ: 66,282 B vs 66,486 B, docs/TODO.md:1161).
+--   a) curl -sI "$SB/storage/v1/object/public/pdf-templates/inspection-report-template-final.html?cb=$(date +%s)"
+--      EXPECT 200, content-length == P3's size_bytes. Then prove byte-identity:
+--      curl -s "<same url>" | shasum -a 256   -- must match the pre-apply hash
+--   b) curl -sI "$SB/storage/v1/object/public/pdf-assets/assets/logos/logo-mrc.png?cb=$(date +%s)"   -- 200
+--   c) curl -sI "$SB/storage/v1/object/public/pdf-templates/job-report-template.html?cb=$(date +%s)" -- 200
+--   d) The two fonts. NOTE src/templates/inspection-report-template.html:13,20
+--      hard-codes the PROD ref, so a DEV render still pulls fonts from PROD —
+--      this tests PROD regardless of which environment you render in:
+--      curl -sI ".../pdf-assets/fonts/Garet-Heavy.otf?cb=$(date +%s)"   -- 200
+--      curl -sI ".../pdf-assets/fonts/Galvji.ttc?cb=$(date +%s)"        -- 200
+--   e) Generate one real inspection PDF AND one job-completion report end to
+--      end. A broken read path shows as an UNSTYLED report, not an error —
+--      the asset URLs are subresource loads with hardcoded fallbacks at
+--      generate-inspection-pdf/index.ts:730-731. Nothing in SQL substitutes
+--      for this.
+--   f) Send one customer notification and one auth email (e.g. a password
+--      reset on a test account, rendering supabase/templates/recovery.html);
+--      confirm the logo displays.
+-- =============================================================================
