@@ -41,11 +41,21 @@ const EmailRequestSchema = z.object({
   // SYSTEM_USER_UUID. NULL only when caller fails to provide it (logged).
   // See docs/edge-function-attribution-manifest.md.
   userId: z.string().uuid().optional(),
+  // ADDITIVE, backwards compatible: `content` (base64 bytes) still works and
+  // is still what the legacy LeadsManagement send path passes. `path` is a
+  // URL Resend fetches itself, which is how report sends now attach their
+  // PDF — a 29MB report is ~38.5MB once base64-encoded, and shipping that
+  // through the browser and this function's JSON body is its own failure.
+  // Exactly one of the two must be present.
   attachments: z.array(z.object({
     filename: z.string().max(255),
-    content: z.string(),
+    content: z.string().optional(),
+    path: z.string().url().optional(),
     content_type: z.string().max(100),
-  })).optional(),
+  }).refine(
+    (a) => (a.content === undefined) !== (a.path === undefined),
+    { message: 'attachment requires exactly one of content or path' },
+  )).optional(),
   bypassRecipientRateLimit: z.boolean().optional(),
 })
 

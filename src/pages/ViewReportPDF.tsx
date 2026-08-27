@@ -43,8 +43,8 @@ import {
   getPDFVersionHistory,
 } from '@/lib/api/pdfGeneration'
 import { StalePdfBanner } from '@/components/pdf/StalePdfBanner'
-import { hardSaveReport, downloadBlobAs, HardSaveError, checkSendMismatch, downloadVersionPdfAsBase64, markVersionEmailed, type HardSaveVersionRow } from '@/lib/api/reportPipeline'
-import { hardSaveJobReport, HardSaveJobReportError, checkJobReportSendMismatch, downloadJobVersionPdfAsBase64, markJobVersionEmailed, type HardSaveJobReportVersionRow } from '@/lib/api/jobReportPipeline'
+import { hardSaveReport, downloadBlobAs, fetchVersionPdfBlob, HardSaveError, checkSendMismatch, createVersionPdfSignedUrl, assertEmailableAttachment, markVersionEmailed, type HardSaveResult, type HardSaveVersionRow } from '@/lib/api/reportPipeline'
+import { hardSaveJobReport, HardSaveJobReportError, checkJobReportSendMismatch, markJobVersionEmailed, type HardSaveJobReportResult, type HardSaveJobReportVersionRow } from '@/lib/api/jobReportPipeline'
 import { MismatchSendDialog, type MismatchChoice } from '@/components/pdf/MismatchSendDialog'
 import { DuplicateSendDialog } from '@/components/pdf/DuplicateSendDialog'
 import { ReportVersionHistory } from '@/components/pdf/ReportVersionHistory'
@@ -986,7 +986,10 @@ export default function ViewReportPDF() {
       const address = [lead.property_address_street, lead.property_address_suburb].filter(Boolean).join(', ')
 
       toast.loading(`Attaching v${version.version_number} PDF...`, { id: 'send-email' })
-      const base64Content = await downloadVersionPdfAsBase64(version.pdf_storage_path)
+      assertEmailableAttachment(version.file_size_bytes, version.version_number)
+      // Resend fetches the PDF from this URL itself, so the bytes never pass
+      // through the browser or the send-email function's JSON body.
+      const attachmentUrl = await createVersionPdfSignedUrl(version.pdf_storage_path)
 
       toast.loading('Sending email...', { id: 'send-email' })
       const emailHtml = buildReportApprovedHtml({
@@ -1006,7 +1009,7 @@ export default function ViewReportPDF() {
         leadId: lead.id,
         inspectionId: inspection.id,
         templateName: 'report-approved',
-        attachments: [{ filename, content: base64Content, content_type: 'application/pdf' }],
+        attachments: [{ filename, path: attachmentUrl, content_type: 'application/pdf' }],
         bypassRecipientRateLimit: bypassRateLimitRef.current || undefined,
       })
       bypassRateLimitRef.current = false
@@ -1071,6 +1074,7 @@ export default function ViewReportPDF() {
         pdf_storage_path: fresh.pdfStoragePath,
         html_storage_path: fresh.htmlStoragePath,
         html_hash: fresh.htmlHash,
+        file_size_bytes: fresh.fileSizeBytes,
         created_at: new Date().toISOString(),
       }
       queryClient.invalidateQueries({ queryKey: ['pdf-versions', inspection.id] })
@@ -1138,7 +1142,10 @@ export default function ViewReportPDF() {
       const address = [lead.property_address_street, lead.property_address_suburb, lead.property_address_state, lead.property_address_postcode].filter(Boolean).join(', ')
 
       toast.loading(`Attaching v${version.version_number} PDF...`, { id: 'send-email' })
-      const base64Content = await downloadJobVersionPdfAsBase64(version.pdf_storage_path)
+      assertEmailableAttachment(version.file_size_bytes, version.version_number)
+      // Resend fetches the PDF from this URL itself, so the bytes never pass
+      // through the browser or the send-email function's JSON body.
+      const attachmentUrl = await createVersionPdfSignedUrl(version.pdf_storage_path)
 
       toast.loading('Sending email...', { id: 'send-email' })
       const completionDate = formatDateAU(jobCompletion.completion_date as string | null | undefined) || ''
@@ -1162,7 +1169,7 @@ export default function ViewReportPDF() {
         templateName: 'job_report_sent',
         attachments: [{
           filename,
-          content: base64Content,
+          path: attachmentUrl,
           content_type: 'application/pdf',
         }],
         bypassRecipientRateLimit: bypassRateLimitRef.current || undefined,
@@ -1233,6 +1240,7 @@ export default function ViewReportPDF() {
         pdf_storage_path: fresh.pdfStoragePath,
         html_storage_path: fresh.htmlStoragePath,
         html_hash: fresh.htmlHash,
+        file_size_bytes: fresh.fileSizeBytes,
         created_at: new Date().toISOString(),
       }
       queryClient.invalidateQueries({ queryKey: ['job-report-versions', jobCompletion.id] })
@@ -1254,23 +1262,37 @@ export default function ViewReportPDF() {
         return
       }
       // Mirrors inspection handleDownload (Phase 4b). Download = HARD SAVE.
-      // The server renders the PDF via Chromium, persists PDF + HTML to
-      // report-pdfs, writes a job_completion_pdf_versions row, and streams
-      // the file back. Replaces the print-window dance.
+      // The server renders the PDF via Chromium and persists PDF + HTML to
+      // report-pdfs, then writes a job_completion_pdf_versions row. The file
+      // comes back from Storage, never through the response body.
       toast.loading('Hard-saving job report — this may take ~10 seconds...', { id: 'download' })
+      let jobSaved: HardSaveJobReportResult
       try {
-        const result = await hardSaveJobReport(jobCompletion.id)
-        const jobNumber = jobCompletion.job_number || 'Report'
-        downloadBlobAs(result.pdfBlob, `MRC-${jobNumber}-v${result.versionNumber}.pdf`)
-        toast.success(`Downloaded v${result.versionNumber} — saved to history`, { id: 'download' })
-        // Refresh anything that reads job_completion_pdf_versions.
-        queryClient.invalidateQueries({ queryKey: ['job-report-versions', jobCompletion.id] })
+        jobSaved = await hardSaveJobReport(jobCompletion.id)
       } catch (error) {
-        console.error('Job-report hard-save download failed:', error)
+        console.error('Job-report hard-save failed:', error)
         const msg = error instanceof HardSaveJobReportError
           ? `Hard-save failed: ${error.message}`
           : 'Hard-save failed. Please try again.'
         toast.error(msg, { id: 'download', duration: HARD_SAVE_ERROR_TOAST_MS })
+        return
+      }
+      // The version row is committed. Nothing past this point may tell the
+      // user their report was not saved.
+      queryClient.invalidateQueries({ queryKey: ['job-report-versions', jobCompletion.id] })
+      try {
+        const jobNumber = jobCompletion.job_number || 'Report'
+        const blob = await fetchVersionPdfBlob(jobSaved)
+        downloadBlobAs(blob, `MRC-${jobNumber}-v${jobSaved.versionNumber}.pdf`)
+        toast.success(`Downloaded v${jobSaved.versionNumber} — saved to history`, { id: 'download' })
+      } catch (error) {
+        console.error('Job-report PDF retrieval failed after a successful save:', error)
+        // Job reports have no version-history panel yet (docs/TODO.md PDF-CL8),
+        // so point at the only recovery this screen currently offers.
+        toast.success(
+          `Report saved as v${jobSaved.versionNumber}. The download didn't start — check your connection and use Download again.`,
+          { id: 'download', duration: HARD_SAVE_ERROR_TOAST_MS },
+        )
       }
       return
     }
@@ -1280,25 +1302,38 @@ export default function ViewReportPDF() {
       return
     }
 
-    // Phase 4b: Download = HARD SAVE. The server renders the PDF, persists
-    // PDF + HTML to report-pdfs, writes a pdf_versions row, and streams the
-    // file back. Replaces the print-window dance. The manual upload fallback
-    // (handlePdfUpload) is still available for emergencies but no longer
-    // auto-prompted after each Download.
+    // Phase 4b: Download = HARD SAVE. The server renders the PDF and persists
+    // PDF + HTML to report-pdfs, then writes a pdf_versions row. The file comes
+    // back from Storage, never through the response body. The manual upload
+    // fallback (handlePdfUpload) is still available for emergencies but no
+    // longer auto-prompted after each Download.
     toast.loading('Hard-saving report — this may take ~10 seconds...', { id: 'download' })
+    let saved: HardSaveResult
     try {
-      const result = await hardSaveReport(inspection.id)
-      const jobNumber = inspection.job_number || 'Report'
-      downloadBlobAs(result.pdfBlob, `MRC-${jobNumber}-v${result.versionNumber}.pdf`)
-      toast.success(`Downloaded v${result.versionNumber} — saved to history`, { id: 'download' })
-      // Refresh anything that reads pdf_versions (Stale banner, history panel).
-      queryClient.invalidateQueries({ queryKey: ['pdf-versions', inspection.id] })
+      saved = await hardSaveReport(inspection.id)
     } catch (error) {
-      console.error('Hard-save download failed:', error)
+      console.error('Hard-save failed:', error)
       const msg = error instanceof HardSaveError
         ? `Hard-save failed: ${error.message}`
         : 'Hard-save failed. Try the manual upload fallback below.'
       toast.error(msg, { id: 'download', duration: HARD_SAVE_ERROR_TOAST_MS })
+      return
+    }
+    // The version row is committed. Nothing past this point may tell the user
+    // their report was not saved — that false claim drove six duplicate saves
+    // on 27 Aug. Refresh the Stale banner and history panel first.
+    queryClient.invalidateQueries({ queryKey: ['pdf-versions', inspection.id] })
+    try {
+      const jobNumber = inspection.job_number || 'Report'
+      const blob = await fetchVersionPdfBlob(saved)
+      downloadBlobAs(blob, `MRC-${jobNumber}-v${saved.versionNumber}.pdf`)
+      toast.success(`Downloaded v${saved.versionNumber} — saved to history`, { id: 'download' })
+    } catch (error) {
+      console.error('PDF retrieval failed after a successful save:', error)
+      toast.success(
+        `Report saved as v${saved.versionNumber}. The download didn't start — open Version History to download it.`,
+        { id: 'download', duration: HARD_SAVE_ERROR_TOAST_MS },
+      )
     }
   }
 

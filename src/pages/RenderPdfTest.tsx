@@ -3,6 +3,12 @@
  * navigating to /admin/render-test directly. Calls the /api/render-pdf
  * serverless function for a given inspectionId and downloads the PDF.
  *
+ * The endpoint no longer returns PDF bytes (Vercel caps a buffered response
+ * body at ~4.5 MB and every real report is larger). In this legacy mode it
+ * uploads to a scratch prefix under report-pdfs and hands back a storage
+ * path, which we download the same way version history does. No
+ * pdf_versions row is written — a fidelity test is not a saved version.
+ *
  * Purpose: prove the server-side Chromium render matches the existing
  * browser-print "Save as PDF" output before wiring it into the email send
  * path (Phase 2). Side-by-side comparison is done manually by the admin —
@@ -16,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { downloadStoredPdf } from '@/lib/api/reportPipeline';
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -66,19 +73,18 @@ export default function RenderPdfTest() {
         return;
       }
 
-      const blob = await response.blob();
-      const disposition = response.headers.get('Content-Disposition') ?? '';
-      const filenameMatch = disposition.match(/filename="([^"]+)"/);
-      const filename = filenameMatch?.[1] ?? `server-render-${trimmed}.pdf`;
+      const result = (await response.json()) as {
+        pdfStoragePath?: string;
+        filename?: string;
+      };
+      if (!result.pdfStoragePath) {
+        toast.error('Render succeeded but returned no storage path', { id: toastId });
+        return;
+      }
+      const filename = result.filename ?? `server-render-${trimmed}.pdf`;
 
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = filename;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      toast.loading('Downloading rendered PDF…', { id: toastId });
+      await downloadStoredPdf(result.pdfStoragePath, filename);
 
       toast.success(`Downloaded ${filename}`, { id: toastId });
     } catch (err) {
