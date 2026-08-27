@@ -1042,6 +1042,81 @@ are unaffected: `generate-job-report-pdf` has no per-area pages at all (its
   `job_completions`) for the same drift. Not a workstream — a check to fold into the
   next session that touches those files.
 
+## AUTO-CAPTION — derived captions + bulk photo upload, 2026-08-27
+
+Technicians would not caption photos (Glen and Clayton, confirmed twice), and the caption
+modal blocked photo *selection*, so every slot and category cost a modal. Captions are now
+derived for the five display-only roles (room, subfloor, before, after, demolition) via
+`src/lib/utils/photoCaption.ts`. The eight sentinel role tags that carry slot identity —
+`infrared`, `natural_infrared`, `moisture`, `front_door`, `front_house`, `mailbox`,
+`street`, `direction` — are untouched, and `derivePhotoCaption()` can never emit one.
+Branch `feat/auto-caption-bulk-photo-upload`.
+
+- **AC1 — On-site before-photo provenance is a heuristic. A correct fix needs a
+  provenance column on `photos`; NOT attempted.** Section 3 now holds two kinds of photo
+  with opposite removal semantics: a photo *picked* from the inspection is **deselected**
+  (clearing `job_completion_id` and `photo_category`, leaving it on the inspection), while
+  a photo *uploaded at job time* is **deleted**, because it exists only for this job.
+  **A `photos` row cannot say which it is** — `togglePhoto` writes exactly the
+  `job_completion_id` + `photo_category='before'` pair an upload is born with. The current
+  discriminator is `isLikelyOnsiteUpload()` in
+  `src/components/job-completion/beforePhotoGrouping.ts`: those two fields **plus**
+  `photo_type = 'general'`, unioned with a session-scoped set of ids uploaded during the
+  current mount. It leans on the fact that the inspection form never writes `'general'`
+  (every branch that would leave the default also leaves the caption unset and bails
+  before inserting).
+  **Residual false positive:** a genuinely general inspection photo — an unplaced outdoor
+  photo (`unplaceOutdoorPhoto` flips `photo_type` to `'general'`,
+  `src/lib/utils/photoUpload.ts:429`) or an admin cover upload
+  (`src/components/pdf/ImageUploadModal.tsx`) — that the technician then picks as a before
+  photo. It renders under "Photos you added on site" and offers **Delete** rather than
+  **Deselect**; tapping it soft-deletes a real inspection photo, removing it from the
+  inspection report too. Recoverable (`deleted_at`, not a hard delete) and it needs three
+  things to line up, but it is real.
+  **Why this error and not the other one:** the inverse mistake — treating a real upload
+  as a picked photo — is worse and silent. Its deselect drops an unreferenced
+  `photo_type='general'` row into the inspection's pool, where the cover-photo fallback at
+  `generate-inspection-pdf/index.ts:1683` can promote it to the *inspection* report's cover
+  (that query has no `photo_category` / `job_completion_id` filter, `:2068`), and the admin
+  "pick existing" pool can claim it and overwrite its caption
+  (`AreaPhotoSlotGrid.tsx:178-180`).
+  **Proper fix:** add a provenance column (e.g. `photos.captured_for_job_completion`), set
+  it at INSERT in Section 3's upload path, and replace `isLikelyOnsiteUpload()` with an
+  exact read. That is a schema change — migration file generated, Michael runs it, per the
+  standing rule. Delete the session-id union at the same time.
+
+- **AC2 — Other findings surfaced by this workstream, deliberately not fixed.** Each is
+  pre-existing and none is caused by the caption change.
+  - **The offline photo queue is built and wired to nothing.** `queuePhotoOffline()`
+    (`photoUpload.ts:51`) and `SyncManager.saveDraft()` have **zero production callers**;
+    offline photos are discarded with a toast. "Zero data loss on offline save" is
+    therefore not met today. It also cannot be wired for job-completion photos without
+    changing the stored Dexie record shape — `QueuedPhoto` (`src/lib/offline/types.ts`)
+    and the offline INSERT (`SyncManager.ts:299-313`) carry no `job_completion_id` or
+    `photo_category`. Three defects need fixing first: dead `MAX_RETRIES`
+    (`SyncManager.ts:6`), photos left in `error` never retried once their draft flips to
+    `synced` (`:235-239` vs `:69-74`), and `orderIndex` defaulting to `0` for every entry
+    (`photoUpload.ts:69`), which would scramble PDF photo order on a bulk offline batch.
+  - **`OutdoorPhotoSlotGrid` breaches the outdoor sentinel invariant.** It has no
+    `autoCaption` mechanism at all and writes a typed human caption with
+    `photo_type: 'outdoor'`, so its photos already fail the `caption === 'front_door'`
+    matching in `generate-inspection-pdf/index.ts:1689-1695` and are already invisible in
+    `InspectionDataDisplay.tsx`'s outdoor section. `ImageUploadModal.tsx:136` breaches the
+    same invariant from another angle, and `:168` maps `direction_photo` to
+    `photo_type: 'direction'`, which is not a legal `PhotoMetadata.photo_type`. Both are
+    admin-only surfaces. Repairing them means giving them the sentinel captions the
+    consumers already expect.
+  - **`ViewReportPDF.tsx:2307` writes `caption: null`**, violating the Stage 4.1 non-empty
+    invariant that every other write path upholds.
+  - **`loadUnplacedPhotos()` (`photoUpload.ts:530-548`) has no `job_completion_id`
+    filter**, so the admin "pick existing" pool already contains job-report photos.
+    One line to fix, but it needs confirmation that no admin workflow legitimately
+    re-places a job photo into an inspection slot.
+  - **`isNetworkLevelError` is now duplicated four ways** (`TechnicianInspectionForm.tsx`,
+    `useJobCompletionForm.ts`, and both job-completion photo sections). The comment saying
+    two sites don't justify a shared module has expired. If it moves, re-export it from
+    `useJobCompletionForm.ts` or `useJobCompletionForm.offline.test.ts:4` breaks.
+
 ## Wave 6.1 — Cleanup PR (post-Wave-6 deploy, target: within 48h)
 
 Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocking nits surfaced by the Phase 8 audit pass.
