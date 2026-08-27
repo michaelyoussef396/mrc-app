@@ -13,7 +13,14 @@
 // Identical to inspection: caller-JWT auth + has_role('admin') gate (no
 // service-role usage), Chromium spawn via @sparticuz/chromium + puppeteer-core,
 // hash via api/_shared/reportHash.js, race-safe pdf_versions INSERT with retry
-// on 23505, X-Mrc-* response headers expose version metadata.
+// on 23505.
+//
+// Like the inspection endpoint, this does NOT return PDF bytes. Vercel
+// buffers a function's response body and caps it at ~4.5 MB. Job reports are
+// systematically the larger of the two payloads because generate-job-report-pdf
+// embeds every photo as a base64 data URI where the inspection EF uses signed
+// URLs, so a body-carrying response failed here even more reliably. The PDF
+// goes to Storage and the client fetches it from there.
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -36,6 +43,9 @@ const DEVICE_SCALE_FACTOR = 2;
 
 const REPORT_PDFS_BUCKET = 'report-pdfs';
 const MAX_VERSION_INSERT_ATTEMPTS = 3;
+// Matches every other report-pdfs signed URL in the app. The client fetches
+// immediately, so this only has to outlive a single download.
+const SIGNED_URL_TTL_SECONDS = 300;
 
 type RenderMode = 'hard_save';
 
@@ -226,6 +236,37 @@ async function insertHardSaveVersion(
   return { error: 'Version insert exhausted retries' };
 }
 
+// A signed URL is a convenience, never a precondition: by the time we mint
+// one the PDF is in Storage and the version row is committed. Failing here
+// must not turn a completed save into an error, so this returns null and the
+// client falls back to an authenticated storage download.
+async function createPdfSignedUrl(
+  client: SupabaseClient,
+  storageKey: string,
+): Promise<string | null> {
+  const { data, error } = await client.storage
+    .from(REPORT_PDFS_BUCKET)
+    .createSignedUrl(storageKey, SIGNED_URL_TTL_SECONDS);
+  if (error || !data?.signedUrl) {
+    console.error('[render-job-report-pdf] signed url failed', { storageKey, err: error });
+    return null;
+  }
+  return data.signedUrl;
+}
+
+interface RenderJobReportPdfResponse {
+  mode: RenderMode;
+  bucket: string;
+  pdfStoragePath: string;
+  fileSizeBytes: number;
+  filename: string;
+  signedUrl: string | null;
+  versionId: string;
+  versionNumber: number;
+  htmlStoragePath: string;
+  htmlHash: string;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   applyCors(req, res);
   if (req.method === 'OPTIONS') {
@@ -316,7 +357,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const filenameJob = jobCompletion.job_number ?? 'Report';
   const downloadFilename = `MRC-${filenameJob}-Job-Report.pdf`;
 
-  // === Hash + upload + version row + metadata headers ==================
+  // === Hash + upload + version row + signed URL =====================
   let htmlHash: string;
   try {
     htmlHash = await hashHtml(html);
@@ -370,17 +411,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: inserted.error });
   }
 
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
+  const body: RenderJobReportPdfResponse = {
+    mode: 'hard_save',
+    bucket: REPORT_PDFS_BUCKET,
+    pdfStoragePath: pdfStorageKey,
+    fileSizeBytes: pdf.length,
+    filename: downloadFilename,
+    signedUrl: await createPdfSignedUrl(callerClient, pdfStorageKey),
+    versionId: inserted.versionId,
+    versionNumber: inserted.versionNumber,
+    htmlStoragePath: htmlStorageKey,
+    htmlHash,
+  };
   res.setHeader('Cache-Control', 'no-store');
-  // Surface version metadata so the client can show toast + history without
-  // a follow-up DB roundtrip. CORS expose lets the browser fetch read them.
-  res.setHeader('Access-Control-Expose-Headers',
-    'X-Mrc-Version-Id, X-Mrc-Version-Number, X-Mrc-Pdf-Storage-Path, X-Mrc-Html-Storage-Path, X-Mrc-Html-Hash');
-  res.setHeader('X-Mrc-Version-Id', inserted.versionId);
-  res.setHeader('X-Mrc-Version-Number', String(inserted.versionNumber));
-  res.setHeader('X-Mrc-Pdf-Storage-Path', pdfStorageKey);
-  res.setHeader('X-Mrc-Html-Storage-Path', htmlStorageKey);
-  res.setHeader('X-Mrc-Html-Hash', htmlHash);
-  return res.status(200).send(Buffer.from(pdf));
+  return res.status(200).json(body);
 }

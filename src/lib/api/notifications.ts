@@ -28,9 +28,13 @@ interface SendEmailParams {
   // current Supabase session if not explicitly provided. See
   // docs/edge-function-attribution-manifest.md.
   userId?: string;
+  // Exactly one of `content` (base64 bytes) or `path` (a URL Resend fetches
+  // itself). Report sends use `path` so a multi-MB PDF never travels through
+  // the browser or the send-email function's JSON body.
   attachments?: Array<{
     filename: string;
-    content: string;
+    content?: string;
+    path?: string;
     content_type: string;
   }>;
   bypassRecipientRateLimit?: boolean;

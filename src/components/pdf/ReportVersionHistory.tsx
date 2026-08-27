@@ -12,9 +12,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { downloadBlobAs } from '@/lib/api/reportPipeline'
-
-const REPORT_PDFS_BUCKET = 'report-pdfs'
+import { downloadStoredPdf } from '@/lib/api/reportPipeline'
 
 interface VersionRow {
   id: string
@@ -89,12 +87,7 @@ export function ReportVersionHistory({ inspectionId, jobNumber, refreshKey }: Re
     if (!row.pdf_storage_path) return
     setDownloadingId(row.id)
     try {
-      const { data, error } = await supabase.storage
-        .from(REPORT_PDFS_BUCKET)
-        .download(row.pdf_storage_path)
-      if (error || !data) throw new Error(error?.message ?? 'Download failed')
-      const filename = `${jobNumber ?? 'MRC'}-v${row.version_number}.pdf`
-      downloadBlobAs(data, filename)
+      await downloadStoredPdf(row.pdf_storage_path, `${jobNumber ?? 'MRC'}-v${row.version_number}.pdf`)
     } catch (err) {
       console.error('[ReportVersionHistory] download failed', err)
       toast.error('Download failed')
