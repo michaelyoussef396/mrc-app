@@ -9,6 +9,7 @@ import { useBookingValidation, RECOMMENDED_DATES_FAILURE_MESSAGES, AVAILABILITY_
 import { captureBusinessError } from '@/lib/sentry';
 import { useLoadGoogleMaps, useAddressAutocomplete } from '@/hooks/useGoogleMaps';
 import { calculatePropertyZone, leadSourceOptions } from '@/lib/leadUtils';
+import { buildStreetLine, fallbackStreetLine } from '@/lib/utils/addressFormat';
 import { useLeadUpdate } from '@/hooks/useLeadUpdate';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -348,9 +349,7 @@ export function LeadBookingCard({
 
     const details = await getPlaceDetails(placeId);
     if (details) {
-      const streetAddress = details.street_number && details.street_name
-        ? `${details.street_number} ${details.street_name}`
-        : details.formatted_address.split(',')[0];
+      const streetAddress = buildStreetLine(details) || fallbackStreetLine(description);
 
       const addr: ValidatedAddress = {
         street: streetAddress,
@@ -371,7 +370,7 @@ export function LeadBookingCard({
         setPostcodeWarning(null);
       }
     } else {
-      setAddressSearchValue(description.split(',')[0]);
+      setAddressSearchValue(fallbackStreetLine(description));
     }
   }, [getPlaceDetails, clearPredictions]);
 
