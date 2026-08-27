@@ -22,6 +22,8 @@ export interface PlacePrediction {
 
 export interface PlaceDetails {
   formatted_address: string
+  /** Google's `subpremise` — the unit/apartment number, absent for a house. */
+  unit?: string
   street_number?: string
   street_name?: string
   suburb?: string
@@ -210,6 +212,7 @@ export function useAddressAutocomplete(_inputRef: React.RefObject<HTMLInputEleme
 
       const details: PlaceDetails = {
         formatted_address: place.formattedAddress || '',
+        unit: getComponent('subpremise'),
         street_number: getComponent('street_number'),
         street_name: getComponent('route'),
         suburb: getComponent('locality') || getComponent('sublocality'),

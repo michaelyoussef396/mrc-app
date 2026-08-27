@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useLoadGoogleMaps, useAddressAutocomplete, PlaceDetails } from '@/hooks/useGoogleMaps'
+import { buildStreetLine, fallbackStreetLine } from '@/lib/utils/addressFormat'
 import { MapPin, Loader2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -95,9 +96,7 @@ export function AddressAutocomplete({
 
     if (details) {
       const addressValue: AddressValue = {
-        street: details.street_number && details.street_name
-          ? `${details.street_number} ${details.street_name}`
-          : description.split(',')[0],
+        street: buildStreetLine(details) || fallbackStreetLine(description),
         suburb: details.suburb || '',
         state: details.state || 'VIC',
         postcode: details.postcode || '',
