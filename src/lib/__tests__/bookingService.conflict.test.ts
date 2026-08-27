@@ -170,6 +170,18 @@ describe('checkBookingConflict result', () => {
     expect(conflictDetails).toContain('9:23 AM');
   });
 
+  it('should report the conflicting booking as a full time range, not just its start', async () => {
+    mocks.state.result = { data: [overlappingRow()], error: null };
+
+    const { conflictDetails } = await checkBookingConflict(
+      TECHNICIAN_ID,
+      PROPOSED_START,
+      PROPOSED_END,
+    );
+
+    expect(conflictDetails).toContain('9:00 AM – 10:00 AM');
+  });
+
   it('should not report a conflict when the query errors', async () => {
     mocks.state.result = { data: null, error: { message: 'boom' } };
 

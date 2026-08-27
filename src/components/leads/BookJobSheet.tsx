@@ -18,6 +18,7 @@ import { logFieldEdits, logNoteAdded, type FieldChange } from '@/lib/api/fieldEd
 import { appendInternalNote } from '@/lib/utils/internalNotes'
 import { formatTimeLabel } from '@/lib/utils/timeOfDay'
 import { TimePicker } from '@/components/ui/TimePicker'
+import { useTechnicians } from '@/hooks/useTechnicians'
 
 // ============================================================================
 // CONSTANTS
@@ -40,15 +41,6 @@ interface BookJobSheetProps {
   propertyAddress: string
   propertySuburb?: string
   onBooked?: () => void
-}
-
-interface TechnicianUser {
-  id: string
-  email: string
-  first_name: string
-  last_name: string
-  full_name: string
-  is_active: boolean
 }
 
 interface InspectionSummary {
@@ -124,6 +116,15 @@ function formatDateTimeAu(iso: string | Date): string {
   }).format(date).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase())
 }
 
+/** Format a Date as "4:00 PM" — en-AU, uppercase meridiem */
+function formatClockTime(date: Date): string {
+  return date.toLocaleTimeString('en-AU', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase())
+}
+
 /** Build a local Date from YYYY-MM-DD + HH:MM */
 function buildLocalDateTime(dateStr: string, timeStr: string): Date {
   return new Date(`${dateStr}T${timeStr}:00`)
@@ -159,27 +160,6 @@ function computeDaySchedule(
   return days
 }
 
-async function fetchTechnicians(): Promise<TechnicianUser[]> {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) throw new Error('Not authenticated')
-
-  const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`,
-    {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        'Content-Type': 'application/json',
-      },
-    }
-  )
-
-  const result = await response.json()
-  if (!result.success) throw new Error(result.error || 'Failed to fetch users')
-  return (result.users as TechnicianUser[]).filter((u) => u.is_active)
-}
-
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -197,8 +177,17 @@ export function BookJobSheet({
   const queryClient = useQueryClient()
   const { user, profile } = useAuth()
 
+  // Role-filtered technician list, shared query key with the Schedule sidebar so both
+  // booking surfaces offer exactly the same people. Gated on `open` because LeadDetail
+  // mounts this sheet unconditionally, including on the technician job-detail route where
+  // the underlying admin-only function would 403.
+  const {
+    data: technicians = [],
+    error: techniciansError,
+    isPending: techniciansPending,
+  } = useTechnicians({ enabled: open })
+
   // Form state (editable)
-  const [technicians, setTechnicians] = useState<TechnicianUser[]>([])
   const [assignedTo, setAssignedTo] = useState<string>('')
   const [startDate, setStartDate] = useState<string>(getTomorrowStr())
   const [startTime, setStartTime] = useState<string>('08:00')
@@ -232,8 +221,7 @@ export function BookJobSheet({
     const prefill = async () => {
       setIsPrefilling(true)
       try {
-        const [techList, leadResult, inspectionResult, existingJobsResult] = await Promise.all([
-          fetchTechnicians(),
+        const [leadResult, inspectionResult, existingJobsResult] = await Promise.all([
           supabase
             .from('leads')
             .select('assigned_to, job_scheduled_date')
@@ -258,8 +246,6 @@ export function BookJobSheet({
         ])
 
         if (cancelled) return
-
-        setTechnicians(techList)
 
         // Pre-select technician from lead.assigned_to
         if (leadResult.data?.assigned_to) {
@@ -336,12 +322,17 @@ export function BookJobSheet({
 
   const daysNeeded = schedule.length
   const equipmentDays = Math.max(1, daysNeeded)
-  const hasAnyConflict = schedule.some((d) => d.hasConflict)
+  const conflictingDays = useMemo(() => schedule.filter((d) => d.hasConflict), [schedule])
+  const hasAnyConflict = conflictingDays.length > 0
 
   // ---------- Check conflicts when schedule or technician changes ----------
   useEffect(() => {
+    // Drop the previous verdict before re-checking. Without this the banner keeps
+    // rendering the OLD technician's conflicts — attributed to the newly selected one —
+    // for as long as the sequential day-by-day loop takes to finish.
+    setConflictMap({})
+
     if (!assignedTo || baseSchedule.length === 0) {
-      setConflictMap({})
       return
     }
 
@@ -373,11 +364,23 @@ export function BookJobSheet({
     }
   }, [assignedTo, baseSchedule])
 
+  // The list is role-filtered, but a lead's assigned_to can point at someone without the
+  // technician role. Radix renders an empty trigger for a value with no matching item, so
+  // without this the sheet would submit a booking whose technician field looked blank —
+  // blanking the name in the activity log and the customer's confirmation email.
+  // Waiting on the settled state rather than on a non-empty list is deliberate: an errored
+  // or genuinely empty list must still clear the orphan, and only `isPending` separates
+  // that from "the list has not arrived yet".
+  useEffect(() => {
+    if (techniciansPending || !assignedTo) return
+    if (!technicians.some((t) => t.id === assignedTo)) setAssignedTo('')
+  }, [techniciansPending, technicians, assignedTo])
+
   // ---------- Derived display values ----------
-  const selectedTechName = useMemo(() => {
-    const t = technicians.find((u) => u.id === assignedTo)
-    return t?.full_name || `${t?.first_name ?? ''} ${t?.last_name ?? ''}`.trim() || t?.email || ''
-  }, [technicians, assignedTo])
+  const selectedTechName = useMemo(
+    () => technicians.find((u) => u.id === assignedTo)?.name ?? '',
+    [technicians, assignedTo]
+  )
 
   const canSubmit =
     !loading &&
@@ -744,14 +747,18 @@ export function BookJobSheet({
                   <SelectContent>
                     {technicians.map((tech) => (
                       <SelectItem key={tech.id} value={tech.id}>
-                        {tech.full_name ||
-                          `${tech.first_name} ${tech.last_name}`.trim() ||
-                          tech.email}
+                        {tech.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-[#86868b]">Assigned during inspection</p>
+                {techniciansError ? (
+                  <p className="text-xs text-red-700">
+                    Couldn&apos;t load the technician list — refresh the page to retry.
+                  </p>
+                ) : (
+                  <p className="text-xs text-[#86868b]">Assigned during inspection</p>
+                )}
               </div>
 
               {/* Start Date */}
@@ -871,11 +878,7 @@ export function BookJobSheet({
                   </div>
                 ) : (
                   schedule.map((day, idx) => {
-                    const endTimeLabel = day.end.toLocaleTimeString('en-AU', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true,
-                    }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase())
+                    const endTimeLabel = formatClockTime(day.end)
                     return (
                       <div
                         key={day.dateStr}
@@ -913,14 +916,28 @@ export function BookJobSheet({
               )}
 
               {hasAnyConflict && (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-3 flex items-start gap-2">
+                <div
+                  role="alert"
+                  data-testid="job-conflict-banner"
+                  className="rounded-lg border border-red-200 bg-red-50 p-3 flex items-start gap-2"
+                >
                   <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
-                  <div className="text-xs text-red-900">
-                    <p className="font-semibold">Booking conflict detected</p>
-                    <p className="mt-1">
-                      The selected technician has existing bookings on one or more of these days. Pick a
-                      different start date or technician.
+                  <div className="text-xs text-red-900 min-w-0 space-y-2">
+                    <p className="font-semibold">
+                      Booking conflict — {selectedTechName || 'the selected technician'} is already
+                      booked
                     </p>
+                    <ul className="space-y-1.5">
+                      {conflictingDays.map((day) => (
+                        <li key={day.dateStr}>
+                          <span className="font-medium">{formatDayLabel(day.dateStr)}</span>
+                          {' · your '}
+                          {formatTimeLabel(startTime)} – {formatClockTime(day.end)} block overlaps
+                          <span className="block text-red-800">{day.conflictDetails}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p>Pick a different start date, time, or technician.</p>
                   </div>
                 </div>
               )}
