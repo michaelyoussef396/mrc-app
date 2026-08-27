@@ -36,6 +36,17 @@ Blocks dangerous shell commands. Detects patterns even in chained commands (`&&`
 - **Database**: `DROP TABLE/DATABASE`, `DELETE FROM` without WHERE, `TRUNCATE TABLE`
 - **System**: `chmod 777`, piping `curl`/`wget` to `bash`/`sh`, `mkfs`, `dd if=`, writes to `/dev/`
 
+### block-supabase-prod.sh
+**Event**: PreToolUse (Bash)
+
+Denies any Bash invocation of the Supabase CLI or Management API that does not explicitly and exclusively target DEV (`ctppzqnysmzynkxjlzta`). Fails closed.
+- **PROD ref**: any Supabase command naming `ecyivrxjpsmjmexqatym` is blocked outright
+- **History rewrites**: `db push`, `db reset`, `migration repair` are blocked on every target
+- **Implicit targets**: `--linked` and any command with no `--project-ref` are blocked, because both inherit a default that resolves to PROD
+- **Management API**: `curl`/`wget` to `api.supabase.com` is held to the same rule
+
+Companion to `block-supabase-mcp-writes.sh`, which covers the MCP tool route only and never sees a Bash command. Neither hook gates a human's own terminal, which is where CLAUDE.md says PROD Edge Function deploys are run by hand.
+
 ### format-on-save.sh
 **Event**: PostToolUse (Edit|Write)
 
