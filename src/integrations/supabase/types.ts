@@ -10,7 +10,32 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.17"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -466,6 +491,7 @@ export type Database = {
           extra_notes: string | null
           humidity: number | null
           id: string
+          include_in_report: boolean
           infrared_enabled: boolean | null
           infrared_observation_condensation: boolean | null
           infrared_observation_missing_insulation: boolean | null
@@ -496,6 +522,7 @@ export type Database = {
           extra_notes?: string | null
           humidity?: number | null
           id?: string
+          include_in_report?: boolean
           infrared_enabled?: boolean | null
           infrared_observation_condensation?: boolean | null
           infrared_observation_missing_insulation?: boolean | null
@@ -526,6 +553,7 @@ export type Database = {
           extra_notes?: string | null
           humidity?: number | null
           id?: string
+          include_in_report?: boolean
           infrared_enabled?: boolean | null
           infrared_observation_condensation?: boolean | null
           infrared_observation_missing_insulation?: boolean | null
@@ -1229,6 +1257,158 @@ export type Database = {
           },
           {
             foreignKeyName: "job_completions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_note_attachments: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          file_name: string
+          file_size: number
+          id: string
+          lead_id: string
+          mime_type: string
+          note_id: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          file_name: string
+          file_size: number
+          id?: string
+          lead_id: string
+          mime_type: string
+          note_id: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          file_name?: string
+          file_size?: number
+          id?: string
+          lead_id?: string
+          mime_type?: string
+          note_id?: string
+          storage_path?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_note_attachments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_note_attachments_note_lead_fkey"
+            columns: ["note_id", "lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_notes"
+            referencedColumns: ["id", "lead_id"]
+          },
+          {
+            foreignKeyName: "lead_note_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_note_mentions: {
+        Row: {
+          created_at: string
+          id: string
+          lead_id: string
+          mentioned_user_id: string
+          note_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lead_id: string
+          mentioned_user_id: string
+          note_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_id?: string
+          mentioned_user_id?: string
+          note_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_note_mentions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_note_mentions_mentioned_user_id_fkey"
+            columns: ["mentioned_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_note_mentions_note_lead_fkey"
+            columns: ["note_id", "lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_notes"
+            referencedColumns: ["id", "lead_id"]
+          },
+        ]
+      }
+      lead_notes: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          lead_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          lead_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          lead_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_notes_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
@@ -2171,6 +2351,10 @@ export type Database = {
       }
     }
     Functions: {
+      add_lead_note_mentions: {
+        Args: { p_note_id: string; p_user_ids: string[] }
+        Returns: number
+      }
       audited_insert_lead_via_framer: {
         Args: { p_acting_user_id: string; p_payload: Json }
         Returns: string
@@ -2188,8 +2372,30 @@ export type Database = {
         Args: { amount_ex_gst: number }
         Returns: number
       }
+      fan_out_notification: {
+        Args: {
+          p_action_url?: string
+          p_lead_id?: string
+          p_message: string
+          p_metadata?: Json
+          p_priority?: string
+          p_related_entity_id?: string
+          p_related_entity_type?: string
+          p_roles?: string[]
+          p_title: string
+          p_type: string
+        }
+        Returns: number
+      }
       generate_inspection_number: { Args: never; Returns: string }
       generate_lead_number: { Args: never; Returns: string }
+      get_staff_names: {
+        Args: { p_user_ids: string[] }
+        Returns: {
+          full_name: string
+          id: string
+        }[]
+      }
       get_user_roles_by_id: { Args: { p_user_id: string }; Returns: string[] }
       has_role: {
         Args: { _role_name: string; _user_id: string }
@@ -2198,6 +2404,20 @@ export type Database = {
       is_admin:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
+      notify_users: {
+        Args: {
+          p_lead_id?: string
+          p_message: string
+          p_metadata?: Json
+          p_priority?: string
+          p_related_entity_id?: string
+          p_related_entity_type?: string
+          p_title: string
+          p_type: string
+          p_user_ids: string[]
+        }
+        Returns: number
+      }
     }
     Enums: {
       booking_status:
@@ -2372,6 +2592,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       booking_status: [

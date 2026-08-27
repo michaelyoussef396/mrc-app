@@ -29,6 +29,7 @@ import {
   AlertCircle,
   Send,
   Eye,
+  EyeOff,
   Upload,
   Check,
   Plus,
@@ -159,6 +160,19 @@ interface EditableField {
 // are no longer selected from inspections — they're fetched from the
 // latest_ai_summary view in loadInspection() and merged onto the inspection
 // object after fetch.
+
+// One list for every inspection_areas read on this page. It was previously
+// spelled out at three call sites that had drifted apart: the initial load
+// selected job_time_minutes but the post-save and post-add refetches did not,
+// so editing an area dropped the labour minutes out of `areasData` and
+// autoEstimate (see computeInspectionEstimate below) recomputed labour as 0
+// until the next full page load.
+// Single string literal, not a concatenation, and `as const` — supabase-js
+// infers the row shape from the literal type of the select string. A `string`
+// (which `'a' + 'b'` produces) collapses the result to GenericStringError.
+const AREA_SELECT_COLUMNS =
+  'id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes, infrared_enabled, include_in_report, job_time_minutes, demolition_time_minutes, demolition_required' as const
+
 const INSPECTION_SELECT = `
   id,
   job_number,
@@ -430,6 +444,9 @@ export default function ViewReportPDF() {
   const [newAreaName, setNewAreaName] = useState('')
   const [savingNewArea, setSavingNewArea] = useState(false)
 
+  // Show/hide an area's page in the report (include_in_report)
+  const [togglingAreaId, setTogglingAreaId] = useState<string | null>(null)
+
   // Subfloor data + photos
   const [subfloorData, setSubfloorData] = useState<{ id: string; observations: string; comments: string; landscape: string; treatment_time_minutes?: number | null } | null>(null)
   const [subfloorReadings, setSubfloorReadings] = useState<Array<{ id: string; location: string; moisture_percentage: number; reading_order: number }>>([])
@@ -638,7 +655,7 @@ export default function ViewReportPDF() {
       // Fetch inspection_areas for inline editing
       const { data: areas, error: areasError } = await supabase
         .from('inspection_areas')
-        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes, infrared_enabled, job_time_minutes, demolition_time_minutes, demolition_required')
+        .select(AREA_SELECT_COLUMNS)
         .eq('inspection_id', inspId)
         .order('area_order', { ascending: true })
 
@@ -1958,7 +1975,7 @@ export default function ViewReportPDF() {
       // Refresh areas data
       const { data: areas } = await supabase
         .from('inspection_areas')
-        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes, infrared_enabled')
+        .select(AREA_SELECT_COLUMNS)
         .eq('inspection_id', inspection.id)
         .order('area_order', { ascending: true })
       setAreasData((areas || []) as AreaRecord[])
@@ -2099,7 +2116,7 @@ export default function ViewReportPDF() {
           external_moisture: 0,
           internal_moisture: 0,
         })
-        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes, infrared_enabled')
+        .select(AREA_SELECT_COLUMNS)
         .single()
 
       if (error) throw error
@@ -2107,7 +2124,7 @@ export default function ViewReportPDF() {
       // Refresh areas list
       const { data: areas } = await supabase
         .from('inspection_areas')
-        .select('id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes, infrared_enabled')
+        .select(AREA_SELECT_COLUMNS)
         .eq('inspection_id', inspection.id)
         .order('area_order', { ascending: true })
       setAreasData((areas || []) as AreaRecord[])
@@ -2124,6 +2141,82 @@ export default function ViewReportPDF() {
       toast.error('Failed to create area')
     } finally {
       setSavingNewArea(false)
+    }
+  }
+
+  /**
+   * Show or hide one area's page in the report. Presentation only — the row, its
+   * moisture readings and its photos are untouched, and its job_time_minutes
+   * still counts toward the quote.
+   *
+   * The regenerate is awaited, not fired and forgotten: it re-renders the stored
+   * HTML the preview reads from, and two overlapping renders would race to write
+   * inspections.pdf_url. Holding togglingAreaId until it settles is what stops a
+   * second toggle starting a competing render.
+   */
+  async function handleToggleAreaInReport(area: AreaRecord) {
+    if (!inspection?.id) return
+
+    const nextIncluded = area.include_in_report === false
+    // Read before the write. Only a visible area can be hidden, so a count of 1
+    // here means this is the last one. Re-derived from the refetch below when it
+    // succeeds, since another session may have hidden areas since this page load.
+    const visibleCountBefore = areasData.filter(a => a.include_in_report !== false).length
+
+    setTogglingAreaId(area.id)
+    try {
+      const { error } = await supabase
+        .from('inspection_areas')
+        .update({ include_in_report: nextIncluded })
+        .eq('id', area.id)
+      if (error) throw error
+
+      // Past this point the write has COMMITTED. Nothing below may tell the user
+      // the change failed — that false claim is what drove six duplicate saves on
+      // 27 Aug (see handleDownload).
+      const { data: areas, error: refetchError } = await supabase
+        .from('inspection_areas')
+        .select(AREA_SELECT_COLUMNS)
+        .eq('inspection_id', inspection.id)
+        .order('area_order', { ascending: true })
+
+      if (refetchError || !areas) {
+        // Leave areasData alone. Overwriting it with null empties the list that
+        // autoEstimate derives labour hours from, which would show the job at
+        // zero labour off the back of a transient network blip.
+        console.error('Area refetch after visibility toggle failed:', refetchError)
+        toast.warning(
+          `"${area.area_name}" was ${nextIncluded ? 'restored' : 'hidden'}, but the list could not be refreshed — reload to see the current state.`,
+          { duration: HARD_SAVE_ERROR_TOAST_MS },
+        )
+        return
+      }
+
+      setAreasData(areas as AreaRecord[])
+
+      const noneLeft = !nextIncluded
+        && (areas as AreaRecord[]).every(a => a.include_in_report === false)
+      if (noneLeft || (!nextIncluded && visibleCountBefore === 1)) {
+        // Allowed, but the reader gets a bare "None" page where the areas
+        // section used to be — say so rather than let it arrive by surprise.
+        toast.warning(
+          `"${area.area_name}" hidden — no areas are left in the report, so it will show a "None" page.`,
+          { duration: HARD_SAVE_ERROR_TOAST_MS },
+        )
+      } else {
+        toast.success(
+          nextIncluded
+            ? `"${area.area_name}" restored to the report`
+            : `"${area.area_name}" hidden from the report`,
+        )
+      }
+
+      await handleGeneratePDF()
+    } catch (err) {
+      console.error('Toggle area visibility failed:', err)
+      toast.error(`Failed to ${nextIncluded ? 'restore' : 'hide'} "${area.area_name}"`)
+    } finally {
+      setTogglingAreaId(null)
     }
   }
 
@@ -2998,21 +3091,62 @@ export default function ViewReportPDF() {
           {/* Area selector — show all areas as cards */}
           {!editingAreaId ? (
             <div className="space-y-3">
-              {areasData.map((area) => (
-                <button
-                  key={area.id}
-                  onClick={() => openAreaEdit(area)}
-                  className="w-full text-left p-4 rounded-lg border border-gray-200 hover:border-orange-400 hover:bg-orange-50 transition-colors min-h-[48px]"
-                >
-                  <div className="font-semibold text-base">{area.area_name}</div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {area.temperature}°C · {area.humidity}% RH · DP {area.dew_point}°C
-                    {area.mould_visible_locations && area.mould_visible_locations.length > 0 && (
-                      <span className="ml-2 text-red-600">· Mould: {area.mould_visible_locations.join(', ')}</span>
-                    )}
+              {areasData.map((area) => {
+                const isHidden = area.include_in_report === false
+                const isToggling = togglingAreaId === area.id
+                // Lock EVERY toggle while any one of them is mid-flight, and
+                // while a regenerate is running. A per-area lock only stopped
+                // double-tapping the same row — hiding a second area during the
+                // first one's render started a competing generate-inspection-pdf
+                // call, and whichever finished last wrote inspections.pdf_url.
+                const toggleLocked = togglingAreaId !== null || generating
+                return (
+                  <div
+                    key={area.id}
+                    className={`flex items-stretch rounded-lg border transition-colors ${
+                      isHidden ? 'border-gray-200 bg-gray-50' : 'border-gray-200 hover:border-orange-400'
+                    }`}
+                  >
+                    <button
+                      onClick={() => openAreaEdit(area)}
+                      className="flex-1 text-left p-4 rounded-l-lg hover:bg-orange-50 transition-colors min-h-[48px]"
+                    >
+                      <div className={`font-semibold text-base ${isHidden ? 'text-gray-400' : ''}`}>
+                        {area.area_name}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        {area.temperature}°C · {area.humidity}% RH · DP {area.dew_point}°C
+                        {area.mould_visible_locations && area.mould_visible_locations.length > 0 && (
+                          <span className="ml-2 text-red-600">· Mould: {area.mould_visible_locations.join(', ')}</span>
+                        )}
+                      </div>
+                      {/* Icon + text, never colour alone — the hidden state has to
+                          survive greyscale and colour-blindness. */}
+                      {isHidden && (
+                        <div className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                          <EyeOff className="h-3.5 w-3.5 shrink-0" />
+                          Hidden from report — still counted in the quote
+                        </div>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleToggleAreaInReport(area)}
+                      disabled={toggleLocked}
+                      aria-label={isHidden
+                        ? `Show ${area.area_name} in the report`
+                        : `Hide ${area.area_name} from the report`}
+                      title={isHidden ? 'Show in report' : 'Hide from report'}
+                      className="shrink-0 w-12 min-h-[48px] flex items-center justify-center rounded-r-lg text-gray-500 hover:text-orange-600 hover:bg-orange-50 disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
+                    >
+                      {isToggling
+                        ? <Loader2 className="h-5 w-5 animate-spin" />
+                        : isHidden
+                          ? <Eye className="h-5 w-5" />
+                          : <EyeOff className="h-5 w-5" />}
+                    </button>
                   </div>
-                </button>
-              ))}
+                )
+              })}
 
               {/* Add Area */}
               {addingArea ? (
