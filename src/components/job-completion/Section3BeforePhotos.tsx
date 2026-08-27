@@ -1,14 +1,22 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Check, ImageIcon, Loader2 } from 'lucide-react';
+import { Check, ImageIcon, Loader2, Plus, X } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 import type { JobCompletionFormData } from '@/types/jobCompletion';
 import { recordPhotoHistory } from '@/lib/utils/photoHistory';
+import { deleteInspectionPhoto, uploadMultiplePhotos } from '@/lib/utils/photoUpload';
+import { derivePhotoCaption } from '@/lib/utils/photoCaption';
+import {
+  ONSITE_GROUP_KEY,
+  groupPhotos,
+  isLikelyOnsiteUpload,
+  type PhotoWithUrl,
+} from './beforePhotoGrouping';
 
 interface SectionProps {
   formData: JobCompletionFormData;
@@ -18,33 +26,24 @@ interface SectionProps {
   jobCompletionId: string | null;
 }
 
-/** Photo row enriched with a short-lived signed URL for display */
-interface PhotoWithUrl {
-  id: string;
-  inspection_id: string;
-  storage_path: string;
-  caption: string | null;
-  area_id: string | null;
-  area_name: string | null;
-  photo_type: string | null;
-  job_completion_id: string | null;
-  signed_url: string;
-}
-
-interface PhotoGroup {
-  key: string;
-  label: string;
+interface InspectionPhotos {
+  inspectionId: string | null;
   photos: PhotoWithUrl[];
 }
 
 const MAX_SELECTED_BEFORE_PHOTOS = 10;
 const SIGNED_URL_TTL_SECONDS = 3600;
 
+/** Stable identity so an empty result does not re-trigger memos every render. */
+const NO_PHOTOS: readonly PhotoWithUrl[] = Object.freeze([]);
+
 /**
  * Fetch all photos from the inspection linked to this lead, enriched with
- * signed URLs so the <img> tags can actually render them.
+ * signed URLs so the <img> tags can actually render them. The inspection id
+ * comes back too — uploading a new before photo needs it, and re-querying for
+ * it would be a second round trip for something already resolved here.
  */
-async function fetchInspectionPhotos(leadId: string): Promise<PhotoWithUrl[]> {
+async function fetchInspectionPhotos(leadId: string): Promise<InspectionPhotos> {
   const { data: inspection, error: inspError } = await supabase
     .from('inspections')
     .select('id')
@@ -54,12 +53,14 @@ async function fetchInspectionPhotos(leadId: string): Promise<PhotoWithUrl[]> {
     .maybeSingle();
 
   if (inspError) throw inspError;
-  if (!inspection) return [];
+  if (!inspection) return { inspectionId: null, photos: [] };
 
   const [photosResult, areasResult] = await Promise.all([
     supabase
       .from('photos')
-      .select('id, inspection_id, storage_path, caption, area_id, photo_type, job_completion_id')
+      .select(
+        'id, inspection_id, storage_path, caption, area_id, photo_type, photo_category, job_completion_id'
+      )
       .eq('inspection_id', inspection.id)
       .or('photo_category.is.null,photo_category.eq.before')
       .is('deleted_at', null)
@@ -71,7 +72,9 @@ async function fetchInspectionPhotos(leadId: string): Promise<PhotoWithUrl[]> {
   ]);
 
   if (photosResult.error) throw photosResult.error;
-  if (!photosResult.data || photosResult.data.length === 0) return [];
+  if (!photosResult.data || photosResult.data.length === 0) {
+    return { inspectionId: inspection.id, photos: [] };
+  }
 
   const areaNameMap = new Map<string, string>();
   if (areasResult.data) {
@@ -95,6 +98,7 @@ async function fetchInspectionPhotos(leadId: string): Promise<PhotoWithUrl[]> {
           area_id: row.area_id,
           area_name: row.area_id ? (areaNameMap.get(row.area_id) ?? null) : null,
           photo_type: row.photo_type,
+          photo_category: row.photo_category,
           job_completion_id: row.job_completion_id,
           signed_url: data?.signedUrl ?? '',
         } as PhotoWithUrl;
@@ -107,6 +111,7 @@ async function fetchInspectionPhotos(leadId: string): Promise<PhotoWithUrl[]> {
           area_id: row.area_id,
           area_name: row.area_id ? (areaNameMap.get(row.area_id) ?? null) : null,
           photo_type: row.photo_type,
+          photo_category: row.photo_category,
           job_completion_id: row.job_completion_id,
           signed_url: '',
         } as PhotoWithUrl;
@@ -114,63 +119,20 @@ async function fetchInspectionPhotos(leadId: string): Promise<PhotoWithUrl[]> {
     })
   );
 
-  return withUrls.filter((p) => p.signed_url);
-}
-
-/**
- * Group photos by type and area for organized display.
- * Order: area photos (sub-grouped by area_name) → subfloor → outdoor → general
- */
-function groupPhotos(photos: PhotoWithUrl[]): PhotoGroup[] {
-  const areaMap = new Map<string, PhotoWithUrl[]>();
-  const subfloor: PhotoWithUrl[] = [];
-  const outdoor: PhotoWithUrl[] = [];
-  const general: PhotoWithUrl[] = [];
-
-  for (const photo of photos) {
-    const type = photo.photo_type ?? 'general';
-
-    if (type === 'area' && photo.area_id) {
-      const key = photo.area_id;
-      if (!areaMap.has(key)) areaMap.set(key, []);
-      areaMap.get(key)!.push(photo);
-    } else if (type === 'subfloor') {
-      subfloor.push(photo);
-    } else if (type === 'outdoor') {
-      outdoor.push(photo);
-    } else {
-      general.push(photo);
-    }
-  }
-
-  const groups: PhotoGroup[] = [];
-
-  for (const [areaId, areaPhotos] of areaMap) {
-    const name = areaPhotos[0]?.area_name ?? 'Unknown Area';
-    groups.push({ key: `area-${areaId}`, label: name, photos: areaPhotos });
-  }
-
-  if (subfloor.length > 0) {
-    groups.push({ key: 'subfloor', label: 'Subfloor', photos: subfloor });
-  }
-  if (outdoor.length > 0) {
-    groups.push({ key: 'outdoor', label: 'Outdoor / External', photos: outdoor });
-  }
-  if (general.length > 0) {
-    groups.push({ key: 'general', label: 'General', photos: general });
-  }
-
-  return groups;
+  return { inspectionId: inspection.id, photos: withUrls.filter((p) => p.signed_url) };
 }
 
 /**
  * Section3BeforePhotos — pre-populates "before" photos from the linked
- * inspection. Technicians pick up to 10 to include in the job report.
+ * inspection, and lets the technician add photos taken at job time. Up to 10
+ * in total go into the job report.
  *
- * Selection is persisted in the photos table: a selected photo has
- * `job_completion_id` set to this job_completion's id and
- * `photo_category = 'before'`. Deselecting clears both fields (photo
- * stays linked to the inspection via `inspection_id`).
+ * Two kinds of photo live in this grid and they are removed differently.
+ * A picked inspection photo is selected by setting `job_completion_id` and
+ * `photo_category = 'before'`, and deselecting clears both (the photo stays
+ * with the inspection via `inspection_id`). A photo uploaded here exists only
+ * because of this job, so it is deleted rather than deselected — see
+ * handleDeleteOnsite.
  */
 export function Section3BeforePhotos({
   formData,
@@ -178,20 +140,27 @@ export function Section3BeforePhotos({
   leadId,
   jobCompletionId,
 }: SectionProps) {
-  const {
-    data: photos = [],
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['inspection-photos', leadId],
     queryFn: () => fetchInspectionPhotos(leadId),
     enabled: !!leadId,
     staleTime: 5 * 60_000,
   });
 
+  const photos = data?.photos ?? (NO_PHOTOS as PhotoWithUrl[]);
+  const inspectionId = data?.inspectionId ?? null;
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPersisting, setIsPersisting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Ids of photos uploaded during this mount. Needed in addition to the
+  // row-derived signal below because this component unmounts on every section
+  // change (JobCompletionForm renders one section at a time), so session state
+  // alone would lose track of an upload as soon as the tech visits Section 4.
+  const [sessionUploadedIds, setSessionUploadedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!jobCompletionId || photos.length === 0) return;
@@ -201,10 +170,18 @@ export function Section3BeforePhotos({
     setSelectedIds(preSelected);
   }, [photos, jobCompletionId]);
 
+  const onsiteIds = useMemo(() => {
+    const ids = new Set(sessionUploadedIds);
+    for (const photo of photos) {
+      if (isLikelyOnsiteUpload(photo, jobCompletionId)) ids.add(photo.id);
+    }
+    return ids;
+  }, [photos, jobCompletionId, sessionUploadedIds]);
+
   const selectedCount = selectedIds.size;
 
   const togglePhoto = async (photoId: string) => {
-    if (isReadOnly || isPersisting || !jobCompletionId) return;
+    if (isReadOnly || isPersisting || isUploading || !jobCompletionId) return;
 
     const isCurrentlySelected = selectedIds.has(photoId);
     const isAtLimit = selectedCount >= MAX_SELECTED_BEFORE_PHOTOS;
@@ -256,16 +233,138 @@ export function Section3BeforePhotos({
     } catch (err) {
       console.error('[Section3BeforePhotos] Failed to update photo selection:', err);
       toast.error('Could not save photo selection');
-      setSelectedIds(selectedIds);
+      // Undo just this photo against whatever the current state is. Replaying a
+      // Set captured before the await would discard any selection made since.
+      setSelectedIds((current) => {
+        const rolledBack = new Set(current);
+        if (isCurrentlySelected) rolledBack.add(photoId);
+        else rolledBack.delete(photoId);
+        return rolledBack;
+      });
     } finally {
       setIsPersisting(false);
     }
   };
 
-  const photoGroups = useMemo(() => groupPhotos(photos), [photos]);
+  const canUpload =
+    !isReadOnly && !!inspectionId && !!jobCompletionId && !isUploading && !isPersisting;
+
+  function triggerUpload() {
+    if (!canUpload) return;
+    if (selectedCount >= MAX_SELECTED_BEFORE_PHOTOS) {
+      toast.error(`You can include at most ${MAX_SELECTED_BEFORE_PHOTOS} before photos`);
+      return;
+    }
+    fileInputRef.current?.click();
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (files.length === 0 || !inspectionId || !jobCompletionId) return;
+
+    if (!navigator.onLine) {
+      toast.error(
+        files.length === 1
+          ? "You're offline — the photo was not uploaded and is not kept on this device."
+          : `You're offline — ${files.length} photos were not uploaded and are not kept on this device.`
+      );
+      return;
+    }
+
+    // An uploaded photo is selected the moment it lands, so it spends the same
+    // budget as a picked one. Without this the cap is decorative and the
+    // before/after parity check at submit inflates out of the tech's control.
+    const remaining = MAX_SELECTED_BEFORE_PHOTOS - selectedCount;
+    if (remaining <= 0) {
+      toast.error(`Limit reached — ${MAX_SELECTED_BEFORE_PHOTOS} before photos allowed`);
+      return;
+    }
+
+    const filesToUpload = files.slice(0, remaining);
+    if (filesToUpload.length < files.length) {
+      toast.info(
+        `Only uploading ${filesToUpload.length} of ${files.length} — limit is ${MAX_SELECTED_BEFORE_PHOTOS}`
+      );
+    }
+
+    setIsUploading(true);
+    try {
+      const results = await uploadMultiplePhotos(filesToUpload, {
+        inspection_id: inspectionId,
+        job_completion_id: jobCompletionId,
+        photo_category: 'before',
+        photo_type: 'general',
+        caption: derivePhotoCaption('before'),
+      });
+      setSessionUploadedIds((prev) => {
+        const next = new Set(prev);
+        for (const result of results) next.add(result.photo_id);
+        return next;
+      });
+      await refetch();
+      if (results.length < filesToUpload.length) {
+        toast.error(
+          `${results.length} of ${filesToUpload.length} photos added — the rest failed and are not kept on this device.`
+        );
+      } else {
+        toast.success(`${results.length} photo${results.length === 1 ? '' : 's'} added`);
+      }
+    } catch (err) {
+      console.error('[Section3BeforePhotos] Upload failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Photo upload failed');
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  /**
+   * On-site uploads are deleted, never deselected. Deselecting clears
+   * job_completion_id and photo_category, which for a photo that exists only
+   * because of this job would drop an unreferenced row into the inspection's
+   * general pool — where the admin photo picker can claim it and the inspection
+   * report can pick it up as a cover image.
+   */
+  async function handleDeleteOnsite(photoId: string) {
+    if (isReadOnly || deletingId) return;
+    setDeletingId(photoId);
+    try {
+      await deleteInspectionPhoto(photoId);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(photoId);
+        return next;
+      });
+      setSessionUploadedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(photoId);
+        return next;
+      });
+      await refetch();
+      toast.success('Photo deleted');
+    } catch (err) {
+      console.error('[Section3BeforePhotos] Delete failed:', err);
+      toast.error('Could not delete photo');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const photoGroups = useMemo(() => groupPhotos(photos, onsiteIds), [photos, onsiteIds]);
 
   return (
     <section aria-labelledby="before-photos-heading" className="space-y-5">
+      {/* No `capture` attribute: iOS then offers the photo library as well as
+          the camera, which is what makes a bulk selection possible. */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2
@@ -275,7 +374,8 @@ export function Section3BeforePhotos({
             Before Photos
           </h2>
           <p className="text-sm text-[#86868b] mt-1">
-            Pick up to {MAX_SELECTED_BEFORE_PHOTOS} photos from the inspection to include in the job report.
+            Pick up to {MAX_SELECTED_BEFORE_PHOTOS} photos from the inspection, or add ones you took
+            on site, to include in the job report.
           </p>
         </div>
         {photos.length > 0 && (
@@ -285,6 +385,22 @@ export function Section3BeforePhotos({
           </div>
         )}
       </div>
+
+      {!isLoading && !error && (
+        <button
+          type="button"
+          onClick={triggerUpload}
+          disabled={!canUpload}
+          className="w-full min-h-[48px] rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center gap-2 text-[15px] font-medium text-[#007AFF] hover:border-[#007AFF] hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-[#007AFF] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isUploading ? (
+            <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+          ) : (
+            <Plus className="w-5 h-5" aria-hidden="true" />
+          )}
+          {isUploading ? 'Uploading...' : 'Add Before Photos'}
+        </button>
+      )}
 
       {isLoading && (
         <div className="bg-white rounded-xl p-8 flex flex-col items-center gap-3">
@@ -315,7 +431,8 @@ export function Section3BeforePhotos({
           <div className="text-center">
             <p className="text-[15px] font-medium text-[#1d1d1f]">No inspection photos found</p>
             <p className="text-sm text-[#86868b] mt-0.5">
-              No photos were uploaded during the inspection for this lead.
+              No photos were uploaded during the inspection for this lead. Use Add Before Photos
+              above to take them now.
             </p>
           </div>
         </div>
@@ -334,12 +451,44 @@ export function Section3BeforePhotos({
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                 {group.photos.map((photo) => {
                   const isSelected = selectedIds.has(photo.id);
+
+                  if (group.key === ONSITE_GROUP_KEY) {
+                    return (
+                      <div
+                        key={photo.id}
+                        className="relative aspect-square rounded-lg overflow-hidden border-2 border-[#007AFF] ring-2 ring-[#007AFF]/30"
+                      >
+                        <img
+                          src={photo.signed_url}
+                          alt={photo.caption ?? 'Before photo added on site'}
+                          loading="lazy"
+                          className="w-full h-full object-cover"
+                        />
+                        {!isReadOnly && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteOnsite(photo.id)}
+                            disabled={deletingId === photo.id}
+                            aria-label="Delete photo"
+                            className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 disabled:opacity-50"
+                          >
+                            {deletingId === photo.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                            ) : (
+                              <X className="w-4 h-4" aria-hidden="true" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+
                   return (
                     <button
                       key={photo.id}
                       type="button"
                       onClick={() => togglePhoto(photo.id)}
-                      disabled={isReadOnly || isPersisting}
+                      disabled={isReadOnly || isPersisting || isUploading}
                       aria-pressed={isSelected}
                       aria-label={`${isSelected ? 'Deselect' : 'Select'} photo${photo.caption ? ` ${photo.caption}` : ''}`}
                       className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${

@@ -1,8 +1,15 @@
 // PhotoCaptionPromptDialog
-// Pre-upload caption modal for Stage 4.1 caption-required gate.
-// Shown before the file picker opens so the technician — typically wearing
-// gloves on-site — captures a caption first and never has to return to a
-// thumbnail grid to retro-add one.
+// Pre-upload caption modal for the Stage 4.1 caption-required gate.
+//
+// STILL IN USE — do not remove as dead code. The technician-facing surfaces
+// (TechnicianInspectionForm, Section3BeforePhotos, Section4AfterPhotos) now
+// derive their captions via src/lib/utils/photoCaption.ts and never open this
+// modal, because a modal per slot is why technicians stopped captioning at all.
+// Two consumers remain:
+//   - QuarantinedPhotosBanner — the only "add caption & retry" path for a photo
+//     that failed the offline dequeue gate
+//   - the admin photo grids under src/components/photos/, rendered from
+//     ViewReportPDF (admin-only routes)
 //
 // Pattern copied from src/components/pdf/EditFieldModal.tsx
 // (mobile-first 56px input height, 48px touch targets, shadcn/ui Dialog).

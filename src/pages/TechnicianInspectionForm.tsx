@@ -24,7 +24,13 @@ import {
   deleteInspectionPhoto,
   loadInspectionPhotos,
 } from '@/lib/utils/photoUpload';
-import { PhotoCaptionPromptDialog } from '@/components/photos/PhotoCaptionPromptDialog';
+import { derivePhotoCaption } from '@/lib/utils/photoCaption';
+import {
+  MAX_ROOM_VIEW_PHOTOS,
+  MAX_SUBFLOOR_PHOTOS,
+  SINGLE_SLOT_PHOTO_TYPES,
+  getRemainingPhotoSlots,
+} from '@/lib/utils/photoSlots';
 import type {
   InspectionFormData,
   InspectionArea,
@@ -90,6 +96,7 @@ function isNetworkLevelError(err: unknown): boolean {
 // contrast; inline classes because the shadcn toast only ships default and
 // destructive variants and this file must not edit the shared UI kit.
 const OFFLINE_TOAST_CLASS = 'border-amber-600 bg-amber-500 text-amber-950';
+
 
 // Helper: invoke edge functions via direct fetch (bypasses supabase.functions.invoke timeout issues)
 async function invokeEdgeFunction(functionName: string, body: object): Promise<{ data: any; error: any }> {
@@ -1205,7 +1212,7 @@ function Section3AreaInspection({
                   <div className="flex items-center gap-2">
                     <Image className="h-5 w-5 text-slate-600" />
                     <span className="text-sm font-semibold text-[#1d1d1f]">Room View Photos</span>
-                    <span className="text-xs text-[#86868b] ml-auto">{area.roomViewPhotos.length}/4</span>
+                    <span className="text-xs text-[#86868b] ml-auto">{area.roomViewPhotos.length}/{MAX_ROOM_VIEW_PHOTOS}</span>
                   </div>
                   {area.roomViewPhotos.length > 0 && (
                     <p className="text-xs text-[#86868b] flex items-center gap-1">
@@ -1213,7 +1220,7 @@ function Section3AreaInspection({
                       Tap a star to set the primary cover photo for this area.
                     </p>
                   )}
-                  {area.roomViewPhotos.length < 4 && (
+                  {area.roomViewPhotos.length < MAX_ROOM_VIEW_PHOTOS && (
                     <PhotoUploadButton
                       onClick={() => onPhotoCapture?.('roomView', area.id)}
                       label="Add Room Photos"
@@ -1540,9 +1547,9 @@ function Section4Subfloor({
           <div className="flex items-center gap-2">
             <Image className="h-5 w-5 text-slate-600" />
             <span className="text-sm font-semibold text-[#1d1d1f]">Subfloor Photos</span>
-            <span className="text-xs text-[#86868b] ml-auto">{formData.subfloorPhotos.length}/20</span>
+            <span className="text-xs text-[#86868b] ml-auto">{formData.subfloorPhotos.length}/{MAX_SUBFLOOR_PHOTOS}</span>
           </div>
-          {formData.subfloorPhotos.length < 20 && (
+          {formData.subfloorPhotos.length < MAX_SUBFLOOR_PHOTOS && (
             <PhotoUploadButton
               onClick={() => onPhotoCapture?.('subfloor')}
               label="Add Subfloor Photos"
@@ -3595,29 +3602,13 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   // Photo handlers - upload to Supabase Storage
   // Persistent refs for file input (mobile browsers block .click() on detached inputs)
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const photoContextRef = useRef<{ type: string; areaId?: string; readingId?: string; userCaption?: string }>({ type: '' });
-  const [captionPromptOpen, setCaptionPromptOpen] = useState(false);
-  const [captionPromptType, setCaptionPromptType] = useState<'roomView' | 'subfloor'>('roomView');
+  const photoContextRef = useRef<{ type: string; areaId?: string; readingId?: string }>({ type: '' });
 
-  // Stage 4.1: types whose caption is collected from the technician via
-  // PhotoCaptionPromptDialog. All other types (sentinel role tags like
-  // 'infrared', 'front_house', or moisture readings) supply their own caption.
-  const HUMAN_CAPTION_TYPES = new Set(['roomView', 'subfloor']);
-
-  // Types backed by a single state slot. The handlers below keep only newPhotos[0],
-  // so a multi-select here uploads every file to Storage and then silently discards
-  // all but the first — leaving orphan photo rows and captions that no longer match
-  // the images in the PDF. iOS offers multi-select whenever the input allows it.
-  const SINGLE_SLOT_PHOTO_TYPES = new Set([
-    'single',
-    'infrared',
-    'naturalInfrared',
-    'frontDoor',
-    'frontHouse',
-    'mailbox',
-    'street',
-    'direction',
-  ]);
+  // Every caption is now derived — room and subfloor photos used to open
+  // PhotoCaptionPromptDialog first, which cost a modal per slot and is the
+  // reason technicians stopped captioning at all. Sentinel role tags
+  // ('infrared', 'front_house', 'moisture') are unchanged: they carry slot
+  // identity, not description. See src/lib/utils/photoCaption.ts.
 
   const openFilePicker = (multiple: boolean) => {
     const input = photoInputRef.current;
@@ -3631,34 +3622,38 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
     const input = photoInputRef.current;
     if (!input) return;
 
-    photoContextRef.current = { type, areaId, readingId, userCaption: undefined };
-
-    if (HUMAN_CAPTION_TYPES.has(type)) {
-      setCaptionPromptType(type as 'roomView' | 'subfloor');
-      setCaptionPromptOpen(true);
-      return;
-    }
+    photoContextRef.current = { type, areaId, readingId };
 
     openFilePicker(!SINGLE_SLOT_PHOTO_TYPES.has(type) && !readingId);
   };
 
-  const handleCaptionPromptConfirm = (caption: string) => {
-    photoContextRef.current = { ...photoContextRef.current, userCaption: caption };
-    setCaptionPromptOpen(false);
-    const ctx = photoContextRef.current;
-    openFilePicker(!SINGLE_SLOT_PHOTO_TYPES.has(ctx.type) && !ctx.readingId);
-  };
-
-  const handleCaptionPromptCancel = () => {
-    setCaptionPromptOpen(false);
-    photoContextRef.current = { ...photoContextRef.current, userCaption: undefined };
+  /**
+   * Honest wording: photo uploads go straight to the server and are NOT kept on
+   * the device — unlike form fields. The count matters now that a technician can
+   * select a whole batch at once.
+   */
+  const showPhotoOfflineToast = (photoCount: number) => {
+    toast({
+      title: (
+        <span className="flex items-center gap-2">
+          <WifiOff className="h-5 w-5 shrink-0" />
+          {photoCount === 1
+            ? "You're offline — photo not uploaded"
+            : `You're offline — ${photoCount} photos not uploaded`}
+        </span>
+      ),
+      description:
+        "Photos can't be uploaded without a connection and are not kept on this device. Add them again once you're back online.",
+      className: OFFLINE_TOAST_CLASS,
+      duration: 8000,
+    });
   };
 
   const handlePhotoInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    const { type, areaId, readingId, userCaption } = photoContextRef.current;
+    const { type, areaId, readingId } = photoContextRef.current;
 
     // Require saved inspection before uploading photos
     if (!currentInspectionId) {
@@ -3670,9 +3665,44 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       return;
     }
 
+    // Refuse before uploading rather than after: photo uploads go straight to
+    // the server and are not kept on the device, so a bulk selection attempted
+    // with no signal loses every file.
+    if (!navigator.onLine) {
+      showPhotoOfflineToast(files.length);
+      return;
+    }
+
+    const remainingSlots = getRemainingPhotoSlots(
+      type,
+      {
+        roomView: formData.areas.find((a) => a.id === areaId)?.roomViewPhotos?.length ?? 0,
+        subfloor: formData.subfloorPhotos.length,
+      },
+      !!readingId
+    );
+    if (remainingSlots <= 0) {
+      toast({
+        title: 'Limit reached',
+        description: `No room for more photos here (maximum ${
+          type === 'subfloor' ? MAX_SUBFLOOR_PHOTOS : MAX_ROOM_VIEW_PHOTOS
+        })`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // One toast, not two: use-toast is capped at TOAST_LIMIT = 1, so a separate
+    // "photos skipped" toast is evicted in the same tick and the technician
+    // never learns the batch was trimmed.
+    const filesToUpload = files.slice(0, remainingSlots);
+    const skippedCount = files.length - filesToUpload.length;
     toast({
       title: 'Uploading...',
-      description: `Uploading ${files.length} photo(s)`,
+      description:
+        skippedCount > 0
+          ? `Uploading ${filesToUpload.length} of ${files.length} — ${skippedCount} did not fit and were skipped.`
+          : `Uploading ${filesToUpload.length} photo(s)`,
     });
 
     try {
@@ -3683,10 +3713,14 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         photoType = 'area';
         if (type === 'infrared') caption = 'infrared';
         else if (type === 'naturalInfrared') caption = 'natural_infrared';
-        else if (type === 'roomView') caption = userCaption;
+        else if (type === 'roomView') {
+          caption = derivePhotoCaption('roomView', {
+            areaName: formData.areas.find((a) => a.id === areaId)?.areaName,
+          });
+        }
       } else if (type === 'subfloor') {
         photoType = 'subfloor';
-        caption = userCaption;
+        caption = derivePhotoCaption('subfloor');
       } else if (['frontDoor', 'frontHouse', 'mailbox', 'street', 'direction'].includes(type)) {
         photoType = 'outdoor';
         const captionMap: Record<string, string> = {
@@ -3706,24 +3740,34 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         return;
       }
 
-      // Upload each file
+      // Upload each file. A mid-batch failure keeps the photos that already
+      // succeeded — dropping them here would leave rows in the database with
+      // nothing in the form referencing them.
       // NOTE: Do NOT pass moisture_reading_id here — the reading may not be saved to DB yet.
       // Photos are linked to moisture readings during handleSave() after readings are persisted.
       const newPhotos: Photo[] = [];
-      for (const file of files) {
-        const result = await uploadInspectionPhoto(file, {
-          inspection_id: currentInspectionId,
-          area_id: areaId,
-          photo_type: photoType,
-          caption: finalCaption,
-        });
-        newPhotos.push({
-          id: result.photo_id,
-          name: file.name,
-          url: result.signed_url,
-          timestamp: new Date().toISOString(),
-        });
+      let firstUploadError: unknown;
+      for (const file of filesToUpload) {
+        try {
+          const result = await uploadInspectionPhoto(file, {
+            inspection_id: currentInspectionId,
+            area_id: areaId,
+            photo_type: photoType,
+            caption: finalCaption,
+          });
+          newPhotos.push({
+            id: result.photo_id,
+            name: file.name,
+            url: result.signed_url,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (uploadErr) {
+          console.error('[PhotoCapture] Upload failed for', file.name, uploadErr);
+          firstUploadError = firstUploadError ?? uploadErr;
+        }
       }
+
+      if (newPhotos.length === 0) throw firstUploadError;
 
       // Update state based on photo type
       if (areaId && readingId) {
@@ -3731,10 +3775,6 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       } else if (areaId && type === 'roomView') {
         const area = formData.areas.find((a) => a.id === areaId);
         const currentPhotos = area?.roomViewPhotos || [];
-        if (currentPhotos.length + newPhotos.length > 4) {
-          toast({ title: 'Limit reached', description: 'Maximum 4 photos', variant: 'destructive' });
-          return;
-        }
         handleAreaChange(areaId, 'roomViewPhotos', [...currentPhotos, ...newPhotos]);
       } else if (areaId && type === 'infrared') {
         handleAreaChange(areaId, 'infraredPhoto', newPhotos[0]);
@@ -3754,24 +3794,18 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         handleChange('directionPhoto', newPhotos[0]);
       }
 
-      toast({ title: 'Photos added', description: `${newPhotos.length} photo(s) uploaded` });
+      toast({
+        title: 'Photos added',
+        description:
+          newPhotos.length < filesToUpload.length
+            ? `${newPhotos.length} of ${filesToUpload.length} photos uploaded — the rest failed and were not kept on this device.`
+            : `${newPhotos.length} photo(s) uploaded`,
+        variant: newPhotos.length < filesToUpload.length ? 'destructive' : undefined,
+      });
     } catch (err: any) {
       console.error('[PhotoCapture] Upload error:', err);
       if (isNetworkLevelError(err)) {
-        // Honest wording: photo uploads go straight to the server and are NOT
-        // kept on the device when they fail — unlike form fields.
-        toast({
-          title: (
-            <span className="flex items-center gap-2">
-              <WifiOff className="h-5 w-5 shrink-0" />
-              You're offline — photo not uploaded
-            </span>
-          ),
-          description:
-            "Photos can't be uploaded without a connection and are not kept on this device. Add the photo again once you're back online.",
-          className: OFFLINE_TOAST_CLASS,
-          duration: 8000,
-        });
+        showPhotoOfflineToast(filesToUpload.length);
       } else {
         toast({
           title: 'Upload Failed',
@@ -3779,8 +3813,6 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           variant: 'destructive',
         });
       }
-    } finally {
-      photoContextRef.current = { ...photoContextRef.current, userCaption: undefined };
     }
   };
 
@@ -4822,23 +4854,6 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         accept="image/*"
         className="hidden"
         onChange={handlePhotoInputChange}
-      />
-
-      <PhotoCaptionPromptDialog
-        isOpen={captionPromptOpen}
-        title={captionPromptType === 'subfloor' ? 'Add Subfloor Photo' : 'Add Room Photo'}
-        description={
-          captionPromptType === 'subfloor'
-            ? 'Describe what this subfloor photo shows'
-            : 'Describe what this room photo shows'
-        }
-        placeholder={
-          captionPromptType === 'subfloor'
-            ? 'e.g. Moisture damage on floor joist near south wall'
-            : 'e.g. Visible mould on ceiling above shower'
-        }
-        onConfirm={handleCaptionPromptConfirm}
-        onCancel={handleCaptionPromptCancel}
       />
 
       {/* Completing overlay — shown while AI summary generates */}
