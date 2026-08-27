@@ -60,15 +60,11 @@ export async function checkBookingConflict(
 
   if (data && data.length > 0) {
     const conflict = data[0];
-    const conflictStart = new Date(conflict.start_datetime);
-    const time = conflictStart.toLocaleTimeString('en-AU', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase());
+    const start = formatBookingClockTime(conflict.start_datetime);
+    const end = formatBookingClockTime(conflict.end_datetime);
     return {
       hasConflict: true,
-      conflictDetails: `Already booked at ${time} (${conflict.title})`,
+      conflictDetails: `Already booked ${start} – ${end} (${conflict.title})`,
     };
   }
 
@@ -354,6 +350,20 @@ async function sendBookingConfirmationEmail(
  */
 export function formatDateForDisplay(dateStr: string): string {
   return formatMediumDateAU(dateStr);
+}
+
+/**
+ * An ISO datetime as "4:00 PM" — en-AU, uppercase meridiem.
+ *
+ * Distinct from formatTimeForDisplay below, which takes a bare "HH:MM" wire value.
+ * calendar_bookings stores full timestamps, so the conflict message formats from those.
+ */
+function formatBookingClockTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-AU', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).replace(/\b[ap]m\b/gi, (m) => m.toUpperCase());
 }
 
 /**
