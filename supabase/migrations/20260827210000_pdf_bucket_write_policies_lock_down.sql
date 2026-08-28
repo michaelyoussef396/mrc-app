@@ -220,19 +220,44 @@
 --   (generate-inspection-pdf/index.ts:12, generate-job-report-pdf/index.ts:10).
 --   During the window "the fix didn't take" is indistinguishable from CDN lag.
 --
--- PRIVILEGE NOTE — lower risk than the sibling file's warning implies.
---   storage.objects is owned by supabase_storage_admin, and DROP POLICY
---   requires table ownership, so this can in principle raise 42501 "must be
---   owner of table objects" (the trap documented at
---   20260826120001_...sql:22-33). But that same file's STATUS block (:4-7)
---   records CREATE POLICY on storage.objects SUCCEEDING on PROD as `postgres`
---   on 2026-08-26 — so the privilege is present and DROP should work.
---   P5 below confirms it BEFORE you run anything. Treat 42501 as unlikely
---   but handled, not as the expected outcome.
---   On 42501: STOP. Apply through Supabase Dashboard -> Storage -> Policies
---   instead, deleting the five policies by name. Do NOT reshape these
---   statements into something that applies, and do NOT leave the buckets
+-- *** APPLY PATH — DO NOT RUN THIS FILE AS SQL. USE THE DASHBOARD. ***
+--   MEASURED 2026-08-28 on BOTH projects (P5):
+--     connected_as = postgres, objects_owner = supabase_storage_admin,
+--     pg_has_role(current_user, relowner, 'USAGE') = FALSE
+--   storage.objects is owned by supabase_storage_admin and DROP POLICY
+--   requires table ownership. `postgres` is NOT a member, so running the
+--   statements below in the Studio SQL editor WILL raise 42501 "must be owner
+--   of table objects". Note rolbypassrls = true on postgres does NOT help:
+--   that exempts it from RLS on DML, it does not confer ownership for DDL.
+--
+--   THEREFORE the Dashboard is the PRIMARY path, not the fallback:
+--     Dashboard -> Storage -> Policies -> storage.objects, delete these five
+--     by name, in the order given in SECTION 1 (most dangerous capability
+--     first, because that UI is NOT transactional and can be interrupted):
+--       1. "Allow updates to pdf-templates"
+--       2. "Allow update pdf-assets"
+--       3. "Allow service role delete from pdf-assets"
+--       4. "Allow service role upload to pdf-assets"
+--       5. "Allow uploads to pdf-templates"
+--     LEAVE "Allow public read access on pdf-assets" alone — that is the read
+--     path. Then run V1-V4 in the SQL editor to confirm the CATALOG changed;
+--     a Dashboard action that looked like it worked is not evidence.
+--
+--   The SQL below is retained as the authoritative record of exactly what is
+--   being removed, and because the ROLLBACK block is runnable through the
+--   same Dashboard UI in reverse. Do NOT reshape these statements into
+--   something that applies as postgres, and do NOT leave the buckets
 --   writable by anon.
+--
+--   CONTRADICTION WORTH CHASING SEPARATELY: 20260826120001_lead_note_
+--   attachments_storage.sql:4-7 claims three CREATE POLICY statements on
+--   storage.objects were applied to PROD as postgres via `db query --linked`
+--   on 2026-08-26. P5 says that role cannot do policy DDL on that table. One
+--   of the two is wrong. The three lead_note_attachments_object_* policies
+--   DO exist live (confirmed in P2), so they were created somehow — most
+--   likely through the Dashboard, with that STATUS header recording the
+--   intent rather than the mechanism. Worth correcting there so the next
+--   person is not misled the way this file was.
 --
 -- LOCK NOTE — DROP POLICY takes ACCESS EXCLUSIVE on storage.objects, the
 --   busiest table in the project. lock_timeout below makes this fail fast
@@ -376,10 +401,53 @@ COMMIT;
 --       confirming PDF-CL16 (docs/TODO.md:994) — every remove() on it is a
 --       silent no-op. Separate ticket.
 --
---   STILL UNCAPTURED: P1 (storage.buckets flags — public, file_size_limit,
---   allowed_mime_types). Both buckets are public = true by every behavioural
---   signal, but that has not been read from the catalog. Run P1 and fill in
---   before treating this block as complete.
+--   P1 BUCKET FLAGS — captured 2026-08-28, IDENTICAL on both projects:
+--     pdf-assets     public = TRUE   file_size_limit = 10485760 (10 MiB)
+--                    allowed_mime_types = {image/png, image/svg+xml,
+--                      image/jpeg, font/otf, font/ttc, font/sfnt,
+--                      application/octet-stream}
+--     pdf-templates  public = TRUE   file_size_limit = NULL
+--                    allowed_mime_types = NULL  (no limit, no allowlist)
+--   Also confirmed: inspection-reports is public = TRUE live, though
+--   20241221000000_add_pdf_system.sql:194-202 created it FALSE. That drift is
+--   real, unrecorded, and out of scope here — separate ticket.
+--
+--   P3 OBJECT MANIFEST — the "zero bytes moved" baseline. These are
+--   PER-PROJECT baselines: compare PROD-after to PROD-before, never PROD to
+--   DEV. The two projects legitimately differ.
+--     PROD  pdf-assets     88 objects  3,441,716 B  md5 ee459e146d0fe403c3a741670b87af7d
+--           pdf-templates   2 objects    391,271 B  md5 84291899041d274849b1a0058e4009c9
+--     DEV   pdf-assets     88 objects  3,441,716 B  md5 b46e079ce77b6f2999380e3658361191
+--           pdf-templates   2 objects    391,073 B  md5 f52bd60c98c7d8ac6212c37a904dd70b
+--   pdf-assets: same count AND same total bytes, different manifest md5 —
+--   expected, since the manifest hashes name:eTag and the two projects were
+--   populated by different mechanisms (PROD by hand over time, DEV by the
+--   bulk Storage API copy of 2026-07-28). Not a content discrepancy.
+--   pdf-templates: the 198 B gap is entirely the inspection template
+--   (PROD 66,480 vs DEV 66,282); the job template is 324,791 on both.
+--   66,480 + 324,791 = 391,271 and 66,282 + 324,791 = 391,073, exactly.
+--   DEV is simply behind by commit 2c3d9a6.
+--
+--   P4 LAST-WRITE — better evidence than the logs could give, because it
+--   looks back further than log retention:
+--     PROD pdf-assets    last written 2026-05-27 — THREE MONTHS untouched.
+--     PROD pdf-templates last written 2026-08-26 12:59 UTC — the known
+--                        template upload following commit 2c3d9a6.
+--   So the only write to either bucket in three months is one accounted-for
+--   human Dashboard upload. That is the strongest available evidence that no
+--   anonymous writer has ever exercised the hole.
+--
+--   P5b GRANTS — anon, authenticated, postgres, service_role and
+--   supabase_storage_admin ALL hold full DML on storage.objects. That is why
+--   RLS is the only barrier here, and why removing the policies IS the fix.
+--   service_role holds INSERT/UPDATE/DELETE, so it can still write after.
+--
+--   P6 ROLES — service_role rolbypassrls = TRUE (so a TO service_role policy
+--   would indeed be inert, confirming the drop-only design); anon and
+--   authenticated both FALSE (so both are denied once the policies are gone).
+--   supabase_storage_admin has rolbypassrls = FALSE but OWNS the table, and
+--   relforcerowsecurity = FALSE, so the owner is exempt — which is how the
+--   Storage API reaches rows at all before it assumes the caller's role.
 -- =============================================================================
 
 -- =============================================================================
@@ -498,18 +566,29 @@ COMMIT;
 --        P8 shows a non-service_role write -> STOP, there is a live writer.
 --        P9 probe_rows_remaining=1 -> STOP, wrong design. THE HARD GATE.
 --
--- GATE STATUS as of 2026-08-28:
---   P2  PASSED — captured on both projects, identical, all five DROP names
---       match this file character-for-character. See LIVE STATE AS FOUND.
---   P7  PASSED — all 28 policies carry a bucket_id predicate on both.
---   P9  PASSED — the Dashboard delete removed a row from pdf-templates, a
+-- GATE STATUS as of 2026-08-28 — ALL CLOSED. Both projects unless noted.
+--   P1  PASSED — both buckets public = true. Read path is bucket visibility,
+--       not RLS, exactly as this file assumes.
+--   P2  PASSED — captured on both, identical, all five DROP names match this
+--       file character-for-character.
+--   P3  CAPTURED — per-project manifest baselines recorded above. V4 compares
+--       PROD-after to PROD-before.
+--   P4  PASSED — PROD pdf-assets untouched since 2026-05-27; pdf-templates
+--       last written 2026-08-26, the accounted-for template upload.
+--   P5  *** FAILED — can_drop = FALSE. The SQL path raises 42501. Apply via
+--       Dashboard -> Storage -> Policies. See APPLY PATH at the top. ***
+--       rls_forced = false, so no re-think needed beyond the apply route.
+--   P5b PASSED — service_role holds full DML, so it can still write after.
+--   P6  PASSED — service_role rolbypassrls = true (drop-only design correct);
+--       anon and authenticated both false (both denied after).
+--   P7  PASSED — all 28 policies carry a bucket_id predicate.
+--   P8  UNAVAILABLE — the edge_logs query returned a backend error, and log
+--       retention would have covered ~7 days regardless. SUBSTITUTED by P4's
+--       last_write, which looks back three months and is stronger evidence.
+--   P9  PASSED — a Dashboard delete removed a row from pdf-templates, a
 --       bucket with no DELETE policy for any role, on BOTH projects. The
---       Dashboard therefore bypasses RLS (service_role) and the documented
+--       Dashboard bypasses RLS (service_role), so the documented
 --       template-deploy path cannot be broken by this migration.
---   STILL TO RUN: P1 (bucket flags), P3/P4 (object manifest baseline),
---   P5/P5b (ownership + grants), P6 (rolbypassrls), P8 (storage write logs).
---   P3's manifest_md5 must be captured BEFORE apply or V4 has nothing to
---   compare against.
 -- =============================================================================
 
 -- =============================================================================
