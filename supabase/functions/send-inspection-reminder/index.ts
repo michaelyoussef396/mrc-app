@@ -273,6 +273,7 @@ Deno.serve(async (_req) => {
       .from('calendar_bookings')
       .select(`
         id,
+        booking_group_id,
         start_datetime,
         location_address,
         lead_id,
@@ -303,7 +304,78 @@ Deno.serve(async (_req) => {
       );
     }
 
-    console.log(`Processing ${bookings.length} reminder(s)`);
+    // A customer reminder belongs to the JOB, not to a booking row. Multi-tech
+    // fan-out writes one calendar_bookings row per technician per day, all
+    // sharing one booking_group_id, so the unit of work below is the GROUP: one
+    // claim, one email, one email_logs row per group however many rows it has.
+    // Declared as a type alias rather than an interface so it keeps an implicit
+    // index signature and the `as Record<string, unknown>` cast on the joined
+    // lead below still compiles.
+    type ReminderBookingRow = {
+      id: string;
+      booking_group_id: string | null;
+      start_datetime: string;
+      location_address: string | null;
+      lead_id: string | null;
+    };
+
+    const groups = new Map<string, ReminderBookingRow[]>();
+    for (const row of bookings as ReminderBookingRow[]) {
+      // A NULL group id means the row came from a writer that predates the
+      // column. Such a writer also predates fan-out, so it wrote exactly ONE
+      // row — for a single-row group the per-row claim below IS the group
+      // claim, and is byte-identical to the pre-fan-out behaviour. Skipping
+      // would cost that customer their reminder two days out, a silent incident
+      // of its own, so fall back and warn instead: the warning is what puts an
+      // unmigrated writer in the function logs where it can be traced.
+      if (!row.booking_group_id) {
+        console.warn(`Booking ${row.id}: booking_group_id is NULL — falling back to per-row claim`);
+      }
+      const key = row.booking_group_id ?? `row:${row.id}`;
+      const bucket = groups.get(key);
+      if (bucket) bucket.push(row);
+      else groups.set(key, [row]);
+    }
+
+    // A row can join a group AFTER that group's reminder was sent — a second
+    // technician added to an existing booking. That row is reminder_sent =
+    // false, so it re-enters the query above, and the group claim would match
+    // it alone, return one row and send a SECOND email. Groups already carrying
+    // a claimed row are therefore excluded before any claim is attempted.
+    // This guards a STATE hazard, not a concurrency one; concurrency is handled
+    // by the single-statement claim, which still serialises two invocations
+    // that both pass this guard.
+    const groupIds = [
+      ...new Set(
+        (bookings as ReminderBookingRow[])
+          .map((row) => row.booking_group_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const claimedGroupIds = new Set<string>();
+    if (groupIds.length > 0) {
+      const { data: claimedGroupRows, error: guardError } = await supabase
+        .from('calendar_bookings')
+        .select('booking_group_id')
+        .in('booking_group_id', groupIds)
+        .eq('reminder_sent', true);
+
+      // Proceeding unguarded risks an irreversible duplicate customer email;
+      // aborting costs one tick, which the hourly cron recovers. Abort.
+      if (guardError) {
+        console.error('Claimed-group guard error:', guardError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to check claimed groups', details: guardError.message }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      for (const row of claimedGroupRows ?? []) {
+        if (row.booking_group_id) claimedGroupIds.add(row.booking_group_id);
+      }
+    }
+
+    console.log(`Processing ${bookings.length} booking row(s) in ${groups.size} group(s)`);
 
     let sent = 0;
     let failed = 0;
@@ -311,7 +383,25 @@ Deno.serve(async (_req) => {
     let alreadyClaimed = 0;
     let released = 0;
 
-    for (const booking of bookings) {
+    for (const rowsInGroup of groups.values()) {
+      const groupId = rowsInGroup[0].booking_group_id;
+
+      // Rows in a group describe the same job on the same day, so any of them
+      // yields the same email. Sorting by id makes the choice deterministic
+      // across a release-and-retry: the group idempotency key must not be
+      // reused with a DIFFERENT payload, which Resend rejects with 409 —
+      // treated as permanent below, which would suppress the reminder outright.
+      const booking = rowsInGroup.reduce((a, b) => (a.id <= b.id ? a : b));
+      const isDivergent = rowsInGroup.some((row) =>
+        row.start_datetime !== booking.start_datetime ||
+        row.location_address !== booking.location_address
+      );
+      if (isDivergent) {
+        console.warn(
+          `Group ${groupId}: rows disagree on start_datetime/location_address — email built from booking ${booking.id}`
+        );
+      }
+
       const lead = (booking as Record<string, unknown>).leads as {
         full_name: string;
         email: string;
@@ -325,15 +415,32 @@ Deno.serve(async (_req) => {
         continue;
       }
 
-      // Claim the reminder BEFORE sending. The conditional UPDATE is the atomic
-      // tie-breaker: concurrent invocations serialise on the row, so only the
-      // first one still sees reminder_sent = false and the others match zero
-      // rows. The SELECT above cannot do this job — both invocations clear it
-      // before either writes, which is what caused the duplicate sends.
-      const { data: claimedRows, error: claimError } = await supabase
+      // Another row in this group is already claimed, so this group's reminder
+      // has been sent or is being sent. See the guard query above.
+      if (groupId && claimedGroupIds.has(groupId)) {
+        alreadyClaimed++;
+        console.log(`Group ${groupId}: another row in this group is already claimed, skipping send`);
+        continue;
+      }
+
+      // Claim the reminder BEFORE sending, for the whole GROUP in ONE
+      // statement. That single statement is the atomic tie-breaker: every row
+      // in the group flips false->true together or none does, and concurrent
+      // invocations serialise on the row locks — the loser re-evaluates
+      // reminder_sent = false against the winner's committed version, matches
+      // zero rows and sends nothing. The SELECT above cannot do this job — both
+      // invocations clear it before either writes, which is what caused the
+      // duplicate sends. Nor can a per-row claim once fan-out exists: two
+      // technicians are two legitimately distinct rows carrying two independent
+      // reminder_sent flags, so both per-row claims succeed and the customer is
+      // emailed twice. The claim spans every row of the group regardless of
+      // status, because the email is a property of the group, not of a row.
+      const claimUpdate = supabase
         .from('calendar_bookings')
-        .update({ reminder_sent: true, reminder_sent_at: new Date().toISOString() })
-        .eq('id', booking.id)
+        .update({ reminder_sent: true, reminder_sent_at: new Date().toISOString() });
+      const { data: claimedRows, error: claimError } = await (groupId
+        ? claimUpdate.eq('booking_group_id', groupId)
+        : claimUpdate.eq('id', booking.id))
         .eq('reminder_sent', false)
         .select('id');
 
@@ -389,11 +496,15 @@ Deno.serve(async (_req) => {
 
       const subject = `Reminder: Your Mould Inspection \u2014 ${dayOfWeek} ${shortDate}`;
 
-      // Stable per logical email: one reminder exists per booking, so the booking
-      // id plus the template type identifies it. Retries of this same send reuse
-      // the key; a different booking gets a different key. Resend's recommended
+      // Stable per logical email: one reminder exists per booking GROUP, so the
+      // group id plus the template type identifies it. Keying on a row id would
+      // give each fanned-out row its own key and let Resend send the same email
+      // twice — the sink-side backstop has to be scoped exactly like the claim
+      // above or it stops backing anything up. Retries of this same send reuse
+      // the key; a different group gets a different key. The NULL-group
+      // fallback keeps the historical per-booking key. Resend's recommended
       // <event-type>/<entity-id> format, well inside the 256-character limit.
-      const idempotencyKey = `inspection-reminder/${booking.id}`;
+      const idempotencyKey = `inspection-reminder/${groupId ?? booking.id}`;
 
       // Send email
       const result = await sendWithRetry({
@@ -452,15 +563,19 @@ Deno.serve(async (_req) => {
       // Ownership is proven by reminder_sent still being true, not by matching a
       // timestamp. Claiming requires the false->true transition and we performed
       // it, so while the flag stands the claim can only be ours — no other
-      // invocation can hold it. A boolean has no precision, serialisation or
+      // invocation can hold it. That extends to the whole group: the guard above
+      // proved every row in the group was false before we claimed, so every true
+      // row in it is one of ours. A boolean has no precision, serialisation or
       // normalisation surface, so this cannot silently match zero rows the way an
       // exact timestamptz comparison could if anything ever rewrote the column.
       // If an external actor did reset the flag, we match nothing and correctly
       // leave their state alone.
-      const { error: releaseError } = await supabase
+      const releaseUpdate = supabase
         .from('calendar_bookings')
-        .update({ reminder_sent: false, reminder_sent_at: null })
-        .eq('id', booking.id)
+        .update({ reminder_sent: false, reminder_sent_at: null });
+      const { error: releaseError } = await (groupId
+        ? releaseUpdate.eq('booking_group_id', groupId)
+        : releaseUpdate.eq('id', booking.id))
         .eq('reminder_sent', true);
 
       if (releaseError) {
@@ -474,6 +589,7 @@ Deno.serve(async (_req) => {
     return new Response(
       JSON.stringify({
         processed: bookings.length,
+        groups: groups.size,
         sent,
         failed,
         skipped,
