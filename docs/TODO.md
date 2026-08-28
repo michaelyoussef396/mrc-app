@@ -1085,6 +1085,32 @@ Branch `feat/auto-caption-bulk-photo-upload`.
   exact read. That is a schema change — migration file generated, Michael runs it, per the
   standing rule. Delete the session-id union at the same time.
 
+- **AC3 — Stale-PDF banner does not clear after a successful regeneration.** On
+  `ViewReportPDF`, "PDF is out of date. Regenerate before sending to customer." stays on
+  screen after the toast reports "Report generated successfully!", and survives a full
+  reload of the report route. Observed live on DEV 2026-08-27 while verifying the
+  auto-caption work: the first regenerate legitimately failed (`400 "Inspection not
+  complete"`), the second succeeded and wrote report v6 with all seven photos, and the
+  banner read identically before and after. The risk is the inverse of PDF-CL-era worries
+  — not a stale PDF sent as fresh, but a fresh PDF that looks stale, so an admin
+  regenerates repeatedly or hesitates to send. Likely the freshness comparison
+  (`pdf_versions.created_at` vs `inspection_areas.updated_at` / `latest_ai_summary.
+  generated_at`) not being re-read after the generate call resolves. Cosmetic, but it
+  makes the one signal an admin has for "is this safe to send" untrustworthy.
+
+- **AC4 — Sentinel captions are shown raw to technicians in the before-photo picker.**
+  Section 3's grid labels each tile with `photo.caption`, so role-tagged photos render as
+  literal `infrared`, `natural_infrared` and `front_house` next to derived prose like
+  "Area 1 — Room Photo". Confirmed on DEV 2026-08-27. This is the cost of the deliberate
+  split — caption is a slot-identity key for eight roles and a description for the other
+  five, and the picker cannot tell them apart. Pre-existing (the same raw values were
+  shown before captions were derived; derived prose alongside them just makes the
+  inconsistency obvious). Fix is display-only: map the eight reserved sentinels to human
+  labels at render time — `RESERVED_CAPTIONS` in `src/lib/utils/photoCaption.ts` already
+  enumerates them, and `OUTDOOR_SLOT_LABELS` in `InspectionDataDisplay.tsx` already does
+  exactly this mapping for the outdoor five. Do NOT fix it by rewriting the stored
+  caption.
+
 - **AC2 — Other findings surfaced by this workstream, deliberately not fixed.** Each is
   pre-existing and none is caused by the caption change.
   - **The offline photo queue is built and wired to nothing.** `queuePhotoOffline()`
