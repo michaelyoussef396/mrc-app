@@ -8,30 +8,67 @@
 --   Never `db push`, `db reset` or `migration repair` — migration history is
 --   forked over 100 files deep.
 --
--- BLOCKING PRE-APPLY CHECK — do not apply to PROD until this is answered.
---   PROD hosts 18 Edge Functions; four are absent from this repo, one named
---   `sync-job-template` (docs/NOTIFICATIONS_SCHEMA_RECONCILIATION.md:216,
---   docs/TODO.md:1163). The name implies it writes to pdf-templates, its
---   source is not in this worktree, and its credential is undocumented. If it
---   holds the anon key, this migration breaks it — and per the SILENT FAILURE
---   note below, it breaks without raising an error. Clear it first:
---     npx supabase functions download sync-job-template --project-ref ecyivrxjpsmjmexqatym
---   then grep for pdf-templates / pdf-assets / SERVICE_ROLE / ANON.
---   A DEV rehearsal CANNOT clear this: `sync-job-template` is one of the 9
---   PROD functions that do not exist on DEV at all (docs/TODO.md:1157-1166).
+-- PRE-APPLY CHECK ON `sync-job-template` — RESOLVED 2026-08-27. It found a
+-- SECOND WAY IN, which has since been CLOSED (see the end of this block).
+-- Kept in full because it is the reason this migration is now sufficient.
+--   Live list confirmed 18 Edge Functions on PROD, 14 in this repo. The four
+--   absent are generate-ai-summary, modify-ai-summary, create-user-admin and
+--   sync-job-template (ACTIVE, v14, last deployed 2026-04-14).
 --
--- SEQUENCING — do the pending template upload FIRST, then drop.
---   docs/TODO.md:634 step 3 ("Upload BOTH templates to PROD Storage") is still
---   UNTICKED, and the sizes confirm it is genuinely outstanding: repo
---   src/templates/inspection-report-template.html is 66,480 B against a last
---   recorded PROD size of 66,486 B (docs/TODO.md:1161), with three further
---   template commits landed since (2c3d9a6, fd6d70c, 1b0c31a). The same step
---   is duplicated at docs/PRE_MERGE_TESTING_CHECKLIST.md:275-287.
---   Doing that upload BEFORE this drop exercises the Dashboard write path
---   while the permissive policies are still in place as a live fallback, and
---   removes the highest-likelihood collision from the change window.
---   Note it will also change the template's html_hash and therefore
---   mass-invalidate previously-matching pdf_versions rows — expected
+--   sync-job-template source downloaded from PROD and read. It DOES write to
+--   pdf-templates — .from('pdf-templates').upload(filename, html,
+--   { upsert: true }) — but it builds its client from
+--   SUPABASE_SERVICE_ROLE_KEY, so it runs as service_role, bypasses RLS, and
+--   is COMPLETELY UNAFFECTED by the DROPs below. Nothing here breaks it.
+--
+--   BUT: its handler performs NO authorization of its own. No getUser(), no
+--   role check, no shared secret — it parses the body and uploads. Its file
+--   header comment claims "authenticated only"; the code does not implement
+--   it. Its ALLOWED_FILENAMES allowlist includes
+--   'inspection-report-template-final.html' — the exact object this migration
+--   exists to protect.
+--   So it is a service-role-backed write proxy for the crown-jewel template
+--   whose only gate is the platform verify_jwt setting. And verify_jwt = true
+--   merely requires *a* valid JWT — the anon key is one, and it ships in the
+--   client bundle. Unless something else gates it, dropping the five storage
+--   policies closes one door and leaves this one open.
+--   It has ZERO callers anywhere in src/, api/ or scripts/.
+--
+--   CLOSED 2026-08-27: sync-job-template was retired on PROD by deploying a
+--   410 tombstone, byte-identical to the pattern already used for the retired
+--   create-user-admin. Verified by DOWNLOADING the deployed source back (159
+--   bytes, byte-identical) — not by the version bump. generate-ai-summary and
+--   modify-ai-summary were retired the same way in the same wave: both were
+--   unauthenticated proxies holding ANTHROPIC_API_KEY, neither touched these
+--   buckets. The original 1,302-byte sync-job-template source is preserved off
+--   -repo; if it is ever restored it MUST gain a getUser() + is_admin() check
+--   first, or this hole reopens behind the policies below.
+--
+--   THEREFORE: with that proxy inert, dropping the five policies below is now
+--   a COMPLETE fix for the anon-write hole rather than a partial one. Before
+--   the retirement it would have closed one door of two.
+--
+--   Also confirmed in the same pass: PROD runs 18 Edge Functions against 14 in
+--   this repo. The four absent are exactly the ones named in
+--   docs/NOTIFICATIONS_SCHEMA_RECONCILIATION.md:216 — no fifth surprise. Note
+--   CLAUDE.md still says "12 Edge Functions"; it is stale.
+--
+-- SEQUENCING — the inspection template is ALREADY UPLOADED. Verified
+--   2026-08-27 by size chain, so do NOT redo it before the drop:
+--     PROD pdf-templates/inspection-report-template-final.html = 66,480 B
+--     repo src/templates/inspection-report-template.html       = 66,480 B
+--     same file BEFORE commit 2c3d9a6 (2026-08-26)             = 66,486 B
+--   66,486 is the figure docs/TODO.md:1161 recorded on 2026-08-25; that entry
+--   is simply one commit stale. The 6-byte drop is 2c3d9a6 removing a "+GST"
+--   label. Not drift, not tampering — accounted for exactly.
+--   docs/TODO.md:634 step 3 and docs/PRE_MERGE_TESTING_CHECKLIST.md:275-287
+--   are still UNTICKED but at least half-done. STILL CONFIRM
+--   job-report-template.html separately — the checklist covers both templates
+--   and only the inspection one has been verified.
+--   If a template upload IS outstanding, do it BEFORE this drop: it exercises
+--   the Dashboard write path while the permissive policies are still in place
+--   as a live fallback. Note it also changes the template's html_hash and so
+--   mass-invalidates previously-matching pdf_versions rows — expected
 --   behaviour of that step, not of this file.
 --
 -- THE LOAD-BEARING ASSUMPTION, and how to test it before PROD.
@@ -159,9 +196,17 @@
 --   CREATE POLICY "Allow service role delete from pdf-assets" ON storage.objects
 --     FOR DELETE TO public USING (bucket_id = 'pdf-assets');
 --   COMMIT;
---   These definitions are RECONSTRUCTED from the 2026-08-26 record, not read
---   live. P2 below is the authoritative source — paste its real output over
---   this block BEFORE applying, or the rollback restores the wrong thing.
+--   VERIFIED 2026-08-28 against live pg_policies on BOTH projects: all five
+--   names, roles and predicates match these statements exactly. Postgres
+--   stores the literal as 'pdf-assets'::text, so these recreate the catalog
+--   rows byte-for-byte. Two asymmetries below are REAL and deliberate — do
+--   not "tidy" them into matching each other:
+--     * "Allow updates to pdf-templates" is USING-only (with_check IS NULL
+--       live). Postgres reuses USING as the check when WITH CHECK is omitted,
+--       so it behaves like the two-clause form — but the catalog records NULL.
+--     * "Allow update pdf-assets" genuinely has BOTH clauses live.
+--   No SELECT policy is recreated here: pdf-templates has none live, and
+--   pdf-assets keeps the one it already has (this file never drops it).
 --   Nothing else needs reverting for the policy state itself: no data moves,
 --   no objects are deleted, and CDN-cached public objects are unaffected
 --   because reads never change.
@@ -282,9 +327,59 @@ COMMIT;
 -- docs/TODO.md:989 (PDF-CL11): paste the real P1 bucket rows and the real P2
 -- policy rows here, so the repo stops being silent about these buckets.
 --
---   pdf-assets     : public=?, file_size_limit=?, allowed_mime_types=?
---   pdf-templates  : public=?, file_size_limit=?, allowed_mime_types=?
---   surviving SELECT policy: "Allow public read access on pdf-assets" — ?
+-- CAPTURED 2026-08-28 from pg_policies on BOTH projects (P2, Studio export).
+-- The two were compared row by row and are IDENTICAL: 28 policies each, same
+-- names, roles, commands and predicates. That is consistent with DEV being a
+-- Restore-to-New-Project clone of PROD (docs/TODO.md, 2026-07-07) — but it was
+-- MEASURED here, not assumed. Recorded once below with that equivalence stated
+-- explicitly; if a future capture diverges, record the two separately.
+--
+-- --- storage.objects, pdf buckets — PROD ecyivrxjpsmjmexqatym (LIVE)
+-- --- and DEV ctppzqnysmzynkxjlzta (sandbox), verified identical 2026-08-28 ---
+--
+--   THE FIVE THIS FILE DROPS — all TO {public}, all PERMISSIVE, no auth
+--   predicate anywhere; the entire expression is a bucket_id comparison:
+--     "Allow uploads to pdf-templates"
+--         INSERT  with_check (bucket_id = 'pdf-templates'::text)   qual NULL
+--     "Allow updates to pdf-templates"
+--         UPDATE  qual (bucket_id = 'pdf-templates'::text)   with_check NULL
+--     "Allow service role upload to pdf-assets"
+--         INSERT  with_check (bucket_id = 'pdf-assets'::text)      qual NULL
+--     "Allow update pdf-assets"
+--         UPDATE  qual (bucket_id = 'pdf-assets'::text)
+--                 with_check (bucket_id = 'pdf-assets'::text)
+--     "Allow service role delete from pdf-assets"
+--         DELETE  qual (bucket_id = 'pdf-assets'::text)      with_check NULL
+--
+--   THE ONE THIS FILE PRESERVES:
+--     "Allow public read access on pdf-assets"
+--         SELECT  TO {public}  qual (bucket_id = 'pdf-assets'::text)
+--
+--   pdf-templates has NO policy of any kind after this migration. Its reads
+--   work solely because the bucket is public = true and /object/public/ does
+--   not consult RLS. That is by design, and it is why flipping that flag
+--   breaks both PDF Edge Functions instantly.
+--
+--   P7 WIDENING CHECK — PASSED on both. All 28 policies carry a bucket_id
+--   predicate, so no bucket-agnostic permissive policy can keep these buckets
+--   writable after the five DROPs. (Count was 25 on 2026-08-26; the three
+--   added since are the lead_note_attachments_object_* set.)
+--
+--   Also observed, NOT in scope for this file:
+--     * "anon can upload lead photos" — INSERT TO {anon}, bucket
+--       lead-enquiry-photos, no auth predicate. Deliberate public lead intake
+--       (20251111000020_allow_public_lead_creation.sql), not a defect.
+--     * "Public can read inspection reports" — SELECT TO {anon} on
+--       inspection-reports. This is the standing public_bucket_allows_listing
+--       advisor finding (docs/SUPABASE_ADVISOR_AUDIT.md:132). Separate ticket.
+--     * report-pdfs has INSERT/SELECT/UPDATE but still NO DELETE policy,
+--       confirming PDF-CL16 (docs/TODO.md:994) — every remove() on it is a
+--       silent no-op. Separate ticket.
+--
+--   STILL UNCAPTURED: P1 (storage.buckets flags — public, file_size_limit,
+--   allowed_mime_types). Both buckets are public = true by every behavioural
+--   signal, but that has not been read from the catalog. Run P1 and fill in
+--   before treating this block as complete.
 -- =============================================================================
 
 -- =============================================================================
@@ -402,6 +497,19 @@ COMMIT;
 --        P7 returns any row -> STOP, the drop would not close the hole.
 --        P8 shows a non-service_role write -> STOP, there is a live writer.
 --        P9 probe_rows_remaining=1 -> STOP, wrong design. THE HARD GATE.
+--
+-- GATE STATUS as of 2026-08-28:
+--   P2  PASSED — captured on both projects, identical, all five DROP names
+--       match this file character-for-character. See LIVE STATE AS FOUND.
+--   P7  PASSED — all 28 policies carry a bucket_id predicate on both.
+--   P9  PASSED — the Dashboard delete removed a row from pdf-templates, a
+--       bucket with no DELETE policy for any role, on BOTH projects. The
+--       Dashboard therefore bypasses RLS (service_role) and the documented
+--       template-deploy path cannot be broken by this migration.
+--   STILL TO RUN: P1 (bucket flags), P3/P4 (object manifest baseline),
+--   P5/P5b (ownership + grants), P6 (rolbypassrls), P8 (storage write logs).
+--   P3's manifest_md5 must be captured BEFORE apply or V4 has nothing to
+--   compare against.
 -- =============================================================================
 
 -- =============================================================================
