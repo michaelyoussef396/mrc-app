@@ -470,7 +470,7 @@ export function Section3BeforePhotos({
                             onClick={() => handleDeleteOnsite(photo.id)}
                             disabled={deletingId === photo.id}
                             aria-label="Delete photo"
-                            className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 disabled:opacity-50"
+                            className="absolute top-1.5 right-1.5 w-12 h-12 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 disabled:opacity-50"
                           >
                             {deletingId === photo.id ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
