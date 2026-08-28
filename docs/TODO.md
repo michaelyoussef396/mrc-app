@@ -2434,6 +2434,15 @@ item, the blocker, and the sequence. Nothing below has been built, migrated, or 
 - [ ] Decide which is right (see "Revision Lifecycle — Tech Debt" / PR-T1 above), then either
   remove the call or rewrite the rule. Until then, treat the hook as live when estimating R7.
 
+### R13 — `send-inspection-reminder` docs are stale after the group-claim change
+- [ ] `docs/API.md:126-160` and `docs/NOTIFICATIONS-AND-TRIGGERS.md:611-640` still document the
+  pre-group response shape — missing the additive `groups` field and the new 500
+  `Failed to check claimed groups`. Doc-only, no code change (SESSION 5, step 0b).
+- [ ] The R1 duplicate detector in `docs/multi-tech/SESSION-1-DB-RLS-FINDINGS.md` false-positives
+  once the group claim lands — a correct two-row group scores 2, because the claim deliberately
+  sets `reminder_sent` on every row of the group. Replaced by the two detectors in
+  `docs/multi-tech/SESSION-5-DEPLOY-RUNBOOK.md` §6.2 and §6.3.
+
 ### SUGGESTED SEQUENCE
 - **A.** ~~R3 + R4 + R5 as **one code-only batch**~~ **R4 + R5 shipped 2026-08-25 (PR #79).
   R3 remains** — code-only, no migration, no approval gate. Verify at 375px; one E2E at the end,
