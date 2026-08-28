@@ -29,8 +29,13 @@
 --       still returns 200 and pdf-assets still holds 88 objects.
 --     * ZERO BYTES MOVED: final manifest identical to baseline on both
 --       buckets, md5s included.
---     * End-to-end PDF render on DEV: see the STATUS line added when that
---       check is confirmed. Nothing in SQL detects an unstyled report.
+--     * END-TO-END PDF RENDER on DEV: CONFIRMED GOOD 2026-08-28. A real
+--       inspection report rendered correctly — fonts and logos present, no
+--       unstyled fallback. This is the only check that can catch a broken
+--       read path: the asset URLs are subresource loads with hardcoded
+--       fallbacks (generate-inspection-pdf/index.ts:730-731), so a failure
+--       renders a plain-looking report rather than raising. No SQL query
+--       detects it. DEV rehearsal is therefore complete with no open items.
 --
 --   PROD ecyivrxjpsmjmexqatym (LIVE — mrcsystem.com): NOT APPLIED. Same
 --   Dashboard procedure, on Michael's explicit APPLY only.
