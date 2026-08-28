@@ -1,12 +1,39 @@
 -- =============================================================================
 -- pdf-assets / pdf-templates — remove anonymous write access             [L8]
 --
--- STATUS: NOT APPLIED. Prepared 2026-08-27 for Michael's manual apply.
---   Apply DEV first (ctppzqnysmzynkxjlzta), verify, then PROD
---   (ecyivrxjpsmjmexqatym, LIVE — mrcsystem.com) on explicit APPLY only.
---   NOT to be registered in migration history (no `migration repair`).
+-- STATUS: APPLIED TO DEV 2026-08-28. NOT APPLIED TO PROD.
+--   NOT registered in migration history (no `migration repair`).
 --   Never `db push`, `db reset` or `migration repair` — migration history is
 --   forked over 100 files deep.
+--
+--   DEV ctppzqnysmzynkxjlzta — applied 2026-08-28 via Dashboard -> Storage ->
+--   Policies (NOT as SQL; see APPLY PATH below — postgres cannot do policy
+--   DDL on storage.objects). All five deleted in the documented order.
+--   Rehearsal result, every item verified:
+--     * Pre-state proven exploitable: an anon-key-only POST created
+--       pdf-templates/_rlsprobe/anon-before.txt, HTTP 200. Deleted before
+--       the baseline was taken, so the probe discriminates.
+--     * V1 = 0. V2 = null. V3a both public=true. V3b exactly one policy,
+--       "Allow public read access on pdf-assets". V4 identical to baseline.
+--     * Dashboard also shows pdf-templates "No policies created yet" and
+--       pdf-assets down to the single read policy.
+--     * READ PATH intact: both templates and the logo return 200 over
+--       /object/public/ with the expected byte counts.
+--     * DASHBOARD WRITE CYCLE intact — THE LOAD-BEARING CHECK. Upload,
+--       OVERWRITE (etag, size and updated_at all changed, so the UPDATE path
+--       did not silently no-op) and delete all succeeded with zero write
+--       policies present, each verified by SQL rather than by the UI toast.
+--       This is the documented template-deploy path and it survives.
+--     * ANON now blocked: INSERT on pdf-templates 403; DELETE attempt on
+--       pdf-assets/assets/logos/logo-mrc.png had no effect — the object
+--       still returns 200 and pdf-assets still holds 88 objects.
+--     * ZERO BYTES MOVED: final manifest identical to baseline on both
+--       buckets, md5s included.
+--     * End-to-end PDF render on DEV: see the STATUS line added when that
+--       check is confirmed. Nothing in SQL detects an unstyled report.
+--
+--   PROD ecyivrxjpsmjmexqatym (LIVE — mrcsystem.com): NOT APPLIED. Same
+--   Dashboard procedure, on Michael's explicit APPLY only.
 --
 -- PRE-APPLY CHECK ON `sync-job-template` — RESOLVED 2026-08-27. It found a
 -- SECOND WAY IN, which has since been CLOSED (see the end of this block).
