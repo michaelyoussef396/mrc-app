@@ -36,12 +36,24 @@ restored in full.
 **How to hold the contract:**
 - SESSION 4 / step 2 sets `booking_group_id` in the same insert as the fan-out rows. Not a follow-up
   `UPDATE`; a row that exists with a NULL group for even one reminder tick is claimable alone.
-- Consider making the column `NOT NULL` (with a `gen_random_uuid()` default) in the step-1 migration
-  once every writer sets it. A default makes an unmigrated writer produce a *distinct* group per
-  row, which is still one email per row — so the default is not a substitute for the contract, only
-  a guard against NULLs.
-- Watch for the breach in production: `booking_group_id is NULL` warnings in this function's logs
-  (§7). They are the tripwire.
+- ~~Consider making the column `NOT NULL` (with a `gen_random_uuid()` default) in the step-1
+  migration once every writer sets it.~~ **DONE — and earlier than this bullet anticipated.**
+  SESSION 4 shipped `booking_group_id uuid NOT NULL DEFAULT gen_random_uuid()` in **step 0a**
+  (`supabase/migrations/20260828120000_add_booking_group_id.sql`), not step 1. The volatile default
+  is applied during the `ALTER`'s own table rewrite, so the column is born fully populated with no
+  NULL window.
+
+  **The reasoning in the original bullet was right and still holds in full: the default guards
+  against NULL, it does NOT produce a shared id.** An unmigrated fan-out writer no longer produces
+  a NULL per row — it now produces a *distinct group* per row, which is still **one email per
+  row**, which is still exactly the duplicate-send incident this deploy exists to prevent.
+
+  > ⛔ **D1 IS UNCHANGED AND STILL FULLY BINDING.** Step 2's fan-out writer must still pass **ONE
+  > SHARED `booking_group_id`** to every row of one job on one day. Nothing about the `NOT NULL`
+  > constraint satisfies D1, weakens it, or discharges it. Do not read "the column is NOT NULL now"
+  > as "the contract is handled."
+- Watch for the breach in production: **the tripwire has moved.** It is no longer this function's
+  `booking_group_id is NULL` warning — that line can no longer fire. See §7.
 
 ### ⛔ D2 — Step 0a must already be applied to the target project
 
@@ -51,6 +63,29 @@ function selects the column. If it is missing, every reminder run fails with Pos
 until it is fixed.
 
 There is deliberately no compatibility shim for this. It is an operator-ordering error, gated in §1.
+
+### The NULL fallback is now unreachable — and is retained on purpose
+
+With step 0a applied, `booking_group_id` is `NOT NULL`, so the function's NULL-fallback path — the
+`??` that substitutes a synthetic `row:<id>` grouping key (`index.ts:334`), the `console.warn` that
+precedes it (`:331-333`), and the per-row `.eq('id', booking.id)` branch of the claim (`:443`) and
+release (`:578`) — can never execute on that project.
+
+**It is retained deliberately. Do not delete it as dead code on the strength of the constraint.**
+It is defence-in-depth against operator-ordering and schema-drift error, which is precisely when it
+would fire:
+
+- Deploying 0b against a project where 0a was never applied is the D2 error above. There the column
+  does not exist at all, so the run fails `42703` before the fallback is reached — the fallback does
+  not rescue that case, and is not meant to.
+- The case it *does* rescue is a project where `booking_group_id` exists but is **nullable** — for
+  example added out-of-band on a diverged history (SESSION 4's own pre-flight gate S4-P2 exists
+  because this project has applied DDL to PROD outside the repo before), or the constraint relaxed
+  by a later migration. There the fallback keeps a single-row booking claimable instead of skipped,
+  and a skipped booking is a customer who silently does not get their 48-hour notice.
+
+The function is correct on a project regardless of which migrations have landed. That property is
+worth more than the few lines it costs.
 
 ### Ordering context
 
@@ -358,7 +393,7 @@ Function logs: Studio → Edge Functions → `send-inspection-reminder` → Logs
 
 | Signal | Where | Means | Action |
 |---|---|---|---|
-| ⛔ `booking_group_id is NULL — falling back to per-row claim` | function logs | **D1 tripwire.** A writer is inserting rows without a group id. Harmless while that writer inserts one row; catastrophic the moment it fans out. | Find the writer. Block step 2 until it sets the group id. |
+| ⛔ `booking_group_id is NULL — falling back to per-row claim` | function logs | **Cannot fire once step 0a is applied** — the column is `NOT NULL`. If you ever see this line, the target project's column is nullable or 0a is missing. **This is no longer the D1 tripwire** — see the note below the table. | Stop. Re-run P-B and P-C against this project. |
 | ⛔ `rows disagree on start_datetime/location_address` | function logs | Rows in one group describe different jobs or times. The email is built from one of them, and a retry could change the payload under the same idempotency key → Resend 409 → reminder silently suppressed. | Investigate the group immediately. |
 | ⛔ `Failed to check claimed groups` (HTTP 500) | curl / logs | The already-claimed guard read failed, so the run aborted rather than risk a duplicate. No email went out this tick. | Recovers on the next tick. Persisting ⇒ investigate PostgREST/DB. |
 | `Group <id>: another row in this group is already claimed, skipping send` | function logs | Working as designed — a row joined an already-reminded group. | None. Expected only after step 2. |
@@ -369,6 +404,46 @@ Function logs: Studio → Edge Functions → `send-inspection-reminder` → Logs
 
 **Zero reminders at all** is as much a failure as a duplicate. If the first tick after deploy logs
 nothing, check for the `42703` missing-column error first (D2), then P-E.
+
+### ⚠️ The D1 tripwire is NOT in these logs any more
+
+SESSION 4's step-0a migration (`supabase/migrations/20260828120000_add_booking_group_id.sql`)
+shipped the column as `uuid NOT NULL DEFAULT gen_random_uuid()` — stronger than D1 anticipated.
+**Once it is applied, a `calendar_bookings` row with a NULL `booking_group_id` cannot exist**, so
+the `booking_group_id is NULL` warning above can never print, and **watching this function's logs
+for it will never detect anything.** A writer that omits the column silently gets the default; a
+writer that passes `null` explicitly is refused by the database.
+
+That refusal is the replacement signal, and it fires at the **write** path — a different surface
+entirely from this function:
+
+| Where you would actually see it | What it looks like |
+|---|---|
+| The admin's or technician's screen | The booking simply fails to save. `bookInspection()` throws `Failed to create calendar booking: null value in column "booking_group_id" of relation "calendar_bookings" violates not-null constraint` (`src/lib/bookingService.ts:134-136`). |
+| Browser console | `[BookingService] Calendar booking error:` followed by the PostgREST error object carrying `code: "23502"` (`src/lib/bookingService.ts:135`). |
+| Sentry | The thrown `Error` above, once it reaches an error boundary or an unhandled rejection (`src/lib/sentry.ts`). |
+| Studio → Logs → Postgres | `null value in column "booking_group_id" of relation "calendar_bookings" violates not-null constraint`, `SQLSTATE 23502`. |
+
+**PostgREST / Postgres error `23502` on `calendar_bookings` is the replacement tripwire.** It is
+strictly louder than the one it replaces — a booking that visibly fails to save, which someone
+reports within minutes, instead of a warning in a log nobody is tailing. But it is on a different
+surface, so **do not watch Edge Function logs for it.**
+
+> ⛔ **Neither tripwire catches the D1 breach that actually matters.** Both detect a *NULL*. D1's
+> real failure mode after 0a is a fan-out writer that supplies **two different non-NULL group ids**
+> for two rows of the same job-day. That is a perfectly valid insert — no error, no warning, no
+> `23502` — and it produces two duplicate customer emails. The only detectors for it are the
+> `Processing N booking row(s) in M group(s)` baseline in the table above (**N must equal M until
+> step 2 ships**), P-D, and SESSION 4's R1 query:
+>
+> ```sql
+> SELECT booking_group_id, count(*) FILTER (WHERE reminder_sent) AS reminded_rows
+> FROM public.calendar_bookings
+> GROUP BY booking_group_id
+> HAVING count(*) FILTER (WHERE reminder_sent) > 1;
+> ```
+>
+> Run it after step 2 ships. Expect zero rows.
 
 ---
 
