@@ -1,14 +1,24 @@
 -- ============================================================================
+-- ALREADY RUN — DO NOT RUN AGAIN. Kept for the record only.
+--
+-- Executed on PROD 31 Aug 2026 ~01:20 AEST. 1 row returned, committed and
+-- verified: MRC-2026-0077 is now status 'job_waiting' with all six booking
+-- columns NULL, and PROD's count of invisible leads (a non-null assigned_to
+-- sitting at new_lead) is 0. Re-running this now returns 0 rows because the
+-- guard below pins status = 'new_lead' and the status is no longer that.
+-- 0 rows is the CORRECT result today; it does not mean anything is wrong.
+-- ============================================================================
 -- R8 repair — MRC-2026-0077 "Jiang Marco"
 -- Lead id: 80edcb5c-a459-4f4a-9ca9-593eb32a7f7e
 --
 -- TARGET: PROD, project ref ecyivrxjpsmjmexqatym (LIVE — mrcsystem.com).
---         Run by hand in Supabase Studio. Do NOT run via CLI or MCP.
+--         Run by hand in Supabase Studio. Never via CLI or MCP.
 --
--- RUN THIS ONLY AFTER the fix on branch fix/cancel-path-field-clearing is
--- merged AND deployed to production. Repairing the row while the code that
--- strips these columns is still live just re-creates the same broken state on
--- the next cancel.
+-- ORDERING (satisfied before it was run): the fix had to be merged AND
+-- deployed first — repairing the row while the code that strips these columns
+-- was still live would just have re-created the broken state on the next
+-- cancel. Branch fix/cancel-path-field-clearing merged to main as 62dd415,
+-- main merged to production as 5c842d4, deployed, and only then was this run.
 -- ============================================================================
 --
 -- WHY THIS ROW EXISTS
@@ -43,11 +53,11 @@
 --   has moved this lead since, the statement matches nothing and changes
 --   nothing rather than overwriting someone else's work.
 --
--- EXPECTED RESULT
---   Exactly 1 row returned.
---     0 rows  -> the guard held; the status is no longer 'new_lead'. Re-check
---                the row before changing anything. Do not remove the guard.
---     >1 rows -> impossible (id is the primary key). Stop and investigate.
+-- EXPECTED RESULT (as observed on the single real run, 31 Aug 2026)
+--   Exactly 1 row returned, status 'job_waiting', every other returned column
+--   NULL. That run has happened. Anyone executing this file again today gets
+--   0 rows, which is correct and expected — see the banner at the top. Never
+--   remove the guard to force a match.
 --
 -- ATTRIBUTION (optional)
 --   audit_logs.user_id is nullable, so the audit trigger accepts a Studio-run
@@ -81,8 +91,7 @@ RETURNING id,
           booked_at,
           job_scheduled_date;
 
--- After it returns, the lead should read:
---   status = 'job_waiting', every other returned column NULL.
--- It then appears in the To Schedule rail as a job awaiting booking —
--- useLeadsToSchedule.ts admits job_waiting unconditionally, with no
--- assigned_to or date predicate.
+-- Confirmed after the 31 Aug run: the lead reads status = 'job_waiting' with
+-- every other returned column NULL, and it appears in the To Schedule rail as a
+-- job awaiting booking — useLeadsToSchedule.ts admits job_waiting
+-- unconditionally, with no assigned_to or date predicate.

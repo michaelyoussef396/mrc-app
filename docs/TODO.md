@@ -2398,7 +2398,7 @@ item, the blocker, and the sequence. Nothing below has been built, migrated, or 
 
 ### BUGS FOUND, NOT SCHEDULED
 
-### R8 — Two "back to new_lead" paths leave `leads.assigned_to` stale
+### R8 — Two "back to new_lead" paths leave `leads.assigned_to` stale — **FIXED + DEPLOYED 31 Aug 2026**
 - `LeadDetail.tsx:514` clears `assigned_to` on reversion; `EventDetailsPanel.tsx:59-63` (inspection
   cancel) and `LeadsManagement.tsx:203-205 / 307-310` (reactivate) do **not**. Result: a `new_lead`
   with a non-null `assigned_to` vanishes from every `assigned_to IS NULL` queue
@@ -2406,11 +2406,17 @@ item, the blocker, and the sequence. Nothing below has been built, migrated, or 
   `useAdminDashboardStats.ts:98`) while the old technician keeps RLS access.
 - `LeadDetail` doubles as the technician job page (`App.tsx:349-362` `/technician/job/:id`), so
   these reversion CTAs are technician-reachable.
-- [x] Fixed on `fix/cancel-path-field-clearing` (not merged). Shared `LEAD_BOOKING_FIELDS` in
-  `src/lib/leadBookingFields.ts` is now the one clearing set for all three surfaces; the calendar
-  cancel also gained the missing event-type check (job -> `job_waiting`, not `new_lead`).
-  Sequence: 375px + cancel-flow preview test -> merge -> deploy -> `docs/manual-sql/R8-jiang-marco-repair.sql`
-  (MRC-2026-0077, the 7th broken PROD row, guarded, NOT yet run).
+- [x] **DONE.** Shared `LEAD_BOOKING_FIELDS` in `src/lib/leadBookingFields.ts` is now the one
+  clearing set for all three surfaces, and the calendar cancel gained the missing event-type check
+  (job -> `job_waiting`, not `new_lead`). `fix/cancel-path-field-clearing` -> main as `62dd415`,
+  main -> production as `5c842d4`, deployed.
+- [x] Browser-verified on DEV: inspection cancel returns the lead unassigned, job cancel returns it
+  as `job_waiting`, the dead CTA reads "View in Schedule", 375px clean.
+- [x] PROD data repaired 31 Aug 2026 ~01:20 AEST — `docs/manual-sql/R8-jiang-marco-repair.sql` run
+  after the deploy, 1 row, MRC-2026-0077 now `job_waiting` with all six columns NULL. Count of
+  leads sitting at `new_lead` with a non-null `assigned_to` is now **0**. That file is spent — it
+  carries a DO-NOT-RUN-AGAIN banner; re-running returns 0 rows by design.
+- Remaining open items below were surfaced by the fix and deliberately left alone:
 - [ ] R8 fallout: a job cancel now also nulls `inspection_scheduled_date`, so LeadDetail's green
   "Inspection Scheduled" card (`:1841`) disappears for that lead — `inspection_completed_date` survives.
 - [ ] `LeadsManagement.stageActions.markClosed` (`:218`) and `confirmRemoveLead` (`:242`) are
