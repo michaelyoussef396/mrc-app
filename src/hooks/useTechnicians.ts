@@ -145,12 +145,15 @@ async function fetchTechnicians(): Promise<Technician[]> {
 // HOOK
 // ============================================================================
 
-export function useTechnicians() {
+export function useTechnicians(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['technicians'],
     queryFn: fetchTechnicians,
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
+    // fetchTechnicians calls the admin-only manage-users function, so a caller mounted on
+    // a technician-facing screen must be able to hold it back until the admin opens it.
+    enabled: options?.enabled ?? true,
   });
 }
 

@@ -11,7 +11,7 @@ import {
   uploadMultiplePhotos,
   deleteInspectionPhoto,
 } from '@/lib/utils/photoUpload';
-import { PhotoCaptionPromptDialog } from '@/components/photos/PhotoCaptionPromptDialog';
+import { derivePhotoCaption } from '@/lib/utils/photoCaption';
 
 import type { JobCompletionFormData } from '@/types/jobCompletion';
 
@@ -107,9 +107,6 @@ export function Section4AfterPhotos({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingCategoryRef = useRef<PhotoCategory>('after');
-  const pendingCaptionRef = useRef<string>('');
-  const [captionPromptOpen, setCaptionPromptOpen] = useState(false);
-  const [captionPromptCategory, setCaptionPromptCategory] = useState<PhotoCategory>('after');
 
   useEffect(() => {
     let cancelled = false;
@@ -178,19 +175,9 @@ export function Section4AfterPhotos({
     }
 
     pendingCategoryRef.current = category;
-    setCaptionPromptCategory(category);
-    setCaptionPromptOpen(true);
-  }
-
-  function handleCaptionConfirm(caption: string) {
-    pendingCaptionRef.current = caption;
-    setCaptionPromptOpen(false);
+    // Opened straight from the button's own gesture handler — no caption modal
+    // in between, which also keeps iOS happy about the .click() origin.
     fileInputRef.current?.click();
-  }
-
-  function handleCaptionCancel() {
-    setCaptionPromptOpen(false);
-    pendingCaptionRef.current = '';
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -208,6 +195,17 @@ export function Section4AfterPhotos({
       return;
     }
 
+    // Refuse before the clamp, or the message names the clamped count while
+    // every selected file is in fact lost.
+    if (!navigator.onLine) {
+      toast.error(
+        files.length === 1
+          ? "You're offline — the photo was not uploaded and is not kept on this device."
+          : `You're offline — ${files.length} photos were not uploaded and are not kept on this device.`
+      );
+      return;
+    }
+
     const filesToUpload = files.length > remaining
       ? files.slice(0, remaining)
       : files;
@@ -216,11 +214,7 @@ export function Section4AfterPhotos({
       toast.info(`Only uploading ${filesToUpload.length} of ${files.length} — limit is ${limit}`);
     }
 
-    const caption = pendingCaptionRef.current;
-    if (!caption.trim()) {
-      toast.error('Caption missing — try uploading again');
-      return;
-    }
+    const caption = derivePhotoCaption(category);
 
     setIsUploading(true);
     try {
@@ -232,12 +226,17 @@ export function Section4AfterPhotos({
         caption,
       });
       await refetch();
-      toast.success(`${results.length} photo${results.length === 1 ? '' : 's'} uploaded`);
+      if (results.length < filesToUpload.length) {
+        toast.error(
+          `${results.length} of ${filesToUpload.length} photos uploaded — the rest failed and are not kept on this device.`
+        );
+      } else {
+        toast.success(`${results.length} photo${results.length === 1 ? '' : 's'} uploaded`);
+      }
     } catch (err) {
       console.error('[Section4AfterPhotos] Upload failed:', err);
       toast.error(err instanceof Error ? err.message : 'Photo upload failed');
     } finally {
-      pendingCaptionRef.current = '';
       setIsUploading(false);
     }
   }
@@ -259,22 +258,6 @@ export function Section4AfterPhotos({
 
   return (
     <section aria-labelledby="after-photos-heading" className="space-y-5">
-      <PhotoCaptionPromptDialog
-        isOpen={captionPromptOpen}
-        title={captionPromptCategory === 'demolition' ? 'Add Demolition Photo' : 'Add After Photo'}
-        description={
-          captionPromptCategory === 'demolition'
-            ? 'Describe what was demolished or removed'
-            : 'Describe the area after remediation'
-        }
-        placeholder={
-          captionPromptCategory === 'demolition'
-            ? 'e.g. Cavity exposed after removing affected plaster'
-            : 'e.g. Bathroom ceiling cleared of mould'
-        }
-        onConfirm={handleCaptionConfirm}
-        onCancel={handleCaptionCancel}
-      />
       <input
         ref={fileInputRef}
         type="file"

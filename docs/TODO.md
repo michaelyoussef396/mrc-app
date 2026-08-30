@@ -994,6 +994,155 @@ After the PDF Pipeline Rebuild (server-render + versioning + mismatch guard) lan
 - **PDF-CL16 — `report-pdfs` has NO DELETE policy, so every "best-effort cleanup" in the render endpoints is dead code.** `20251028135212_*.sql:984-999` creates only INSERT and SELECT policies for this bucket. `inspection-photos` (`:976-982`) and `profile-photos` (`20260415000000_profile_photos_bucket.sql:19`) both got DELETE policies; `report-pdfs` never did. Supabase Storage `remove()` under RLS returns `{ data: [], error: null }` when the policy filters the row — **a silent no-op, not an error**. Consequences: (1) the orphan-PDF cleanup at `api/render-pdf.ts:391` and `:405`, and the same calls in `api/render-job-report-pdf.ts`, have never removed anything — a failed HTML upload after a successful PDF upload leaves the orphan PDF in the bucket permanently, and the code logs nothing because there is no error to log; (2) nothing in the app can prune `report-pdfs`, including the `_email-test/` and `_render-test/` scratch prefixes (see PDF-CL15). Verified empirically on DEV 2026-08-27: an authenticated `remove()` on an object the same session had just uploaded returned 0 removed with no error, and the object remained fetchable via a fresh signed URL. Action: add a DELETE policy for `report-pdfs` (admin-scoped), then either check the `remove()` result length at both call sites or drop the misleading cleanup calls.
 - **PDF-CL17 — Switch `generate-job-report-pdf` to signed photo URLs; job reports are the ones that will cross Resend's ceiling.** The job EF downloads every photo and embeds it as a base64 data URI (`supabase/functions/generate-job-report-pdf/index.ts:230`, `:259-261`), where the inspection EF generates signed URLs instead (`supabase/functions/generate-inspection-pdf/index.ts:2115`, `:2140`). Base64 inflates each photo by 4/3 *inside the HTML*, before Chromium ever renders it, so job-report PDFs are systematically the larger of the two for the same photo count. That compounds with a second constraint: Resend caps a message at 40 MB **after** base64 encoding, and the largest report measured on PROD (27.56 MB, 2026-08-27) already encodes to 36.75 MB — roughly **9% headroom**. Job reports are therefore the ones that will cross it first, and when they do `assertEmailableAttachment` will correctly refuse the send, which is honest but still a report nobody can email. Two further knock-ons of the data-URI approach: the hash normalization in `_shared/reportHash.ts` strips query strings off storage URLs, which does nothing for data URIs, so the job hash covers the entire embedded photo payload; and `checkJobReportSendMismatch` pulls that whole multi-MB HTML into the browser on every send pre-check just to compute a hash. Fix: mirror the inspection EF's `createSignedUrl` approach. **Own session** — it is an EF change to the job render path, not something to fold into unrelated work.
 
+## AREA-HIDE — per-area report visibility (`include_in_report`), 2026-08-27
+
+Admin can hide an individual area's page from the **inspection** report without
+deleting the area. Presentation only — the row, its readings and its photos
+survive, and its `job_time_minutes` still counts toward the quote. Job reports
+are unaffected: `generate-job-report-pdf` has no per-area pages at all (its
+"TREATED AREAS" pages are before/after photo pairs keyed off `photo_category`).
+
+- **AH1 — DEPLOY GATE (blocking).** Migration `20260827200000_inspection_area_include_in_report.sql`
+  is APPLIED to PROD (verified: 35/35 rows `true`). The frontend toggle is merged-ready,
+  but `generate-inspection-pdf` **must be deployed before or with the frontend**:
+  `npx supabase functions deploy generate-inspection-pdf --project-ref ecyivrxjpsmjmexqatym`
+  run from `~/mrc-app-prod`. If the frontend ships first, hiding an area writes
+  `include_in_report=false`, the old EF keeps rendering every area, and because the
+  rendered HTML never changes `checkSendMismatch` reports "no changes since v{N}" —
+  a confidently wrong all-clear, not a visible breakage.
+- **AH2 — AI narrative can still name a hidden area.** `problem_analysis_content` and
+  `demolition_content` are free text generated from the full area set
+  (`InspectionAIReview.tsx` selects `*` with no filter). Hiding an area drops its page
+  and its name from the cover list, but Pages 6/7 prose may still reference it. No code
+  fix — the admin must edit the narrative. Consider a warning at hide time.
+- **AH3 — FIX (backlog, ~half a day): Demolition page survives a hide when
+  `demolition_content` is set.** `hasDemolition` (`generate-inspection-pdf/index.ts:1842`)
+  short-circuits on `demolition_content`, so the page still renders when its only
+  demolition-required area is hidden. This is a **behaviour gap, not just a wart**: the
+  admin hides the area expecting the page to go, and it doesn't — the plan's stated
+  behaviour ("whether the Demolition page exists" follows the filter) is only honoured
+  when `demolition_content` is empty. Not deferred because it's acceptable, deferred
+  because a correct fix needs a product call: when the last demolition-required area is
+  hidden, either drop the page (discards AI prose that may describe several areas) or
+  keep it and prompt the admin to re-edit the narrative. Do NOT just flip the gate —
+  `hasDemolitionWork` (`:1715`) must stay unfiltered, since it feeds `optionSelected`
+  (`:1857`) and therefore the quoted scope. Blast radius is a customer-facing price.
+- **AH4 — Hidden state is invisible outside the Edit Areas sheet.** The lead view
+  (`InspectionDataDisplay.tsx`) lists every area with no hidden indicator, so a co-owner
+  reading the lead sees areas the emailed report does not contain. Cosmetic; leave.
+- **AH5 — PATTERN TO WATCH: divergent `.select()` column lists silently drop fields.**
+  Second sighting of this class. In `ViewReportPDF.tsx` the four `inspection_areas`
+  selects had drifted — the initial load fetched `job_time_minutes`, the post-save and
+  post-add refetches did not — so editing an area dropped labour minutes out of
+  `areasData` and `autoEstimate` recomputed the job at **$0 labour** until a reload.
+  Fixed here by hoisting one `AREA_SELECT_COLUMNS` const (single string literal +
+  `as const`, or supabase-js loses row-type inference and returns `GenericStringError`).
+  Nothing typed catches this: the dropped field is simply absent and `|| 0` swallows it.
+  Worth a sweep of other multi-select-site tables (`photos`, `moisture_readings`,
+  `job_completions`) for the same drift. Not a workstream — a check to fold into the
+  next session that touches those files.
+
+## AUTO-CAPTION — derived captions + bulk photo upload, 2026-08-27
+
+Technicians would not caption photos (Glen and Clayton, confirmed twice), and the caption
+modal blocked photo *selection*, so every slot and category cost a modal. Captions are now
+derived for the five display-only roles (room, subfloor, before, after, demolition) via
+`src/lib/utils/photoCaption.ts`. The eight sentinel role tags that carry slot identity —
+`infrared`, `natural_infrared`, `moisture`, `front_door`, `front_house`, `mailbox`,
+`street`, `direction` — are untouched, and `derivePhotoCaption()` can never emit one.
+Branch `feat/auto-caption-bulk-photo-upload`.
+
+- **AC1 — On-site before-photo provenance is a heuristic. A correct fix needs a
+  provenance column on `photos`; NOT attempted.** Section 3 now holds two kinds of photo
+  with opposite removal semantics: a photo *picked* from the inspection is **deselected**
+  (clearing `job_completion_id` and `photo_category`, leaving it on the inspection), while
+  a photo *uploaded at job time* is **deleted**, because it exists only for this job.
+  **A `photos` row cannot say which it is** — `togglePhoto` writes exactly the
+  `job_completion_id` + `photo_category='before'` pair an upload is born with. The current
+  discriminator is `isLikelyOnsiteUpload()` in
+  `src/components/job-completion/beforePhotoGrouping.ts`: those two fields **plus**
+  `photo_type = 'general'`, unioned with a session-scoped set of ids uploaded during the
+  current mount. It leans on the fact that the inspection form never writes `'general'`
+  (every branch that would leave the default also leaves the caption unset and bails
+  before inserting).
+  **Residual false positive:** a genuinely general inspection photo — an unplaced outdoor
+  photo (`unplaceOutdoorPhoto` flips `photo_type` to `'general'`,
+  `src/lib/utils/photoUpload.ts:429`) or an admin cover upload
+  (`src/components/pdf/ImageUploadModal.tsx`) — that the technician then picks as a before
+  photo. It renders under "Photos you added on site" and offers **Delete** rather than
+  **Deselect**; tapping it soft-deletes a real inspection photo, removing it from the
+  inspection report too. Recoverable (`deleted_at`, not a hard delete) and it needs three
+  things to line up, but it is real.
+  **Why this error and not the other one:** the inverse mistake — treating a real upload
+  as a picked photo — is worse and silent. Its deselect drops an unreferenced
+  `photo_type='general'` row into the inspection's pool, where the cover-photo fallback at
+  `generate-inspection-pdf/index.ts:1683` can promote it to the *inspection* report's cover
+  (that query has no `photo_category` / `job_completion_id` filter, `:2068`), and the admin
+  "pick existing" pool can claim it and overwrite its caption
+  (`AreaPhotoSlotGrid.tsx:178-180`).
+  **Proper fix:** add a provenance column (e.g. `photos.captured_for_job_completion`), set
+  it at INSERT in Section 3's upload path, and replace `isLikelyOnsiteUpload()` with an
+  exact read. That is a schema change — migration file generated, Michael runs it, per the
+  standing rule. Delete the session-id union at the same time.
+
+- **AC3 — Stale-PDF banner does not clear after a successful regeneration.** On
+  `ViewReportPDF`, "PDF is out of date. Regenerate before sending to customer." stays on
+  screen after the toast reports "Report generated successfully!", and survives a full
+  reload of the report route. Observed live on DEV 2026-08-27 while verifying the
+  auto-caption work: the first regenerate legitimately failed (`400 "Inspection not
+  complete"`), the second succeeded and wrote report v6 with all seven photos, and the
+  banner read identically before and after. The risk is the inverse of PDF-CL-era worries
+  — not a stale PDF sent as fresh, but a fresh PDF that looks stale, so an admin
+  regenerates repeatedly or hesitates to send. Likely the freshness comparison
+  (`pdf_versions.created_at` vs `inspection_areas.updated_at` / `latest_ai_summary.
+  generated_at`) not being re-read after the generate call resolves. Cosmetic, but it
+  makes the one signal an admin has for "is this safe to send" untrustworthy.
+
+- **AC4 — Sentinel captions are shown raw to technicians in the before-photo picker.**
+  Section 3's grid labels each tile with `photo.caption`, so role-tagged photos render as
+  literal `infrared`, `natural_infrared` and `front_house` next to derived prose like
+  "Area 1 — Room Photo". Confirmed on DEV 2026-08-27. This is the cost of the deliberate
+  split — caption is a slot-identity key for eight roles and a description for the other
+  five, and the picker cannot tell them apart. Pre-existing (the same raw values were
+  shown before captions were derived; derived prose alongside them just makes the
+  inconsistency obvious). Fix is display-only: map the eight reserved sentinels to human
+  labels at render time — `RESERVED_CAPTIONS` in `src/lib/utils/photoCaption.ts` already
+  enumerates them, and `OUTDOOR_SLOT_LABELS` in `InspectionDataDisplay.tsx` already does
+  exactly this mapping for the outdoor five. Do NOT fix it by rewriting the stored
+  caption.
+
+- **AC2 — Other findings surfaced by this workstream, deliberately not fixed.** Each is
+  pre-existing and none is caused by the caption change.
+  - **The offline photo queue is built and wired to nothing.** `queuePhotoOffline()`
+    (`photoUpload.ts:51`) and `SyncManager.saveDraft()` have **zero production callers**;
+    offline photos are discarded with a toast. "Zero data loss on offline save" is
+    therefore not met today. It also cannot be wired for job-completion photos without
+    changing the stored Dexie record shape — `QueuedPhoto` (`src/lib/offline/types.ts`)
+    and the offline INSERT (`SyncManager.ts:299-313`) carry no `job_completion_id` or
+    `photo_category`. Three defects need fixing first: dead `MAX_RETRIES`
+    (`SyncManager.ts:6`), photos left in `error` never retried once their draft flips to
+    `synced` (`:235-239` vs `:69-74`), and `orderIndex` defaulting to `0` for every entry
+    (`photoUpload.ts:69`), which would scramble PDF photo order on a bulk offline batch.
+  - **`OutdoorPhotoSlotGrid` breaches the outdoor sentinel invariant.** It has no
+    `autoCaption` mechanism at all and writes a typed human caption with
+    `photo_type: 'outdoor'`, so its photos already fail the `caption === 'front_door'`
+    matching in `generate-inspection-pdf/index.ts:1689-1695` and are already invisible in
+    `InspectionDataDisplay.tsx`'s outdoor section. `ImageUploadModal.tsx:136` breaches the
+    same invariant from another angle, and `:168` maps `direction_photo` to
+    `photo_type: 'direction'`, which is not a legal `PhotoMetadata.photo_type`. Both are
+    admin-only surfaces. Repairing them means giving them the sentinel captions the
+    consumers already expect.
+  - **`ViewReportPDF.tsx:2307` writes `caption: null`**, violating the Stage 4.1 non-empty
+    invariant that every other write path upholds.
+  - **`loadUnplacedPhotos()` (`photoUpload.ts:530-548`) has no `job_completion_id`
+    filter**, so the admin "pick existing" pool already contains job-report photos.
+    One line to fix, but it needs confirmation that no admin workflow legitimately
+    re-places a job photo into an inspection slot.
+  - **`isNetworkLevelError` is now duplicated four ways** (`TechnicianInspectionForm.tsx`,
+    `useJobCompletionForm.ts`, and both job-completion photo sections). The comment saying
+    two sites don't justify a shared module has expired. If it moves, re-export it from
+    `useJobCompletionForm.ts` or `useJobCompletionForm.offline.test.ts:4` breaks.
+
 ## Wave 6.1 — Cleanup PR (post-Wave-6 deploy, target: within 48h)
 
 Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocking nits surfaced by the Phase 8 audit pass.
@@ -2257,7 +2406,18 @@ item, the blocker, and the sequence. Nothing below has been built, migrated, or 
   `useAdminDashboardStats.ts:98`) while the old technician keeps RLS access.
 - `LeadDetail` doubles as the technician job page (`App.tsx:349-362` `/technician/job/:id`), so
   these reversion CTAs are technician-reachable.
-- [ ] Fix with R7.
+- [x] Fixed on `fix/cancel-path-field-clearing` (not merged). Shared `LEAD_BOOKING_FIELDS` in
+  `src/lib/leadBookingFields.ts` is now the one clearing set for all three surfaces; the calendar
+  cancel also gained the missing event-type check (job -> `job_waiting`, not `new_lead`).
+  Sequence: 375px + cancel-flow preview test -> merge -> deploy -> `docs/manual-sql/R8-jiang-marco-repair.sql`
+  (MRC-2026-0077, the 7th broken PROD row, guarded, NOT yet run).
+- [ ] R8 fallout: a job cancel now also nulls `inspection_scheduled_date`, so LeadDetail's green
+  "Inspection Scheduled" card (`:1841`) disappears for that lead — `inspection_completed_date` survives.
+- [ ] `LeadsManagement.stageActions.markClosed` (`:218`) and `confirmRemoveLead` (`:242`) are
+  unreachable — `markClosed` has no call site, and `confirmRemoveLead`'s modal is opened only by
+  `removeLead` (`:231`), which has none either. Decide: wire them up or delete them.
+- [ ] `EventDetailsPanel.tsx:75` writes "Inspection on {date} was cancelled" for JOB cancels too —
+  the activity row mislabels every cancelled job.
 
 ### R9 — Archiving a lead never cancels its bookings
 - `LeadsManagement.tsx:529-532` / `LeadDetail.tsx:706-709` set `archived_at` only; no booking
@@ -2284,6 +2444,21 @@ item, the blocker, and the sequence. Nothing below has been built, migrated, or 
   `status = job_scheduled`, `assigned_to = user.id`). Rule and reality disagree.
 - [ ] Decide which is right (see "Revision Lifecycle — Tech Debt" / PR-T1 above), then either
   remove the call or rewrite the rule. Until then, treat the hook as live when estimating R7.
+
+### R12 — `calculate-travel-time` collapses two same-day bookings on one lead
+- `supabase/functions/calculate-travel-time/index.ts:1085-1087`: `endMinutesByLead` is a
+  `Record<string, number>` keyed by `leadId`, so the last booking wins and `check_availability`
+  reports that lead's day as ending at whichever row came back last. One technician with **two
+  bookings against the same lead on the same day** (a split morning/afternoon job) is enough to
+  trigger it — this is reachable on **today's single-technician data**, not a multi-tech
+  regression. Fan-out does **not** make it worse: `fetchMelbourneBookings` filters
+  `.eq('assigned_to', technicianId)`, so it only ever sees one technician's rows and never returns
+  the second technician's row for the same lead. Found while auditing the two `leads`-side
+  technician filters for multi-tech (SESSION 6, `docs/multi-tech/SESSION-6-DEPLOY-RUNBOOK.md` §8.1)
+  and deliberately left alone — the 0c deploy had to be a minimal diff that is provably
+  behaviour-identical on current data, and fixing this would have changed today's answers.
+- [ ] Not scheduled. Independent of R7 — do **not** fold it in, it is neither caused nor fixed by
+  the junction table.
 
 ### SUGGESTED SEQUENCE
 - **A.** ~~R3 + R4 + R5 as **one code-only batch**~~ **R4 + R5 shipped 2026-08-25 (PR #79).

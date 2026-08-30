@@ -1,0 +1,87 @@
+-- =============================================================================
+-- inspection_areas.include_in_report — hide an area page from the inspection
+-- report without destroying the area                                       [01]
+--
+-- STATUS: APPLIED to PROD (ecyivrxjpsmjmexqatym) 2026-08-27 via
+--   `npx supabase db query --linked -f` on Michael's explicit APPLY. Saved for
+--   the record; NOT registered in migration history (no `migration repair`).
+--   Verified live immediately after, all four checks against PROD:
+--     * column: boolean, is_nullable=NO, column_default=true
+--     * data:   SELECT include_in_report, count(*) GROUP BY 1 -> one row, true|35
+--               (35/35 rows included, no NULLs, no falses)
+--     * comment: present on the column
+--     * RLS:    still enabled; policies unchanged at admin_all_inspection_areas
+--               + tech_all_own_inspection_areas, both TO {authenticated}
+--   No REVOKE was needed: this adds a column to an existing table, so it
+--   inherits that table's grants — pg_default_acl only auto-grants on NEW
+--   tables/functions. (Pre-existing and untouched by this file: `anon` holds
+--   table-level DML grants on inspection_areas but has no policy, so RLS
+--   blocks it. Worth a REVOKE in its own migration — not this one's business.)
+--
+-- Target: PROD ecyivrxjpsmjmexqatym (LIVE — mrcsystem.com). Applied ONLY on
+-- Michael's explicit APPLY, in Studio or via
+--   npx supabase db query --linked -f supabase/migrations/20260827200000_inspection_area_include_in_report.sql
+-- Never `db push`, `db reset` or `migration repair` — migration history is
+-- forked over 100 files deep.
+--
+-- ROLLBACK (manual, only on explicit instruction — loses which areas were hidden):
+--   BEGIN; ALTER TABLE public.inspection_areas DROP COLUMN include_in_report; COMMIT;
+--   This file alters no existing object, so nothing else needs reverting.
+--
+-- WHY
+--   Admin needs to remove an individual area page from a generated inspection
+--   report. A hard DELETE of the area row is not acceptable for this:
+--     * moisture_readings.area_id is ON DELETE CASCADE — readings destroyed
+--       (20251028135212_32f4908a-2987-4ad7-8470-270bb7333f88.sql:480)
+--     * photos.area_id is ON DELETE SET NULL — photos survive but become
+--       unattributable (20260414000001_protect_photos_and_audit_trails.sql:11-13)
+--     * the area's job_time_minutes feeds deriveInspectionHours
+--       (src/lib/calculations/inspectionEstimate.ts:70-73), so deleting would
+--       silently re-price the quote.
+--
+-- DESIGN
+--   * Presentation-only flag. It gates the PDF render ONLY. It deliberately
+--     does NOT feed pricing — a hidden area's job_time_minutes still counts
+--     toward labour hours, because the work was still quoted. Any future change
+--     to that is a pricing change and needs its own approval.
+--   * NOT NULL DEFAULT true, so every existing row reads as included and the
+--     render output stays byte-identical until an admin hides something.
+--     Postgres 11+ stores the default in catalog metadata — no table rewrite,
+--     no long lock on a live table.
+--   * No new RLS policy needed: 20260414000005_harden_leads_inspections_rls.sql
+--     :54-70 already grants admin_all_inspection_areas FOR ALL via is_admin(),
+--     with tech access scoped to their own assigned leads.
+--   * No new GRANT needed: inspection_areas carries no column-level grants, so
+--     table-level UPDATE already covers the new column.
+--   * Auditing is automatic: audit_inspection_areas_update already fires on
+--     UPDATE (20260311000001_add_audit_triggers.sql:65-67), so every hide and
+--     unhide lands in audit_logs with no extra wiring.
+--   * The generate-inspection-pdf EF selects areas with
+--     `areas:inspection_areas(*,moisture_readings(*))` (index.ts:1988), so the
+--     column reaches the renderer without a query change.
+--   * No Storage policy dependency. Each render writes a NEW timestamped object
+--     (report-pdfs/{inspectionId}/v-{ts}.{pdf,html}, upsert:false —
+--     api/render-pdf.ts:437-457) plus a new pdf_versions row; nothing is
+--     overwritten or removed, so PDF-CL16's missing DELETE policy is not in
+--     this path.
+--
+-- THIS FILE ALONE CHANGES NO BEHAVIOUR. Consumers to ship alongside:
+--   supabase/functions/generate-inspection-pdf/index.ts — filter hidden areas in
+--     duplicateAreaPages (:1300), examinedAreas (:1629) and demolitionAreas
+--     (:1658, which gates whether Page 7 exists at all); and fix the zero-area
+--     branch (:1312-1337) to swap whole <img> tags for EMPTY_CELL as the
+--     populated path does at :1385, instead of blanking the placeholder and
+--     leaving six <img src=""> tags behind.
+--   src/pages/ViewReportPDF.tsx — hide/unhide control in the Edit Areas sheet,
+--     following the existing handleSaveArea -> handleGeneratePDF pattern (:1966).
+--   src/components/pdf/StalePdfBanner.tsx — currently only compares
+--     latest_ai_summary.generated_at to pdf_versions.created_at (:29-58), so it
+--     will not flag a stale PDF after a hide.
+--   src/integrations/supabase/types.ts — regenerate.
+-- =============================================================================
+
+ALTER TABLE public.inspection_areas
+  ADD COLUMN IF NOT EXISTS include_in_report boolean NOT NULL DEFAULT true;
+
+COMMENT ON COLUMN public.inspection_areas.include_in_report IS
+  'Presentation flag for the inspection report PDF only. false = this area''s page is omitted from the render and its name is dropped from the cover''s examined-areas list. Does NOT affect pricing — job_time_minutes still counts toward labour hours. Never DELETE an area row to remove its page: that cascades moisture_readings and orphans photos.';

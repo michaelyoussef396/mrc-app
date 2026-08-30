@@ -95,6 +95,7 @@ import { getJobCompletionByLeadId } from "@/lib/api/jobCompletions";
 import { generateJobReportPdf } from "@/lib/api/jobReportPdf";
 import type { JobCompletionRow } from "@/types/jobCompletion";
 import { STATUS_FLOW, ALL_STATUSES, LeadStatus } from "@/lib/statusFlow";
+import { LEAD_BOOKING_FIELDS } from "@/lib/leadBookingFields";
 import { sendSlackNotification, sendGoogleReviewEmail } from "@/lib/api/notifications";
 import { postLeadNoteToSlack } from "@/lib/api/leadNoteSlack";
 import { useActivityTimeline } from "@/hooks/useActivityTimeline";
@@ -520,38 +521,27 @@ export default function LeadDetail() {
     // never cleared — they belong to the customer, not the workflow.
     const updates: Record<string, unknown> = { status };
     const clearedFields: string[] = [];
+    const clear = (field: string) => {
+      updates[field] = null;
+      // LEAD_BOOKING_FIELDS covers job_scheduled_date and the rank<6 tier clears it
+      // too, and a rank<1 revert fires both (0 < 6 always). Without this guard the
+      // field_edit log would carry the same column twice.
+      if (!clearedFields.includes(field)) clearedFields.push(field);
+    };
 
     if (isReversion) {
       if (newRank < 1) {
-        for (const f of ['assigned_to', 'inspection_scheduled_date', 'scheduled_time', 'scheduled_dates', 'booked_at']) {
-          updates[f] = null;
-          clearedFields.push(f);
-        }
+        for (const f of LEAD_BOOKING_FIELDS) clear(f);
       }
       if (newRank < 2) {
-        for (const f of ['inspection_completed_date', 'report_pdf_url']) {
-          updates[f] = null;
-          clearedFields.push(f);
-        }
+        for (const f of ['inspection_completed_date', 'report_pdf_url']) clear(f);
       }
-      if (newRank < 6) {
-        updates.job_scheduled_date = null;
-        clearedFields.push('job_scheduled_date');
-      }
-      if (newRank < 7) {
-        updates.job_completed_date = null;
-        clearedFields.push('job_completed_date');
-      }
+      if (newRank < 6) clear('job_scheduled_date');
+      if (newRank < 7) clear('job_completed_date');
       if (newRank < 10) {
-        for (const f of ['invoice_amount', 'invoice_sent_date']) {
-          updates[f] = null;
-          clearedFields.push(f);
-        }
+        for (const f of ['invoice_amount', 'invoice_sent_date']) clear(f);
       }
-      if (newRank < 11) {
-        updates.payment_received_date = null;
-        clearedFields.push('payment_received_date');
-      }
+      if (newRank < 11) clear('payment_received_date');
     }
 
     const { error } = await supabase
@@ -1882,7 +1872,7 @@ export default function LeadDetail() {
 
               <Button variant="outline" className="w-full h-12 border-green-300 text-green-700 hover:bg-green-100" onClick={() => navigate(`/admin/schedule?lead=${lead.id}`)}>
                 <Calendar className="h-4 w-4 mr-2" />
-                Reschedule Inspection
+                View in Schedule
               </Button>
             </CardContent>
           </Card>
