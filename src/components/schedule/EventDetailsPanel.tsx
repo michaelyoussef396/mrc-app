@@ -5,6 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { CalendarEvent } from '@/hooks/useScheduleCalendar';
 import { bookingTypePillClasses } from '@/lib/bookingTypeColors';
 import { getDurationLabel } from '@/components/schedule/scheduleUtils';
+import {
+  CANCELLED_EVENT_REVERT_STATUS,
+  buildBookingRevertUpdates,
+} from '@/lib/leadBookingFields';
 import { captureBusinessError } from '@/lib/sentry';
 import {
   Sheet,
@@ -54,11 +58,14 @@ export function EventDetailsPanel({ event, open, onClose }: EventDetailsPanelPro
 
       if (error) throw error;
 
-      // Update lead status back to new_lead
+      // Revert the lead to the status this event type came from, clearing every
+      // booking-owned column with it. Cancelling a JOB must not send a job-stage
+      // lead back to new_lead, and a revert that leaves assigned_to set hides the
+      // lead from every `assigned_to IS NULL` queue (R8).
       if (event.leadId) {
         await supabase
           .from('leads')
-          .update({ status: 'new_lead' })
+          .update(buildBookingRevertUpdates(CANCELLED_EVENT_REVERT_STATUS[event.eventType]))
           .eq('id', event.leadId);
 
         await supabase.from('activities').insert({

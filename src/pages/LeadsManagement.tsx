@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useDebounce } from '@/hooks/useDebounce';
 import { applyLeadSearch } from '@/lib/leadSearch';
+import { buildBookingRevertUpdates } from '@/lib/leadBookingFields';
+import type { LeadStatus } from '@/lib/statusFlow';
 import { generateInspectionPDF } from '@/lib/api/pdfGeneration';
 import { sendEmail, buildReportApprovedHtml } from '@/lib/api/notifications';
 // Lazy-loaded: convertHtmlToPdf is ~600KB (html2canvas + jsPDF)
@@ -207,7 +209,10 @@ const LeadsManagement = () => {
     },
 
     reactivate: async (leadId: number | string) => {
-      await updateLeadStatus(leadId, 'new_lead');
+      // Reactivating walks the lead back to the top of the pipeline, so every
+      // booking-owned column goes with it. Leaving assigned_to set here is what
+      // hid reactivated leads from the To Schedule rail (R8).
+      await updateLeadStatus(leadId, 'new_lead', { clearBookingFields: true });
     },
 
     markClosed: async (leadId: number | string) => {
@@ -302,17 +307,40 @@ const LeadsManagement = () => {
     },
   };
 
-  const updateLeadStatus = async (leadId: number | string, newStatus: string) => {
+  // `clearBookingFields` is opt-in and only the reactivate caller sets it — it is
+  // the sole caller that walks a lead BACKWARDS past its booking. markClosed,
+  // handleApproveReport and confirmRemoveLead move the lead forward or sideways
+  // and must keep writing status alone.
+  const updateLeadStatus = async (
+    leadId: number | string,
+    newStatus: LeadStatus,
+    options?: { clearBookingFields?: boolean },
+  ) => {
+    const clearBookingFields = options?.clearBookingFields === true;
+    const updates = clearBookingFields
+      ? buildBookingRevertUpdates(newStatus)
+      : { status: newStatus };
+    const clearedLocalFields = clearBookingFields
+      ? {
+          assigned_to: undefined,
+          assigned_technician: undefined,
+          inspection_scheduled_date: undefined,
+          scheduled_time: undefined,
+          scheduled_dates: undefined,
+          job_scheduled_date: undefined,
+        }
+      : {};
+
     // Optimistic local update
     const previousLeads = leads;
     setLeads(prev =>
-      prev.map(lead => (lead.id === leadId ? { ...lead, status: newStatus } : lead))
+      prev.map(lead => (lead.id === leadId ? { ...lead, status: newStatus, ...clearedLocalFields } : lead))
     );
 
     try {
       const { error } = await supabase
         .from('leads')
-        .update({ status: newStatus })
+        .update(updates)
         .eq('id', leadId);
 
       if (error) throw error;
