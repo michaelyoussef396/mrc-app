@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminSidebar from '@/components/admin/AdminSidebar';
@@ -16,16 +16,27 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 
+// Tailwind `lg` — the width at which the leads rail docks beside the calendar (see the
+// <aside> below). Below it the rail lives in the bottom Sheet instead.
+const RAIL_DOCKED_QUERY = '(min-width: 1024px)';
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
 export default function AdminSchedule() {
   const { user, profile } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   // Deep-link target — when /admin/schedule?lead={id} is opened from Lead Detail or
   // Lead Management, expand the matching card in LeadsQueue and pop the mobile sheet.
-  const deepLinkLeadId = searchParams.get('lead');
+  // Held in state and removed from the URL: if the param stayed, every 60 s rail
+  // refetch (and any refresh) would re-apply it and collapse whatever the admin had
+  // opened. It is retired once LeadsQueue reports the id resolved, so reopening the
+  // mobile sheet does not replay the deep link.
+  const [deepLinkLeadId, setDeepLinkLeadId] = useState<string | null>(() => searchParams.get('lead'));
+  const [isRailDocked, setIsRailDocked] = useState(
+    () => window.matchMedia(RAIL_DOCKED_QUERY).matches,
+  );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [selectedTechnician, setSelectedTechnician] = useState<string | null>(null);
@@ -35,10 +46,35 @@ export default function AdminSchedule() {
   const [showCancelled, setShowCancelled] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
 
-  // On mobile, auto-open the Leads Queue sheet when arriving with ?lead= in the URL
+  // Take the id out of the URL as soon as it arrives. Reading it here rather than only
+  // in the initialiser also catches a second ?lead= navigation while the page is mounted.
   useEffect(() => {
-    if (deepLinkLeadId) setMobileQueueOpen(true);
-  }, [deepLinkLeadId]);
+    const leadParam = searchParams.get('lead');
+    if (!leadParam) return;
+    setDeepLinkLeadId(leadParam);
+    const withoutLead = new URLSearchParams(searchParams);
+    withoutLead.delete('lead');
+    setSearchParams(withoutLead, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(RAIL_DOCKED_QUERY);
+    const syncRailDocked = (event: MediaQueryListEvent) => setIsRailDocked(event.matches);
+    mediaQuery.addEventListener('change', syncRailDocked);
+    return () => mediaQuery.removeEventListener('change', syncRailDocked);
+  }, []);
+
+  // Below the dock breakpoint the queue lives in the bottom sheet, so a deep link has to
+  // open it. The Sheet's content is portaled to <body>, so the `lg:hidden` wrapper around
+  // its trigger cannot hide it — gate on the viewport instead of relying on CSS.
+  useEffect(() => {
+    if (deepLinkLeadId && !isRailDocked) setMobileQueueOpen(true);
+  }, [deepLinkLeadId, isRailDocked]);
+
+  // Once the window is wide enough for the docked rail, the sheet must never sit over it.
+  useEffect(() => {
+    if (isRailDocked) setMobileQueueOpen(false);
+  }, [isRailDocked]);
 
   // Fetch technicians using the shared hook
   const { data: technicians = [], isLoading: techniciansLoading, error: techniciansError } = useTechnicians();
@@ -46,8 +82,6 @@ export default function AdminSchedule() {
   // Log technician fetch results for debugging
   if (techniciansError) {
     console.error('[AdminSchedule] Technicians error:', techniciansError);
-  }
-  if (technicians.length > 0) {
   }
 
   // Fetch calendar events
@@ -69,6 +103,16 @@ export default function AdminSchedule() {
   const handleTechnicianChange = (technicianId: string | null) => {
     setSelectedTechnician(technicianId);
   };
+
+  const handleDeepLinkSettled = useCallback(() => setDeepLinkLeadId(null), []);
+
+  // The queue's search box is the sheet's first tabbable element, and Radix focuses that
+  // on open — which raises the soft keyboard over the list every time. Park focus on the
+  // sheet itself instead; it keeps the focus trap for keyboard users.
+  const handleSheetOpenAutoFocus = useCallback((event: Event) => {
+    event.preventDefault();
+    (event.currentTarget as HTMLElement | null)?.focus();
+  }, []);
 
   // Handle mobile day navigation
   const handleDayChange = (newDate: Date) => {
@@ -225,9 +269,15 @@ export default function AdminSchedule() {
             </div>
           </section>
 
-          {/* Leads Queue Panel (Right 30%) - Fixed position, internal scroll */}
+          {/* Leads Queue Panel (Right 30%) - Fixed position, internal scroll.
+              Both instances stay mounted, so the deep link goes only to the visible one —
+              otherwise the hidden copy would run the same lookup a second time. */}
           <aside className="hidden lg:flex lg:w-[30%] flex-col min-h-0">
-            <LeadsQueue technicians={technicians} initialExpandedLeadId={deepLinkLeadId} />
+            <LeadsQueue
+              technicians={technicians}
+              initialExpandedLeadId={isRailDocked ? deepLinkLeadId : null}
+              onDeepLinkSettled={handleDeepLinkSettled}
+            />
           </aside>
         </div>
 
@@ -242,12 +292,20 @@ export default function AdminSchedule() {
                 <CalendarPlus className="h-6 w-6" />
               </button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl">
+            <SheetContent
+              side="bottom"
+              className="h-[85vh] p-0 rounded-t-2xl"
+              onOpenAutoFocus={handleSheetOpenAutoFocus}
+            >
               <SheetHeader className="sr-only">
                 <SheetTitle>Leads to schedule</SheetTitle>
                 <SheetDescription>Select a lead from the queue to book its inspection.</SheetDescription>
               </SheetHeader>
-              <LeadsQueue technicians={technicians} initialExpandedLeadId={deepLinkLeadId} />
+              <LeadsQueue
+                technicians={technicians}
+                initialExpandedLeadId={isRailDocked ? null : deepLinkLeadId}
+                onDeepLinkSettled={handleDeepLinkSettled}
+              />
             </SheetContent>
           </Sheet>
         </div>
