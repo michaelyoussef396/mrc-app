@@ -2406,7 +2406,18 @@ item, the blocker, and the sequence. Nothing below has been built, migrated, or 
   `useAdminDashboardStats.ts:98`) while the old technician keeps RLS access.
 - `LeadDetail` doubles as the technician job page (`App.tsx:349-362` `/technician/job/:id`), so
   these reversion CTAs are technician-reachable.
-- [ ] Fix with R7.
+- [x] Fixed on `fix/cancel-path-field-clearing` (not merged). Shared `LEAD_BOOKING_FIELDS` in
+  `src/lib/leadBookingFields.ts` is now the one clearing set for all three surfaces; the calendar
+  cancel also gained the missing event-type check (job -> `job_waiting`, not `new_lead`).
+  Sequence: 375px + cancel-flow preview test -> merge -> deploy -> `docs/manual-sql/R8-jiang-marco-repair.sql`
+  (MRC-2026-0077, the 7th broken PROD row, guarded, NOT yet run).
+- [ ] R8 fallout: a job cancel now also nulls `inspection_scheduled_date`, so LeadDetail's green
+  "Inspection Scheduled" card (`:1841`) disappears for that lead — `inspection_completed_date` survives.
+- [ ] `LeadsManagement.stageActions.markClosed` (`:218`) and `confirmRemoveLead` (`:242`) are
+  unreachable — `markClosed` has no call site, and `confirmRemoveLead`'s modal is opened only by
+  `removeLead` (`:231`), which has none either. Decide: wire them up or delete them.
+- [ ] `EventDetailsPanel.tsx:75` writes "Inspection on {date} was cancelled" for JOB cancels too —
+  the activity row mislabels every cancelled job.
 
 ### R9 — Archiving a lead never cancels its bookings
 - `LeadsManagement.tsx:529-532` / `LeadDetail.tsx:706-709` set `archived_at` only; no booking
