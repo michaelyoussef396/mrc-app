@@ -2434,6 +2434,21 @@ item, the blocker, and the sequence. Nothing below has been built, migrated, or 
 - [ ] Decide which is right (see "Revision Lifecycle — Tech Debt" / PR-T1 above), then either
   remove the call or rewrite the rule. Until then, treat the hook as live when estimating R7.
 
+### R12 — `calculate-travel-time` collapses two same-day bookings on one lead
+- `supabase/functions/calculate-travel-time/index.ts:1085-1087`: `endMinutesByLead` is a
+  `Record<string, number>` keyed by `leadId`, so the last booking wins and `check_availability`
+  reports that lead's day as ending at whichever row came back last. One technician with **two
+  bookings against the same lead on the same day** (a split morning/afternoon job) is enough to
+  trigger it — this is reachable on **today's single-technician data**, not a multi-tech
+  regression. Fan-out does **not** make it worse: `fetchMelbourneBookings` filters
+  `.eq('assigned_to', technicianId)`, so it only ever sees one technician's rows and never returns
+  the second technician's row for the same lead. Found while auditing the two `leads`-side
+  technician filters for multi-tech (SESSION 6, `docs/multi-tech/SESSION-6-DEPLOY-RUNBOOK.md` §8.1)
+  and deliberately left alone — the 0c deploy had to be a minimal diff that is provably
+  behaviour-identical on current data, and fixing this would have changed today's answers.
+- [ ] Not scheduled. Independent of R7 — do **not** fold it in, it is neither caused nor fixed by
+  the junction table.
+
 ### SUGGESTED SEQUENCE
 - **A.** ~~R3 + R4 + R5 as **one code-only batch**~~ **R4 + R5 shipped 2026-08-25 (PR #79).
   R3 remains** — code-only, no migration, no approval gate. Verify at 375px; one E2E at the end,

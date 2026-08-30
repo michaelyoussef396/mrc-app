@@ -766,6 +766,29 @@ async function fetchMelbourneBookings(
   return bookings
 }
 
+/**
+ * PostgREST filter for the leads a technician is actually attending.
+ *
+ * `leads.assigned_to` is a singular pointer to the PRIMARY technician, so it names only
+ * one of a job's crew. `calendar_bookings` carries a row per technician, so it names all
+ * of them. Filtering leads on `assigned_to` alone hides a SECONDARY technician's own jobs
+ * from their availability check, and the engine then offers a slot on top of work they
+ * are already attending.
+ *
+ * With one technician per lead the booking-sourced ids are a subset of the pointer-matched
+ * ones, so this resolves to today's result set.
+ */
+function attendedLeadsFilter(technicianId: string, bookings: NormalizedBooking[]): string {
+  const attendedLeadIds = [
+    ...new Set(bookings.map((booking) => booking.leadId).filter((id): id is string => Boolean(id))),
+  ]
+  const primaryPointer = `assigned_to.eq.${technicianId}`
+
+  return attendedLeadIds.length > 0
+    ? `${primaryPointer},id.in.(${attendedLeadIds.join(',')})`
+    : primaryPointer
+}
+
 /** Half-open overlap: touching intervals do not conflict. */
 function overlapsAny(start: number, end: number, ranges: Array<[number, number]>): boolean {
   return ranges.some(([rangeStart, rangeEnd]) => start < rangeEnd && end > rangeStart)
@@ -1056,7 +1079,14 @@ Deno.serve(async (req) => {
       const technicianHome = techMeta.starting_address?.fullAddress || null
 
       // 2. Get technician's appointments for the date
-      // Query leads with inspection_scheduled_date matching the date
+      // leads.scheduled_time records only a start. The real end lives on
+      // calendar_bookings; fall back to a nominal hour when a lead has no booking row.
+      const dayBookings = await fetchMelbourneBookings(supabase, technician_id, [date])
+      const endMinutesByLead: Record<string, number> = {}
+      for (const booking of dayBookings) {
+        if (booking.leadId) endMinutesByLead[booking.leadId] = booking.endMinutes
+      }
+
       const { data: appointments, error: apptError } = await supabase
         .from('leads')
         .select(`
@@ -1070,19 +1100,11 @@ Deno.serve(async (req) => {
           inspection_scheduled_date
         `)
         .eq('inspection_scheduled_date', date)
-        .eq('assigned_to', technician_id)
+        .or(attendedLeadsFilter(technician_id, dayBookings))
         .order('scheduled_time', { ascending: true })
 
       if (apptError) {
         console.error('Error fetching appointments:', apptError)
-      }
-
-      // leads.scheduled_time records only a start. The real end lives on
-      // calendar_bookings; fall back to a nominal hour when a lead has no booking row.
-      const dayBookings = await fetchMelbourneBookings(supabase, technician_id, [date])
-      const endMinutesByLead: Record<string, number> = {}
-      for (const booking of dayBookings) {
-        if (booking.leadId) endMinutesByLead[booking.leadId] = booking.endMinutes
       }
 
       const daySchedule = (appointments || []).map(apt => {
@@ -1381,26 +1403,8 @@ Deno.serve(async (req) => {
 
       // 4. Get all appointments for these dates
       const dateStrings = datesToCheck.map(d => d.toISOString().split('T')[0])
-      const { data: appointments, error: apptError } = await supabase
-        .from('leads')
-        .select(`
-          id,
-          full_name,
-          property_address_street,
-          property_address_suburb,
-          scheduled_time,
-          inspection_scheduled_date
-        `)
-        .in('inspection_scheduled_date', dateStrings)
-        .eq('assigned_to', technician_id)
-        .order('scheduled_time', { ascending: true })
 
-      if (apptError) {
-        console.error('Error fetching appointments:', apptError)
-      }
-
-      // Group appointments by date
-      // Real booked windows, keyed by Melbourne date. The leads rows above still
+      // Real booked windows, keyed by Melbourne date. The leads rows below still
       // drive the suburb/count scoring; only the busy ranges come from here.
       const bookings = await fetchMelbourneBookings(supabase, technician_id, dateStrings)
       const busyByDate: Record<string, Array<[number, number]>> = {}
@@ -1412,6 +1416,25 @@ Deno.serve(async (req) => {
         bookings.map((booking) => booking.leadId).filter((id): id is string => Boolean(id))
       )
 
+      const { data: appointments, error: apptError } = await supabase
+        .from('leads')
+        .select(`
+          id,
+          full_name,
+          property_address_street,
+          property_address_suburb,
+          scheduled_time,
+          inspection_scheduled_date
+        `)
+        .in('inspection_scheduled_date', dateStrings)
+        .or(attendedLeadsFilter(technician_id, bookings))
+        .order('scheduled_time', { ascending: true })
+
+      if (apptError) {
+        console.error('Error fetching appointments:', apptError)
+      }
+
+      // Group appointments by date
       const appointmentsByDate: Record<string, typeof appointments> = {}
       for (const apt of (appointments || [])) {
         const date = apt.inspection_scheduled_date
