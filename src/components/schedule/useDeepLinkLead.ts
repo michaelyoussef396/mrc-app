@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
-import type { LeadToSchedule } from '@/hooks/useLeadsToSchedule';
 import {
   deriveDeepLinkReason,
   fetchDeepLinkLeadRow,
+  isLeadIdShaped,
   toStillNotListedReason,
+  INVALID_ID_REASON,
   LOOKUP_FAILED_REASON,
-  type DeepLinkReason,
 } from './deepLinkLeadReason';
+import type { LeadToSchedule } from '@/hooks/useLeadsToSchedule';
+import type { DeepLinkLeadRow, DeepLinkReason } from './deepLinkLeadReason';
 
 /**
- * Resolves /admin/schedule?lead={id} into either a card to open or a reason the
- * rail cannot open it, exactly once per id.
+ * Resolves /admin/schedule?lead={id} into either a card to open or a pinned card
+ * explaining why the rail cannot open it, exactly once per id.
  *
  * The rail's own query is never touched: when the lookup says the lead belongs in
  * the rail but the cached list predates it, we ask the existing query to refetch
@@ -27,6 +29,14 @@ interface LeadsToScheduleCache {
   leads: LeadToSchedule[];
 }
 
+/** The deep-linked lead the rail cannot list, and what is known about it. */
+export interface DeepLinkPin {
+  leadId: string;
+  /** Null when the id was malformed, the lead is gone, or the lookup failed. */
+  row: DeepLinkLeadRow | null;
+  reason: DeepLinkReason;
+}
+
 interface UseDeepLinkLeadParams {
   /** Lead id from the deep link, or null when there is nothing to resolve. */
   leadId: string | null;
@@ -39,9 +49,9 @@ interface UseDeepLinkLeadParams {
 interface UseDeepLinkLeadResult {
   /** Lead to expand and scroll to. Null until resolved, or when it cannot be shown. */
   targetLeadId: string | null;
-  /** Why the rail cannot show the lead. Null while pending and once applied. */
-  reason: DeepLinkReason | null;
-  dismissReason: () => void;
+  /** Lead to pin above the list. Null while pending, when listed, and once dismissed. */
+  pin: DeepLinkPin | null;
+  dismissPin: () => void;
 }
 
 export function useDeepLinkLead({
@@ -52,7 +62,7 @@ export function useDeepLinkLead({
 }: UseDeepLinkLeadParams): UseDeepLinkLeadResult {
   const queryClient = useQueryClient();
   const [targetLeadId, setTargetLeadId] = useState<string | null>(null);
-  const [reason, setReason] = useState<DeepLinkReason | null>(null);
+  const [pin, setPin] = useState<DeepLinkPin | null>(null);
 
   // The resolution reads the list once, at the moment it runs — depending on `leads`
   // would restart it on every 60 s refetch.
@@ -69,31 +79,43 @@ export function useDeepLinkLead({
 
     let cancelled = false;
 
-    const settle = (outcome: { target: string | null; reason: DeepLinkReason | null }) => {
+    const settle = (outcome: { target: string | null; pin: DeepLinkPin | null }) => {
       if (cancelled) return;
       setTargetLeadId(outcome.target);
-      setReason(outcome.reason);
+      setPin(outcome.pin);
       onSettledRef.current?.();
     };
+
+    const settlePin = (row: DeepLinkLeadRow | null, reason: DeepLinkReason) =>
+      settle({ target: null, pin: { leadId, row, reason } });
 
     const isListed = (list: LeadToSchedule[]) => list.some((lead) => lead.id === leadId);
 
     void (async () => {
       if (isListed(leadsRef.current)) {
-        settle({ target: leadId, reason: null });
+        settle({ target: leadId, pin: null });
         return;
       }
 
-      let lookupReason: DeepLinkReason;
+      // Postgres rejects a malformed uuid as 22P02, which would surface as a
+      // connection problem. Catch the broken link here and say so instead.
+      if (!isLeadIdShaped(leadId)) {
+        settlePin(null, INVALID_ID_REASON);
+        return;
+      }
+
+      let row: DeepLinkLeadRow | null;
       try {
-        lookupReason = deriveDeepLinkReason(await fetchDeepLinkLeadRow(leadId));
+        row = await fetchDeepLinkLeadRow(leadId);
       } catch {
-        lookupReason = LOOKUP_FAILED_REASON;
+        if (!cancelled) settlePin(null, LOOKUP_FAILED_REASON);
+        return;
       }
       if (cancelled) return;
 
+      const lookupReason = deriveDeepLinkReason(row);
       if (lookupReason.kind !== 'expected_listed') {
-        settle({ target: null, reason: lookupReason });
+        settlePin(row, lookupReason);
         return;
       }
 
@@ -103,11 +125,11 @@ export function useDeepLinkLead({
 
       const refreshed =
         queryClient.getQueryData<LeadsToScheduleCache>(LEADS_TO_SCHEDULE_QUERY_KEY)?.leads ?? [];
-      settle(
-        isListed(refreshed)
-          ? { target: leadId, reason: null }
-          : { target: null, reason: toStillNotListedReason(lookupReason) },
-      );
+      if (isListed(refreshed)) {
+        settle({ target: leadId, pin: null });
+        return;
+      }
+      settlePin(row, toStillNotListedReason(lookupReason));
     })();
 
     return () => {
@@ -115,7 +137,7 @@ export function useDeepLinkLead({
     };
   }, [leadId, isListLoading, queryClient]);
 
-  const dismissReason = useCallback(() => setReason(null), []);
+  const dismissPin = useCallback(() => setPin(null), []);
 
-  return { targetLeadId, reason, dismissReason };
+  return { targetLeadId, pin, dismissPin };
 }

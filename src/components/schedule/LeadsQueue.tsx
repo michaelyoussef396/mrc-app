@@ -7,7 +7,7 @@ import LeadBookingCard from './LeadBookingCard';
 import { BookJobSheet } from '@/components/leads/BookJobSheet';
 import { filterLeadsToSchedule } from './filterLeadsToSchedule';
 import { useDeepLinkLead } from './useDeepLinkLead';
-import { describeDeepLinkReason } from './deepLinkLeadReason';
+import { PinnedDeepLinkLead } from './PinnedDeepLinkLead';
 import { AlertCircle, CheckCircle2, Search, X } from 'lucide-react';
 
 // ============================================================================
@@ -55,7 +55,7 @@ export function LeadsQueue({
     suburb: string;
   } | null>(null);
 
-  const { targetLeadId, reason: deepLinkReason, dismissReason } = useDeepLinkLead({
+  const { targetLeadId, pin, dismissPin } = useDeepLinkLead({
     leadId: initialExpandedLeadId ?? null,
     leads,
     isListLoading: isLoading,
@@ -100,9 +100,6 @@ export function LeadsQueue({
   };
 
   const handleClearSearch = () => setSearchTerm('');
-
-  const deepLinkTechnicianName =
-    technicians.find((technician) => technician.id === deepLinkReason?.assignedTo)?.name ?? null;
 
   return (
     <div
@@ -188,39 +185,14 @@ export function LeadsQueue({
         </p>
       </div>
 
+      {/* Deep-linked lead the rail will never list. Outside the scroll container so it
+          stays put while the admin scrolls the queue, and outside the leads array so
+          the header count keeps reflecting the rail population only. */}
+      <PinnedDeepLinkLead pin={pin} technicians={technicians} onDismiss={dismissPin} />
+
       {/* Scrollable Lead Cards - Takes remaining height.
           gap (not space-y) so cards hidden by the search leave no phantom spacing. */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 flex flex-col gap-3">
-        {deepLinkReason && (
-          <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-            <p className="text-sm font-semibold text-amber-900">
-              {deepLinkReason.kind === 'not_found' || deepLinkReason.kind === 'lookup_failed'
-                ? "Couldn't open that lead here"
-                : `Couldn't open ${deepLinkReason.leadName ?? 'that lead'} here`}
-            </p>
-            <p className="text-sm mt-0.5 text-amber-800 break-words">
-              {describeDeepLinkReason(deepLinkReason, deepLinkTechnicianName)}
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              {deepLinkReason.kind !== 'not_found' && initialExpandedLeadId && (
-                <Link
-                  to={`/leads/${initialExpandedLeadId}`}
-                  className="inline-flex items-center h-12 px-2 text-sm font-semibold text-amber-900 hover:underline"
-                >
-                  View lead
-                </Link>
-              )}
-              <button
-                type="button"
-                onClick={dismissReason}
-                className="inline-flex items-center h-12 px-2 text-sm font-medium text-amber-800 hover:underline"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        )}
-
         {isLoading ? (
           // Loading State
           <div className="py-12 text-center">

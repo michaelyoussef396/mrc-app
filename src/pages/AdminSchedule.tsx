@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import { ScheduleHeader, ScheduleCalendar, ScheduleDailyView, LeadsQueue, EventDetailsPanel, CancelledBookingsList } from '@/components/schedule';
+import { PageErrorBoundary } from '@/components/ErrorBoundary';
 import { useScheduleCalendar, getWeekStart, CalendarEvent, type EventTypeFilter } from '@/hooks/useScheduleCalendar';
 import { useCancelledBookings } from '@/hooks/useCancelledBookings';
 import { useTechnicians } from '@/hooks/useTechnicians';
@@ -271,13 +272,16 @@ export default function AdminSchedule() {
 
           {/* Leads Queue Panel (Right 30%) - Fixed position, internal scroll.
               Both instances stay mounted, so the deep link goes only to the visible one —
-              otherwise the hidden copy would run the same lookup a second time. */}
+              otherwise the hidden copy would run the same lookup a second time.
+              Boundaried so one malformed lead takes down the rail, not the calendar. */}
           <aside className="hidden lg:flex lg:w-[30%] flex-col min-h-0">
-            <LeadsQueue
-              technicians={technicians}
-              initialExpandedLeadId={isRailDocked ? deepLinkLeadId : null}
-              onDeepLinkSettled={handleDeepLinkSettled}
-            />
+            <PageErrorBoundary name="schedule-rail">
+              <LeadsQueue
+                technicians={technicians}
+                initialExpandedLeadId={isRailDocked ? deepLinkLeadId : null}
+                onDeepLinkSettled={handleDeepLinkSettled}
+              />
+            </PageErrorBoundary>
           </aside>
         </div>
 
@@ -301,11 +305,13 @@ export default function AdminSchedule() {
                 <SheetTitle>Leads to schedule</SheetTitle>
                 <SheetDescription>Select a lead from the queue to book its inspection.</SheetDescription>
               </SheetHeader>
-              <LeadsQueue
-                technicians={technicians}
-                initialExpandedLeadId={isRailDocked ? null : deepLinkLeadId}
-                onDeepLinkSettled={handleDeepLinkSettled}
-              />
+              <PageErrorBoundary name="schedule-rail">
+                <LeadsQueue
+                  technicians={technicians}
+                  initialExpandedLeadId={isRailDocked ? null : deepLinkLeadId}
+                  onDeepLinkSettled={handleDeepLinkSettled}
+                />
+              </PageErrorBoundary>
             </SheetContent>
           </Sheet>
         </div>

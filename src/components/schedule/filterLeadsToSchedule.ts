@@ -17,7 +17,7 @@ const INTERNATIONAL_PREFIX = /^61(?=\d{9}$)/;
  * than three fragments. Case-insensitive; an empty term returns the list untouched.
  */
 export function filterLeadsToSchedule(leads: LeadToSchedule[], term: string): LeadToSchedule[] {
-  const trimmed = term.trim().toLowerCase();
+  const trimmed = toText(term).trim().toLowerCase();
   if (trimmed === '') return leads;
 
   const tokens = trimmed.split(/\s+/).filter(Boolean);
@@ -30,7 +30,9 @@ export function filterLeadsToSchedule(leads: LeadToSchedule[], term: string): Le
 }
 
 function matchesToken(lead: LeadToSchedule, token: string): boolean {
-  const text = [lead.fullName, lead.suburb, lead.propertyAddress].join(' ').toLowerCase();
+  const text = [toText(lead.fullName), toText(lead.suburb), toText(lead.propertyAddress)]
+    .join(' ')
+    .toLowerCase();
   if (text.includes(token)) return true;
 
   const tokenDigits = toPhoneDigits(token);
@@ -46,6 +48,15 @@ function toPhoneDigits(value: string): string | null {
   return digits.length >= MIN_PHONE_DIGITS ? digits : null;
 }
 
-function toLocalDigits(value: string): string {
-  return value.replace(NON_DIGITS, '').replace(INTERNATIONAL_PREFIX, '0');
+function toLocalDigits(value: string | null | undefined): string {
+  return toText(value).replace(NON_DIGITS, '').replace(INTERNATIONAL_PREFIX, '0');
+}
+
+/**
+ * Every searched column is NOT NULL in the database and useLeadsToSchedule coalesces
+ * each one, so nothing reaches here null today. This guard keeps a future nullable
+ * column from turning a single keystroke into a blank rail.
+ */
+function toText(value: string | null | undefined): string {
+  return typeof value === 'string' ? value : '';
 }

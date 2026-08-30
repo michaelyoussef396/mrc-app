@@ -28,6 +28,15 @@ function makeLead(overrides: Partial<LeadToSchedule>): LeadToSchedule {
   }
 }
 
+/**
+ * Every searched column is NOT NULL in the database and the hook coalesces each one,
+ * so these shapes cannot occur today. They exist to prove a future nullable column
+ * cannot turn a keystroke into a crash, which is why they defeat the type.
+ */
+function makeLeadWithNullFields(overrides: Partial<Record<keyof LeadToSchedule, null>>): LeadToSchedule {
+  return makeLead(overrides as Partial<LeadToSchedule>)
+}
+
 const hunter = makeLead({})
 const priya = makeLead({
   id: 'lead-2',
@@ -116,5 +125,39 @@ describe('filterLeadsToSchedule', () => {
 
   it('should not match a punctuation-only term against phone numbers', () => {
     expect(filterLeadsToSchedule(LEADS, '()')).toEqual([])
+  })
+
+  it('should not throw when a lead has no phone number', () => {
+    const noPhone = makeLeadWithNullFields({ phone: null })
+    expect(() => filterLeadsToSchedule([noPhone], '0412')).not.toThrow()
+  })
+
+  it('should still match a lead by name when it has no phone number', () => {
+    const noPhone = makeLeadWithNullFields({ phone: null })
+    expect(filterLeadsToSchedule([noPhone], 'campbell')).toEqual([noPhone])
+  })
+
+  it('should not throw when every searchable field is missing', () => {
+    const empty = makeLeadWithNullFields({
+      fullName: null,
+      suburb: null,
+      propertyAddress: null,
+      phone: null,
+    })
+    expect(() => filterLeadsToSchedule([empty], 'campbell')).not.toThrow()
+  })
+
+  it('should drop a lead whose searchable fields are all missing', () => {
+    const empty = makeLeadWithNullFields({
+      fullName: null,
+      suburb: null,
+      propertyAddress: null,
+      phone: null,
+    })
+    expect(filterLeadsToSchedule([empty], 'campbell')).toEqual([])
+  })
+
+  it('should treat a missing search term as no search at all', () => {
+    expect(filterLeadsToSchedule(LEADS, null as unknown as string)).toEqual(LEADS)
   })
 })
