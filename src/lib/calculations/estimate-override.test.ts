@@ -97,8 +97,9 @@ describe('reconcileLoadedOverride — rehydrating from a saved row', () => {
   });
 });
 
-// equipment_days persists the EFFECTIVE hire period (explicit or labour-derived),
-// so only a value that differs from the labour-derived days is an explicit one.
+// equipment_days persists the EFFECTIVE hire period (explicit or labour-derived)
+// and legacy rows carry the column default 1, so only a value that EXCEEDS the
+// labour-derived days is an explicit one.
 describe('reconcileLoadedEquipmentDays — rehydrating the shared hire period', () => {
   it('should return auto when the saved days equal the labour-derived days', () => {
     expect(reconcileLoadedEquipmentDays(2, 2)).toBe(0);
@@ -108,8 +109,12 @@ describe('reconcileLoadedEquipmentDays — rehydrating the shared hire period', 
     expect(reconcileLoadedEquipmentDays(4, 1)).toBe(4);
   });
 
-  it('should keep an explicit hire period shorter than the labour days', () => {
-    expect(reconcileLoadedEquipmentDays(1, 3)).toBe(1);
+  it('should treat the legacy column default of 1 on a multi-day job as auto', () => {
+    expect(reconcileLoadedEquipmentDays(1, 2)).toBe(0);
+  });
+
+  it('should treat any saved value below the labour-derived days as auto', () => {
+    expect(reconcileLoadedEquipmentDays(2, 3)).toBe(0);
   });
 
   it('should return auto for a legacy row with no equipment_days', () => {

@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { captureBusinessError } from '@/lib/sentry';
 import { logFieldEdits } from '@/lib/api/fieldEditLog';
 import { stripBadUnicode } from '@/lib/stripBadUnicode';
-import { EQUIPMENT_RATES } from '@/lib/calculations/pricing';
+import { EQUIPMENT_RATES, deriveEquipmentDays } from '@/lib/calculations/pricing';
 import { findSummaryFlags } from '@/lib/utils/summaryChecks';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import {
@@ -995,16 +995,17 @@ function buildEdgeFunctionPayload(
   const nonDemoHours = areas.reduce((sum: number, a: any) => sum + (a.job_time_minutes ? a.job_time_minutes / 60 : 0), 0);
   const demoHours = areas.reduce((sum: number, a: any) => a.demolition_required ? sum + (a.demolition_time_minutes ? a.demolition_time_minutes / 60 : 0) : sum, 0);
   const subfloorHours = subfloorData?.treatment_time_minutes ? subfloorData.treatment_time_minutes / 60 : 0;
-  const totalWorkDays = Math.max(1, Math.ceil((nonDemoHours + demoHours + subfloorHours) / 8));
+  const labourWorkDays = deriveEquipmentDays(nonDemoHours + demoHours + subfloorHours);
+  // Effective shared equipment days: the stored value counts only when it extends past the
+  // labour days (an explicit hire period) — legacy rows carry the column default 1. This is
+  // also the project duration handed to the model, which is told drying runs within it.
+  const totalWorkDays = Math.max(inspection?.equipment_days ?? 0, labourWorkDays);
 
   // hepa_air_scrubber_qty is persisted already gated on the method toggle; a null
-  // days column means "auto", which resolves to the shared equipment days — the
-  // stored effective hire period, falling back to labour days for legacy rows.
+  // days column means "auto", which resolves to the shared equipment days.
   const hepaQty = inspection?.hepa_air_scrubber_qty ?? 0;
   const hepaDays = hepaQty > 0
-    ? ((inspection?.hepa_air_scrubber_days ?? 0) > 0
-        ? inspection.hepa_air_scrubber_days
-        : (inspection?.equipment_days || totalWorkDays))
+    ? ((inspection?.hepa_air_scrubber_days ?? 0) > 0 ? inspection.hepa_air_scrubber_days : totalWorkDays)
     : null;
 
   return {

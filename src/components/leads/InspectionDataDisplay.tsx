@@ -28,10 +28,12 @@ import type {
   MoistureReadingData,
 } from '@/lib/api/inspections';
 import { formatDateAU } from '@/lib/dateUtils';
+import { reconcileLoadedEquipmentDays } from '@/lib/calculations/estimate-override';
 import {
   LABOUR_RATES,
   EQUIPMENT_RATES,
   calculateCostEstimate,
+  deriveEquipmentDays,
   type CostEstimateResult,
 } from '@/lib/calculations/pricing';
 
@@ -735,6 +737,15 @@ function CostEstimateSection({
   );
   const calculatedSubfloorHours = (subfloor?.treatment_time_minutes || 0) / 60;
 
+  // equipment_days is the full quote's EFFECTIVE days (legacy rows: column default 1); it is
+  // an explicit hire period only when it exceeds the labour-derived days, and only then does
+  // it apply to the Option 1 sub-quote — otherwise Option 1 derives its own, as the form does.
+  const explicitEquipmentDays =
+    reconcileLoadedEquipmentDays(
+      i.equipment_days,
+      deriveEquipmentDays(calculatedNonDemoHours + calculatedDemoHours + calculatedSubfloorHours),
+    ) || undefined;
+
   const costResult: CostEstimateResult = calculateCostEstimate({
     nonDemoHours: calculatedNonDemoHours,
     demolitionHours: calculatedDemoHours,
@@ -742,7 +753,7 @@ function CostEstimateSection({
     dehumidifierQty: i.commercial_dehumidifier_qty || 0,
     airMoverQty: i.air_movers_qty || 0,
     rcdQty: i.rcd_box_qty || 0,
-    equipmentDays: i.equipment_days || undefined,
+    equipmentDays: explicitEquipmentDays,
     hepaAirScrubberQty: i.hepa_air_scrubber_qty || 0,
     hepaAirScrubberDays: i.hepa_air_scrubber_days || undefined,
     wasteDisposalCost: i.waste_disposal_confirmed_cost ?? undefined,
@@ -759,7 +770,7 @@ function CostEstimateSection({
         dehumidifierQty: i.commercial_dehumidifier_qty || 0,
         airMoverQty: i.air_movers_qty || 0,
         rcdQty: i.rcd_box_qty || 0,
-        equipmentDays: i.equipment_days || undefined,
+        equipmentDays: explicitEquipmentDays,
         hepaAirScrubberQty: i.hepa_air_scrubber_qty || 0,
         hepaAirScrubberDays: i.hepa_air_scrubber_days || undefined,
       })

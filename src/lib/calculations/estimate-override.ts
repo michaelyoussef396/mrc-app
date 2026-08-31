@@ -56,14 +56,16 @@ export function reconcileLoadedOverride(
  * Rehydrate the shared equipment hire period from a saved inspection row.
  *
  * inspections.equipment_days stores the EFFECTIVE days (explicit or
- * labour-derived) because job completion and invoicing read it directly, so
- * a loaded value only counts as an explicit hire period when it differs from
- * the days the saved labour hours derive. Returns 0 (= auto) otherwise.
+ * labour-derived) because job completion and invoicing read it directly, and
+ * rows never saved since 2026-07-28 still carry the column default of 1. So a
+ * loaded value is an explicit hire period only when it EXCEEDS the days the
+ * saved labour hours derive; anything at or below them is auto (0). A hire
+ * period can therefore extend past the labour days but never fall short of
+ * them — the form's Days stepper enforces the same floor.
  */
 export function reconcileLoadedEquipmentDays(
   savedDays: number | null | undefined,
   autoDays: number
 ): number {
-  if (savedDays == null || savedDays <= 0 || savedDays === autoDays) return 0;
-  return savedDays;
+  return savedDays != null && savedDays > autoDays ? savedDays : 0;
 }

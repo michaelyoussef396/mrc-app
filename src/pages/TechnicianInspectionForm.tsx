@@ -1969,7 +1969,6 @@ const getEffectiveHepaQty = (formData: InspectionFormData) =>
     : 0;
 
 // Labour work days, derived exactly the way the pricing engine derives equipment days.
-// Feeds the AI payload's project duration and the equipment "Auto (N)" label.
 const getLabourWorkDays = (formData: InspectionFormData) => {
   const nonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
   const demoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
@@ -1977,12 +1976,21 @@ const getLabourWorkDays = (formData: InspectionFormData) => {
   return deriveEquipmentDays(nonDemoHours + demoHours + subfloorHours);
 };
 
-// Effective shared equipment days: the explicit Section 7 hire period when set, otherwise
-// the labour work days — the same resolution the pricing engine applies. Used for the HEPA
-// "Auto (N)" display and the AI payload's resolved HEPA days. `|| 0` guards a restored
-// pre-equipmentDays localStorage backup (field absent).
+// Explicit shared hire period. Counts only while Drying Equipment is quoted (the stepper
+// lives in that card) and only when it extends past the labour days: equipment_days
+// persists the EFFECTIVE value, so reconcileLoadedEquipmentDays can only recover a period
+// that exceeds what the hours derive — applying the same floor here keeps the session and
+// a reload pricing identical. `|| 0` guards a restored pre-equipmentDays localStorage backup.
+const getExplicitEquipmentDays = (formData: InspectionFormData) => {
+  if (!formData.selectedTreatmentMethods?.includes('Drying Equipment')) return 0;
+  const explicit = formData.equipmentDays || 0;
+  return explicit > getLabourWorkDays(formData) ? explicit : 0;
+};
+
+// Effective shared equipment days — the same resolution the pricing engine applies. Used
+// for the HEPA "Auto (N)" display and the AI payload (project duration + resolved HEPA days).
 const getSharedEquipmentDays = (formData: InspectionFormData) =>
-  (formData.equipmentDays || 0) > 0 ? formData.equipmentDays : getLabourWorkDays(formData);
+  getExplicitEquipmentDays(formData) || getLabourWorkDays(formData);
 
 function Section7WorkProcedure({ formData, onChange }: SectionProps) {
   const selected = formData.selectedTreatmentMethods;
@@ -2016,6 +2024,7 @@ function Section7WorkProcedure({ formData, onChange }: SectionProps) {
 
   const sharedEquipmentDays = getSharedEquipmentDays(formData);
   const labourWorkDays = getLabourWorkDays(formData);
+  const explicitEquipmentDays = getExplicitEquipmentDays(formData);
 
   return (
     <section className="space-y-5">
@@ -2175,28 +2184,33 @@ function Section7WorkProcedure({ formData, onChange }: SectionProps) {
               )}
             </div>
 
-            {/* Days — 0 means "auto": follow the job's labour days. Multiplies every item above. */}
+            {/* Days — steps the EFFECTIVE hire period. Auto = the labour days; stepping below
+                them snaps back to Auto because a shorter period cannot be persisted (see
+                getExplicitEquipmentDays). Multiplies every item above. */}
             <div className="flex items-center justify-between pt-4 border-t border-gray-100">
               <span className="text-[#1d1d1f]">Days</span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => onChange('equipmentDays', Math.max(0, (formData.equipmentDays || 0) - 1))}
+                  onClick={() => {
+                    const next = sharedEquipmentDays - 1;
+                    onChange('equipmentDays', next > labourWorkDays ? next : 0);
+                  }}
                   className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-[#007AFF] font-bold"
                 >
                   -
                 </button>
                 <span className="min-w-[2rem] text-center font-medium whitespace-nowrap">
-                  {(formData.equipmentDays || 0) > 0 ? formData.equipmentDays : `Auto (${labourWorkDays})`}
+                  {explicitEquipmentDays > 0 ? explicitEquipmentDays : `Auto (${labourWorkDays})`}
                 </span>
                 <button
-                  onClick={() => onChange('equipmentDays', (formData.equipmentDays || 0) + 1)}
+                  onClick={() => onChange('equipmentDays', sharedEquipmentDays + 1)}
                   className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-[#007AFF] font-bold"
                 >
                   +
                 </button>
               </div>
             </div>
-            <p className="text-xs text-[#86868b]">Multiplies every item above. Auto follows the job&apos;s labour days.</p>
+            <p className="text-xs text-[#86868b]">Multiplies every item above. Auto follows the job&apos;s labour days — extend it when the equipment stays on after the crew leaves.</p>
           </div>
         </div>
       )}
@@ -2348,7 +2362,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
     dehumidifierQty,
     airMoverQty,
     rcdQty,
-    equipmentDays: formData.equipmentDays || undefined,
+    equipmentDays: getExplicitEquipmentDays(formData) || undefined,
     hepaAirScrubberQty: getEffectiveHepaQty(formData),
     hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
   });
@@ -2362,7 +2376,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
         dehumidifierQty,
         airMoverQty,
         rcdQty,
-        equipmentDays: formData.equipmentDays || undefined,
+        equipmentDays: getExplicitEquipmentDays(formData) || undefined,
         hepaAirScrubberQty: getEffectiveHepaQty(formData),
         hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
       })
@@ -2922,7 +2936,9 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
     additionalInfoForTech: formData.additionalInfoForTech,
     additionalEquipmentComments: formData.additionalEquipmentComments,
     parkingOptions: formData.parkingOptions,
-    totalWorkDays: getLabourWorkDays(formData),
+    // Project duration: the labour days, or the longer explicit equipment hire — the model
+    // is told drying runs within this figure, so it must not be shorter than the hire.
+    totalWorkDays: getSharedEquipmentDays(formData),
     laborCost: formData.laborCost,
     equipmentCost: formData.equipmentCost,
     subtotalExGst: formData.subtotalExGst,
@@ -3298,28 +3314,32 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           // values from the same saved inputs (hours/quantities are saved
           // atomically with them) and treat only differing values as overrides.
           const loadedOverrideFlag = ins.manual_labour_override || false;
-          const loadAutoInput = {
+          const loadHours = {
             nonDemoHours: ins.no_demolition_hours ? Number(ins.no_demolition_hours) : 0,
             demolitionHours: ins.demolition_hours ? Number(ins.demolition_hours) : 0,
             subfloorHours: ins.subfloor_hours ? Number(ins.subfloor_hours) : 0,
+          };
+          // equipment_days stores the full quote's EFFECTIVE days (and legacy rows carry the
+          // column default 1), so a loaded value is an explicit hire period only when it
+          // exceeds what the saved hours derive. Only an explicit period feeds the Option 1
+          // reconcile below — on auto, Option 1 derives its own days, as the save did.
+          const loadedEquipmentDays = reconcileLoadedEquipmentDays(
+            ins.equipment_days,
+            deriveEquipmentDays(loadHours.nonDemoHours + loadHours.demolitionHours + loadHours.subfloorHours)
+          );
+          const loadAutoInput = {
+            ...loadHours,
             dehumidifierQty: ins.commercial_dehumidifier_qty || 0,
             airMoverQty: ins.air_movers_qty || 0,
             rcdQty: ins.rcd_box_qty || 0,
             hepaAirScrubberQty: ins.hepa_air_scrubber_qty || 0,
-            equipmentDays: ins.equipment_days || undefined,
+            equipmentDays: loadedEquipmentDays || undefined,
             hepaAirScrubberDays: ins.hepa_air_scrubber_days || undefined,
           };
           const loadAuto = calculateCostEstimate(loadAutoInput);
           const loadOpt1Auto = ins.option_selected === 3
             ? calculateCostEstimate({ ...loadAutoInput, demolitionHours: 0, subfloorHours: 0 })
             : null;
-          // equipment_days stores the EFFECTIVE shared days (explicit or labour-derived), so a
-          // loaded value is an explicit hire period only when it differs from what the saved
-          // hours derive — the same reconcile rule the estimate overrides use.
-          const loadedEquipmentDays = reconcileLoadedEquipmentDays(
-            ins.equipment_days,
-            deriveEquipmentDays(loadAuto.totalLabourHours)
-          );
           const loadedLabourOverride = reconcileLoadedOverride(
             loadedOverrideFlag,
             ins.labour_cost_ex_gst != null ? Number(ins.labour_cost_ex_gst) : null,
@@ -3996,7 +4016,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         dehumidifierQty: getEffectiveDryingQty(formData, 'commercialDehumidifierQty'),
         airMoverQty: getEffectiveDryingQty(formData, 'airMoversQty'),
         rcdQty: getEffectiveDryingQty(formData, 'rcdBoxQty'),
-        equipmentDays: formData.equipmentDays || undefined,
+        equipmentDays: getExplicitEquipmentDays(formData) || undefined,
         hepaAirScrubberQty: getEffectiveHepaQty(formData),
         hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
         wasteDisposalCost: saveWaste,
@@ -4035,7 +4055,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           dehumidifierQty: getEffectiveDryingQty(formData, 'commercialDehumidifierQty'),
           airMoverQty: getEffectiveDryingQty(formData, 'airMoversQty'),
           rcdQty: getEffectiveDryingQty(formData, 'rcdBoxQty'),
-          equipmentDays: formData.equipmentDays || undefined,
+          equipmentDays: getExplicitEquipmentDays(formData) || undefined,
           hepaAirScrubberQty: getEffectiveHepaQty(formData),
           hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
         });
