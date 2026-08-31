@@ -176,7 +176,16 @@
                 <span style="color: #252525; font-size: 17px; font-family: 'Garet Heavy', sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05px;">DATE:</span><br/>
                 <span style="color: #252525; font-size: 17px; font-family: 'Galvji', sans-serif; font-weight: 400;">{{inspection_date}}</span>
             </div>
-            <div style="width: 200px; left: 27px; top: 505px; position: absolute; line-height: 22px; z-index: 10;">
+            <!-- White backing: this block has no fixed height, so a long
+                 {{examined_areas}} list grows down onto the navy diagonal and
+                 #252525 text on #121D73 becomes unreadable. The panel hugs the
+                 content, so on short lists it lands entirely on the white part
+                 of the cover and is invisible. Offsets are padding-compensated
+                 (left 27-12, top 505-10) to keep the text exactly where the
+                 design puts it. z-index 1 keeps it above the navy diagonal but
+                 under the cover photo's drop shadow, so the panel does not
+                 punch a bright rectangle out of that shadow. -->
+            <div style="width: 224px; left: 15px; top: 495px; position: absolute; padding: 10px 12px; background: white; border-radius: 6px; line-height: 22px; z-index: 1;">
                 <span style="color: #252525; font-size: 17px; font-family: 'Garet Heavy', sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04px;">DIRECTED TO:</span><br/>
                 <span style="color: #252525; font-size: 17px; font-family: 'Galvji', sans-serif; font-weight: 400; text-transform: uppercase; line-height: 22px;">{{directed_to}}</span><br/><br/>
                 <span style="color: #252525; font-size: 17px; font-family: 'Garet Heavy', sans-serif; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04px;">PROPERTY TYPE:</span><br/>
