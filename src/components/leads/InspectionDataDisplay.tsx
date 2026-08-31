@@ -33,6 +33,7 @@ import {
   areaRowToLabourInput,
   deriveQuoteHours,
   deriveSurfaceHours,
+  isPricedAsDemolition,
 } from '@/lib/calculations/labourHours';
 import {
   LABOUR_RATES,
@@ -801,22 +802,25 @@ function CostEstimateSection({
         <p className="text-xs text-slate-500 mb-2">Labour Hours</p>
         <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
           {areas.map((area, idx) => {
-            const { surfaceHours, demolitionHours, demolitionRequired } = areaRowToLabourInput(area);
+            const labour = areaRowToLabourInput(area);
+            const { surfaceHours, demolitionHours, demolitionRequired } = labour;
+            const demolitionPriced = isPricedAsDemolition(labour) && !isSurfaceOnlyQuote;
             const areaLabel = area.area_name ? `Area ${idx + 1}: ${area.area_name}` : `Area ${idx + 1}`;
+            const demolitionNote = isSurfaceOnlyQuote
+              ? `— Demolition ${fmtHours(demolitionHours)} not in Option 1`
+              : demolitionPriced
+                ? `— Demolition ${fmtHours(demolitionHours)} replaces surface ${fmtHours(surfaceHours)}`
+                : '— Demolition Required but no time entered: priced as surface';
             return (
               <div key={area.id} className="flex justify-between text-sm">
                 <span className="text-slate-700">
                   {areaLabel}
                   {demolitionRequired && (
-                    <span className="text-slate-500 ml-1">
-                      {isSurfaceOnlyQuote
-                        ? `— Demolition ${fmtHours(demolitionHours)} not in Option 1`
-                        : `— Demolition ${fmtHours(demolitionHours)} replaces surface ${fmtHours(surfaceHours)}`}
-                    </span>
+                    <span className="text-slate-500 ml-1">{demolitionNote}</span>
                   )}
                 </span>
                 <span className="font-medium text-slate-800">
-                  {demolitionRequired && !isSurfaceOnlyQuote ? fmtHours(demolitionHours) : fmtHours(surfaceHours)}
+                  {demolitionPriced ? fmtHours(demolitionHours) : fmtHours(surfaceHours)}
                 </span>
               </div>
             );

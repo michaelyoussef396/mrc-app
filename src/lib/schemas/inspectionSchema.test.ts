@@ -60,6 +60,24 @@ describe('validateInspectionCompletion — demolition time is required when flag
     })
     expect(valid).toBe(true)
   })
+
+  it('should not require demolition time on a single Option 1 quote', () => {
+    const { valid } = validateInspectionCompletion({
+      ...COMPLETE_FORM,
+      optionSelected: 1,
+      areas: [{ areaName: 'Bedroom 1', demolitionRequired: true, demolitionTime: 0 }],
+    })
+    expect(valid).toBe(true)
+  })
+
+  it('should require demolition time on a Both-options quote', () => {
+    const { valid } = validateInspectionCompletion({
+      ...COMPLETE_FORM,
+      optionSelected: 3,
+      areas: [{ areaName: 'Bedroom 1', demolitionRequired: true, demolitionTime: 0 }],
+    })
+    expect(valid).toBe(false)
+  })
 })
 
 describe('validateInspectionCompletion — labour hours', () => {

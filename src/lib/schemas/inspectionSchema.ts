@@ -12,18 +12,23 @@ const inspectionAreaSchema = z.object({
   demolitionTime: z.number().optional(),
 })
 
+/** inspections.option_selected value for a Surface Treatment (Option 1) quote. */
+const OPTION_SURFACE_TREATMENT = 1
+
 // Demolition replaces the surface time for a flagged area, so a flagged area with no
-// demolition time would price at $0 while looking complete.
+// demolition time is an incomplete quote (it keeps pricing as surface until the time is
+// entered). A single Option 1 quote never prices demolition, so it is exempt.
 const requireDemolitionTimeWhenFlagged = (
-  areas: z.infer<typeof inspectionAreaSchema>[],
+  data: { areas: z.infer<typeof inspectionAreaSchema>[]; optionSelected?: number | null },
   ctx: z.RefinementCtx
 ) => {
-  areas.forEach((area, index) => {
+  if (data.optionSelected === OPTION_SURFACE_TREATMENT) return
+  data.areas.forEach((area, index) => {
     if (area.demolitionRequired && !((area.demolitionTime ?? 0) > 0)) {
       ctx.addIssue({
         code: 'custom',
         message: `${area.areaName}: enter the Demolition Time — it replaces the surface time when Demolition Required is on`,
-        path: [index, 'demolitionTime'],
+        path: ['areas', index, 'demolitionTime'],
       })
     }
   })
@@ -45,12 +50,10 @@ export const wasteDisposalSchema = z.object({
 export const inspectionCompletionSchema = z.object({
   inspectionDate: z.string().min(1, 'Inspection date is required'),
 
-  areas: z
-    .array(inspectionAreaSchema)
-    .min(1, 'At least one area with a name is required')
-    .superRefine(requireDemolitionTimeWhenFlagged),
+  areas: z.array(inspectionAreaSchema).min(1, 'At least one area with a name is required'),
 
   // Treatment option and methods
+  optionSelected: z.number().nullable().optional(),
   selectedTreatmentMethods: z.array(z.string()),
 
   // Hours
@@ -71,7 +74,7 @@ export const inspectionCompletionSchema = z.object({
     message: 'At least one hour type must be greater than 0',
     path: ['noDemolitionHours'],
   }
-)
+).superRefine(requireDemolitionTimeWhenFlagged)
 
 export interface ValidationError {
   section: number
@@ -90,6 +93,7 @@ const FIELD_SECTION_MAP: Record<string, { section: number; label: string }> = {
 export function validateInspectionCompletion(formData: {
   inspectionDate: string
   areas: { areaName: string; demolitionRequired?: boolean; demolitionTime?: number }[]
+  optionSelected?: number | null
   selectedTreatmentMethods: string[]
   noDemolitionHours: number
   demolitionHours: number

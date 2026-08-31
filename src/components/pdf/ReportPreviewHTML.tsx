@@ -182,6 +182,12 @@ export interface CostData {
   auto_equipment_ex_gst: number
   auto_option_1_labour_ex_gst: number
   auto_option_1_equipment_ex_gst: number
+  // Reconcile basis: the auto-calc at current rates but on the hours the row was SAVED
+  // with. A saved figure is an override only when it differs from THIS (with the flag
+  // set); comparing against auto_* would turn every old auto snapshot into an override
+  // whenever the way hours are derived changes. Mirrors the technician form's load path.
+  basis_labour_ex_gst: number
+  basis_equipment_ex_gst: number
   manual_labour_override: boolean
 }
 
@@ -292,7 +298,7 @@ export function ReportPreviewHTML({
 
   // Cleaning Estimate — cost editing state
   const [editingCost, setEditingCost] = useState(false)
-  const [costForm, setCostForm] = useState<CostData>({ labour_cost_ex_gst: 0, equipment_cost_ex_gst: 0, subtotal_ex_gst: 0, gst_amount: 0, total_inc_gst: 0, waste_disposal_cost: 0, option_selected: null, treatment_methods: [], option_1_labour_ex_gst: 0, option_1_equipment_ex_gst: 0, option_1_total_inc_gst: 0, option_2_total_inc_gst: 0, auto_labour_ex_gst: 0, auto_equipment_ex_gst: 0, auto_option_1_labour_ex_gst: 0, auto_option_1_equipment_ex_gst: 0, manual_labour_override: false })
+  const [costForm, setCostForm] = useState<CostData>({ labour_cost_ex_gst: 0, equipment_cost_ex_gst: 0, subtotal_ex_gst: 0, gst_amount: 0, total_inc_gst: 0, waste_disposal_cost: 0, option_selected: null, treatment_methods: [], option_1_labour_ex_gst: 0, option_1_equipment_ex_gst: 0, option_1_total_inc_gst: 0, option_2_total_inc_gst: 0, auto_labour_ex_gst: 0, auto_equipment_ex_gst: 0, auto_option_1_labour_ex_gst: 0, auto_option_1_equipment_ex_gst: 0, basis_labour_ex_gst: 0, basis_equipment_ex_gst: 0, manual_labour_override: false })
   const [savingCost, setSavingCost] = useState(false)
   const [costPageTop, setCostPageTop] = useState<number | null>(null)
 
@@ -794,16 +800,21 @@ export function ReportPreviewHTML({
     // Previously Option 1 was seeded once from whatever labour_cost_ex_gst happened to
     // hold and never re-derived, so a corrected rate card could never reach an inspection
     // that had been opened here before.
-    const effective = (stored: number, auto: number) => resolveOverridableValue(
-      reconcileLoadedOverride(saved.manual_labour_override, stored, auto),
+    // The override test runs against the saved-hours basis; the value shown for a
+    // non-override is the live auto-calc. Option 1 is priced on every area's surface
+    // time, which the area rows carry unchanged, so its basis is its auto.
+    const effective = (stored: number, auto: number, basis = auto) => resolveOverridableValue(
+      reconcileLoadedOverride(saved.manual_labour_override, stored, basis),
       auto
     )
 
     setEditingCost(true)
     setCostForm(recalcTotals({
       ...saved,
-      labour_cost_ex_gst: effective(saved.labour_cost_ex_gst, saved.auto_labour_ex_gst),
-      equipment_cost_ex_gst: effective(saved.equipment_cost_ex_gst, saved.auto_equipment_ex_gst),
+      labour_cost_ex_gst: effective(
+        saved.labour_cost_ex_gst, saved.auto_labour_ex_gst, saved.basis_labour_ex_gst),
+      equipment_cost_ex_gst: effective(
+        saved.equipment_cost_ex_gst, saved.auto_equipment_ex_gst, saved.basis_equipment_ex_gst),
       option_1_labour_ex_gst: effective(
         saved.option_1_labour_ex_gst, saved.auto_option_1_labour_ex_gst),
       option_1_equipment_ex_gst: effective(

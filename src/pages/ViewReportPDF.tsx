@@ -10,9 +10,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
 import type { Page1Data, VPData, OutdoorData, AreaRecord, SubfloorEditData, CostData } from '@/components/pdf/ReportPreviewHTML'
-import { BOTH_OPTIONS, computeInspectionEstimate } from '@/lib/calculations/inspectionEstimate'
-import { storedLabourHours } from '@/lib/calculations/estimate-override'
-import { OVERRIDE_EPSILON } from '@/lib/calculations/estimate-override'
+import { BOTH_OPTIONS, computeInspectionEstimate, deriveInspectionHours } from '@/lib/calculations/inspectionEstimate'
+import { OVERRIDE_EPSILON, resolveStoredEquipmentDays, storedLabourHours } from '@/lib/calculations/estimate-override'
+import { calculateCostEstimate, deriveEquipmentDays } from '@/lib/calculations/pricing'
 import { EditFieldModal } from '@/components/pdf/EditFieldModal'
 import { ImageUploadModal } from '@/components/pdf/ImageUploadModal'
 import { Button } from '@/components/ui/button'
@@ -1569,8 +1569,25 @@ export default function ViewReportPDF() {
       })
     : null
 
+  // Reconcile basis for the cost editor: current rates on the hours the row was SAVED
+  // with (the same basis the technician form reconciles against on load), so a change to
+  // how hours are derived cannot make an old auto snapshot look like a deliberate override.
+  const savedBasis = inspection
+    ? calculateCostEstimate({
+        nonDemoHours: Number(inspection.no_demolition_hours ?? 0),
+        demolitionHours: Number(inspection.demolition_hours ?? 0),
+        subfloorHours: Number(inspection.subfloor_hours ?? 0),
+        dehumidifierQty: inspection.commercial_dehumidifier_qty ?? 0,
+        airMoverQty: inspection.air_movers_qty ?? 0,
+        rcdQty: inspection.rcd_box_qty ?? 0,
+        equipmentDays: resolveStoredEquipmentDays(inspection, 0) || undefined,
+        hepaAirScrubberQty: inspection.hepa_air_scrubber_qty ?? 0,
+        hepaAirScrubberDays: inspection.hepa_air_scrubber_days ?? undefined,
+      })
+    : null
+
   // Cost data for cleaning estimate editing
-  const costData: CostData | null = inspection && autoEstimate ? {
+  const costData: CostData | null = inspection && autoEstimate && savedBasis ? {
     labour_cost_ex_gst: inspection.labour_cost_ex_gst ?? 0,
     equipment_cost_ex_gst: inspection.equipment_cost_ex_gst ?? 0,
     subtotal_ex_gst: inspection.subtotal_ex_gst ?? 0,
@@ -1587,6 +1604,8 @@ export default function ViewReportPDF() {
     auto_equipment_ex_gst: autoEstimate.full.equipmentCost,
     auto_option_1_labour_ex_gst: autoEstimate.option1.labourAfterDiscount,
     auto_option_1_equipment_ex_gst: autoEstimate.option1.equipmentCost,
+    basis_labour_ex_gst: savedBasis.labourAfterDiscount,
+    basis_equipment_ex_gst: savedBasis.equipmentCost,
     manual_labour_override: inspection.manual_labour_override ?? false,
   } : null
 
@@ -1838,11 +1857,28 @@ export default function ViewReportPDF() {
         differsFromAuto(costs.option_1_equipment_ex_gst, costs.auto_option_1_equipment_ex_gst)
       ))
 
+    // The editor prices on the live per-area hours for the option being saved, so persist
+    // those hours and the effective equipment days with the price — stored-column readers
+    // (invoice helper, booking sheet, job completion) must not keep hours the price no
+    // longer reflects.
+    const savedHours = deriveInspectionHours(
+      areasData,
+      subfloorData?.treatment_time_minutes,
+      costs.option_selected
+    )
+    const savedLabourHours = savedHours.nonDemo + savedHours.demolition + savedHours.subfloor
+    const savedEquipmentDays =
+      resolveStoredEquipmentDays(inspection, savedLabourHours) || deriveEquipmentDays(savedLabourHours)
+
     try {
       const { error } = await supabase
         .from('inspections')
         .update({
           manual_labour_override: manualLabourOverride,
+          no_demolition_hours: savedHours.nonDemo,
+          demolition_hours: savedHours.demolition,
+          subfloor_hours: savedHours.subfloor,
+          equipment_days: savedEquipmentDays,
           labour_cost_ex_gst: costs.labour_cost_ex_gst,
           equipment_cost_ex_gst: costs.equipment_cost_ex_gst,
           subtotal_ex_gst: costs.subtotal_ex_gst,
@@ -1865,6 +1901,10 @@ export default function ViewReportPDF() {
       setInspection(prev => prev ? {
         ...prev,
         manual_labour_override: manualLabourOverride,
+        no_demolition_hours: savedHours.nonDemo,
+        demolition_hours: savedHours.demolition,
+        subfloor_hours: savedHours.subfloor,
+        equipment_days: savedEquipmentDays,
         labour_cost_ex_gst: costs.labour_cost_ex_gst,
         equipment_cost_ex_gst: costs.equipment_cost_ex_gst,
         subtotal_ex_gst: costs.subtotal_ex_gst,

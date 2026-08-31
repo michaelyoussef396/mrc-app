@@ -314,6 +314,16 @@ describe('computeInspectionEstimate — each option carries only its own scope',
     );
   });
 
+  it('should keep pricing a flagged area as surface until a demolition time is entered', () => {
+    const estimate = computeInspectionEstimate({
+      areas: [area(120, 0, true)],
+      equipment: NO_EQUIPMENT,
+      optionSelected: 2,
+    });
+
+    expect(estimate.full.labourAfterDiscount).toBe(615.27);
+  });
+
   it('should keep surface time for the areas that are not demolished on Option 2', () => {
     const estimate = computeInspectionEstimate({
       areas: [area(120, 120, true), area(60)],

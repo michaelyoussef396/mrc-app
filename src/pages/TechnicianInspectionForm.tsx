@@ -20,6 +20,7 @@ import {
   areaRowToLabourInput,
   deriveQuoteHours,
   deriveSurfaceHours,
+  isPricedAsDemolition,
 } from '@/lib/calculations/labourHours';
 import {
   parseOverrideInput,
@@ -2439,10 +2440,17 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
               {area.areaName || `Area ${idx + 1}`}
             </span>
             {(() => {
-              // A flagged area is priced on demolition unless the quote is Option 1 only.
-              const surfaceQuoted = !area.demolitionRequired || isSurfaceOnlyQuote;
-              const surfaceNote = surfaceQuoted ? '' : isBothMode ? ' (Option 1 only)' : ' (not quoted)';
-              const demolitionNote = isSurfaceOnlyQuote ? ' (not in Option 1)' : ' (replaces surface)';
+              // A flagged area is priced on demolition once a time is entered, unless the
+              // quote is Option 1 only; until then it keeps pricing as surface.
+              const demolitionPriced =
+                isPricedAsDemolition(areaFormToLabourInput(area)) && !isSurfaceOnlyQuote;
+              const surfaceQuoted = !demolitionPriced;
+              const surfaceNote = demolitionPriced
+                ? (isBothMode ? ' (Option 1 only)' : ' (not quoted)')
+                : (area.demolitionRequired && !isSurfaceOnlyQuote ? ' (until demolition time is entered)' : '');
+              const demolitionNote = isSurfaceOnlyQuote
+                ? ' (not in Option 1)'
+                : demolitionPriced ? ' (replaces surface)' : ' (enter time)';
               const quoted = 'text-[#1d1d1f]';
               const muted = 'text-[#86868b]';
               return (
@@ -2453,8 +2461,8 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
                   </div>
                   {area.demolitionRequired && (
                     <div className="flex justify-between text-sm">
-                      <span className={isSurfaceOnlyQuote ? muted : quoted}>Demolition{demolitionNote}</span>
-                      <span className={`font-medium ${isSurfaceOnlyQuote ? muted : quoted}`}>{area.demolitionTime || 0}h</span>
+                      <span className={demolitionPriced ? quoted : muted}>Demolition{demolitionNote}</span>
+                      <span className={`font-medium ${demolitionPriced ? quoted : muted}`}>{area.demolitionTime || 0}h</span>
                     </div>
                   )}
                 </>
@@ -4033,6 +4041,9 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   // Read by the Complete flow so it never reports "Inspection Complete" on
   // top of a save that only exists on this device.
   const lastSaveFailedOfflineRef = useRef(false);
+  // Cost figures the most recent save persisted. formData's own cost fields are the
+  // snapshot loaded from the DB, so the completion flow's AI payload reads these instead.
+  const lastSavedTotalsRef = useRef<Partial<InspectionFormData>>({});
 
   const handleSave = async (options?: { silent?: boolean }): Promise<string | null> => {
     if (!leadId || !user) return null;
@@ -4084,6 +4095,13 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       const saveSubtotal = round2(saveLabour + saveEquipment + saveWaste);
       const saveGst = round2(saveSubtotal * 0.1);
       const saveTotal = round2(saveSubtotal + saveGst);
+      lastSavedTotalsRef.current = {
+        laborCost: saveLabour,
+        equipmentCost: saveEquipment,
+        subtotalExGst: saveSubtotal,
+        gstAmount: saveGst,
+        totalIncGst: saveTotal,
+      };
 
       // Per-option totals
       let saveOption1Total: number | null = null;
@@ -4663,6 +4681,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
     const { errors } = validateInspectionCompletion({
       inspectionDate: formData.inspectionDate,
       areas: formData.areas,
+      optionSelected: formData.optionSelected,
       selectedTreatmentMethods: formData.selectedTreatmentMethods,
       noDemolitionHours: formData.noDemolitionHours || 0,
       demolitionHours: formData.demolitionHours || 0,
@@ -4766,7 +4785,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           aiError = { message: 'Inspection id unavailable after save' };
           console.error('[AI Generate on Complete] Missing inspection id; skipping AI generation');
         } else {
-          const payload = buildAIPayload(formData, lead);
+          const payload = buildAIPayload({ ...formData, ...lastSavedTotalsRef.current }, lead);
           const { data: { session: aiSession } } = await supabase.auth.getSession();
           const result = await invokeEdgeFunction('generate-inspection-summary', {
             formData: payload,

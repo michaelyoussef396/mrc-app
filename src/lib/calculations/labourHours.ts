@@ -46,6 +46,16 @@ export function deriveQuoteHours(
 }
 
 /**
+ * An area is priced as demolition only once a demolition time has been entered. A flagged
+ * area without one keeps pricing as surface treatment — a $0 area would otherwise reach
+ * lead detail, the report cost editor and the form's auto-save with no warning — and the
+ * completion gate (inspectionSchema) refuses to complete until the time is entered.
+ */
+export function isPricedAsDemolition(area: AreaLabourInput): boolean {
+  return area.demolitionRequired && area.demolitionHours > 0;
+}
+
+/**
  * Comprehensive scope (Option 2): each area is either demolished or surface-treated,
  * plus subfloor.
  */
@@ -54,11 +64,11 @@ export function deriveComprehensiveHours(
   subfloorHours = 0
 ): LabourHours {
   const nonDemo = areas.reduce(
-    (sum, area) => (area.demolitionRequired ? sum : sum + area.surfaceHours),
+    (sum, area) => (isPricedAsDemolition(area) ? sum : sum + area.surfaceHours),
     0
   );
   const demolition = areas.reduce(
-    (sum, area) => (area.demolitionRequired ? sum + area.demolitionHours : sum),
+    (sum, area) => (isPricedAsDemolition(area) ? sum + area.demolitionHours : sum),
     0
   );
   return { nonDemo, demolition, subfloor: subfloorHours, total: nonDemo + demolition + subfloorHours };

@@ -6,6 +6,7 @@ import {
   deriveComprehensiveHours,
   deriveQuoteHours,
   deriveSurfaceHours,
+  isPricedAsDemolition,
 } from './labourHours';
 
 const area = (surfaceHours: number, demolitionHours = 0, demolitionRequired = false) => ({
@@ -36,8 +37,12 @@ describe('deriveComprehensiveHours — demolition replaces surface treatment per
     expect(hours.nonDemo + hours.demolition).toBe(3);
   });
 
-  it('should contribute nothing for a flagged area with no demolition time entered', () => {
-    expect(deriveComprehensiveHours([area(2, 0, true)]).total).toBe(0);
+  it('should keep pricing a flagged area as surface until a demolition time is entered', () => {
+    expect(deriveComprehensiveHours([area(2, 0, true)]).nonDemo).toBe(2);
+  });
+
+  it('should charge no demolition for a flagged area until a demolition time is entered', () => {
+    expect(deriveComprehensiveHours([area(2, 0, true)]).demolition).toBe(0);
   });
 
   it('should add subfloor hours to the total', () => {
@@ -46,6 +51,20 @@ describe('deriveComprehensiveHours — demolition replaces surface treatment per
 
   it('should return zero hours for no areas', () => {
     expect(deriveComprehensiveHours([]).total).toBe(0);
+  });
+});
+
+describe('isPricedAsDemolition — a flag alone does not price an area as demolition', () => {
+  it('should price a flagged area with demolition time as demolition', () => {
+    expect(isPricedAsDemolition(area(2, 3, true))).toBe(true);
+  });
+
+  it('should not price a flagged area without demolition time as demolition', () => {
+    expect(isPricedAsDemolition(area(2, 0, true))).toBe(false);
+  });
+
+  it('should never price an unflagged area as demolition', () => {
+    expect(isPricedAsDemolition(area(2, 3, false))).toBe(false);
   });
 });
 
