@@ -993,6 +993,7 @@ After the PDF Pipeline Rebuild (server-render + versioning + mismatch guard) lan
 - **PDF-CL15 — `/admin/render-test` output accumulates in Storage.** The legacy branch of `api/render-pdf.ts` now uploads each fidelity-test render to `report-pdfs/_render-test/{inspectionId}/{timestamp}.pdf` (it can no longer return bytes in the response body). Nothing prunes that prefix. Action: either add a retention sweep or delete the render-test page now that the pipeline is live.
 - **PDF-CL16 — `report-pdfs` has NO DELETE policy, so every "best-effort cleanup" in the render endpoints is dead code.** `20251028135212_*.sql:984-999` creates only INSERT and SELECT policies for this bucket. `inspection-photos` (`:976-982`) and `profile-photos` (`20260415000000_profile_photos_bucket.sql:19`) both got DELETE policies; `report-pdfs` never did. Supabase Storage `remove()` under RLS returns `{ data: [], error: null }` when the policy filters the row — **a silent no-op, not an error**. Consequences: (1) the orphan-PDF cleanup at `api/render-pdf.ts:391` and `:405`, and the same calls in `api/render-job-report-pdf.ts`, have never removed anything — a failed HTML upload after a successful PDF upload leaves the orphan PDF in the bucket permanently, and the code logs nothing because there is no error to log; (2) nothing in the app can prune `report-pdfs`, including the `_email-test/` and `_render-test/` scratch prefixes (see PDF-CL15). Verified empirically on DEV 2026-08-27: an authenticated `remove()` on an object the same session had just uploaded returned 0 removed with no error, and the object remained fetchable via a fresh signed URL. Action: add a DELETE policy for `report-pdfs` (admin-scoped), then either check the `remove()` result length at both call sites or drop the misleading cleanup calls.
 - **PDF-CL17 — Switch `generate-job-report-pdf` to signed photo URLs; job reports are the ones that will cross Resend's ceiling.** The job EF downloads every photo and embeds it as a base64 data URI (`supabase/functions/generate-job-report-pdf/index.ts:230`, `:259-261`), where the inspection EF generates signed URLs instead (`supabase/functions/generate-inspection-pdf/index.ts:2115`, `:2140`). Base64 inflates each photo by 4/3 *inside the HTML*, before Chromium ever renders it, so job-report PDFs are systematically the larger of the two for the same photo count. That compounds with a second constraint: Resend caps a message at 40 MB **after** base64 encoding, and the largest report measured on PROD (27.56 MB, 2026-08-27) already encodes to 36.75 MB — roughly **9% headroom**. Job reports are therefore the ones that will cross it first, and when they do `assertEmailableAttachment` will correctly refuse the send, which is honest but still a report nobody can email. Two further knock-ons of the data-URI approach: the hash normalization in `_shared/reportHash.ts` strips query strings off storage URLs, which does nothing for data URIs, so the job hash covers the entire embedded photo payload; and `checkJobReportSendMismatch` pulls that whole multi-MB HTML into the browser on every send pre-check just to compute a hash. Fix: mirror the inspection EF's `createSignedUrl` approach. **Own session** — it is an EF change to the job render path, not something to fold into unrelated work.
+- **PDF-CL18 — The inspection PDF template has no sync path between the repo and Storage, so repo edits to it are inert.** The Edge Function reads `pdf-templates/inspection-report-template-final.html` from Storage at runtime (`supabase/functions/generate-inspection-pdf/index.ts:12`); the tracked copy is `src/templates/inspection-report-template.html` — a different filename, nothing under `scripts/` that uploads or diffs it, and `docs/RUNBOOK.md:254-257` treats the repo copy only as a recovery source to be re-uploaded by hand ("Supabase Dashboard > Storage > pdf-templates"). The `RENAME on upload` table in the HEPA/waste rollout runbook above is the only place the mapping is written down. Consequence: a PR that edits the template ships nothing until someone uploads the file, and a Studio edit to the live object never reaches git. Hit 31 Aug 2026 on `fix/room-name-contrast` (678ddde), whose template change had to be uploaded separately. The two files were byte-identical when last compared (28 Jul, scope-of-work item above); **whether they still are is unverified.** Action: (1) add `scripts/sync-pdf-template.ts` that fetches the public URL, diffs it against the repo copy, and uploads with the rename — stating the project ref and its role before every run; (2) add "template uploaded?" to the PR checklist beside "EF deployed?" — this is the third channel (code / EF / Storage) the deploy runbooks already warn about. `job-report-template.html` has the same gap (`generate-job-report-pdf/index.ts:10`) but at least keeps its filename.
 
 ## AREA-HIDE — per-area report visibility (`include_in_report`), 2026-08-27
 
@@ -2395,6 +2396,8 @@ item, the blocker, and the sequence. Nothing below has been built, migrated, or 
   both names on the PDF). Also decide whether technicians may self-assign (junction RLS grants).
 - [ ] Fix the two stale-`assigned_to` paths (R8) as PART of this work, not separately.
 - [ ] Audit triggers on `lead_assignments` are a separate explicit decision (29-trigger rule).
+- [ ] The NULL-inspection photo visibility gap (31 Aug 2026 section below, "Open question") rides
+  on the same `completed_by` decision — settle them together, not separately.
 
 ### BUGS FOUND, NOT SCHEDULED
 
@@ -2589,3 +2592,118 @@ shipped since the 24 Aug recon and what was found while verifying it. Live reads
 
       Deliberately left unchanged on 26 Aug 2026. Needs a wording decision from Michael before
       anyone "tidies" it: add `+GST` to the equipment lines, or leave them bare as day rates.
+
+## 31 Aug 2026 — logged, not fixed
+
+Found during the day's fix sessions and the adversarial reviews run on them (Section 3/4
+after-photo upload, cover room-name contrast, cost-estimate equipment days). Everything below
+was verified and deliberately NOT built. Two items are owner decisions rather than defects and
+are marked **Open question**. Nothing here is blocking anyone today.
+
+Logged elsewhere from the same day, not repeated here: the cover EXAMINED AREAS overflow is its
+own `## OPEN` section on `fix/room-name-contrast` (4104da0; lands with that merge), and the
+template sync gap is **PDF-CL18** above.
+
+### After-photos session (Section 4, follow-through from PR #111)
+
+- [ ] **Admin report edit mode cannot add, pick or replace job photos on a lead with no
+      inspection.** Third surface of the guard fixed in Section 3 (#111) and Section 4
+      (`fix/after-photo-upload-no-inspection`), this one admin-side. `ViewReportPDF.tsx:3013`
+      passes `inspectionId={jobCompletion?.inspection_id || ''}` — an empty string, not null —
+      into `PhotoCollectionEditor`, whose `buildMetadata(inspectionId: string, …)`
+      (`PhotoCollectionEditor.tsx:48-49`) writes it straight into `inspection_id`; the
+      pick-from-existing copy INSERT does the same at `:212`, and the replace path hands it to
+      `recordPhotoHistory` at `:184-186`. `''` is not a uuid, so add and pick fail at the INSERT
+      (surfaced only as the editor's generic add-failure toast) and replace succeeds but emits a
+      Sentry error on every use. Found by the after-photos consumer sweep — read from the code,
+      not reproduced in a browser. Fix: widen the editor's `inspectionId` to `string | null`,
+      pass `?? null`, and guard the history write the way `uploadInspectionPhoto` already does
+      (`photoUpload.ts`, #111) — the same three moves. Code-only.
+- [ ] **`ViewReportPDF` loads the inspection for job reports too, so a no-inspection job report
+      opens with an error toast.** `ViewReportPDF.tsx:468-472` runs `loadInspection()` on every
+      `effectiveId` regardless of `reportType`; on a lead with no `inspections` row the
+      lead-fallback lookup throws `Inspection not found` (`:620-626`, `:632-634`), which the catch
+      at `:696-698` shows as `toast.error('Failed to load inspection')`. The job report itself
+      still renders — its data comes from the `enabled: reportType === 'job'` queries at
+      `:507-599` — so this is noise, not a blocker, but it fires on every open of such a report.
+      Same sweep. Fix: skip the effect when `reportType === 'job'`, or make the lead-fallback
+      miss a soft return on that path. Code-only.
+- [ ] **Open question — needs an owner decision: photos with no inspection are visible to one
+      technician only.** A photo written with `inspection_id NULL` (any on-site before / after /
+      demolition upload on a no-inspection job, since #111) is reachable by a technician solely
+      through the `job_completions.completed_by = auth.uid()` branch of the four tech policies
+      (`supabase/migrations/20260414000003_harden_photos_rls.sql:30`, `:48`, `:67`/`:80`, `:99`);
+      the `leads.assigned_to` branch needs an inspection row to join through. Reassign the job to
+      another technician and the photos the first one took vanish from Section 3/4 for the
+      second (admins via `admin_all_photos` and the job PDF EF, which reads with the service
+      role, are unaffected). True since PR #111 shipped; extended to after photos by the Section 4
+      fix. Not a defect until someone states the rule — photos follow the lead's `assigned_to`,
+      follow `completed_by`, or both. It is the same `completed_by` question R7 is blocked on;
+      decide them together. If "follow the lead": one migration adding an `assigned_to` branch
+      (via `job_completions.lead_id`) to each policy, no code change.
+- [ ] **Section 4 turns a failed before-photo count into "no before photos".**
+      `Section4AfterPhotos.tsx:82-93` (`fetchBeforePhotoCount`) returns `0` on any query error
+      (`:91`); `afterLimit` is that count, so the Add Photos button is not rendered at all and the
+      amber box at `:330-333` tells the technician to "Select before photos in Section 3 first" —
+      the wrong instruction for a transient failure, and one they cannot act on. Pre-existing;
+      the after-photos fix touched only the inspection guard. Found by the Section 4 self-review.
+      Fix: throw from `fetchBeforePhotoCount` and render the query's error with a Retry, as the
+      same file now does for the inspection lookup. Code-only.
+
+### Cost-estimate session (`fix/option-stacking-equipment-days` @ 531fc82, not merged)
+
+- [ ] **`BookJobSheet` prints the equipment day count from the booking schedule, not the quote.**
+      `src/components/leads/BookJobSheet.tsx:323-324` sets `equipmentDays = Math.max(1,
+      schedule.length)` — the number of days the admin is booking — and `:681` renders it as
+      `Equipment (× N days)` beside the equipment lines. The quote's own hire period is
+      `inspections.equipment_days` when explicit, otherwise the labour-derived count; the two agree
+      only when the booking happens to span that many days. On main today. Found while tracing
+      every `Auto (N)` display for the equipment-days work. Fix: read the quote's resolved days —
+      the branch adds `deriveEquipmentDays()` in `pricing.ts` as the single source — and label the
+      booking span separately if it is still wanted. Code-only.
+- [ ] **Open question — needs an owner decision: in Both-options mode, Option 1 can never have a
+      shorter hire than the full quote's labour days.** On the branch the shared Days stepper
+      (`TechnicianInspectionForm.tsx:2201-2222`) floors at `Auto (N)`, N being the full quote's
+      labour-derived days — the decrement writes `0` (Auto) as soon as the next value would not
+      exceed `labourWorkDays` (`:2209-2212`) — and the Option 1 sub-quote is priced with the same
+      shared value (`inspectionEstimate.ts:127-133`, `:155-164`), deriving a smaller count of its
+      own only when the stored value is the auto value (`inspectionEstimate.test.ts:223`). So a hire
+      can be extended past the labour days but never set below them for Option 1 alone.
+      Deliberate: the legacy default (`equipment_days` = 1 on every old row) cannot be told apart
+      from an explicit short hire, so "at or below the labour days" has to mean Auto. Whether
+      that is the intended rule — one shared hire period, floored at labour days — or whether
+      Option 1 needs its own days is for Glen/Clayton. If the latter, it is the PARKED per-item days
+      migration near the top of this file, not a tweak.
+- [ ] **A masked explicit `equipment_days` can resurface mid-session.** The branch treats a stored
+      `equipment_days` as explicit only when it exceeds the labour-derived count — "anything at or
+      below = auto" (`inspectionEstimate.ts:46-48`; `reconcileLoadedEquipmentDays`,
+      `estimate-override.ts:68`, applied at load by `resolveStoredEquipmentDays`, `:101`). The raw
+      value stays in form state and the form re-classifies it against the *current* hours on every
+      render (`getExplicitEquipmentDays`, `TechnicianInspectionForm.tsx:1999`, called at `:2042`).
+      Raise the hours, then lower them below where they started, and a legacy value that was
+      showing as `Auto (N)` is suddenly larger than the derived count and reappears as an explicit
+      hire — until a reload, which re-masks it. Bounded (needs that edit sequence, in one session,
+      on a legacy row) and self-correcting, which is why it was left. Fix: normalise once on load
+      (write `0` into form state for a masked value) instead of classifying on every render.
+      Code-only, on the branch.
+
+### Environment
+
+- [ ] **The app's TypeScript error baseline is not one number — re-measure in your own worktree.**
+      The same command, `npx tsc -p tsconfig.app.json --noEmit`, returned **99** errors on
+      `62dd415` in one worktree and **122** on `354452a` (one merge later, #111) in another, both on
+      31 Aug 2026; the 26 Aug note above recorded **135**. Read this as a measurement problem, not
+      as 23 (or 36) new defects: the three readings come from three trees, the 122 run used a
+      `node_modules` symlinked from `~/mrc-app-1` rather than a fresh install, and nobody has run
+      the command on both commits from the same tree. Until someone does (check out each commit in
+      one worktree, sort both outputs, `diff`), treat any baseline quoted in a report as local to
+      the tree that produced it, and gate PRs on "no new error *lines*" against a baseline taken
+      in the same tree the same day — never on the count.
+- [ ] **A failed `npm install` on a full disk leaves a partial `node_modules` that makes `tsc`
+      exit 127.** Seen 31 Aug 2026 in `~/mrc-after-photos` with 117 MiB free (`~/.npm` alone was
+      28 GB): `npm install` died with ENOSPC after extracting ~750 packages, leaving e.g.
+      `typescript/bin/tsc` present but `lib/tsc.js` missing, so `node_modules/.bin/tsc` exits
+      **127** — which reads as "command not found" / a PATH problem, not as disk. When a tool
+      binary vanishes, `df -h` first; then `ls -ld node_modules`, because a real directory left by
+      a failed install has to be moved aside before symlinking a sibling worktree's (valid only
+      when `package-lock.json` is identical). Gotcha only; nothing to fix in the repo.
