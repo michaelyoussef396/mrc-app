@@ -216,6 +216,7 @@ const INSPECTION_SELECT = `
   rcd_box_qty,
   hepa_air_scrubber_qty,
   hepa_air_scrubber_days,
+  equipment_days,
   lead:leads(
     id,
     full_name,
