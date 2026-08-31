@@ -8,7 +8,26 @@ import { z } from 'zod'
 
 const inspectionAreaSchema = z.object({
   areaName: z.string().min(1, 'Area name is required'),
+  demolitionRequired: z.boolean().optional(),
+  demolitionTime: z.number().optional(),
 })
+
+// Demolition replaces the surface time for a flagged area, so a flagged area with no
+// demolition time would price at $0 while looking complete.
+const requireDemolitionTimeWhenFlagged = (
+  areas: z.infer<typeof inspectionAreaSchema>[],
+  ctx: z.RefinementCtx
+) => {
+  areas.forEach((area, index) => {
+    if (area.demolitionRequired && !((area.demolitionTime ?? 0) > 0)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `${area.areaName}: enter the Demolition Time — it replaces the surface time when Demolition Required is on`,
+        path: [index, 'demolitionTime'],
+      })
+    }
+  })
+}
 
 /**
  * Waste disposal cubic-metre pricing shape (Brief 1 foundation).
@@ -26,7 +45,10 @@ export const wasteDisposalSchema = z.object({
 export const inspectionCompletionSchema = z.object({
   inspectionDate: z.string().min(1, 'Inspection date is required'),
 
-  areas: z.array(inspectionAreaSchema).min(1, 'At least one area with a name is required'),
+  areas: z
+    .array(inspectionAreaSchema)
+    .min(1, 'At least one area with a name is required')
+    .superRefine(requireDemolitionTimeWhenFlagged),
 
   // Treatment option and methods
   selectedTreatmentMethods: z.array(z.string()),
@@ -67,7 +89,7 @@ const FIELD_SECTION_MAP: Record<string, { section: number; label: string }> = {
 
 export function validateInspectionCompletion(formData: {
   inspectionDate: string
-  areas: { areaName: string }[]
+  areas: { areaName: string; demolitionRequired?: boolean; demolitionTime?: number }[]
   selectedTreatmentMethods: string[]
   noDemolitionHours: number
   demolitionHours: number

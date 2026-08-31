@@ -110,6 +110,16 @@ describe('computeInspectionEstimate — Option 1 basis', () => {
     expect(estimate.full.demolitionCost).toBeGreaterThan(0);
   });
 
+  it('should keep every area\'s surface time as the Option 1 basis, demolished areas included', () => {
+    const estimate = computeInspectionEstimate({
+      areas: [area(60, 120, true), area(60, 180, false), area(30, 60, true)],
+      equipment: NO_EQUIPMENT,
+      optionSelected: 3,
+    });
+
+    expect(estimate.hours.surface).toBe(2.5);
+  });
+
   it('should exclude subfloor hours from the Option 1 sub-quote', () => {
     const estimate = computeInspectionEstimate({
       areas: [area(150)],
@@ -211,9 +221,9 @@ describe('computeInspectionEstimate — equipment', () => {
   });
 
   it('should let the Option 1 sub-quote derive its own days when the stored days are the full quote\'s auto days', () => {
-    // Full 10h → 2 days stored; Option 1 is 4h of surface → 1 day, as the form saves it
+    // Full 4h surface + 6h demolition → 2 days stored; Option 1 is 4h of surface → 1 day
     const estimate = computeInspectionEstimate({
-      areas: [area(240, 360, true)],
+      areas: [area(240), area(0, 360, true)],
       equipment: { ...NO_EQUIPMENT, dehumidifierQty: 1, equipmentDays: 2 },
       optionSelected: 3,
     });
@@ -223,7 +233,7 @@ describe('computeInspectionEstimate — equipment', () => {
 
   it('should keep the full quote on its stored auto days', () => {
     const estimate = computeInspectionEstimate({
-      areas: [area(240, 360, true)],
+      areas: [area(240), area(0, 360, true)],
       equipment: { ...NO_EQUIPMENT, dehumidifierQty: 1, equipmentDays: 2 },
       optionSelected: 3,
     });
@@ -243,14 +253,14 @@ describe('computeInspectionEstimate — multi-area and multi-day', () => {
     expect(estimate.hours.demolition).toBe(3);
   });
 
-  it('should sum non-demolition time across every area regardless of the demolition flag', () => {
+  it('should count surface time only for the areas not flagged for demolition', () => {
     const estimate = computeInspectionEstimate({
       areas: [area(60, 120, true), area(60, 180, false), area(30, 60, true)],
       equipment: NO_EQUIPMENT,
       optionSelected: 3,
     });
 
-    expect(estimate.hours.nonDemo).toBe(2.5);
+    expect(estimate.hours.nonDemo).toBe(1);
   });
 
   it('should hand off to the per-day rates beyond a single eight-hour day', () => {
@@ -263,7 +273,7 @@ describe('computeInspectionEstimate — multi-area and multi-day', () => {
     expect(estimate.full.labourAfterDiscount).toBe(2305.67);
   });
 
-  it('should report total labour hours across all three labour types', () => {
+  it('should report total labour hours as demolition plus subfloor when the only area is demolished', () => {
     const estimate = computeInspectionEstimate({
       areas: [area(150, 120, true)],
       subfloorTreatmentMinutes: 240,
@@ -271,6 +281,97 @@ describe('computeInspectionEstimate — multi-area and multi-day', () => {
       optionSelected: 3,
     });
 
-    expect(estimate.full.totalLabourHours).toBe(8.5);
+    expect(estimate.full.totalLabourHours).toBe(6);
   });
-})
+});
+
+// Owner decision 2026-08-31: an area getting demolition does NOT also get surface
+// treatment time — Comprehensive is the sum across areas with no area counted twice.
+describe('computeInspectionEstimate — each option carries only its own scope', () => {
+  // The reported screenshot: one area, 2h surface + 2h demolition, Both mode.
+  const SCREENSHOT_JOB = {
+    areas: [area(120, 120, true)],
+    equipment: NO_EQUIPMENT,
+    optionSelected: 3,
+  };
+
+  it('should price Option 2 at the demolition rate only for a demolished area', () => {
+    expect(computeInspectionEstimate(SCREENSHOT_JOB).full.labourAfterDiscount).toBe(715.73);
+  });
+
+  it('should carry no surface labour on Option 2 for a demolished area', () => {
+    expect(computeInspectionEstimate(SCREENSHOT_JOB).full.nonDemoCost).toBe(0);
+  });
+
+  it('should still price Option 1 at the surface rate for the same area', () => {
+    expect(computeInspectionEstimate(SCREENSHOT_JOB).option1.labourAfterDiscount).toBe(615.27);
+  });
+
+  it('should not stack Option 1 onto Option 2', () => {
+    const estimate = computeInspectionEstimate(SCREENSHOT_JOB);
+    expect(estimate.full.labourAfterDiscount).toBeLessThan(
+      estimate.option1.labourAfterDiscount + estimate.full.demolitionCost
+    );
+  });
+
+  it('should keep surface time for the areas that are not demolished on Option 2', () => {
+    const estimate = computeInspectionEstimate({
+      areas: [area(120, 120, true), area(60)],
+      equipment: NO_EQUIPMENT,
+      optionSelected: 3,
+    });
+
+    expect(estimate.full.totalLabourHours).toBe(3);
+  });
+
+  it('should apply the same rule to a single Option 2 quote', () => {
+    const estimate = computeInspectionEstimate({ ...SCREENSHOT_JOB, optionSelected: 2 });
+    expect(estimate.full.labourAfterDiscount).toBe(715.73);
+  });
+
+  it('should price a single Option 1 quote at the surface rate for a flagged area', () => {
+    const estimate = computeInspectionEstimate({ ...SCREENSHOT_JOB, optionSelected: 1 });
+    expect(estimate.full.labourAfterDiscount).toBe(615.27);
+  });
+
+  it('should carry no demolition labour on a single Option 1 quote', () => {
+    const estimate = computeInspectionEstimate({ ...SCREENSHOT_JOB, optionSelected: 1 });
+    expect(estimate.full.demolitionCost).toBe(0);
+  });
+
+  it('should keep subfloor on a single Option 1 quote', () => {
+    const estimate = computeInspectionEstimate({
+      areas: [area(120)],
+      subfloorTreatmentMinutes: 120,
+      equipment: NO_EQUIPMENT,
+      optionSelected: 1,
+    });
+
+    expect(estimate.full.subfloorCost).toBe(905.84);
+  });
+});
+
+describe('computeInspectionEstimate — equipment days classified against the saved hours', () => {
+  it('should read an old-rule auto equipment_days as auto when today\'s hours derive fewer days', () => {
+    // Saved under the old rule: 4h + 6h on one area = 10h → 2 auto days. Today: 6h → 1 day.
+    const estimate = computeInspectionEstimate({
+      areas: [area(240, 360, true)],
+      equipment: { ...NO_EQUIPMENT, dehumidifierQty: 1, equipmentDays: 2 },
+      storedLabourHours: 10,
+      optionSelected: 2,
+    });
+
+    expect(estimate.full.equipmentCost).toBe(119);
+  });
+
+  it('should still recover an explicit hire period that exceeds the saved hours', () => {
+    const estimate = computeInspectionEstimate({
+      areas: [area(240, 360, true)],
+      equipment: { ...NO_EQUIPMENT, dehumidifierQty: 1, equipmentDays: 4 },
+      storedLabourHours: 10,
+      optionSelected: 2,
+    });
+
+    expect(estimate.full.equipmentCost).toBe(476);
+  });
+});

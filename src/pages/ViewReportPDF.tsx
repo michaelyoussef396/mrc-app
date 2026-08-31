@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { ReportPreviewHTML } from '@/components/pdf/ReportPreviewHTML'
 import type { Page1Data, VPData, OutdoorData, AreaRecord, SubfloorEditData, CostData } from '@/components/pdf/ReportPreviewHTML'
 import { BOTH_OPTIONS, computeInspectionEstimate } from '@/lib/calculations/inspectionEstimate'
+import { storedLabourHours } from '@/lib/calculations/estimate-override'
 import { OVERRIDE_EPSILON } from '@/lib/calculations/estimate-override'
 import { EditFieldModal } from '@/components/pdf/EditFieldModal'
 import { ImageUploadModal } from '@/components/pdf/ImageUploadModal'
@@ -127,6 +128,9 @@ interface Inspection {
   hepa_air_scrubber_qty?: number | null
   hepa_air_scrubber_days?: number | null
   equipment_days?: number | null
+  no_demolition_hours?: number | string | null
+  demolition_hours?: number | string | null
+  subfloor_hours?: number | string | null
   lead?: {
     id: string
     full_name: string
@@ -217,6 +221,9 @@ const INSPECTION_SELECT = `
   hepa_air_scrubber_qty,
   hepa_air_scrubber_days,
   equipment_days,
+  no_demolition_hours,
+  demolition_hours,
+  subfloor_hours,
   lead:leads(
     id,
     full_name,
@@ -1558,6 +1565,7 @@ export default function ViewReportPDF() {
         },
         wasteDisposalCost: inspection.waste_disposal_confirmed_cost,
         optionSelected: inspection.option_selected,
+        storedLabourHours: storedLabourHours(inspection),
       })
     : null
 

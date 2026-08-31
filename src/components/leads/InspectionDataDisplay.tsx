@@ -28,12 +28,16 @@ import type {
   MoistureReadingData,
 } from '@/lib/api/inspections';
 import { formatDateAU } from '@/lib/dateUtils';
-import { reconcileLoadedEquipmentDays } from '@/lib/calculations/estimate-override';
+import { resolveStoredEquipmentDays } from '@/lib/calculations/estimate-override';
+import {
+  areaRowToLabourInput,
+  deriveQuoteHours,
+  deriveSurfaceHours,
+} from '@/lib/calculations/labourHours';
 import {
   LABOUR_RATES,
   EQUIPMENT_RATES,
   calculateCostEstimate,
-  deriveEquipmentDays,
   type CostEstimateResult,
 } from '@/lib/calculations/pricing';
 
@@ -727,24 +731,25 @@ function CostEstimateSection({
   const fmtHours = (h: number) =>
     Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`;
 
-  const calculatedNonDemoHours = areas.reduce(
-    (sum, a) => sum + ((a.job_time_minutes || 0) / 60),
-    0,
+  // Quote scope: per area, demolition replaces surface treatment, except on a single
+  // Option 1 quote (labourHours.ts).
+  const areaLabourInputs = areas.map(areaRowToLabourInput);
+  const labourHours = deriveQuoteHours(
+    areaLabourInputs,
+    (subfloor?.treatment_time_minutes || 0) / 60,
+    i.option_selected,
   );
-  const calculatedDemoHours = areas.reduce(
-    (sum, a) => a.demolition_required ? sum + ((a.demolition_time_minutes || 0) / 60) : sum,
-    0,
-  );
-  const calculatedSubfloorHours = (subfloor?.treatment_time_minutes || 0) / 60;
+  const calculatedNonDemoHours = labourHours.nonDemo;
+  const calculatedDemoHours = labourHours.demolition;
+  const calculatedSubfloorHours = labourHours.subfloor;
+  const isSurfaceOnlyQuote = i.option_selected === 1;
+  // Both-mode Option 1 basis: every area's surface time, demolished areas included.
+  const option1SurfaceHours = deriveSurfaceHours(areaLabourInputs);
 
   // equipment_days is the full quote's EFFECTIVE days (legacy rows: column default 1); it is
-  // an explicit hire period only when it exceeds the labour-derived days, and only then does
-  // it apply to the Option 1 sub-quote — otherwise Option 1 derives its own, as the form does.
-  const explicitEquipmentDays =
-    reconcileLoadedEquipmentDays(
-      i.equipment_days,
-      deriveEquipmentDays(calculatedNonDemoHours + calculatedDemoHours + calculatedSubfloorHours),
-    ) || undefined;
+  // an explicit hire period only when it exceeds the days the row's saved hours derive, and
+  // only then does it apply to the Option 1 sub-quote — otherwise Option 1 derives its own.
+  const explicitEquipmentDays = resolveStoredEquipmentDays(i, labourHours.total) || undefined;
 
   const costResult: CostEstimateResult = calculateCostEstimate({
     nonDemoHours: calculatedNonDemoHours,
@@ -764,7 +769,7 @@ function CostEstimateSection({
   // form's own Both-mode call in TechnicianInspectionForm.handleSave.
   const option1Result: CostEstimateResult | null = i.option_selected === 3
     ? calculateCostEstimate({
-        nonDemoHours: calculatedNonDemoHours,
+        nonDemoHours: option1SurfaceHours,
         demolitionHours: 0,
         subfloorHours: 0,
         dehumidifierQty: i.commercial_dehumidifier_qty || 0,
@@ -796,21 +801,22 @@ function CostEstimateSection({
         <p className="text-xs text-slate-500 mb-2">Labour Hours</p>
         <div className="bg-slate-50 rounded-lg p-3 space-y-1.5">
           {areas.map((area, idx) => {
-            const surfaceHours = (area.job_time_minutes || 0) / 60;
-            const demoHours = area.demolition_required ? (area.demolition_time_minutes || 0) / 60 : 0;
+            const { surfaceHours, demolitionHours, demolitionRequired } = areaRowToLabourInput(area);
             const areaLabel = area.area_name ? `Area ${idx + 1}: ${area.area_name}` : `Area ${idx + 1}`;
             return (
               <div key={area.id} className="flex justify-between text-sm">
                 <span className="text-slate-700">
                   {areaLabel}
-                  {demoHours > 0 && (
+                  {demolitionRequired && (
                     <span className="text-slate-500 ml-1">
-                      — Surface {fmtHours(surfaceHours)} • Demolition {fmtHours(demoHours)}
+                      {isSurfaceOnlyQuote
+                        ? `— Demolition ${fmtHours(demolitionHours)} not in Option 1`
+                        : `— Demolition ${fmtHours(demolitionHours)} replaces surface ${fmtHours(surfaceHours)}`}
                     </span>
                   )}
                 </span>
                 <span className="font-medium text-slate-800">
-                  {demoHours > 0 ? fmtHours(surfaceHours + demoHours) : fmtHours(surfaceHours)}
+                  {demolitionRequired && !isSurfaceOnlyQuote ? fmtHours(demolitionHours) : fmtHours(surfaceHours)}
                 </span>
               </div>
             );

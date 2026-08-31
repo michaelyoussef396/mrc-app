@@ -8,6 +8,8 @@
  * so an override can never bypass GST.
  */
 
+import { deriveEquipmentDays } from './pricing';
+
 // Saved values within half a cent of the recomputed auto value are snapshots
 // of the auto-calc, not deliberate overrides (see reconcileLoadedOverride).
 export const OVERRIDE_EPSILON = 0.005;
@@ -68,4 +70,40 @@ export function reconcileLoadedEquipmentDays(
   autoDays: number
 ): number {
   return savedDays != null && savedDays > autoDays ? savedDays : 0;
+}
+
+/** The stored inspections hour columns (numeric — PostgREST may return strings). */
+export interface StoredLabourHoursRow {
+  no_demolition_hours?: number | string | null;
+  demolition_hours?: number | string | null;
+  subfloor_hours?: number | string | null;
+}
+
+/** Sum of the stored hour columns, or null when the row has never stored hours. */
+export function storedLabourHours(row: StoredLabourHoursRow): number | null {
+  if (row.no_demolition_hours == null && row.demolition_hours == null && row.subfloor_hours == null) {
+    return null;
+  }
+  return (
+    Number(row.no_demolition_hours ?? 0) +
+    Number(row.demolition_hours ?? 0) +
+    Number(row.subfloor_hours ?? 0)
+  );
+}
+
+/**
+ * Explicit shared equipment days for a saved row. equipment_days is written atomically
+ * with the hour columns, so those hours — not the hours derived today — are the basis
+ * it must be classified against; otherwise a later change to how hours are derived
+ * would re-read an old auto value as an explicit hire period. Rows that never stored
+ * hours fall back to the hours derived now.
+ */
+export function resolveStoredEquipmentDays(
+  row: StoredLabourHoursRow & { equipment_days?: number | null },
+  derivedLabourHours: number
+): number {
+  return reconcileLoadedEquipmentDays(
+    row.equipment_days,
+    deriveEquipmentDays(storedLabourHours(row) ?? derivedLabourHours)
+  );
 }

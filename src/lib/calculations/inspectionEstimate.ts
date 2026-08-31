@@ -6,13 +6,18 @@
  * snapshot instead, so a pricing-constant correction never reached already-saved
  * inspections; ViewReportPDF is currently the only consumer.
  *
- * The same rules are still written out independently in
+ * The option split is still written out independently in
  * TechnicianInspectionForm.handleSave and InspectionDataDisplay's CostEstimateSection.
- * Both are intended to migrate here — until they do, this is a third implementation of
- * the same rules, kept deliberately identical to handleSave (the canonical save path).
+ * Both are intended to migrate here — until they do, all three derive their hours from
+ * labourHours.ts so the per-area rule cannot drift between them.
  */
 
 import { reconcileLoadedEquipmentDays } from './estimate-override';
+import {
+  areaRowToLabourInput,
+  deriveQuoteHours,
+  deriveSurfaceHours,
+} from './labourHours';
 import {
   calculateCostEstimate,
   deriveEquipmentDays,
@@ -51,12 +56,21 @@ export interface InspectionEstimateInput {
   equipment: EstimateEquipmentInput;
   wasteDisposalCost?: number | null;
   optionSelected?: number | null;
+  /**
+   * Sum of the row's stored hour columns (see storedLabourHours) — the basis
+   * equipment_days was written against. Absent = classify against the hours derived now.
+   */
+  storedLabourHours?: number | null;
 }
 
 export interface InspectionEstimateHours {
+  /** Quote scope: surface time of the areas priced as surface treatment. */
   nonDemo: number;
+  /** Quote scope: demolition time of the areas priced as demolition. */
   demolition: number;
   subfloor: number;
+  /** Option 1 basis: every area's surface time, demolished areas included. */
+  surface: number;
 }
 
 export interface InspectionEstimate {
@@ -69,26 +83,27 @@ export interface InspectionEstimate {
 
 /**
  * Derive labour hours from area records and the subfloor treatment time.
- * Demolition minutes only count when the area is flagged for demolition.
+ * Per area, demolition replaces surface treatment, except on a single Option 1 quote
+ * (see labourHours.deriveQuoteHours); the Option 1 basis keeps every area's surface time.
  */
 export function deriveInspectionHours(
   areas: EstimateAreaInput[],
-  subfloorTreatmentMinutes?: number | null
+  subfloorTreatmentMinutes?: number | null,
+  optionSelected?: number | null
 ): InspectionEstimateHours {
-  const nonDemo = areas.reduce(
-    (sum, area) => sum + (area.job_time_minutes || 0) / MINUTES_PER_HOUR,
-    0
+  const inputs = areas.map(areaRowToLabourInput);
+  const quote = deriveQuoteHours(
+    inputs,
+    (subfloorTreatmentMinutes || 0) / MINUTES_PER_HOUR,
+    optionSelected
   );
-  const demolition = areas.reduce(
-    (sum, area) =>
-      area.demolition_required
-        ? sum + (area.demolition_time_minutes || 0) / MINUTES_PER_HOUR
-        : sum,
-    0
-  );
-  const subfloor = (subfloorTreatmentMinutes || 0) / MINUTES_PER_HOUR;
 
-  return { nonDemo, demolition, subfloor };
+  return {
+    nonDemo: quote.nonDemo,
+    demolition: quote.demolition,
+    subfloor: quote.subfloor,
+    surface: deriveSurfaceHours(inputs),
+  };
 }
 
 /**
@@ -100,16 +115,23 @@ export function deriveInspectionHours(
 export function computeInspectionEstimate(
   input: InspectionEstimateInput
 ): InspectionEstimate {
-  const hours = deriveInspectionHours(input.areas, input.subfloorTreatmentMinutes);
+  const hours = deriveInspectionHours(
+    input.areas,
+    input.subfloorTreatmentMinutes,
+    input.optionSelected
+  );
   const { equipment } = input;
 
   // The stored days are the full quote's effective value, so only a period beyond the
-  // labour-derived days is explicit — and only then does it reach the Option 1 sub-quote,
-  // which otherwise derives its own days from surface hours exactly as the form's save does.
+  // days the row's saved hours derive is explicit — and only then does it reach the
+  // Option 1 sub-quote, which otherwise derives its own days from surface hours exactly
+  // as the form's save does.
   const explicitEquipmentDays =
     reconcileLoadedEquipmentDays(
       equipment.equipmentDays,
-      deriveEquipmentDays(hours.nonDemo + hours.demolition + hours.subfloor)
+      deriveEquipmentDays(
+        input.storedLabourHours ?? hours.nonDemo + hours.demolition + hours.subfloor
+      )
     ) || undefined;
 
   // Waste is a single job-level cost billed once whichever option proceeds, so in Both
@@ -130,9 +152,10 @@ export function computeInspectionEstimate(
     wasteDisposalCost,
   });
 
-  // Option 1 is surface treatment only — no demolition, no subfloor, and never waste.
+  // Option 1 is surface treatment only — every area's surface time, no demolition, no
+  // subfloor, and never waste.
   const option1 = calculateCostEstimate({
-    nonDemoHours: hours.nonDemo,
+    nonDemoHours: hours.surface,
     demolitionHours: 0,
     subfloorHours: 0,
     dehumidifierQty: equipment.dehumidifierQty,

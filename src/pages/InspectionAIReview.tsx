@@ -7,6 +7,8 @@ import { captureBusinessError } from '@/lib/sentry';
 import { logFieldEdits } from '@/lib/api/fieldEditLog';
 import { stripBadUnicode } from '@/lib/stripBadUnicode';
 import { EQUIPMENT_RATES, deriveEquipmentDays } from '@/lib/calculations/pricing';
+import { areaRowToLabourInput, deriveQuoteHours } from '@/lib/calculations/labourHours';
+import { resolveStoredEquipmentDays } from '@/lib/calculations/estimate-override';
 import { findSummaryFlags } from '@/lib/utils/summaryChecks';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import {
@@ -992,14 +994,17 @@ function buildEdgeFunctionPayload(
   // Shared equipment days, derived from hours exactly the way
   // TechnicianInspectionForm.getSharedEquipmentDays does, so a regen from either
   // surface hands the model the same duration rather than letting it infer one.
-  const nonDemoHours = areas.reduce((sum: number, a: any) => sum + (a.job_time_minutes ? a.job_time_minutes / 60 : 0), 0);
-  const demoHours = areas.reduce((sum: number, a: any) => a.demolition_required ? sum + (a.demolition_time_minutes ? a.demolition_time_minutes / 60 : 0) : sum, 0);
-  const subfloorHours = subfloorData?.treatment_time_minutes ? subfloorData.treatment_time_minutes / 60 : 0;
-  const labourWorkDays = deriveEquipmentDays(nonDemoHours + demoHours + subfloorHours);
+  const quoteHours = deriveQuoteHours(
+    areas.map(areaRowToLabourInput),
+    subfloorData?.treatment_time_minutes ? subfloorData.treatment_time_minutes / 60 : 0,
+    inspection?.option_selected,
+  );
+  const labourWorkDays = deriveEquipmentDays(quoteHours.total);
   // Effective shared equipment days: the stored value counts only when it extends past the
-  // labour days (an explicit hire period) — legacy rows carry the column default 1. This is
-  // also the project duration handed to the model, which is told drying runs within it.
-  const totalWorkDays = Math.max(inspection?.equipment_days ?? 0, labourWorkDays);
+  // days the row's saved hours derive (an explicit hire period) — legacy rows carry the
+  // column default 1. This is also the project duration handed to the model, which is told
+  // drying runs within it.
+  const totalWorkDays = resolveStoredEquipmentDays(inspection ?? {}, quoteHours.total) || labourWorkDays;
 
   // hepa_air_scrubber_qty is persisted already gated on the method toggle; a null
   // days column means "auto", which resolves to the shared equipment days.

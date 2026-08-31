@@ -5,6 +5,8 @@ import {
   reconcileLoadedEquipmentDays,
   reconcileLoadedOverride,
   resolveOverridableValue,
+  resolveStoredEquipmentDays,
+  storedLabourHours,
 } from './estimate-override';
 
 describe('resolveOverridableValue — override precedence', () => {
@@ -123,5 +125,42 @@ describe('reconcileLoadedEquipmentDays — rehydrating the shared hire period', 
 
   it('should return auto for a non-positive saved value', () => {
     expect(reconcileLoadedEquipmentDays(0, 1)).toBe(0);
+  });
+});
+
+describe('storedLabourHours — the hour columns a row was saved with', () => {
+  it('should sum the three stored hour columns', () => {
+    expect(storedLabourHours({ no_demolition_hours: 4, demolition_hours: 6, subfloor_hours: 0 })).toBe(10);
+  });
+
+  it('should accept the numeric strings PostgREST returns', () => {
+    expect(storedLabourHours({ no_demolition_hours: '2.5', demolition_hours: '1', subfloor_hours: null })).toBe(3.5);
+  });
+
+  it('should return null when the row never stored hours', () => {
+    expect(storedLabourHours({})).toBeNull();
+  });
+});
+
+// A row saved under the old stacking rule stored 10h (4h surface + 6h demolition on the
+// same area) and equipment_days = 2 (auto). The either/or rule derives 6h → 1 day today;
+// the stored 2 must still read as auto, not as an explicit 2-day hire.
+describe('resolveStoredEquipmentDays — classify against the saved hours, not today\'s', () => {
+  const OLD_RULE_ROW = { no_demolition_hours: 4, demolition_hours: 6, subfloor_hours: 0, equipment_days: 2 };
+
+  it('should read an old auto value as auto even though today\'s hours derive fewer days', () => {
+    expect(resolveStoredEquipmentDays(OLD_RULE_ROW, 6)).toBe(0);
+  });
+
+  it('should still recover an explicit hire period that exceeds the saved hours', () => {
+    expect(resolveStoredEquipmentDays({ ...OLD_RULE_ROW, equipment_days: 4 }, 6)).toBe(4);
+  });
+
+  it('should fall back to the derived hours for a row that never stored hours', () => {
+    expect(resolveStoredEquipmentDays({ equipment_days: 3 }, 4)).toBe(3);
+  });
+
+  it('should read a legacy column default of 1 as auto', () => {
+    expect(resolveStoredEquipmentDays({ ...OLD_RULE_ROW, equipment_days: 1 }, 6)).toBe(0);
   });
 });

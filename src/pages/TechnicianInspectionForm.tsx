@@ -16,6 +16,12 @@ import {
   deriveEquipmentDays,
 } from '@/lib/calculations/pricing';
 import {
+  areaFormToLabourInput,
+  areaRowToLabourInput,
+  deriveQuoteHours,
+  deriveSurfaceHours,
+} from '@/lib/calculations/labourHours';
+import {
   parseOverrideInput,
   reconcileLoadedOverride,
   resolveOverridableValue,
@@ -1331,7 +1337,7 @@ function Section3AreaInspection({
               {/* Demolition Section */}
               {area.demolitionRequired && (
                 <div className="space-y-4 pl-4 border-l-2 border-orange-400">
-                  <FormField label="Demolition Time (Hours)">
+                  <FormField label="Demolition Time (Hours)" required>
                     <NumberInput
                       value={area.demolitionTime}
                       onChange={(value) => onAreaChange?.(area.id, 'demolitionTime', value)}
@@ -1968,13 +1974,22 @@ const getEffectiveHepaQty = (formData: InspectionFormData) =>
     ? (formData.hepaAirScrubberQty || 0)
     : 0;
 
+// Hours for the quote being priced: per area, demolition replaces surface treatment, except
+// on a single Option 1 quote where every area is surface-treated (labourHours.ts).
+const getQuoteHours = (formData: InspectionFormData) =>
+  deriveQuoteHours(
+    formData.areas.map(areaFormToLabourInput),
+    formData.subfloorTreatmentTime || 0,
+    formData.optionSelected
+  );
+
+// Both-mode Option 1 basis: every area's surface time, demolished areas included.
+const getSurfaceHours = (formData: InspectionFormData) =>
+  deriveSurfaceHours(formData.areas.map(areaFormToLabourInput));
+
 // Labour work days, derived exactly the way the pricing engine derives equipment days.
-const getLabourWorkDays = (formData: InspectionFormData) => {
-  const nonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
-  const demoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
-  const subfloorHours = formData.subfloorTreatmentTime || 0;
-  return deriveEquipmentDays(nonDemoHours + demoHours + subfloorHours);
-};
+const getLabourWorkDays = (formData: InspectionFormData) =>
+  deriveEquipmentDays(getQuoteHours(formData).total);
 
 // Explicit shared hire period. Counts only while Drying Equipment is quoted (the stepper
 // lives in that card) and only when it extends past the labour days: equipment_days
@@ -2344,9 +2359,13 @@ function Section8JobSummary({ formData, onChange }: SectionProps) {
 // Section 9: Cost Estimate
 function Section9CostEstimate({ formData, onChange }: SectionProps) {
   // Auto-calculate labour hours from Section 3 (areas) and Section 4 (subfloor)
-  const calculatedNonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
-  const calculatedDemoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
-  const calculatedSubfloorHours = formData.subfloorTreatmentTime || 0;
+  const labourHours = getQuoteHours(formData);
+  const calculatedNonDemoHours = labourHours.nonDemo;
+  const calculatedDemoHours = labourHours.demolition;
+  const calculatedSubfloorHours = labourHours.subfloor;
+  const option1SurfaceHours = getSurfaceHours(formData);
+  const isSurfaceOnlyQuote = formData.optionSelected === 1;
+  const isBothMode = formData.optionSelected === 3;
 
   // Gated by the Drying Equipment toggle, so the breakdown below and the totals
   // agree with what the toggle says is quoted.
@@ -2367,10 +2386,10 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
     hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
   });
 
-  // For "Both" mode: also compute Option 1 (surface only, no demo/subfloor)
+  // For "Both" mode: also compute Option 1 (every area's surface time, no demo/subfloor)
   const option1Result = formData.optionSelected === 3
     ? calculateCostEstimate({
-        nonDemoHours: calculatedNonDemoHours,
+        nonDemoHours: option1SurfaceHours,
         demolitionHours: 0,
         subfloorHours: 0,
         dehumidifierQty,
@@ -2382,7 +2401,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
       })
     : null;
 
-  const totalLabourHours = calculatedNonDemoHours + calculatedDemoHours + calculatedSubfloorHours;
+  const totalLabourHours = labourHours.total;
 
   // Editable Estimate overrides: write the parsed override (null = revert to
   // auto-calc) and keep manualPriceOverride equal to "any override present"
@@ -2419,16 +2438,28 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
             <span className="text-xs font-bold uppercase tracking-wider text-[#86868b]">
               {area.areaName || `Area ${idx + 1}`}
             </span>
-            <div className="flex justify-between text-sm">
-              <span className="text-[#1d1d1f]">Surface Treatment</span>
-              <span className="font-medium text-[#1d1d1f]">{area.timeWithoutDemo || 0}h</span>
-            </div>
-            {area.demolitionRequired && (
-              <div className="flex justify-between text-sm">
-                <span className="text-[#1d1d1f]">Demolition</span>
-                <span className="font-medium text-[#1d1d1f]">{area.demolitionTime || 0}h</span>
-              </div>
-            )}
+            {(() => {
+              // A flagged area is priced on demolition unless the quote is Option 1 only.
+              const surfaceQuoted = !area.demolitionRequired || isSurfaceOnlyQuote;
+              const surfaceNote = surfaceQuoted ? '' : isBothMode ? ' (Option 1 only)' : ' (not quoted)';
+              const demolitionNote = isSurfaceOnlyQuote ? ' (not in Option 1)' : ' (replaces surface)';
+              const quoted = 'text-[#1d1d1f]';
+              const muted = 'text-[#86868b]';
+              return (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className={surfaceQuoted ? quoted : muted}>Surface Treatment{surfaceNote}</span>
+                    <span className={`font-medium ${surfaceQuoted ? quoted : muted}`}>{area.timeWithoutDemo || 0}h</span>
+                  </div>
+                  {area.demolitionRequired && (
+                    <div className="flex justify-between text-sm">
+                      <span className={isSurfaceOnlyQuote ? muted : quoted}>Demolition{demolitionNote}</span>
+                      <span className={`font-medium ${isSurfaceOnlyQuote ? muted : quoted}`}>{area.demolitionTime || 0}h</span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         ))}
 
@@ -2452,6 +2483,11 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
           <p className="text-xs text-blue-600 mt-1">
             {calculatedNonDemoHours}h surface + {calculatedDemoHours}h demolition + {calculatedSubfloorHours}h subfloor
           </p>
+          {isBothMode && (
+            <p className="text-xs text-blue-600 mt-1">
+              Option 1 (surface only): {option1SurfaceHours}h
+            </p>
+          )}
         </div>
       </div>
 
@@ -2511,7 +2547,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
           <div className="flex justify-between items-center py-2 border-b border-gray-100">
             <div>
               <span className="text-[#1d1d1f]">No Demolition</span>
-              <span className="text-[#86868b] ml-2">({formData.noDemolitionHours || 0}h)</span>
+              <span className="text-[#86868b] ml-2">({calculatedNonDemoHours}h)</span>
             </div>
             <span className="font-medium text-[#1d1d1f]">{formatCurrency(costResult.nonDemoCost)}</span>
           </div>
@@ -2527,7 +2563,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
           <div className="flex justify-between items-center py-2 border-b border-gray-100">
             <div>
               <span className="text-[#1d1d1f]">Demolition</span>
-              <span className="text-[#86868b] ml-2">({formData.demolitionHours || 0}h)</span>
+              <span className="text-[#86868b] ml-2">({calculatedDemoHours}h)</span>
             </div>
             <span className="font-medium text-[#1d1d1f]">{formatCurrency(costResult.demolitionCost)}</span>
           </div>
@@ -2543,7 +2579,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
           <div className="flex justify-between items-center py-2 border-b border-gray-100">
             <div>
               <span className="text-[#1d1d1f]">Subfloor</span>
-              <span className="text-[#86868b] ml-2">({formData.subfloorHours || 0}h)</span>
+              <span className="text-[#86868b] ml-2">({calculatedSubfloorHours}h)</span>
             </div>
             <span className="font-medium text-[#1d1d1f]">{formatCurrency(costResult.subfloorCost)}</span>
           </div>
@@ -3337,8 +3373,15 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             hepaAirScrubberDays: ins.hepa_air_scrubber_days || undefined,
           };
           const loadAuto = calculateCostEstimate(loadAutoInput);
+          // Option 1 is priced on every area's surface time, which only the area rows carry
+          // (the stored no_demolition_hours excludes demolished areas).
           const loadOpt1Auto = ins.option_selected === 3
-            ? calculateCostEstimate({ ...loadAutoInput, demolitionHours: 0, subfloorHours: 0 })
+            ? calculateCostEstimate({
+                ...loadAutoInput,
+                nonDemoHours: deriveSurfaceHours((areasData || []).map(areaRowToLabourInput)),
+                demolitionHours: 0,
+                subfloorHours: 0,
+              })
             : null;
           const loadedLabourOverride = reconcileLoadedOverride(
             loadedOverrideFlag,
@@ -3503,21 +3546,20 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
     }
   }, [user]);
 
-  // Auto-sync labour hours from areas/subfloor into formData for save
+  // Auto-sync the quote's labour hours from areas/subfloor into formData — the completion
+  // validator reads these, so they must follow the same per-area rule as the price.
   useEffect(() => {
-    const nonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
-    const demoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
-    const sfHours = formData.subfloorTreatmentTime || 0;
+    const { nonDemo, demolition, subfloor } = getQuoteHours(formData);
 
-    if (formData.noDemolitionHours !== nonDemoHours || formData.demolitionHours !== demoHours || formData.subfloorHours !== sfHours) {
+    if (formData.noDemolitionHours !== nonDemo || formData.demolitionHours !== demolition || formData.subfloorHours !== subfloor) {
       setFormData((prev) => ({
         ...prev,
-        noDemolitionHours: nonDemoHours,
-        demolitionHours: demoHours,
-        subfloorHours: sfHours,
+        noDemolitionHours: nonDemo,
+        demolitionHours: demolition,
+        subfloorHours: subfloor,
       }));
     }
-  }, [formData.areas, formData.subfloorTreatmentTime]);
+  }, [formData.areas, formData.subfloorTreatmentTime, formData.optionSelected]);
 
   // Form field handlers
   const handleChange = (field: keyof InspectionFormData, value: any) => {
@@ -3998,9 +4040,12 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
 
     try {
       // Compute auto-calc pricing as defaults (used when form values are 0 / not yet edited)
-      const saveNonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
-      const saveDemoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
-      const saveSubfloorHours = formData.subfloorTreatmentTime || 0;
+      // Quote scope: per area, demolition replaces surface treatment (labourHours.ts).
+      const saveLabourHours = getQuoteHours(formData);
+      const saveNonDemoHours = saveLabourHours.nonDemo;
+      const saveDemoHours = saveLabourHours.demolition;
+      const saveSubfloorHours = saveLabourHours.subfloor;
+      const saveSurfaceHours = getSurfaceHours(formData);
 
       // Waste disposal: confirmed, non-discounted pass-through. Excluded in "Both"
       // mode (optionSelected === 3) so the per-option totals stay labour+equipment
@@ -4047,9 +4092,10 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       let saveOption1Equipment: number | null = null;
 
       if (formData.optionSelected === 3) {
-        // "Both" mode: Option 1 has its own labour/equipment (surface only — no demo/subfloor)
+        // "Both" mode: Option 1 has its own labour/equipment (every area's surface time —
+        // no demo/subfloor)
         const opt1AutoResult = calculateCostEstimate({
-          nonDemoHours: saveNonDemoHours,
+          nonDemoHours: saveSurfaceHours,
           demolitionHours: 0,
           subfloorHours: 0,
           dehumidifierQty: getEffectiveDryingQty(formData, 'commercialDehumidifierQty'),
