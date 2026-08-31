@@ -73,6 +73,39 @@ ForgotPassword placeholder rebranded. No Edge Function or Resend literal touched
 
 ---
 
+## OPEN — PDF cover EXAMINED AREAS clips past ~24 lines (found 31 Aug 2026)
+
+The cover's info block is absolutely positioned with **no height**, so a long
+area list grows downward without bound and the tail is cut off by the page's
+`overflow: hidden` at y=1123.
+
+- **Where:** `src/templates/inspection-report-template.html:188` — the
+  `DIRECTED TO / PROPERTY TYPE / EXAMINED AREAS` block, `top: 495px`, 22px
+  line-height. `{{examined_areas}}` is every area name comma-joined, built at
+  `supabase/functions/generate-inspection-pdf/index.ts:1679` and substituted at
+  `:1751`.
+- **Threshold:** measured by rendering the cover at 794x1123 — the panel's
+  bottom passes the page edge at **25 short room names** (1109px at 24, 1131px
+  at 25). The real limit is ~24 *lines* of area text, so long names hit it
+  sooner.
+- **Not the same bug as the contrast one.** The dark-on-navy contrast failure
+  was fixed on `fix/room-name-contrast` (678ddde) with a content-hugging white
+  panel; that commit does not change this block's geometry (the areas-text box
+  measures identically before and after at 3/10/20 rooms), so this overflow is
+  pre-existing and unchanged by it.
+- **Why a template change cannot fix it:** static HTML has no measurement step.
+  It needs a shrink-to-fit computed in the Edge Function, for which
+  **`computeAreaHeadingLayout`** (`index.ts:1166`) is the proven in-repo
+  pattern — it measures the area heading and emits a style string into the
+  `{{area_heading_style}}` placeholder (`index.ts:1391`). Mirror that with an
+  `{{examined_areas_style}}` hook that steps font-size/line-height down once
+  the list would exceed the available height.
+- **Cost:** an EF deploy *and* a Storage template upload, coordinated. That is
+  why it was left out of the contrast fix.
+- **Priority:** low. Needs 25+ areas on one inspection to bite.
+
+---
+
 ## Email sender logo (BIMI) — researched 5 Aug 2026, parked
 
 Gmail and Outlook show a grey initial instead of the MRC logo on app-sent
