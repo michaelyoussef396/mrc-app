@@ -998,10 +998,13 @@ function buildEdgeFunctionPayload(
   const totalWorkDays = Math.max(1, Math.ceil((nonDemoHours + demoHours + subfloorHours) / 8));
 
   // hepa_air_scrubber_qty is persisted already gated on the method toggle; a null
-  // days column means "auto", which resolves to the shared equipment days.
+  // days column means "auto", which resolves to the shared equipment days — the
+  // stored effective hire period, falling back to labour days for legacy rows.
   const hepaQty = inspection?.hepa_air_scrubber_qty ?? 0;
   const hepaDays = hepaQty > 0
-    ? ((inspection?.hepa_air_scrubber_days ?? 0) > 0 ? inspection.hepa_air_scrubber_days : totalWorkDays)
+    ? ((inspection?.hepa_air_scrubber_days ?? 0) > 0
+        ? inspection.hepa_air_scrubber_days
+        : (inspection?.equipment_days || totalWorkDays))
     : null;
 
   return {

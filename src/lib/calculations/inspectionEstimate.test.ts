@@ -177,6 +177,27 @@ describe('computeInspectionEstimate — equipment', () => {
 
     expect(estimate.full.equipment.hepaAirScrubber.cost).toBe(600);
   });
+
+  it('should bill drying equipment over the explicit shared days', () => {
+    // (2×119 + 4×46) × 4 = 1,688 on a job that derives a single labour day
+    const estimate = computeInspectionEstimate({
+      areas: [area(150)],
+      equipment: { ...NO_EQUIPMENT, dehumidifierQty: 2, airMoverQty: 4, equipmentDays: 4 },
+      optionSelected: 1,
+    });
+
+    expect(estimate.full.equipmentCost).toBe(1688);
+  });
+
+  it('should apply the explicit shared days to the Option 1 sub-quote too', () => {
+    const estimate = computeInspectionEstimate({
+      areas: [area(150, 120, true)],
+      equipment: { ...NO_EQUIPMENT, dehumidifierQty: 1, equipmentDays: 3 },
+      optionSelected: 3,
+    });
+
+    expect(estimate.option1.equipmentCost).toBe(357);
+  });
 });
 
 describe('computeInspectionEstimate — multi-area and multi-day', () => {

@@ -33,7 +33,9 @@ export interface EstimateEquipmentInput {
   airMoverQty: number;
   rcdQty: number;
   hepaAirScrubberQty: number;
-  /** 0 / absent = share the labour-derived equipment days. */
+  /** Explicit shared hire period; 0 / absent = derive from labour hours. */
+  equipmentDays?: number;
+  /** 0 / absent = share the (explicit or labour-derived) equipment days. */
   hepaAirScrubberDays?: number;
 }
 
@@ -107,6 +109,7 @@ export function computeInspectionEstimate(
     dehumidifierQty: equipment.dehumidifierQty,
     airMoverQty: equipment.airMoverQty,
     rcdQty: equipment.rcdQty,
+    equipmentDays: equipment.equipmentDays,
     hepaAirScrubberQty: equipment.hepaAirScrubberQty,
     hepaAirScrubberDays: equipment.hepaAirScrubberDays,
     wasteDisposalCost,
@@ -120,6 +123,7 @@ export function computeInspectionEstimate(
     dehumidifierQty: equipment.dehumidifierQty,
     airMoverQty: equipment.airMoverQty,
     rcdQty: equipment.rcdQty,
+    equipmentDays: equipment.equipmentDays,
     hepaAirScrubberQty: equipment.hepaAirScrubberQty,
     hepaAirScrubberDays: equipment.hepaAirScrubberDays,
   });

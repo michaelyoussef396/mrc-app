@@ -742,6 +742,7 @@ function CostEstimateSection({
     dehumidifierQty: i.commercial_dehumidifier_qty || 0,
     airMoverQty: i.air_movers_qty || 0,
     rcdQty: i.rcd_box_qty || 0,
+    equipmentDays: i.equipment_days || undefined,
     hepaAirScrubberQty: i.hepa_air_scrubber_qty || 0,
     hepaAirScrubberDays: i.hepa_air_scrubber_days || undefined,
     wasteDisposalCost: i.waste_disposal_confirmed_cost ?? undefined,
@@ -758,6 +759,7 @@ function CostEstimateSection({
         dehumidifierQty: i.commercial_dehumidifier_qty || 0,
         airMoverQty: i.air_movers_qty || 0,
         rcdQty: i.rcd_box_qty || 0,
+        equipmentDays: i.equipment_days || undefined,
         hepaAirScrubberQty: i.hepa_air_scrubber_qty || 0,
         hepaAirScrubberDays: i.hepa_air_scrubber_days || undefined,
       })

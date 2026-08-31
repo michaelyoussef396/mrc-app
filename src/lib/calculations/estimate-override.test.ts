@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import {
   parseOverrideInput,
+  reconcileLoadedEquipmentDays,
   reconcileLoadedOverride,
   resolveOverridableValue,
 } from './estimate-override';
@@ -93,5 +94,29 @@ describe('reconcileLoadedOverride — rehydrating from a saved row', () => {
 
   it('should return null for a non-positive saved value', () => {
     expect(reconcileLoadedOverride(true, 0, 1094.71)).toBeNull();
+  });
+});
+
+// equipment_days persists the EFFECTIVE hire period (explicit or labour-derived),
+// so only a value that differs from the labour-derived days is an explicit one.
+describe('reconcileLoadedEquipmentDays — rehydrating the shared hire period', () => {
+  it('should return auto when the saved days equal the labour-derived days', () => {
+    expect(reconcileLoadedEquipmentDays(2, 2)).toBe(0);
+  });
+
+  it('should return the saved days when they exceed the labour-derived days', () => {
+    expect(reconcileLoadedEquipmentDays(4, 1)).toBe(4);
+  });
+
+  it('should keep an explicit hire period shorter than the labour days', () => {
+    expect(reconcileLoadedEquipmentDays(1, 3)).toBe(1);
+  });
+
+  it('should return auto for a legacy row with no equipment_days', () => {
+    expect(reconcileLoadedEquipmentDays(null, 1)).toBe(0);
+  });
+
+  it('should return auto for a non-positive saved value', () => {
+    expect(reconcileLoadedEquipmentDays(0, 1)).toBe(0);
   });
 });

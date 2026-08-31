@@ -4,6 +4,7 @@ import {
   calculateLabourCost,
   calculateLabourCostWithBreakdown,
   calculateWasteDisposalCost,
+  deriveEquipmentDays,
   interpolateCost,
   EQUIPMENT_RATES,
   LABOUR_RATES,
@@ -296,6 +297,121 @@ describe('EQUIPMENT_RATES', () => {
       hepaAirScrubberQty: 1,
     });
     expect(result.equipment.hepaAirScrubber.cost).toBe(100);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Labour-derived equipment days — one hire day per started 8h labour day, min 1.
+// ---------------------------------------------------------------------------
+
+describe('deriveEquipmentDays', () => {
+  it('should charge one day when there are no labour hours', () => {
+    expect(deriveEquipmentDays(0)).toBe(1);
+  });
+
+  it('should charge one day for a sub-8h job', () => {
+    expect(deriveEquipmentDays(4)).toBe(1);
+  });
+
+  it('should charge one day for exactly eight hours', () => {
+    expect(deriveEquipmentDays(8)).toBe(1);
+  });
+
+  it('should start a second day past eight hours', () => {
+    expect(deriveEquipmentDays(8.5)).toBe(2);
+  });
+
+  it('should agree with the shared days the engine reports for a 47h job', () => {
+    const result = calculateCostEstimate({ nonDemoHours: 15, demolitionHours: 22, subfloorHours: 10 });
+    expect(result.equipment.days).toBe(deriveEquipmentDays(47));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Explicit shared equipment days — multiplies every drying item. Absent/0 derives
+// from labour hours exactly as before, so existing quotes are byte-identical.
+// ---------------------------------------------------------------------------
+
+// The owner's worked example: "four days for two dehumidifiers and four blowers".
+const OWNER_DAYS_EXAMPLE = {
+  nonDemoHours: 4, demolitionHours: 0, subfloorHours: 0,
+  dehumidifierQty: 2, airMoverQty: 4, rcdQty: 0,
+};
+
+describe('calculateCostEstimate — explicit equipment days', () => {
+  it('should multiply every drying item by the explicit day count', () => {
+    // (2×119 + 4×46) × 4 = 422 × 4 = 1,688
+    const result = calculateCostEstimate({ ...OWNER_DAYS_EXAMPLE, equipmentDays: 4 });
+    expect(result.equipment.total).toBe(1688);
+  });
+
+  it('should report the explicit day count as the shared equipment days', () => {
+    const result = calculateCostEstimate({ ...OWNER_DAYS_EXAMPLE, equipmentDays: 4 });
+    expect(result.equipment.days).toBe(4);
+  });
+
+  it('should multiply the RCD box by the explicit day count', () => {
+    const result = calculateCostEstimate({ ...OWNER_DAYS_EXAMPLE, rcdQty: 1, equipmentDays: 4 });
+    expect(result.equipment.rcd.cost).toBe(20);
+  });
+
+  it('should apply the explicit days to HEPA when HEPA has no days of its own', () => {
+    const result = calculateCostEstimate({ ...OWNER_DAYS_EXAMPLE, hepaAirScrubberQty: 1, equipmentDays: 4 });
+    expect(result.equipment.hepaAirScrubber.cost).toBe(400);
+  });
+
+  it('should keep HEPA on its own hire period when both are set', () => {
+    const result = calculateCostEstimate({
+      ...OWNER_DAYS_EXAMPLE, hepaAirScrubberQty: 1, hepaAirScrubberDays: 2, equipmentDays: 4,
+    });
+    expect(result.equipment.hepaAirScrubber.cost).toBe(200);
+  });
+
+  it('should override the labour-derived days even when the explicit count is shorter', () => {
+    // 47h job derives 6 days; the explicit 2 wins: 381 × 2 = 762
+    const result = calculateCostEstimate({
+      nonDemoHours: 15, demolitionHours: 22, subfloorHours: 10,
+      dehumidifierQty: 2, airMoverQty: 3, rcdQty: 1, equipmentDays: 2,
+    });
+    expect(result.equipment.total).toBe(762);
+  });
+
+  it('should leave the labour work days labour-derived when equipment days are explicit', () => {
+    const result = calculateCostEstimate({ ...OWNER_DAYS_EXAMPLE, equipmentDays: 4 });
+    expect(result.totalDays).toBe(1);
+  });
+
+  it('should apply the explicit days in manual-override mode', () => {
+    const result = calculateCostEstimate({
+      ...OWNER_DAYS_EXAMPLE, equipmentDays: 4, manualOverride: true, manualTotal: 5000,
+    });
+    expect(result.equipment.days).toBe(4);
+  });
+
+  it('should be identical to the labour-derived engine when equipmentDays is 0', () => {
+    expect(calculateCostEstimate({ ...OWNER_DAYS_EXAMPLE, equipmentDays: 0 }))
+      .toEqual(calculateCostEstimate(OWNER_DAYS_EXAMPLE));
+  });
+
+  it('should be identical to the labour-derived engine when equipmentDays is absent', () => {
+    expect(calculateCostEstimate({ ...OWNER_DAYS_EXAMPLE, equipmentDays: undefined }))
+      .toEqual(calculateCostEstimate(OWNER_DAYS_EXAMPLE));
+  });
+});
+
+describe('multi-day equipment flows into subtotal without being discounted', () => {
+  const base = { nonDemoHours: 4, demolitionHours: 0, subfloorHours: 0 };
+
+  it('should raise the subtotal by exactly the multi-day equipment cost', () => {
+    const withEquipment = calculateCostEstimate({ ...base, dehumidifierQty: 2, airMoverQty: 4, equipmentDays: 4 });
+    const without = calculateCostEstimate(base);
+    expect(round2(withEquipment.subtotalExGst - without.subtotalExGst)).toBe(1688);
+  });
+
+  it('should charge GST on the multi-day equipment cost', () => {
+    const withEquipment = calculateCostEstimate({ ...base, dehumidifierQty: 2, airMoverQty: 4, equipmentDays: 4 });
+    const without = calculateCostEstimate(base);
+    expect(round2(withEquipment.totalIncGst - without.totalIncGst)).toBe(1856.8);
   });
 });
 
