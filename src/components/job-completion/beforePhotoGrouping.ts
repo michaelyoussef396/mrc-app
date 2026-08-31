@@ -11,7 +11,8 @@
 /** Photo row enriched with a short-lived signed URL for display */
 export interface PhotoWithUrl {
   id: string
-  inspection_id: string
+  /** Null for a photo uploaded on a job whose lead never had an inspection. */
+  inspection_id: string | null
   storage_path: string
   caption: string | null
   area_id: string | null

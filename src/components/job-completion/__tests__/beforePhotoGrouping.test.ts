@@ -125,3 +125,41 @@ describe('isLikelyOnsiteUpload', () => {
     expect(isLikelyOnsiteUpload(makePickedPhoto({ photo_type: 'general' }), null)).toBe(false)
   })
 })
+
+// A lead can reach job completion without ever having an inspection. The
+// before photos a technician uploads on those jobs carry inspection_id = null,
+// and they are the only photos the job report will have.
+describe('photos on a job with no inspection', () => {
+  function makeNoInspectionUpload(overrides: Partial<PhotoWithUrl> = {}): PhotoWithUrl {
+    return makePhoto({
+      id: 'onsite-no-insp',
+      inspection_id: null,
+      storage_path: `job-${JOB_ID}/onsite-no-insp.jpg`,
+      job_completion_id: JOB_ID,
+      photo_category: 'before',
+      photo_type: 'general',
+      ...overrides,
+    })
+  }
+
+  it('classifies an upload with no inspection as an on-site photo', () => {
+    expect(isLikelyOnsiteUpload(makeNoInspectionUpload(), JOB_ID)).toBe(true)
+  })
+
+  it('puts an upload with no inspection in the on-site group', () => {
+    const uploaded = makeNoInspectionUpload()
+    const groups = groupPhotos([uploaded], new Set([uploaded.id]))
+    expect(groups[0].key).toBe('onsite')
+  })
+
+  it('keeps an upload with no inspection out of the general group', () => {
+    const uploaded = makeNoInspectionUpload()
+    const keys = groupPhotos([uploaded], new Set([uploaded.id])).map((g) => g.key)
+    expect(keys).not.toContain('general')
+  })
+
+  it('leaves an upload with no inspection ungrouped when the caller omits its id', () => {
+    const uploaded = makeNoInspectionUpload()
+    expect(groupPhotos([uploaded], new Set()).map((g) => g.key)).toEqual(['general'])
+  })
+})

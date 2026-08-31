@@ -26,24 +26,46 @@ interface SectionProps {
   jobCompletionId: string | null;
 }
 
-interface InspectionPhotos {
+interface BeforePhotoSet {
   inspectionId: string | null;
   photos: PhotoWithUrl[];
+}
+
+/** Row shape of the photos this grid reads, before signed URLs are attached. */
+interface PhotoRow {
+  id: string;
+  inspection_id: string | null;
+  storage_path: string;
+  caption: string | null;
+  area_id: string | null;
+  photo_type: string | null;
+  photo_category: string | null;
+  job_completion_id: string | null;
 }
 
 const MAX_SELECTED_BEFORE_PHOTOS = 10;
 const SIGNED_URL_TTL_SECONDS = 3600;
 
+const PHOTO_COLUMNS =
+  'id, inspection_id, storage_path, caption, area_id, photo_type, photo_category, job_completion_id';
+
 /** Stable identity so an empty result does not re-trigger memos every render. */
 const NO_PHOTOS: readonly PhotoWithUrl[] = Object.freeze([]);
 
 /**
- * Fetch all photos from the inspection linked to this lead, enriched with
- * signed URLs so the <img> tags can actually render them. The inspection id
- * comes back too — uploading a new before photo needs it, and re-querying for
- * it would be a second round trip for something already resolved here.
+ * Everything this grid can show: the lead's inspection photos, plus the before
+ * photos already attached to this job completion.
+ *
+ * The second half is what makes a lead with no inspection work at all. Those
+ * photos carry `inspection_id = null`, so an inspection-scoped read cannot see
+ * them — querying by inspection alone would accept an upload and then lose it
+ * on the very next refetch. The inspection id comes back too, because an upload
+ * needs it and it is already resolved here.
  */
-async function fetchInspectionPhotos(leadId: string): Promise<InspectionPhotos> {
+async function fetchBeforePhotos(
+  leadId: string,
+  jobCompletionId: string | null
+): Promise<BeforePhotoSet> {
   const { data: inspection, error: inspError } = await supabase
     .from('inspections')
     .select('id')
@@ -53,79 +75,107 @@ async function fetchInspectionPhotos(leadId: string): Promise<InspectionPhotos> 
     .maybeSingle();
 
   if (inspError) throw inspError;
-  if (!inspection) return { inspectionId: null, photos: [] };
 
-  const [photosResult, areasResult] = await Promise.all([
-    supabase
-      .from('photos')
-      .select(
-        'id, inspection_id, storage_path, caption, area_id, photo_type, photo_category, job_completion_id'
-      )
-      .eq('inspection_id', inspection.id)
-      .or('photo_category.is.null,photo_category.eq.before')
-      .is('deleted_at', null)
-      .order('order_index', { ascending: true }),
-    supabase
-      .from('inspection_areas')
-      .select('id, area_name')
-      .eq('inspection_id', inspection.id),
+  const inspectionId = inspection?.id ?? null;
+
+  const [inspectionRows, jobRows, areaNames] = await Promise.all([
+    fetchInspectionPhotoRows(inspectionId),
+    fetchJobCompletionPhotoRows(jobCompletionId),
+    fetchAreaNames(inspectionId),
   ]);
 
-  if (photosResult.error) throw photosResult.error;
-  if (!photosResult.data || photosResult.data.length === 0) {
-    return { inspectionId: inspection.id, photos: [] };
+  // A picked inspection photo satisfies both queries — keep the first sighting.
+  const byId = new Map<string, PhotoRow>();
+  for (const row of [...inspectionRows, ...jobRows]) {
+    if (!byId.has(row.id)) byId.set(row.id, row);
   }
-
-  const areaNameMap = new Map<string, string>();
-  if (areasResult.data) {
-    for (const area of areasResult.data) {
-      areaNameMap.set(area.id, area.area_name);
-    }
-  }
+  if (byId.size === 0) return { inspectionId, photos: [] };
 
   const withUrls = await Promise.all(
-    photosResult.data.map(async (row) => {
-      try {
-        const { data } = await supabase.storage
-          .from('inspection-photos')
-          .createSignedUrl(row.storage_path, SIGNED_URL_TTL_SECONDS);
-
-        return {
-          id: row.id,
-          inspection_id: row.inspection_id ?? inspection.id,
-          storage_path: row.storage_path,
-          caption: row.caption,
-          area_id: row.area_id,
-          area_name: row.area_id ? (areaNameMap.get(row.area_id) ?? null) : null,
-          photo_type: row.photo_type,
-          photo_category: row.photo_category,
-          job_completion_id: row.job_completion_id,
-          signed_url: data?.signedUrl ?? '',
-        } as PhotoWithUrl;
-      } catch {
-        return {
-          id: row.id,
-          inspection_id: row.inspection_id ?? inspection.id,
-          storage_path: row.storage_path,
-          caption: row.caption,
-          area_id: row.area_id,
-          area_name: row.area_id ? (areaNameMap.get(row.area_id) ?? null) : null,
-          photo_type: row.photo_type,
-          photo_category: row.photo_category,
-          job_completion_id: row.job_completion_id,
-          signed_url: '',
-        } as PhotoWithUrl;
-      }
-    })
+    [...byId.values()].map((row) => toPhotoWithUrl(row, areaNames))
   );
 
-  return { inspectionId: inspection.id, photos: withUrls.filter((p) => p.signed_url) };
+  return { inspectionId, photos: withUrls.filter((p) => p.signed_url) };
+}
+
+async function fetchInspectionPhotoRows(inspectionId: string | null): Promise<PhotoRow[]> {
+  if (!inspectionId) return [];
+
+  const { data, error } = await supabase
+    .from('photos')
+    .select(PHOTO_COLUMNS)
+    .eq('inspection_id', inspectionId)
+    .or('photo_category.is.null,photo_category.eq.before')
+    .is('deleted_at', null)
+    .order('order_index', { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []) as PhotoRow[];
+}
+
+async function fetchJobCompletionPhotoRows(jobCompletionId: string | null): Promise<PhotoRow[]> {
+  if (!jobCompletionId) return [];
+
+  const { data, error } = await supabase
+    .from('photos')
+    .select(PHOTO_COLUMNS)
+    .eq('job_completion_id', jobCompletionId)
+    .eq('photo_category', 'before')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []) as PhotoRow[];
+}
+
+async function fetchAreaNames(inspectionId: string | null): Promise<Map<string, string>> {
+  const areaNames = new Map<string, string>();
+  if (!inspectionId) return areaNames;
+
+  const { data } = await supabase
+    .from('inspection_areas')
+    .select('id, area_name')
+    .eq('inspection_id', inspectionId);
+
+  for (const area of data ?? []) {
+    areaNames.set(area.id, area.area_name);
+  }
+  return areaNames;
+}
+
+async function toPhotoWithUrl(
+  row: PhotoRow,
+  areaNames: Map<string, string>
+): Promise<PhotoWithUrl> {
+  let signedUrl = '';
+  try {
+    const { data } = await supabase.storage
+      .from('inspection-photos')
+      .createSignedUrl(row.storage_path, SIGNED_URL_TTL_SECONDS);
+    signedUrl = data?.signedUrl ?? '';
+  } catch {
+    signedUrl = '';
+  }
+
+  return {
+    id: row.id,
+    inspection_id: row.inspection_id,
+    storage_path: row.storage_path,
+    caption: row.caption,
+    area_id: row.area_id,
+    area_name: row.area_id ? (areaNames.get(row.area_id) ?? null) : null,
+    photo_type: row.photo_type,
+    photo_category: row.photo_category,
+    job_completion_id: row.job_completion_id,
+    signed_url: signedUrl,
+  };
 }
 
 /**
  * Section3BeforePhotos — pre-populates "before" photos from the linked
  * inspection, and lets the technician add photos taken at job time. Up to 10
- * in total go into the job report.
+ * in total go into the job report. A lead with no inspection is a supported
+ * case: uploading is then the only way a before photo reaches the report.
  *
  * Two kinds of photo live in this grid and they are removed differently.
  * A picked inspection photo is selected by setting `job_completion_id` and
@@ -141,8 +191,8 @@ export function Section3BeforePhotos({
   jobCompletionId,
 }: SectionProps) {
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['inspection-photos', leadId],
-    queryFn: () => fetchInspectionPhotos(leadId),
+    queryKey: ['inspection-photos', leadId, jobCompletionId],
+    queryFn: () => fetchBeforePhotos(leadId, jobCompletionId),
     enabled: !!leadId,
     staleTime: 5 * 60_000,
   });
@@ -246,8 +296,21 @@ export function Section3BeforePhotos({
     }
   };
 
-  const canUpload =
-    !isReadOnly && !!inspectionId && !!jobCompletionId && !isUploading && !isPersisting;
+  // Deliberately not gated on inspectionId. A lead can reach job completion
+  // without ever having an inspection, and on those jobs this upload is the
+  // only way any photo reaches the report. The photo hangs off the job
+  // completion instead — photos.inspection_id is nullable and the technician
+  // RLS policies carry a job_completion_id-only branch for exactly that row.
+  const canUpload = !isReadOnly && !!jobCompletionId && !isUploading && !isPersisting;
+
+  /** Why the upload button is disabled, or null when it is live. */
+  const uploadBlockedReason = (() => {
+    if (isReadOnly) return 'This job is submitted — photos can no longer be changed.';
+    if (isUploading) return null;
+    if (isPersisting) return 'Saving your last change...';
+    if (!jobCompletionId) return 'Preparing this job — you can add photos in a moment.';
+    return null;
+  })();
 
   function triggerUpload() {
     if (!canUpload) return;
@@ -261,7 +324,7 @@ export function Section3BeforePhotos({
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    if (files.length === 0 || !inspectionId || !jobCompletionId) return;
+    if (files.length === 0 || !jobCompletionId) return;
 
     if (!navigator.onLine) {
       toast.error(
@@ -387,19 +450,33 @@ export function Section3BeforePhotos({
       </div>
 
       {!isLoading && !error && (
-        <button
-          type="button"
-          onClick={triggerUpload}
-          disabled={!canUpload}
-          className="w-full min-h-[48px] rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center gap-2 text-[15px] font-medium text-[#007AFF] hover:border-[#007AFF] hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-[#007AFF] disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isUploading ? (
-            <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
-          ) : (
-            <Plus className="w-5 h-5" aria-hidden="true" />
+        <div className="space-y-1.5">
+          <button
+            type="button"
+            onClick={triggerUpload}
+            disabled={!canUpload}
+            aria-describedby={uploadBlockedReason ? 'before-photos-upload-blocked' : undefined}
+            className="w-full min-h-[48px] rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center gap-2 text-[15px] font-medium text-[#007AFF] hover:border-[#007AFF] hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-[#007AFF] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isUploading ? (
+              <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+            ) : (
+              <Plus className="w-5 h-5" aria-hidden="true" />
+            )}
+            {isUploading ? 'Uploading...' : 'Add Before Photos'}
+          </button>
+          {/* A disabled control must never be silent — say why, or the tech is
+              left tapping a dead button with no way to know what to do. */}
+          {uploadBlockedReason && (
+            <p
+              id="before-photos-upload-blocked"
+              role="status"
+              className="text-xs text-[#86868b] text-center"
+            >
+              {uploadBlockedReason}
+            </p>
           )}
-          {isUploading ? 'Uploading...' : 'Add Before Photos'}
-        </button>
+        </div>
       )}
 
       {isLoading && (
@@ -429,10 +506,13 @@ export function Section3BeforePhotos({
             <ImageIcon className="w-7 h-7 text-gray-300" aria-hidden="true" />
           </div>
           <div className="text-center">
-            <p className="text-[15px] font-medium text-[#1d1d1f]">No inspection photos found</p>
+            <p className="text-[15px] font-medium text-[#1d1d1f]">
+              {inspectionId ? 'No inspection photos found' : 'No before photos yet'}
+            </p>
             <p className="text-sm text-[#86868b] mt-0.5">
-              No photos were uploaded during the inspection for this lead. Use Add Before Photos
-              above to take them now.
+              {inspectionId
+                ? 'No photos were uploaded during the inspection for this lead. Use Add Before Photos above to take them now.'
+                : 'This job has no inspection to draw photos from. Use Add Before Photos above to take them now.'}
             </p>
           </div>
         </div>
