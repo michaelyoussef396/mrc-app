@@ -10,7 +10,13 @@ export interface PhotoUploadResult {
 }
 
 export interface PhotoMetadata {
-  inspection_id: string
+  /**
+   * Null for a photo that belongs to a job completion on a lead that never had
+   * an inspection. `photos.inspection_id` is nullable and the technician RLS
+   * policies carry a `job_completion_id`-only branch for exactly this row, so
+   * such a photo is reachable without one.
+   */
+  inspection_id: string | null
   area_id?: string
   subfloor_id?: string
   moisture_reading_id?: string
@@ -97,14 +103,22 @@ export async function uploadInspectionPhoto(
   const uniqueId = crypto.randomUUID().slice(0, 8) // 8 chars of randomness
   const filename = `${metadata.photo_type}-${timestamp}-${uniqueId}.jpg`
 
-  // 4. Construct storage path based on metadata
+  // 4. Construct storage path based on metadata. A photo on a lead with no
+  // inspection is filed under its job completion instead — interpolating a null
+  // inspection_id would write a literal "null/" prefix. The bucket's RLS is
+  // path-agnostic (bucket + authenticated role), so the prefix is free to vary.
+  if (!metadata.inspection_id && !metadata.job_completion_id) {
+    throw new Error('Photo needs an inspection_id or a job_completion_id to be filed under')
+  }
+  const ownerPrefix = metadata.inspection_id ?? `job-${metadata.job_completion_id}`
+
   let storagePath: string
   if (metadata.area_id) {
-    storagePath = `${metadata.inspection_id}/${metadata.area_id}/${filename}`
+    storagePath = `${ownerPrefix}/${metadata.area_id}/${filename}`
   } else if (metadata.subfloor_id) {
-    storagePath = `${metadata.inspection_id}/subfloor/${filename}`
+    storagePath = `${ownerPrefix}/subfloor/${filename}`
   } else {
-    storagePath = `${metadata.inspection_id}/${filename}`
+    storagePath = `${ownerPrefix}/${filename}`
   }
 
   // 5. Upload resized photo to Storage
@@ -189,18 +203,23 @@ export async function uploadInspectionPhoto(
   }
 
   // Stage 4.2: domain-level history. Non-blocking — never throws.
-  await recordPhotoHistory({
-    photo_id: photoData.id,
-    inspection_id: metadata.inspection_id,
-    action: 'added',
-    after: {
-      photo_type: metadata.photo_type,
-      area_id: metadata.area_id ?? null,
-      subfloor_id: metadata.subfloor_id ?? null,
-      caption: metadata.caption.trim(),
-      photo_category: metadata.photo_category ?? null,
-    },
-  })
+  // photo_history.inspection_id is NOT NULL, so a photo with no inspection has
+  // nowhere to record. Skipping beats firing an insert we know will be rejected
+  // and reported to Sentry on every upload — same guard deleteInspectionPhoto uses.
+  if (metadata.inspection_id) {
+    await recordPhotoHistory({
+      photo_id: photoData.id,
+      inspection_id: metadata.inspection_id,
+      action: 'added',
+      after: {
+        photo_type: metadata.photo_type,
+        area_id: metadata.area_id ?? null,
+        subfloor_id: metadata.subfloor_id ?? null,
+        caption: metadata.caption.trim(),
+        photo_category: metadata.photo_category ?? null,
+      },
+    })
+  }
 
   addBusinessBreadcrumb('photo_uploaded', {
     photo_id: photoData.id,
