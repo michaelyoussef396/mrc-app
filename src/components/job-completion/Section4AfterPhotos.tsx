@@ -35,6 +35,7 @@ interface JobPhoto {
 
 const SIGNED_URL_TTL_SECONDS = 3600;
 const DEMOLITION_PHOTO_LIMIT = 4;
+const INSPECTION_LOOKUP_STALE_TIME_MS = 5 * 60_000;
 
 async function fetchInspectionId(leadId: string): Promise<string | null> {
   const { data, error } = await supabase
@@ -99,8 +100,6 @@ export function Section4AfterPhotos({
   leadId,
   jobCompletionId,
 }: SectionProps) {
-  const [inspectionId, setInspectionId] = useState<string | null>(null);
-  const [inspectionLookupError, setInspectionLookupError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [lightboxPhoto, setLightboxPhoto] = useState<JobPhoto | null>(null);
@@ -108,20 +107,27 @@ export function Section4AfterPhotos({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingCategoryRef = useRef<PhotoCategory>('after');
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchInspectionId(leadId)
-      .then((id) => {
-        if (cancelled) return;
-        setInspectionId(id);
-        if (!id) setInspectionLookupError('No inspection linked to this lead. Photos cannot be uploaded.');
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setInspectionLookupError(err instanceof Error ? err.message : 'Failed to load inspection.');
-      });
-    return () => { cancelled = true; };
-  }, [leadId]);
+  // Resolved so a photo on a lead that does have an inspection stays linked to
+  // it. A null result is a supported case, not an error — see canUpload.
+  const {
+    data: inspectionLookup,
+    fetchStatus: inspectionFetchStatus,
+    error: inspectionLookupError,
+    refetch: refetchInspectionId,
+  } = useQuery({
+    queryKey: ['job-completion-inspection-id', leadId],
+    queryFn: () => fetchInspectionId(leadId),
+    enabled: !!leadId,
+    staleTime: INSPECTION_LOOKUP_STALE_TIME_MS,
+  });
+  const inspectionId = inspectionLookup ?? null;
+  // "Has the lookup answered at all." Not isLoading: an offline query sits
+  // paused with neither loading nor error set and would open the buttons
+  // unresolved. Not isSuccess: a failed background refetch must not lock them
+  // once the answer is already known.
+  const isInspectionResolved = inspectionLookup !== undefined;
+  const hasInspectionLookupFailed = !isInspectionResolved && !!inspectionLookupError;
+  const isInspectionLookupPaused = !isInspectionResolved && inspectionFetchStatus === 'paused';
 
   const {
     data: photos = [],
@@ -153,7 +159,26 @@ export function Section4AfterPhotos({
   const isAfterAtLimit = afterPhotos.length >= afterLimit;
   const isDemolitionAtLimit = demolitionPhotos.length >= DEMOLITION_PHOTO_LIMIT;
 
-  const canUpload = !isReadOnly && !!inspectionId && !!jobCompletionId && !isUploading;
+  // Deliberately not gated on inspectionId, for the same reason as Section 3:
+  // a lead can reach job completion without ever having an inspection, and on
+  // those jobs this upload is the only way an after photo reaches the report.
+  // The lookup still has to resolve first, or a tech tapping Add straight away
+  // on a lead that does have an inspection would file the photo without it.
+  // After photos are read back by job_completion_id alone, so a null
+  // inspection never hides one from this grid or from the report.
+  const canUpload = !isReadOnly && !!jobCompletionId && isInspectionResolved && !isUploading;
+
+  /** Why the upload buttons are disabled, or null when they are live. */
+  const uploadBlockedReason = (() => {
+    if (isUploading) return null;
+    if (!jobCompletionId) return 'Preparing this job — you can add photos in a moment.';
+    if (isInspectionResolved) return null;
+    if (isInspectionLookupPaused) return "You're offline — photos can be added once you reconnect.";
+    if (hasInspectionLookupFailed) return 'Could not check for a linked inspection — use Retry above.';
+    return 'Checking for a linked inspection...';
+  })();
+
+  const isAfterUploadShown = afterLimit > 0 && !isReadOnly;
 
   function triggerUpload(category: PhotoCategory) {
     if (!canUpload) return;
@@ -183,7 +208,7 @@ export function Section4AfterPhotos({
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    if (files.length === 0 || !inspectionId || !jobCompletionId) return;
+    if (files.length === 0 || !jobCompletionId) return;
 
     const category = pendingCategoryRef.current;
     const currentCount = category === 'after' ? afterPhotos.length : demolitionPhotos.length;
@@ -308,9 +333,19 @@ export function Section4AfterPhotos({
         </button>
       </div>
 
-      {inspectionLookupError && (
+      {hasInspectionLookupFailed && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          {inspectionLookupError}
+          <p className="font-semibold">Could not check for a linked inspection</p>
+          <p className="mt-1">
+            {inspectionLookupError instanceof Error ? inspectionLookupError.message : 'Unknown error'}
+          </p>
+          <button
+            type="button"
+            onClick={() => refetchInspectionId()}
+            className="mt-2 text-red-900 underline font-medium"
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -333,25 +368,39 @@ export function Section4AfterPhotos({
           </div>
         )}
 
-        {afterLimit > 0 && !isReadOnly && (
-          <button
-            type="button"
-            onClick={() => triggerUpload('after')}
-            disabled={!canUpload || isAfterAtLimit}
-            className="flex items-center justify-center gap-2 w-full h-12 bg-[#007AFF] text-white rounded-lg font-medium text-[15px] focus:outline-none focus:ring-2 focus:ring-[#007AFF] focus:ring-offset-2 active:opacity-90 disabled:opacity-50"
-            aria-label="Add photos"
-          >
-            {isUploading ? (
-              <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
-            ) : (
-              <ImagePlus className="w-5 h-5" aria-hidden="true" />
+        {isAfterUploadShown && (
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={() => triggerUpload('after')}
+              disabled={!canUpload || isAfterAtLimit}
+              aria-describedby={uploadBlockedReason ? 'after-photos-upload-blocked' : undefined}
+              className="flex items-center justify-center gap-2 w-full h-12 bg-[#007AFF] text-white rounded-lg font-medium text-[15px] focus:outline-none focus:ring-2 focus:ring-[#007AFF] focus:ring-offset-2 active:opacity-90 disabled:opacity-50"
+              aria-label="Add photos"
+            >
+              {isUploading ? (
+                <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+              ) : (
+                <ImagePlus className="w-5 h-5" aria-hidden="true" />
+              )}
+              {isUploading
+                ? 'Uploading...'
+                : isAfterAtLimit
+                  ? `All ${afterLimit} photos uploaded`
+                  : `Add Photos (${afterLimit - afterPhotos.length} remaining)`}
+            </button>
+            {/* A disabled control must never be silent — say why, or the tech
+                is left tapping a dead button with no way to know what to do. */}
+            {uploadBlockedReason && (
+              <p
+                id="after-photos-upload-blocked"
+                role="status"
+                className="text-xs text-[#86868b] text-center"
+              >
+                {uploadBlockedReason}
+              </p>
             )}
-            {isUploading
-              ? 'Uploading...'
-              : isAfterAtLimit
-                ? `All ${afterLimit} photos uploaded`
-                : `Add Photos (${afterLimit - afterPhotos.length} remaining)`}
-          </button>
+          </div>
         )}
 
         <PhotoGrid
@@ -383,24 +432,38 @@ export function Section4AfterPhotos({
           </div>
 
           {!isReadOnly && (
-            <button
-              type="button"
-              onClick={() => triggerUpload('demolition')}
-              disabled={!canUpload || isDemolitionAtLimit}
-              className="flex items-center justify-center gap-2 w-full h-12 bg-[#007AFF] text-white rounded-lg font-medium text-[15px] focus:outline-none focus:ring-2 focus:ring-[#007AFF] focus:ring-offset-2 active:opacity-90 disabled:opacity-50"
-              aria-label="Add demolition photos"
-            >
-              {isUploading ? (
-                <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
-              ) : (
-                <ImagePlus className="w-5 h-5" aria-hidden="true" />
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => triggerUpload('demolition')}
+                disabled={!canUpload || isDemolitionAtLimit}
+                aria-describedby={uploadBlockedReason ? 'demolition-photos-upload-blocked' : undefined}
+                className="flex items-center justify-center gap-2 w-full h-12 bg-[#007AFF] text-white rounded-lg font-medium text-[15px] focus:outline-none focus:ring-2 focus:ring-[#007AFF] focus:ring-offset-2 active:opacity-90 disabled:opacity-50"
+                aria-label="Add demolition photos"
+              >
+                {isUploading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <ImagePlus className="w-5 h-5" aria-hidden="true" />
+                )}
+                {isUploading
+                  ? 'Uploading...'
+                  : isDemolitionAtLimit
+                    ? `All ${DEMOLITION_PHOTO_LIMIT} photos uploaded`
+                    : `Add Photos (${DEMOLITION_PHOTO_LIMIT - demolitionPhotos.length} remaining)`}
+              </button>
+              {/* One live region per reason: when the after card is on screen its
+                  notice already announces this, so here it is description only. */}
+              {uploadBlockedReason && (
+                <p
+                  id="demolition-photos-upload-blocked"
+                  role={isAfterUploadShown ? undefined : 'status'}
+                  className="text-xs text-[#86868b] text-center"
+                >
+                  {uploadBlockedReason}
+                </p>
               )}
-              {isUploading
-                ? 'Uploading...'
-                : isDemolitionAtLimit
-                  ? `All ${DEMOLITION_PHOTO_LIMIT} photos uploaded`
-                  : `Add Photos (${DEMOLITION_PHOTO_LIMIT - demolitionPhotos.length} remaining)`}
-            </button>
+            </div>
           )}
 
           <PhotoGrid
