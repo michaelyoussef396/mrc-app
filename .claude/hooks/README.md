@@ -36,13 +36,19 @@ Blocks dangerous shell commands. Detects patterns even in chained commands (`&&`
 - **Database**: `DROP TABLE/DATABASE`, `DELETE FROM` without WHERE, `TRUNCATE TABLE`
 - **System**: `chmod 777`, piping `curl`/`wget` to `bash`/`sh`, `mkfs`, `dd if=`, writes to `/dev/`
 
-### block-supabase-prod.sh
+### block-supabase-prod.sh — NOT IN THIS DIRECTORY
 **Event**: PreToolUse (Bash)
+**Lives at**: `~/.claude/hooks/block-supabase-prod.sh`, registered in `~/.claude/settings.json`
+
+Deliberately not in this directory. A copy used to be, was never registered in `.claude/settings.json`, and therefore never ran — editing it changed nothing while the machine-local copy did the actual gating. The duplicate was deleted on 2026-09-03. See `docs/POST_INCIDENT_FRAMEWORK.md` incident 2, which carries the open item to bring it back under version control properly.
+
+Its expected behaviour is pinned by `scripts/test-supabase-guard.sh` (tracked) — the reviewable contract while the hook itself is machine-local. Run it after any edit to the hook.
 
 Denies any Bash invocation of the Supabase CLI or Management API that does not explicitly and exclusively target DEV (`ctppzqnysmzynkxjlzta`). Fails closed.
 - **PROD ref**: any Supabase command naming `ecyivrxjpsmjmexqatym` is blocked outright
 - **History rewrites**: `db push`, `db reset`, `migration repair` are blocked on every target
 - **Implicit targets**: `--linked` and any command with no `--project-ref` are blocked, because both inherit a default that resolves to PROD
+- **Read-only exception**: `migration list`, `db diff` and `inspect db *` are allowed when the hook itself reads `supabase/.temp/project-ref` and confirms DEV at invoke time. `--db-url` and `--workdir` are refused there because they make the target unverifiable from inside the hook. `db query` is excluded by design — it executes arbitrary SQL and is what reached PROD on 2026-08-27
 - **Management API**: `curl`/`wget` to `api.supabase.com` is held to the same rule
 
 Companion to `block-supabase-mcp-writes.sh`, which covers the MCP tool route only and never sees a Bash command. Neither hook gates a human's own terminal, which is where CLAUDE.md says PROD Edge Function deploys are run by hand.
