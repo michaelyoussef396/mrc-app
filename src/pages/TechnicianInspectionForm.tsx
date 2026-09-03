@@ -14,6 +14,7 @@ import {
   formatCurrency,
   formatPercent,
 } from '@/lib/calculations/pricing';
+import { resolveSubfloorHours } from '@/lib/calculations/subfloorHours';
 import {
   parseOverrideInput,
   reconcileLoadedOverride,
@@ -1966,12 +1967,16 @@ const getEffectiveHepaQty = (formData: InspectionFormData) =>
     ? (formData.hepaAirScrubberQty || 0)
     : 0;
 
+// Same contract for the Section 4 subfloor toggle — see resolveSubfloorHours.
+const getEffectiveSubfloorHours = (formData: InspectionFormData) =>
+  resolveSubfloorHours(formData.subfloorRequired, formData.subfloorTreatmentTime);
+
 // Shared equipment days, derived exactly the way Section 9 / the pricing engine do.
 // Used for the HEPA "Auto (N)" display and the AI payload's resolved HEPA days.
 const getSharedEquipmentDays = (formData: InspectionFormData) => {
   const nonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
   const demoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
-  const subfloorHours = formData.subfloorTreatmentTime || 0;
+  const subfloorHours = getEffectiveSubfloorHours(formData);
   return Math.max(1, Math.ceil((nonDemoHours + demoHours + subfloorHours) / 8));
 };
 
@@ -2299,7 +2304,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
   // Auto-calculate labour hours from Section 3 (areas) and Section 4 (subfloor)
   const calculatedNonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
   const calculatedDemoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
-  const calculatedSubfloorHours = formData.subfloorTreatmentTime || 0;
+  const calculatedSubfloorHours = getEffectiveSubfloorHours(formData);
 
   // Gated by the Drying Equipment toggle, so the breakdown below and the totals
   // agree with what the toggle says is quoted.
@@ -2860,7 +2865,7 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
     subfloorComments: formData.subfloorComments,
     subfloorLandscape: formData.subfloorLandscape,
     subfloorSanitation: formData.subfloorSanitation,
-    subfloorTreatmentTime: formData.subfloorTreatmentTime,
+    subfloorTreatmentTime: getEffectiveSubfloorHours(formData),
     subfloorReadings: formData.subfloorReadings.map((r) => ({ reading: r.reading, location: r.location })),
     outdoorTemperature: formData.outdoorTemperature,
     outdoorHumidity: formData.outdoorHumidity,
@@ -3442,7 +3447,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   useEffect(() => {
     const nonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
     const demoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
-    const sfHours = formData.subfloorTreatmentTime || 0;
+    const sfHours = getEffectiveSubfloorHours(formData);
 
     if (formData.noDemolitionHours !== nonDemoHours || formData.demolitionHours !== demoHours || formData.subfloorHours !== sfHours) {
       setFormData((prev) => ({
@@ -3452,7 +3457,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         subfloorHours: sfHours,
       }));
     }
-  }, [formData.areas, formData.subfloorTreatmentTime]);
+  }, [formData.areas, formData.subfloorTreatmentTime, formData.subfloorRequired]);
 
   // Form field handlers
   const handleChange = (field: keyof InspectionFormData, value: any) => {
@@ -3935,7 +3940,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       // Compute auto-calc pricing as defaults (used when form values are 0 / not yet edited)
       const saveNonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
       const saveDemoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
-      const saveSubfloorHours = formData.subfloorTreatmentTime || 0;
+      const saveSubfloorHours = getEffectiveSubfloorHours(formData);
 
       // Waste disposal: confirmed, non-discounted pass-through. Excluded in "Both"
       // mode (optionSelected === 3) so the per-option totals stay labour+equipment
