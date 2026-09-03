@@ -60,7 +60,7 @@ if printf '%s' "$SCAN" | grep -qE 'db[[:space:]]+(push|reset)|migration[[:space:
 fi
 
 # 3. Harmless introspection with no target is fine.
-if printf '%s' "$SCAN" | grep -qE '(^|[[:space:]])(--help|-h|--version|-v)([[:space:]]|$)'; then
+if printf '%s' "$SCAN" | grep -qE '(^|[[:space:]])(--help|-h|--version|-v)([[:space:];&|)]|$)'; then
   exit 0
 fi
 
