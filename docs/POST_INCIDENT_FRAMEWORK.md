@@ -210,12 +210,27 @@ is already on record for the `~/okf` write gate, where a `Write|Edit` matcher le
 Bash redirection unguarded. That it has now appeared twice is the signal worth
 acting on.
 
-**Change.** None yet.
+**Change.** None yet — the mechanism is specified here rather than built.
 
-**Status.** **Open.** Closing mechanism: a resource-bound check — a PreToolUse hook
-on Bash that inspects the command for writes to protected paths. A tool-name-bound
-check cannot be completed by adding more tool names, because the set of tools that
-can write bytes is not enumerable in advance.
+**Status.** **Open.** Closing mechanism: invert the binding. Instead of asking *which
+tool is this*, a resource-bound check asks *what paths would this action write*, and
+applies one protected-paths list — shared with the `Write`/`Edit` matcher, not
+duplicated beside it — to every tool that can reach the filesystem. For Bash that
+means a PreToolUse hook that resolves the command's write set: shell redirections
+(`>`, `>>`, `tee`), in-place editors (`sed -i`, `perl -i`), file movers (`cp`, `mv`,
+`install`, `rm`), and interpreters invoked with a path argument. The part that
+matters is what it does when it cannot tell. A shell command's write set is not
+statically decidable — `python3 patch.py "$F"` hides its target behind a variable,
+and an interpreter can write anywhere it likes — so a parser chasing completeness
+will always lose, and a parser that guesses will fail open exactly where it matters.
+It should instead clear only the shapes it recognises with confidence and refuse
+everything else that could reach a protected path from the working directory, with
+the denial naming `Write`/`Edit` as the route that is actually checked. That turns an
+unbounded parsing problem into a bounded one: the parser has to be right about what
+is safe, never about what is dangerous. The cost is friction — legitimate scripted
+edits get refused and have to be re-expressed through a checked tool — which is the
+same trade rule 3.5 makes for the read-only allowlist, and the same reason both are
+worth making.
 
 ---
 
