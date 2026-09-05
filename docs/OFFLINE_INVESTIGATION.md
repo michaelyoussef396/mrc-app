@@ -58,6 +58,14 @@ The holes, in order of severity:
    the code path cannot execute, because the prompt only renders when a backup
    exists and no backup is ever written. Downgraded from UNPROVEN; kept because
    it becomes live the moment anyone fixes the backup.
+7. **Recovery after a reload needs the network in order to work without the
+   network.** `/technician/inspection` is behind `RoleProtectedRoute`, and
+   `userRoles` is re-fetched over three REST calls on every page load and never
+   persisted (`AuthContext.tsx:58,118-121,133`). With a cold cache an offline
+   reload renders **"No Permissions Assigned"** and the form never mounts, so
+   nothing can read a backup even if one existed. With a warm cache it works —
+   which is what both browser tests were. A second, independent reason the
+   backup can never help.
 
 Everything else about offline in this app is either honest or harmless.
 
@@ -90,6 +98,78 @@ No crash. No "Unsaved work found" prompt. No warning that anything had been lost
 **The app made the on-device claim twice and it was false both times.** This is
 the ground truth this report is written against; anything that contradicts it is
 wrong.
+
+### What the tests were actually testing — read before designing the next one
+
+Both tests reloaded the page. Reaching the inspection form after a reload is
+**gated on the network**, which neither test controlled for. The conclusions
+survive (see below), but the *conditions* were not what they appeared, and the
+diagnosis session must not inherit the assumption.
+
+**The auth gate.** `/technician/inspection` sits behind
+`ProtectedRoute → RoleProtectedRoute allowedRoles={["technician"]}`
+(`App.tsx:314-326`). That guard renders a dead end when the roles array is empty
+(`RoleProtectedRoute.tsx:44-53`):
+
+```jsx
+if (userRoles.length === 0) {
+  return ( … <h2>No Permissions Assigned</h2> … )
+}
+```
+
+**And `userRoles` is never persisted.** It is `useState<string[]>([])`
+(`AuthContext.tsx:58`), filled only at `:133` after **three REST round-trips** —
+`profiles` (`:104`), `user_roles` (`:112`), `roles` (`:125`). The failure path is
+a silent bail (`:118-121`):
+
+```js
+if (userRoleError || !userRoleData?.length) {
+  setLoading(false);
+  return;
+}
+```
+
+Only `mrc_current_role` — a single string — is read back from localStorage
+(`:140`). The roles array itself is re-fetched from the network on every single
+page load.
+
+**So on a reload with no network at all, the form never mounts.** The technician
+gets "No Permissions Assigned" with a *Try Again* button, and cannot see the
+ATTENTION TO field to observe anything about it.
+
+**But that is not what happened, and the reason matters.** Those three role
+queries are REST **GET**s, so they fall under the same Workbox NetworkFirst rule
+that serves the inspection data offline — `supabase-api-cache`, one-hour expiry,
+50-entry LRU (`vite.config.ts:86-95`). With a warm cache they resolve from disk,
+roles populate, the guard passes and the form mounts showing cached server
+values. **That is almost certainly what both tests were**, and it is entirely
+consistent with everything observed: the field rendered its last saved value
+because that value came from the cache.
+
+An earlier draft of this section concluded from the auth gate that "the network
+must have been restored before the page finished loading". **That inference is
+wrong** — it ignores the cache path, which is the very mechanism that made the
+field render in the first place. Recorded because it is the same failure mode as
+the rest of this report: a confident mechanism that ignores one branch.
+
+**Three regimes, and only one of them is a clean experiment:**
+
+| Cache state at reload | What the technician sees | Was this the test? |
+|---|---|---|
+| **Warm** (loaded <1h ago, entries not evicted) | Form mounts, fields show cached server values, restore effect runs | **Almost certainly yes** |
+| **Cold or expired** | "No Permissions Assigned" — form never mounts | No; the field was visible |
+| **Network genuinely back** | A save would land and the field would show the *typed* text | No; the field showed the reverted value |
+
+**What this changes: nothing about the conclusion.** In the warm-cache regime
+`localStorageKey` is non-null, so the restore effect ran, called `getItem`, and
+found nothing — which is exactly the finding. And the six-month no-crash
+argument does not involve the reload path at all.
+
+**What this adds: a second, independent reason the backup can never help.** In
+the cold-cache regime the form does not mount, so nothing can read a backup even
+if one had been written. The recovery path needs the network in order to recover
+from not having the network. A technician who closes the app in a subfloor and
+reopens it there gets the permissions dead end, not their work.
 
 ### What Test 2 proves
 
@@ -222,6 +302,12 @@ distinguishes them.
 Nothing about the fix should be planned until someone runs this. It takes under
 a minute and it splits the two remaining hypotheses cleanly.
 
+**This recipe deliberately never reloads.** That is not a convenience — it is
+what makes it a valid experiment. A reload drags in two confounds that ruined
+the first two attempts: the clear effect wipes the key on mount, and the auth
+gate needs three cached network round-trips before the form will even render.
+Observing the write in the live page removes both.
+
 In DevTools **Console**, on the inspection form, offline, straight after typing:
 
 ```js
@@ -254,6 +340,40 @@ console — **before reloading**.
 If the last row is what happens, the follow-up is to find what re-renders the
 form with a new `formData` while nobody is touching it — the `[user]` effect at
 `:3434` is the prime suspect and can be confirmed by logging in it.
+
+### If you do need a genuine offline reload — how to produce one
+
+Only needed for the *recovery* half. For the write question, use the recipe
+above and do not reload at all.
+
+A reload is only a valid offline test if the cache state is pinned deliberately,
+because the route needs three cached REST GETs to render at all.
+
+**To test the warm-cache regime** (form mounts, restore effect runs — the useful
+one):
+
+1. Online, open the inspection form and let it fully load. This populates
+   `supabase-api-cache` with the `profiles` / `user_roles` / `roles` queries and
+   the inspection GET.
+2. Go offline. **Do the reload within the hour** — `maxAgeSeconds: 3600` — and
+   don't browse around first, or the 50-entry LRU may evict the role queries.
+3. Reload. If you get the form, the cache held and the test is valid. If you get
+   **"No Permissions Assigned"**, the cache did not hold; that run tells you
+   nothing about the backup, so warm it again and retry.
+
+**To test the cold-cache regime** (confirm the dead end is real): DevTools →
+Application → Cache Storage → delete `supabase-api-cache`, go offline, reload.
+Expect the permissions screen. This is what a technician gets after a lunch
+break in a basement.
+
+**What cannot be produced:** there is no way to reach the inspection form
+offline on a genuinely cold cache. Not a test-harness limitation — the app
+requires three successful network round-trips before that route renders, and
+nothing about roles is stored locally. Any future "does recovery work offline"
+test is therefore only ever testing the warm-cache path, and that limit should
+be stated in whatever the diagnosis session concludes.
+
+---
 
 That is the mechanism. It applies to every inspection, with or without a server
 id. Section 3 area data is affected at least as badly, and moisture readings and
