@@ -55,6 +55,7 @@ import AdminSidebar from '@/components/admin/AdminSidebar';
 import PipelineTabs from '@/components/leads/PipelineTabs';
 import LeadCard, { type TransformedLead } from '@/components/leads/LeadCard';
 import CreateLeadCard from '@/components/leads/CreateLeadCard';
+import LeadsPagination from '@/components/leads/LeadsPagination';
 import CreateNewLeadModal from '@/components/leads/CreateNewLeadModal';
 
 // ============================================================================
@@ -171,10 +172,11 @@ const LeadsManagement = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [leads, setLeads] = useState<TransformedLead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
+  // Zero-based. Reset to 0 by every filter change, so page 7 can never survive
+  // a switch to a tab that has 2 pages.
+  const [page, setPage] = useState(0);
   // Server-side COUNT for the active tab + search. Never derived from `leads`,
-  // which only ever holds the rows fetched so far.
+  // which only ever holds the rows on screen.
   const [totalCount, setTotalCount] = useState(0);
   // Per-status totals for the tab badges. null means "not known" — the badges
   // are then hidden rather than showing a number derived from the loaded page.
@@ -190,6 +192,7 @@ const LeadsManagement = () => {
   // Keep the filter in sync when a deep link changes ?status= without remounting
   useEffect(() => {
     setStatusFilter(isValidStatusFilter(statusParam) ? statusParam : 'all');
+    setPage(0);
   }, [statusParam]);
   const [sortBy, setSortBy] = useState('newest');
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
@@ -393,7 +396,7 @@ const LeadsManagement = () => {
 
   useEffect(() => {
     loadLeads();
-  }, [statusFilter, sortBy, debouncedSearchQuery]);
+  }, [statusFilter, sortBy, debouncedSearchQuery, page]);
 
   // The badge tally spans every status, so it deliberately omits the status
   // filter. Sort order cannot change a count, so it is not a dependency either.
@@ -446,7 +449,8 @@ const LeadsManagement = () => {
     setLoading(true);
 
     try {
-      const { data, error, count } = await buildLeadsQuery().limit(PAGE_SIZE);
+      const from = page * PAGE_SIZE;
+      const { data, error, count } = await buildLeadsQuery().range(from, from + PAGE_SIZE - 1);
       if (requestId !== loadRequestRef.current) return;
 
       if (error) {
@@ -458,10 +462,16 @@ const LeadsManagement = () => {
         });
         setLeads([]);
         setTotalCount(0);
-        setHasMore(false);
       } else {
         setTotalCount(count ?? 0);
         const rows = data || [];
+        // A result set that shrank under us (an archive, a narrowed filter)
+        // can leave `page` past the end. Step back instead of rendering an
+        // empty page next to a non-zero total. Terminates: page 0 never re-runs.
+        if (rows.length === 0 && page > 0) {
+          setPage(Math.max(0, Math.ceil((count ?? 0) / PAGE_SIZE) - 1));
+          return;
+        }
         // Batch-fetch technician names for any assigned_to UUIDs we see
         const technicianIds = [...new Set(rows.map((r: any) => r.assigned_to).filter(Boolean))];
         const technicianNameMap = await fetchTechnicianNames(technicianIds as string[]);
@@ -470,7 +480,6 @@ const LeadsManagement = () => {
           ...transformLead(r),
           assigned_technician: r.assigned_to ? technicianNameMap[r.assigned_to] : undefined,
         })));
-        setHasMore(rows.length === PAGE_SIZE);
       }
     } catch (err) {
       if (requestId !== loadRequestRef.current) return;
@@ -482,30 +491,8 @@ const LeadsManagement = () => {
       });
       setLeads([]);
       setTotalCount(0);
-      setHasMore(false);
     } finally {
       if (requestId === loadRequestRef.current) setLoading(false);
-    }
-  };
-
-  const loadMoreLeads = async () => {
-    setLoadingMore(true);
-
-    try {
-      const { data, error } = await buildLeadsQuery().range(leads.length, leads.length + PAGE_SIZE - 1);
-
-      if (error) {
-        console.error('Error loading more leads:', error);
-        toast({ title: 'Error', description: 'Failed to load more leads.', variant: 'destructive' });
-      } else {
-        const rows = data || [];
-        setLeads(prev => [...prev, ...rows.map(transformLead)]);
-        setHasMore(rows.length === PAGE_SIZE);
-      }
-    } catch (err) {
-      console.error('Unexpected error loading more leads:', err);
-    } finally {
-      setLoadingMore(false);
     }
   };
 
@@ -536,6 +523,12 @@ const LeadsManagement = () => {
   // ============================================================================
   // FILTERING & SORTING
   // ============================================================================
+
+  // Derived from the server COUNT, never from the loaded rows. rangeEnd uses
+  // leads.length so a short final page reports its real end.
+  const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const rangeStart = page * PAGE_SIZE + 1;
+  const rangeEnd = page * PAGE_SIZE + leads.length;
 
   const getStatusCounts = () => {
     return statusOptions.map(option => ({
@@ -607,7 +600,7 @@ const LeadsManagement = () => {
       });
 
       // Refetch rather than splice: the archived lead has left the result set,
-      // so the total and the badge tally have both moved.
+      // so the page, the total and the badge tally have all moved.
       await Promise.all([loadLeads(), loadStatusTally()]);
       toast({ title: 'Lead archived', description: 'The lead has been hidden from the pipeline.' });
     } catch (error) {
@@ -890,7 +883,7 @@ const LeadsManagement = () => {
               <div>
                 <h1 className="text-xl font-bold text-slate-900">Lead Management</h1>
                 <p className="text-sm text-slate-500">
-                  {leads.length} of {totalCount} leads
+                  {leads.length > 0 ? `Showing ${rangeStart}–${rangeEnd} of ${totalCount}` : `${totalCount} leads`}
                 </p>
               </div>
             </div>
@@ -917,7 +910,10 @@ const LeadsManagement = () => {
         {/* Pipeline Tabs */}
         <PipelineTabs
           activeStatus={statusFilter}
-          onStatusChange={status => setStatusFilter(isValidStatusFilter(status) ? status : 'all')}
+          onStatusChange={status => {
+            setStatusFilter(isValidStatusFilter(status) ? status : 'all');
+            setPage(0);
+          }}
           statusCounts={getStatusCounts()}
         />
 
@@ -930,7 +926,10 @@ const LeadsManagement = () => {
               type="text"
               placeholder="Search by name, address, email, or phone..."
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+              onChange={e => {
+                setSearchQuery(e.target.value);
+                setPage(0);
+              }}
               className="w-full h-11 pl-10 pr-10 rounded-lg border border-slate-200 bg-white
                 text-sm text-slate-900 placeholder-slate-400
                 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
@@ -938,7 +937,10 @@ const LeadsManagement = () => {
             />
             {searchQuery && (
               <button
-                onClick={() => setSearchQuery('')}
+                onClick={() => {
+                  setSearchQuery('');
+                  setPage(0);
+                }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full
                   bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
               >
@@ -952,7 +954,10 @@ const LeadsManagement = () => {
             <div className="relative">
               <select
                 value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
+                onChange={e => {
+                  setSortBy(e.target.value);
+                  setPage(0);
+                }}
                 className="h-11 pl-4 pr-10 rounded-lg border border-slate-200 bg-white
                   text-sm text-slate-700 appearance-none cursor-pointer
                   focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
@@ -1055,30 +1060,11 @@ const LeadsManagement = () => {
           </div>
         )}
 
-        {/* Load More */}
-        {!loading && hasMore && (
-          <div className="text-center py-4">
-            <button
-              onClick={loadMoreLeads}
-              disabled={loadingMore}
-              className="h-11 px-8 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-medium
-                hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-                flex items-center gap-2 mx-auto"
-            >
-              {loadingMore ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Loading...</>
-              ) : (
-                'Load More Leads'
-              )}
-            </button>
-          </div>
-        )}
-
         {/* Results Summary */}
         {!loading && leads.length > 0 && (
           <div className="text-center py-4 border-t border-slate-200">
             <p className="text-sm text-slate-500">
-              Showing <span className="font-medium text-slate-700">{leads.length}</span>{' '}
+              Showing <span className="font-medium text-slate-700">{rangeStart}&ndash;{rangeEnd}</span>{' '}
               of <span className="font-medium text-slate-700">{totalCount}</span>{' '}
               {totalCount === 1 ? 'lead' : 'leads'}
               {statusFilter !== 'all' && (
@@ -1086,10 +1072,16 @@ const LeadsManagement = () => {
                   {' '}in <span className="font-medium text-slate-700">{statusOptions.find(s => s.value === statusFilter)?.label}</span>
                 </>
               )}
-              {hasMore && <span className="text-slate-400"> (more available)</span>}
             </p>
           </div>
         )}
+
+        <LeadsPagination
+          page={page}
+          pageCount={pageCount}
+          onPageChange={setPage}
+          disabled={loading}
+        />
           </div>
         </div>
       </main>
