@@ -26,6 +26,7 @@ the exact command; Michael runs it. Same discipline for migrations.
 - `npm run typecheck` — TypeScript check (currently checks zero files, see T7 in docs/TODO.md)
 - `npx tsc -p tsconfig.app.json --noEmit` — the real type check. The error count differs per worktree (99, 122 and 135 were all measured on 31 Aug 2026). Gate on no NEW error lines against a baseline taken in the same tree the same day, never on the count.
 - `npx supabase functions deploy <name> --project-ref ecyivrxjpsmjmexqatym` — deploy Edge Function
+- Git habits for multi-worktree work: docs/GIT_HABITS.md
 
 ## Architecture
 
