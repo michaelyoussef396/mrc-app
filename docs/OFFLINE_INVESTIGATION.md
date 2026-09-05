@@ -63,11 +63,36 @@ The holes, in order of severity:
    `userRoles` is re-fetched over three REST calls on every page load and never
    persisted (`AuthContext.tsx:58,118-121,133`). With a cold cache an offline
    reload renders **"No Permissions Assigned"** and the form never mounts, so
-   nothing can read a backup even if one existed. With a warm cache it works —
-   which is what both browser tests were. A second, independent reason the
-   backup can never help.
+   the backup could not help **even if it wrote correctly**. With a warm cache
+   it works — which is what both browser tests were.
+
+   **This is independent of the write bug and survives fixing it.** Repairing
+   the write would not make a cold-cache offline reload recoverable, because the
+   form never renders to read the backup in the first place. A separate defect
+   that happens to be hidden behind another one.
 
 Everything else about offline in this app is either honest or harmless.
+
+---
+
+## What a real fix has to cover
+
+Three defects, each independently sufficient to lose the work. **Fixing one or
+two does not give the team working offline.**
+
+| # | Defect | Status |
+|---|---|---|
+| 1 | **The write never fires.** No `mrc_inspection_backup_*` key is ever produced, on any inspection, at any wait. Eight mechanisms eliminated; cause unidentified. | Needs the console instrumentation before it can be scoped |
+| 2 | **The restore path crashes.** The prompt passes a plain object where React requires an element, and `Toaster` sits outside every error boundary. Unreachable today only because #1 starves it. | Ten-minute fix, and it must land **before** #1 |
+| 3 | **The auth gate blocks a cold-cache offline mount.** `userRoles` is never persisted, so the form does not render offline unless three REST GETs are still cached. | Untouched, and stays invisible until #1 and #2 are fixed |
+
+Fix #1 alone: a backup finally gets written, and the first person to reload gets
+a white screen. Fix #1 and #2: recovery works, but only within an hour of the
+last successful load. All three: recovery works in a subfloor, which is the
+actual requirement.
+
+None of this makes photos work offline — that is Option 2, and a separate
+business decision.
 
 ---
 
