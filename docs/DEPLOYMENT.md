@@ -44,8 +44,8 @@
 
 ## Prerequisites
 
-- **Node.js** >= 18
-- **npm** >= 9
+- **Node.js** 24.x — pinned in `package.json` `engines.node`, which is what Vercel reads. `.nvmrc` pins the same major for local `nvm use`.
+- **npm** >= 11 (ships with Node 24)
 - **Supabase CLI** (`npm install -g supabase`)
 - **Vercel CLI** (`npm install -g vercel`) - optional, can deploy via GitHub integration
 - Access to:
