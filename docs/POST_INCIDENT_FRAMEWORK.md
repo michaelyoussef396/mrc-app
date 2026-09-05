@@ -150,10 +150,41 @@ wrongly.
 - `scripts/test-supabase-guard.sh` — 15 fixtures asserting both allow and deny, so
   an over-broad rule fails a test instead of silently blocking work. *(surfaced)*
 
-**Status.** **Closed.** Residual: the allowlist is safe only while every command on
-it is incapable of writing. Verified against Supabase CLI 2.101.0. Re-run the test
-suite on CLI upgrade — a command that gains a write path invalidates the rule with
-nothing standing behind it.
+**Status.** **REOPENED 2026-09-05 — was Closed.** The close was wrong, and the way it
+was wrong is the interesting part. Its residual note anticipated one failure mode:
+that an allowlisted command might later *gain* a write path on a CLI upgrade. That
+is a real risk and it is still open. But it is not the risk that materialised.
+
+A Codex adversarial review of `8984fed`, reproduced independently with synthetic
+payloads (7 of 7 bypassed; no CLI invoked, no database touched), found three HIGH
+bypasses that let a Supabase command reach PROD *without ever being recognised as a
+Supabase command*:
+
+- `/opt/homebrew/bin/supabase functions deploy foo --project-ref <PROD>` → **ALLOW**.
+  Rule 1, the PROD-ref check, runs *after* CLI detection, so failing to match the
+  regex skips every rule beneath it. `supabase` is at that exact path on this machine.
+- `supabase --version; supabase db query --linked -f x.sql` → **ALLOW**. Rules 3 and
+  3.5 scan the whole collapsed string, so one permitted command authorises the rest —
+  including `db query`, the command deliberately excluded from the allowlist because
+  it is what caused incident 1.
+- `CLAUDE_PROJECT_DIR` (DEV) with a PROD cwd → **ALLOW**. Line 98 prefers the env var,
+  which the harness always sets, so the hook verifies one worktree's link while the
+  CLI resolves from another.
+
+**Why the close was wrong.** The test suite was treated as the evidence of closure,
+and the suite only tested inputs the author already believed were Supabase commands.
+It could not fail on a string it did not recognise as one. Worse, its line 87 asserts
+`"supabase --version; echo x"` → ALLOW, which *pins the second bypass as correct
+behaviour*. A suite written from the same mental model as the code under test
+inherits its blind spots and then certifies them.
+
+The general lesson, which is the same one incident 2 taught in a different shape: a
+guard observed only through cases its author imagined is not verified, it is
+confirmed. Adversarial input is what distinguishes the two.
+
+Tracked as **P0-9**, Session R, with all four fixes named — including inverting the
+line 87 assertion rather than deleting it. Not closed again until the seven
+reproduced bypass forms are deny regressions in the suite.
 
 ---
 
@@ -240,6 +271,7 @@ worth making.
 |---|---|---|---|
 | 1 | `STATUS: NOT APPLIED` in a migration header is unenforced prose | Pre-apply check that refuses to execute a `.sql` declaring itself unapplied | refused |
 | 2 | The live guard hook is machine-local and untracked | Track it in the repo, register in `.claude/settings.json` so file and registration travel together | impossible |
+| 3 | The Supabase guard can be bypassed by invocation forms its regex does not recognise, and one permitted command authorises a whole compound string | P0-9: check the PROD ref before CLI detection; evaluate each `;`/newline/`&&`/`\|\|` segment independently; resolve cwd from the payload, not `CLAUDE_PROJECT_DIR`; invert the line 87 assertion and add the seven reproduced forms as deny regressions | refused |
 | 4 | Fleet-wide staleness sweep is run by hand | SessionStart hook warning when the worktree lacks a named safety commit | surfaced |
 | 5 | Write protection is bound to tool names, not resources | PreToolUse check on Bash inspecting for writes to protected paths | refused |
 
