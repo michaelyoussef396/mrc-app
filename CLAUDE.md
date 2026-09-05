@@ -137,6 +137,68 @@ that file was auto-loaded at the time.
 - Australian formatting: DD/MM/YYYY, AUD $X,XXX.XX, Australia/Melbourne timezone, (03) XXXX XXXX phones.
 - customer_preferred_date and customer_preferred_time NEVER cleared (PR #39 schema
 
+## Codex review (cross-model second opinion)
+
+The Codex plugin for Claude Code (`openai/codex-plugin-cc`) is installed. Codex is a reviewer here, never an editor.
+
+## The Codex review cycle
+
+One cycle per unit of work — a branch ready to merge, or a concept draft at Gate 1.
+Not per session, not per turn, not per file.
+
+ENTRY — all must be true, checked in order. Any false: no cycle, do nothing.
+  1. Plugin responds. If /codex:* errors: /codex:setup once, then
+     /codex:setup --disable-review-gate. The gate is never enabled.
+  2. The unit of work is finished. Never mid-task.
+  3. `git diff main --stat` shows changes.
+  4. Diff is ≤ ~150 lines. Over that: stop, tell Michael to split. Do not review anyway.
+  5. I have read the diff myself.
+  6. This exact diff has not already been reviewed this cycle.
+
+ROUND — max 2 per cycle.
+  a. Tell Michael: command, base, line count, focus text, round number. Wait for yes.
+  b. Security-adjacent (auth, RLS, policies, keys, endpoints, migrations, write paths)
+     → /codex:adversarial-review --base main <focus>
+     Otherwise → /codex:review --base main
+     Inside a worktree: foreground only (issue #367). Background only from the main
+     checkout, then /codex:status → /codex:result → /codex:cancel.
+  c. Read the `Target:` line of the result before triaging. It must match what was
+     asked for: `branch diff against main` for a --base run, `working tree diff` for
+     --scope working-tree. Anything else — a different base, the wrong scope — discard
+     the result unread and re-run with the base corrected. A bad --base exits 0 and
+     widens scope silently (issue #653).
+  d. Triage every finding: acted / rejected / unclear. Reject any without file:line and
+     a stated failure mode.
+  e. Show Michael the triage. Wait. He can overrule any line.
+  f. I make the approved edits. Codex never edits. /codex:rescue is not used here.
+  g. Log the round.
+
+EXIT — stop the cycle and report on the first of these:
+  - Codex returns no findings, or none survive triage. → converged, ship.
+  - Round 2 complete. → stop regardless of what it found. Report open findings to
+    Michael as a decision, not a third round.
+  - A finding repeats one already rejected this cycle. → stop immediately, say so.
+    Re-litigating is not new signal.
+  - Any Codex failure — timeout, rate limit, empty output. → stop, do not retry, tell
+    Michael. Never retry into a rate limit.
+  - `/status` shows the 5-hour window near exhausted. → stop, report remaining.
+
+BETWEEN CYCLES
+  Nothing. No standing review, no session-end sweep, no background polling.
+  The next cycle starts when the next unit of work is finished.
+
+**How:**
+- Small diffs only. If `git diff main --stat` shows more than ~150 changed lines, split first.
+- Foreground, inside the worktree: `/codex:adversarial-review --base main <focus>`
+- Default focus for this repo: `challenge RLS policies and tenant isolation on every touched table; service-role key scope; any path where a cross-tenant read or write could occur; secrets or keys in tracked files; unauthenticated or under-authorised endpoints`
+- Plain review when the change is not security-adjacent: `/codex:review --base main`
+- Do not use `/codex:rescue`. Codex does not edit code in this repo.
+- Do not run background Codex jobs from a worktree (plugin issue #367). Background is fine from the main checkout.
+
+**After:** triage every finding as acted / rejected / unclear. Fix acted-on findings yourself. Findings without file:line and a stated failure mode are rejected. Append a row to `docs/codex-review-log.md`. That log is the only source for any future knowledge-base entry on this workflow.
+
+**Commands:** `/codex:review`, `/codex:adversarial-review`, `/codex:status`, `/codex:result`, `/codex:cancel`, `/codex:setup`. `/codex:transfer` only if Michael asks to continue a session in Codex.
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
