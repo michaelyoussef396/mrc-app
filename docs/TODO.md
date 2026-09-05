@@ -1,6 +1,6 @@
 # MRC TODO — working tracker
 
-Last updated: 2026-09-05
+Last updated: 2026-09-06
 
 - Detail for every item: `docs/MRC_MASTER_BACKLOG.md` (the 3 September 2026 backlog, archived verbatim). This file holds IDs and tracking state only.
 - Pricing rules and the resolved/unresolved conflicts: `docs/PRICING_CANON.md`.
@@ -31,11 +31,13 @@ One session per worktree, each opened with the Session Handoff Prompt plus its o
 | 2 | F | Worktree cleanup, guard hook flip, P0-7 MCP pin, T8, T12 | `~/mrc-app-1` main checkout | `chore/guard-hook-flip` | `.claude/hooks/`, `.claude/settings.json`, `scripts/`, `~/.claude.json` | any `src/`, EFs | G, H, N |
 | 3 | G2 | Collapse to one lead view | same as G, after G's plan is approved | same as G | same as G | same as G | H, F |
 | 3 | J | Health-check P0-A to P0-E: 200-on-failure audit, then fixes | `~/mrc-health` | `fix/ef-fail-loud` | `supabase/functions/**` except `send-email`, `calculate-travel-time`, `send-inspection-reminder`; the attribution manifest | the three excluded EFs, all `src/` | G, H, N, O, L |
-| 3 | L | P0-5 send-email relay | `~/mrc-send-email` | `fix/send-email-auth` | `supabase/functions/send-email/**` | every other EF, `src/` | G, H, N, J |
+| 3 | L | P0-5 send-email relay | `~/mrc-send-email` | `fix/send-email-auth` | `supabase/functions/send-email/**`, `src/lib/api/notifications.ts` | every other EF, all of `src/` **except** `src/lib/api/notifications.ts` | G, H, N, J |
 | 4 | Q | P0-8 archive cancels bookings, plus guarded PROD repair | `~/mrc-archive` | `fix/archive-cancels-bookings` | archive handler, located in pre-flight; repair SQL as a Studio pack | unknown until located | not with G or H until the handler's file is known; waits for G2 and H if it lives in their files |
 | 5 | I | Pricing rebuild plan only. Last; depends on Clayton's demolition table (B1) | `~/mrc-pricing-plan` | `docs/pricing-rebuild-plan` | one new `docs/` plan | `pricing.ts` (read only), all code | runs alone |
 | separate repo | K | OKF setup for `~/okf/projects/mrc/`, after this branch is pushed | the okf repo | n/a | `~/okf/projects/mrc/**` | `~/okf/concepts/`, `~/okf/_pending/` | everything |
 | Michael | — | P0-1 Studio apply, off-peak; P0-6 remove the PROD key from DEV Vault | none | none | dashboard / Studio | | |
+
+**Correction to the L row (2026-09-06).** L's Must-not-touch cell read `every other EF, src/` — which excluded the one `src/` file L must change. Adding authentication to `send-email` means changing how it is called, and there is exactly one caller: `supabase.functions.invoke('send-email', …)` at `src/lib/api/notifications.ts:331`. Every other `send-email` reference in `src/` is a toast id, a route query param or a comment, not an invocation. So the single chokepoint is the file L was forbidden to open. Corrected in both cells: `notifications.ts` is now owned by L and carved out of the prohibition. Same defect as the G/H rows below and the same consequence — a session that follows its brief literally either stalls or ships a half-change, and one that ignores it is editing an unowned file.
 
 **Correction to the G and H rows (2026-09-06).** Both rows named two files that do not exist in this repo: `Leads.tsx` and `lib/api/leads.ts`. The lead list is `src/pages/LeadsManagement.tsx` (1,327 lines), and **there is no `src/lib/api/leads.ts`** — `src/lib/api/` holds `inspections.ts`, `invoices.ts`, `jobCompletions.ts`, `jobReportPdf.ts`, `jobReportPipeline.ts`, `reportPipeline.ts`, `apiClient.ts`, `fieldEditLog.ts` and nothing for leads. Lead queries are inline in the page and in `src/hooks/`. Corrected above in both the Owns cell (H) and the Must-not-touch cell (G). This table is what a session reads to learn which files it owns, so a wrong entry here is how two sessions end up in the same file — the exact failure the "no two sessions own the same file" rule exists to prevent.
 
