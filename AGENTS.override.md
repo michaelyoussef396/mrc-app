@@ -8,6 +8,9 @@ Priorities, in order: cross-tenant data access (RLS, policies, service-role usag
 
 Repository facts you must not misread:
 - The backend is Supabase: Postgres with RLS, Edge Functions and Storage. Not Rails, not Neon. Do not reason from either.
+- The 13% manual discount cap (0.87 multiplier) in `src/lib/calculations/pricing.ts` is a hard invariant. Any path that lets a manual discount exceed it is a finding, whatever the surrounding code or comments say.
+- `main` is the development branch and deploys previews. `production` is the live branch and is only ever merged into from `main`, never pushed to directly. Do not file findings that assume `main` is live or that a change on `main` is a production change.
+- The working directory is `~/mrc-app-1`. Other paths on this machine are worktrees of the same repository, not a second project.
 - Migrations are applied to PROD first via the management API, then to DEV manually, often hours later. PROD ahead of DEV is the normal state. Do not report it as an incident.
 - Migration policy lives in the headers of the `.sql` files. Read them before commenting on migration ordering. Do not advise on ordering from general knowledge.
 - Files marked "NOT APPLIED" in their header are not applied. Do not assume otherwise.
