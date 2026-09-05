@@ -143,6 +143,9 @@ async function fetchTechnicianNames(userIds: string[]): Promise<Record<string, s
 
 const PAGE_SIZE = 50;
 const SEARCH_DEBOUNCE_MS = 300;
+// Ceiling on the tab-badge tally. Reaching it means the tally would be a floor
+// rather than a count, and the badges are hidden instead.
+const BADGE_COUNT_CAP = 2000;
 
 // Sorting runs in Postgres so it orders the whole result set rather than
 // whichever page happens to be loaded.
@@ -173,6 +176,9 @@ const LeadsManagement = () => {
   // Server-side COUNT for the active tab + search. Never derived from `leads`,
   // which only ever holds the rows fetched so far.
   const [totalCount, setTotalCount] = useState(0);
+  // Per-status totals for the tab badges. null means "not known" — the badges
+  // are then hidden rather than showing a number derived from the loaded page.
+  const [statusTally, setStatusTally] = useState<Record<string, number> | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
   // Drops responses from superseded loads so fast typing can't paint stale results
@@ -389,6 +395,12 @@ const LeadsManagement = () => {
     loadLeads();
   }, [statusFilter, sortBy, debouncedSearchQuery]);
 
+  // The badge tally spans every status, so it deliberately omits the status
+  // filter. Sort order cannot change a count, so it is not a dependency either.
+  useEffect(() => {
+    loadStatusTally();
+  }, [debouncedSearchQuery]);
+
   const transformLead = (lead: any): TransformedLead => ({
     id: lead.id,
     name: lead.full_name || 'Unknown',
@@ -497,6 +509,30 @@ const LeadsManagement = () => {
     }
   };
 
+  // One narrow request returns the status of every lead matching the current
+  // search, tallied here into the 17 tab badges. Per-status COUNT queries would
+  // be 17 round trips on a field tech's mobile connection.
+  const loadStatusTally = async () => {
+    const { data, error } = await applyLeadSearch(
+      supabase.from('leads').select('status').is('archived_at', null),
+      debouncedSearchQuery,
+    ).limit(BADGE_COUNT_CAP);
+
+    if (error || !data || data.length === BADGE_COUNT_CAP) {
+      // At the cap the tally is a floor, not a count. Hiding the badges is the
+      // point of this change — a confidently wrong number is what it replaces.
+      if (error) console.error('Error loading status tally:', error);
+      setStatusTally(null);
+      return;
+    }
+
+    const tally: Record<string, number> = {};
+    for (const row of data) {
+      if (row.status) tally[row.status] = (tally[row.status] ?? 0) + 1;
+    }
+    setStatusTally(tally);
+  };
+
   // ============================================================================
   // FILTERING & SORTING
   // ============================================================================
@@ -504,8 +540,14 @@ const LeadsManagement = () => {
   const getStatusCounts = () => {
     return statusOptions.map(option => ({
       ...option,
-      count: option.value === 'all' ? leads.length : leads.filter(lead => lead.status === option.value).length,
+      count: getStatusCount(option.value),
     }));
+  };
+
+  const getStatusCount = (value: StatusFilter): number | null => {
+    if (statusTally === null) return null;
+    if (value === 'all') return Object.values(statusTally).reduce((sum, n) => sum + n, 0);
+    return statusTally[value] ?? 0;
   };
 
   // ============================================================================
@@ -564,7 +606,9 @@ const LeadsManagement = () => {
         title: 'Lead archived',
       });
 
-      setLeads(prev => prev.filter(l => l.id !== archiveTargetId));
+      // Refetch rather than splice: the archived lead has left the result set,
+      // so the total and the badge tally have both moved.
+      await Promise.all([loadLeads(), loadStatusTally()]);
       toast({ title: 'Lead archived', description: 'The lead has been hidden from the pipeline.' });
     } catch (error) {
       console.error('Failed to archive lead:', error);

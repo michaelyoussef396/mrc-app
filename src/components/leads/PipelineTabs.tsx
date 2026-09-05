@@ -6,7 +6,8 @@
 interface StatusCount {
   value: string;
   label: string;
-  count: number;
+  /** null when the true count is unknown — render no badge rather than a wrong number. */
+  count: number | null;
   dotColor: string | null;
 }
 
@@ -51,19 +52,21 @@ export default function PipelineTabs({
               {/* Label */}
               <span>{status.label}</span>
 
-              {/* Count badge */}
-              <span
-                className={`
-                  min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold
-                  flex items-center justify-center
-                  ${isActive
-                    ? 'bg-white/20 text-white'
-                    : 'bg-slate-100 text-slate-600'
-                  }
-                `}
-              >
-                {status.count}
-              </span>
+              {/* Count badge — omitted entirely when the count is not known */}
+              {status.count !== null && (
+                <span
+                  className={`
+                    min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold
+                    flex items-center justify-center
+                    ${isActive
+                      ? 'bg-white/20 text-white'
+                      : 'bg-slate-100 text-slate-600'
+                    }
+                  `}
+                >
+                  {status.count}
+                </span>
+              )}
             </button>
           );
         })}
