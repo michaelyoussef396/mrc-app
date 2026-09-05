@@ -12,7 +12,7 @@ One row per review. This log is the only input for any knowledge-base entry on t
 
 Any branch whose diff contains customer PII is reviewed locally or not at all. Codex review sends the reviewed content to OpenAI, and the ruling is that no customer PII goes to OpenAI (Michael, 2026-09-05). Check the diff for names, emails, phone numbers and addresses before running any `/codex:*` command on it.
 
-- Branch `docs/backlog-pricing-canon-and-ledger` (Session E docs): not reviewed. Documentation only, the diff is far over 150 lines, and it carries redacted customer data. Round 1 stands as the smoke test. Michael, 2026-09-05.
+- Branch `docs/backlog-pricing-canon-and-ledger`, 2998 insertions, documentation only, no logic. Exceeds the ~150 line review limit by 20x and carries redacted customer data. Reviewed by Michael, not Codex. Round 1 smoke test on ddfa6ca stands as the loop's proof. (Michael, 2026-09-05)
 
 ## Setup findings, 2026-09-05
 
