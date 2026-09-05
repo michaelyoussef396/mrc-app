@@ -14,6 +14,7 @@ One row per review. This log is the only input for any knowledge-base entry on t
 Any branch whose diff contains customer PII is reviewed locally or not at all. Codex review sends the reviewed content to OpenAI, and the ruling is that no customer PII goes to OpenAI (Michael, 2026-09-05). Check the diff for names, emails, phone numbers and addresses before running any `/codex:*` command on it.
 
 - Branch `docs/backlog-pricing-canon-and-ledger`, 2998 insertions, documentation only, no logic. Exceeds the ~150 line review limit by 20x and carries redacted customer data. Reviewed by Michael, not Codex. Round 1 smoke test on ddfa6ca stands as the loop's proof. (Michael, 2026-09-05)
+- Commit `3af5241` (branch `docs/todo-node24-verified`), 7 insertions / 3 deletions, tracker text only — row N wording, the T13 note, and new rows P2-18 and P2-19 — no code and no config. Deliberately not reviewed: the round 2 review ran on the pin branch before this follow-up existed, and re-running `--base main` after the merge would have reviewed an empty diff and exited 0. Recorded so the gap is on the record rather than looking like an oversight. (Michael, 2026-09-05)
 
 ## Setup findings, 2026-09-05
 
