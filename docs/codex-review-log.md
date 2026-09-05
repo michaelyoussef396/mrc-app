@@ -34,7 +34,11 @@ Both rounds so far ran in worktrees that carry `AGENTS.override.md` (`mrc-merge`
 ## Session H, 2026-09-05 — first run where the reviewer changed the code
 
 Three cycles, one round each, all converged at round 1 (no cycle needed its second round).
-**Running total: 6 findings, 6 accepted, 0 rejected, 0 unclear.**
+**Night total across every session: 6 runs, 6 findings, 6 accepted, 0 rejected, 0 unclear.**
+All six findings came from Session H's three runs; the three earlier runs of the night
+(`docs/backlog-pricing-canon-and-ledger`, `chore/node-24`, `fix/offline-banner-copy`) each
+returned zero. Session H is therefore the whole of the loop's evidence that the reviewer
+finds real defects rather than approving whatever it is shown.
 
 Every finding carried a `file:line` and a stated failure mode, so none was rejectable on form,
 and every one reproduced against the code before it was acted on. Michael's rule is to reject
@@ -54,10 +58,14 @@ Notes on the run itself:
 1. **Run numbering collided.** The brief called this "run 3 of the 3 needed before the loop counts
    as proven", but `mrc-offline` logged its own run 3 (`c0350dc`) concurrently. These are runs 4, 5
    and 6. The three-run condition in Setup finding 3 was already met before Session H started.
-2. **`node_modules` left in place, and it paid off.** The previous run's log asked for exactly this.
-   Codex used it: it read `@supabase/postgrest-js` source off disk, executed extracted loaders
-   against a simulated client, and ran a 111,111-case escaping fuzz. Both needs-attention verdicts
-   came from executing code, not from reading it. Keep doing this.
+2. **`node_modules` left in place, and it is what produced the findings.** The previous run's log
+   entry ended with exactly this recommendation, after that run could not action Codex's own next
+   step because `mrc-offline` had no dependency tree. Acting on it is now proven, not speculative:
+   **both needs-attention verdicts came from Codex executing code rather than reading it.** It read
+   `@supabase/postgrest-js` off disk, fetched and checked the real `PostgREST v13.0.4` filter parser,
+   ran extracted loaders against a simulated client to reproduce the 416 stranding, and ran a
+   111,111-case escaping fuzz. The three zero-finding runs earlier in the night were all reviews
+   Codex could only read. Leave the tree in place on every future run.
 3. **A deliberate base deviation, approved in advance.** Cycle 3 ran `--base fix/lead-list-true-count`
    because the branch is stacked. The rule that a wrong base means discard-unread still held: the
    Target line was read first and confirmed to name the stacked branch. The rule protects against a
@@ -66,10 +74,32 @@ Notes on the run itself:
    diff-lines column. The reasoning accepted was that the ~150 limit protects review quality while
    the Target rule protects against silent scope corruption — breaking the former knowingly is safer
    than breaking the latter.
-5. **Still unverified, and not claimed:** deployed RLS with two separate users (Codex asked for it
-   twice and it was not done), and every content check that needed live row counts. The Supabase MCP
-   was unauthenticated for this session and the standing order forbids re-authing or querying PROD,
-   so those checks are open, not passed.
+5. See the UNVERIFIED block below. It is not a caveat on the findings; it is the state of the work.
+
+### ⛔ UNVERIFIED — read this before trusting anything above
+
+**Nothing about these three branches is verified against a live row.** Six accepted findings is a
+statement about a *reviewer*, not about the *software*. A future session must not read
+"6 findings, 6 accepted" as "verified", and must not treat merge-readiness as following from it.
+What was actually established is narrower: the code type-checks against an unchanged baseline, the
+unit tests pass, and an adversarial reviewer stopped objecting.
+
+Open, in the state Session H left them (Michael, 2026-09-05 — keep this list exactly as written):
+
+- **Every content check.** All Part 3 criteria needing live row counts: the "All" total against a
+  Studio count, at least three other tabs against their own filtered counts, the page-walk proving
+  no gaps and no duplicates, search narrowing the total and the page count, and Lead ID search
+  returning the right lead. The Studio pack was written but deliberately not run.
+- **The four tab-less statuses** (`hipages_lead`, `contacted`, `inspection_completed`,
+  `inspection_report_pdf_completed`), carried as its own P0 row — **no counts**.
+- **Deployed RLS with two separate users.** Codex asked for this in two separate cycles. Not done.
+- **375px, and the page walk, on a preview deploy.** Not run.
+- Five test files still fail to load for want of the worktree's `.env` files.
+
+Why they are open rather than skipped: the Supabase MCP was unauthenticated for the session, and the
+standing order forbids re-authing it or querying PROD at all, reads included. Michael's ruling was to
+ship with a stated gap rather than break that order. The gap is the honest cost of the order, and it
+is recorded here so the next session inherits the gap and not a false sense that it was closed.
 
 ## Do not review
 
