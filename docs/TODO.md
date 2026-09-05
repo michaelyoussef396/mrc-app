@@ -1,2624 +1,308 @@
-# MRC Lead Management System — Current TODO
+# MRC TODO — working tracker
+
+Last updated: 2026-09-05
+
+- Detail for every item: `docs/MRC_MASTER_BACKLOG.md` (the 3 September 2026 backlog, archived verbatim). This file holds IDs and tracking state only.
+- Pricing rules and the resolved/unresolved conflicts: `docs/PRICING_CANON.md`.
+- Bug classes, entry template and the ledger rule: `docs/BUG_LEDGER.md`.
+
+## How to use this file
+
+- Sessions reference items by ID, never by description. IDs are stable and never reused.
+- The priority structure is the backlog's, unchanged: P0 / P1 Pricing / P1 Workflow / P2 Equipment / P2 Report / P2 CRM / P3 / Marketing / Infrastructure / Blocked / Shipped.
+- Every actionable row has four tracking cells, all blank until earned:
+  - **Done** — tick only when merged to `main` with `--no-ff`, preview-tested at 375px on a pinned commit URL after a full service-worker reset.
+  - **Branch / Session** — the worktree branch and session letter that owns the item.
+  - **Verified** — date and method (preview URL, Studio query, `cmp`, screenshot). A chat claim is not verification.
+  - **Ledger entry** — the `BUG-n` written in the same commit as the fix, or `n/a` for a feature with no bug behind it.
+- Rows marked "folded" or "locked" carry no checkbox. They are kept so the ID keeps resolving.
+- Do not re-log anything in the SHIPPED section.
+
+## Session plan — approved 2026-09-05
+
+One session per worktree, each opened with the Session Handoff Prompt plus its own brief. No two sessions own the same file; the two provisos are J's carve-out of `send-email` for L, and Q's pre-flight.
+
+| Order | Session | Purpose | Worktree | Branch | Owns | Must not touch | Parallel with |
+|---|---|---|---|---|---|---|---|
+| 1 | O | P1-22 offline: investigation only, written report. Runs first because its findings can move every other priority | `~/mrc-offline` | `docs/offline-investigation` | one new `docs/` report | all code | everything |
+| 1 | N | Node 22 bump, deadline 1 Oct | `~/mrc-node22` | `chore/node-22` | `package.json` engines, `.nvmrc` | everything else; the Vercel project setting is Michael's | everything |
+| 2 | G | One lead view: map every render condition, find why two paths exist. Absorbs P1-14 | `~/mrc-lead-view` | `fix/one-lead-view` | `src/pages/LeadDetail.tsx`, `InspectionDataDisplay.tsx` | `Leads.tsx`, `lib/api/leads.ts`, pricing, auth, EFs | H, F, N, J, O |
+| 2 | H | Lead list: real pagination, true count, P1-15. Merge gated on Vryan (P0-2) | `~/mrc-lead-list` | `fix/lead-list-pagination` | `Leads.tsx`, `lib/api/leads.ts` | `LeadDetail.tsx`, EFs, migrations | G, F, N, J, O |
+| 2 | F | Worktree cleanup, guard hook flip, P0-7 MCP pin, T8, T12 | `~/mrc-app-1` main checkout | `chore/guard-hook-flip` | `.claude/hooks/`, `.claude/settings.json`, `scripts/`, `~/.claude.json` | any `src/`, EFs | G, H, N |
+| 3 | G2 | Collapse to one lead view | same as G, after G's plan is approved | same as G | same as G | same as G | H, F |
+| 3 | J | Health-check P0-A to P0-E: 200-on-failure audit, then fixes | `~/mrc-health` | `fix/ef-fail-loud` | `supabase/functions/**` except `send-email`, `calculate-travel-time`, `send-inspection-reminder`; the attribution manifest | the three excluded EFs, all `src/` | G, H, N, O, L |
+| 3 | L | P0-5 send-email relay | `~/mrc-send-email` | `fix/send-email-auth` | `supabase/functions/send-email/**` | every other EF, `src/` | G, H, N, J |
+| 4 | Q | P0-8 archive cancels bookings, plus guarded PROD repair | `~/mrc-archive` | `fix/archive-cancels-bookings` | archive handler, located in pre-flight; repair SQL as a Studio pack | unknown until located | not with G or H until the handler's file is known; waits for G2 and H if it lives in their files |
+| 5 | I | Pricing rebuild plan only. Last; depends on Clayton's demolition table (B1) | `~/mrc-pricing-plan` | `docs/pricing-rebuild-plan` | one new `docs/` plan | `pricing.ts` (read only), all code | runs alone |
+| separate repo | K | OKF setup for `~/okf/projects/mrc/`, after this branch is pushed | the okf repo | n/a | `~/okf/projects/mrc/**` | `~/okf/concepts/`, `~/okf/_pending/` | everything |
+| Michael | — | P0-1 Studio apply, off-peak; P0-6 remove the PROD key from DEV Vault | none | none | dashboard / Studio | | |
+
+## ⏰ Hard deadline — 1 October
+
+| ID | Item | Done | Branch / Session | Verified | Ledger entry |
+|---|---|---|---|---|---|
+| N | Node 22 bump. Vercel drops Node 20 on 1 Oct; builds fail after. `engines` and `.nvmrc` in the repo; the Vercel project setting is Michael's. Runs parallel with everything. | [ ] | N | | |
+
+Google Maps Platform ToS changes 28 Sep. Noted in the backlog, no action identified.
+
+## 🔴 P0 — Critical / live damage
+
+| ID | Item | Done | Branch / Session | Verified | Ledger entry |
+|---|---|---|---|---|---|
+| P0-0 | Two different lead views exist. Customer A's lead renders 9 sections; Customer B's renders everything. Same status. Not a data problem. Investigate, then collapse to one render path. | [ ] | | | |
+| P0-1 | `pdf-assets` / `pdf-templates` anonymously writable on PROD. Fix written and DEV-rehearsed on `fix/pdf-assets-anon-write-rls`. Michael applies it in Studio, off-peak. Not a session. | [ ] | Michael (Studio) | | |
+| P0-2 | Lead list count is fake and "Load more" hides leads. Count is derived from loaded rows, not a real `COUNT`. GATE ON MERGE: about 80 uncontacted leads surface at once when this lands. H does not merge until Michael has told Vryan and there is a plan for working them. | [ ] | H | | |
+| P0-3 | AI summary review not visible on completed inspections. Folded into P0-0. | — | | | |
+| P0-4 | Customer A — no details, can't download report. Folded into P0-0. Reproduced and diagnosed 4 Sep. | — | | | |
+| P0-5 | `send-email` EF is an unauthenticated relay with a spoofable `from`. Own scoped session (L). Does not wait for J. | [ ] | L | | |
+| P0-6 | DEV Vault holds a PROD-valid `service_role_key` (SF-5). DEV cron received HTTP 200 from PROD. Standalone and first; T5 absorbs the rest of environment separation. | [ ] | | | |
+| P0-7 | Supabase MCP has no project ref pinned. Defaults to PROD; already caused a test INSERT on PROD. Fixed in Session F alongside T8, same settings surface. | [ ] | F | | |
+| P0-8 | Archived leads still hold technician slots and send reminders. Acceptance is both halves: archiving cancels bookings and reminders from now on, AND existing archived leads on PROD are repaired. The repair SQL is guarded: read-only preview first, Michael approves the row count before anything writes. Session Q. Pre-flight: locate the archive handler first; if it lives in LeadDetail.tsx or Leads.tsx, Q waits for G2 and H. | [ ] | Q | | |
+
+## 🟠 P1 — Pricing engine rebuild
+
+Rules and tables are in `docs/PRICING_CANON.md`. Nothing in P1 is built this round: Session I is plan only. P1-2 to P1-13 may be planned with the demolition rows marked INTERPOLATED; nothing ships before Clayton's demolition table (B1) is in.
+
+| ID | Item | Done | Branch / Session | Verified | Ledger entry |
+|---|---|---|---|---|---|
+| P1-1 | Load the new rate tables (Surface, Construction Site, Demolition, Subfloor; 2h–8h). | [ ] | | | |
+| P1-2 | Commercial property type plus the 25% surcharge, folded into labour, never a visible line. | [ ] | | | |
+| P1-3 | Industrial and Construction added to Premises Type. | [ ] | | | |
+| P1-4 | Multi-day = day-rate multiples. Every day at the day-1 8h rate, no step-down. Retire the `dayRates` arrays. | [ ] | | | |
+| P1-5 | Mixed jobs = total hours at the highest category present. Reworks Session C. | [ ] | | | |
+| P1-6 | Session C rework and merge, on the existing branch `fix/option-stacking-equipment-days`. The equipment Days multiplier on it survives; only the labour half is rebuilt to the highest-category rule. Also carries the todo-log branch finding that `BookJobSheet` prints equipment days from the booking schedule, not the quote; read the quote's resolved days from the branch's `deriveEquipmentDays()`. | [ ] | | | |
+| P1-7 | Subfloor in BOTH options. Option 1 = surface + subfloor, Option 2 = demolition + subfloor. | [ ] | | | |
+| P1-8 | Minimums and premiums (bathroom condensation 1h min, non-bathroom 2h min, demolition premium). | [ ] | | | |
+| P1-9 | Fixed fees as separate line items (paid inspection, weekend callout, travel beyond 50 km). Never discounted. | [ ] | | | |
+| P1-10 | Loyalty discount engine plus agency tagging. Per-agency property counter, labour only. Auto cap 20%, manual cap stays 13%. This session also rewords CLAUDE.md, `.claude/rules/australian-compliance.md` and `pricing.ts` so that "13%" reads as the manual cap only. | [ ] | | | |
+| P1-11 | Technician cost-estimate view must match report pricing, including overrides. Acceptance: one pricing function, both surfaces call it. Same numbers by coincidence is what exists today, and it drifted. | [ ] | | | |
+| P1-12 | Quote format: `$X,XXX.XX + GST` everywhere, keep the odd cents. | [ ] | | | |
+| P1-13 | Print pricing chart for Glen and Clayton to confirm, generated from the live tables. | [ ] | | | |
+
+## 🟠 P1 — Workflow & data
+
+| ID | Item | Done | Branch / Session | Verified | Ledger entry |
+|---|---|---|---|---|---|
+| P1-14 | Internal notes disappear on some lead statuses. Status-dependent render bug, the same suspected mechanism as P0-0. Investigated inside Session G; splits back out only if G proves otherwise. | [ ] | G | | |
+| P1-15 | Search leads by Lead ID. Same files as the lead list. | [ ] | H | | |
+| P1-16 | Repeat-client quick create, prefilling address and contact. | [ ] | | | |
+| P1-17 | Attachments on the job file, separate from lead notes. | [ ] | | | |
+| P1-18 | All users get admin and technician access. Decision locked. | — | | | |
+| P1-19 | Glanz onboarding: admin and technician, app and Slack. Blocked on B2 (Glanz email and mobile). | [ ] | | | |
+| P1-19b | Mobile nav bar detaches from the bottom and floats mid-screen. Folded into P1-20 (ruling 2026-09-05). | — | | | |
+| P1-20 | Floating nav bar detaches from the bottom. Intermittent. Carries the ancestor-transform diagnosis (position:fixed silently becoming position:absolute; see that bug class in `docs/BUG_LEDGER.md`). P1-19b folded in. | [ ] | | | |
+| P1-21 | "Recommend Dehumidifier Hire" toggle: investigate what it writes and whether it reaches the PDF or pricing, then rename or remove. | [ ] | | | |
+| P1-22 | Offline does not work the way the team believes. The Dexie layer has zero production callers and the offline photo queue is wired to nothing (old TODO.md L1149–L1159, L1802–L1826), while technicians work in basements with no signal. Own session (O), investigation first: does any offline path work today, and what happens right now when a technician loses signal mid-form? Nothing is built until that is answered. Promoted from debt 2026-09-05. | [ ] | O | | |
+
+## 🟡 P2 — Equipment & scheduling (small version)
+
+| ID | Item | Done | Branch / Session | Verified | Ledger entry |
+|---|---|---|---|---|---|
+| P2-1 | Named calendar blocks: free-text name, block a time slot, not tied to a job. | [ ] | | | |
+| P2-2 | Equipment pickup quick-fill: technician + job + equipment, saves a record, shows on the calendar. | [ ] | | | |
+| P2-3 | Equipment unit and day selection on the job. Ties to the Session C Days multiplier. Absorbs the old TODO.md equipment-days work at L170 and its 11 sub-steps: extend the HEPA Days stepper pattern to Dehumidifier, Air Movers and RCD Box. | [ ] | | | |
+| P2-4 | Two technicians on one job. 0a/0b/0c rehearsed on DEV. Blocked on B5. Separate session from P3-7; not run in parallel with it until someone has checked for file overlap. Also owns the `completed_by` decision and its two riders from the todo-log branch: photos on no-inspection jobs are visible only to the technician who wrote them (the RLS joins through `completed_by`), and the NULL-inspection photo visibility gap. Decide them together with who signs the completion report. | [ ] | | | |
+| P2-5 | Auto-scheduler slot recommendations with travel-time estimates. | [ ] | | | |
+
+## 🟡 P2 — Report & PDF
+
+| ID | Item | Done | Branch / Session | Verified | Ledger entry |
+|---|---|---|---|---|---|
+| P2-6 | Infrared observations must print below the infrared section. | [ ] | | | |
+| P2-7 | Infrared Observations section on the area page, under extra notes. | [ ] | | | |
+| P2-8 | Moisture: plain number fields, no location on the PDF. Investigate first. Blocked on C3; reconcile it in the investigation. | [ ] | | | |
+| P2-9 | Remove unused report pages (e.g. subfloor-only jobs printing empty sections). | [ ] | | | |
+| P2-10 | PDF cover clips past ~25 rooms. Needs an EF change plus a Storage template upload. | [ ] | | | |
+| P2-11 | Photo flow: button presses per area. Moved to Blocked as B6 (waiting on Clayton). | — | | | |
+| P2-17 | The inspection PDF template has no sync path between the repo and Storage, so repo edits to it are inert: the Edge Function reads the template from the `pdf-templates` bucket, not from git. Documented as a trap in the backlog's Appendix I; this is the item that fixes it. One path that puts the repo template into Storage, verified by object metadata, not by re-fetch. Was PDF-CL18 on the `docs/todo-log-2026-08-31` branch. | [ ] | | | |
+
+## 🟡 P2 — CRM & comms
+
+| ID | Item | Done | Branch / Session | Verified | Ledger entry |
+|---|---|---|---|---|---|
+| P2-12 | Quote chasing. Audit the codebase first; a partial implementation may exist. | [ ] | | | |
+| P2-13 | Job diary: ServiceM8-style comms log per job. | [ ] | | | |
+| P2-14 | Google review request script, copy/paste SMS. | [ ] | | | |
+| P2-15 | Lead view phone tap → message or call. | [ ] | | | |
+| P2-16 | Notification bell live instead of 30 s poll. Prerequisite folded in: add the `notifications` table to the `supabase_realtime` publication (one-line migration; old TODO.md L2545). Distinct from P3-8, which is native push. | [ ] | | | |
+
+## 🟢 P3 — Backlog
+
+| ID | Item | Done | Branch / Session | Verified | Ledger entry |
+|---|---|---|---|---|---|
+| P3-1 | Invoicing plus Xero linking. | [ ] | | | |
+| P3-2 | Business tracking suite. | [ ] | | | |
+| P3-3 | Email domain switch to `mouldandrestoration.com.au`. Checklist folded in from the old TODO.md: seed-admin sender address (L49, L1329); DMARC enforcement record (L127); footer logo off the Supabase storage domain (L143); the Sent-folder visibility decision and its options, Option B preferred but deferred until the team's first clean week (L255–L332). | [ ] | | | |
+| P3-4 | Framer → Supabase lead capture wiring. Live. | [x] | | 2026-09-05: leads with Source: Website arriving in PROD (Michael); the audit agent found the wiring in place and public leads arriving | n/a |
+| P3-5 | Phase 2 job completion workflow. Spec at `docs/JOB_COMPLETION_PRD.md`. | [ ] | | | |
+| P3-6 | SMS quick-action from lead numbers. | [ ] | | | |
+| P3-7 | Equipment module: port `splitracker`, don't rebuild. Ask Michael for the link and Glen's screenshots first. Separate session from P2-4; not run in parallel with it until file overlap is checked. | [ ] | | | |
+| P3-8 | In-app notifications (needs a native app). | [ ] | | | |
+| P3-9 | Dedicated end-of-day report send window. | [ ] | | | |
+| P3-10 | Photo-caption removal polish. | [ ] | | | |
+| P3-11 | V2: AI-agent-first rebuild. Current app gets buttoned up only. | [ ] | | | |
+
+## 🟢 P3 — Marketing & web (not app work)
+
+| ID | Item | Done | Branch / Session | Verified | Ledger entry |
+|---|---|---|---|---|---|
+| M1 | Website redesign with a new contact form with photo upload. | [ ] | | | |
+| M2 | Website SEO and Google optimisation (with Clayton, post-warehouse). | [ ] | | | |
+| M3 | LinkedIn outreach strategy. Glanz drives. | [ ] | | | |
+| M4 | Real estate agency canvassing, opportunistic. | [ ] | | | |
+| M5 | Google Business Profile map pin and surfacing the 121 five-star reviews. | [ ] | | | |
+
+## 🔧 Infrastructure / tech debt
+
+| ID | Item | Done | Branch / Session | Verified | Ledger entry |
+|---|---|---|---|---|---|
+| T1 | `docs/todo-log-2026-08-31` branch unmerged. 11 findings logged; merge or fold into the backlog. | [ ] | | | |
+| T2 | SF-2: `audit_log_trigger()` carries `anon EXECUTE`. | [ ] | | | |
+| T3 | `pg_default_acl` hazard: every new `public` function silently regains `anon EXECUTE`. | [ ] | | | |
+| T4 | API key rotation: Google Maps, OpenRouter, Supabase, Slack, Sentry. Resend is narrowed to E-3: verify the Edge Function secret, do not rotate the key again. | [ ] | | | |
+| T5 | Dev Supabase environment separation. Plan at `docs/L4-environment-separation-plan.md`. P0-6 goes first on its own; T5 absorbs everything else. | [ ] | | | |
+| T6 | PROD pre-flight for 0a/0b/0c. 15 read-only Studio blocks; PP6a needs human adjudication. | [ ] | | | |
+| T7 | `npm run typecheck` is a no-op. Root tsconfig has `"files": []`; use `npx tsc -p tsconfig.app.json --noEmit`. The error count is not one number: 99, 122 and 135 were all measured on 31 Aug in different worktrees. Gate PRs on no NEW error lines against a baseline taken in the same tree the same day, never on the count. | [ ] | | | |
+| T8 | Guard hook exists in only one place (`~/.claude/hooks/`). Track and register it in the repo. | [ ] | F | | |
+| T9 | Incident 1: `STATUS: NOT APPLIED` is unenforced prose. Needs a real gate. | [ ] | | | |
+| T10 | Incident 5: write protection binds to tool names, not resources. | [ ] | | | |
+| T11 | SessionStart warning for worktrees missing a named safety commit. Open, not started. | [ ] | | | |
+| T12 | Worktree drift. 17 worktrees, 14 current at `3191a39`, three blocked. | [ ] | | | |
+
+## ⏸️ Still blocked — waiting on someone
+
+| ID | Item | Waiting on | Done | Branch / Session | Verified | Ledger entry |
+|---|---|---|---|---|---|---|
+| B1 | Full residential demolition hourly table. Interpolated rows in use meantime. | Clayton | [ ] | | | |
+| B2 | Glanz email and mobile. | Glen | [ ] | | | |
+| B3 | 0b PROD verification. | Michael | [ ] | | | |
+| B4 | What is the "Split" tab in splitracker? Ask before speccing P3-7. | Glen | [ ] | | | |
+| B5 | Glanz Sunday availability (currently Wed/Fri/Sat). | Glen | [ ] | | | |
+| B6 (was P2-11) | Photo flow: button presses per area. Bulk capture shipped; does it cover his complaint? | Clayton | [ ] | | | |
+
+## 🔥 Health-check findings — 26 Aug to 4 Sep
+
+The systemic pattern: functions return 200 on failure. Session J audits every Edge Function for it before fixing A to E one at a time. Constraint on J: do not touch `calculate-travel-time` or `send-inspection-reminder` until Michael confirms the pending deploys of 30 Aug landed.
+
+| ID | Item | Done | Branch / Session | Verified | Ledger entry |
+|---|---|---|---|---|---|
+| P0-A | `pdf_versions` insert silently rejected. Data loss ongoing. | [ ] | | | |
+| P0-B | Email logged as "sent" without checking Resend. Customer-facing. | [ ] | | | |
+| P0-C | Scheduled functions double-firing. Customer-facing. | [ ] | | | |
+| P0-D | `login_activity` has written nothing since February. | [ ] | | | |
+| P0-E | Google Maps API key. Verify first, may already be fixed. | [ ] | | | |
+| P1-S-1 | Sentry prod `ignoreErrors` rule for "Failed to fetch" swallows real failures. Narrow it. | [ ] | | | |
+| P1-S-2 | Sentry dev project has had zero events since 26 Aug. Check DSN and env wiring. | [ ] | | | |
+| P1-S-3 | Sentry replays at 80% of the free quota; period ends 17 Sep. Lower the sample rate. | [ ] | | | |
+| MRC-APP-1D | "Photo upload failed" on `/technician/inspection`, iPhone Safari, first 2 Sep. Adjacent to the #111/#112 photo work. | [ ] | | | |
+| MRC-APP-1B | "Failed to upload lead note attachment" on `/leads`, first 27 Aug. Suspect commit `20eac74`. | [ ] | | | |
+| MRC-APP-1A | "Hard-save endpoint unreachable: POST /api/render-pdf" on `/admin/leads`. | [ ] | | | |
+| MRC-APP-14 / -17 | MIME-type errors on `/admin/schedule` and a technician job page. | [ ] | | | |
+| MRC-APP-18 | "Inspection form save failed", 25 Aug. | [ ] | | | |
+| MRC-APP-19 | ServiceWorker registration AbortError. | [ ] | | | |
+| MRC-APP-1C | Validation block on an incomplete inspection. Not a fault. Ignore. | — | | | |
+| P2-X-1 | Duplicate lead submission (27 Aug, two confirmations sent). Add idempotency to the lead form. | [ ] | | | |
+| P2-X-2 | `fan_out_notification` RPC returning PGRST202; one in-app notification row lost 31 Aug. | [ ] | | | |
+| P2-X-3 | `manage-users` 503s, twice on 1 Sep. | [ ] | | | |
+| P2-X-4 | Two job completions stuck in draft since 24 Aug. | [ ] | | | |
+
+About 80 leads sit uncontacted in `new_lead`. Check P0-2 before treating that as an ops failure: if the list hides leads 51 onwards, the team cannot see them.
+
+## ✅ Shipped — do not re-log
+
+**Leads:** repeat clients, unit numbers kept, lead notes with @mentions + attachments, full-database search, optional preferred date/time, "Start Job" opens job form, @mentions in job notes.
+
+**Schedule:** To Schedule search rail, Reschedule deep-links, hour/minute/AM-PM picker, conflict banner detail, booking cancel resets lead correctly, 7 stranded leads restored + 3 duplicates archived, colour-coded cards.
+
+**Photos:** auto captions, before-photos on the day, before + after photos on jobs with no inspection, bigger delete target, bulk upload.
+
+**Reports/PDF:** false "NOT saved" error fixed, email size fix, hide-area-from-report, ex-GST display, two layout overlaps fixed, room names legible on cover, real save error messages.
+
+**Pricing:** 2h rates corrected, saved estimates recompute at current rates, manual override works.
+
+**Notifications:** in-app bell, Framer confirmations + reminders logged, duplicate scheduled-job firing fixed.
+
+**Sessions C & D:** Equipment Days multiplier (branch, keep). Option 2 stacking fix (branch — labour half needs rework per §Mixed jobs). Subfloor toggle zero-out (merged `14b14f3`).
+
+**Official fix list §6 items 1–3 complete:** report emailing bug, unit numbers, repeat clients.
+
+## Engineering debt carried over from the old TODO.md
+
+Audited 2026-09-05 against the backlog. The old file is `docs/TODO.md` at commit `3191a39`; `L` numbers below point into it. Its first 1,448 lines (291 open items) were judged item by item: 60 already have a backlog ID, 68 shipped, 54 were launch-era checks that are dead, 10 were superseded by the pricing canon or the rebuild, and 99 were live and unhomed. None of the 99 blocks handover: nothing here stops Glen, Clayton or Vryan getting through normal work. Eighteen of their lines were folded into P2-3, P3-3 and P1-22 on 2026-09-05 (rulings in hand); the remaining 65 clusters are kept as one line each so they are not lost, and are not scheduled. Lines 1,449 to 2,624 of the old file were checked only for handover blockers (none found) and are not itemised here; read them from the commit above if needed.
+
+Three findings from the audit are tracked as items:
+
+| ID | Item | Done | Branch / Session | Verified | Ledger entry |
+|---|---|---|---|---|---|
+| E-1 | NEEDS INVESTIGATION. `types.ts` declares `PostgrestVersion` 14.17, which matches neither PROD (13.0.5) nor DEV (14.5) as recorded on 17 Aug. Commit `54a60b9` on 27 Aug set it; the source project is unknown. Nothing should be trusted from `types.ts` until this is answered. Do not guess. | [ ] | | | |
+| E-2 | P3-4 Framer wiring confirmed live; P3-4 closed. | [x] | | 2026-09-05: Source: Website leads in PROD (Michael) | n/a |
+| E-3 | Verify the Resend Edge Function secret. The key was rotated (the old TODO.md records it); whether the EF secret was updated is unknown. Check the secret and a live send. | [ ] | | | |
+
+Live, unhomed, not blocking (one line per cluster; sub-steps folded into their parent):
+
+- L36 — Fix Supabase Site URL from /admin subpath to root https://mrcsystem.com
+- L138 — Evaluate Apple Branded Mail via Apple Business Connect before BIMI
+- L155 — Delete SUPABASE_SERVICE_ROLE_KEY from Vercel
+- L860 — Drop unused formatPercent import in TechnicianInspectionForm.tsx
+- L901 — Reports page fails whole-page on revenue query error; technician surfaces degrade instead
+- L912 — Decision: defer unifying Reports error degradation to its own scoped change
+- L934 — Section 7 both-options save guard over-fires on auto-save and navigation
+- L935 — Section 7 both-options save guard over-fires; move check to submit/PDF time
+- L958 — Extract jobCompletionSchema.ts or document keeping validation inline
+- L1011 — PDF-CL1: rename misleading pdf_versions.pdf_url to html_public_url
+- L1014 — PDF-CL4: drop inspections.pdf_blob_url column once unread
+- L1015 — PDF-CL5: decide whether to add audit trigger on pdf_versions
+- L1017 — PDF-CL7: previewOnly EF branches should write an audit row
+- L1018 — PDF-CL8: build unified job-report version-history UI
+- L1019 — PDF-CL9: remove legacy write path in generate-job-report-pdf EF
+- L1020 — PDF-CL10: drop job_completions.pdf_blob_url column
+- L1022 — PDF-CL11: job_completion_pdf_versions RLS policies missing from repo
+- L1023 — PDF-CL12: 23505 retry in render-job-report-pdf is dead code without UNIQUE constraint
+- L1024 — PDF-CL13: render-job-report-pdf reports wrong validation error for bad mode
+- L1025 — PDF-CL14: stale fire-and-forget JSDoc on sendEmail in notifications.ts
+- L1026 — PDF-CL15: /admin/render-test PDFs accumulate unpruned in report-pdfs Storage
+- L1027 — PDF-CL16: report-pdfs bucket has no DELETE policy, cleanup remove() calls are silent no-ops
+- L1028 — PDF-CL17: switch generate-job-report-pdf to signed photo URLs instead of base64 data URIs
+- L1050 — AH2 follow-up: consider warning at hide time about narrative references
+- L1051 — AH3 FIX: Demolition page survives hide when demolition_content is set
+- L1057 — AH3 product call: drop Demolition page or keep and prompt re-edit
+- L1074 — AH5 sweep: check photos, moisture_readings, job_completions for select drift
+- L1088 — AC1: on-site before-photo provenance is a heuristic, not a stored fact
+- L1101 — AC1 residual false positive: general inspection photo picked as before photo gets Delete
+- L1116 — AC1 proper fix: add photos provenance column via migration, replace heuristic
+- L1119 — AC1: delete the session-id union when provenance column lands
+- L1121 — AC3: stale-PDF banner does not clear after successful regeneration (+1 sub-steps folded)
+- L1134 — AC4: sentinel captions shown raw to technicians in before-photo picker
+- L1159 — AC2: OutdoorPhotoSlotGrid breaches outdoor sentinel caption invariant
+- L1163 — AC2: ImageUploadModal.tsx:136 breaches outdoor sentinel invariant
+- L1164 — AC2: ImageUploadModal.tsx:168 maps direction_photo to illegal photo_type 'direction'
+- L1168 — AC2: ViewReportPDF.tsx:2307 writes caption null, violating Stage 4.1 invariant
+- L1170 — AC2: loadUnplacedPhotos has no job_completion_id filter; admin pool shows job photos
+- L1172 — AC2 question: does any admin workflow legitimately re-place a job photo into an inspection slot?
+- L1174 — AC2: isNetworkLevelError duplicated four ways; consolidate into shared module
+- L1183 — W6.1-A: unify property_occupation enum label rendering across surfaces
+- L1185 — W6.1-B: read old status from lead.status in FinishLeadSection logFieldEdits
+- L1187 — W6.1-C: parallelise sequential snapshot fetches with Promise.all
+- L1188 — W6.1-C: Promise.all the three snapshot awaits in TechnicianInspectionForm section save
+- L1189 — W6.1-C: Promise.all subfloor_data and inspection_areas fetches in TechnicianJobDetail
+- L1195 — W6.1-F: anchor percent group in check-photo-moisture-orphans caption regex
+- L1197 — W6.1-G: migration 20260513_phase5_dead_column_drop.sql lacks HHMMSS suffix
+- L1199 — W6.1-H: scrub raw DB error details from check-photo-moisture-orphans response
+- L1226 — L1 finding 2: 'Capped at 5 days' shown on PDF but not enforced
+- L1298 — Verify RLS policy parity between DEV and PROD
+- L670 — Upload job-report-template.html to bucket under same name
+- L789 — Keep pre-deploy `vercel env ls production` check as habit
+- L803 — Triage the 6 old git stashes; recover wanted, drop rest
+- L820 — Rename Leads-to-Assign card subtitle to avoid 'Needs attention' collision
+- L827 — Decide whether to reschedule overdue cron for AEDT drift in October
+- L829 — Rotate the DEV admin password
+- L831 — Google Fonts Inter woff2 fails to load on preview (CSP font-src)
+- L832 — Decide 'Completed This Week' semantics (updated_at filter vs completion events)
+- L386 — Remove SUPABASE_SERVICE_ROLE_KEY from Vercel Preview and Production scopes
+- L407 — Step 4: runbook block B applies 20260729153000 constraint migration after A
+- L446 — Run INVOICE_INTEGRITY_RUNBOOK on DEV first, confirm clean, then PROD
+- L448 — Runbook block B: apply invoice_totals_integrity_checks migration (two VALID CHECKs)
+- L470 — Decision: both CHECK constraints required, neither alone catches both defects
+- L1380 — Verify SYSTEM_USER_UUID secret set in production Supabase (+2 sub-steps folded)
+- L1398 — S5 Refresh PHASE_2_EXECUTION.md '16 active tables' count
 
-## ✅ CLOSED: Email Domain DNS Cutover — DNS verified 2026-08-02
-
-**`mouldandrestoration.com.au` is VERIFIED in Resend as of 2 Aug 2026, 8:11pm AEST.
-DKIM and SPF both verified. The pending-DNS blocker is CLOSED.** The earlier framing
-("NOT yet configured", "do NOT switch sending domain until verified", "launch on the
-current working domain if it isn't verified in time") is now obsolete — the gate it
-guarded has passed.
-
-**What this unblocks, and what it does NOT.** DNS verification made the new domain
-*sendable*, and the envelope cutover has since shipped in code — verified 2026-08-04
-(`docs/_audit/DOCS_AUDIT_2026-08-04.md`, Finding 1): zero `noreply@` or `@mrcsystem.com`
-email literals remain anywhere in `src/` or `supabase/`. The only remaining
-sender-address work is the `seed-admin` item below.
-
-### Also completed 2026-08-02 (same session)
-
-- **PROD Auth SMTP now routes through Resend** — `smtp.resend.com:465`, sender
-  `noreply@mrcsystem.com`, API key named `supabase-auth-smtp`. Supabase Auth emails
-  (confirmation, recovery, invite, email_change, magic_link, reauthentication — the six
-  templates in `supabase/templates/`) no longer use the Supabase default SMTP.
-  Note the sender is still `@mrcsystem.com`, so this inherits the same envelope-layer
-  gap as the Edge Functions.
-- **Auth redirect allowlist fixed** — `mrcsystem.com/**` added.
-- **15 stale Supabase marketplace env vars deleted** from Vercel Production scope.
-- **Supabase↔Vercel marketplace integration removed entirely.** This closes the
-  clobber hazard behind the 23 Jul blank-page outage — the integration owned env-var
-  naming and could re-sync over the hand-maintained `VITE_*` vars. See the related
-  open item in the 23 Jul follow-ups, which this supersedes.
-- **Production redeployed cache-free on `29a5808`**; bundle verified to contain the
-  PROD ref only (`ecyivrxjpsmjmexqatym`, no `ctppzqnysmzynkxjlzta`).
-
-### OUTSTANDING — carried forward from this session
-
-- [ ] **Site URL is `https://mrcsystem.com/admin`, should be the root
-      `https://mrcsystem.com`.** Auth redirects currently resolve against an admin
-      subpath.
-- [x] ~~**Envelope layer still sends from `noreply@mrcsystem.com`**~~ **DONE —
-      verified 2026-08-04 (`docs/_audit/DOCS_AUDIT_2026-08-04.md`, Finding 1).**
-      The cutover shipped with the batch A merge: `grep -rn "noreply@" src supabase`
-      returns zero hits, and `@mrcsystem.com` survives only inside dashboard URLs,
-      never as an email address. `send-email/index.ts:203` (from) and `:207`
-      (reply_to) now default to `admin@mouldandrestoration.com.au`, and
-      `send-inspection-reminder` and `receive-framer-lead` (customer confirmation
-      and the internal failure alert) send from the same address. Envelope and
-      footer now agree. The six line-number references previously listed here were
-      re-checked by the audit and point at unrelated code — removed.
-- [ ] **`seed-admin` still uses `admin@mrc.com.au`** (`supabase/functions/seed-admin/index.ts:50`).
-      A wrong-brand domain that is neither the old nor the new one. Left untouched in
-      the 2 Aug display-layer fix because it is an Edge Function and is an account
-      login address, not a display string — editing the literal alone would not rename
-      the existing account, only change what the next seed creates. **With the
-      envelope cutover done (above), this is now the single remaining open
-      sender-address item** (re-verified 2026-08-04: exact line, exact value).
-- [ ] **`ADMIN_FALLBACK_EMAIL` may be unset in PROD.** Only consumer is
-      `receive-framer-lead/index.ts:410`, and the code fallback is now
-      `admin@mouldandrestoration.com.au` (facts corrected per the 2026-08-04 audit —
-      the previously cited `:354` / `admin@mrcsystem.com` are stale), so an unset
-      secret no longer routes alerts to a retiring domain. Still verify with
-      `npx supabase secrets list --project-ref ecyivrxjpsmjmexqatym` that no stale
-      override value is set.
-- [ ] **Post-cutover send test still required** — booking confirmation + inspection
-      report, with headers checked to pass SPF/DKIM/DMARC before production email
-      delivery is trusted. (Carried over from the original DNS item; verification
-      alone does not discharge it.)
-
-**Done 2026-08-02 (`fd0c942`), display layer only:** personal mobile `0433 553 199`
-removed from the job-booking confirmation email (`notifications.ts:286`) and both
-preview scripts; stale `support@mrc.com.au` / `1300 665 673` replaced with
-`admin@mouldandrestoration.com.au` / `1800 954 117` on NotFound and CheckEmail;
-ForgotPassword placeholder rebranded. No Edge Function or Resend literal touched.
-
----
-
-## OPEN — PDF cover EXAMINED AREAS clips past ~24 lines (found 31 Aug 2026)
-
-The cover's info block is absolutely positioned with **no height**, so a long
-area list grows downward without bound and the tail is cut off by the page's
-`overflow: hidden` at y=1123.
-
-- **Where:** `src/templates/inspection-report-template.html:188` — the
-  `DIRECTED TO / PROPERTY TYPE / EXAMINED AREAS` block, `top: 495px`, 22px
-  line-height. `{{examined_areas}}` is every area name comma-joined, built at
-  `supabase/functions/generate-inspection-pdf/index.ts:1679` and substituted at
-  `:1751`.
-- **Threshold:** measured by rendering the cover at 794x1123 — the panel's
-  bottom passes the page edge at **25 short room names** (1109px at 24, 1131px
-  at 25). The real limit is ~24 *lines* of area text, so long names hit it
-  sooner.
-- **Not the same bug as the contrast one.** The dark-on-navy contrast failure
-  was fixed on `fix/room-name-contrast` (678ddde) with a content-hugging white
-  panel; that commit does not change this block's geometry (the areas-text box
-  measures identically before and after at 3/10/20 rooms), so this overflow is
-  pre-existing and unchanged by it.
-- **Why a template change cannot fix it:** static HTML has no measurement step.
-  It needs a shrink-to-fit computed in the Edge Function, for which
-  **`computeAreaHeadingLayout`** (`index.ts:1166`) is the proven in-repo
-  pattern — it measures the area heading and emits a style string into the
-  `{{area_heading_style}}` placeholder (`index.ts:1391`). Mirror that with an
-  `{{examined_areas_style}}` hook that steps font-size/line-height down once
-  the list would exceed the available height.
-- **Cost:** an EF deploy *and* a Storage template upload, coordinated. That is
-  why it was left out of the contrast fix.
-- **Priority:** low. Needs 25+ areas on one inspection to bite.
-
----
-
-## Email sender logo (BIMI) — researched 5 Aug 2026, parked
-
-Gmail and Outlook show a grey initial instead of the MRC logo on app-sent
-email. Researched properly; recording so this isn't re-litigated.
-
-Verified facts:
-- Outlook/Microsoft does not render BIMI at all. Sender-only stance confirmed
-  on Microsoft Q&A 2025-09-29, reaffirmed 2026-05-21. No path exists.
-- Gmail requires a certificate — VMC or CMC. Self-asserted BIMI does not
-  display in Gmail.
-- Apple Mail also requires a certificate (Apple Support article 108340).
-- Free self-asserted BIMI displays only in Yahoo, Fastmail, AOL, La Poste.
-  Negligible for an Australian residential customer base.
-- Gmail shows the Workspace profile photo on mail sent through Gmail's own
-  servers, but not on mail relayed via Resend. That is the gap BIMI fills.
-
-Prerequisites:
-- DMARC at p=quarantine or p=reject with pct=100. Changed from p=none on
-  5 Aug 2026. Verify with: dig TXT _dmarc.mouldandrestoration.com.au +short
-- Logo as SVG Tiny PS: square, under 32KB, no raster, text, scripts or
-  animation, served over HTTPS from mouldandrestoration.com.au.
-  Validator: bimigroup.org/svg-validator
-  Note: 28.2% of published BIMI records are broken (404 or failed validation).
-- CMC certificate from DigiCert or Entrust — the only two authorised CAs as of
-  2026. No registered trademark required; evidence of 12+ months logo use.
-  1-3 weeks processing. VMC is NOT required — it only adds Gmail's blue
-  checkmark and does need a registered trademark.
-
-Alternative worth evaluating first: Apple "Branded Mail" via Apple Business
-Connect, shipped iOS 18.2. Uploaded PNG/JPEG, DMARC at enforcement, no VMC, no
-CMC, no SVG. Separate programme from BIMI. Low effort, and both techs and many
-customers are on iPhone.
-
-Also outstanding: email footer logo is served from the Supabase storage domain,
-which Resend flags as suspicious. Move to mouldandrestoration.com.au.
-
----
-
-## Post-rotation follow-ups (from docs/KEY_ROTATION_RUNBOOK.md)
-
-- [ ] URGENT — test address autocomplete on mrcsystem.com. VITE_GOOGLE_MAPS_API_KEY
-      is a single 176-day-old Vercel entry spanning Production+Preview+Development,
-      the same value throwing "API key expired" on previews and baked into the
-      production bundle. If autocomplete is dead on prod, this is an incident.
-- [ ] ADMIN_FALLBACK_EMAIL is unset on PROD (DEV only). Lead-capture failure
-      alerts currently fall back to a mailbox on the domain being retired.
-- [ ] SUPABASE_SERVICE_ROLE_KEY still present in Vercel — deletion, not rotation.
-- [ ] PROD Auth SMTP sender is still noreply@mrcsystem.com. DEV was corrected
-      and verified 5 Aug (from: admin@mouldandrestoration.com.au, DKIM signed by
-      mouldandrestoration.com.au). PROD change needs a Resend SMTP key entered
-      at the same time — the password field does not persist across a sender edit.
-
----
-
-## PARKED — Per-item equipment days on the quote (launch-testing issue 15)
-
-Deferred out of the Batch C launch-fix branch (`batch-c-forms-ui`, 3 Aug 2026) because it
-needs **both** a migration and an edit to the pricing engine, and the batch was scoped to
-allow neither. Everything needed to execute it in one sitting is below. Severity is LOW —
-the shared auto day count is correct for typical jobs.
-
-**What it is.** HEPA Air Scrubber Details has a Days stepper showing `Auto (N)` with the hint
-"Days defaults to the job's equipment days", so the tech can accept or override. Commercial
-Dehumidifier, Air Movers and RCD Box have quantity steppers only. Extend the pattern.
-
-**Blocker 1 — schema.** `inspections` has exactly two day columns, `equipment_days` and
-`hepa_air_scrubber_days`. Needs a migration adding three, nullable, `NULL` = auto:
-
-```sql
-ALTER TABLE public.inspections
-  ADD COLUMN IF NOT EXISTS commercial_dehumidifier_days integer,
-  ADD COLUMN IF NOT EXISTS air_movers_days integer,
-  ADD COLUMN IF NOT EXISTS rcd_box_days integer;
--- Rollback: DROP COLUMN for each. Additive and nullable, safe to re-run.
-```
-
-⚠️ Ordering is unforgiving: the code writes these columns on every save, so the migration
-must be applied **before** the frontend merges or every inspection save 500s with "column
-does not exist". Same trap as the HEPA/waste rollout runbook.
-
-**Blocker 2 — pricing.** `pricing.ts:234-236` gives dehumidifier, air mover and RCD the
-shared `days`. Only HEPA has a per-item branch (`:238-244`), and it lives inside
-`pricing.ts`. Without mirroring that branch for the other three, the new field would change
-nothing — recreating issue 14 from the same test run ("the field implies a pricing
-consequence that does not exist"). Sacred file: run impact analysis on
-`calculateEquipmentCost`, keep the 13% cap and the 60/60 pricing tests green, and add parity
-tests proving absent/0 days leaves every existing quote byte-identical.
-
-**Where the code goes.** Three sentinels stay consistent with HEPA: form state `0` = auto,
-pricing input `undefined`/`0` = auto, DB `NULL` = auto.
-
-- UI pattern to clone: `TechnicianInspectionForm.tsx:2174-2195` (the HEPA Days stepper,
-  including the `Auto (${sharedEquipmentDays})` label and the clamp-at-0 behaviour).
-- Target rows: `:2060-2142` (dehumidifier, air movers, RCD).
-- `EquipmentInput` / `EquipmentResult`: `pricing.ts:203-222`; `CostEstimateInput:319-328`.
-- Four `calculateCostEstimate` call sites: `:2281-2290`, `:2294-2303`, `:3798-3808`,
-  `:3837-3846`.
-- Save: `:3942-3948`. Load: `:3250-3258`. Form type: `types/inspection.ts:109-125`.
-
-Note `job_completions` already has per-item day columns (`actual_dehumidifier_days` etc.), so
-only the quote side is missing them.
-
----
-
-## ✅ CLOSED — Drying Equipment toggle did not gate its quantities
-
-Found and fixed 3 Aug 2026 on `batch-c-forms-ui` while verifying launch-testing issue 16.
-**Issue 16 as written was already implemented** (`TechnicianInspectionForm.tsx:2148` gates
-the HEPA detail section on the treatment-method toggle, symmetric with Drying Equipment at
-`:2054`, and was present on `main` before the 2 Aug test run). The real divergence ran the
-other way.
-
-HEPA has `getEffectiveHepaQty` (`:1938-1943`), so turning its method toggle off stops the
-quantity feeding pricing and saves. Drying Equipment has no equivalent: turning it off hides
-the UI while `commercialDehumidifierQty` / `airMoversQty` / `rcdBoxQty` keep flowing into
-`calculateCostEstimate` and keep being persisted and billed. The per-item `*Enabled` booleans
-are never persisted either — on reload they are re-derived from `qty > 0` (`:3251/3253/3255`),
-so a tech who flicks one off without stepping the quantity to 0 finds it back on after a
-reload, still billing.
-
-**Fixed in `bcb9e99`.** `getEffectiveDryingQty` mirrors the HEPA helper — `pricing.ts`
-untouched, only the quantity passed in changes. Applied to both pricing call sites, the DB
-write, the Section 9 breakdown rows and the AI payload.
-
-**No existing quote changes, and no data migration was needed.** The load path now
-reconciles the two states rather than letting the gate act retroactively: stored quantities
-are treated as evidence the equipment was on, so a pre-gate record with `qty > 0` and
-`'Drying Equipment'` missing has the method restored on load instead of silently losing its
-equipment. Only a deliberate toggle-off from here zeroes anything.
-
-This supersedes the pre-flight SELECT originally planned for this change — the count no
-longer gates anything. If you ever want it for curiosity, it is:
-
-```sql
-SELECT id, job_number, commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty
-FROM inspections
-WHERE (COALESCE(commercial_dehumidifier_qty,0) > 0
-    OR COALESCE(air_movers_qty,0) > 0
-    OR COALESCE(rcd_box_qty,0) > 0)
-  AND NOT ('Drying Equipment' = ANY(COALESCE(treatment_methods, '{}')));
-```
-
----
-
-## PENDING DECISION — Sent-folder visibility for system email
-
-**Problem.** The system sends customer email via Resend. Reply-To is
-`admin@mouldandrestoration.com.au` (live as of 2 Aug), so customer replies reach the
-Workspace inbox and admin can respond normally. What's missing is a record of the
-OUTBOUND message — nothing appears in Gmail's Sent folder, so admin sees replies
-without seeing what was sent.
-
-### Option A — BCC to a dedicated address
-
-Add `bcc` to Resend calls, pointing at `sent@mouldandrestoration.com.au` (not
-`admin@`, to keep the main inbox clean). Gmail filter auto-labels.
-
-- ✅ ~20 min, one line per send site
-- ✅ Transport unchanged — Resend logs, bounce tracking, delivery history all retained
-- ✅ No new failure modes
-- ❌ Copies land in an inbox, not literally the Sent folder
-- ❌ Slightly indirect
-
-### Option B — Route through Gmail SMTP
-
-Swap transport in every Edge Function so mail genuinely appears in Sent.
-
-- ✅ Exactly the desired result — indistinguishable from admin sending manually
-- ✅ Single unified mail history
-- ❌ Gmail app password needed as a secret in every EF
-- ❌ 2,000/day cap, tighter per-recipient limits
-- ❌ Single point of failure: if Gmail SMTP or the app password fails, ALL app email
-  stops including password resets
-- ❌ Loses Resend delivery logs, bounce tracking, send history
-
-### Michael's position
-
-Prefers **Option B**. Reason: Option A puts system copies in an inbox, which risks
-admin confusing what to read vs what to respond to. B keeps the mental model clean —
-sent mail lives in Sent, incoming lives in Inbox.
-
-### Status
-
-**Deferred.** Not to be built before the team's first week on the system — swapping
-email transport is the highest-risk change available and the current path was only
-stabilised 2 Aug. Revisit once the system has run clean for a week. Include in the
-team how-to doc so Glen and Clayton can weigh in, since it affects their daily
-workflow.
-
----
-
-## Team guide doc — items to cover
-
-Content for the team how-to referenced above. Written for Glen, Clayton and Vryan,
-not for developers — keep the plain-English phrasing when the guide is authored.
-
-### Technicians (Glen, Clayton)
-
-**Updating your own starting address.** Profile → Edit → Starting Address. Start
-typing, then **pick your address from the dropdown that appears**. Don't just type it
-and hit Save.
-
-Why it matters: your starting address is where the app measures travel time from for
-your first job each day. If you type without picking from the dropdown, in the normal
-case **nothing saves at all** — the old address stays and it looks like the change
-didn't take. If Google's address lookup happens to be down, the text saves but the
-postcode is left blank, which is what the app falls back to when it can't reach Google
-for a live travel estimate. Either way, picking from the dropdown is what makes it
-stick.
-
-Technicians can do this themselves — no admin involvement needed.
-
-### Admin
-
-**Customer replies.** Replies to system emails land in the
-`admin@mouldandrestoration.com.au` inbox. Reply from there as normal.
-
-**Google review "reply STOP".** The review request email carries a line offering
-customers a way to opt out of follow-ups. **Nothing parses those replies
-automatically.** If a customer replies STOP, note it and don't trigger the review
-email for that customer again. An unsubscribe offer that isn't honoured is worse than
-not offering one.
-
-**System email doesn't appear in Sent.** Emails the system sends won't show in Gmail's
-Sent folder — only replies you write yourself. See the Sent-folder pending decision
-above; Option B is preferred but deferred until the system has run clean for a week.
-
-### Developer context (not for the guide itself)
-
-- Starting address lives in **auth `user_metadata.starting_address`**, not a table.
-  Self-service works because `Profile.tsx:218` calls `supabase.auth.updateUser()`,
-  which writes the caller's own metadata — no RLS policy involved.
-- The dropdown requirement is real: `AddressAutocomplete.tsx:209` wires the input to
-  `handleInputChange`, which only sets local state. `onChange` fires solely from
-  `handleSelectPlace` (`:109`). The `!isLoaded` fallback branch (`:167-176`) is the
-  exception — it commits typed text with empty `suburb`/`state`/`postcode`.
-- Travel time reads `starting_address.fullAddress` **as a string** for the Google
-  Distance Matrix call (`calculate-travel-time/index.ts:708, 898`); the haversine
-  fallback keys on `postcode` against `MELBOURNE_POSTCODE_COORDS` (`:602-606`). The
-  stored `lat`/`lng` are read **only** by `Profile.tsx:174-175` to repopulate the form
-  — no calculation consumes them.
-- **Clayton's address was changed Footscray → Toorak on 2026-08-02** by direct admin-API
-  update, not through the UI. `lat`/`lng` were deliberately left null rather than
-  fabricated; they self-heal the next time he saves through the dropdown. Full
-  pre-change metadata backed up at `dev-setup/clayton-address-2026-08-02/`
-  (gitignored). Both `3011` and `3142` are present in the postcode fallback table, so
-  travel calculations were correct immediately.
-
----
-
-## DEFERRED — Full API key rotation
-
-Rotate all production API keys: Resend, Supabase (anon + service role), Slack
-webhook, Google Maps, OpenRouter, Sentry.
-
-> Existing runbook: `docs/KEY_ROTATION.md` (secret inventory + new→verify→revoke
-> sequence, Supabase/GitHub PATs LAST). This is the same work tracked as **L4 Phase 6**
-> further down this file — do not plan it twice. Check that runbook's inventory against
-> the scope list below before starting; it carries at least one secret this list omits.
-
-### Why deferred
-
-Rotation touches every Edge Function secret and every Vercel env var. A missed key
-fails silently — email, AI summaries, or Slack notifications stop working with no
-error surfaced until someone hits the wall. The email path was only stabilised
-2 Aug 2026 and the team starts using the system 3 Aug. Rotating the night before
-first use puts the highest-blast-radius change directly in front of the least
-tolerance for breakage.
-
-### When
-
-After the system has run clean for a full week with the team on it.
-
-### Scope when it happens
-
-- `RESEND_API_KEY` (note: the `supabase-auth-smtp` key is separate — it lives in
-  Supabase Auth SMTP config, not as an EF secret. Rotate both, independently.)
-- `SUPABASE_SERVICE_ROLE_KEY` (also still present in Vercel Preview + Production
-  scopes — remove there as part of this, see **PDF-CL6**)
-- `SUPABASE_ANON_KEY` / `VITE_SUPABASE_ANON_KEY`
-- `SLACK_WEBHOOK_URL`
-- `GOOGLE_MAPS_API_KEY` / `VITE_GOOGLE_MAPS_API_KEY`
-- `OPENROUTER_API_KEY`
-- `SENTRY_AUTH_TOKEN`
-
-### Verification required after each
-
-Every EF that consumes the key must be **re-invoked and confirmed working**, not just
-deployed. Build passing is not proof.
-
----
-
-## ⚠️ PENDING: Invoice data integrity — 2 SQL blocks for Michael to run
-
-> ⛔ DO NOT RUN BEFORE 4 AUG 2026. INV-2026-0003 hits day 29 on 4 Aug and fires
-> the first real Slack digest — the only live test of the check-overdue-invoices
-> v9 rewrite, and it fires once. Correct order: (1) digest fires 4 Aug ~9:00 AEST,
-> (2) Michael confirms Slack output, (3) runbook block A (delete 4 invoice rows),
-> (4) runbook block B (apply 20260729153000 constraint migration). Block B MUST
-> follow A — the CHECK constraints reject the existing rows. Deletion supersedes
-> the previously planned INV-2026-0003 two-field correction; that item is void.
-
-Branch `fix/admin-analytics-accuracy`. Surfaced 2026-07-29 while auditing the
-admin analytics surfaces. Read-only investigation; **no DB writes made, no
-migration applied.**
-
-**What was wrong.** Two writers stamped an inc-GST figure into
-`invoices.subtotal_after_discount`, which is the ex-GST column:
-
-| Invoice | Stored | Status | Written by |
-|---|---|---|---|
-| `INV-2026-0001` | sad **290.40**, gst **0.00**, total 290.40 | overdue | `handleCreate` in `InvoicePaymentCard.tsx` — raw insert bypassing `calculateInvoiceTotals`, gst hardcoded 0 |
-| `INV-2026-0002` | sad **11029.77**, gst 1002.69, total 11029.77 | paid | pre-`bb1ee91` `handleEdit`, same file — stamped the typed inc-GST total onto three money columns leaving gst stale |
-
-`handleEdit` was removed 2026-06-02 (`bb1ee91`). `handleCreate` was removed
-2026-07-29 (`5792211`) — it was unreachable but was the surviving copy of the
-same shape. **No code can produce this defect any more**; only the two rows and
-the missing DB guard remain.
-
-Live consequence while the rows exist: `AdminInvoiceHelper.tsx:357-361` renders
-`subtotal_after_discount` and `gst_amount` raw when a saved invoice exists, so
-`INV-2026-0001` displays **"GST 10%: $0.00"** on the screen an admin copies from
-to hand-build an invoice.
-
-**The other two rows also go — test data, not defective.** Both are
-arithmetically perfect and came through the proper `saveCalculatedInvoice` path;
-neither is a real invoice. `INV-2026-0004` (paid, $28,603.75): email
-`user.name+tag+sorting@example.com` on an IANA-reserved domain, notes reading
-`notes optial in invocie`, a line item named `testing custom line`, equipment of
-10 × 10 days for every item ($18,300), address just "VIC", zero inspections /
-job completions / bookings, whole create→sent→paid lifecycle in 50 minutes.
-`INV-2026-0003` (overdue, $4,697.48): email is a variant of Michael's own
-address, a line item named `custom one`.
-
-**The invoices table ends empty.** Nothing has ever been billed through this
-system, so $0.00 is the honest figure.
-
-- [ ] **Run `docs/INVOICE_INTEGRITY_RUNBOOK.md` — DEV (`ctppzqnysmzynkxjlzta`)
-      first, confirm clean, then PROD (`ecyivrxjpsmjmexqatym`).** Two ordered
-      blocks: **A** deletes all four rows with bracketing verification SELECTs;
-      **B** applies `supabase/migrations/20260729153000_invoice_totals_integrity_checks.sql`
-      (two CHECK constraints, both `VALID`). **A before B** — a VALID constraint
-      aborts while the two defective rows are present.
-
-**Only invoice rows are deleted (verified read-only 2026-07-29).** No table in
-the DB has an `invoice_id` column — all 26 public tables probed — so no FK
-references `invoices.id`; nothing cascades, nothing blocks. `INV-2026-0003`'s
-linked inspection and calendar booking **survive**: neither table has an
-`invoice_id`, both link to the *lead*, and the invoice FKs point outward
-(`invoices.lead_id → leads`), so deleting the referencing side cannot touch the
-parent. Runbook step A7 asserts this. Leads, activities and email_logs untouched.
-The full before-state of all four rows is preserved permanently in `audit_logs`
-(24 rows, append-only, protected by `prevent_audit_logs_delete`), plus a
-`delete_invoice` audit row each. `invoice_number_seq` is not rewound by a DELETE
-— the next real invoice is `INV-2026-0005`, never a reused number; step A8
-verifies the sequence directly.
-
-**Expected, not a regression:** Reports year revenue **$39,633.52 → $0.00**;
-month view and technician revenue stay $0.00; Outstanding **$4,987.88 → $0.00**.
-The dashboard Outstanding Invoices widget will be empty.
-
-Both constraints are required — neither alone catches both defects.
-`INV-2026-0001` **passes** the sum check (290.40 + 0.00 = 290.40 is
-arithmetically consistent) and is caught only by the GST relation.
-
----
-
-**Last Updated:** 2026-08-02
-**Production state:** production redeployed cache-free on `29a5808` (2026-08-02), bundle
-verified to carry the PROD ref only. Supabase↔Vercel marketplace integration removed and 15
-stale marketplace env vars deleted from Production scope the same day. Earlier baseline: main @
-`b50d07b`, production @ `9fdc853` (merge of PRs #67–#71 + login-footer fix), mrcsystem.com live
-and verified 2026-07-23. NOTE 2026-07-29: the `check-overdue-invoices` EF on PROD now runs the rewritten version from `launch/checks` `0a2fbac` (EFs deploy independently of the production branch); PR #72 (dashboard fixes) open, unmerged.
-**Status:** Phase 1 + Phase 3 + Phase 4 Stages 4.1/4.1.5/4.2/4.3 COMPLETE in production. Phase 2 (Job Completion) built and deployed — existence-verified 2026-07-07, runtime-untested against dev (see "Phase 2 — Job Completion Workflow: Existence Verification" below). Pre-launch hardening underway.
-
-Backed by `docs/inspection-workflow-fix-plan-v2-2026-04-30.md` (48-stage execution map) and `docs/JOB_COMPLETION_PRD.md` (Phase 2 spec).
-
----
-
-## HANDOFF — HEPA/waste consistency build (28 Jul 2026 session, PENDING MULTI-SESSION MERGE)
-
-All code phases are committed on LOCAL main. **`git push` was blocked by the session's
-permission classifier — Michael runs `git push origin main` to trigger the Vercel preview.**
-Michael is running a parallel CC session on other debugging; nothing merges to production
-until both streams land together.
-
-### Commits (local main, in order)
-
-| Commit | What |
-|---|---|
-| `a350400` | feat(pricing): HEPA in the equipment engine (qty + own days; absent = byte-identical). 8 new tests, pricing-guardian GO. |
-| `725b764` | feat(db): migration file `20260728120000_hepa_quote_columns.sql` (inspections.hepa_air_scrubber_qty/_days + job_completions.quoted_afd_qty/_days). |
-| `0362c39` | chore(types): regenerated from DEV after both migrations applied there. |
-| `277cc86` | feat(inspection): Section 7 HEPA panel (units/days, Auto (N) days); wired into all 4 calc/save sites + Section 9 + InspectionDataDisplay; first writer of `inspections.equipment_days`. |
-| `1c663e8` | feat(job-completion): WasteCard (quoted vs actual m³, confirm/override, reset-on-edit); quoted HEPA/waste snapshot in createJobCompletion; null-tolerant quoted props (kills HEPA false-amber); rates imported from pricing.ts. |
-| `8be4c83` | feat(invoice): estimate/actual chips + Use buttons (equipment + waste); autoPopulateFromLead prefers job-actual waste; reference values never become line items. |
-| `a68710d` | feat(pdf): Page 8 HEPA + waste lines (Both mode = "billed once"); scope-steps injection fixed via {{option_1_steps}}/{{option_2_steps}} placeholders with count-scaled type (14px ≤3 / 12px 4-5 / 10px 6+), legacy static fallback; dead indexOf surgery deleted; preview gets Both-mode waste input. |
-
-### Verified vs UNTESTED — be honest about the line
-
-**Verified (local, this session):** typecheck clean · `npm run build` clean · 60/60 pricing
-tests · EF parses (esbuild) · template placeholders 1:1 with EF replacements · DEV columns
-live (behavioral probes 200) · PROD schema untouched (probes 400) · repo template was
-byte-identical to live PROD Storage BEFORE editing · Phase 2 adversarially reviewed
-(2a by agent: APPROVE; 2b reviewer died on rate limit — reviewed manually line-by-line,
-2 fixes applied pre-commit).
-
-**UNTESTED at runtime (nothing has rendered or round-tripped):** every UI flow (HEPA
-panel, autosave/localStorage round-trip, WasteCard confirm/override, invoice chips) ·
-EF execution on Deno (incl. page-marker validation with the edited template) · actual
-PDF visual geometry (line-fit numbers are calculated, not rendered) · quoted-snapshot
-writes on job creation · invoice seeding precedence on real rows.
-
-### DEV environment state (prepared this session)
-
-> **[UPDATED 2026-08-25]** Everything below is a 28 Jul–1 Aug snapshot. The 1 Aug "DEV now has
-> 4 EFs" correction is itself stale — see the L4 STATUS block for the current drift
-> (`generate-inspection-pdf` v9 vs PROD v107, template 66,282 B vs PROD 66,486 B, 9 PROD EFs
-> absent on DEV, 9 more stale).
-
-- Both migrations applied to DEV (`ctppzqnysmzynkxjlzta`) by Michael, probe-verified.
-- DEV Storage seeded via Storage API: `pdf-templates` + `pdf-assets` created PUBLIC,
-  90/90 objects copied from PROD (incl. Galvji.ttc re-uploaded as octet-stream), and
-  the EDITED `inspection-report-template-final.html` (66,282B) upserted. Bucket
-  inventory now 1:1 with PROD (`inspection-reports` output bucket already existed).
-- ~~**DEV has ZERO Edge Functions deployed**~~ **[STALE — corrected 2026-08-01:
-  DEV now has 4 EFs, deployed 28–30 Jul: generate-inspection-pdf,
-  generate-job-report-pdf, generate-inspection-summary, manage-users.]**
-  (Original context: restore never carried EFs; the generate-inspection-pdf deploy
-  below was the first, so EF/template ordering was moot on DEV. That EF needs no
-  custom secrets — Supabase-only.)
-
-### Michael's ordered steps
-
-1. ~~`git push origin main`~~ — DONE (Michael, 28 Jul eve, `6fa0855..77fcc22`).
-2. Smoke the forms on preview at 375px: HEPA panel only when its toggle is on; Section 9
-   HEPA line; job completion quoted values real (no false amber); WasteCard flow; invoice
-   helper chips. **Still outstanding — the only unverified surface.**
-3. ~~Deploy the EF to DEV~~ — DONE (Michael, 28 Jul eve).
-4. ~~E2E render~~ — **DONE by CC against the DEPLOYED DEV EF + live DEV Storage template
-   (28 Jul eve): single mode 7/7 PASS, Both mode 8/8 PASS, legacy fallback 5/5 PASS.**
-   Verified: HEPA line ("$100/day × 2 (3 days)") · waste single ("6 m³ — $550.00 +GST")
-   and Both ("billed once") wording · scope steps rendered from real treatment methods
-   with scaled type (5 methods → 12px wrapper) · zero leaked `{{…}}` · legacy rows
-   (empty methods / null HEPA / null waste) reproduce the historic static text,
-   informational HEPA rate, and "Not required" · DOM-measured geometry: equipment list
-   695→809px vs photos 827px (18px clear); Option-1 steps end 386px vs Option-2 title
-   400px. Test fixture: DEV inspection `fc568a31-…17ff` left STAGED in Both mode
-   (2 HEPA × 3d, 6 m³/$550, 5 methods, option totals 3000/5000) for the UI smoke; the
-   render used the default EF path, so DEV also gained pdf_versions rows + an
-   inspection-reports HTML object (sandbox, expected).
-5. **PROD sequence (only after step-2 smoke green + parallel stream ready):** apply
-   `20260624113911` then `20260728120000` in PROD Studio → deploy EF to PROD
-   (`--project-ref ecyivrxjpsmjmexqatym`) → upload `src/templates/inspection-report-template.html`
-   to PROD Storage AS `inspection-report-template-final.html` (EF FIRST, template second —
-   PROD still runs the old EF, so reversed order blanks the description areas) → merge
-   main → production.
-6. ~~[CC] Phase 5 closer~~ — **DONE (29 Jul, `01abf08`, Michael-approved after both render
-   E2Es + AI payload verification).** Guide section 6 rewritten: gaps → closed (HEPA on
-   the quote, waste on the quote incl. billed-once, actual-vs-estimate waste at invoice,
-   job report equipment summary). 796 prose words, all 31 figures re-verified against
-   pricing.ts, 375px clean. Note: this was the guide file's FIRST commit — it had been
-   untracked since the 28 Jul doc-consolidation session.
-
-**ALL CC WORK COMPLETE.** Everything that remains lives in ONE place: the
-**PROD ROLLOUT RUNBOOK** section directly below. (Optional DEV extra, separate from the
-rollout: `OPENROUTER_API_KEY` secret on DEV for AI-summary testing on preview.)
-
----
-
-## PROD ROLLOUT RUNBOOK — HEPA/waste stream + parallel-session merge
-
-Written 29 Jul 2026 to be run COLD, possibly days later, with no memory of the
-sessions. Covers the HEPA/waste stream (20 commits, `a350400..97f3b44`, all on
-origin/main). The parallel debugging session's requirements get pasted into the slot
-below before running.
-
-**The one ordering principle, spelled out:** three layers activate this feature and
-each must exist before the next one needs it. (1) **DB columns before code** — the
-merged code writes `hepa_air_scrubber_*` / `*_waste_disposal_*` columns; if the
-migrations haven't run, every inspection save and job-completion save on live 500s
-with "column does not exist". (2) **EF code before templates** — the live inspection
-EF strips unknown `{{placeholders}}`, so uploading the new template first renders
-blank description/equipment values; the live job EF has NO catch-all, so uploading its
-template first prints literal `{{equipment_summary}}` on customer PDFs. (3) **All of
-the above before the production merge**, because the merge is what puts the
-column-writing frontend in front of customers.
-
-### GATE (do not start the runbook until both are ticked)
-
-- [ ] 375px UI smoke passed on the Vercel preview (staged fixtures: inspection
-      `fc568a31-…17ff` in Both mode; job completion `1b81f7e7-…33c5` with full actuals
-      — HEPA panel gating, WasteCard confirm/override, invoice estimate/actual chips).
-- [ ] Parallel session's stream is ready to merge (its steps pasted in below).
-
-### PRE-MERGE
-
-- [ ] **Both streams build clean.** On each branch/worktree:
-      `npm run typecheck && npm run build && npx vitest run src/lib/calculations/pricing.test.ts`
-      (this stream's expected: typecheck clean, build clean, 60/60 tests).
-- [ ] **Conflict check.** Files the HEPA/waste stream touched (definitive list from
-      `git diff --name-only a350400^..97f3b44`) — check the parallel session against
-      these BEFORE merging; the starred ones are the likely collision points:
-      - ⭐ `src/lib/calculations/pricing.ts` (+ `pricing.test.ts`) — SACRED money engine
-      - ⭐ `src/lib/api/invoices.ts`
-      - ⭐ `src/pages/TechnicianInspectionForm.tsx`
-      - ⭐ `src/pages/JobCompletionForm.tsx` + `src/hooks/useJobCompletionForm.ts`
-        + `src/lib/api/jobCompletions.ts` + `src/components/job-completion/Section7Equipment.tsx`
-      - ⭐ `src/pages/AdminInvoiceHelper.tsx`
-      - ⭐ `src/templates/inspection-report-template.html` + `src/templates/job-report-template.html`
-        (BOTH must be re-uploaded to Storage if the parallel session edited them too —
-        Storage serves ONE copy per file)
-      - `src/components/leads/InspectionDataDisplay.tsx`, `JobCompletionEditSheet.tsx`,
-        `JobCompletionSummary.tsx`, `src/components/pdf/ReportPreviewHTML.tsx`
-      - `src/types/inspection.ts`, `src/types/jobCompletion.ts`,
-        `src/integrations/supabase/types.ts` (regenerate from DB if both streams touched it)
-      - `supabase/functions/generate-inspection-pdf/index.ts`,
-        `generate-job-report-pdf/index.ts`, `generate-inspection-summary/index.ts`
-      - `supabase/migrations/20260728120000_hepa_quote_columns.sql`
-      - Docs only: `docs/TODO.md`, `docs/PRICING_AND_PROCESS_GUIDE.html`,
-        `docs/COST_CALCULATION_SYSTEM.md`, `.claude/rules/australian-compliance.md`
-- [ ] **PARALLEL SESSION STEPS — fill in from the other session before running:**
-      ```
-      (paste the parallel session's pre-merge checks, migrations, deploys, and
-       verification steps here, and slot them into the sequence below)
-      ```
-
-### PROD SEQUENCE — exact order
-
-- [ ] **1. Apply BOTH migrations in PROD Studio** (LIVE — `ecyivrxjpsmjmexqatym`).
-      SQL editor: https://supabase.com/dashboard/project/ecyivrxjpsmjmexqatym/sql/new
-      Paste and run, in this order (both files in `supabase/migrations/`, both additive
-      `IF NOT EXISTS`, safe to re-run):
-      1. `20260624113911_job_completion_waste.sql`
-      2. `20260728120000_hepa_quote_columns.sql`
-      Verify (same SQL editor — expect 4 rows):
-      ```sql
-      SELECT table_name, column_name FROM information_schema.columns
-      WHERE (table_name='inspections'     AND column_name LIKE 'hepa_air_scrubber%')
-         OR (table_name='job_completions' AND column_name IN ('quoted_afd_qty','actual_waste_disposal_cost'));
-      ```
-      *Out of order:* skip this and merge anyway → every inspection/job-completion save
-      on live fails ("column does not exist") until applied. Rollback SQL is in each
-      file's header comment.
-
-- [ ] **2. Deploy the three Edge Functions to PROD** (from the repo root, on the
-      merged-ready main — run all three, order among them doesn't matter):
-      ```
-      npx supabase functions deploy generate-inspection-pdf     --project-ref ecyivrxjpsmjmexqatym
-      npx supabase functions deploy generate-job-report-pdf     --project-ref ecyivrxjpsmjmexqatym
-      npx supabase functions deploy generate-inspection-summary --project-ref ecyivrxjpsmjmexqatym
-      ```
-      *Out of order:* deploying AFTER step 3's uploads leaves a window where the OLD
-      EFs render the NEW templates — inspection PDFs show blank scope/equipment values
-      (catch-all strips), job PDFs print literal `{{equipment_summary}}` (no catch-all).
-      Deploying EFs first is harmless: new `.replace` calls no-op on the old templates.
-
-- [ ] **3. Upload BOTH templates to PROD Storage** (Dashboard → Storage →
-      `pdf-templates` bucket → Upload, overwrite existing):
-      https://supabase.com/dashboard/project/ecyivrxjpsmjmexqatym/storage/buckets/pdf-templates
-      | Source (repo) | Upload into bucket AS |
-      |---|---|
-      | `src/templates/inspection-report-template.html` | `inspection-report-template-final.html` ← **RENAME on upload** |
-      | `src/templates/job-report-template.html` | `job-report-template.html` (same name) |
-      *Out of order / skipped:* features stay silently OFF — the new EFs find no
-      placeholders to fill, customers keep getting the old pages (no corruption, but
-      no HEPA/waste lines and the scope-steps fix stays dormant). This step is the ON
-      switch. To roll a template back: `git show a68710d^:src/templates/inspection-report-template.html`
-      / `git show 7dae371^:src/templates/job-report-template.html` and re-upload.
-
-- [ ] **4. Merge main → production** (repo rule: merge commit — NEVER squash, never
-      rebase):
-      ```
-      git checkout production && git pull origin production
-      git merge main --no-ff
-      git push origin production
-      git checkout main
-      ```
-      Vercel auto-deploys production (mrcsystem.com) from the push.
-      *Out of order:* merging before steps 1-3 puts column-writing forms and
-      placeholder-emitting flows in front of customers against a DB/EF/template stack
-      that can't serve them — this is the step that goes LAST.
-
-- [ ] **5. Post-merge deploy verification:**
-      - Vercel dashboard: production deployment green (project **mrc-system** — repo
-        `.vercel` link is stale, always pass/select the project explicitly).
-      - Bundle points at PROD Supabase (guards the 23 Jul env-var clobber recurrence):
-        view-source of https://mrcsystem.com → fetch the main JS bundle → it must
-        contain `ecyivrxjpsmjmexqatym` and NOT `ctppzqnysmzynkxjlzta`.
-
-### POST-MERGE
-
-- [ ] **Env vars intact** (the 23 Jul outage was Production-scope `VITE_*` vars
-      clobbered by the Supabase marketplace integration):
-      `npx vercel env ls production --project mrc-system` → confirm
-      `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (+ the other two `VITE_*`) exist
-      in **Production** scope with PROD values.
-- [ ] **Live smoke on mrcsystem.com:** log in → open a lead → inspection form opens
-      and Section 7 shows the HEPA panel when its toggle is on → create a smoke lead,
-      confirm it appears, delete it (23 Jul pattern). If a real inspection exists,
-      render its PDF once and check Page 8: HEPA line, waste line, scope-of-work steps
-      showing actual treatment methods, no `{{...}}` anywhere.
-- [ ] **Send `docs/PRICING_AND_PROCESS_GUIDE.html` to Glen and Clayton** — the Phase 5
-      quick-skim (796 words, gaps-closed section 6). Print-to-PDF or attach the HTML.
-
----
-
-### ADDENDUM — second work batch (28 Jul late evening)
-
-Five more scoped commits on local main (typecheck + build + 60/60 tests green after each):
-
-| Commit | What |
-|---|---|
-| `dc17242` | fix(rules): australian-compliance.md dehumidifier $132 → $119, HEPA added to the rate line. |
-| `e04b410` | docs(cost-system): SUPERSEDED banner on COST_CALCULATION_SYSTEM.md → points at PRICING_AND_PROCESS_GUIDE.html. |
-| `9eb0439` | feat(ai-summary): buildAIPayload sends resolved HEPA (qty/days/cost via shared getSharedEquipmentDays helper); summary EF renders a HEPA equipment line AND its TREATMENT METHODS line now prefers the canonical treatmentMethods array (was reading only 4 legacy booleans — the array was sent but never consumed). Waste verified already present in payload + prompt. Old deployed EF safely ignores the new fields (zod record is permissive). |
-| `7dae371` | feat(job-pdf): the job report previously rendered NO equipment/waste anywhere. Contents-page navy card now carries an EQUIPMENT & WASTE section via new `{{equipment_summary}}` placeholder (per-item actuals with line totals, equipment total, waste "billed once" line, graceful empty fallback). Plus the defensive catch-all placeholder strip the job EF lacked. Job template verified byte-identical to live PROD before editing; edited copy upserted to DEV Storage (DEV has no job EF → template-first is safe THERE ONLY). |
-| `41c99ad` | fix(job-completion): independent re-review follow-ups (below). |
-
-**Independent re-review of `1c663e8` (fresh agent, full run):** no criticals. 1 major
-FIXED (createJobCompletion swallowed inspection-fetch errors — a transient failure
-permanently forged a "never quoted" snapshot; now captures + throws, retryable). 3 minors
-FIXED (waste fields in the EditSheet field-edit map; Confirm clears the override flag;
-Save Override shows the amount so a cleared-field $0.00 is deliberate). 1 minor ACCEPTED
-AS DESIGN (admin EditSheet can save m³ changes without re-confirming the price — the
-no-stale-price invariant still holds; chips render em-dash). WasteCard state machine,
-null-vs-zero semantics, and legacy-card behaviour all verified clean.
-
-**Michael's addenda to the ordered steps:**
-- ~~DEV job-report EF deploy~~ — DONE (Michael, 29 Jul) → **job-PDF render E2E run by CC
-  against the deployed DEV EF: 11/11 PASS** (all four equipment lines with exact totals,
-  equipment total $1,881.00, waste "(6 m³) — billed once: $550.00 ex GST", section heading
-  on the contents card, zero leaked placeholders, dynamic contents page numbers intact,
-  and the zeroed-row empty fallback). Test fixture: DEV job_completion `1b81f7e7-…33c5`
-  left STAGED (2/3 dehumidifier, 4/3 air mover, 2/3 HEPA, 1/3 RCD, 6 m³/$550 waste,
-  demolition=true) for the UI smoke.
-- ~~AI-summary EF deploy to DEV~~ — DONE (Michael, 29 Jul). Probe-verified the new code
-  is live: it fails fast with 500 "AI service not configured" because ~~**DEV has ONLY the
-  platform-auto secrets** (CLI-verified 29 Jul: no OPENROUTER_API_KEY, no SYSTEM_USER_UUID,
-  no Resend/Slack/INTERNAL_WEBHOOK_SECRET — the L4 "set dev EF secrets" step never ran)~~
-  **[STALE — corrected 2026-08-08: CLI-verified `secrets list` on DEV now returns
-  ADMIN_FALLBACK_EMAIL, GOOGLE_MAPS_API_KEY, OPENROUTER_API_KEY, RESEND_API_KEY and
-  SYSTEM_USER_UUID. SLACK_WEBHOOK_URL was still absent and was set 2026-08-08 for the
-  duplicate-guard testing (see the 8 Aug session log). INTERNAL_WEBHOOK_SECRET remains
-  unset.]**
-  AI generation on DEV works once Michael runs
-  `npx supabase secrets set OPENROUTER_API_KEY=<from vault> --project-ref ctppzqnysmzynkxjlzta`
-  (value from his own vault, never via chat). CC can then run a generation against the
-  staged inspection and check the summary mentions the HEPA quote.
-- **PROD sequence gains two uploads + two deploys:** after migrations →
-  deploy `generate-inspection-pdf` AND `generate-job-report-pdf` (+
-  `generate-inspection-summary` when convenient) to PROD **FIRST**, then upload BOTH
-  templates to PROD `pdf-templates`: `src/templates/inspection-report-template.html`
-  AS `inspection-report-template-final.html`, and `src/templates/job-report-template.html`
-  AS `job-report-template.html` (same name). EF-first is MANDATORY on PROD for the job
-  template too — the live PROD job EF has no catch-all, so template-first would print
-  literal `{{equipment_summary}}` on customer reports.
-
-### Known issues logged this session (separate sections below)
-
-- GitNexus false negatives on inline-component call edges — grep-verify LOW/zero results.
-- `.claude/rules/australian-compliance.md` still says dehumidifier $132/day (wrong, $119).
-- `docs/COST_CALCULATION_SYSTEM.md` documents the retired volume-discount tiers as live.
-- Follow-up added 28 Jul eve: `buildAIPayload` in TechnicianInspectionForm doesn't include
-  the new HEPA fields, so AI summaries won't mention a HEPA quote (review finding, minor).
-
----
-
-## Follow-ups from 23 Jul 2026 session (production deploy + env-var outage recovery)
-
-Context: merging main → production (PRs #67–#71 + login-footer fix) exposed that the Supabase↔Vercel
-marketplace integration had clobbered the Production-scope `VITE_SUPABASE_*` env vars (~30 Jun) —
-first prod build since shipped a blank page (~1h outage, same-day recovery). Vars restored, `9fdc853`
-redeployed, site verified end-to-end at 375px, all 6 active migrations from the deployed PRs
-confirmed applied on prod. Smoke-test lead created + deleted same session.
-
-- [x] ~~**Decide Supabase↔Vercel marketplace integration fate.**~~ **RESOLVED 2026-08-02 —
-      integration REMOVED entirely**, plus 15 stale marketplace env vars deleted from Vercel
-      Production scope. The clobber hazard behind the 23 Jul outage is gone at the source, not
-      merely documented around. Production redeployed cache-free on `29a5808`; bundle verified to
-      carry the PROD ref only. The pre-deploy check
-      (`npx vercel env ls production --project mrc-system`) is still worth keeping as habit.
-- [ ] **`.env.local` + `.gitignore` from `vercel link`.** The relink auto-created `.env.local`
-      (Development-scope pull) and appended `.env*` to `.gitignore`. Decide: commit the
-      `.gitignore` line (recommended) and delete `.env.local` (local dev already uses
-      `.env.development.local` → DEV).
-- [ ] **Replace dead `SUPABASE_ACCESS_TOKEN` in the `mcp__supabase` MCP server config.** Server
-      rejects all calls ("Unauthorized"); token was rotated out. Until fixed, DB access from CC
-      sessions = Supabase CLI (authed) + PostgREST with keys fetched via
-      `supabase projects api-keys` — or complete the Supabase MCP plugin OAuth.
-- [ ] **Confirm `audited_insert_lead_via_framer` anon-revoke in Studio** (1 query — the SELECT at
-      the bottom of `20260709120000_revoke_anon_execute_audit_rpcs.sql`). Its companion RPC was
-      probe-verified `42501` on 2026-07-23; this one is inferred-applied only (probing would insert
-      a real lead).
-- [ ] **Triage the 6 old git stashes** (`xero + lead detail WIP`, `wave-1-prep`, etc. — all pre-date
-      2026-07-23). Recover anything wanted, drop the rest.
-
----
-
-## Follow-ups from 28 Jul 2026 session (admin dashboard accuracy audit + fix batches 1–2)
-
-Context: launch-verification session audited every admin-dashboard number against PROD (read-only),
-then shipped fixes on `launch/checks` (`91dd58f` dashboard reporting, `396ca9c` ?status= deep links,
-`0ee439e` Melbourne date stamps + due_date restart at send). Runtime verification on a pinned preview
-pending.
-
-- [x] ~~Verify Today's Jobs / Today's Schedule show QA Test PR57 on 29 Jul~~ **FOLDED 2026-07-29 into the next item** — production still runs pre-fix code (PR #72 unmerged), so the observation is only possible after merge; the after-merge line below covers it.
-- [ ] PROD-side confirmation after merge: QA Test PR57 bookings and both overdue invoices (INV-2026-0001/0003) exist only on PROD, not the DEV clone — preview verification covered the span/overdue logic structurally, not against those rows; re-check on production once `launch/checks` ships.
-- [ ] Team Workload internal naming: `useTechnicianStats.inspectionsThisWeek` actually holds active-assigned-lead counts, and its `weekStart` computation is dead code — rename + clean (feature session).
-- [ ] 14-day payment term hardcoded in three places (`createInvoice`, `autoPopulateFromLead`, `markInvoiceSent`) — no `payment_terms_days` column; feeds penalty ladder; scope into Xero sprint.
-- [ ] `markInvoiceSent` now overwrites any manually-set `due_date` with send-date + 14 (intended: terms start at send) — revisit if per-invoice terms arrive with Xero.
-- [ ] "Needs attention" wording collision: Leads-to-Assign card subtitle vs the Needs Attention panel — rename the subtitle (one-liner, cosmetic).
-- [ ] Locate the "27 July" element from the dashboard date-contradiction report (Michael — no dashboard code path can render it for a 28 Jul view; need the exact element/screenshot).
-- [x] ~~`check-overdue-invoices` cron not firing on PROD~~ **RESOLVED 2026-07-29 — misdiagnosis.** Cron fired at 23:00 UTC (9am AEST) and correctly flagged INV-2026-0003 the first morning it was eligible; the 22-day gap was the invoice sitting in `draft` (cron only scans `sent`), the exact trap the `markInvoiceSent` due-date restart now closes. EF deployed (v8), Vault auth header working, audit row attributed to SYSTEM_USER_UUID.
-- [ ] `check-overdue-invoices` double-fired 28 Jul: two identical `invoice_overdue` activity rows 35ms apart (23:00:00.863/.898 UTC). Duplicate schedule RULED OUT 29 Jul — `cron.job` has exactly one job (jobid 3, `0 23 * * *`); internal double-processing ruled out by code path. Remaining hypothesis: duplicate HTTP delivery of a single cron tick (pg_net retry or gateway). Attributing it needs the EF request logs in the Supabase dashboard (Michael, low priority — ~~the idempotency guard shipped 29 Jul makes duplicates a no-op either way~~ **[CORRECTED 2026-08-08: the 29 Jul guard does NOT make duplicates a no-op. Reproduced on DEV under a genuine race — two `invoice_overdue` rows 193ms apart, two `invoice_milestone` rows 191ms apart, the same signature as this 28 Jul observation. The Slack digest is now guarded (v12, 8 Aug); the per-invoice DB writes are NOT. See P1 in the 8 Aug backlog.]**). **Root cause of the double delivery itself was localised 2026-08-08 — see the 8 Aug session log: the duplication is below our code, between pg_net and the Edge Functions gateway.**
-- [x] ~~`check-overdue-invoices` EF computes daysOverdue from server UTC midnight~~ **RESOLVED 2026-07-29** — EF rewritten (Melbourne day-math, ladder-aligned milestones [1/8/15/16/29] + 60-day admin-escalation prompt, idempotency guard, single Slack digest with dry-run). Residuals below.
-- [ ] Overdue-EF residual (accepted 2026-07-29): near-simultaneous invocations <~20ms apart can still double-post the Slack digest — closing it needs an advisory-lock RPC (migration); declined for now.
-- [ ] Overdue-EF residual: invoices in `viewed` status are never scanned for overdue flagging (status quo preserved; nothing sets `viewed` today — latent until something does).
-- [ ] Overdue cron `0 23 * * *` is fixed UTC: digest lands 9:00am AEST but will shift to 10:00am when Melbourne enters AEDT in October — decide whether to re-schedule to `0 22 * * *` for DST or accept the drift (Michael).
-- [ ] INV-2026-0003 due_date data correction (Michael — one-row fix in Studio; code fix `0ee439e` prevents recurrence, does not touch existing rows). NOTE 2026-07-29: if correcting due_date to send-date+14 (2026-08-11), also revert `status` from 'overdue' back to 'sent' — the cron flagged it on 29 Jul, so a one-field fix would leave a contradictory 'overdue' row with a future due date.
-- [ ] Rotate the DEV admin password (Michael — it was pasted into a CC chat on 29 Jul 2026; DEV-only exposure, rotate when convenient).
-- [ ] Team Workload on DEV — ~~`manage-users` EF fails CORS on the DEV project (likely not deployed there)~~ **[STALE — corrected 2026-08-01: `manage-users` was deployed to DEV 28–30 Jul and answers 200.]** Re-verify the panel renders technicians on a DEV-backed preview, then close this item.
-- [ ] Google Fonts woff2 (`fonts.gstatic.com` Inter) fails to load on the preview — check `font-src`/CSP vs the local-font bundling done in L4 Phase 0; page falls back cleanly, cosmetic.
-- [ ] "Completed This Week" counts leads *updated* while sitting in a completed-ish status (updated_at filter), not actual completion events — semantics decision for a future batch.
-
----
-
-## Follow-ups from 28 Jul 2026 session (pricing doc consolidation)
-
-Surfaced while verifying `src/lib/calculations/pricing.ts` against the docs to build
-`docs/PRICING_AND_PROCESS_GUIDE.html`. All read-only findings — no code was touched.
-
-- [ ] **`docs/COST_CALCULATION_SYSTEM.md` is actively WRONG, not merely stale.** *(Supersedes the
-      milder "stale" note in the 2 Jun list, item 4 — upgrade the severity.)* It documents the
-      **retired volume-discount tier system** (7.5% / 10.25% / 11.5% / 13% by total hours) as the
-      live rule across four sections, including a `calculateDiscount()` code block, a tier table, a
-      worked example applying 10.25%, and test cases asserting the tiers. That system no longer
-      exists — `calculateCostEstimate` returns `discountPercent: 0` unconditionally
-      (`pricing.ts:376, 435`); the per-day `dayRates` model replaced it. Its "Rule 1: pro-rate under
-      2 hours" also contradicts the live charging path, which enforces a **flat 2-hour minimum**
-      (`calculateLabourCostWithBreakdown`, `pricing.ts:115-124`). Worked examples still use
-      pre-2026-06-24 rates. Anyone reading this doc for pricing rules will be misled on the single
-      most money-sensitive rule in the system. Rewrite or retire — own session.
-- [ ] **`.claude/rules/australian-compliance.md` says "Dehumidifier $132/day"** — contradicts live
-      `pricing.ts:28` ($119) *and* contradicts `CLAUDE.md`, which correctly says $119. This rule file
-      is auto-loaded every session, so the wrong figure is in context by default. One-line fix.
-- [ ] **Stale comments in `src/lib/api/invoices.ts:325-326, 361-362`** claim the 13% cap "is enforced
-      by `calculateCostEstimate`'s discount tiers." Those tiers no longer exist. Consequently the
-      branch at `:383` (`est.discountPercent > 0 ? ...volume discount...`) is **unreachable** — it
-      builds a discount note that can never render. Real enforcement is the explicit clamp at
-      `:106-108` plus the two DB CHECK constraints. Correct the comments, drop the dead branch.
-- [ ] **Dead exports in `pricing.ts`.** `interpolateCost` has no importer anywhere (not even the test
-      file) — live only via internal call at `:116`. `formatPercent` is imported at
-      `TechnicianInspectionForm.tsx:15` with **zero call sites** in that file. Drop the unused import;
-      decide whether to unexport `interpolateCost`.
-- [ ] **Inspection PDF scope-of-work injection is a SILENT NO-OP in production (pre-existing, discovered 28 Jul).**
-      `generate-inspection-pdf/index.ts:1539-1585` replaces the template's hardcoded Option 1/2
-      scope-of-work steps with the inspection's selected treatment methods via `indexOf` markers
-      (`'left: 33px; top: 157px;'`, `'top: 370px'`, `'top: 470px'`, `'top: 696px'`). Verified 28 Jul:
-      the LIVE Storage template `pdf-templates/inspection-report-template-final.html` (fetched via
-      public URL, byte-identical to `src/templates/inspection-report-template.html`) contains ZERO
-      of those markers — its Page 8 uses static "Option 1/2 Description" A/B/C/D text at
-      `top: 214px` / `top: 476px` instead. The guards (`if (opt1Idx > 0 ...)`) therefore fail
-      silently and **every customer PDF ships the generic template descriptions, never the
-      selected treatment methods**. Exposure verified same day (read-only PROD SELECTs): 0
-      inspections, 0 pdf_versions rows, 0 report emails since the 13 Jul launch — zero launch-era
-      customers received generic-description reports; no corrective re-sends needed. Key-alignment
-      (old L1 item-7) re-verified: all 11 form labels match STEP_DESCRIPTIONS keys exactly, plus
-      the legacy 'AFD Installation' alias. **FOLDED INTO Phase 3 of the HEPA/waste work (Michael,
-      28 Jul)** — fixed in the same EF-deploy + template-upload cycle; option (a) marker fix /
-      (b) placeholders / (c) delete pending Michael's pick.
-- [ ] **DEV Storage has no PDF buckets content — DEV cannot render any PDF (found 28 Jul).**
-      Public GETs against DEV (`ctppzqnysmzynkxjlzta`) return 400/404 for
-      `pdf-templates/inspection-report-template-final.html`, `pdf-templates/job-report-template.html`
-      AND `pdf-assets/pages/page-6-cleaning-estimate/logo-page6.png` (all 200 on PROD). Either the
-      restore didn't carry these buckets/objects or they're not public on DEV. Blocks any preview
-      E2E of PDF generation. Fix: create/verify `pdf-templates` + `pdf-assets` as PUBLIC buckets on
-      DEV and copy objects from PROD. The earlier "Storage verified present" note (2026-07-07) did
-      not cover these two buckets.
-- [ ] **GitNexus false negative worth knowing about.** After a fresh `analyze` (10,014 symbols),
-      `impact({target: "calculateWasteDisposalCost", direction: "upstream"})` returned **0 callers /
-      LOW risk**, but grep proves a live call at `TechnicianInspectionForm.tsx:1696`. The call sits
-      inside `Section6WasteDisposal`, a component defined *inline* within
-      `TechnicianInspectionForm.tsx` rather than as its own module — the indexer appears to miss
-      call edges from inline-declared components. `calculateCostEstimate` resolved correctly
-      (CRITICAL, 5 direct callers). **Always grep-verify a LOW/zero-impact GitNexus result before
-      trusting it**, especially for symbols consumed by the inline sections of the big form files.
-
----
-
-## Follow-ups from 29 Jul 2026 session (admin analytics audit)
-
-- [ ] **Revenue-query failure takes down the whole Reports page; the technician
-      surfaces degrade instead.** `useReportsData` folds `revenueQuery.error` into
-      the page-level `error`, so if `getPaidInvoices` throws, Reports renders its
-      full-page "Failed to load reports" state and no KPI, chart or insight is
-      shown — including the ones that have nothing to do with revenue.
-      `useTechnicianStats` and `useTechnicianDetail` wrap the same call in
-      try/catch and fall back to `revenueThisMonth = 0`, so a revenue outage
-      costs them one tile, not the page.
-
-      Not introduced by the revenue rewrite — the inspections query it replaced
-      was wired the same way, so this is pre-existing shape, not a regression.
-      Worth unifying so Reports degrades like the others (render the page, show
-      the revenue tile as unavailable), but deliberately **not** done during the
-      analytics work: it changes error-handling behaviour on a page that was
-      already being reworked, and it deserves its own scoped change.
-
----
-
-## Bugs & decisions found 2 Jun 2026
-
-Surfaced during the business-logic / flow audits (read-only investigations). Code fixes are each their own session — logged here, not yet actioned.
-
-1. **Manual-invoice GST = $0 lump-sum branch is latent dead code (low priority).** *Corrected 3 Jun 2026 — the earlier "GST=$0 is the default path" claim was a misreading.* In normal use the live invoice-create path is `InvoiceSummaryCard → createInvoice`, which **splits GST correctly** (and only renders at status `job_report_pdf_sent` with no existing invoice). The `gst_amount = 0` lump-sum branch in `InvoicePaymentCard.handleCreate` is **UNREACHABLE**: the card only mounts when an invoice already exists (`LeadDetail.tsx:2413`, `if (invoice)`), but that create branch only runs when there is *no* invoice — so it never renders. **Not current behaviour; no customer impact today.** Fix (low priority, own session): harden the unreachable branch to split GST so it's safe if the gating is ever re-wired.
-
-2. ~~**AFD not wired + not captured as billable equipment.**~~ **RESOLVED — see the
-   Open Questions entry above (verified 2026-08-02).** AFD is the HEPA Air Scrubber, rate
-   $100/unit/day, fully wired through quote → invoice → PDF. The description below is the
-   2 Jun state and is kept only for history: *AFD is a method toggle only, `$75` in
-   `Section7Equipment.tsx` is a placeholder, qty/days captured but never SELECTed in
-   `autoPopulateFromLead`, no line emitted, absent from `pricing.ts`, bills $0.* Every one
-   of those clauses is now false — `pricing.ts:30` has `hepaAirScrubber: 100`,
-   `invoices.ts:757` SELECTs `actual_afd_qty, actual_afd_days`, and `:822-831` emits the
-   line item.
-
-3. **Section 7 "both options" save guard over-fires (not data loss).** *Clarified 3 Jun 2026.* "Option 1 total could not be computed; ensure surface treatment hours are entered before saving in Both-options mode" is an **intentional integrity guard** — it blocks saving a $0/blank price to one option's customer PDF. The problem is it's wired into the shared save function (`handleSave`), so it over-fires: it blocks auto-save and section navigation, not just final submit, and surfaces a legitimate "no hours yet" state as a "Save Failed" error. **Data is retained in normal use** (the throw precedes all state resets + DB writes; in-memory form state + 30s localStorage backup survive). Only real loss risk: a brand-new inspection that has never had a successful save (so no localStorage backup key yet) being hard-reloaded before any save. Fix (own session): enforce the non-zero check only at submit / PDF-generation time; let sections auto-save freely.
-
-4. **`docs/COST_CALCULATION_SYSTEM.md` is stale.** Documents under-2h work as pro-rated and equipment as direct-total entry; live code charges a flat 2-hour minimum and equipment as qty×rate×days. Fix or retire — own session.
-
-5. **Waste disposal — billing decision needed.** Recorded as a size (Small/Medium/Large) for reporting context only; never a dollar amount, not billed, no rate set. Confirm with Glen/Clayton whether it should be charged to customers.
-
----
-
-## Phase 2 — Job Completion Workflow: Existence Verification (2026-07-07)
-
-Read-only investigation cross-checked `docs/JOB_COMPLETION_PLAN.md` against disk + prod DB. All six sub-phases (2A–2F) are **BUILT — existence-verified [2026-07-07], runtime-untested against dev.** This confirms files/tables/routes EXIST; it does NOT confirm runtime behaviour. Not "complete" or "done" until the E2E gate below passes.
-
-- **2A Data & types — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `src/types/jobCompletion.ts`, `src/lib/api/jobCompletions.ts`, all 8 Phase 2 statuses in `src/lib/statusFlow.ts` (pending_review, job_waiting, job_completed, job_report_pdf_sent, invoicing_sent, paid, google_review, finished), AFD/HEPA rate in `pricing.ts` (`hepaAirScrubber`).
-- **2B Form — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** all 10 sections at `src/components/job-completion/` (Section1OfficeInfo…Section10OfficeNotes; Section7 is `Section7Equipment.tsx`), routed page `src/pages/JobCompletionForm.tsx` at `/technician/job-completion/:leadId`, technician entry button in `TechnicianJobDetail.tsx`.
-- **2C Job report PDF — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `supabase/functions/generate-job-report-pdf/` EF; view/edit/approve unified into `ViewReportPDF.tsx` via `reportType` detection (no standalone `ViewJobReportPDF.tsx` — deleted by design).
-- **2D Admin/invoice — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `src/pages/AdminInvoiceHelper.tsx` routed + admin-gated at `/admin/invoice/:leadId` (`src/App.tsx`), `src/hooks/usePaymentTracking.ts`, LeadDetail job/invoice/review cards.
-- **2E Payment automation — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `supabase/functions/check-overdue-invoices/` EF + `usePaymentTracking`. (Cron migration + individual Slack templates not separately verified.)
-- **2F Google review & closure — BUILT (existence-verified [2026-07-07], runtime-untested against dev):** `GoogleReviewSection` + `FinishLeadSection` in `LeadDetail.tsx`, `sendGoogleReviewEmail` in `notifications.ts`.
-- **DB (prod `ecyivrxjpsmjmexqatym`, SELECT-only):** `job_completions` (67 cols), `job_completion_pdf_versions` (13 cols), `invoices` (30 cols) all present.
-
-### Confirmed-remaining gaps (open — do not hide)
-
-- [ ] **No offline Dexie draft store for job completion.** `jobCompletionDrafts` was never added to `src/lib/offline/db.ts`; the `version(2)` bump added `quarantinedPhotos` instead. The inspection form has offline draft support; the job completion form does NOT — the zero-data-loss principle is not met for this form.
-- [ ] **No standalone `src/lib/schemas/jobCompletionSchema.ts`.** Validation is inline (form/hook), not a discrete Zod schema like `inspectionSchema.ts`. Extract it, or document the decision to keep validation inline.
-- [ ] **Pricing discrepancy — dehumidifier rate.** `src/lib/calculations/pricing.ts` has `dehumidifier: 119`, but PRD/CLAUDE.md say `132`. Unresolved — needs verification against business records. DO NOT change pricing here; fold into the L1 pricing session (rate reconciliation).
-- [ ] **Runtime E2E test of full job completion workflow against mrc-dev** — form save → PDF → invoice → payment → review → finish. Nothing above is runtime-verified; this is the gate that turns "BUILT" into "working."
-
----
-
-## Launch Model
-
-Three-stage green flag.
-
-1. **Pre-test green flag (Michael):** All L blockers + S should-fix items resolved. Michael confirms "this is production, not MVP."
-2. **Tester green flag (Glen + Clayton + Vryan):** They walk through full system including all T smoke surfaces. They must be happy. Vryan = admin role for testing purposes.
-3. **Customer launch green flag (Michael):** Only after both above. Real Framer form connected, customers can use it.
-
----
-
-## Launch Rollback Plan
-
-- **Hybrid launch (2026-07-13):** From 2026-07-13, all new leads flow through the MRC system. Existing jobs already past the inspection-booking stage remain in ServiceM8 and run to closure there — no mid-flight job is migrated into MRC.
-- **Rollback path if MRC breaks post-launch:** New leads get manually logged into ServiceM8 — the same process used before launch. No data migration is required to revert; MRC simply stops being the intake path and staff fall back to the existing ServiceM8 manual workflow.
-
----
-
-## Open Questions for Michael (blocking input)
-
-Items that need a decision from you, not engineering work. Resolving these unblocks L-section work.
-
-- [x] ~~**AFD equipment daily rate** — `Section7Equipment.tsx:9` uses `$75/day` as a
-      placeholder~~ **RESOLVED — verified 2026-08-02, no code change needed.** AFD **is**
-      the HEPA Air Scrubber; same equipment, confirmed by Glen and Clayton and renamed
-      throughout the codebase on 25 June 2026. Rate is **$100/unit/day ex GST**.
-      - `df4c115` (PR #67) replaced `afd: 75` with `hepaAirScrubber: 100`. Confirmed
-        present in production `9fdc853`, so the correct rate has been **live since
-        23 July**. `git show 9fdc853:src/components/job-completion/Section7Equipment.tsx`
-        if you need to see it.
-      - `1c663e8` removed the last duplicate: Section 7 held its own local
-        `EQUIPMENT_RATES` const rather than importing the canonical one. It now imports
-        from `pricing.ts` (`Section7Equipment.tsx:6`, used at `:403-410`, `:424-463`).
-        Reached production today in `29a5808`.
-      - The `$75` figure was never wired into billing at all — there was no line item, so
-        customers were charged $0, not $75.
-      - Billing is verified end to end: `pricing.test.ts:168-174` (2 × 3 days = $600),
-        `invoices.hepaLineItem.test.ts` (line item $600 at unit_price 100, labelled "HEPA
-        Air Scrubber", `is_equipment: true`), and `generate-job-report-pdf/index.ts:327`.
-      - `equipmentRateDrift.test.ts` now pins the two Edge Function rate copies against
-        `EQUIPMENT_RATES`, so the next drift fails CI instead of reaching a customer PDF.
-
----
-
-## PDF Pipeline Rebuild — Post-Launch Cleanup (added 2026-05-24)
-
-After the PDF Pipeline Rebuild (server-render + versioning + mismatch guard) lands and is proven in preview/production, these consolidation items should be addressed. Tracked here, not blocking launch.
-
-- **PDF-CL1 — Repurpose / rename misleading `pdf_versions.pdf_url`.** Column currently holds the HTML URL written by the legacy `generate-inspection-pdf` EF (since 2024-12-21). The new pipeline writes `pdf_storage_path` for the actual PDF. Two columns now coexist with related-but-different semantics. Action: rename `pdf_url` to `html_public_url` (its actual content) and update consumers; legacy rows preserved.
-- **PDF-CL2 — Decommission legacy EF write to `pdf_versions`.** `supabase/functions/generate-inspection-pdf/index.ts:1881-1894` still inserts a row on every render. Once the new pipeline is proven, remove this insert — `pdf_versions` should have one source of truth (the hard-save and manual-upload paths).
-- **PDF-CL3 — Mirror the pipeline to job-completion reports.** `job_completion_pdf_versions` already exists; the `if (reportType === 'job')` branches in `handleDownload` / `handleSendEmail` still use the old print-window + client-side conversion pattern. Apply the same hard-save / mismatch-guard / version-history design.
-- **PDF-CL4 — Deprecate `inspections.pdf_blob_url`.** Once nothing reads it (handleSendEmail no longer uses it post-Phase 5; only `handlePdfUpload` writes for back-compat), drop the column. Verify with grep across `src/` first.
-- **PDF-CL5 — Consider adding audit trigger on `pdf_versions`.** Not currently in the canonical audit-table list (per CLAUDE.md). Adding one would require explicit approval per the Phase-2-audit-foundation lock. Worth doing for the full picture of who hard-saved / uploaded when.
-- **PDF-CL6 — Add Vercel deploy-time delete of `SUPABASE_SERVICE_ROLE_KEY` (Preview scope).** Phase 2 removed all reads of this env var from `api/render-pdf.ts`. After preview deploys prove the renderer doesn't need it, delete the Preview-scoped secret from Vercel so the god-key isn't sitting on the edge waiting for the next callsite to add it back.
-- **PDF-CL7 — `previewOnly` calls should leave an audit row.** Phase 4a security-review (LOW finding) — the previewOnly EF branch makes zero writes, so an admin (or compromised admin) can repeatedly exfiltrate inspection HTML with no forensic trail beyond `console.log`. Same hole now exists on the job EF previewOnly branch added 2026-06-01 — single fix covers both.
-- **PDF-CL8 — Unified job-report version-history UI.** The 2026-06-01 job-report hard-save mirror (`api/render-job-report-pdf` + `jobReportPipeline.ts`) writes new `job_completion_pdf_versions` rows tagged `generation_type='hard_save'` with `pdf_url` NULL (pdf lives at `pdf_storage_path`). The legacy switcher in `ViewReportPDF.tsx` (~line 2520) reads `pdf_url`, so the query was filtered with `.not('pdf_url','is',null)` to hide hard-save rows from it. Hard-save versions are reachable via re-clicking Download. Follow-on: build a job equivalent of `src/components/pdf/ReportVersionHistory.tsx` that lists both legacy HTML and hard_save PDF rows with Download buttons per row (mirror inspection version history).
-- **PDF-CL9 — Mirror PDF-CL3 deprecation for the job HTML EF.** Once the new hard-save path is proven, the `generate-job-report-pdf` EF's HTML-bucket-upload + `job_completion_pdf_versions` INSERT (lines ~405-461) becomes redundant for the Send flow. Keep the EF for previewOnly HTML refresh used by `handleGenerate`, but remove the legacy write path so `job_completion_pdf_versions` has one source of truth (hard-save). Symmetric with the inspection-side PDF-CL2.
-- **PDF-CL10 — Drop `job_completions.pdf_blob_url` column.** The 2026-06-01 job-send rewrite removed all reads of `pdf_blob_url` from the email path. Other callers should be greppped before drop. Symmetric with the inspection-side PDF-CL4.
-
-- **PDF-CL11 — `job_completion_pdf_versions` has ZERO RLS policies anywhere in `supabase/migrations/`.** The original `CREATE TABLE` was made in Studio and is not in the repo (noted at `supabase/migrations/20260531150202_job_completion_pdf_versions_pipeline_columns.sql:18-20`, which also states "RLS posture unchanged" without saying what that posture is). `pdf_versions` by contrast has explicit SELECT/INSERT policies in `20241221000000_add_pdf_system.sql:62-96`. **The live access posture of the job table is not knowable from the repo** — nobody can review who can read or write job-report version rows without querying production. Action: dump the live policies for this table, write them into a migration so the repo is the source of truth, and reconcile against the inspection-side policies. This is a review-integrity problem, not just a tidiness one.
-- **PDF-CL12 — The 23505 retry in `api/render-job-report-pdf.ts` is dead code.** `insertHardSaveVersion` retries up to `MAX_VERSION_INSERT_ATTEMPTS` on unique-violation, but no migration adds a UNIQUE constraint on `(job_completion_id, version_number)`. A concurrent race therefore produces **two rows with the same version number** rather than a conflict the retry can catch. `pdf_versions` does have `unique_inspection_version` (`20241221000000_add_pdf_system.sql:46`), so the inspection-side retry is real. Action: add the matching UNIQUE constraint to `job_completion_pdf_versions` (after checking live data for existing duplicates), or delete the retry loop as misleading.
-- **PDF-CL13 — `api/render-job-report-pdf.ts` reports the wrong validation error.** `readBody` returns `null` both for a missing/invalid `jobCompletionId` and for an unsupported `mode`, and the caller reports `'jobCompletionId must be a UUID'` for both. A caller passing a bad `mode` is told to fix a field that is already correct.
-- **PDF-CL14 — Stale JSDoc on `sendEmail`.** `src/lib/api/notifications.ts:315` says "Fire-and-forget — failures are logged, never thrown", but the function throws at both `:338` and `:343`. Every caller that trusted the comment and skipped a try/catch is wrong. Verified live during the 2026-08-27 PDF response-contract work.
-- **PDF-CL15 — `/admin/render-test` output accumulates in Storage.** The legacy branch of `api/render-pdf.ts` now uploads each fidelity-test render to `report-pdfs/_render-test/{inspectionId}/{timestamp}.pdf` (it can no longer return bytes in the response body). Nothing prunes that prefix. Action: either add a retention sweep or delete the render-test page now that the pipeline is live.
-- **PDF-CL16 — `report-pdfs` has NO DELETE policy, so every "best-effort cleanup" in the render endpoints is dead code.** `20251028135212_*.sql:984-999` creates only INSERT and SELECT policies for this bucket. `inspection-photos` (`:976-982`) and `profile-photos` (`20260415000000_profile_photos_bucket.sql:19`) both got DELETE policies; `report-pdfs` never did. Supabase Storage `remove()` under RLS returns `{ data: [], error: null }` when the policy filters the row — **a silent no-op, not an error**. Consequences: (1) the orphan-PDF cleanup at `api/render-pdf.ts:391` and `:405`, and the same calls in `api/render-job-report-pdf.ts`, have never removed anything — a failed HTML upload after a successful PDF upload leaves the orphan PDF in the bucket permanently, and the code logs nothing because there is no error to log; (2) nothing in the app can prune `report-pdfs`, including the `_email-test/` and `_render-test/` scratch prefixes (see PDF-CL15). Verified empirically on DEV 2026-08-27: an authenticated `remove()` on an object the same session had just uploaded returned 0 removed with no error, and the object remained fetchable via a fresh signed URL. Action: add a DELETE policy for `report-pdfs` (admin-scoped), then either check the `remove()` result length at both call sites or drop the misleading cleanup calls.
-- **PDF-CL17 — Switch `generate-job-report-pdf` to signed photo URLs; job reports are the ones that will cross Resend's ceiling.** The job EF downloads every photo and embeds it as a base64 data URI (`supabase/functions/generate-job-report-pdf/index.ts:230`, `:259-261`), where the inspection EF generates signed URLs instead (`supabase/functions/generate-inspection-pdf/index.ts:2115`, `:2140`). Base64 inflates each photo by 4/3 *inside the HTML*, before Chromium ever renders it, so job-report PDFs are systematically the larger of the two for the same photo count. That compounds with a second constraint: Resend caps a message at 40 MB **after** base64 encoding, and the largest report measured on PROD (27.56 MB, 2026-08-27) already encodes to 36.75 MB — roughly **9% headroom**. Job reports are therefore the ones that will cross it first, and when they do `assertEmailableAttachment` will correctly refuse the send, which is honest but still a report nobody can email. Two further knock-ons of the data-URI approach: the hash normalization in `_shared/reportHash.ts` strips query strings off storage URLs, which does nothing for data URIs, so the job hash covers the entire embedded photo payload; and `checkJobReportSendMismatch` pulls that whole multi-MB HTML into the browser on every send pre-check just to compute a hash. Fix: mirror the inspection EF's `createSignedUrl` approach. **Own session** — it is an EF change to the job render path, not something to fold into unrelated work.
-
-## AREA-HIDE — per-area report visibility (`include_in_report`), 2026-08-27
-
-Admin can hide an individual area's page from the **inspection** report without
-deleting the area. Presentation only — the row, its readings and its photos
-survive, and its `job_time_minutes` still counts toward the quote. Job reports
-are unaffected: `generate-job-report-pdf` has no per-area pages at all (its
-"TREATED AREAS" pages are before/after photo pairs keyed off `photo_category`).
-
-- **AH1 — DEPLOY GATE (blocking).** Migration `20260827200000_inspection_area_include_in_report.sql`
-  is APPLIED to PROD (verified: 35/35 rows `true`). The frontend toggle is merged-ready,
-  but `generate-inspection-pdf` **must be deployed before or with the frontend**:
-  `npx supabase functions deploy generate-inspection-pdf --project-ref ecyivrxjpsmjmexqatym`
-  run from `~/mrc-app-prod`. If the frontend ships first, hiding an area writes
-  `include_in_report=false`, the old EF keeps rendering every area, and because the
-  rendered HTML never changes `checkSendMismatch` reports "no changes since v{N}" —
-  a confidently wrong all-clear, not a visible breakage.
-- **AH2 — AI narrative can still name a hidden area.** `problem_analysis_content` and
-  `demolition_content` are free text generated from the full area set
-  (`InspectionAIReview.tsx` selects `*` with no filter). Hiding an area drops its page
-  and its name from the cover list, but Pages 6/7 prose may still reference it. No code
-  fix — the admin must edit the narrative. Consider a warning at hide time.
-- **AH3 — FIX (backlog, ~half a day): Demolition page survives a hide when
-  `demolition_content` is set.** `hasDemolition` (`generate-inspection-pdf/index.ts:1842`)
-  short-circuits on `demolition_content`, so the page still renders when its only
-  demolition-required area is hidden. This is a **behaviour gap, not just a wart**: the
-  admin hides the area expecting the page to go, and it doesn't — the plan's stated
-  behaviour ("whether the Demolition page exists" follows the filter) is only honoured
-  when `demolition_content` is empty. Not deferred because it's acceptable, deferred
-  because a correct fix needs a product call: when the last demolition-required area is
-  hidden, either drop the page (discards AI prose that may describe several areas) or
-  keep it and prompt the admin to re-edit the narrative. Do NOT just flip the gate —
-  `hasDemolitionWork` (`:1715`) must stay unfiltered, since it feeds `optionSelected`
-  (`:1857`) and therefore the quoted scope. Blast radius is a customer-facing price.
-- **AH4 — Hidden state is invisible outside the Edit Areas sheet.** The lead view
-  (`InspectionDataDisplay.tsx`) lists every area with no hidden indicator, so a co-owner
-  reading the lead sees areas the emailed report does not contain. Cosmetic; leave.
-- **AH5 — PATTERN TO WATCH: divergent `.select()` column lists silently drop fields.**
-  Second sighting of this class. In `ViewReportPDF.tsx` the four `inspection_areas`
-  selects had drifted — the initial load fetched `job_time_minutes`, the post-save and
-  post-add refetches did not — so editing an area dropped labour minutes out of
-  `areasData` and `autoEstimate` recomputed the job at **$0 labour** until a reload.
-  Fixed here by hoisting one `AREA_SELECT_COLUMNS` const (single string literal +
-  `as const`, or supabase-js loses row-type inference and returns `GenericStringError`).
-  Nothing typed catches this: the dropped field is simply absent and `|| 0` swallows it.
-  Worth a sweep of other multi-select-site tables (`photos`, `moisture_readings`,
-  `job_completions`) for the same drift. Not a workstream — a check to fold into the
-  next session that touches those files.
-
-## AUTO-CAPTION — derived captions + bulk photo upload, 2026-08-27
-
-Technicians would not caption photos (Glen and Clayton, confirmed twice), and the caption
-modal blocked photo *selection*, so every slot and category cost a modal. Captions are now
-derived for the five display-only roles (room, subfloor, before, after, demolition) via
-`src/lib/utils/photoCaption.ts`. The eight sentinel role tags that carry slot identity —
-`infrared`, `natural_infrared`, `moisture`, `front_door`, `front_house`, `mailbox`,
-`street`, `direction` — are untouched, and `derivePhotoCaption()` can never emit one.
-Branch `feat/auto-caption-bulk-photo-upload`.
-
-- **AC1 — On-site before-photo provenance is a heuristic. A correct fix needs a
-  provenance column on `photos`; NOT attempted.** Section 3 now holds two kinds of photo
-  with opposite removal semantics: a photo *picked* from the inspection is **deselected**
-  (clearing `job_completion_id` and `photo_category`, leaving it on the inspection), while
-  a photo *uploaded at job time* is **deleted**, because it exists only for this job.
-  **A `photos` row cannot say which it is** — `togglePhoto` writes exactly the
-  `job_completion_id` + `photo_category='before'` pair an upload is born with. The current
-  discriminator is `isLikelyOnsiteUpload()` in
-  `src/components/job-completion/beforePhotoGrouping.ts`: those two fields **plus**
-  `photo_type = 'general'`, unioned with a session-scoped set of ids uploaded during the
-  current mount. It leans on the fact that the inspection form never writes `'general'`
-  (every branch that would leave the default also leaves the caption unset and bails
-  before inserting).
-  **Residual false positive:** a genuinely general inspection photo — an unplaced outdoor
-  photo (`unplaceOutdoorPhoto` flips `photo_type` to `'general'`,
-  `src/lib/utils/photoUpload.ts:429`) or an admin cover upload
-  (`src/components/pdf/ImageUploadModal.tsx`) — that the technician then picks as a before
-  photo. It renders under "Photos you added on site" and offers **Delete** rather than
-  **Deselect**; tapping it soft-deletes a real inspection photo, removing it from the
-  inspection report too. Recoverable (`deleted_at`, not a hard delete) and it needs three
-  things to line up, but it is real.
-  **Why this error and not the other one:** the inverse mistake — treating a real upload
-  as a picked photo — is worse and silent. Its deselect drops an unreferenced
-  `photo_type='general'` row into the inspection's pool, where the cover-photo fallback at
-  `generate-inspection-pdf/index.ts:1683` can promote it to the *inspection* report's cover
-  (that query has no `photo_category` / `job_completion_id` filter, `:2068`), and the admin
-  "pick existing" pool can claim it and overwrite its caption
-  (`AreaPhotoSlotGrid.tsx:178-180`).
-  **Proper fix:** add a provenance column (e.g. `photos.captured_for_job_completion`), set
-  it at INSERT in Section 3's upload path, and replace `isLikelyOnsiteUpload()` with an
-  exact read. That is a schema change — migration file generated, Michael runs it, per the
-  standing rule. Delete the session-id union at the same time.
-
-- **AC3 — Stale-PDF banner does not clear after a successful regeneration.** On
-  `ViewReportPDF`, "PDF is out of date. Regenerate before sending to customer." stays on
-  screen after the toast reports "Report generated successfully!", and survives a full
-  reload of the report route. Observed live on DEV 2026-08-27 while verifying the
-  auto-caption work: the first regenerate legitimately failed (`400 "Inspection not
-  complete"`), the second succeeded and wrote report v6 with all seven photos, and the
-  banner read identically before and after. The risk is the inverse of PDF-CL-era worries
-  — not a stale PDF sent as fresh, but a fresh PDF that looks stale, so an admin
-  regenerates repeatedly or hesitates to send. Likely the freshness comparison
-  (`pdf_versions.created_at` vs `inspection_areas.updated_at` / `latest_ai_summary.
-  generated_at`) not being re-read after the generate call resolves. Cosmetic, but it
-  makes the one signal an admin has for "is this safe to send" untrustworthy.
-
-- **AC4 — Sentinel captions are shown raw to technicians in the before-photo picker.**
-  Section 3's grid labels each tile with `photo.caption`, so role-tagged photos render as
-  literal `infrared`, `natural_infrared` and `front_house` next to derived prose like
-  "Area 1 — Room Photo". Confirmed on DEV 2026-08-27. This is the cost of the deliberate
-  split — caption is a slot-identity key for eight roles and a description for the other
-  five, and the picker cannot tell them apart. Pre-existing (the same raw values were
-  shown before captions were derived; derived prose alongside them just makes the
-  inconsistency obvious). Fix is display-only: map the eight reserved sentinels to human
-  labels at render time — `RESERVED_CAPTIONS` in `src/lib/utils/photoCaption.ts` already
-  enumerates them, and `OUTDOOR_SLOT_LABELS` in `InspectionDataDisplay.tsx` already does
-  exactly this mapping for the outdoor five. Do NOT fix it by rewriting the stored
-  caption.
-
-- **AC2 — Other findings surfaced by this workstream, deliberately not fixed.** Each is
-  pre-existing and none is caused by the caption change.
-  - **The offline photo queue is built and wired to nothing.** `queuePhotoOffline()`
-    (`photoUpload.ts:51`) and `SyncManager.saveDraft()` have **zero production callers**;
-    offline photos are discarded with a toast. "Zero data loss on offline save" is
-    therefore not met today. It also cannot be wired for job-completion photos without
-    changing the stored Dexie record shape — `QueuedPhoto` (`src/lib/offline/types.ts`)
-    and the offline INSERT (`SyncManager.ts:299-313`) carry no `job_completion_id` or
-    `photo_category`. Three defects need fixing first: dead `MAX_RETRIES`
-    (`SyncManager.ts:6`), photos left in `error` never retried once their draft flips to
-    `synced` (`:235-239` vs `:69-74`), and `orderIndex` defaulting to `0` for every entry
-    (`photoUpload.ts:69`), which would scramble PDF photo order on a bulk offline batch.
-  - **`OutdoorPhotoSlotGrid` breaches the outdoor sentinel invariant.** It has no
-    `autoCaption` mechanism at all and writes a typed human caption with
-    `photo_type: 'outdoor'`, so its photos already fail the `caption === 'front_door'`
-    matching in `generate-inspection-pdf/index.ts:1689-1695` and are already invisible in
-    `InspectionDataDisplay.tsx`'s outdoor section. `ImageUploadModal.tsx:136` breaches the
-    same invariant from another angle, and `:168` maps `direction_photo` to
-    `photo_type: 'direction'`, which is not a legal `PhotoMetadata.photo_type`. Both are
-    admin-only surfaces. Repairing them means giving them the sentinel captions the
-    consumers already expect.
-  - **`ViewReportPDF.tsx:2307` writes `caption: null`**, violating the Stage 4.1 non-empty
-    invariant that every other write path upholds.
-  - **`loadUnplacedPhotos()` (`photoUpload.ts:530-548`) has no `job_completion_id`
-    filter**, so the admin "pick existing" pool already contains job-report photos.
-    One line to fix, but it needs confirmation that no admin workflow legitimately
-    re-places a job photo into an inspection slot.
-  - **`isNetworkLevelError` is now duplicated four ways** (`TechnicianInspectionForm.tsx`,
-    `useJobCompletionForm.ts`, and both job-completion photo sections). The comment saying
-    two sites don't justify a shared module has expired. If it moves, re-export it from
-    `useJobCompletionForm.ts` or `useJobCompletionForm.offline.test.ts:4` breaks.
-
-## Wave 6.1 — Cleanup PR (post-Wave-6 deploy, target: within 48h)
-
-Scheduled by Michael 2026-05-14 after Wave 6 audit gates returned GO. Non-blocking nits surfaced by the Phase 8 audit pass.
-
-- **W6.1-A — Enum render parity** — `property_occupation` displays differently across surfaces. `LeadDetail.tsx` Card 8 (~:1820) uses an explicit label map ("Owner Occupied", "Tenants Vacating"). `TechnicianJobDetail.tsx:530-541` uses `replace(/_/g, ' ')` + lowercase capitalize ("Owner occupied", "Tenants vacating"). Extract shared helper or copy the map for consistency. Source: Phase 8f code-reviewer.
-
-- **W6.1-B — Defensive `old` status in FinishLeadSection** — `LeadDetail.tsx:2430` hardcodes `old: 'google_review'` in the `logFieldEdits` call. Section gated on `lead.status === 'google_review'` upstream so it's correct in practice, but if the gate ever changes the audit log will lie. Read from `lead.status` instead. Source: Phase 8f code-reviewer.
-
-- **W6.1-C — Performance: `Promise.all` snapshot fetches** — Two opportunities surfaced by Phase 8e performance-reviewer:
-  - `TechnicianInspectionForm.tsx:3392-3420` — three sequential `await`s for inspection/areas/subfloor snapshots before each section save. Wrap as `Promise.all` → saves ~300ms per autosave (autosave fires every 30s during multi-hour inspections). **Highest impact.**
-  - `TechnicianJobDetail.tsx:198-213` — `subfloor_data.maybeSingle()` + `inspection_areas` fetch are sequential. Wrap as `Promise.all` → saves ~100-200ms per Tech Job Detail open on van WiFi.
-
-- **W6.1-D — Misleading test name** — `pricing.test.ts:154` test is named "should null-clear option2..." but actually validates `calculateCostEstimate` returns a finite positive total (null-clear lives in TIF, not pricing.ts). Rename to "should produce a finite positive total for the option1-only path". Source: Phase 8f code-reviewer.
-
-- **W6.1-E — Ugly inline cast** — `ViewReportPDF.tsx:1015` has a huge inline cast `(lead as { id: string; full_name: string; email?: string; ... }).status`. Extract a small typed local interface or narrow to `(lead as { status?: string }).status`. Cosmetic. Source: Phase 8f code-reviewer.
-
-- **W6.1-F — Caption regex anchor (orphan EF)** — `supabase/functions/check-photo-moisture-orphans/index.ts` regex `/^moisture$|\d+(\.\d+)?%/i` lacks a `$` anchor after the percent group, so `"42%abc"` matches. Tighten to `/^moisture$|^\d+(\.\d+)?%$/i`. False positives are cheap warnings only; this is optional polish. Source: Phase 8f code-reviewer.
-
-- **W6.1-G — Migration filename time-suffix convention** — `supabase/migrations/20260513_phase5_dead_column_drop.sql` lacks the 6-digit `HHMMSS` suffix that all other recent migrations use. Sort order is fine (sorts before `20260513122754_...`); this is cosmetic only. Source: Phase 8f code-reviewer.
-
-- **W6.1-H — EF `details` leakage** — `check-photo-moisture-orphans/index.ts:92` returns `details: queryError.message` to the caller. Per error-handling rules, never expose raw DB errors. Function is service-role-only (not user-facing) so impact is minimal, but scrub to a generic message. Source: Phase 8d security-reviewer (LOW severity).
-
----
-
-## Launch Blockers (MUST fix before Glen + Clayton + customers start using)
-
-### L1 — Equipment pricing audit + AFD rate
-- **Status:** Investigation complete (2026-05-11) — Michael APPROVED defer to future session with business records. **Parked, not active.**
-- **Estimate:** Re-scope needed. Original "30 min" estimate was wrong; real scope is multi-decision spanning pricing engine + customer PDF + invoice generation.
-
-- **What customers ACTUALLY see today on inspection PDF page 8:**
-  - "Commercial dehumidifier: $132/day × {qty}"
-  - "Air Mover: $46/day × {qty}"
-  - "RCD Box: $5/day × {qty}"
-  - "Capped at 5 days" (always literal text, regardless of actual quote days)
-  - No equipment days shown
-  - No AFD line
-  - Rates render even when qty = 0 (informational)
-
-- **Findings deferred (no decision made tonight):**
-
-  1. **Rate reconciliation between code and reference doc**
-     - Code: $132 dehumidifier / $46 air mover / $5 RCD
-     - Reference doc Michael shared (2026-05-11): $118 dehumidifier / $44 air mover, no AFD/RCD specified
-     - Michael's call: leave code rates as-is. Reference doc context unclear (old? supplier? planning artifact?)
-     - Action when decided: if doc is canonical, update 4 surfaces — pricing.ts:22-26, Section7Equipment.tsx:6-11, inspectionUtils.ts:57-61, and the hardcoded literals in generate-inspection-pdf/index.ts:1345-1347
-
-  2. **"Capped at 5 days" — cosmetic display, not enforced in code**
-     - PDF tells customer "Capped at 5 days" (hardcoded at generate-inspection-pdf/index.ts:1534)
-     - Code does NOT enforce this cap — pricing.ts:219-227 calculates `days = Math.max(1, Math.ceil(totalLabourHours / 8))` with no upper bound
-     - A 50-hour job calculates 7 equipment days, customer PDF still says "capped at 5"
-     - Michael confirmed 5-day cap IS the real policy
-     - Action when decided: clamp days to max 5 in pricing.ts calculateEquipmentCost (touches "sacred" pricing — requires careful test)
-
-  3. **AFD invisibility across system**
-     - Tech form (Section7Equipment.tsx) has AFD field with $75 placeholder rate
-     - AFD not in pricing.ts EquipmentInput/EquipmentResult types
-     - AFD not in invoices.ts line items — invoice generation silently drops AFD cost
-     - AFD not in customer-facing inspection PDF (no `{{equipment_afd}}` placeholder)
-     - Real AFD rate unknown
-     - Action when decided: either (a) thread AFD through pricing engine + invoice + PDF with real rate, or (b) remove AFD from tech form entirely if it's a phantom feature
-
-  4. **Zero-equipment jobs still display rate card**
-     - generate-inspection-pdf/index.ts:1345-1347 ternary false branch shows bare rate when qty=0
-     - Customer sees "$132/day, $46/day, $5/day" even on jobs with no equipment hire
-     - May be intentional (informational rates) or a display bug
-     - Michael's call: leave as-is
-
-  5. **Equipment days never shown to customer**
-     - Customer sees rate × qty (e.g. "$132/day × 1") but no duration
-     - Cannot compute their own total from PDF
-     - Michael's call: leave as-is
-
-  6. **Three duplicate EQUIPMENT_RATES blocks (drift risk)**
-     - src/lib/calculations/pricing.ts:22-26 (canonical, exported, no AFD)
-     - src/components/job-completion/Section7Equipment.tsx:6-11 (local, has AFD)
-     - src/lib/inspectionUtils.ts:57-61 (local, no AFD)
-     - Updating one without the others creates silent drift
-
-  7. **STEP_DESCRIPTIONS key alignment risk**
-     - generate-inspection-pdf/index.ts:247-314 hardcodes 11 toggle description keys
-     - Section 5 toggle labels in form must match these keys exactly
-     - Suspect mismatches:
-       - Section 5 "Containment & PRV Preparation" vs EF key "Containment and Prep"
-       - Section 5 "Surface Mould Remediation" vs EF key "Surface Remediation Treatment"
-     - If labels don't match keys, descriptions silently drop from customer PDF
-     - Action when decided: verify treatment_methods array values vs EF keys, align or remap
-
-  8. **docs/COST_CALCULATION_SYSTEM.md is stale**
-     - Says "Equipment is entered as a direct total cost (ex GST), not calculated from quantities and rates" — wrong
-     - Reality: qty × rate × days is the canonical path
-     - Doc version 1.0, last updated 2026-01-08
-
-- **Why deferred:** Investigation surfaced 8 separate issues, multiple touch pricing code that's marked "sacred" with 13% discount cap CHECK constraint. Decisions affect customer-facing rates and money flow. Requires fresh head + verification against business records before any change ships.
-
-### L2 — Variation context admin panel
-- **Status:** ❌ CANCELLED 2026-05-12. UI panel work removed from launch scope.
-- **What shipped:** Data-layer hook `src/hooks/useVariationContext.ts` (commit 30bf3bc) — kept in codebase as dormant code. Hook is unused, typechecks clean, no impact on production.
-- **Reason for cancellation:** Michael's call. Variation context can be reviewed via the existing JobCompletionSummary card + audit_logs in Supabase Studio. Standalone admin panel UI deemed unnecessary for launch.
-- **Future:** If a variation context UI is ever needed, the hook is ready to consume. Re-open as a post-launch backlog item, not a launch blocker.
-
-### L3 — Framer → Supabase lead capture (FINAL pre-launch step)
-- **Estimate:** 1-2h
-- **Status:** Hold until customer-launch green flag (per launch model). The real Framer site form is intentionally NOT connected. Currently a fake Framer test form drives the entire pipeline end-to-end for testing.
-- **Scope when activated:** Connect real Framer site form → `receive-framer-lead` Edge Function. EF is deployed and tested.
-- **Tasks (deferred until green flag):**
-  - [ ] Connect real Framer form to `receive-framer-lead` EF
-  - [ ] End-to-end test: form submit → lead row → customer confirmation email → Slack notification
-
-### L4 — Environment separation (dev Supabase + Vercel preview env vars)
-- **Estimate:** 3-4h
-- **Scope:** Stop preview deploys hitting production DB. Stand up dev Supabase project; run all migrations; wire Vercel Preview env vars.
-- **STATUS 2026-08-25 — DEV EXISTS AND IS AUDITED. The Phase 1–5 checklist below is superseded.**
-  DEV (`ctppzqnysmzynkxjlzta`) audited 25 Aug: **29 tables matching PROD name-for-name, RLS
-  enforcing, 4 auth users, Vercel Preview scope points at DEV.** The real gaps are drift, not
-  absence — DEV is ~3 weeks stale: `generate-inspection-pdf` **v9 vs PROD v107**; storage
-  template **66,282 B vs PROD 66,486 B**; **9 PROD Edge Functions do not exist on DEV at all**
-  (`seed-admin`, `generate-ai-summary`, `modify-ai-summary`, `send-slack-notification`,
-  `export-inspection-context`, `create-user-admin`, `sync-job-template`,
-  `check-photo-moisture-orphans`, `fetch-resend-email`); **9 more trail PROD badly**. RLS policy
-  parity **UNVERIFIED (2026-08-25)**. The sync itself is tracked in the 25 Aug section at the
-  end of this file.
-- **Runbook:** `docs/L4-environment-separation-plan.md` (Phases 1–5) + `docs/KEY_ROTATION.md` (Phase 6 full rotation). Tagged [HUMAN]/[CC] sequence agreed 2026-06-02.
-- **Progress (2026-06-02):**
-  - [x] **Phase 0 [CC] — env-aware refs (prod-safe, on `main`):** Supabase origin de-hardcoded — `sentry.ts` trace target derives from `VITE_SUPABASE_URL`; `vercel.json` CSP uses `https://*.supabase.co` + `wss://*.supabase.co`; PDF-viewer fonts bundled locally (`public/fonts/`, `index.css`); `reportHash.test.ts` fixture neutralised. Commits `734a2af` / `8ee3aec` / `942e9b5`. Only remaining hardcoded ref is the server-rendered PDF template (intentional — public read-only fonts).
-  - [x] **KEY_ROTATION.md added** (`e34dbec`) — secret inventory + Phase 6 runbook. Surfaced `INTERNAL_WEBHOOK_SECRET` (missing from the original L4 doc); confirmed `.env` git-history exposure (Oct–Dec 2025).
-  - [x] **Dev project wired + local override live (2026-07-07):** Separate DEV Supabase project (ref `ctppzqnysmzynkxjlzta`) created via **Restore-to-New-Project** — schema + Storage + extensions verified present. Local `npm run dev` now points at DEV through `.env.development.local` (`VITE_SUPABASE_URL` override); production (mrcsystem.com) confirmed still on prod ref `ecyivrxjpsmjmexqatym`, verified by reading both deployed bundles. Satisfies the intent of Phases 1–2 via the restore path (not the planned empty-project + 86-migration replay). **Remaining optional check:** end-to-end write-divergence test — create a record → confirm it lands in DEV and is absent in PROD.
-  - [x] ~~**Phase 1 [HUMAN] — NEXT (deferred):**~~ **SUPERSEDED 2026-08-25 — DEV exists via restore (7 Jul).** create `mrc-system-dev` Supabase project (same org, `ap-southeast-2`, free tier), enable `pg_cron` + `pg_net`, paste dev ref/URL/anon/service_role → [CC] verifies `public` schema empty.
-  - [x] ~~Phase 2 [HUMAN] apply 86 migrations (skip the 2 cron) + seed Storage; [CC] schema diff.~~ **SUPERSEDED 2026-08-25 — 29 tables match PROD name-for-name (restore path); Storage seeded 28 Jul but template now 204 B behind PROD.**
-  - [ ] Phase 3 [HUMAN] set dev EF secrets (incl. `INTERNAL_WEBHOOK_SECRET` + new Slack dev webhook) + deploy 12 EFs; [CC] smoke test. **PARTIAL (2026-08-25): 9 PROD EFs absent on DEV, 9 more stale — see STATUS above; this is the DEV sync item.**
-  - [x] ~~Phase 4 [HUMAN] 🔴 set Vercel **Preview-scope** env → dev (Preview only — the one prod-risk step).~~ **DONE — verified 2026-08-25: Vercel Preview scope points at DEV.**
-  - [x] ~~Phase 5 [CC] verify preview hits DEV + prod untouched.~~ **DONE — verified 2026-08-25 (Preview → DEV; production bundle carries the PROD ref only, per the 2 Aug redeploy check).**
-  - [ ] Phase 6 [HUMAN] full key rotation (new→verify→revoke; Supabase/GitHub PATs LAST) per KEY_ROTATION.md.
-  - [ ] Create test technician accounts in dev for walkthrough.
-- **Open input:** Q4 `ADMIN_FALLBACK_EMAIL` (dev) = current mrcsystem.com admin email — set literal at Phase 3.
-- **Blocking:** ~~can't safely run Glen/Clayton walkthrough on prod data.~~ DEV exists; the
-  remaining blocker is DEV drift — a walkthrough on a three-week-stale DEV will pass things that
-  fail live. Sync first (25 Aug section).
-
-### L5 — Email domain switch to `mouldandrestoration.com.au`
-- **Estimate:** ~1h remaining (the DNS wait is spent)
-- **Tasks:**
-  - [x] ~~Update DNS records (SPF, DKIM, DMARC)~~ **DONE 2026-08-02 8:11pm AEST — DKIM + SPF
-        verified in Resend.**
-  - [x] ~~Update Resend configuration~~ **DONE — domain verified; PROD Auth SMTP moved onto
-        Resend (`smtp.resend.com:465`, key `supabase-auth-smtp`).**
-  - [x] ~~**Cut the envelope over**~~ **DONE — verified 2026-08-04
-        (`docs/_audit/DOCS_AUDIT_2026-08-04.md`, Finding 1):** zero `noreply@` /
-        `@mrcsystem.com` email literals remain in `src/` or `supabase/`; every Edge
-        Function sender defaults to `admin@mouldandrestoration.com.au`
-        (`send-email/index.ts:203`, `:207`). Remaining sender scope is only
-        `seed-admin/index.ts:50` (`admin@mrc.com.au`) — see the OUTSTANDING item at
-        the top of this file.
-  - [ ] Test deliverability (inbox vs spam) + verify headers pass SPF/DKIM/DMARC
-- **Blocking:** envelope no longer blocks — code sends from the MRC domain. The
-  deliverability/headers test above is the remaining gate before production email
-  delivery is fully trusted.
-
-### L6 — Activate Glen + Clayton + Vryan production accounts ✅ COMPLETE
-- **Status:** Accounts activated (confirmed by Michael 2026-05-12). Glen + Clayton + Vryan can log in to production.
-
-### L7 — Glen/Clayton E2E walkthrough on dev
-- **Estimate:** 1 day wall-clock (mostly human time)
-- **Dependency:** ~~L4 (dev environment must exist)~~ DEV exists (audited 2026-08-25); the
-  dependency is now the DEV→PROD sync (25 Aug section) so the walkthrough runs on current code.
-  L1 parked, L2 cancelled — neither blocks.
-- **Tasks:**
-  - [ ] Run the 18 smoke scenarios in the T section against dev DB with a test tech account
-  - [ ] Fix anything material before scheduling Glen + Clayton
-  - [ ] Schedule and run actual Glen + Clayton walkthrough on dev
-  - [ ] Address walkthrough feedback (variable — could be 0h to 1-2 days)
-  - [ ] Author `docs/walkthrough-YYYY-MM-DD.md` per plan v2 §6.1.C Definition of Done (sign-off artefact)
-
-### L8 — `storage.objects` policies on `pdf-assets` / `pdf-templates` have no auth predicate
-- **Severity:** P0 security. Pre-existing (not introduced by any current branch). Verified live against PROD `ecyivrxjpsmjmexqatym` on 2026-08-26.
-- **Finding:** five live policies on `storage.objects` each grant `TO public` with no authentication check whatsoever — the entire `USING` / `WITH CHECK` expression is just a bucket_id comparison:
-  - `Allow uploads to pdf-templates` — INSERT TO public, `WITH CHECK (bucket_id = 'pdf-templates')`
-  - `Allow updates to pdf-templates` — UPDATE TO public, `USING (bucket_id = 'pdf-templates')`
-  - `Allow service role upload to pdf-assets` — INSERT TO public, `WITH CHECK (bucket_id = 'pdf-assets')`
-  - `Allow update pdf-assets` — UPDATE TO public, `USING` / `WITH CHECK (bucket_id = 'pdf-assets')`
-  - `Allow service role delete from pdf-assets` — DELETE TO public, `USING (bucket_id = 'pdf-assets')`
-- **Impact:** in Postgres the `public` role includes `anon`, so an UNAUTHENTICATED caller can upload to, overwrite, and delete objects in both buckets. Three of the five are named "service role" but contain no role check at all — the name is misleading, not protective.
-- **Blast radius:** `pdf-templates` holds `inspection-report-template-final.html`, the HTML template behind every customer-facing report; `pdf-assets` holds the fonts and images that template pulls in. Both buckets feed the customer-facing PDF pipeline (`generate-inspection-pdf` / `generate-job-report-pdf`). An attacker overwriting the template alters every report generated afterwards. Current contents: `pdf-assets` 88 objects, `pdf-templates` 2.
-- **Not the read path:** both buckets are `public = true`, so read is intended to be open. It is the write and delete paths that are the problem.
-- **Suggested remediation (NOT implemented — do not fix in the lead-notes branch):** replace `TO public` with `TO service_role` (or add an `auth.role() = 'service_role'` predicate) on the five INSERT/UPDATE/DELETE policies above, keeping the public SELECT policy intact so the PDF pipeline can still read. Needs verification that nothing currently writes to these buckets as `anon` before tightening.
-- **Found:** during the lead-notes Phase 2 storage work, 2026-08-26. Deliberately out of scope for that feature.
-
----
-
-## Should-Fix Before Launch (high-impact, not blockers)
-
-### S1 — Stage 6.1 — `email_logs.sent_by` capture
-- **Estimate:** 5 min (live runtime verification only)
-- **Status:** CODE COMPLETE — implemented as part of Phase 2 audit foundation (commit `a0ae550`, 2026-05-01). The TODO entry that described this as outstanding was based on stale info.
-- **Implementation verified in code:**
-  - `send-email` EF schema accepts `userId` (`supabase/functions/send-email/index.ts:27-46`)
-  - `send-email` EF writes `sent_by` to email_logs (line 214)
-  - Frontend wrapper `sendEmail()` auto-fills `userId` from session (`src/lib/api/notifications.ts:312-322`)
-  - System callers (`send-inspection-reminder`, `receive-framer-lead`) write `sent_by = SYSTEM_USER_UUID` directly
-  - `email_logs.sent_by` column has existed since `20251111000008` (predates Phase 2)
-- **Remaining work (live verification):**
-  - [ ] Verify `SYSTEM_USER_UUID` env var is set in production Supabase secrets (`npx supabase secrets list --project-ref ecyivrxjpsmjmexqatym`, expected value: `a5ae96f1-af3d-4e50-b7ec-1cab01bdec3f` per CLAUDE.md memory)
-  - [ ] Verify recent email_logs show non-NULL `sent_by`: `SELECT sent_by, COUNT(*) FROM email_logs WHERE sent_at > NOW() - INTERVAL '7 days' GROUP BY sent_by;`
-  - If either fails: real S1 work is a config fix (set env var or fix attribution-missing callers), not code.
-
-### S2 — Plan v2 missing footnote (PostgREST 400 sequencing)
-- **Estimate:** 15 min
-- **Scope:** Add the third footnote to plan v2's "Execution-time amendments (2026-05-10)" section. Grep confirms zero `PostgREST` / `PGRST` / `HTTP 400` hits in the plan today.
-- **Why:** doc completeness from tonight's work. Other two footnotes (Stage 3.5 OR-predicate, Stage 4.2 RLS+offline) absorbed in commit `2ce5a55`.
-
-### S3 — ~~Delete `src/pages/AdminInvoiceHelper.tsx` dead code~~ — STALE claim, corrected 2026-07-07
-- **Correction (2026-07-07):** `AdminInvoiceHelper.tsx` is **NOT dead code**. On current disk it is imported (`src/App.tsx`) and actively routed + admin-gated at `/admin/invoice/:leadId`. The earlier "no route / route removed" note is stale — the route exists. **Do NOT delete.**
-- **Follow-up (open):** [ ] Reconcile intent — decide whether the invoice-helper route is wanted for launch or should be removed. If kept, it needs runtime testing (covered by the Phase 2 E2E gate). Confirm with Glen/Clayton before any delete.
-
-### S4 — Refresh CLAUDE.md "Current State" block
-- **Estimate:** 15 min
-- **Scope:** CLAUDE.md says "Phase 2: IN PROGRESS" — actually Phase 2 is functionally complete (one gap: L2). Same staleness pattern as the pre-refresh TODO.md. Separate commit so this TODO refresh stays scoped.
-- **Why:** future sessions read CLAUDE.md first; stale status misdirects.
-
-### S5 — Refresh `docs/PHASE_2_EXECUTION.md` "16 active tables" count
-- **Estimate:** 15 min
-- **Scope:** Table count is stale. New tables since: `job_completions`, `invoices`, `job_completion_pdf_versions`, `ai_summary_versions`, `photo_history`. Plus `photos.deleted_at` column. Refresh the schema overview table.
-- **Why:** doc hygiene; reference doc cited from CLAUDE.md.
-
-### S6 — Fix stale comment in `Section8Variations.tsx`
-- **Estimate:** 5 min
-- **Scope:** `src/components/job-completion/Section8Variations.tsx:54-57` has a code comment promising:
-  1. "variation details are included in Job Report PDF page 7" — UNTRUE (grep of `generate-job-report-pdf/index.ts` and `job-report-template.html` returns zero variation hits)
-  2. "invoice helper pre-populates a variation line item" — the `AdminInvoiceHelper.tsx` route exists and is admin-gated (NOT dead code — see S3 correction 2026-07-07); whether it actually pre-populates a variation line item is runtime-unverified
-- **Fix:** Update comment to reflect reality: variations are captured for admin context (see L2 panel); customer-facing rendering is out of scope.
-- **Why:** Stale comments mislead future readers and caused tonight's analysis confusion about variation handling.
-
----
-
-## Untested Smoke Surfaces (Phase 3 + Phase 4 shipped tonight)
-
-Tonight's deploy passed typecheck + unit tests + audit verification + programmatic smoke. **Zero E2E or manual UI testing.** Walked through under L7 with Glen + Clayton.
-
-### Inspection form (technician)
-- [ ] **T1** — Caption gating: try uploading a photo with empty caption → expect rejection. Verify PhotoCaptionPromptDialog appears for all 5 upload sites (standard area, cover, additional, subfloor, outdoor).
-- [ ] **T2** — Cover photo caption persistence (Stage 1.2): set cover caption → upload next cover → previous cover's caption NOT blanked.
-- [ ] **T3** — `stainRemovingAntimicrobial` toggle (Stage 1.1): toggle on → save → reload → still on.
-
-### Photo upload + offline
-- [ ] **T4** — Offline upload + caption gate (Stage 4.1.5): go offline, upload photo, complete caption, reconnect → photo syncs, history row created.
-- [ ] **T5** — Quarantine path (Stage 4.1.5): force a captionless dequeue → photo lands in quarantine → QuarantinedPhotosBanner appears → "Add caption & retry" works → "Discard" works.
-
-### Photo soft-delete (Stage 4.3)
-- [ ] **T6** — Soft-delete from inspection form: delete → photo disappears from UI → DB row has `deleted_at` populated → Storage object unchanged → `photo_history` row with `action='deleted'`.
-- [ ] **T7** — Soft-delete from ViewReportPDF: same flow from admin PDF edit surface.
-- [ ] **T8** — Soft-deleted photos hidden everywhere: AI prompt, customer PDF, job completion before-photos picker, Section 3 picker, Section 4 picker, technician inspection form area display.
-- [ ] **T9** — Cascade verification: delete a moisture reading → photo's `moisture_reading_id` goes to NULL (not cascade-deleted).
-
-### AI summary versioning (Phase 3)
-- [ ] **T10** — Initial generation (Stage 3.2): trigger AI summary → new `ai_summary_versions` row with `version_number=1`, `generation_type='initial'`, all metadata captured (model, prompts, tokens).
-- [ ] **T11** — Regeneration with feedback (Stage 3.2): enter feedback text → regenerate → new version with `version_number=2`, feedback persisted, previous version `superseded_at` set.
-- [ ] **T12** — Manual edit (Stage 3.3): edit a field → save → new version with `generation_type='manual_edit'`.
-- [ ] **T13** — Approval (Stage 3.4): click "Approve & Send" → latest version row gets `approved_at` / `approved_by` populated.
-- [ ] **T14** — StalePdfBanner (Stage 3.4.5): regenerate AI summary after PDF sent → banner shows "PDF is stale" → approve & regen PDF → banner clears.
-
-### Job completion (Phase 2 — sections touched by Phase 4)
-- [ ] **T15** — Section 3 Before Photos (Phase 4.2): toggle photo to/from job → `photo_history` row with `action='category_changed'` written, both deltas captured.
-- [ ] **T16** — Section 4 After Photos: new photo upload from job site → caption-gated → history row `action='added'`.
-- [ ] **T17** — Job report PDF generation: submit job completion → admin approves → PDF generates → email sends.
-
-### Customer PDF (Phase 4.3)
-- [ ] **T18** — Soft-deleted photos excluded from PDF: visual confirmation that PDF renders cleanly with the new `WHERE deleted_at IS NULL` predicate.
-
----
-
-## Remaining Plan v2 Stages (post-launch)
-
-26 stages from `docs/inspection-workflow-fix-plan-v2-2026-04-30.md` not yet shipped. None block launch. Sequence and priorities below.
-
-### Customer-facing PDF changes (separate IP decision)
-- **Stage 4.6** — PDF embeds captions as visible text (S, Low) — moved from S-tier per Michael's design IP boundary. Defer until separate design IP decision.
-- **Stage 8.1 + 8.2** — PDF per-area env readings + subfloor landscape (S, Low) — moved from S-tier per Michael's design IP boundary. Defer until separate design IP decision.
-- **Waste disposal on customer PDF (Brief 2 follow-up)** (S, Medium) — the customer inspection PDF cost breakdown does not yet render the confirmed waste-disposal line. Wire it through the `generate-inspection-pdf` EF (`{{waste_disposal}}` placeholder) + the Storage template `inspection-report-template-final.html`. **Plus a "Both options" gap:** in Both-options mode the Option 1/Option 2 subtotals deliberately exclude waste (it's a single job-level cost billed once via the invoice), so a customer reading the report sees option totals without waste → possible invoicing surprise. Decide how to surface the job-level waste line in Both-options mode. In-app surfaces (Section 9 total, editable PDF preview, invoice) already include waste; this is customer-render only. Code NOTE left in `src/components/pdf/ReportPreviewHTML.tsx`. Defer until the PDF/design-IP sprint.
-
-### Phase 3 polish (after launch, low priority)
-- **3.6** — Remove orphan AI Edge Functions (S, Low)
-- **3.7** — Version history UI on InspectionAIReview (M, Low)
-
-### Phase 4 polish
-- **4.4** — Backfill review of 58 NULL-caption photos (L human time, Medium) — admin session
-- **4.5** — AI prompt includes captions (S, Low)
-- **4.7** — Customer email references key photos with thumbnails (S, Low)
-
-### Phase 5 — PDF versioning hygiene
-- **5.1** — FK `pdf_versions` → `ai_summary_versions` (S, Low)
-- **5.2** — Supersession columns on `pdf_versions` (S, Low)
-- **5.3** — Storage retention policy cron (M, Low) — significant Storage cost reduction
-- **5.4** — Verify Stage 1.4 debounce holding (S, Low) — dependent on PR-B in production for ≥1 week
-
-### Phase 6 — Email integrity
-- **6.2** — Capture email body (`body_html` + `body_hash`) (S, Low)
-- **6.3** — FK `email_logs` → `pdf_versions` (S, Low)
-- **6.4** — Audit historic NULL `sent_by` rows (S, Low)
-
-### Phase 7 — Pricing in DB (top-5 risk; do as one campaign)
-- **7.0** — Pricing test fixture suite (S, **High**) — prerequisite to all of Phase 7
-- **7.1** — `pricing_rates` table replaces constants (L, **High**)
-- **7.2** — `quote_snapshots` table (M, Medium)
-- **7.3** — Pricing engine reads from DB with feature-flag fallback (M, Medium)
-- **7.4** — Snapshot writer (M, Medium)
-- **7.5** — Pricing history UI (M, Low)
-- **7.6** — Remove pricing constants (S, Medium) — final cleanup, dependent on 7.5 in prod ≥1 week
-
-### Phase 8 — Render coverage sweep
-- **8.3** — InspectionAIReview missing fields (S, Low)
-- **8.4** — Lead Detail missing fields (M, Low)
-- **8.5** — Resolve `external_moisture` DUP (M, **High**) — pre-flight diff required
-- **8.6** — Persist `address` from Section 1 (S, Low)
-- **8.7** — Surface triage / requested_by / attention_to (S, Low)
-
-### Phase 9 — Hygiene + orphans
-- **9.1** — Confirm orphan EFs removed (S, Low)
-- **9.2** — `direction_photos_enabled` decision (S, Low) — user input required
-- **9.3** — Audit dead columns (M, Low) — depends on Phases 1-8 + 9.4 done
-- **9.4** — Drop redundant `inspections.last_edited_at` / `last_edited_by` columns (S, Low) — depends on Stage 2.1 in prod ≥2 weeks
-
-### Phase 10 — Audit UI
-- **10.1** — Per-field history popover (L, Medium)
-- **10.2** — Dedicated `/admin/audit` page (XL, Medium) — exclusive surface for raw audit_logs
-- **10.3** — Per-field "Revert" affordance (L, Medium)
-- **10.4** — Activity timeline structured display (M, Low)
-
-### Post-Launch UX improvements
-- **UX: Raise DEMOLITION_PHOTO_LIMIT cap** — Cap currently exists due to UI/performance issues with re-arranging and editing photos after upload. Future work to fix underlying photo grid performance + editing UX so the cap can be raised. Tracked but not blocking launch.
-
----
-
-## Post-Launch (deferred to MRC business accounts)
-
-- [ ] Migrate all API services to dedicated MRC business accounts (Google Cloud, Resend, OpenRouter, Sentry)
-- [ ] Switch email sender domain to `mouldandrestoration.com.au` (depends on L5)
-- [ ] Transfer Resend domain verification to MRC account
-
----
-
-## Post-Launch (Deferred)
-
-### Revision Lifecycle — Tech Debt (deferred until dev DB exists)
-
-- [ ] PR-T1: `revision_needed` status enum cutover
-  - Replaces overloaded `job_scheduled` for sent-back jobs with a
-    first-class `revision_needed` status
-  - Eliminates the dashboard Next-Up Set-subtraction patch AND the
-    LeadDetail.tsx discriminator override
-  - 🔴 HIGH RISK: enum migration + data backfill on shared prod DB
-  - Sequence: migration in Studio (human) → npx supabase gen types →
-    backfill in Studio (human) → code merge → preview QA on tech
-    account → prod promote. /plan + manager agent required.
-  - ~~BLOCKED until dev Supabase project exists (see Environment Separation)~~ DEV exists
-    since 7 Jul (audited 2026-08-25). Rehearse the enum migration on DEV — after the DEV sync
-    (25 Aug section), since DEV is three weeks behind PROD.
-
-- [ ] PR-T2-cleanup: collapse the discriminator override JSX in
-  LeadDetail.tsx to a one-line statusConfig check. Only after PR-T1 lands.
-
----
-
-## Completed
-
-### Phase 4 — Photo integrity (Stages 4.1-4.3)
-- [x] **2026-05-11** — Phase 4 Stage 4.3 deployed to production via merge commit `1636ade` (main → production), serving on mrcsystem.com.
-- [x] **2026-05-10** — Phase 4 Stage 4.3: soft-delete on `photos` (deleted_at column, partial index, deleteInspectionPhoto rewrite, photo_history `deleted` action wired). Commit `831d169`, merged via PR #52 → `9d6c460`.
-- [x] **2026-05-10** — Phase 4 Stage 4.3.5: consumer audit gate (`docs/stage-4.3-consumer-audit.md`) + plan v2 footnote corrections. Commits `6d2aca9`, `2ce5a55`.
-- [x] **2026-05-07** — Phase 4 Stage 4.2: `photo_history` table + recordPhotoHistory() helper + wired callers (`added`, `category_changed` actions). Commits `8f8de6c`, `0006bc0`, `45d91bc`, `0e57d77`.
-- [x] **2026-05-05** — Phase 4 Stage 4.1 + 4.1.5: pre-upload caption modal + 5 upload-site wiring + offline quarantine path + QuarantinedPhotosBanner. Commits `d2566ee`, `5d9cd4a`, `bc39adc`, `570a277`.
-
-### Phase 3 — AI summary versioning
-- [x] **2026-05-02** — Stage 3.5: drop legacy `inspections.ai_summary_*` columns (9 columns), backfill `ai_summary_versions`, dead-code cleanup in TechnicianInspectionForm. Commits `ae99897`, `675149f`, `2c3d04c`, `3470677`.
-- [x] **2026-05-02** — Stage 3.4.5: `latest_ai_summary` view + consumer migrations. Commit `3290253`.
-- [x] **2026-05-02** — Stage 3.4: approval flow targets latest version row. Commit `d35c545`.
-- [x] **2026-05-02** — Stage 3.3: manual edit versioning in `InspectionAIReview.handleSave`. Commit `1f0ccd2`.
-- [x] **2026-05-02** — Stage 3.2: EF refactor + regen feedback UI (absorbed deferred Stage 1.3). Commit `89bcce0`.
-- [x] **2026-05-02** — Stage 3.1: `ai_summary_versions` table. Commit `e6dfe4b`.
-
-### Phase 2 — Audit foundation
-- [x] **2026-05-01** — Phase 2 audit_logs foundation + EF user_id propagation (29 audit triggers across 10 tables, SYSTEM_USER_UUID sentinel, Bucket A/B/C attribution canon). Commits `a0ae550` (main), `9963d07` (production via PR #46).
-
-### Phase 1 — Tier 0 quick wins
-- [x] **2026-05-01** — PR-B (Stage 1.4): make PDF regen user-explicit + Stale PDF banner. Commit `62c7e85` (main), `78da615` (production via PR #44).
-- [x] **2026-05-01** — PR-A (Stages 1.1 + 1.2): `stainRemovingAntimicrobial` toggle fix + cover-photo caption-clearing fix. Commits `452c972` + `6765e8e` (main), `12fd877` + `eb72924` (production).
-
-### Phase 2 — Job Completion Workflow
-- [x] **2026-04** — Job Completion Workflow functionally complete: 10-section technician form, admin approval + send-back flows, job report PDF generation, email delivery, invoice tracking, payment tracking, audit trail, 15-status pipeline. Known gaps tracked under L1 (AFD rate) + L2 (variation invoice line items).
-
-### Pre-Phase-2 consolidation (April 2026)
-- [x] **2026-04-30** — Technician dashboard cleanup: non-overlapping tabs + This Month tab. Commits `7d49de5`, `4629b95`, `f71907a` (PR #43).
-- [x] **2026-04-29** — Fix: visible append-only Internal Notes log + atomic status reversion. Commit `4f399dd` (PR #42).
-- [x] **2026-04-29** — Fix: missing Calendar import in LeadBookingCard (latent bug from booking consolidation). Commit `59986a9`.
-- [x] **2026-04-29** — Fix: server-side lead.status + booking.status filters in `useTechnicianJobs`. Commit `d3181d1`.
-- [x] **2026-04-28** — Walkthrough doc restyle to navy + IBM Plex / Manrope, remove TOC sidebar. Commit `ecb1831`.
-- [x] **2026-04-28** — Walkthrough doc sync for Schedule consolidation + inline-edit refactor. Commit `28058eb`.
-- [x] **2026-04-28** — Stage E: inline-edit refactor — kill EditLeadSheet, click-to-edit on Lead Detail. Commit `1ba3ab9`.
-- [x] **2026-04-28** — Stage B.5: append-only `internal_notes` + booking email defensive paths. Commit `4a82379`.
-- [x] **2026-04-28** — Consolidate LeadDetail rendering: surface customer preference card, inline NewLeadView, delete orphan files, regenerate types. Commit `4d1066c`.
-- [x] **2026-04-28** — Consolidate booking flow: Schedule sidebar canonical, delete BookInspectionModal. Commit `d1f3369`.
-- [x] **2026-04-05** — API key rotation: Supabase anon + service role, Resend, OpenRouter, Google Maps. All env vars updated in Vercel + Supabase secrets.
-
-### Phase 1 baseline (pre-2026-04-05)
-- [x] Phase 1 Technician Role: dashboard, jobs, inspection form (all 10 sections)
-- [x] Phase 1 Admin Role: dashboard, schedule, leads, technicians, reports
-- [x] Inspection form → AI summary → PDF → email pipeline
-- [x] Security remediation (RLS on all tables, rate limiting, XSS/CSP, audit triggers)
-- [x] Codebase cleanup (15 dead routes, 9 unused tables, dead code removed)
-- [x] Vercel deployment with security headers
-- [x] Sentry error tracking + offline resilience
-- [x] PDF page ordering fix
-- [x] Lead detail improvements (inline editing, travel time, activity logging)
-- [x] MCP server stack configured (Supabase, GitHub, Resend, Slack, Playwright, Context7, Memory)
-- [x] Database cleanup & hardening (68/100 → 91/100: 12 legacy tables dropped, broken FKs/functions fixed, duplicate indexes removed)
-
----
-
-## PARKED: Public Lead Form + Marketing Site Rebuild (code, not Framer)
-
-Decision: stop maintaining the customer-facing form in Framer. The whole marketing
-site will be rebuilt in code (React) at a later date. Until then, the current
-published Framer form stays live as-is. All items below carry into the code rebuild.
-
-### Form bugs + copy (currently unfixed on the live Framer form)
-- Typo: page heading "CONTUCT" → "CONTACT"
-- Label "number and address" → "Property Address"
-- Phone placeholder → "04XX XXX XXX"
-- Message placeholder → "Briefly describe the issue — which rooms are affected, how long has it been there, any known water damage or leaks?"
-- Submit button → "Book My Free Inspection"
-- Privacy line under button → "Your details are only used to contact you regarding your enquiry."
-- Required asterisks on: Name, Phone, Email, Property Address, Suburb, Preferred Day, Preferred Time, Type of Issue, How Urgent Is This?
-
-### Field changes
-- Remove Date picker, Time picker, and Postcode fields
-- Add dropdowns: Preferred Day (8 opts), Preferred Time (4 bands), Type of Issue (5 opts), How Urgent Is This? (3 opts), Property Type (3 opts)
-
-### Google Maps Places autocomplete (NOT started)
-- Autocomplete on the address field + auto-fill address components
-- Decide whether to persist formatted address / lat-lng to the leads table — if yes, needs new columns (e.g. property_address_lat, property_address_lng) + receive-framer-lead EF update + RPC allowlist update
-- Feeds existing calculate-travel-time / Distance Matrix accuracy downstream
-
-### Optional photo upload (NOT started in any code form except React reference)
-- Upload to lead-enquiry-photos Storage bucket → post resulting paths under initial_photos
-- MUST be optional — form submits successfully with zero photos
-
-### Canonical contract — already preserved, use as the spec (do NOT re-derive)
-- Option strings: the 5 exported arrays in src/lib/validators/lead-creation.schemas.ts (PREFERRED_DAY_OPTIONS, PREFERRED_TIME_OPTIONS, ISSUE_TYPE_OPTIONS, URGENCY_OPTIONS, PROPERTY_TYPE_OPTIONS) — byte-canonical, single source of truth
-- Field → webhook JSON-key contract: verified in plan file melodic-cooking-turtle.md
-- React reference form (src/pages/RequestInspection.tsx) still in repo as the working visual + behavioural reference
-
-### Backend infra — DONE and PERMANENT (do NOT rebuild or revert)
-- leads table: 5 columns (preferred_day, issue_type, urgency, property_type, initial_photos)
-- receive-framer-lead EF (verify_jwt: false), audited_insert_lead_via_framer RPC allowlist
-- Customer confirmation email (4 fields, conditional render); Slack notification (issue_type + urgency)
-- lead-enquiry-photos Storage bucket (anon INSERT, authenticated SELECT, image MIME, private)
-- Admin LeadDetail Enquiry Details card; admin CreateNewLeadModal at full field parity
-
-### Interim state
-- Old published Framer form stays live — public submissions won't capture the new fields (columns stay null; handled/gated everywhere)
-- Admin CreateNewLeadModal + React /request-inspection form both capture the full field set
-- React reference form NOT deleted — deletion was gated on Framer going live with parity, now parked with this work
-
----
-
-## Merge-day checklist — launch/checks (PR #72)
-
-Written 2026-07-29 at session close. PR #72 stays OPEN until the other session's
-work lands and both branches reconcile. The open items in "Follow-ups from 28 Jul
-2026 session" above are the merge-day checklist — do not tidy them away.
-
-### ~~⚠️ CRITICAL — EF runtime is ahead of every branch~~ RESOLVED 2026-07-30
-
-> **[STALE — corrected 2026-08-08.]** The divergence closed when `launch/checks`
-> merged: `check-overdue-invoices/index.ts` has been byte-identical on `main` and
-> `production` since `8fe47e9` (30/07), so the deploy-from-the-wrong-branch hazard
-> below no longer exists. PROD now runs v12 (8 Aug, adds the Slack digest claim).
-> Left in place as the historical record of why PR #72 was ordered the way it was.
-
-PROD's `check-overdue-invoices` Edge Function is ALREADY RUNNING the `0a2fbac`
-rewrite (deployed 2026-07-29, v9): Melbourne day-math, ladder-aligned milestones
-[1/8/15/16/29] + 60-day escalation, idempotency guard, single Slack digest with
-dry-run. `main` and `production` still hold the OLD `index.ts`. **Anyone who runs
-`npx supabase functions deploy check-overdue-invoices` from any checkout other
-than `launch/checks` before this merges silently reverts the fix** (UTC day-math
-back, per-invoice Slack spam back, no guard). Do not deploy this EF from another
-branch; merge PR #72 first.
-
-### Commits on this branch (code)
-
-- `91dd58f` fix(dashboard): overdue card derives from due_date + cents; count alignment across badge/card/panel; +N more; Revenue = paid invoices; Today's Jobs/Schedule read calendar_bookings with day-span overlap
-- `396ca9c` fix(leads): honour ?status= deep links from dashboard cards and quick actions
-- `0ee439e` fix(invoices): stamp due_date/payment_date as Melbourne calendar day; restart 14-day payment terms at send
-- `0a2fbac` feat(ef): check-overdue-invoices rewrite (see CRITICAL above)
-- `b4d4cc3` fix(settings): remove "Log out from ALL devices" option from Settings.tsx — unrelated to the dashboard work this branch is named for; the capability deliberately remains on the Profile page only (one place instead of two)
-
-(Plus three docs-only commits: `87952cd`, `ed75377`, `3e687f2` — TODO.md.)
-
-### Files touched (for conflict prediction vs the other session)
-
-- `src/hooks/useAdminDashboardStats.ts` (heavily rewritten queries)
-- `src/hooks/useTodaysSchedule.ts` (rewritten onto calendar_bookings)
-- `src/hooks/useUnassignedLeads.ts` (query + limit)
-- `src/components/admin/AdminSidebar.tsx` (one filter line)
-- `src/pages/AdminDashboard.tsx` (formatCurrency, +N more block, empty-state copy)
-- `src/pages/LeadsManagement.tsx` (useSearchParams wiring)
-- `src/lib/api/invoices.ts` (melbourneDateISO, defaultDueDate, markInvoicePaid date, markInvoiceSent due_date)
-- `supabase/functions/check-overdue-invoices/index.ts` (full rewrite)
-- `docs/TODO.md`
-
-### Verified vs NOT verified
-
-- VERIFIED: every dashboard metric against DEV ground truth on pinned preview
-  `mrc-system-l2w60bwsy` (counts, overdue card ≡ panel, cents, +9 more @48px, all
-  three ?status= deep links, 375px zero-overflow, console/network clean); EF
-  dry-run against PROD (write-free proven by identical pre/post DB state).
-- NOT verified: multi-day span logic against a real PROD booking (QA Test PR57
-  exists only on PROD; production runs pre-fix code until merge); Team Workload
-  (manage-users EF absent on DEV → "No technicians found" on preview); the live
-  Slack digest (no invoice has become newly eligible since deploy).
-
-### Post-merge checks on PROD (Michael) — with deadlines
-
-- [ ] **Multi-day span (window CLOSES 4 Aug):** QA Test PR57 must appear in
-      Today's Jobs and Today's Schedule at 8:00 am, Type "Job", every day through
-      4 Aug. The booking expires after that — merge before 4 Aug or stage a new
-      multi-day booking to verify against.
-- [ ] **First real Slack digest — 4 Aug:** INV-2026-0003 hits day 29 ("Warranty
-      VOID — Ongoing") at the 9:00 am AEST cron. Expect ONE digest, milestone
-      section, outstanding total; no per-invoice spam, no duplicate.
-- [ ] **Team Workload renders technicians on PROD** (manage-users EF exists
-      there; DEV could never show this).
-
----
-
-## Follow-ups from 29 Jul 2026 session (pipeline tab reorder investigation)
-
-Context: investigation of leads-page pipeline order vs the real customer journey.
-Fix shipped this session: `LeadsManagement.tsx` statusOptions swap so pending_review
-sits directly after job_completed, matching canonical ALL_STATUSES. statusFlow.ts
-deliberately untouched. Findings below are logged, not actioned.
-
-- [ ] **HIGH — `LeadDetail.tsx:500-543` reversion logic is index-fragile.** It nulls
-      booking dates, `invoice_amount`/`invoice_sent_date` and `payment_received_date`
-      based on hardcoded `ALL_STATUSES.indexOf` thresholds (`newRank < 1/2/6/7/10/11`).
-      Any future reorder of ALL_STATUSES silently changes which customer financial
-      data gets wiped on status reversion. MUST be refactored to named-status
-      comparisons before ALL_STATUSES is ever reordered (natural home: the PR-T1
-      `revision_needed` session, which reopens this logic anyway).
-- [ ] **Type drift — `LeadStatus` union vs Postgres enum.** `statusFlow.ts` union is
-      missing `hipages_lead` (live in the DB enum and queried by
-      `useUnassignedLeads.ts`) plus 3 legacy enum values (`contacted`,
-      `inspection_completed`, `inspection_report_pdf_completed`). Reconcile in a
-      typed-cleanup session — either extend the union or migrate the legacy values out.
-- [ ] **`LeadDetail.tsx:2554` renders `config.icon` but `StatusFlowConfig` defines
-      `iconName`** — Change Status dialog icons likely render blank. Verify in UI,
-      then fix the property name (one-liner, cosmetic).
-
----
-
-## Known issues logged 30 Jul 2026 (merge reconciliation, launch/checks × analytics)
-
-- [ ] **Revenue bucketing divergence (log only, do not fix):** dashboard "Revenue This
-      Week" buckets by `payment_date` (Melbourne DATE); Reports revenue buckets by
-      `paid_at` (timestamptz). The two surfaces can disagree at day boundaries for
-      custom-dated payments.
-- [ ] **/admin/reports scrolls horizontally at 375px (521px doc). Pre-existing.**
-      `PeriodFilter.tsx:22` — inline-flex row of four buttons, no wrap. Violates §3.4.
-      Playwright has a scoped `test.fail()` armed that flips red when fixed.
-
----
-
-## Deferred from Manual QA Pass — 30 Jul 2026 (commit 8fe47e9)
-
-Context: manual QA pass over the merged `main` (`8fe47e9`) on a DEV-backed Preview.
-Items below were consciously deferred out of that pass, with the reason recorded so a
-later session does not mistake them for untested-and-forgotten. Nothing here blocks
-launch. Cross-references are given where an existing entry above already covers part
-of the ground — those entries are left as they stand.
-
-- [ ] **Money accuracy verification (overdue + revenue cards).** Deferred: the DEV
-      fixture invoices are not genuinely late, so neither the overdue card nor the
-      revenue card can be meaningfully verified against them. Admin reviews both
-      daily against real invoices in PROD. Revisit after real leads accumulate
-      genuine overdue/paid history. Covers: overdue card derives from `due_date`
-      rather than `status='overdue'`; revenue card sourced from PAID invoices
-      bucketed by `payment_date`; cents visible on all money displays; invoice
-      helper totals (GST 10% on subtotal, equipment never discounted). Related, not
-      duplicated: the after-merge PROD row confirmation in the 28 Jul dashboard-audit
-      list, and the two 4 Aug deadline checks in the merge-reconciliation section.
-- [ ] **Dashboard count consistency.** Deferred: the unassigned-lead count must read
-      identically across the dashboard card, the sidebar badge and the panel. Also
-      the "+N more" affordance, and Today's Jobs / Today's Schedule reading
-      `calendar_bookings` so JOBS appear and not only inspections. Not blocking
-      launch. Note the tension to resolve on revisit: the merge-reconciliation
-      section records these as VERIFIED on the earlier pinned preview
-      `mrc-system-l2w60bwsy` (counts, overdue card ≡ panel, cents, +9 more @48px);
-      this pass deferred re-verification on `8fe47e9` rather than contradicting that.
-- [ ] **Launch-stream surface checks.** Deferred: covered by the Playwright breadth
-      suite (`tests/e2e/pre-merge`, 88/88 on DEV), so manual re-verification was
-      judged unnecessary. Items: "log out all devices" ABSENT on Settings and
-      PRESENT on Profile (`b4d4cc3`); pipeline tab order matches canonical
-      `ALL_STATUSES` with `pending_review` immediately after `job_completed`
-      (`d50b117`); `?status=` deep links pre-filter the leads page (`396ca9c`). The
-      shipped fixes are already recorded above — this entry records only why the
-      manual pass skipped them.
-- [ ] **Real-device ergonomics — job completion form.** Deferred to a dedicated
-      on-phone run. Desktop 375px emulation verifies layout and DB writes but not
-      touch targets under work gloves, real scroll behaviour, or on-device keyboard
-      interference. 48px minimum touch targets to be confirmed on hardware.
-- [ ] **Admin surfaces on phone.** Deferred to a separate later run, after the
-      technician phone pass above.
-- [x] ~~375px horizontal-scroll sweep~~ **CLOSED 2026-07-30 — not deferred.**
-      Playwright already covers static route renders at 375px. Manual scope narrowed
-      to interactive overlays (dialogs, dropdowns, date pickers, toasts, stage
-      selectors), which are absolutely positioned and fall outside the automated
-      measurement — these are now checked inline during the lifecycle run rather than
-      as a standalone item. Does not close the `/admin/reports` 521px overflow logged
-      in the section above, which remains open.
-
----
-
-## Noticed during 1 Aug QA — not yet actioned
-
-- [ ] **Dexie offline layer is never fed by the UI.** `queuePhotoOffline` and
-      `syncManager.saveDraft` have zero production callers, and
-      `uploadInspectionPhoto`'s docstring claims it auto-queues offline when it does
-      not. Real offline persistence today is the localStorage crash backups, not
-      Dexie. Gap between what the code implies and what actually runs — resolve
-      before offline behaviour is relied on further.
-- [ ] **OfflineBanner overlays page headers while visible.** Back button and header
-      Save icon sit behind it until dismissed. Pre-existing positioning, only visible
-      now that the banner renders. Fix would be a layout-reserving banner slot, which
-      means touching page headers.
-- [ ] **Offline banner unverified on real hardware.** The iOS Safari event-firing
-      quirk cannot be reproduced in desktop Chromium. Needs an airplane-mode
-      walkthrough on a real iPhone against a pinned deployment URL before it can be
-      called fixed.
-- [ ] **Lightbox full-size photo render not visually confirmed.** Staged DEV photos
-      are the known storage-seeding artifact (DB rows exist, Storage objects do
-      not), so the viewer showed broken-image placeholders. Chrome, gestures and
-      layout are proven; actual photo render needs a production-side look.
-- [ ] **`TECH_EMAIL` / `TECH_PASSWORD` in `.env.test` are rejected by DEV Auth** —
-      likely fallout from the 29 Jul DEV password rotation. Any technician-login e2e
-      spec will fail until updated. Admin account works and carries the technician
-      role on DEV.
-- [ ] **shadcn toast limit** — one toast at a time, so during an offline spell the
-      newest offline warning replaces the previous one. Noted in case message
-      sequencing matters.
-- [ ] **Stale docs corrected 2026-08-01 in this file:** the "DEV has ZERO Edge
-      Functions deployed" claim (HANDOFF section) and "manage-users fails CORS on
-      DEV" (28 Jul follow-ups) were both false as of 28–30 Jul — DEV has 4 EFs
-      deployed (generate-inspection-pdf, generate-job-report-pdf,
-      generate-inspection-summary, manage-users) and manage-users answers 200.
-      Corrections applied in place with strikethrough; historical records in the
-      merge-reconciliation section left as written.
-
----
-
-## Credential rotation — post SECURITY_AUDIT redaction (Aug 2026)
-
-> **NOTE:** git history rewrite was deliberately NOT performed — the values are
-> already distributed (collaborators, local clones), and a force-push across
-> `main` and `production` carries more risk than the exposure does. **Rotation is
-> the remediation.** Context: `docs/SECURITY_AUDIT.md` was redacted in the working
-> tree on 2026-08-04, but four full-length live credentials remain in git history
-> at commit `b3b3f30`. Repo is private, so exposure is limited to collaborators
-> and local clones — not urgent, but the keys are compromised. This block is
-> narrower than the DEFERRED full API key rotation (L4 Phase 6 /
-> `docs/KEY_ROTATION.md`) above and does not replace it — it covers only the keys
-> exposed via `SECURITY_AUDIT.md` / git history.
-
-- [x] **DONE — Resend API key rotated.** Verify: Supabase EF secret updated and
-      one live send through `send-email` lands from
-      `admin@mouldandrestoration.com.au`.
-- [ ] **Supabase PAT (current, `sbp_066e...`) — ROTATE.**
-      Reason: account-scoped across both PROD (`ecyivrxjpsmjmexqatym`) and DEV
-      (`ctppzqnysmzynkxjlzta`), plus the stale `SUPABASE_ACCESS_TOKEN` in
-      `~/.zshrc` is already causing 401s on EF deploys. One rotation fixes both.
-      Steps: revoke in Supabase account settings → issue new → update
-      `.mcp.json` → update `~/.zshrc` → open a FRESH shell → verify with
-      `npx supabase functions list` against both project refs.
-      Do this at the START of a session, never mid-runbook.
-- [ ] **Supabase PAT (old, `sbp_2178...`) — VERIFY ONLY.**
-      Confirm it is actually revoked in account settings rather than assumed.
-      If still active, revoke.
-- [ ] **GitHub fine-grained PAT — CHECK SCOPES FIRST.**
-      If it has write access to the repo, rotate and update `.mcp.json`.
-      If read-only, leave it. Decision, not an automatic rotation.
-- [ ] **Confirm `.env` and `.mcp.json` are both in `.gitignore` and have never
-      been committed.** Check with `git log --oneline -- .env .mcp.json`.
-      A tracked `.mcp.json` is a larger exposure than the audit doc was.
-- [ ] **Slack webhook for `#mrc-dev-test` was exposed in a chat transcript**
-      (2026-08-08, set as the DEV `SLACK_WEBHOOK_URL`). Anyone holding it can post
-      to that channel. Dev channel only, so low severity — rotate with the batch.
-
----
-
-## Session log — 8 Aug 2026 (duplicate-invocation fixes + DEV verification)
-
-Three concurrency fixes shipped to PRODUCTION and verified on DEV. The duplicate-cron
-root cause was localised but is **not ours to fix**. Two pre-existing defects surfaced
-during verification — logged in the backlog section below, deliberately not fixed here.
-
-### Shipped (commit `c9761b6`, pushed to `main`)
-
-**No `production` branch merge required — Edge-Function-only. Vercel does not build
-`supabase/functions`, so EFs deploy independently of the branch.**
-
-| Function | Ver | Fix |
-|---|---|---|
-| `send-inspection-reminder` | v20 | **Fix 1 — atomic claim** replacing read-then-write. Conditional UPDATE on `reminder_sent`; ownership guard via `.eq('reminder_sent', true)` rather than timestamp equality. |
-| `send-inspection-reminder` | v20 | **Fix 2 — Resend `Idempotency-Key`**, derived as `inspection-reminder/${booking.id}`. |
-| `check-overdue-invoices` | v12 | **Fix 3 — `app_settings` PRIMARY KEY compare-and-set** guarding the Slack digest, with release-on-failure when `postSlack` returns false (covers a Slack outage *and* an unset `SLACK_WEBHOOK_URL`). |
-
-**Send-failure policy, chosen deliberately:** release the claim on transient failure
-(5xx / 429 / network), retain it on permanent 4xx. The reminder lands 2 days
-pre-inspection, so a silently dropped reminder is worse for MRC than a rare duplicate
-— and Fix 2 is what makes releasing safe, because the retry reuses the same key.
-
-### DEV verification (`ctppzqnysmzynkxjlzta`) — all three PASS
-
-Both races were genuine, not sequential: 0.0 ms start gap, both invocations in flight
-simultaneously (fired from a thread barrier). For Fix 1 **both invocations returned
-`processed: 1`** — i.e. both cleared the SELECT before either wrote, which is the exact
-race the fix exists to arbitrate.
-
-| Guard | Verdict | Evidence |
-|---|---|---|
-| Fix 1 | ✅ PASS | One `sent:1/alreadyClaimed:0`, one `sent:0/alreadyClaimed:1`. Single `reminder_sent_at` stamp. **Resend recorded exactly 1 email.** |
-| Fix 2 | ✅ PASS | Claim reset, re-invoked once → **no new email**; Resend returned the original email ID and timestamp. Key honoured. |
-| Fix 3 | ✅ PASS | One `slackPosted:true`, one `digestSuppressed`. One `app_settings` key, **one Slack message** in `#mrc-dev-test`. |
-| Fix 1 transient-release | ⬜ UNTESTED | Cannot induce a Resend 5xx by configuration alone. Not faked. |
-| Fix 3 release-on-failure | ⬜ UNTESTED | Needs an invalid webhook **plus** DB re-arm (reset invoice to `sent`, clear activity rows and the claim key). |
-
-Note on Fix 2: Resend's API does **not** expose received headers, so the key value was
-never read back directly. The pass rests on behaviour — an independent invocation with
-a re-claimed row produced no second email, which nothing else in the path could cause.
-
-### Duplicate cron invocation — root cause localised, NOT fixed by us
-
-Three-layer trace proves the duplication sits **below our code**:
-
-| Layer | Fires |
-|---|---|
-| pg_cron (`cron.job_run_details`, 48 h) | **once** per slot — all `succeeded`, `"1 row"` |
-| pg_net (`net._http_response`) | **once** per tick — ids sequential, no gaps |
-| Edge Function | **twice** — distinct request ids, both `200`, both full execution |
-
-21 of 23 hourly ticks (~91%), gap 5–537 ms. Scope is pg_net-specific — browser-invoked
-functions are single. Exactly **one** pg_net worker (0.19.5), so "two workers" is ruled
-out. Leading hypothesis: HTTP request replay on a stale keep-alive connection (libcurl
-re-sends when a pooled connection closes mid-flight); gateway-side retry cannot be
-excluded without inbound gateway logs. **Support ticket raised with Supabase.**
-
-The three fixes above do not stop the duplication — they make it harmless.
-
-### Sentry "3-day outage" — DISPROVEN
-
-The apparent baseline (177 events 9 days ago) was `environment:development` — Michael's
-laptop. Production has produced **13 events in 30 days**; three quiet days is that
-curve's normal shape. Live bundle confirmed instrumented: DSN inlined,
-`environment:"production"`, source maps uploading.
-
-### Also done this session
-
-- **Automated health check live.** Twice-daily scheduled task (08:00 / 20:00 Melbourne)
-  covering Sentry, Resend, Supabase EF logs, DB state, and Slack notification
-  reconciliation. Delivery by push + email. Prompt hardened after the first run produced
-  a **FALSE CLEAN** by checking only the Sentry Issues stream.
-- **Google Maps referrer block FIXED.** `API_KEY_HTTP_REFERRER_BLOCKED` on
-  `https://www.mrcsystem.com/` since 04/08 — **Places autocomplete had been dead in
-  production for 4 days.** The `www.` subdomain was added to the browser key's HTTP
-  referrer restrictions.
-- **Four uncontacted real leads actioned** (oldest 67 h). Admin notified.
-
-### Open verification — nothing below is proven in PRODUCTION
-
-- [ ] **Fix 1 claim path unproven in PROD** — `calendar_bookings` is empty. First signal
-      is `alreadyClaimed > 0` on the tick after the first real booking. Ask Glen or
-      Clayton to flag when they book one.
-- [ ] **Fix 3 digest guard unproven in PROD** — `invoices` is empty. First signal is
-      exactly one Slack digest on the first genuinely overdue invoice.
-- [ ] **Health check email delivery not confirmed end to end.** Verify an email actually
-      arrives after the 20:00 run.
-
----
-
-## Backlog from the 8 Aug 2026 session (defects found, none fixed)
-
-### P1 — `email_logs` insert fails silently in production code
-
-`await supabase.from('email_logs').insert({...})` in `send-inspection-reminder` has no
-`.select()` and no error check, so any failure is invisible. Observed on DEV: the
-function reported `sent: 1` while writing **zero** log rows.
-
-**This bears directly on Fix 1.** The retain-on-4xx policy means the `status:'failed'`
-row is the ONLY record that a reminder will never be retried. If the insert can fail
-invisibly, a permanently-failed reminder leaves the booking reading `reminder_sent=true`
-forever — indistinguishable from success.
-
-Separately, `email_logs` has **0 rows all-time in production**, so no sends are being
-logged at all. That also blocks the health check's silent-suppression cross-reference,
-which depends on the table. (Supersedes the S1 verification item above, which currently
-has nothing to check.)
-
-*DEV-specific cause, not the production one:* `email_logs.sent_by` has a FK to
-`auth.users(id)` and `SYSTEM_USER_UUID` (`a5ae96f1-…`) does not exist in DEV's
-`auth.users`, so every DEV insert is a FK violation. The silence is what generalises.
-
-### P1 — `check-overdue-invoices` per-invoice guard does not hold under concurrency
-
-Verified on DEV: **two `invoice_overdue` rows 193 ms apart, two `invoice_milestone` rows
-191 ms apart.** Reproduces the 28/07 production signature.
-
-Mechanism — **corrected 2026-08-17** (the earlier wording said the RPC's UPDATE was
-unconditional; that was wrong, and rebuilding a guard that already exists is the mistake
-it invites). `audited_mark_invoice_overdue`'s UPDATE has **always** been conditional
-(`AND status <> 'overdue'`), and under READ COMMITTED Postgres re-evaluates that predicate
-against the committed new row version once the row lock releases, so the second invocation
-matches **zero rows**. `audit_invoices_update` is `AFTER UPDATE … FOR EACH ROW`, so the
-loser fires no trigger either. **`invoices` and `audit_logs` were never racing.**
-
-The real defect is one layer up: the RPC `RETURNS void`, so supabase-js hands *both*
-invocations `(data: null, error: null)`. The EF cannot tell the winner from the loser and
-both fall through to an unconditional `activities` INSERT. `doneToday` cannot help — it is
-built from a plain SELECT at invocation start, which both invocations see empty.
-
-Separately, the `invoice_milestone` insert has **no** DB-level guard at all: it transitions
-no column, so there is nothing for a conditional UPDATE to arbitrate.
-
-**The code comment at `check-overdue-invoices/index.ts:260` asserting "the atomic
-transition is the tie-breaker between near-simultaneous invocations" IS FALSE** — a
-SELECT followed by an RPC UPDATE is read-then-write, not compare-and-set. **Correct that
-comment as part of the fix so nobody trusts it again.**
-
-Fix requires a **migration to the RPC** (narrow the UPDATE to `status = 'sent'` and return
-rows-affected so the caller can tell a win from a loss), which is why it was not done in the
-8 Aug session.
-
-**WRITTEN 2026-08-17, NOT YET APPLIED —
-`supabase/migrations/20260817120000_invoice_overdue_compare_and_set.sql`.** `RETURNS BOOLEAN`
-via `GET DIAGNOSTICS ROW_COUNT`; `DROP` + `CREATE` because the return type changes. It also
-**drops `authenticated` EXECUTE** (service_role only — closes the
-`authenticated_security_definer_function_executable` WARN in
-`docs/SUPABASE_ADVISOR_AUDIT.md`), and re-`REVOKE`s `PUBLIC`/`anon` because `CREATE FUNCTION`
-restores the default `PUBLIC EXECUTE` and would otherwise silently undo
-`20260709120000_revoke_anon_execute_audit_rpcs.sql`. The matching `check-overdue-invoices`
-changes are committed alongside it: boolean consumed, a `typeof !== 'boolean'` guard for the
-wrong-order case, `alreadyFlagged` + `alreadyMilestoned` counters in the response, both
-`activities` inserts error-checked, and the milestone path moved onto an `app_settings`
-PRIMARY KEY claim (no schema change — mirrors `claimTodaysDigest`).
-
-⚠️ **Apply order: migration in Studio FIRST, EF deploy SECOND.** The reverse leaves the new
-EF receiving `null` from the old RPC, tripping the typeof guard and skipping **every**
-activity row until the migration lands. Migration-first is safe — the old EF ignores the
-return value. Regenerate `src/integrations/supabase/types.ts` **after** applying (it still
-says `Returns: undefined`). The `'viewed'` status gap stays deliberately open and gets its
-own change.
-
-Impact bounded: final invoice status correct, no money touched, no customer email, and
-Fix 3 correctly prevented the duplicate Slack. Cost is duplicate rows on the lead's
-activity timeline.
-
-### P1 — `ALTER DEFAULT PRIVILEGES`: every new `public` function auto-grants `anon` + `authenticated` EXECUTE
-
-Surfaced 2026-08-17 while applying `20260817120000_invoice_overdue_compare_and_set.sql`.
-That migration's `REVOKE`s of `PUBLIC` and `anon` held, but `authenticated` came back
-anyway — because `DROP` + `CREATE FUNCTION` re-runs the schema default ACL, and nothing
-in the migration revoked `authenticated` explicitly.
-
-**Verified on PROD 2026-08-17 (`pg_default_acl`, read-only). TWO default ACLs on
-`public` functions, one per granting role, and both grant `anon` and `authenticated`:**
-
-```
-granting_role  | default_acl
----------------+-------------------------------------------------------------------------------
-postgres       | {postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
-supabase_admin | {postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin}
-```
-
-**Consequence — this is the part that matters.**
-`20260709120000_revoke_anon_execute_audit_rpcs.sql` is **not permanent**. It revoked a
-grant; it did not change the default that re-creates it. Any migration that `DROP`s and
-re-`CREATE`s a `SECURITY DEFINER` function in `public` silently regains `anon EXECUTE` at
-the moment of `CREATE`. For `audited_mark_invoice_overdue` and
-`audited_insert_lead_via_framer` that means an unauthenticated caller could execute an
-RLS-bypassing function with a forged `p_acting_user_id`.
-
-**Interim rule — follow it until the proper fix lands.** Every migration that
-`DROP`/`CREATE`s a function in `public` MUST carry, inside the same transaction:
-
-```sql
-REVOKE ALL ON FUNCTION public.<fn>(<args>) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.<fn>(<args>) FROM anon;
--- and, if the function should not be reachable by logged-in users:
-REVOKE ALL ON FUNCTION public.<fn>(<args>) FROM authenticated;
-```
-
-…then verify with `information_schema.routine_privileges` in the same session. The verify
-step is not optional: the failure is silent and widens access rather than narrowing it.
-
-**Proper fix — needs its own session and a security review.** `ALTER DEFAULT PRIVILEGES`
-against **both** granting roles (`postgres` and `supabase_admin`) to stop auto-granting
-`anon`/`authenticated` EXECUTE on new `public` functions. This is **schema-wide and affects
-every future function**, including ones PostgREST is expected to expose to `anon` (e.g.
-`calculate_gst`, `calculate_dew_point`, `generate_lead_number`). Deliberately NOT done as a
-footnote to the invoice work. Scope it properly: inventory which `public` functions are
-*meant* to be anon/authenticated-callable first, because flipping the default will break
-any that rely on it.
-
-**Current state of `audited_mark_invoice_overdue` (PROD, 2026-08-17, post-apply):**
-`returns = bool`, `security_definer = true`, `owner = postgres`, grantees =
-`authenticated, postgres, service_role`. `anon` and `PUBLIC` are **absent** — so this is
-identical to the pre-migration grant set, **no widening, no open hole**. The
-`authenticated` tightening the migration intended simply did not take, and is deferred to
-the session above. NOTE: the migration file's own comment claims `authenticated` "is
-deliberately NOT re-granted" — that describes the intent, not the achieved outcome. The
-file is left unmodified because it is already applied and is the historical record of what
-ran; this entry is the correction.
-
-### CONVENTION — `src/integrations/supabase/types.ts` is generated from **PROD**, never DEV
-
-Established 2026-08-17 after finding the committed file carried DEV's values.
-
-**The rule.** The committed `types.ts` must always be generated from PROD:
-
-```bash
-npx supabase gen types typescript --project-id ecyivrxjpsmjmexqatym > src/integrations/supabase/types.ts
-```
-
-Regenerating from DEV **locally** while testing a DEV-only migration is fine and often
-necessary — just don't commit that output. Re-run against PROD once the migration has
-actually landed there, and commit that.
-
-**Why it matters.** This file compiles into the production bundle, and it is not only a
-schema map: `__InternalSupabase.PostgrestVersion` feeds
-`createClient<Database, { PostgrestVersion: 'XX' }>`, so it can shift inferred types
-across the app. The two projects genuinely differ — verified with the same CLI in the
-same minute on 2026-08-17:
-
-| Project | `PostgrestVersion` |
-|---|---|
-| PROD `ecyivrxjpsmjmexqatym` | `13.0.5` |
-| DEV `ctppzqnysmzynkxjlzta` | `14.5` |
-
-**What happened.** `0362c39` ("chore(types): regenerate from DEV after HEPA +
-job-completion waste migrations", 28 Jul) committed DEV's `14.5`. It sat wrong until
-2026-08-17, when the regeneration for `audited_mark_invoice_overdue`'s `boolean` return
-corrected it to `13.0.5`. Traced with `git log -S'PostgrestVersion: "14.5"'`.
-
-**No harm done that time** — the diff was only those two lines, so DEV and PROD schemas
-were identical and nothing else was mistyped. That is luck, not a guarantee: DEV is a
-restore-to-new-project clone and migrations are applied to it first, so a DEV-generated
-file can carry columns PROD does not have yet. Committing that would type the frontend
-against a schema production cannot serve.
-
-**Known, accepted wrinkle.** Local dev points at DEV via `.env.development.local`, so
-after a PROD regeneration the `PostgrestVersion` marker is "wrong" for local dev. This is
-deliberate — it is a type-level hint only, the schemas are identical, and PROD is what
-ships. Do not "fix" it by regenerating from DEV.
-
-**Check before committing this file:** `git diff src/integrations/supabase/types.ts`
-should show only what your migration changed. A `PostgrestVersion` flip to `14.5` means
-it came from DEV — regenerate from PROD.
-
-### P2 — DEV shares the PRODUCTION Resend account
-
-The same API key that sends real customer mail is used on DEV. **One mistyped address in
-a DEV test reaches a real customer.** Needs a separate DEV key, or at minimum a
-documented rule that DEV only ever sends to `delivered@resend.dev`.
-
-### P2 — Sentry `ignoreErrors` contains `"Failed to fetch"`
-
-Confirmed harmful, not theoretical: it swallowed a real production failure on 07/08
-13:44 — `[useTechnicianStats] Failed to fetch users`, a Supabase connectivity error, and
-the admin technician view silently rendered an empty user list. It reached the `logs`
-dataset only because of `consoleLoggingIntegration`; `captureException` discarded it.
-
-### P2 — Edge Functions have no Sentry SDK
-
-`send-email`, `generate-inspection-summary` and `check-overdue-invoices` have never
-reported to Sentry and cannot under the current config. Supabase EF logs (24 h
-retention) are the only server-side source.
-
-### P2 — Swallow-and-continue audit
-
-`useTechnicianStats` catches, returns an empty list, and renders as if valid. Same shape
-as the known `TechnicianInspectionForm` defect where area save errors are swallowed and
-"Saved" shows unconditionally. **Audit whether this is a codebase-wide pattern.**
-
-### P3
-
-- [ ] Sentry release is always `mrc-app@0.0.0` (`package.json` version never bumped).
-      No per-release regression detection.
-- [ ] `property_type` NULL on all Framer-sourced leads — intake never populates it.
-      Upstream cause of the inspection-vs-job-completion mismatch.
-- [x] ~~`notifications` table 0 rows all-time. In-app notification surface dead while
-      Slack works.~~ **STALE — corrected 2026-08-25.** Fan-out has been WORKING since
-      24 Aug: verified 25 Aug at **64 rows / 16 events / exactly 4 rows per event**,
-      DISTINCT dedup on `user_id` correct, one Slack post per event, read state
-      per-recipient. Three paths have simply not fired since deploy — the frontend RPC
-      path (`status_changed`, `lead_updated`, `inspection_booked`), the `email_logs`
-      trigger path, and the overdue-invoice digest — **unexercised, not broken**.
-      The remaining defect is realtime, not writes — see the 25 Aug section at the
-      end of this file.
-- [ ] Supabase EF log retention is 24 h. Log invocations to a table for durable history.
-- [ ] Supabase CLI is v2.101.0; current is v2.112.0.
-- [ ] `toDisplayTitleCase` renders "JR Smith" as "Jr Smith". Cosmetic.
-
----
-
-## Recon findings — 24 Aug 2026
-
----
-
-## Deferred — 24 Aug 2026 session
-
-Found during the five-change presentation-layer session (label rename, card button
-wording, type colour scheme, state selector removal, shared time picker). Everything
-below was found but deliberately NOT built. Documentation only — no separate docs.
-
-### 1. Shared 15-min wheel picker component
-
-- **Premise failure:** the three-column wheel above "Confirm Booking" is iOS rendering
-  a plain `<input type="time">` at `BookJobSheet.tsx:784`. No component exists to
-  extract.
-- iOS ignores `step` on time inputs, so `step="900"` will not deliver 15-min
-  increments on the technicians' phones — a custom component is required.
-- Scope: hours | 00/15/30/45 | AM/PM, 07:00–19:00 bounds, emits `"HH:mm"`,
-  48px touch targets at 375px.
-- Conversion targets when built: `BookJobSheet.tsx:784` (job booking, currently 1-min
-  native input) and `CreateNewLeadModal.tsx:650-667` (admin preferred time, currently
-  30-min `<select>` whose comment says "to 6pm" but whose maths ends at 17:30). The
-  preferred-time save path must stay insert-only (PR #39 — `customer_preferred_time`
-  is never updated).
-
-### 2. Inspection booking on 15-min increments — BLOCKED
-
-- `LeadBookingCard` is an availability-constrained hourly slot selector feeding the
-  `calculate-travel-time` Edge Function, which assumes a strict 1-hour grid
-  (zod `/^\d{2}:\d{2}$/`, `+60`-minute appointment blocks).
-- Cannot move to 15-min without changing that EF's grid. Edge Function work, not
-  presentation. Needs its own scoped session.
-
-### 3. RequestInspection public form — deliberately NOT changing
-
-- Stores band strings ("Morning (8am–12pm)") per a prior product decision. Correct
-  for a customer-facing form. Recorded so it is not "fixed" later.
-
-### 4. Stale assigned_to on LeadDetail
-
-- LeadDetail doubles as the technician job page. Two "back to new_lead" paths leave
-  `assigned_to` stale.
-- Live data bug. Fix alongside the multi-technician junction table work, not
-  separately — the same paths are affected.
-
-### 5. Repo-vs-live enum drift
-
-- `'no_show'` present in the repo's reminder trigger, absent from the live enum.
-- Another symptom of the forked migration history.
-
-### 6. ✅ Migration file header is wrong — FIXED 24 Aug 2026
-
-- `supabase/migrations/20260823090000_notifications_fan_out.sql` read
-  "STATUS: DRAFT ... It has NOT been applied." It WAS applied and repaired on
-  23 Aug 2026, so the stale header invited a double-apply attempt.
-- **Header corrected 24 Aug 2026 on Michael's explicit instruction** (named
-  file, comment-only carve-out from the never-modify-migrations rule). New
-  STATUS: APPLIED to PROD (`ecyivrxjpsmjmexqatym`) 23 Aug 2026 via Studio
-  paste, history repaired with
-  `npx supabase migration repair --status applied 20260823090000 --linked`.
-  Diff verified comment-only — zero executable statements touched.
-
-### Colour collision note (from the Task 3 audit — scheme CORRECT and live; adjacent collisions recorded, not resolved)
-
-Booking-type scheme (corrected 24 Aug 2026 — an earlier build had it reversed;
-**re-verified 2026-08-25: inspection blue / job orange is CORRECT and live on production.
-Nothing about the scheme itself is unresolved** — the list below is only the neighbouring
-status/CTA hues that share a family with it):
-**inspection = blue `#137fec` (unchanged from before this session), job =
-orange-500 `#f97316` accent with orange-700 `#c2410c` text** (replaces the retired
-green). Orange-500 deliberately matches the `job_waiting` status colour — same
-domain, reinforcing — and avoids orange-600 (PDF edit mode) and amber-600
-(Confirm Booking CTA). Collisions that remain because `src/lib/statusFlow.ts` and
-the status pill maps are out of scope:
-
-- **Confirm Booking CTA** (`BookJobSheet.tsx:951`) is `bg-amber-600` (32°) —
-  same warm family as the job orange (25°), and it sits *inside the job booking
-  sheet*, adjacent to job-orange identity in the same flow.
-- **statusFlow blue statuses** vs the inspection-card blue (pre-existing — blue
-  meant inspection before this session too): `new_lead` (217°), `job_scheduled`
-  (217° ≈ #3B82F6, near-identical to `#137fec` — a blue status pill on an
-  orange *job* card reads inspection-ish), `job_report_pdf_sent` (210°),
-  `inspection_email_approval` (200°).
-- **statusFlow orange/amber statuses**: `job_waiting` orange-500 is now the SAME
-  domain as the job type colour (not a clash); but `inspection_waiting` (38°),
-  `pending_review` (45°) and `google_review` (48°) are near-orange hues with
-  non-job meanings.
-- PDF edit mode uses `bg-orange-600` (~90 occurrences in ViewReportPDF /
-  ReportPreviewHTML) — different surface, same family as the job orange.
-- EventDetailsPanel: the blue *inspection type* pill can sit beside a blue
-  `scheduled` *status* pill (`:99-104`) — same-hue pills with different
-  meanings (pre-existing pairing, unchanged by this session).
-- Technician-identity chip palette (`useScheduleCalendar.ts:286`) still contains
-  green `#34C759` and orange `#FF9500` and can visually duplicate the job orange
-  on the same card.
-
-Source: Batch B read-only reconnaissance, **`docs/TONIGHT_BATCH_RECON.md`** (live PROD reads via
-`npx supabase db query --linked`, SELECT-only; grep-backed code inventory, adversarially verified).
-That doc carries the evidence, file:line inventories and the proposed DDL. This section carries the
-item, the blocker, and the sequence. Nothing below has been built, migrated, or committed.
-
-### CRITICAL / STANDING RULE
-
-### R1 — Migration history fork is far worse than previously documented
-- **Live count (24 Aug):** 16 versions shared / **104 local-only** / **102 remote-only**. The prior
-  figure — "five remote-only migrations have no local file" in
-  `docs/NOTIFICATIONS_SCHEMA_RECONCILIATION.md:27` — was wrong.
-- **`supabase db push` would replay 104 files. NEVER run it on this repo.** (The repo is linked to
-  PROD; a bare push hits production.)
-- `supabase migration list` output is unreliable as a description of the live database — its
-  version stamps say nothing about what is deployed. Ignore it as evidence.
-- At least one repo trigger body **differs** from the deployed one
-  (`20260218000001_add_reminder_scheduled_for.sql` references a `'no_show'` status that does not
-  exist in the live `booking_status` enum; the live `set_reminder_scheduled_for` body does not).
-  Therefore: **`supabase/migrations/**` is an archive of intentions, NOT a description of the live
-  database. Any claim about live schema must come from a live read.**
-- Only safe path for schema change remains: **Studio paste + `npx supabase migration repair
-  --status applied <version> --linked`** (the path used for `20260821000000`, see
-  `docs/NOTIFICATIONS_SCHEMA_RECONCILIATION.md:215`).
-- [ ] Remediation of the fork is its own project — not scheduled, not part of any item below.
-
-### R2 — Supabase MCP token is dead; known-good live-read path
-- `mcp__supabase` still rejects every `execute_sql` / `list_tables` call ("Unauthorized…
-  SUPABASE_ACCESS_TOKEN"). **`get_project_url` answering is a FALSE POSITIVE** — it is derived from
-  local config, not a live call. Do not treat it as proof the server works.
-- Known-good path for live reads: **`npx supabase db query --linked -o json -f <file.sql>`**
-  (CLI 2.101.0, Management API, linked = PROD `ecyivrxjpsmjmexqatym` — state that before running;
-  SELECT-only). `information_schema`, `pg_policies`, `pg_get_functiondef()` all work.
-- [ ] Token replacement itself is already tracked under "Follow-ups from 23 Jul 2026 session"
-  (`Replace dead SUPABASE_ACCESS_TOKEN…`). Update that item's fallback text to the `db query` path
-  when it is next touched; do not duplicate it here.
-
-### READY TO BUILD — code-only, no migration
-
-### R3 — Non-client bookings (equipment pickup / blocked time)
-- **Live state:** `calendar_bookings.lead_id` already nullable (FK ON DELETE SET NULL);
-  `event_type` already a free varchar with no CHECK/enum (live values: `inspection`, `job`). The
-  table's only RLS policy reads neither column. **No DDL required.**
-- Conflict engine `src/lib/bookingService.ts:42-75` (`checkBookingConflict`) reads
-  `calendar_bookings` directly with no type/lead filter — **blocked time ALREADY blocks slots.**
-- **Real work:**
-  - [ ] `src/hooks/useTechnicianJobs.ts:269` uses `lead:leads!inner(...)` — silently hides
-    lead-less rows. A technician would be blocked out of a slot and unable to see why. Needs a
-    deliberate second query or relaxed join for non-client types.
-  - [ ] Engagement keying `${lead_id}|${event_type}` (`useTechnicianDetail.ts:310`,
-    `useTechnicianStats.ts:261`) merges all null-lead rows of one type into a single "Unknown"
-    engagement — key non-client rows by `id`.
-  - [ ] Creation UI for a lead-less row (both insert paths currently require a lead prop and derive
-    `title` / `location_address` from it); filter pills `AdminSchedule.tsx:174-176`, colour/label
-    maps, hide "Start Inspection" (`EventDetailsPanel.tsx:181-187`) for non-client types.
-- [ ] **Optional hardening:** CHECK constraint on `event_type` (proposed DDL in recon §3.6; 28
-  live rows already conform). Decide the label set first (`equipment_pickup`, `blocked`, …).
-  Do NOT add a `lead_id IS NOT NULL` CHECK for client types — the FK is ON DELETE SET NULL and
-  lead deletion would then fail.
-
-### R4 — Preferred date/time optional on manual lead entry ✅ FIXED 2026-08-25 (PR #79 `a82d1f1`, on main, awaiting production merge)
-- **Live state:** `leads.customer_preferred_date` and `customer_preferred_time` already nullable,
-  no default, no CHECK, no trigger. **No DDL required.**
-- Blocked only by the hand-rolled `CreateNewLeadModal.validateForm()`
-  (`src/components/leads/CreateNewLeadModal.tsx:353-361`). **There is NO Zod schema behind the
-  manual form** — the documented `normalLeadSchema` (`lead-creation.schemas.ts:245-263`) is dead
-  code with zero callers and no preferred keys.
-- [x] ~~~6 lines: drop the two required branches (:353-361), labels (:604, :648), insert
-  `:435-436` → `formData.preferredDate || null` / `formData.preferredTime || null` (an empty
-  string into a `date` column errors), Slack payload `:467-468` → `|| undefined`.~~ **DONE
-  `a82d1f1`:** validation extracted to `src/lib/validators/create-lead-form.ts`
-  (`validateCreateLeadForm`, unit-tested); `toNullableField()` writes NULL for both columns and
-  the Slack payload; labels read "(optional)". Write-once at creation still holds — no update path.
-
-- Does **not** conflict with the PR #39 never-clear rule — that rule governs UPDATE
-  (`LeadDetail.tsx:506-541` clear-lists; column COMMENTs), not requiredness at CREATE.
-- [ ] Optional tidy-up: delete the dead `normalLeadSchema` / `hiPagesLeadSchema` exports so nobody
-  later wires them in and silently changes the required set.
-
-### R5 — Allow duplicate leads (repeat real-estate clients) ✅ FIXED 2026-08-25 (PR #79 `d782e7b` + `d3b9a0a`, on main, awaiting production merge)
-- **Live state:** no unique constraint or index on email / phone / name / any address column
-  (only `id` and `lead_number` are unique; `idx_leads_email_phone` is non-unique). **PROD ALREADY
-  holds 5 duplicate-email groups and 3 duplicate-phone groups — the DB never blocked this.** No
-  trigger, no Zod refine, no upsert/onConflict. The Framer EF only flags
-  (`is_possible_duplicate`, 24 h exact match) and always inserts. **No DDL required.**
-- Blocked only by the admin modal: `checkForDuplicates` (`CreateNewLeadModal.tsx:264-288`) +
-  gate (`:398-403`) — hard-blocks on phone-OR-email with **no override** AND **counts archived /
-  not_landed leads** (no `archived_at` filter), so a re-created archived customer is a dead end the
-  admin cannot even find.
-- [x] ~~**Target: warn-and-allow.** Keep the lookup, show "Existing lead: <name> (MRC-…)", always
-  permit submit; add `.is('archived_at', null)` to the check. Banner `:565-576` becomes
-  informational.~~ **DONE:** lookup moved to `src/lib/api/leadDuplicates.ts`
-  (`findDuplicateLead`, `.is('archived_at', null)`, unit-tested with archived fixtures); banner
-  names + links the colliding lead (`/leads/{id}`); runs on phone/email blur. `d3b9a0a`: the Save
-  click that first discovers a collision now inserts immediately — the warning is informational,
-  never a gate (component-tested).
-- Known format drift (modal stores digits, Framer raw, in-app keeps `+`) means the warning will
-  miss some repeats — acceptable for warn-only; not worth fixing in this batch.
-
-### NEEDS ITS OWN SESSION — one migration
-
-### R6 — Google Maps unit numbers
-- **Live state:** address stored as components (`property_address_street / _suburb / _state /
-  _postcode` + `property_lat/lng`). **NO unit column exists anywhere** in the public schema.
-  Single Places parser `src/hooks/useGoogleMaps.ts:211-220` (`getPlaceDetails`) extracts 5
-  component types and **never reads `subpremise`** — the unit is silently dropped whenever Google
-  returns `street_number` + `route`. `grep -ri subpremise` over the repo → nothing.
-- [ ] **Migration (Studio paste + `migration repair`, per R1):** add `leads.property_address_unit`
-  (nullable); optional `search_text` generated-column rebuild (drop + re-add + reindex
-  `idx_leads_search_text_trgm`); **MUST redefine `audited_insert_lead_via_framer`** — its live
-  body whitelists columns, so a unit sent by the Framer EF is silently dropped until the RPC is
-  extended. Exact DDL in recon §1.3.
-- [ ] **Blocker before the column is added:** 33 consumer files, 5 writers
-  (`CreateNewLeadModal.tsx:423`, `LeadBookingCard.tsx:336-347`,
-  `InlineEditAddress.tsx:76-83`→`useLeadUpdate.ts`, `ViewReportPDF.tsx:2044-2054`,
-  `receive-framer-lead/index.ts:810-829`) and **no shared address formatter** — 15+ inline
-  4-part concatenations. Write one `formatAddress` helper and migrate the concatenations to it
-  FIRST, or the unit format will fragment. Two parsers assume no comma in the street segment
-  (`useScheduleCalendar.ts:320-328`, `useCancelledBookings.ts:143-151`).
-- [ ] Decide the display format (`Unit 3/12 Smith St` vs `3/12 Smith St`) before touching either.
-- Note: `TechnicianInspectionForm.tsx:791-797` "Address" field is editable but never persisted
-  (feeds the AI prompt only) — don't mistake it for a writer.
-
-### BLOCKED ON GLEN/CLAYTON DECISION
-
-### R7 — Multiple technicians per job/inspection (equal, no lead/assist hierarchy)
-- **Live state:** single nullable FK `leads.assigned_to → auth.users`. **No junction table.**
-  `calendar_bookings.assigned_to` NOT NULL. **13 RLS policies** key on `leads.assigned_to`
-  (leads ×2, inspections ×3, inspection_areas, photos ×4, photo_history ×2, invoices) — PLUS
-  `ai_summary_versions.technicians_see_assigned` (keyed on `inspections.inspector_id`) and the
-  three `job_completions` policies (keyed on `completed_by`) would **STILL lock out technician #2
-  even after a junction table lands.** Full policy table in recon §2.2.
-- **Scope:** `lead_assignments` junction + `is_assigned_to_lead()` helper + backfill + **16
-  `ALTER POLICY`** (names kept). Bookings: **Option A** (one row per technician +
-  `booking_group_id`; recommended — conflict engine, realtime filter and partial indexes keep
-  working) vs **Option B** (junction; every booking reader changes). **88 code hits / 24 files**;
-  two single-select pickers → multi-select; four `assigned_to IS NULL` queues → `NOT EXISTS`.
-  Full DDL in recon §2.4.
-- **BLOCKER — `job_completions.completed_by` is singular** (NOT NULL, stamped from the saving
-  user; `inspections.inspector_id` likewise, re-stamped on every save incl. admin edits). If both
-  technicians attend and are equal, **who signs the completion report?** This is Phase 2 (active
-  workstream) — building the junction before answering means immediate rework of the completion
-  form. **Glen/Clayton must decide** (options: first saver; any member; explicit signer picker;
-  both names on the PDF). Also decide whether technicians may self-assign (junction RLS grants).
-- [ ] Fix the two stale-`assigned_to` paths (R8) as PART of this work, not separately.
-- [ ] Audit triggers on `lead_assignments` are a separate explicit decision (29-trigger rule).
-
-### BUGS FOUND, NOT SCHEDULED
-
-### R8 — Two "back to new_lead" paths leave `leads.assigned_to` stale
-- `LeadDetail.tsx:514` clears `assigned_to` on reversion; `EventDetailsPanel.tsx:59-63` (inspection
-  cancel) and `LeadsManagement.tsx:203-205 / 307-310` (reactivate) do **not**. Result: a `new_lead`
-  with a non-null `assigned_to` vanishes from every `assigned_to IS NULL` queue
-  (`useLeadsToSchedule.ts:74`, `useUnassignedLeads.ts:42`, `AdminSidebar.tsx:50`,
-  `useAdminDashboardStats.ts:98`) while the old technician keeps RLS access.
-- `LeadDetail` doubles as the technician job page (`App.tsx:349-362` `/technician/job/:id`), so
-  these reversion CTAs are technician-reachable.
-- [x] Fixed on `fix/cancel-path-field-clearing` (not merged). Shared `LEAD_BOOKING_FIELDS` in
-  `src/lib/leadBookingFields.ts` is now the one clearing set for all three surfaces; the calendar
-  cancel also gained the missing event-type check (job -> `job_waiting`, not `new_lead`).
-  Sequence: 375px + cancel-flow preview test -> merge -> deploy -> `docs/manual-sql/R8-jiang-marco-repair.sql`
-  (MRC-2026-0077, the 7th broken PROD row, guarded, NOT yet run).
-- [ ] R8 fallout: a job cancel now also nulls `inspection_scheduled_date`, so LeadDetail's green
-  "Inspection Scheduled" card (`:1841`) disappears for that lead — `inspection_completed_date` survives.
-- [ ] `LeadsManagement.stageActions.markClosed` (`:218`) and `confirmRemoveLead` (`:242`) are
-  unreachable — `markClosed` has no call site, and `confirmRemoveLead`'s modal is opened only by
-  `removeLead` (`:231`), which has none either. Decide: wire them up or delete them.
-- [ ] `EventDetailsPanel.tsx:75` writes "Inspection on {date} was cancelled" for JOB cancels too —
-  the activity row mislabels every cancelled job.
-
-### R9 — Archiving a lead never cancels its bookings
-- `LeadsManagement.tsx:529-532` / `LeadDetail.tsx:706-709` set `archived_at` only; no booking
-  consumer filters on it. Archived leads keep blocking technician slots via `checkBookingConflict`,
-  keep rendering on the admin calendar / Today's Schedule, and still get the 48 h reminder email.
-  Same gap for `job_scheduled → job_waiting`, `not_landed`, `closed` (only the rank<1 reversion
-  bulk-cancels, `LeadDetail.tsx:563`). Recon §3.7.
-- [ ] Not scheduled. Natural home: the R3 booking batch, if scope allows.
-
-### R10 — `BookJobSheet` is technician-reachable with no rollback on partial writes
-- `src/components/leads/BookJobSheet.tsx:409-466`: deletes prior job rows → inserts new rows →
-  updates `leads` (`assigned_to`, status). No compensating rollback if step 3 fails
-  (`bookingService.ts:177-181` does roll back). `calendar_bookings` RLS is open to any
-  authenticated user while `leads` UPDATE is gated on `assigned_to = auth.uid()` — a technician
-  picking another tech succeeds at steps 1-2 and fails at 3, leaving
-  `calendar_bookings.assigned_to ≠ leads.assigned_to`. Entry via the ungated `job_waiting` CTA
-  (`LeadDetail.tsx:959-968`). Its picker also lists all active users, not technician-role only
-  (`:166-184`).
-- [ ] Not scheduled. Folds into R7 (write ordering must change for multi-tech anyway).
-
-### R11 — `useRevisionJobs.ts` is live despite the CLAUDE.md "dormant" rule
-- CLAUDE.md:131 says "useRevisionJobs.ts left dormant — do not activate", but
-  `src/pages/TechnicianDashboard.tsx:5` imports it and `:37` calls it (queries `leads` with
-  `status = job_scheduled`, `assigned_to = user.id`). Rule and reality disagree.
-- [ ] Decide which is right (see "Revision Lifecycle — Tech Debt" / PR-T1 above), then either
-  remove the call or rewrite the rule. Until then, treat the hook as live when estimating R7.
-
-### R12 — `calculate-travel-time` collapses two same-day bookings on one lead
-- `supabase/functions/calculate-travel-time/index.ts:1085-1087`: `endMinutesByLead` is a
-  `Record<string, number>` keyed by `leadId`, so the last booking wins and `check_availability`
-  reports that lead's day as ending at whichever row came back last. One technician with **two
-  bookings against the same lead on the same day** (a split morning/afternoon job) is enough to
-  trigger it — this is reachable on **today's single-technician data**, not a multi-tech
-  regression. Fan-out does **not** make it worse: `fetchMelbourneBookings` filters
-  `.eq('assigned_to', technicianId)`, so it only ever sees one technician's rows and never returns
-  the second technician's row for the same lead. Found while auditing the two `leads`-side
-  technician filters for multi-tech (SESSION 6, `docs/multi-tech/SESSION-6-DEPLOY-RUNBOOK.md` §8.1)
-  and deliberately left alone — the 0c deploy had to be a minimal diff that is provably
-  behaviour-identical on current data, and fixing this would have changed today's answers.
-- [ ] Not scheduled. Independent of R7 — do **not** fold it in, it is neither caused nor fixed by
-  the junction table.
-
-### SUGGESTED SEQUENCE
-- **A.** ~~R3 + R4 + R5 as **one code-only batch**~~ **R4 + R5 shipped 2026-08-25 (PR #79).
-  R3 remains** — code-only, no migration, no approval gate. Verify at 375px; one E2E at the end,
-  not piecemeal. (375px for PR #79 is still unverified — see the Chrome-extension item, 25 Aug.)
-- **B.** R6 (unit numbers) — own session, one migration via Studio + `migration repair`;
-  formatter helper lands before the column.
-- **C.** R7 (multi-tech) — only after the Glen/Clayton decision on `completed_by`; R8 + R10 ride
-  along.
-- R1 / R2 are standing rules, not work items. R9 / R11 unscheduled.
-
----
-
-## 25 Aug 2026 — corrections against live state + new items
-
-Corrections above are marked inline (`STALE`, `SUPERSEDED`, `FIXED`). This section records what
-shipped since the 24 Aug recon and what was found while verifying it. Live reads via
-`npx supabase db query --linked` (PROD, SELECT-only) and the DEV audit of the same day.
-
-### Fixed — verified or shipped
-
-- ✅ **Pricing 2h anchor rates — FIXED and LIVE on production** (PR #76 `fa8e49c`): Surface
-  **615.27**, Demolition **715.73**, Subfloor **905.84**, matching the owner rate card. No open
-  item remains for this.
-- ✅ **Editable estimate override — FIXED, on main, awaiting production merge** (PR #78
-  `dacd7cf`). Root cause: `manualPriceOverride` had **no setter in the UI** and could never become
-  `true` — the override card was non-functional since it shipped. Now persists to labour and
-  equipment.
-- ✅ **Booking-type colours — inspection blue / job orange is CORRECT and live.** The 24 Aug
-  "reversed" build is history; nothing unresolved about the scheme (collision note above is
-  observational only).
-- ✅ **R4 / R5 / lead search / Start Job routing — FIXED, on main via PR #79, awaiting production
-  merge.** `a82d1f1` R4; `d782e7b` + `d3b9a0a` R5; `89fffa9` Leads Management search (root cause:
-  client-side filter over a 50-row paginated slice — both surfaces now share `src/lib/leadSearch.ts`
-  against `search_text`); `d426b74` NextJobCard + EventDetailsPanel "Start Job" now route to
-  `/technician/job-completion/:leadId` instead of the inspection form.
-- ✅ **Notifications fan-out — WORKING since 24 Aug** (see the corrected P3 item). The "0 rows
-  all-time" claims in this file and in `docs/NOTIFICATIONS_INVESTIGATION.md` were stale; the
-  investigation doc now carries a superseded banner.
-
-### New items
-
-- [ ] **Override sanity warning.** A technician can enter a multi-million-dollar estimate override
-      and nothing flags it. Suggested: non-blocking inline warning when the override exceeds
-      **10× the auto-calculated value**. **Warning only — never clamp, never block.** Code-only.
-- [ ] **Per-field override columns (migration).** `manual_labour_override` is ONE boolean encoding
-      FOUR fields (labour, equipment, and both Both-mode option-1 fields). Lossy: it forces
-      `reconcileLoadedOverride` to guess by recomputing the auto value and comparing. Nullable
-      per-field override columns remove the guessing. **Requires a migration** (Studio paste +
-      `migration repair`, per R1).
-- [ ] **Realtime on `notifications` (migration, one line).** The table is NOT in the
-      `supabase_realtime` publication — only `calendar_bookings` is — so the `postgres_changes`
-      subscription in `useNotifications.ts` never fires and the bell only updates on the 30 s poll.
-      Fix: `ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;` — applied by hand
-      in Studio, then `migration repair`. This is the only remaining notifications defect.
-- [ ] **LeadsManagement status filter + sort are still client-side over the paginated slice.**
-      Same bug class as the search issue fixed in PR #79, different fields: `getFilteredLeads()`
-      filters `statusFilter` and sorts over whatever page is loaded, and the status-tab counts are
-      computed from that slice. Sorting by status only sorts the loaded page. Push `statusFilter`
-      into the query (`.eq('status', …)`) and the sort into `.order()`; the `loadLeads` effect
-      already re-runs on both but ignores them.
-- [ ] **Sync DEV to PROD.** DEV is three weeks behind (L4 STATUS block: EF versions, 9 missing
-      EFs, template bytes, RLS parity unverified). A stale DEV will eventually pass something that
-      fails live. Redeploy the EF set to `ctppzqnysmzynkxjlzta` (state the ref + role before every
-      command), re-upsert the template, then diff `pg_policies` against PROD.
-- [ ] **Chrome extension not connected → 375px / E2E claims are unverified.** Claude Code cannot
-      log into the app (no `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `TECH_EMAIL` / `TECH_PASSWORD` in
-      the shell, extension disconnected), so every "verified at 375px" or end-to-end claim in a
-      session is unverified until Michael looks personally. **Happened four times on 25 Aug
-      alone.** Either reconnect the extension or export the four E2E vars before a session that
-      needs UI verification; treat any 375px claim without a screenshot as unverified.
-- [ ] **Auto mode left on for eight consecutive sessions.** Prompt instructions ("Shift+Tab —
-      confirm auto mode is OFF") are not working. Needs a hook (`.claude/settings.json`
-      `PreToolUse` / session-start guard) rather than another instruction.
-
-
-## 26 Aug 2026 — logged, not fixed
-
-- [x] **FIXED 27 Aug 2026 — `deno check` failure in `generate-inspection-pdf`.** `supabase/functions/generate-inspection-pdf/index.ts:1730` reads
-      `inspection.subfloor_required`, but the local `Inspection` interface in that file does not
-      declare the field, so `deno check` fails with
-      `TS2339: Property 'subfloor_required' does not exist on type 'Inspection'`.
-
-      **Type-only. No runtime impact, and it does NOT block deployment** — `supabase functions
-      deploy` bundles with esbuild and never runs `deno check`, so the EF ships and behaves
-      correctly (the row genuinely carries the column; only the interface is incomplete).
-
-      Confirmed pre-existing on 26 Aug 2026 while shipping the "+GST" label fix: the identical
-      error at the identical line reproduces on unmodified `origin/main`, so it was **not**
-      introduced by that change. Logged here so it is not rediscovered and mis-triaged as a new
-      regression.
-
-      **Fixed** by declaring `subfloor_required: boolean | null` on the interface, folded into
-      the ex-GST price PR (#99) since that PR was already editing the same interface.
-      `deno check` on this Edge Function now exits 0 with no errors.
-
-      **Note:** `npm run typecheck` does not cover Edge Functions at all — the root `tsconfig.json`
-      has `"files": []` and only project references, so `tsc --noEmit` checks nothing. The real
-      commands are `npx tsc -p tsconfig.app.json --noEmit` for the app (135 pre-existing errors as
-      of this date) and `deno check <path>` for each Edge Function.
-
-## 26 Aug 2026 — report price now quoted ex GST
-
-- [ ] **Add a stored `option_1_subtotal_ex_gst` column.** The customer report now quotes prices
-      **ex GST** with a `+GST` suffix. Single-option modes read `inspections.subtotal_ex_gst`
-      directly, but **Both mode has no ex-GST subtotal column for Option 1**, so
-      `generate-inspection-pdf/index.ts` sums `option_1_labour_ex_gst + option_1_equipment_ex_gst`
-      inline (null-safe, `?? 0`).
-
-      **This breaks the standing principle that the Edge Function computes nothing and only
-      formats stored values** — it is the first pricing arithmetic in that file. Accepted
-      deliberately on 26 Aug 2026 to avoid a migration late in the day; recorded so it is a known
-      exception rather than drift.
-
-      Proper fix: add `option_1_subtotal_ex_gst`, populate it from the same writers that set
-      `option_1_labour_ex_gst` / `option_1_equipment_ex_gst` (`TechnicianInspectionForm.handleSave`
-      and `ViewReportPDF.handleCostSave`), backfill existing Both-mode rows, then reduce the EF
-      back to a single column read. Requires a migration — generated file, applied by hand.
-
-      Note the two components are NULL on most rows today (`option_1_equipment_ex_gst` on 12 of
-      13, `option_1_labour_ex_gst` on 7), so any backfill must handle that.
-
-- [ ] **Open question: equipment day rates carry no GST qualifier.** The report renders
-      `$119/day`, `$46/day`, `$5/day`, `$100/day` (`generate-inspection-pdf/index.ts:1662-1668`)
-      with **no** `+GST` or `ex GST` label, while the quoted price and the waste-disposal line now
-      both read `… +GST`. The rates are genuinely ex GST, so the figures are right — but one page
-      mixes a labelled and an unlabelled basis, which a customer could read either way.
-
-      Deliberately left unchanged on 26 Aug 2026. Needs a wording decision from Michael before
-      anyone "tidies" it: add `+GST` to the equipment lines, or leave them bare as day rates.

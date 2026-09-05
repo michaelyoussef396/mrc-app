@@ -23,7 +23,8 @@ the exact command; Michael runs it. Same discipline for migrations.
 
 - `npm run dev` — local dev server
 - `npm run build` — production build
-- `npm run typecheck` — TypeScript check
+- `npm run typecheck` — TypeScript check (currently checks zero files, see T7 in docs/TODO.md)
+- `npx tsc -p tsconfig.app.json --noEmit` — the real type check. The error count differs per worktree (99, 122 and 135 were all measured on 31 Aug 2026). Gate on no NEW error lines against a baseline taken in the same tree the same day, never on the count.
 - `npx supabase functions deploy <name> --project-ref ecyivrxjpsmjmexqatym` — deploy Edge Function
 
 ## Architecture
@@ -63,11 +64,11 @@ the exact command; Michael runs it. Same discipline for migrations.
 ## Current State (May 2026)
 
 - Phase 1: COMPLETE — inspection workflow end-to-end
-- Phase 2: COMPLETE — job completion workflow (2 known gaps tracked as L1 + L2 in TODO.md)
+- Phase 2: COMPLETE — job completion workflow (the L1/L2 gaps are closed: L1 resolved by pricing canon C1 and the HEPA work, L2 cancelled 2026-05-12; one L1 remnant is carried as engineering debt in docs/TODO.md)
 - Phase 3: COMPLETE — AI summary versioning (Stages 3.1-3.5 shipped 2026-05-02)
 - Phase 4: PARTIAL — photo integrity Stages 4.1/4.1.5/4.2/4.3 shipped (2026-05-05 to 2026-05-11); Stages 4.4-4.7 deferred post-launch
-- PDF Pipeline Rebuild: CODE COMPLETE (2026-05-24) — server-rendered hard-save via api/render-pdf with html_hash mismatch guard at send time + ReportVersionHistory UI. Migration applied + EF deployed in same wave. See docs/PDF_PIPELINE_PLAN.md. Post-launch cleanup tracked as PDF-CL1..7 in TODO.md.
-- Pre-launch hardening underway. See docs/TODO.md for current tasks (Launch Model + L/S/T sections)
+- PDF Pipeline Rebuild: CODE COMPLETE (2026-05-24) — server-rendered hard-save via api/render-pdf with html_hash mismatch guard at send time + ReportVersionHistory UI. Migration applied + EF deployed in same wave. See docs/PDF_PIPELINE_PLAN.md. Post-launch cleanup (PDF-CL items) carried as engineering debt in docs/TODO.md, old TODO.md lines 1011–1028.
+- Current tasks: docs/TODO.md, tracked by stable ID (P0-n, P1-n, Tn...). Detail for every item lives in docs/MRC_MASTER_BACKLOG.md.
 - See docs/PHASE_2_EXECUTION.md for build plan
 - See docs/JOB_COMPLETION_PRD.md for full spec
 
