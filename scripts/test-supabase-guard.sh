@@ -7,10 +7,15 @@
 # no test for the commands it was supposed to ALLOW — a guard that is only ever
 # observed when it fires cannot tell you what it is wrongly refusing.
 #
-# The hook itself is currently machine-local at ~/.claude/hooks/block-supabase-prod.sh
-# and is NOT tracked in this repo. That is a known open item; see
-# docs/POST_INCIDENT_FRAMEWORK.md, incident 2. This test is tracked so the expected
-# behaviour is reviewable and reproducible even while the hook is not.
+# The hook is tracked at .claude/hooks/block-supabase-prod.sh and registered in
+# .claude/settings.json, so the file and its registration travel in the same commit.
+# See docs/POST_INCIDENT_FRAMEWORK.md, incident 2.
+#
+# This default points at the REPO copy on purpose. It used to default to
+# $HOME/.claude/hooks/, which meant the suite would have gone on reporting
+# "passed 15, failed 0" against a machine-local file after the tracked one became
+# the thing that actually gates Bash — a check that keeps passing after the thing
+# it checks is gone. Override with SUPABASE_GUARD_HOOK to test a copy elsewhere.
 #
 # Run after any edit to the hook:
 #   bash scripts/test-supabase-guard.sh
@@ -18,7 +23,8 @@
 # Nothing here invokes the Supabase CLI or touches a database. It feeds synthetic
 # PreToolUse payloads to the hook and asserts allow/deny.
 
-HOOK="${SUPABASE_GUARD_HOOK:-$HOME/.claude/hooks/block-supabase-prod.sh}"
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+HOOK="${SUPABASE_GUARD_HOOK:-$REPO_ROOT/.claude/hooks/block-supabase-prod.sh}"
 DEV=ctppzqnysmzynkxjlzta
 PROD=ecyivrxjpsmjmexqatym
 
@@ -79,6 +85,32 @@ run "functions deploy, DEV ref"      "$FX/dev"  "supabase functions deploy foo -
 run "bare command, no target"        "$FX/dev"  "supabase projects list" DENY
 run "not a supabase command"         "$FX/dev"  "git status" ALLOW
 run "help behind a semicolon"        "$FX/dev"  "supabase --version; echo x" ALLOW
+
+echo
+echo "=== every hook registered in .claude/settings.json exists and is executable ==="
+# Incident 2 was a hook present in .claude/hooks/ that no settings file referenced,
+# and later a settings entry pointing at a file that had been deleted. Both are
+# silent: the first never runs, the second exits 127 and fails open. Nothing
+# asserted either way, so this does. Only $CLAUDE_PROJECT_DIR-rooted commands are
+# hook scripts; the other entries are inline shell and have no path to check.
+SETTINGS="$REPO_ROOT/.claude/settings.json"
+if [ ! -r "$SETTINGS" ]; then
+  printf '  [FAIL] settings file missing or unreadable: %s\n' "$SETTINGS"
+  FAIL=$((FAIL + 1))
+else
+  jq -r '.hooks[]?[]?.hooks[]? | select(.type == "command") | .command' "$SETTINGS" \
+    | grep -oE '\$CLAUDE_PROJECT_DIR/[^ "]+' | sort -u > "$FX/registered"
+  while read -r reg; do
+    path="$REPO_ROOT/${reg#\$CLAUDE_PROJECT_DIR/}"
+    if [ -x "$path" ]; then
+      printf '  [ok  ] registered, present, executable  %s\n' "${reg#\$CLAUDE_PROJECT_DIR/}"
+      PASS=$((PASS + 1))
+    else
+      printf '  [FAIL] registered but missing or not executable: %s\n' "$path"
+      FAIL=$((FAIL + 1))
+    fi
+  done < "$FX/registered"
+fi
 
 echo
 printf 'passed %s, failed %s\n' "$PASS" "$FAIL"
