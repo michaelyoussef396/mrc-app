@@ -924,7 +924,7 @@ const LeadsManagement = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by name, address, email, or phone..."
+              placeholder="Search by Lead ID, name, address, email, or phone..."
               value={searchQuery}
               onChange={e => {
                 setSearchQuery(e.target.value);
