@@ -9,6 +9,8 @@ One row per review. This log is the only input for any knowledge-base entry on t
 
 `model / effort` is what `~/.codex/config.toml` was set to, not what ran — the plugin gives no way to verify that from the thread (issue #705).
 
+Both rounds so far ran in worktrees that carry `AGENTS.override.md` (`mrc-merge`, `mrc-node22`), so both had the reviewer brief and the log stands — but only 4 of 21 worktrees carry it; see the Session F scope note in `docs/TODO.md` (Session P, 2026-09-05).
+
 ## Do not review
 
 Any branch whose diff contains customer PII is reviewed locally or not at all. Codex review sends the reviewed content to OpenAI, and the ruling is that no customer PII goes to OpenAI (Michael, 2026-09-05). Check the diff for names, emails, phone numbers and addresses before running any `/codex:*` command on it.
