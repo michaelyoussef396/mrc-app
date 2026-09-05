@@ -148,6 +148,8 @@ const SEARCH_DEBOUNCE_MS = 300;
 // whole table down. Exceeding it makes the server COUNT disagree with the rows
 // received, which hides the badges rather than showing a floor.
 const BADGE_COUNT_CAP = 2000;
+// PostgREST's "Requested Range Not Satisfiable" — an offset past the end.
+const OUT_OF_RANGE_ERROR_CODE = 'PGRST103';
 
 // Sorting runs in Postgres so it orders the whole result set rather than
 // whichever page happens to be loaded.
@@ -444,7 +446,13 @@ const LeadsManagement = () => {
       debouncedSearchQuery,
     );
     const scoped = statusFilter === 'all' ? filtered : filtered.eq('status', statusFilter);
-    return scoped.order(sort.column, { ascending: sort.ascending, nullsFirst: false });
+    // `id` breaks ties so page boundaries are deterministic. Without it Postgres
+    // is free to order equal rows differently per query, and quoted_amount is
+    // NULL often enough that "Value: High to Low" is one huge tie group —
+    // walking the pages would repeat some leads and skip others.
+    return scoped
+      .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
+      .order('id', { ascending: true });
   };
 
   const loadLeads = async () => {
@@ -457,6 +465,15 @@ const LeadsManagement = () => {
       if (requestId !== loadRequestRef.current) return;
 
       if (error) {
+        // An offset past the end of a result set that shrank elsewhere answers
+        // 416/PGRST103, not an empty page, so the success-path clamp below
+        // never sees it. Left to the generic branch it clears totalCount, which
+        // collapses pageCount to 1 and hides the controls — stranding the user
+        // on an empty page with no way back.
+        if (page > 0 && error.code === OUT_OF_RANGE_ERROR_CODE) {
+          setPage(0);
+          return;
+        }
         console.error('Error loading leads:', error);
         toast({
           title: 'Error',
