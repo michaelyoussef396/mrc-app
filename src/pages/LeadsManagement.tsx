@@ -144,8 +144,9 @@ async function fetchTechnicianNames(userIds: string[]): Promise<Record<string, s
 
 const PAGE_SIZE = 50;
 const SEARCH_DEBOUNCE_MS = 300;
-// Ceiling on the tab-badge tally. Reaching it means the tally would be a floor
-// rather than a count, and the badges are hidden instead.
+// Ceiling on rows pulled for the tab-badge tally, so one search cannot drag the
+// whole table down. Exceeding it makes the server COUNT disagree with the rows
+// received, which hides the badges rather than showing a floor.
 const BADGE_COUNT_CAP = 2000;
 
 // Sorting runs in Postgres so it orders the whole result set rather than
@@ -185,6 +186,8 @@ const LeadsManagement = () => {
   const debouncedSearchQuery = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
   // Drops responses from superseded loads so fast typing can't paint stale results
   const loadRequestRef = useRef(0);
+  // The tally runs on its own cadence (search only), so it needs its own guard.
+  const tallyRequestRef = useRef(0);
   const [statusFilter, setStatusFilter] = useState(
     isValidStatusFilter(statusParam) ? statusParam : 'all'
   );
@@ -500,14 +503,20 @@ const LeadsManagement = () => {
   // search, tallied here into the 17 tab badges. Per-status COUNT queries would
   // be 17 round trips on a field tech's mobile connection.
   const loadStatusTally = async () => {
-    const { data, error } = await applyLeadSearch(
-      supabase.from('leads').select('status').is('archived_at', null),
+    const requestId = ++tallyRequestRef.current;
+
+    const { data, error, count } = await applyLeadSearch(
+      supabase.from('leads').select('status', { count: 'exact' }).is('archived_at', null),
       debouncedSearchQuery,
     ).limit(BADGE_COUNT_CAP);
 
-    if (error || !data || data.length === BADGE_COUNT_CAP) {
-      // At the cap the tally is a floor, not a count. Hiding the badges is the
-      // point of this change — a confidently wrong number is what it replaces.
+    if (requestId !== tallyRequestRef.current) return;
+
+    // Show badges only when the response is provably the whole set. Comparing
+    // the server COUNT against the rows received catches BOTH our own cap and
+    // PostgREST's `db-max-rows`, which can be lower — row length alone cannot
+    // tell a complete response from a silently truncated one.
+    if (error || !data || count == null || count !== data.length) {
       if (error) console.error('Error loading status tally:', error);
       setStatusTally(null);
       return;
@@ -641,7 +650,10 @@ const LeadsManagement = () => {
         description: 'Admin approved the job report',
       });
 
-      setLeads(prev => prev.map(l => (l.id === leadId ? { ...l, status: 'job_report_pdf_sent' } : l)));
+      // The lead's status changed, so it may no longer belong in the active
+      // tab. Refetch instead of patching local state: with filtering now
+      // server-side there is nothing left to hide a row that moved on.
+      await Promise.all([loadLeads(), loadStatusTally()]);
       toast({ title: 'Report approved', description: 'Job report has been approved.' });
     } catch (error) {
       console.error('Failed to approve job report:', error);
@@ -668,7 +680,10 @@ const LeadsManagement = () => {
         description: 'Customer declined to proceed with remediation job',
       });
 
-      setLeads(prev => prev.map(l => (l.id === id ? { ...l, status: 'not_landed' } : l)));
+      // The lead's status changed, so it may no longer belong in the active
+      // tab. Refetch instead of patching local state: with filtering now
+      // server-side there is nothing left to hide a row that moved on.
+      await Promise.all([loadLeads(), loadStatusTally()]);
       toast({ title: 'Lead updated', description: 'Lead marked as Not Proceeding.' });
     } catch (error) {
       console.error('Failed to mark lead as not proceeding:', error);
@@ -823,10 +838,10 @@ const LeadsManagement = () => {
         metadata: { trigger: 'inspection_report_emailed', old_status: emailTargetLead.status, new_status: 'inspection_email_approval' },
       });
 
-      // Update local state
-      setLeads(prev => prev.map(l =>
-        l.id === emailTargetLead.id ? { ...l, status: 'inspection_email_approval' } : l
-      ));
+      // The lead's status changed, so it may no longer belong in the active
+      // tab. Refetch instead of patching local state: with filtering now
+      // server-side there is nothing left to hide a row that moved on.
+      await Promise.all([loadLeads(), loadStatusTally()]);
 
       toast({ title: 'Email sent', description: `Report emailed to ${emailTargetLead.email} with attachment.` });
       setEmailTargetLead(null);
