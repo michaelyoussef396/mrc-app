@@ -61,8 +61,11 @@ import CreateNewLeadModal from '@/components/leads/CreateNewLeadModal';
 // STATUS OPTIONS (Pipeline Tabs)
 // ============================================================================
 
+/** `all` is the no-filter tab; every other value is a real `leads.status`. */
+type StatusFilter = 'all' | LeadStatus;
+
 interface StatusOption {
-  value: string;
+  value: StatusFilter;
   label: string;
   dotColor: string | null;
   description?: string;
@@ -89,7 +92,7 @@ const statusOptions: StatusOption[] = [
 ];
 
 // A ?status= value is only honoured when it matches a real pipeline tab
-const isValidStatusFilter = (value: string | null): value is string =>
+const isValidStatusFilter = (value: string | null): value is StatusFilter =>
   value !== null && statusOptions.some((option) => option.value === value);
 
 // ============================================================================
@@ -141,6 +144,17 @@ async function fetchTechnicianNames(userIds: string[]): Promise<Record<string, s
 const PAGE_SIZE = 50;
 const SEARCH_DEBOUNCE_MS = 300;
 
+// Sorting runs in Postgres so it orders the whole result set rather than
+// whichever page happens to be loaded.
+const SORT_COLUMNS: Record<string, { column: string; ascending: boolean }> = {
+  newest: { column: 'created_at', ascending: false },
+  oldest: { column: 'created_at', ascending: true },
+  'value-high': { column: 'quoted_amount', ascending: false },
+  'value-low': { column: 'quoted_amount', ascending: true },
+  name: { column: 'full_name', ascending: true },
+};
+const DEFAULT_SORT = SORT_COLUMNS.newest;
+
 // Only fetch columns needed for the lead cards
 const LEAD_COLUMNS = 'id,full_name,email,phone,property_address_street,property_address_suburb,property_address_state,property_address_postcode,status,lead_source,created_at,updated_at,quoted_amount,issue_description,notes,lead_number,inspection_scheduled_date,scheduled_time,assigned_to,job_scheduled_date' as const;
 
@@ -156,6 +170,9 @@ const LeadsManagement = () => {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  // Server-side COUNT for the active tab + search. Never derived from `leads`,
+  // which only ever holds the rows fetched so far.
+  const [totalCount, setTotalCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
   // Drops responses from superseded loads so fast typing can't paint stale results
@@ -397,18 +414,27 @@ const LeadsManagement = () => {
   // Same server-side filter as the topbar search (useLeadSearch), so both
   // surfaces return the same leads for the same query — searching over a
   // client-side page slice missed anything beyond the first PAGE_SIZE rows.
-  const buildLeadsQuery = () =>
-    applyLeadSearch(
-      supabase.from('leads').select(LEAD_COLUMNS).is('archived_at', null),
+  //
+  // The status filter and the sort belong here too. While they ran in JS, a tab
+  // showed only those of the newest PAGE_SIZE leads that matched it, so a tab
+  // with hundreds of leads could render empty (P0-2). `count: 'exact'` rides
+  // along on the same request, so the true total costs no extra round trip.
+  const buildLeadsQuery = () => {
+    const sort = SORT_COLUMNS[sortBy] ?? DEFAULT_SORT;
+    const filtered = applyLeadSearch(
+      supabase.from('leads').select(LEAD_COLUMNS, { count: 'exact' }).is('archived_at', null),
       debouncedSearchQuery,
-    ).order('created_at', { ascending: false });
+    );
+    const scoped = statusFilter === 'all' ? filtered : filtered.eq('status', statusFilter);
+    return scoped.order(sort.column, { ascending: sort.ascending, nullsFirst: false });
+  };
 
   const loadLeads = async () => {
     const requestId = ++loadRequestRef.current;
     setLoading(true);
 
     try {
-      const { data, error } = await buildLeadsQuery().limit(PAGE_SIZE);
+      const { data, error, count } = await buildLeadsQuery().limit(PAGE_SIZE);
       if (requestId !== loadRequestRef.current) return;
 
       if (error) {
@@ -419,8 +445,10 @@ const LeadsManagement = () => {
           variant: 'destructive',
         });
         setLeads([]);
+        setTotalCount(0);
         setHasMore(false);
       } else {
+        setTotalCount(count ?? 0);
         const rows = data || [];
         // Batch-fetch technician names for any assigned_to UUIDs we see
         const technicianIds = [...new Set(rows.map((r: any) => r.assigned_to).filter(Boolean))];
@@ -441,6 +469,7 @@ const LeadsManagement = () => {
         variant: 'destructive',
       });
       setLeads([]);
+      setTotalCount(0);
       setHasMore(false);
     } finally {
       if (requestId === loadRequestRef.current) setLoading(false);
@@ -472,41 +501,12 @@ const LeadsManagement = () => {
   // FILTERING & SORTING
   // ============================================================================
 
-  const getFilteredLeads = () => {
-    let filtered = [...leads];
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(lead => lead.status === statusFilter);
-    }
-
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'newest':
-          return new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime();
-        case 'oldest':
-          return new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime();
-        case 'value-high':
-          return (b.estimatedValue || 0) - (a.estimatedValue || 0);
-        case 'value-low':
-          return (a.estimatedValue || 0) - (b.estimatedValue || 0);
-        case 'name':
-          return a.name.localeCompare(b.name);
-        default:
-          return 0;
-      }
-    });
-
-    return filtered;
-  };
-
   const getStatusCounts = () => {
     return statusOptions.map(option => ({
       ...option,
       count: option.value === 'all' ? leads.length : leads.filter(lead => lead.status === option.value).length,
     }));
   };
-
-  const filteredLeads = getFilteredLeads();
 
   // ============================================================================
   // ACTION HANDLERS FOR LEAD CARD
@@ -846,7 +846,7 @@ const LeadsManagement = () => {
               <div>
                 <h1 className="text-xl font-bold text-slate-900">Lead Management</h1>
                 <p className="text-sm text-slate-500">
-                  {filteredLeads.length} of {leads.length} leads
+                  {leads.length} of {totalCount} leads
                 </p>
               </div>
             </div>
@@ -873,7 +873,7 @@ const LeadsManagement = () => {
         {/* Pipeline Tabs */}
         <PipelineTabs
           activeStatus={statusFilter}
-          onStatusChange={setStatusFilter}
+          onStatusChange={status => setStatusFilter(isValidStatusFilter(status) ? status : 'all')}
           statusCounts={getStatusCounts()}
         />
 
@@ -951,7 +951,7 @@ const LeadsManagement = () => {
             <div className="w-10 h-10 border-3 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-4" />
             <p className="text-sm text-slate-500">Loading leads...</p>
           </div>
-        ) : filteredLeads.length === 0 ? (
+        ) : leads.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
               {searchQuery || statusFilter !== 'all' ? <SearchX className="h-8 w-8 text-slate-400" /> : <Inbox className="h-8 w-8 text-slate-400" />}
@@ -986,7 +986,7 @@ const LeadsManagement = () => {
               }
             `}
           >
-            {filteredLeads.map(lead => (
+            {leads.map(lead => (
               <LeadCard
                 key={lead.id}
                 lead={lead}
@@ -1031,11 +1031,12 @@ const LeadsManagement = () => {
         )}
 
         {/* Results Summary */}
-        {!loading && filteredLeads.length > 0 && (
+        {!loading && leads.length > 0 && (
           <div className="text-center py-4 border-t border-slate-200">
             <p className="text-sm text-slate-500">
-              Showing <span className="font-medium text-slate-700">{filteredLeads.length}</span>{' '}
-              {filteredLeads.length === 1 ? 'lead' : 'leads'}
+              Showing <span className="font-medium text-slate-700">{leads.length}</span>{' '}
+              of <span className="font-medium text-slate-700">{totalCount}</span>{' '}
+              {totalCount === 1 ? 'lead' : 'leads'}
               {statusFilter !== 'all' && (
                 <>
                   {' '}in <span className="font-medium text-slate-700">{statusOptions.find(s => s.value === statusFilter)?.label}</span>
