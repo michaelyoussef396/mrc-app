@@ -4,6 +4,7 @@ One row per review. This log is the only input for any knowledge-base entry on t
 
 | date | repo / worktree | diff lines | review type | model / effort | findings | acted | rejected | unclear | missed later | wall time | usage after `/status` | notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-09-05 | mrc-merge / docs/backlog-pricing-canon-and-ledger, ddfa6ca vs main 3191a39 | 93 added, 3 files | adversarial, foreground, `--wait --base main`, MRC default focus, round 1 of 2 | gpt-6-astra / high, config intent only (#705) | 0 | 0 | 0 | 0 | — | 26s | not captured, no non-interactive path found | Target: `branch diff against main`. Verdict: approve. Codex thread `01a0704d-d03b-7422-b6a7-734dadbb0329`. Smoke test on the Part A setup diff, docs only. During the review Codex ran `cat AGENTS.md; cat AGENTS.override.md` as a disk read of files adjacent to the change; `codex debug prompt-input` confirms the instruction channel carried only the override. No git hooks in this repo, so #697 does not apply. Review gate off in both state roots (see Setup findings 1). |
 
 `model / effort` is what `~/.codex/config.toml` was set to, not what ran — the plugin gives no way to verify that from the thread (issue #705).
 
