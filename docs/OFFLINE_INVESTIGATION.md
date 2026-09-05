@@ -7,44 +7,160 @@ Tracker item: **P1-22**.
 **The question:** a technician is in a subfloor with no signal, 30 minutes into
 the 9-section inspection form. What actually happens to their work?
 
-**The short answer:** the work survives, as long as the form stays open. It is
-held in the browser's memory and retried against the server every 30 seconds
-until signal returns. Nothing is silently lost while the tech keeps working.
+**The short answer:** the work survives only while the form stays open in memory.
+There is effectively **no on-device backup at all** during active offline work —
+on any inspection, new or existing — and the app tells the technician twice, in
+writing, that there is. Reload, close, or crash and the work is gone.
 
-There are four real holes, and the first two are serious:
+This was reproduced in a browser on 2026-09-05. See "The reproduction" below.
+An earlier version of this report claimed an inspection that already had a
+server id was protected. **That was wrong**, and the reproduction is what proved
+it. The corrections are marked throughout.
 
-1. **The crash-recovery prompt appears to crash the app.** The inspection form
-   passes a plain object where the toast library requires a React element, and
-   the toast host sits outside every error boundary. On the reading of the code,
-   a technician who reopens the form to recover lost work gets a white screen
-   instead of a Restore button. **This one needs a two-minute runtime check
-   before anyone acts on it** — it is the only finding here that could be a
-   false alarm, and it is also the worst if it is true.
-2. **A brand-new inspection that has never reached the server has no on-device
-   backup at all.** The crash-recovery net the technician has been told about is
-   switched off precisely in the case it exists for. And on an offline reload,
-   the form comes back **blank** — the backup cannot be found without the server.
-3. **One banner tells the technician the opposite of the truth** — and because
-   of how it is written, it is the only version of that banner they can ever see.
+The holes, in order of severity:
+
+1. **The on-device backup almost never gets written.** The reassurance is on a
+   clock anchored at page load; the write is on a clock that restarts on every
+   keystroke. So the app says "your changes are on this device" long before
+   anything is on the device — and a technician who keeps working never triggers
+   the write at all. This affects **every** inspection, not just new ones.
+2. **A brand-new inspection has no backup even in principle**, because the
+   storage key needs a server-assigned id. And if the service-worker cache has
+   gone cold, an offline reload returns a **blank** form — with a duplicate
+   inspection row created if the technician types into it and signal returns.
+   (In the reproduction the cache was warm, so the form came back showing the
+   last saved values instead. Both outcomes lose the new work.)
+3. **Two messages tell the technician their work is on the device when it is
+   not** — the banner (`OfflineBanner.tsx:53`) and the save-failure toast
+   (`TechnicianInspectionForm.tsx:4458`). Both were seen in the reproduction,
+   and both were false at the moment they appeared.
 4. **A partly-failed save still reports "Saved".** Area, moisture-reading and
    subfloor-update failures are swallowed; only the first write throws. Fully
    offline this is harmless, because the first write fails. On a flaky
    connection — bars, no packets, which is the subfloor case — it is not.
+5. **Moisture readings and area add/remove never mark the form dirty at all**
+   (eight handlers, `:3478`–`:3572`). They are invisible to the auto-save, the
+   save-on-Next, the backup and the unsaved-changes warning. They reach the
+   server only if the technician taps Save, or if some unrelated edit drags them
+   along. **This one is not an offline bug — it loses data with full signal**,
+   and it needs its own tracker item.
+6. **UNPROVEN: the restore prompt may crash the app** if it ever renders. The
+   reproduction never reached this path, because no backup existed to restore.
+   Neither confirmed nor disproved — see the section marked UNPROVEN.
 
 Everything else about offline in this app is either honest or harmless.
+
+---
+
+## The reproduction — 2026-09-05, Michael
+
+Run against an **existing** inspection, `INS-2026-0002`, which already had a row
+and an id on the server.
+
+1. DevTools → Network → Offline
+2. Typed ` offline` onto the end of **ATTENTION TO** (value became
+   "atention to offline")
+3. Orange banner appeared: *"You're offline — new changes stay on this device
+   until you're back online."*
+4. Toast appeared: *"Your changes are only on this device for now. Keep this
+   form open — it will save to the server automatically once you're back online."*
+5. Reloaded the page
+6. Field read **"atention to"**. The typed word was gone.
+
+No crash. No "Unsaved work found" prompt. No warning that anything had been lost.
+
+**The app made the on-device claim twice and it was false both times.** This is
+the ground truth this report is now written against; anything that contradicts
+it is wrong.
+
+### Why it happened
+
+Two 30-second timers, anchored to different things.
+
+**The auto-save** (`TechnicianInspectionForm.tsx:4484-4491`) — a `setInterval`
+with an empty dependency array, so it is anchored at **page load** and fires at
+t=30s, 60s, 90s… no matter what the technician does:
+
+```js
+useEffect(() => {
+  const interval = setInterval(() => {
+    if (hasUnsavedChangesRef.current && !isSavingRef.current) {
+      handleSaveRef.current({ silent: true });
+    }
+  }, 30000);
+  return () => clearInterval(interval);
+}, []);
+```
+
+Its failure path is what printed the reassuring toast at step 4.
+
+**The backup** (`:4496-4510`) — a `setTimeout` whose dependency array contains
+`formData`. Every keystroke produces a new `formData` object, so the cleanup
+clears the pending timer and starts a fresh 30 seconds. It is anchored at the
+**last keystroke**:
+
+```js
+useEffect(() => {
+  if (!localStorageKey || !hasUnsavedChanges) return;
+  const backupTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(localStorageKey, JSON.stringify({ formData, currentSection, savedAt: ... }));
+    } catch { /* localStorage full or unavailable — ignore */ }
+  }, 30000);
+  return () => clearTimeout(backupTimer);
+}, [formData, currentSection, localStorageKey, hasUnsavedChanges]);
+```
+
+So the sequence in the reproduction was:
+
+| time | what happened |
+|---|---|
+| t=0 | page loaded, auto-save interval armed for t=30, 60, 90… |
+| ~t=25s | typed " offline" → dirty flag set, backup timer armed for ~t=55s |
+| t=30s | auto-save tick → save fails offline → **"your changes are only on this device"** |
+| ~t=35s | reload — backup timer discarded, nothing ever written |
+
+**The reassurance is on a fixed clock. The write is on a clock that keeps
+resetting.** And the two are anchored to opposite ends of the same burst of
+typing: the interval only tests `hasUnsavedChangesRef` (`:4486`), which flips
+true on the **first** keystroke (`:3465`), while the backup timer restarts on the
+**last** one. So for a burst of typing lasting `d` seconds, the gap between the
+reassurance and the earliest possible write is between `d` and `d + 30` seconds —
+and it grows the longer someone types. The toast can appear mid-word.
+
+The reassurance therefore fires first essentially always, and a technician who
+is continuously filling in a form never triggers a write at all. The backup only
+lands if they stop touching the form for 30 uninterrupted seconds while offline.
+
+That is the mechanism. It applies to every inspection, with or without a server
+id. Section 3 area data is affected at least as badly, and moisture readings and
+area add/remove are worse still for a separate reason — see "Scope of the loss".
 
 ---
 
 ## The headline correction
 
 The premise this session started from was that offline is wired to nothing and
-the UI lies about it. Half of that is right.
+the UI lies about it. **Both halves turned out to be right**, though not in the
+way expected.
 
 The **Dexie offline queue is dead** — confirmed, and worse than assumed: it was
-never wired, not unwired later. But the inspection form does not use the Dexie
-queue. It has its own, separate offline handling, added seven months later, and
-that handling is real, works, and is mostly truthful. The gap is much narrower
-and much more specific than "offline does not work".
+never wired, not unwired later. The inspection form does not use it. It has its
+own, separate offline handling added seven months later, and on first reading
+that handling looked real and mostly truthful.
+
+**The browser test showed otherwise.** The retry-while-open half genuinely works.
+The on-device half — the part both the banner and the toast promise, and the part
+the technician-facing documentation tells the team to rely on — effectively does
+not run during the work it exists to protect. The gap is not narrow.
+
+> **Correction history.** The first version of this report (merge `0764c49`,
+> 2026-09-05) claimed an inspection with a server id was protected by the
+> localStorage backup and that only brand-new inspections were exposed. Michael's
+> reproduction that evening disproved it. The cause was reading the backup's
+> guard conditions without working out when its *timer* actually fires relative
+> to the timer that produces the reassuring message. Corrections are marked
+> inline throughout.
 
 ---
 
@@ -130,9 +246,12 @@ Three things about this are not what the comment above it says.
   key, no backup. The effect returns on the first line.
 - **It is a `setTimeout`, not an interval.** The cleanup clears it on every
   change, so it writes 30 seconds after the tech *stops* typing, not every 30
-  seconds. In steady work it fires in the pauses; while someone is actively
-  filling a section it does not fire at all. Navigating away within 30 seconds
-  of the last keystroke runs the cleanup and cancels the pending write.
+  seconds. **While someone is actively filling a section it does not fire at
+  all**, and online it is usually pre-empted anyway — a successful save clears
+  the dirty flag, which both cancels the pending timer and deletes whatever was
+  already on disk. Navigating away or reloading within 30 seconds of the last
+  keystroke runs the cleanup and discards the pending write. **This is the
+  mechanism the 2026-09-05 reproduction hit.**
 - **The backup is deleted the moment the form reopens.** Two effects fire in the
   same commit, in declaration order, on the render where `localStorageKey`
   becomes non-null (`:4513-4541` then `:4544-4548`):
@@ -169,15 +288,26 @@ Three things about this are not what the comment above it says.
   they go offline, because that is the only time saves stop succeeding.
   `useJobCompletionForm.ts:387-425` has the identical pattern.
 
-- **On an offline reload the backup cannot be found at all.** The key needs
-  `currentInspectionId`, which on reopen comes from the mount fetch
-  (`:3082-3092`) — a network call. Offline, `:3065` throws, the catch at
+- **An offline reload has two very different outcomes, and the reproduction hit
+  the benign one.** The key needs `currentInspectionId`, which on reopen comes
+  from the mount fetch at `:3082-3092`.
+
+  *If the service worker still has that GET cached* (NetworkFirst, one-hour
+  expiry — `vite.config.ts:91`), the fetch resolves from cache, the id is set,
+  the form renders the **last server-saved values**, and the restore effect at
+  `:4513` runs and looks. **This is what happened in the reproduction** — the
+  field showed `ins.attention_to` from `:3316`, which is the proof that the
+  lookup ran and found localStorage empty. The technician sees their old data
+  and no indication that anything newer ever existed.
+
+  *If the cache is cold or older than an hour*, `:3065` throws, the catch at
   `:3418-3424` shows "Failed to load data", `localStorageKey` stays null, and
-  the restore effect returns at `:4514` without ever looking. **The technician
-  gets an empty 9-section form with their work sitting unread in localStorage.**
-  Worse: if they start typing into that blank form and signal returns,
-  `handleSave` sees `currentInspectionId === null` and takes the INSERT branch
-  at `:4148` — creating a **second inspection row for the same lead**.
+  the restore effect returns at `:4514` without looking. The technician gets an
+  **empty 9-section form**. Worse: if they start typing into it and signal
+  returns, `handleSave` sees `currentInspectionId === null` and takes the INSERT
+  branch at `:4148` — creating a **second inspection row for the same lead**.
+  This branch is INFERRED and has not been reproduced; it is on the runtime-test
+  list in section (e).
 
 ### Step 2 — signal drops
 
@@ -236,13 +366,18 @@ Three things worth stating plainly:
   25 Aug` is already sitting in `docs/TODO.md`.** This is not theoretical. It has
   been happening in the field and we have the tickets.
 
-**Whether anything is written to the device at this step depends entirely on
-whether the inspection had ever saved before the signal dropped:**
+**CORRECTED 2026-09-05.** An earlier version of this table said an inspection
+with a server id was "recoverable within 24h". The reproduction disproved that.
+What is actually true:
 
 | | `currentInspectionId` | localStorage backup | If the app dies now |
 |---|---|---|---|
-| Inspection opened and saved earlier while online | set | written 30s after typing stops | recoverable within 24h |
-| Brand-new inspection, first save happened offline | **null** | **never written** | **everything is gone** |
+| Existing inspection, technician still working | set | **only if they stop touching the form for 30 uninterrupted seconds** — otherwise never written | **gone**, and this is the case that was reproduced |
+| Existing inspection, technician stopped >30s ago | set | written | one 10-second toast on next open, then deleted — see below |
+| Brand-new inspection, first save happened offline | **null** | **never written, at all** | **gone** |
+
+The middle row is the only one with any protection, it is the least likely
+state for someone mid-inspection to be in, and even it is fragile.
 
 ### Step 4 — tech keeps working, fills Section 4
 
@@ -403,7 +538,7 @@ Every user-facing offline string in the app, and whether it holds.
 | Where | What it says | True? |
 |---|---|---|
 | `OfflineBanner.tsx:53` | "You're offline — new changes stay on this device until you're back online." | **FALSE.** Changes stay in the page's memory, not on the device — unless the inspection has already saved once. It is also the *only* version of this banner that can ever appear (see below). |
-| `TechnicianInspectionForm.tsx:4455-4459` | "You're offline — not saved to the server. Your changes are only on this device for now. Keep this form open — it will save to the server automatically once you're back online." | **True.** The dirty flag survives the failure and the 30s timer retries. "Keep this form open" is doing real work in that sentence. |
+| `TechnicianInspectionForm.tsx:4455-4459` | "You're offline — not saved to the server. Your changes are only on this device for now. Keep this form open — it will save to the server automatically once you're back online." | **HALF FALSE — corrected 2026-09-05.** The second sentence is the retry promise and it is **true**: the dirty flag survives and the 30s timer retries. The first sentence, *"your changes are only on this device for now"*, is **false at the moment it appears** — this toast is fired by the mount-anchored interval, which almost always beats the keystroke-anchored backup write. In the reproduction the changes were on no device at all. "Keep this form open" is the only part carrying real weight, and it is doing more work than the technician can tell. |
 | `TechnicianInspectionForm.tsx:4640-4644` | "You're offline — inspection not submitted. Nothing was sent to the server… keep this form open and tap Complete again once you're back online." | **True.** Guarded by `lastSaveFailedOfflineRef` so Complete can never report success over a save that never landed. |
 | `TechnicianInspectionForm.tsx:3650-3651` | "Photos can't be uploaded without a connection and are not kept on this device." | **True**, and the most useful sentence in the app. |
 | `Section3BeforePhotos.tsx:332` / `Section4AfterPhotos.tsx:228` | "You're offline — the photo was not uploaded and is not kept on this device." | **True.** |
@@ -463,10 +598,15 @@ same time. That is why it has survived review: it reads as part of the fix.
 
 ## c. THE GAP
 
-### The recovery prompt looks like it crashes the app
+### UNPROVEN — the recovery prompt may crash the app if it ever renders
 
-Flagged separately because it is the most severe thing found and because it is
-the one finding that most needs confirming in a browser before anyone acts.
+**Status: neither confirmed nor disproved.** The 2026-09-05 reproduction did not
+reach this path. No "Unsaved work found" prompt appeared, because no backup had
+been written, so the code below never executed. The browser test that disproved
+the *scoping* of the backup finding says nothing either way about this one.
+
+Kept in the report rather than deleted, because if it is real it changes the
+order of the fix. The static reading follows; treat it as a hypothesis.
 
 The inspection form imports the shadcn toast (`TechnicianInspectionForm.tsx:6`,
 `import { useToast } from '@/hooks/use-toast'`). That toast's `action` is typed
@@ -514,24 +654,148 @@ and `FormRecoveryToast.tsx:23`, both import `toast` from **sonner**, which
 accepts `{ label, onClick }`. They are fine. The inspection form is the only one
 using the shadcn toast with an object action.
 
-**Why this could have gone unnoticed for months:** the prompt only fires when a
-backup is actually on disk, and the delete effect (below) wipes the backup after
-every successful save. So it only appears after a crash or a close with unsaved
-work — exactly the rare path nobody tests, and exactly the path the
-documentation tells the team to rely on.
+**Why nobody has hit this:** the prompt only fires when a backup is actually on
+disk, and — as the reproduction showed — a backup is almost never on disk. The
+code has probably never run in production. That is also why the 2026-09-05 test
+did not settle it.
 
-**Confirm before acting.** Open a saved inspection, make a change, wait for the
-debounce, kill the tab, reopen. Either a Restore button appears (this finding is
-wrong) or the app white-screens (this finding is right and it is a P0). Two
-minutes. It is the first runtime test in section (e) for that reason.
+**What would settle it.** The test has to *force* a backup to exist first, which
+the earlier attempt did not do:
+
+1. Open an existing inspection **online** and let it load fully.
+2. Go offline (DevTools → Network → Offline).
+3. Change one field, then **do not touch the form for 60 seconds.** This is the
+   step that matters — the debounce needs 30 uninterrupted seconds, and the
+   earlier test reloaded before it elapsed.
+4. In DevTools → Application → Local Storage, confirm a key
+   `mrc_inspection_backup_<inspection-id>` now exists. **If it does not, this
+   section is moot and the backup write is broken more deeply than the debounce
+   explains — report that, it would be a bigger finding than the crash.**
+5. With the key confirmed present, reload the page.
+6. Watch what happens in the first two seconds.
+
+Outcomes: a **Restore button** means this finding is wrong and recovery works.
+A **white screen**, or `Objects are not valid as a React child` in the console,
+means it is right and it is a P0 that comes before any other offline work. A
+reload that shows the old value with **no prompt and no crash** means something
+third is going on and the restore effect is not running at all — also worth
+knowing.
+
+### Scope of the loss — two questions the reproduction raised
+
+**Is an edit made BEFORE going offline any safer than one made after?**
+
+"Before vs after going offline" is not the axis. The real axis is **did a
+successful save land in between**. An edit is safe only once
+`setHasUnsavedChanges(false)` at `:4424` has run, which happens only inside the
+success path of `handleSave`. Concretely:
+
+- Edited online, an auto-save tick succeeded, *then* signal dropped — **safe**,
+  it is on the server. Note that same success also deleted the on-device backup
+  (`:4544-4548`), so it is on the server and nowhere else.
+- Edited online but signal dropped before the next tick — **exactly as exposed
+  as an edit made offline.** The tick fires, fails, and the edit is in memory
+  only. The technician cannot tell these two cases apart; both show the same
+  amber toast.
+
+Since ticks are 30 seconds apart and anchored at page load, there is always a
+rolling window of up to 30 seconds of work in this state, even with perfect
+signal. Going offline just freezes that window open indefinitely.
+
+**Does Section 3 area data behave differently from a Section 1 text field?**
+
+**Yes — Section 3 is worse, and this is a bug in its own right, not an offline
+one.** There are only three `setHasUnsavedChanges` calls in the entire 4,880-line
+file (`:3465`, `:3475`, `:4424`). Plain area fields are covered by `:3475`. But
+**eight other Section 3 / Section 4 mutators call `setFormData` without setting
+the dirty flag at all**:
+
+| Line | Handler |
+|---|---|
+| `:3478` | `handleAddArea` |
+| `:3486` | `handleRemoveArea` |
+| `:3503` | `handleMoistureReadingAdd` |
+| `:3520` | `handleMoistureReadingRemove` |
+| `:3531` | `handleMoistureReadingChange` |
+| `:3553` | `handleSubfloorReadingAdd` |
+| `:3565` | `handleSubfloorReadingRemove` |
+| `:3572` | `handleSubfloorReadingChange` |
+
+(`handleCalculateDewPoint` at `:3586` is *not* one of them — it delegates to
+`handleAreaChange` and `handleChange`, so it does set the flag.)
+
+Everything that protects work is gated on that flag, so all eight edits are
+invisible to **all four** of these:
+
+- the 30-second auto-save — `if (hasUnsavedChangesRef.current …)` (`:4486`)
+- the save on Next/Previous — `if (hasUnsavedChanges) handleSave()` (`:4569`, `:4733`)
+- the localStorage backup — `if (!localStorageKey || !hasUnsavedChanges) return` (`:4497`)
+- the Back-navigation warning — `if (hasUnsavedChanges) { window.confirm(…) }` (`:3864`)
+
+So a technician who enters a room's **moisture readings and nothing else**, then
+taps Next, triggers no save and gets no warning. Those readings reach the server
+only if they tap **Save** explicitly — the Header and Footer buttons call
+`handleSave` unconditionally (`:4770`, `:4798`) — or if some *other* edit happens
+to set the flag and drag the whole form along with it, since `handleSave` always
+writes everything.
+
+That last mechanism is why this has not been catastrophic: in normal use people
+type in other fields too. But it means moisture readings, the core measurement
+data of an inspection, are persisted by luck rather than by design — and offline
+it compounds, because they are not backed up either.
+
+**This is separate from the offline work and deserves its own tracker item.**
+It is a data-loss bug with signal, not just without it.
+
+For the plain fields that *do* set the flag, the two paths are identical: same
+`formData` object, same debounce, same exposure.
+
+```js
+// :3463-3466  — Section 1 "Attention To" goes through this
+const handleChange = (field: keyof InspectionFormData, value: any) => {
+  setFormData((prev) => ({ ...prev, [field]: value }));
+  setHasUnsavedChanges(true);
+};
+
+// :3468-3476  — Section 3 area fields go through this
+const handleAreaChange = (areaId: string, field: keyof InspectionArea, value: any) => {
+  setFormData((prev) => ({ ...prev, areas: prev.areas.map(...) }));
+  setHasUnsavedChanges(true);
+};
+```
+
+These two are equivalent — same object, same flag, same debounce. It is the nine
+handlers in the table above, which set no flag at all, that make Section 3 worse.
+
+Area work is also more exposed by degree even where the flag is set, because
+filling in areas involves sustained typing, which resets the debounce
+continuously.
+
+One asymmetry runs the other way: area rows are written to
+`inspection_areas` **after** the `inspections` write in `handleSave`. Offline the
+`inspections` write throws first (`:4145`/`:4153`), so the area writes are never
+attempted at all — which is why an offline save fails cleanly rather than
+partially. On a flaky connection that protection disappears; see the
+flaky-signal section above.
 
 ### Genuinely at risk
 
-**1. A new inspection started with no signal has no safety net. (The real one.)**
+**1. In practice, no inspection has a safety net while the technician is
+working. (The real one — and broader than this report first said.)**
 
-`localStorageKey` is null until the server has accepted a save, so the backup
-effect returns immediately and nothing is ever written to the device. The work
-exists only in the page's memory. Anything that ends the page ends the work:
+Two independent causes, and either alone is enough to lose the work:
+
+- **On any inspection, new or existing:** the backup timer restarts on every
+  keystroke, so it only fires after 30 uninterrupted seconds. A technician
+  filling in a form does not sit still for 30 seconds, so the write does not
+  happen. **This is what the 2026-09-05 reproduction hit**, on an inspection
+  that had a server id and which the earlier version of this report called safe.
+- **On a brand-new inspection additionally:** `localStorageKey` is null until
+  the server has accepted a save, so the backup effect returns on its first line
+  and nothing is ever written no matter how long they wait.
+
+Either way the work exists only in the page's memory, and anything that ends the
+page ends the work:
 
 - closing the tab or the PWA
 - pull-to-refresh, an accidental back-swipe
@@ -565,13 +829,18 @@ are told to read — says:
 > within 24 hours and you'll see 'Unsaved work found' with a 'Restore' button —
 > tap it and your work comes back."
 
-It is wrong three ways.
+It is wrong four ways, and there is no case in which it is true.
 
+- **"Refreshed every 30 seconds" is false.** It is a debounce, not an interval:
+  it restarts on every keystroke and only fires after 30 uninterrupted seconds
+  of not touching the form. During active work it does not fire at all. This is
+  the sentence that made the reproduction's outcome surprising, and it is the
+  most important line in the document to correct.
+- **Even when it does fire, it has usually just been deleted.** The clear effect
+  removes the backup after every successful save, so during a normal online
+  session there is nothing on disk at essentially any moment.
 - For an inspection that has never reached the server, **no backup is written at
-  all**, so there is nothing to restore and no toast appears.
-- **"Refreshed every 30 seconds" is a debounce, not an interval** — it fires
-  after typing stops, and is cancelled outright if the tech leaves within 30
-  seconds of the last keystroke.
+  all**, however long they wait, so there is nothing to restore.
 - **"Within 24 hours" is not the window.** The backup is deleted from the device
   the instant the form reopens; the only chance to recover is the 10-second
   toast. A technician who follows this paragraph literally — reopens the form
@@ -616,13 +885,24 @@ they must remember what they owe. `MRC-APP-1D` ("Photo upload failed",
 
 - **Section navigation.** One shared `formData`, saves fire-and-forget, nothing
   unmounts. Steps 4 and 5 of the scenario are safe.
-- **Work already saved once.** After the first successful save the tech has both
-  a server row and a debounced on-device backup with a 24-hour restore window.
-- **Silent data loss during an offline spell.** The tech is told every 30
-  seconds, the Complete button refuses to lie, and Sentry gets every failure.
-- **Reconnection.** Automatic, whole-form, within 30 seconds. No manual step.
+- **Reconnection, if the form is still open.** Automatic, whole-form, within 30
+  seconds. No manual step. The dirty flag survives the failure, so the retry is
+  real. This is the one part of the offline story that genuinely works.
 - **Anything to do with the Dexie queue.** It cannot lose data because it never
   holds any.
+
+**Removed from this list on 2026-09-05, because the reproduction disproved them:**
+
+- ~~"Work already saved once. After the first successful save the tech has both a
+  server row and a debounced on-device backup with a 24-hour restore window."~~
+  **False.** The edits made *after* that save are the ones at risk, and they are
+  not backed up while the technician is still typing. Having saved once protects
+  what was saved, and nothing since.
+- ~~"Silent data loss during an offline spell. The tech is told every 30
+  seconds…"~~ **False as reassurance.** They are told every 30 seconds, but what
+  they are told is wrong: the message asserts the work is on the device when it
+  usually is not. Being told frequently is not the same as being told correctly,
+  and the loss at reload is silent — nothing warns that anything went missing.
 
 ---
 
@@ -704,9 +984,12 @@ offline was the only place it happened.
 
 ## d. OPTIONS
 
-### Option 1 — Stop the UI lying, and fix the backup gate
+### Option 1 — Stop the UI lying, and make the backup actually happen
 
-Two edits, both small, and they are not the same size of idea.
+**Rescoped 2026-09-05.** This option was originally two edits, on the premise
+that only brand-new inspections were exposed. The reproduction showed the
+debounce is the bigger cause and affects everything, so there are now three
+parts and 1b is the important one.
 
 **1a. The banner.** `OfflineBanner.tsx:49-53`. Delete the dead `pendingCount`
 branches and replace the message with something true:
@@ -716,10 +999,20 @@ branches and replace the message with something true:
 
 Also removes the last live read of the Dexie queue from the banner.
 
-**1b. The backup gate — this is the one that actually protects work.**
-`TechnicianInspectionForm.tsx:4494`. Key the backup on something that exists
-before the first server round-trip. `leadId` is in the URL and available on
-mount:
+**1b. Make the backup fire while the technician is working. (The one that
+matters.)** `TechnicianInspectionForm.tsx:4496-4510`. The debounce is the defect:
+it restarts on every keystroke, so it never fires during exactly the activity it
+exists to protect. It should be a **throttle or an interval**, not a trailing
+debounce — write at most every N seconds *while dirty*, rather than N seconds
+after the last change. A 5–10 second interval writing to `localStorage` is
+cheap; the form state is a small JSON blob.
+
+The same change should also make the write happen **immediately on the first
+failed save**, so that the moment the app tells a technician their work is on
+the device, it is.
+
+**1c. The key gate.** `:4494`. Key the backup on something that exists before the
+first server round-trip; `leadId` is in the URL and available on mount:
 
 ```js
 const localStorageKey = currentInspectionId
@@ -727,22 +1020,52 @@ const localStorageKey = currentInspectionId
   : `mrc_inspection_backup_lead_${leadId}`;
 ```
 
-Needs care on two points: the restore-on-mount effect and the clear-on-save
-effect both key off the same value, so an inspection that transitions from
-lead-keyed to id-keyed must not orphan or double-offer a backup. That is the
-whole design question, and it is a small one.
+Care needed on the transition: the restore-on-mount and clear-on-save effects
+key off the same value, so an inspection that moves from lead-keyed to id-keyed
+must not orphan or double-offer a backup.
 
-Optionally **1c**: a `beforeunload` guard while `hasUnsavedChanges` is true, and
-fix the two false doc lines (`HOW_TO_USE_THE_APP.html:674-677`,
+**1d. Reconsider the clear, and the recovery path.** `:4544-4548` deletes the
+backup on every transition to clean, including every successful auto-save, so an
+online technician has no backup on disk at any moment. Whether that is right
+depends on what the backup is for — if it is crash recovery, it should probably
+survive until the work is provably on the server *and* the form has moved on.
+
+**Fixing 1b alone is not enough.** Even with a backup that reliably exists,
+recovery is still a single 10-second toast that the technician has to notice and
+tap, on a phone, in the field — and the key is deleted in the same render that
+offers it. A backup nobody can retrieve is not much better than no backup. The
+session should decide what recovery actually looks like, not just make the write
+fire.
+
+**1f. Apply the same fix to the job completion form.**
+`useJobCompletionForm.ts:369-384` is the identical effect — same guard, same
+`setTimeout`, same four-element dependency array, same cleanup, same
+`removeItem` at `:423`. Its own comment at `:368` correctly calls it a "debounce
+pattern", which is how the inspection form's mislabelled comment was caught. If
+only one is fixed, Phase 2's job-completion workflow keeps the same loss window.
+
+Also fix the two false doc lines (`HOW_TO_USE_THE_APP.html:674-677`,
 `MRC_MASTER_BACKLOG.md:2501-2503`).
 
-**Cost:** 1a is half an hour. 1b is 2–3 hours including the transition case and
-a test. 1c another hour. Call it a **half-day session**, one file for the banner,
-one for the form, two docs. No migration, no Edge Function, no schema.
+Optionally **1e**: a `beforeunload` guard while `hasUnsavedChanges` is true.
 
-**What it buys:** closes the only genuine data-loss hole and stops the app
-telling technicians something that isn't true. After this, "keep the form open"
-is the honest instruction and the backup covers the case where they don't.
+**Cost, rescoped.** 1a half an hour. 1b 2–3 hours — changing the timer is a
+few lines, but it needs a test that actually asserts a write happens *during*
+continuous editing, which is the assertion nobody wrote the first time. 1c 2–3
+hours including the transition case. 1d is a decision plus an hour. 1e an hour.
+Still a **single session**, now closer to a full day than a half. One file for
+the banner, one for the form, two docs. No migration, no Edge Function, no
+schema.
+
+**Ordering note:** settle the UNPROVEN crash question first (test in section e).
+If the restore prompt does crash, fixing it is small and belongs in the same
+session — but the session should not ship a backup that finally gets written
+only for the recovery path to white-screen on it.
+
+**What it buys:** a backup that exists during the work it is supposed to protect,
+and an app that stops telling technicians something untrue. After this, "keep
+the form open" is honest advice rather than the only thing standing between a
+technician and losing their morning.
 
 #### What Option 1 does NOT fix — read this before repeating it to anyone
 
@@ -847,19 +1170,30 @@ seconds instead of a session.
 
 ### Recommendation
 
-**Option 1 now, as a single half-day session. Option 3 folded into it if you
-want the ledger clean. Option 2 only if Glen or Clayton say photos-offline is a
-real operational need — and that is a business call, not an engineering one.**
+**Option 1 now, as a single session — now closer to a full day than a half.
+Option 3 folded into it if you want the ledger clean. Option 2 only if Glen or
+Clayton say photos-offline is a real operational need — and that is a business
+call, not an engineering one.**
 
 > **Ruled 2026-09-05 (Michael): Option 1 endorsed — fix the backup gate and the
 > banner. Dexie is explicitly not being wired: a week of work blocked on a
 > question nobody has put to Glen yet.** Implementation is a later session; this
 > report changed no code.
+>
+> **Rescoped the same evening** after the reproduction. The ruling stands and
+> nothing about it depends on the corrections — Option 1 is still the right call
+> and Dexie is still not the answer. But 1b is now a different, larger and more
+> important edit than "fix the backup gate": the gate was never the main cause,
+> the debounce was. Two further items surfaced that were not on the table when
+> the ruling was made and are **not** part of Option 1: the dirty-flag gap on
+> moisture readings, and the swallowed partial-save writes. Both want their own
+> tracker entries.
 
-The reasoning: the actual harm on the table is one technician losing 30 minutes
-because they closed an app that told them it was safe to close. Option 1b fixes
-that for a few hours' work. Option 2 is a week and buys capability the team may
-not need — techs currently cope by taking photos when they surface.
+The reasoning is unchanged and if anything stronger: the harm on the table is a
+technician losing their morning's work after the app told them twice it was
+safe. That has now been demonstrated rather than predicted. Option 2 is a week
+and buys capability the team may not need — techs currently cope by taking
+photos when they surface.
 
 **What I would not do:**
 
@@ -871,17 +1205,33 @@ not need — techs currently cope by taking photos when they surface.
   drafts that sync into a partly-populated inspection — worse than no queue,
   because it would look like it worked.
 - **I would not touch `TechnicianInspectionForm.tsx` in parallel with Sessions G
-  or G2.** The one-line change at `:4494` is small but the file is contested.
+  or G2.** The changes are small but the file is contested, and 1b now touches
+  the timer as well as the key.
 - **I would not leave the banner as it is while deferring the rest.** It is the
   cheapest edit here and the only one that changes what a technician *does*.
+- **I would not ship 1b without a test that asserts a write happens during
+  continuous editing.** That is the exact assertion nobody wrote the first time,
+  and its absence is why this shipped and why the first version of this report
+  believed the feature worked.
+- **I would not fold the moisture-reading dirty-flag gap into this session.** It
+  is a bigger blast radius — eight handlers, and it changes when saves fire with
+  full signal. It deserves its own session and its own testing, not a ride-along
+  on an offline fix.
 
 ---
 
 ## e. WHAT I COULD NOT DETERMINE BY READING
 
+**Answered on 2026-09-05:** *does an existing inspection with a server id keep an
+offline edit across a reload?* **No.** Reproduced above. That test also showed
+there is no crash on that path and no restore prompt, because no backup existed.
+
 | Question | Runtime test |
 |---|---|
-| **Does the "Unsaved work found" toast crash the app?** The single most important open question here — everything about the recovery story depends on it. | **Do this first, it takes two minutes.** Open a saved inspection, change a field, wait 30 seconds for the debounce, kill the tab, reopen. Restore button = the finding is wrong and recovery works. White screen or a React "Objects are not valid as a React child" error in the console = it is right and it is a P0 in its own right, ahead of everything in Option 1. |
+| **Does the backup write EVER fire?** The debounce explains the reproduction, but only if the write works once 30 quiet seconds elapse. If it never writes even then, something worse is wrong. | Open an existing inspection online, go offline, change one field, then **do not touch anything for 60 seconds**. DevTools → Application → Local Storage. Key `mrc_inspection_backup_<id>` present = the debounce is the whole story and Option 1b fixes it. Absent = the write is broken outright and this report still understates the problem. |
+| **Does the "Unsaved work found" toast crash the app?** Still open — the 2026-09-05 test never reached it. | Run the test above first so a backup provably exists, *then* reload. Restore button = the crash finding is wrong. White screen, or `Objects are not valid as a React child` in the console = it is right and it is a P0 ahead of the rest of Option 1. Old value with no prompt and no crash = the restore effect is not running at all, which is a third finding. |
+| **Does an offline reload with a cold cache create a duplicate inspection row?** INFERRED, not reproduced. The 2026-09-05 test had a warm cache, so the form reloaded with its saved values rather than blank. | Open an inspection, go offline, wait out the one-hour REST cache (or clear the `supabase-api-cache` entry in DevTools → Application → Cache Storage), reload. If the form comes back **empty**, type something and go back online. Then check whether the lead now has two `inspections` rows. A duplicate would be a data-integrity bug worth its own item. |
+| **Do moisture readings save on their own?** The eight handlers set no dirty flag. | Open an inspection, add a moisture reading and change nothing else, wait 40 seconds without touching the form, then reload without pressing Save. If the reading is gone, the dirty-flag gap is confirmed with signal, not just without it. |
 | Does the inspection form even open offline? The shell is precached, but the mount fetches the lead, booking and existing inspection over `/rest/`, cached `NetworkFirst` with `maxAgeSeconds: 60 * 60` (`vite.config.ts:91`). An hour after the tech last loaded that job, the cache entry has expired. | On the Vercel preview after a full SW reset: open a technician job online, wait, go offline in DevTools, hard-navigate to the form URL. Does it render with data, render empty, or fail? Repeat >1 hour later. Empty-but-rendered is the dangerous outcome — the tech could start typing over nothing. |
 | Does the auth token survive a long offline spell? `autoRefreshToken: true` and `useSessionRefresh` refreshes at <10 min to expiry, but `/auth/` is `NetworkOnly`. If the JWT expires during a 90-minute basement job, does the first reconnected save 401 and lose the retry? | Log in, go offline, advance past token expiry, edit the form, reconnect. Watch whether the next auto-save succeeds or 401s. A 401 here would turn "keep the form open" into false advice. |
 | What does a mid-shift deploy do to an open form? `skipWaiting` + `clientsClaim` + `autoUpdate`. Does the page reload and drop in-memory `formData`? | Open the form with unsaved changes, deploy to preview, watch. If it reloads, this is a second silent-loss vector with the same root cause as risk 1 and the same fix. |
@@ -910,7 +1260,22 @@ That pass changed real conclusions — it caught that `syncAll()` never executes
 rather than merely no-ops, that the photo picker opens before refusing, that the
 backup is deleted after every save rather than once per reopen, and that
 `PHASE_2_EXECUTION.md`'s dead-component list wrongly includes the one component
-that works. Findings labelled as needing a runtime check are exactly the ones
-reading cannot settle; they are not hedges on the rest.
+that works.
+
+**It was still wrong about the thing that mattered most, and a five-minute
+browser test found it.** Both readers and verifiers checked the backup's *guard
+conditions* — is the key null, is the flag set — and none worked out when its
+*timer* fires relative to the timer that produces the reassuring toast. The bug
+was in the interaction between two effects that were each individually correct.
+Reading found every condition and missed the race.
+
+The lesson for the next investigation of this kind: when two timers govern a
+promise and its fulfilment, draw the timeline before drawing a conclusion — and
+when a report says a safety mechanism works, test it before merging rather than
+after. This one was merged on a static reading and corrected within the hour.
+
+Findings still labelled UNPROVEN are exactly the ones reading cannot settle.
+They are not hedges on the rest, and after this they should be treated as
+genuinely open rather than probably right.
 
 No application code was changed. This branch contains one new file.
