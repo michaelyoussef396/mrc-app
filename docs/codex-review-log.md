@@ -74,7 +74,23 @@ Notes on the run itself:
    diff-lines column. The reasoning accepted was that the ~150 limit protects review quality while
    the Target rule protects against silent scope corruption — breaking the former knowingly is safer
    than breaking the latter.
-5. See the UNVERIFIED block below. It is not a caveat on the findings; it is the state of the work.
+5. **Two sessions worked `mrc-lead-list` concurrently, and the parallel model held.** Session F swept
+   `main` into 18 worktrees during the night and, by Michael's instruction, did `mrc-lead-list` last.
+   Its merge commit `46023aa` (`main` → `docs/codex-log-session-h`, carrying PR #129) therefore
+   appeared on a branch Session H was actively writing to, authored by neither the session nor
+   Michael directly. Nothing broke, and not by luck: **F re-verified the tree before merging, and H
+   found it clean, checked its own three log rows and the Session H section were intact, and built
+   on the merge rather than reverting or force-pushing over it.** H also flagged the commit as
+   unaccounted-for in its close-out instead of quietly absorbing it — which is how it got explained
+   rather than becoming an anomaly in the history.
+
+   This is the one place tonight's parallel-session model actually collided. Worth recording because
+   the collisions that matter are silent ones: the same night, `main` moved five times underneath
+   this session (PRs #124–#129) and the branch scope had to be re-measured with `main...HEAD` rather
+   than `main` twice, once after a two-dot measurement briefly reported seven changed files instead
+   of two. The rule that held throughout: **measure against the merge-base, verify by content, and
+   say so when something on your branch is not yours.**
+6. See the UNVERIFIED block below. It is not a caveat on the findings; it is the state of the work.
 
 ### ⛔ UNVERIFIED — read this before trusting anything above
 
