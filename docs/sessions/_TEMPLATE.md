@@ -29,9 +29,9 @@
 ## Step log
 
 Append a line BEFORE each unit of work. Sub-agents prefix every line with `[<agent-name>]`.
-Format: `- HH:MM · agent · what · files · outcome`
+Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` or `codex`, so both agents' work reads in one log.
 
-- HH:MM · CC · filled header · (none) · <fill>
+- HH:MM · CC · CC · filled header · (none) · <fill>
 
 ## Codex threads
 
@@ -65,6 +65,9 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 
 ## Resume from here
 
+<!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit; keep this the last section -->
+
+- Rewritten by the Stop hook after the first turn. Until then, or when no Stop hook runs (Codex, a session that added the hook), fill by hand:
 - Next command: <exact command>
 - Uncommitted files: <`git status --porcelain` output, or none>
 - Untested: <what has not been run>

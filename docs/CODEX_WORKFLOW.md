@@ -97,3 +97,26 @@ Every sub-agent (the Agent tool, `.claude/agents/*`) appends its own step-log li
 - The repo and user-scope `session-start.sh` are both registered, so the context banner prints twice; only the repo copy keeps the session log.
 - Codex loads at most one instruction file per directory (`AGENTS.override.md` > `AGENTS.md` > fallbacks) and never `CLAUDE.md`; `cd <dir> && codex debug prompt-input "noop"` shows what loaded without spending quota.
 - `protect-files.sh` denies Edit/Write under `.claude/hooks/*`; changes there go through Michael or an approved scratchpad-and-copy with the diff shown.
+- A Stop hook must never emit `hookSpecificOutput.additionalContext` (§10, trap 3); a hook added this session does not run this session (§10, trap 4).
+
+## 9. Handing over to Codex
+
+The line Michael pastes into Codex, verbatim, with the log's real filename:
+
+```
+Read docs/sessions/<file>.md. Continue from "Resume from here". Append to that log — never create a second one. Follow AGENTS.md.
+```
+
+What Codex does first, before any other action: read that log top to bottom, then append its own step-log line — tool `codex`, agent `[codex]`, what = "read log, resuming from: <the next step it found>". For the rest of the session it appends to that same file: it never creates a second log for the branch, never rewrites earlier lines, and never hand-edits "Resume from here" (that section is hook-maintained by Claude Code's Stop hook; with no Stop hook running under Codex, Codex records its resume state as step-log lines instead). Scope stays bounded by §6: the steps named under "Resume from here" and the files under "Touching", nothing else. Proven live 2026-09-06 (`docs/sessions/2026-09-06-chore-session-resume.md`, "C2"): from a log naming one step, a read-only `codex exec` with this line stated the step from the log alone, and a workspace-write run performed it, appended two `· codex · [codex] ·` step-log lines to the same log, created no second log and left "Resume from here" untouched. Two things to expect: Codex follows absolute paths it finds in AGENTS.md and read `docs/CODEX_WORKFLOW.md` from `~/mrc-app-1` when the scratch repo had no copy; and `--ephemeral` runs leave no `codex resume` id.
+
+## 10. Claude Code hooks and the usage window (established live 2026-09-06, Claude Code 2.1.263)
+
+- **Stop hook.** Fires once at the end of every assistant turn: 11 `stop_hook_summary` entries paired with 11 `turn_duration` entries in one session's transcript, and one firing per `claude -p` turn in a nested test. Stdin JSON fields: `session_id, transcript_path, cwd, prompt_id, permission_mode, hook_event_name, stop_hook_active, last_assistant_message, background_tasks, session_crons`. The hook's environment also carries `CLAUDE_CODE_SESSION_ID` and `CLAUDE_PROJECT_DIR`.
+- **Plain stdout from a Stop hook never reaches the model**; it shows only in transcript mode. `{"systemMessage": "…"}` is shown to the user as a notice, not to the model. The only model-facing hook channel is the SessionStart hook's stdout, at startup.
+- **A tracked hook reads a credential.** `.claude/hooks/window-remaining.sh` (used by `session-start.sh` and `session-resume.sh`) takes the Claude Code OAuth token from the macOS Keychain item `Claude Code-credentials` (`security find-generic-password -s "Claude Code-credentials" -w`, field `.claudeAiOauth.accessToken`) and calls `GET https://api.anthropic.com/api/oauth/usage` with `Authorization: Bearer <token>` and `anthropic-beta: oauth-2025-04-20` — the same call Claude Code's own `fetchUtilization` makes. It reads `five_hour.utilization` (percent) and `five_hour.resets_at`. The token is held in a variable, fed to curl on stdin, never written or printed; the line is cached 60 s in `$TMPDIR`. The token expires about six hours after issue and Claude Code refreshes it, so anything but HTTP 200 prints `unknown`, never a stale number. Nothing else exposes the window non-interactively: no env var, no transcript field, no file under `~/.claude`; the statusLine stdin JSON carries `rate_limits.five_hour`, interactive only.
+- **Edit after a Stop-hook rewrite.** The Edit tool refuses a file changed since it was last read, so after any turn that changed git state, re-read the session log before editing it.
+
+**Traps 3 and 4 (numbering continues from §6):**
+
+3. **`hookSpecificOutput.additionalContext` from a Stop hook loops.** It reaches the model as a system reminder and makes it answer again, which fires the Stop hook again with `stop_hook_active: true`: 9 firings in one turn at 4x the cost, in the 2026-09-06 nested test. Never emit it from a Stop hook, for any purpose. `session-resume.sh` carries the same warning above its output block.
+4. **Hooks are snapshotted at session start.** A hook added to or changed in `.claude/settings.json` does not run in the session that changed it until a restart or a `/hooks` review. The session that ships a hook proves it in a nested `claude -p` session (a scratch clone, `--resume` for further turns), never by waiting for it to fire in itself.

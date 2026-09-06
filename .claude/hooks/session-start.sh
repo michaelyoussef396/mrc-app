@@ -146,12 +146,24 @@ if command -v jq >/dev/null 2>&1 && [ -f "$SESSION_TEMPLATE" ]; then
   SESSION_LOG_CONTEXT=$(session_log_context)
 fi
 
+# --- 5-hour window (printed into context; docs/CODEX_WORKFLOW.md §10) --------------------
+# window-remaining.sh prints the usage line and, at >= 80% used, the "window low" line.
+WINDOW_CONTEXT=""
+if [ -x "$HOOK_DIR/window-remaining.sh" ]; then
+  WINDOW_LINE=$("$HOOK_DIR/window-remaining.sh" 2>/dev/null)
+  WINDOW_CONTEXT="Window: ${WINDOW_LINE:-unknown}"
+fi
+
 if [ -n "$CONTEXT" ]; then
   echo "$CONTEXT"
 fi
 
 if [ -n "$SESSION_LOG_CONTEXT" ]; then
   echo "$SESSION_LOG_CONTEXT"
+fi
+
+if [ -n "$WINDOW_CONTEXT" ]; then
+  echo "$WINDOW_CONTEXT"
 fi
 
 exit 0
