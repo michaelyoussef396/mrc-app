@@ -4,7 +4,7 @@ Last updated: 2026-09-06
 
 - Detail for every item: `docs/MRC_MASTER_BACKLOG.md` (the 3 September 2026 backlog, archived verbatim). This file holds IDs and tracking state only.
 - Pricing rules and the resolved/unresolved conflicts: `docs/PRICING_CANON.md`.
-- Bug classes, entry template and the ledger rule: `docs/BUG_LEDGER.md`.
+- Bug classes, entry template and the ledger rule: `docs/BUG_LEDGER.md` — **this file does not exist on `main` (checked 2026-09-06).** The Ledger-entry column below and step 9 of `docs/GIT_HABITS.md` both depend on it, so that workflow step is currently unperformable. Either write the file or drop the requirement; do not keep pointing at nothing.
 
 ## How to use this file
 
@@ -18,7 +18,24 @@ Last updated: 2026-09-06
 - Rows marked "folded" or "locked" carry no checkbox. They are kept so the ID keeps resolving.
 - Do not re-log anything in the SHIPPED section.
 
-## Session plan — approved 2026-09-05
+## Session plan — THE FOUR LANES, approved 2026-09-06
+
+**This is the live plan. The 2026-09-05 table below it is the previous block and is history — do not open a session from it.** Worktrees created and baselined 2026-09-06, all four off `2c8087e`, each a fresh lockfile-faithful `npm ci`: TypeScript 5.8.3, **99 tsc error lines**, 71 test files / 1222 tests passing. That 99 is the gate and it is comparable across all four (T14). Merge `origin/main` on open — they were cut before `186d2e1`.
+
+| Lane | TODO IDs | Worktree | Branch | Owns | Must not touch | Type | Parallel with |
+|---|---|---|---|---|---|---|---|
+| **R** | P0-9 (a)–(e) | `~/mrc-guard-fix` | `fix/guard-hook-bypasses` | `.claude/hooks/block-supabase-prod.sh`, `scripts/test-supabase-guard.sh` | all `src/`, `supabase/`, `api/`, `.claude/settings.json` | build-now | all three |
+| **G1** | P0-10, then P0-0 / P1-14 | `~/mrc-status-enum` | `fix/orphaned-lead-statuses` | `src/lib/statusFlow.ts`, `src/pages/LeadDetail.tsx`, `src/pages/LeadsManagement.tsx` (statusOptions only) | `api/`, `supabase/`, `src/auth/**`, `src/contexts/AuthContext.tsx`, `src/lib/calculations/pricing.ts` | **investigate-first** | all three |
+| **PDF** | T13, then P0-A / P2-18 / MRC-APP-1A | `~/mrc-pdf` | `fix/pdf-hard-save` | `api/render-pdf.ts`, `api/render-job-report-pdf.ts`, `api/_shared/reportHash.ts`, new `tsconfig.api.json`, the `scripts` block of `package.json` | all `src/` (`StalePdfBanner.tsx` read-only), `supabase/functions/` | T13 build-now; the rest **investigate-first** | all three |
+| **L** | P0-5 | `~/mrc-send-email` | `fix/send-email-auth` | `supabase/functions/send-email/**`, `src/lib/api/notifications.ts` | every other EF, all other `src/` | **investigate-first** | all three |
+
+All four are file-disjoint — verified path by path, not assumed. Every lane ends in a Codex review, not a diff: R and L are security-adjacent so use `/codex:adversarial-review --base main`; G1 and PDF use `/codex:review --base main`. Split anything over ~150 lines before reviewing. G1's full P0-0 collapse will exceed that and must be split.
+
+Not in this block, and why: **Q** (P0-8) is blocked by file overlap — the archive handler lives in both `LeadsManagement.tsx` and `LeadDetail.tsx`, so it waits for G1's successor and H. **J** is not worth a session until the deploy freeze lifts. **H** is gated on Vryan. **I** and all of P1 wait on Clayton's demolition table (B1). **P1-22 offline** is deliberately held.
+
+## Session plan — approved 2026-09-05 (SUPERSEDED, kept as history)
+
+**Superseded by the four-lane table above on 2026-09-06.** Rows O, N and F are done and their worktrees are gone; `~/mrc-lead-view`, `~/mrc-health`, `~/mrc-archive` and `~/mrc-pricing-plan` were never created. Read this table for what was decided on 5 Sep, never to open a session.
 
 One session per worktree, each opened with the Session Handoff Prompt plus its own brief. No two sessions own the same file; the two provisos are J's carve-out of `send-email` for L, and Q's pre-flight.
 
