@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'exec \"$(git rev-parse --show-toplevel)/.codex/hooks/codex-guard.sh\"'",
+            "timeout": 10,
+            "statusMessage": "MRC guard: replaying the Claude Code guards"
+          }
+        ]
+      }
+    ]
+  }
+}
