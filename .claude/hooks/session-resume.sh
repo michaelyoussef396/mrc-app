@@ -51,7 +51,7 @@ render_section() {  # render_section <log> <window line>
   unpushed=$(git -C "$REPO_ROOT" log --oneline '@{upstream}..HEAD' 2>/dev/null) || unpushed="(no upstream)"
   uncommitted=$(git -C "$REPO_ROOT" status --porcelain -- . ":(exclude)${1#$REPO_ROOT/}" 2>/dev/null)
   last_step=$(last_step_line "$1")
-  threads=$(grep -o 'codex resume [0-9a-f-]*' "$1" | sort -u)
+  threads=$(grep -o 'codex resume [0-9a-f][0-9a-f-]*' "$1" | sort -u)
   printf '%s\n\n%s\n\n' "$RESUME_HEADING" "$RESUME_NOTE"
   printf -- '- Updated: %s · Tool: CC\n' "$(TZ=$LOG_TZ date '+%Y-%m-%d %H:%M %Z')"
   printf -- '- Branch: %s @ %s\n' "${branch:-detached}" "${head:-?}"
