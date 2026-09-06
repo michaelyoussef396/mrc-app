@@ -69,6 +69,10 @@ Auto-formats files after Claude edits them. Auto-detects formatters by checking 
 
 Injects dynamic project context at session start: current branch (or detached HEAD warning), last commit, uncommitted changes count, staged changes indicator, and stash count.
 
+Also keeps the session log. On `startup` or `clear` it creates `docs/sessions/<YYYY-MM-DD>-<branch-slug>.md` from `docs/sessions/_TEMPLATE.md` (a second session on the same branch and day gets `-2`, `-3`, …) and prints `Session log: <path> (created|existing)`. A log is recognised by its `- Session id:` line, so `resume` and `compact` reuse it and never create one. If an earlier log exists for the same branch slug, its path and its "Resume from here" section are printed so the new session continues from it.
+
+Paths resolve from the script's own location (`../../docs/sessions/_TEMPLATE.md`), so the byte-identical copy registered at user scope in `~/.claude/hooks/` and any worktree without the template are no-ops. Missing `jq` or template: no-op. The hook never fails the session.
+
 ## Adding Your Own
 
 1. Create a `.sh` script in this directory
