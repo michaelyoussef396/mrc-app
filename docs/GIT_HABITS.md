@@ -87,6 +87,24 @@ Session E, and once approved a 46-agent background workflow without
 asking. Check the bottom of the terminal at session start and after
 every compaction. Shift+Tab kills it.
 
+## GIT COMMANDS ACROSS WORKTREES
+
+Never pass an absolute path into another worktree. From `~/mrc-app-1`:
+
+    git clean -fd ~/mrc-other/.claude/     # fatal, exit 128, does nothing
+
+Git rejects it: `'...' is outside repository at '/Users/michaelyoussef/mrc-app-1'`.
+It is loud, but only on stderr — a loop without `set -e` or an exit-code
+check carries straight on as though the clean happened. That is how six
+worktrees got reported as "did not come clean" on 6 Sep when the clean
+had never run at all.
+
+Use `-C` so git resolves inside the target worktree:
+
+    git -C ~/mrc-other clean -fd .claude/
+    git -C ~/mrc-other checkout -- .
+    git -C ~/mrc-other status --porcelain
+
 ## THE FAILURE PATTERN BEHIND ALL OF THIS
 
 > A step looked complete because the previous step succeeded.
@@ -95,6 +113,8 @@ every compaction. Shift+Tab kills it.
 - The copy script ran, so the delete ran — verification had failed
 - The CLI said success, so the deploy looked live — it was serving old
   code
+- The clean exited 128 and did nothing, so the tree looked dirty — the
+  command was wrong, not the tree
 
 The fix is always the same: check the thing itself, not the thing
 before it.
