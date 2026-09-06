@@ -29,7 +29,9 @@ Last updated: 2026-09-06
 | **PDF** | T13, then P0-A / P2-18 / MRC-APP-1A | `~/mrc-pdf` | `fix/pdf-hard-save` | `api/render-pdf.ts`, `api/render-job-report-pdf.ts`, `api/_shared/reportHash.ts`, new `tsconfig.api.json`, the `scripts` block of `package.json` | all `src/` (`StalePdfBanner.tsx` read-only), `supabase/functions/` | T13 build-now; the rest **investigate-first** | all three |
 | **L** | P0-5 | `~/mrc-send-email` | `fix/send-email-auth` | `supabase/functions/send-email/**`, `src/lib/api/notifications.ts` | every other EF, all other `src/` | **investigate-first** | all three |
 
-All four are file-disjoint — verified path by path, not assumed. Every lane ends in a Codex review, not a diff: R and L are security-adjacent so use `/codex:adversarial-review --base main`; G1 and PDF use `/codex:review --base main`. Split anything over ~150 lines before reviewing. G1's full P0-0 collapse will exceed that and must be split.
+**Every one of these four lanes ends with a Codex review, not a diff.** Stop before the PR, hand Michael the `READY FOR CODEX REVIEW` block, and wait — you cannot run the command yourself (`disable-model-invocation: true`). See "CODEX REVIEW IS NOT OPTIONAL ON CODE" in `CLAUDE.md`.
+
+All four are file-disjoint — verified path by path, not assumed. Review type per lane: R and L are security-adjacent so use `/codex:adversarial-review --base main`; G1 and PDF use `/codex:review --base main`. Split anything over ~150 lines before reviewing. G1's full P0-0 collapse will exceed that and must be split.
 
 Not in this block, and why: **Q** (P0-8) is blocked by file overlap — the archive handler lives in both `LeadsManagement.tsx` and `LeadDetail.tsx`, so it waits for G1's successor and H. **J** is not worth a session until the deploy freeze lifts. **H** is gated on Vryan. **I** and all of P1 wait on Clayton's demolition table (B1). **P1-22 offline** is deliberately held.
 

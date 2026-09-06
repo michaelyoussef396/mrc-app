@@ -201,6 +201,34 @@ BETWEEN CYCLES
 
 **Commands:** `/codex:review`, `/codex:adversarial-review`, `/codex:status`, `/codex:result`, `/codex:cancel`, `/codex:setup`. `/codex:transfer` only if Michael asks to continue a session in Codex.
 
+## CODEX REVIEW IS NOT OPTIONAL ON CODE
+
+Every session that changes application code stops for a Codex review before opening a PR. Not after. Not "if time allows."
+
+**You cannot run it yourself.** `/codex:adversarial-review` and `/codex:review` both carry `disable-model-invocation: true` in their command frontmatter (verified 2026-09-06 against plugin `openai-codex/codex/1.0.6`). Michael types the command. The enforcement is therefore a **hard stop**, not an auto-run — do not attempt to invoke it, and do not treat being unable to run it as permission to skip it.
+
+1. Finish the unit of work.
+2. Confirm the diff is under ~150 reviewable lines. A byte-identical restore of an unchanged tracked file does not count toward that (precedent, 2026-09-05). Over the limit: split, or ask Michael for a waiver and log it.
+3. **STOP** and tell Michael, in this exact shape:
+
+   ```
+   READY FOR CODEX REVIEW
+   branch: <branch>   base: <base>   diff: <N> lines
+   run: /codex:adversarial-review --base <base>
+   focus: <one line, what to look hardest at>
+   ```
+
+4. Wait. **Do not open a PR.**
+5. When findings come back: triage each as accept / reject / unclear, with a reason. Apply nothing without approval.
+6. Log the run in `docs/codex-review-log.md`, including the `Target:` line verbatim.
+7. Only then the PR.
+
+An investigate-first session that produces no code is exempt — but the moment its findings turn into code, this applies.
+
+If a session merges application code without a logged review, that is a process failure and gets a ledger entry.
+
+Michael reads the `Target:` line before triaging. A bad `--base` exits 0 and silently reviews a wider diff (#653).
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
