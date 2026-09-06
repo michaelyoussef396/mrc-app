@@ -87,6 +87,17 @@ returns `-1` (P0-10).
 records (Appendix L). Treat any index arithmetic on it as a defect until proven
 otherwise, and check the DB enum against the TS union.
 
+**A worked example of a wrong hypothesis, kept deliberately.** BUG-22 was read as
+the cause of BUG-5 for two days. It fit: same class, same file, and its
+degrade-not-crash behaviour explains "renders 9 sections" better than any
+alternative. A Studio count on 2026-09-06 returned **zero rows** across all four
+orphaned statuses, which disproves it outright — Customer A's lead cannot be in a
+status no lead occupies. **Both bugs are real; only the link between them was
+invented.** Two instances of one class in one file is a strong prior and it was
+still wrong. The cheap query that settled it should have been run before the
+hypothesis was written into three documents. Ask what single observation would
+falsify a mechanism, and get that observation, before building on it.
+
 ### C7 — `position: fixed` broken by a transformed ancestor
 **Shape.** An ancestor with `transform`, `filter`, `backdrop-filter`,
 `perspective`, `will-change` or `contain` creates a new containing block. Every
@@ -208,7 +219,7 @@ through verbatim, not resolved.
 | **BUG-19** | No `mrc_inspection_backup_*` key is ever written, on any inspection, at any wait | **UNKNOWN** | Eight mechanisms eliminated; **cause unidentified**. Needs console instrumentation before it can be scoped | Open — P1-22 defect 1 |
 | **BUG-20** | The restore prompt crashes when it renders | **UNKNOWN** | Unreachable today only because BUG-19 starves it. It passes a plain object where React requires an element, and `Toaster` sits outside every error boundary | Open — P1-22 defect 2. Must land **before** BUG-19 |
 | **BUG-21** | The auth gate blocks a cold-cache offline mount | **UNKNOWN** | `userRoles` is never persisted, so the form does not render offline unless three REST GETs are still cached. Stays invisible until BUG-19 and BUG-20 are fixed | Open — P1-22 defect 3. Touches `AuthContext.tsx` — needs explicit permission |
-| **BUG-22** | Four `lead_status` values exist in the DB enum and in no TypeScript surface | C6 | One undefined lookup, **two different failure modes**: every render site is optional-chained so the status card degrades to grey and empty, while `LeadDetail.tsx:621` is unguarded and throws. So it presents as "renders fewer sections", not as an error | Open — P0-10. Suspected cause of BUG-5, **not confirmed** |
+| **BUG-22** | Four `lead_status` values exist in the DB enum and in no TypeScript surface | C6 | One undefined lookup, **two different failure modes**: every render site is optional-chained so the status card degrades to grey and empty, while `LeadDetail.tsx:621` is unguarded and throws. So it presents as "renders fewer sections", not as an error — which is exactly why it looked like BUG-5's cause | Open — **P1** (was P0-10). **Latent: zero rows, verified 2026-09-06.** **NOT the cause of BUG-5 — disproven, see below** |
 
 ---
 

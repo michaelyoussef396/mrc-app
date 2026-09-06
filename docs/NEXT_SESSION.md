@@ -22,7 +22,7 @@ Baseline, identical in all four and comparable across them for the first time (T
 | Lane | Worktree | Branch | IDs | Owns | Forbidden | Type |
 |---|---|---|---|---|---|---|
 | **R** | `~/mrc-guard-fix` | `fix/guard-hook-bypasses` | P0-9 (a)–(e) | `.claude/hooks/block-supabase-prod.sh`, `scripts/test-supabase-guard.sh` | all `src/`, `supabase/`, `api/`, `.claude/settings.json` | **build-now** |
-| **G1** | `~/mrc-status-enum` | `fix/orphaned-lead-statuses` | P0-10 → P0-0, P1-14 | `src/lib/statusFlow.ts`, `src/pages/LeadDetail.tsx`, `LeadsManagement.tsx` (statusOptions only) | `api/`, `supabase/`, `src/auth/**`, `AuthContext.tsx`, `pricing.ts` | **investigate-first** |
+| **G1** ⚠️ **re-scope first** | `~/mrc-status-enum` | `fix/orphaned-lead-statuses` | P0-0, P1-14 (P0-10 → P1) | `src/lib/statusFlow.ts`, `src/pages/LeadDetail.tsx`, `LeadsManagement.tsx` (statusOptions only) | `api/`, `supabase/`, `src/auth/**`, `AuthContext.tsx`, `pricing.ts` | **investigate-first** |
 | **PDF** | `~/mrc-pdf` | `fix/pdf-hard-save` | T13 → P0-A, P2-18, MRC-APP-1A | `api/render-pdf.ts`, `api/render-job-report-pdf.ts`, `api/_shared/reportHash.ts`, new `tsconfig.api.json`, `package.json` scripts | all `src/` (`StalePdfBanner.tsx` read-only), `supabase/functions/` | T13 build-now, rest investigate |
 | **L** | `~/mrc-send-email` | `fix/send-email-auth` | P0-5 | `supabase/functions/send-email/**`, `src/lib/api/notifications.ts` | every other EF, all other `src/` | **investigate-first** |
 
@@ -49,7 +49,7 @@ Baseline, identical in all four and comparable across them for the first time (T
 
 Still open, exactly as left:
 - **Every content check** — the "All" total against a Studio count, three other tabs against filtered counts, the page-walk proving no gaps or duplicates, search narrowing the total, Lead ID search returning the right lead. The Studio pack was written and deliberately not run.
-- **The four tab-less statuses** — now **P0-10**. No counts.
+- **The four tab-less statuses** — was P0-10, **now closed by count**: zero rows, 2026-09-06. Downgraded to P1. This item is no longer open.
 - **Deployed RLS with two separate users.** Codex asked twice. Not done.
 - **375px and the page walk on a preview deploy.** Not run.
 - **Five test files fail to load** for want of the worktree's `.env` files.
@@ -82,6 +82,8 @@ The gap is the honest cost of the standing order forbidding PROD queries. Inheri
 
 **R, alone, first.** It is the only lane that is fully specified and build-now — all five defects are located with line numbers, the fix is two files, the diff lands well under 150. It is also the control every other lane's safety rests on: while it is unfixed, a guard that is *trusted* will permit an explicit PROD deploy. That is the one open item that can cause damage rather than merely waste time, and it is a short session.
 
-**Then G1, PDF and L together** — file-disjoint, so genuinely parallel. G1 carries the most user-facing value (P0-10 is the suspected mechanism behind P0-0) and needs Michael's Studio count to size it, so start it early enough that the count arrives mid-lane rather than gating it. PDF-a (the `tsconfig` hole, ~20 lines) is shippable on its own within an hour and worth landing separately from PDF-b's investigation. L goes last of the three: it terminates in an Edge Function deploy only Michael can run, so starting it early only means it waits longer.
+**Then PDF and L** — file-disjoint, genuinely parallel. PDF-a (the `tsconfig` hole, ~20 lines) is shippable on its own within an hour and worth landing separately from PDF-b's investigation. L goes after it: it terminates in an Edge Function deploy only Michael can run, so starting it early only means it waits longer.
+
+**G1 is no longer third — it is not ready to open.** Its scope was P0-10 → P0-0, and the Studio count on 2026-09-06 came back **zero rows**, which both downgrades P0-10 to P1 and **rules it out as P0-0's cause**: no lead is in an orphaned status, so that mechanism cannot be producing the 9-section render. P0-0 is still a live P0 and its cause is unknown again. G1 needs re-scoping back to the original framing — map every render condition in `LeadDetail.tsx`, no hypothesis presumed — before anyone opens it. Opening it on the old brief would spend the lane confirming something already disproven.
 
 **Do not open:** Q (P0-8 — blocked by file overlap with G1's successor and H), J (not worth a session until the deploy freeze lifts), I and all of P1 (Clayton's table), P1-22 offline (held).
