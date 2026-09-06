@@ -59,6 +59,12 @@ Format: `- HH:MM · agent · what · files · outcome`
 - 18:45 · CC · cut `chore/codex-guard-hook` from origin/main; placed .codex/hooks.json + .codex/hooks/codex-guard.sh · .codex/** · commit e27bad7, 67 lines, reviewed (needs-attention, 3 substantive), PR #143. First attempt of the chain was denied by the repo deny list because the focus text quoted two banned command forms — rephrased
 - 18:50 · CC · cut `chore/repo-deny-list` from origin/main; committed Michael's working-tree `.claude/settings.json` as-is · .claude/settings.json · commit 0f49099, 38 lines, reviewed (needs-attention, 4), PR #144. Same deny-list trip on the first focus text — rephrased
 - 18:53 · CC · cut `docs/session-2026-09-06-close` on docs/codex-workflow; restored the deny-list settings.json as an uncommitted working-tree change so the control stays live · docs/codex-review-log.md, this file · six review rows + "Do not review" entry; closing commit follows
+- 18:54 · CC · closing commit 132fc36, PR #145 (base docs/codex-workflow); back on `feat/schedule-rail-search-deeplink`, AGENTS.md stash popped, deny list left live and uncommitted · — · seven PRs open, handover delivered
+- 19:02 · CC · verification pass 1 (new session, still on `feat/…` at c2803de): origin/main dc55c15, all seven PRs OPEN on GitHub · — · stopped and reported, nothing changed
+- 19:06 · Michael · merged #139, #140, #141 into main (483deca, a261f22, 1ed0772). #142 and #145 merged into their PR bases — `docs/agents-md` (eec5fe9) and `docs/codex-workflow` (d93acb1) — not into main: a stacked PR merges into its parent branch unless the parent is deleted on merge, and both parents were kept · — · found by verification pass 2; main had AGENTS.md and CODEX_WORKFLOW.md but still carried AGENTS.override.md and the old CLAUDE.md sections
+- 19:09 · CC · removed the user-scope SessionStart registration from `~/.claude/settings.json` (only that block; permissions and every other hook byte-identical; file parses); `~/.claude/hooks/session-start.sh` left on disk · ~/.claude/settings.json · closes the double-fire and the drift items below
+- 19:1x · Michael · #146 (`docs/agents-md` → main, ec4b06f) and #147 (`docs/codex-workflow` → main, 446be56) carried #142 and #145 onto main · — · verification pass 3 at 446be56: AGENTS.override.md gone; CLAUDE.md 243 lines with `@AGENTS.md` and `## Claude Code specifics`, no Git Workflow or two-round cycle; template, CODEX_WORKFLOW.md, this log and the seven 2026-09-06 review-log rows present; `.codex/hooks.json` absent and `.claude/settings.json` on main without the deny list — #143 and #144 held OPEN
+- 19:2x · CC · close-out: cut `chore/session-log-close` from 446be56 (AGENTS.md GitNexus churn stashed for the checkout, popped after), this file updated · this file · PR opened, not merged, not reviewed (log-only, 3af5241 precedent)
 
 ## Codex threads
 
@@ -117,17 +123,31 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 
 - Ledger: `Bash cp` bypasses `protect-files.sh` — used once this session, with approval, for `session-start.sh` and the hooks README; not this session's fix
 - Ledger: `codex exec -s workspace-write` auto-trusts its working directory (writes `trust_level = "trusted"` into `~/.codex/config.toml` on its own; read-only runs do not)
-- `~/.claude/hooks/session-start.sh` now drifts from the repo copy — keep-and-resync or remove the user-scope registration, Michael's call
+- ~~`~/.claude/hooks/session-start.sh` now drifts from the repo copy — keep-and-resync or remove the user-scope registration, Michael's call~~ **Closed 19:09:** user-scope registration removed; only the repo copy fires
 - C2: a sub-agent spawned mid-session received the CLAUDE.md snapshot loaded at session start, not the on-disk file with `@AGENTS.md`; re-test in a fresh session after #141 merges before touching agent files
 - PR-4's guard is inert on every worktree until `/hooks` trust is done there; it also inherits P0-9's bypass class and the review found its own regex bypasses — both go to Lane R's successor, not this session
 - PR-5's deny list: three glob evasions and one over-block (the linked-target deny vs the verified-DEV read-only exception) — Michael's triage
 - PR-1: concurrent-start truncation and suffix-overlapping slug match — Michael's triage
 - Unintended plan-mode review: thread `01a074c4-4dcb-7522-b9a3-bffba4f02b5f`, one medium finding on the purge runbook, and the exposure question (business + test-lead addresses only; phone hits were false positives) — Michael's call
-- The user-scope SessionStart registration duplicates the repo hook (banner prints twice)
+- ~~The user-scope SessionStart registration duplicates the repo hook (banner prints twice)~~ **Closed 19:09:** removed from `~/.claude/settings.json`
 - `.claude/skills/generated/*`, `deno.lock`, `docs/HOW_TO_USE_THE_APP.html`, `.claude/settings.local.json` remain dirty on `feat/schedule-rail-search-deeplink` exactly as found
 
 ## Resume from here
 
-- Next command: merge order on GitHub with merge commits — #139, #140, #141, #142 (base #141), #143, #144, then the closing PR (base #140); after each, `git fetch origin && git log --oneline origin/main -3`
-- Uncommitted files: on `feat/schedule-rail-search-deeplink` — the pre-existing churn plus `AGENTS.md` (stash popped) and `.claude/settings.json` (deny list, live, uncommitted until #144 merges)
-- Untested: the Codex guard under a trusted (non-bypass) Codex session; the session-start hook's first real `/clear`; the `@AGENTS.md` import in a fresh session; every finding above
+- **Next: Lane R** — `~/mrc-guard-fix`, branch `fix/guard-hook-bypasses`, P0-9 (a)–(e), build-now, opens alone. Its worktree is at 2c8087e and needs main (now 446be56) first. Merge and re-baseline, in this order, verifying by content:
+
+  ```
+  git -C ~/mrc-guard-fix status --short
+  git -C ~/mrc-guard-fix fetch origin && git -C ~/mrc-guard-fix merge origin/main
+  git -C ~/mrc-guard-fix show --stat HEAD
+  (cd ~/mrc-guard-fix && npm ci)
+  (cd ~/mrc-guard-fix && npx tsc -p tsconfig.app.json --noEmit 2>&1 | grep -c "error TS")   # 99 — gate is no new lines
+  (cd ~/mrc-guard-fix && npx vitest run 2>&1 | tail -n 6)                                    # 71 files / 1222
+  ```
+
+  After the merge the lane's first session start creates `docs/sessions/<date>-fix-guard-hook-bypasses.md` from the template; fill the header from those two numbers.
+- **Codex hook trust step** (one-time, per worktree path; `docs/CODEX_WORKFLOW.md` §6): `cd ~/mrc-guard-fix && codex`, then `/hooks`, trust the PreToolUse entry, confirm with `grep -n hooks.state ~/.codex/config.toml`. **Not yet applicable:** the hook files are #143, which is held, so no worktree has a `.codex/hooks.json` to trust until #143 lands. Until then the Codex guard protects nothing anywhere.
+- **Held pending Lane R:** #143 (Codex guard, 3 findings) and #144 (repo deny list, 4 findings) stay OPEN. Their findings are the same bypass class as P0-9 (`env` / absolute-path / `-C` / refspec / newline evasions) and are inputs to Lane R, whose fix to `.claude/hooks/block-supabase-prod.sh` flows into #143's guard automatically because it replays the tracked CC scripts. Lane R does not merge either PR; Michael decides after R lands.
+- **Where the deny list lives:** the identical 17 Bash deny entries are in `~/.claude/settings.json` (user scope, applies in every worktree) and, uncommitted, in `~/mrc-app-1/.claude/settings.json` (#144's content). Switching worktrees loses nothing; the repo copy is a second layer that becomes tracked only when #144 merges.
+- Uncommitted files on `~/mrc-app-1` (`feat/schedule-rail-search-deeplink`): the pre-existing GitNexus churn, `AGENTS.md` (stash popped), `.claude/settings.json` (deny list, live). Leave all three alone.
+- Untested: the Codex guard under a trusted (non-bypass) Codex session; the session-start hook's first live firing and first real `/clear`; the `@AGENTS.md` import and the C2 sub-agent check in a fresh session on a post-merge checkout; every review finding above
