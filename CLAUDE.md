@@ -3,6 +3,9 @@
 Mould & Restoration Co. — mobile-first field tech app for mould inspection and remediation.
 React 18 + TypeScript + Supabase + Vite + Tailwind + shadcn/ui | PWA with offline support
 
+Shared rules for every agent in this repo (Claude Code and Codex alike) live in `AGENTS.md`; Claude Code imports it here:
+@AGENTS.md
+
 ## SUPABASE PROJECT REFS — READ BEFORE ANY REF-SCOPED COMMAND
 
 Two near-identical projects live in the MRC org. The wrong ref is a production incident.
@@ -205,29 +208,31 @@ BETWEEN CYCLES
 
 Every session that changes application code stops for a Codex review before opening a PR. Not after. Not "if time allows."
 
-**You cannot run it yourself.** `/codex:adversarial-review` and `/codex:review` both carry `disable-model-invocation: true` in their command frontmatter (verified 2026-09-06 against plugin `openai-codex/codex/1.0.6`). Michael types the command. The enforcement is therefore a **hard stop**, not an auto-run — do not attempt to invoke it, and do not treat being unable to run it as permission to skip it.
+**CC runs it, then stops.** `/codex:adversarial-review` and `/codex:review` keep `disable-model-invocation: true` in their command frontmatter (verified 2026-09-06 against plugin `openai-codex/codex/1.0.6`) and are never called. The flag blocks the slash command, not the plugin's companion script, which CC invokes directly — exact string, base rule and `Target:` check in `docs/CODEX_WORKFLOW.md` §3–5. The enforcement is still a **hard stop**; it moves from before the review to after it. CC never fixes a finding, never re-reviews, never opens a PR on its own triage. Being unable to run the slash command is not permission to skip the review.
 
-1. Finish the unit of work.
-2. Confirm the diff is under ~150 reviewable lines. A byte-identical restore of an unchanged tracked file does not count toward that (precedent, 2026-09-05). Over the limit: split, or ask Michael for a waiver and log it.
-3. **STOP** and tell Michael, in this exact shape:
+1. Finish the unit of work and commit it. The review reads `origin/main...HEAD`; uncommitted work is invisible to it.
+2. Measure: `git diff --numstat origin/main...HEAD -- . ':(exclude)docs/sessions/' | awk '{a+=$1;d+=$2} END{print a+d}'`, run from the worktree root. Over 150: split, or ask Michael for a waiver and log it. A byte-identical restore of an unchanged tracked file does not count toward that (precedent, 2026-09-05).
+3. Check the diff for customer PII. Any hit: no review; "Do not review" entry in the log instead.
+4. Run it: `node /Users/michaelyoussef/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/codex-companion.mjs adversarial-review --wait --cwd <worktree> --base origin/main -- <focus>`, with `2> <file>` so the stderr line carrying the thread id is kept. Never `--base main`, never without `--base`, never `--help` on that subcommand.
+5. Print the `Target:` line and the line count before anything else. Target not `branch diff against origin/main` (or the pre-declared parent of a stacked branch): abort, discard unread, report.
+6. Write `codex resume <threadId>` into the session log immediately — from stderr `Thread ready (<id>)` or `node <script> status --cwd <worktree>`.
+7. Present every finding verbatim. Apply nothing.
+8. **STOP** in this exact shape and wait:
 
    ```
-   READY FOR CODEX REVIEW
-   branch: <branch>   base: <base>   diff: <N> lines
-   run: /codex:adversarial-review --base <base>
-   focus: <one line, what to look hardest at>
+   CODEX REVIEW DONE — STOPPING
+   branch: <branch>   base: origin/main   reviewable lines (excl. docs/sessions/): <N>
+   Target: <verbatim>   Verdict: <verbatim>   findings: <n>
+   Resume in Codex: codex resume <threadId>   (written to docs/sessions/<log>.md)
    ```
 
-4. Wait. **Do not open a PR.**
-5. When findings come back: triage each as accept / reject / unclear, with a reason. Apply nothing without approval.
-6. Log the run in `docs/codex-review-log.md`, including the `Target:` line verbatim.
-7. Only then the PR.
+9. Michael triages. Log the run in `docs/codex-review-log.md`, including the `Target:` line verbatim and the thread id. Only then the PR.
 
 An investigate-first session that produces no code is exempt — but the moment its findings turn into code, this applies.
 
 If a session merges application code without a logged review, that is a process failure and gets a ledger entry.
 
-Michael reads the `Target:` line before triaging. A bad `--base` exits 0 and silently reviews a wider diff (#653).
+CC reads and prints the `Target:` line before anything else. `--base main` in `~/mrc-app-1` silently reviews against the stale local `main` (#653 class); a bad `--base` exits 0.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
