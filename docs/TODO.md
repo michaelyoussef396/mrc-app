@@ -4,7 +4,7 @@ Last updated: 2026-09-06
 
 - Detail for every item: `docs/MRC_MASTER_BACKLOG.md` (the 3 September 2026 backlog, archived verbatim). This file holds IDs and tracking state only.
 - Pricing rules and the resolved/unresolved conflicts: `docs/PRICING_CANON.md`.
-- Bug classes, entry template and the ledger rule: `docs/BUG_LEDGER.md` — **this file does not exist on `main` (checked 2026-09-06).** The Ledger-entry column below and step 9 of `docs/GIT_HABITS.md` both depend on it, so that workflow step is currently unperformable. Either write the file or drop the requirement; do not keep pointing at nothing.
+- Bug classes, entry template and the ledger rule: `docs/BUG_LEDGER.md`. **Read its class list (section 1) before starting any investigation.**
 
 ## How to use this file
 
