@@ -31,17 +31,22 @@ notice_once() {  # one systemMessage per session, then silent; always exits 0
   [ -e "$NO_LOG_MARKER" ] || { { : > "$NO_LOG_MARKER"; } 2>/dev/null; jq -cn --arg m "$1" '{systemMessage: $m}'; }
   exit 0
 }
-header_field() {  # header_field <log> <field> <value>: the first "## Header" section holds exactly "<field><value>"
-  awk -v want="$2$3" -v hh="$HEADER_HEADING" '{ sub(/\r$/, "") } /^## / { s = (!seen && $0 ~ "^" hh "[[:space:]]*$"); if (s) seen = 1 } s && $0 == want { found = 1; exit } END { exit !found }' "$1"
+# header_field <log> <field> <value>: scans the whole first "## Header" section, then answers 0 when it holds
+# exactly one "<field>" line and that line is "<field><value>", 2 when it holds more than one (ambiguous), else 1.
+header_field() {
+  awk -v want="$2$3" -v fld="$2" -v hh="$HEADER_HEADING" '{ sub(/\r$/, "") } /^## / { if (s) exit; s = ($0 ~ "^" hh "[[:space:]]*$") } s && index($0, fld) == 1 { n++; hit = ($0 == want) } END { exit (n > 1 ? 2 : (n == 1 && hit ? 0 : 1)) }' "$1"
 }
-find_log() {  # the log whose Header carries this session id; several: the one naming the current branch, else the newest
+find_log() {  # the log whose Header carries exactly one Session id line, this id; several: the one naming the current branch, else the newest
   local hit newest=""
   for hit in "$SESSIONS_DIR"/*.md; do
-    header_field "$hit" "$SESSION_ID_FIELD" "$session_id" || continue
+    header_field "$hit" "$SESSION_ID_FIELD" "$session_id" || continue  # an ambiguous log (rc 2) is never selected
     header_field "$hit" "$BRANCH_FIELD" "$branch" && { printf '%s' "$hit"; return 0; }
     [ -z "$newest" ] || [ "$hit" -nt "$newest" ] && newest="$hit"
   done
   printf '%s' "$newest"
+}
+ambiguous_log() {  # the first log whose Header holds more than one Session id line, if any
+  local f; for f in "$SESSIONS_DIR"/*.md; do header_field "$f" "$SESSION_ID_FIELD" "$session_id"; [ $? -eq 2 ] && { printf '%s' "$f"; return 0; }; done; return 1
 }
 nested_or_none() { if [ -z "$1" ]; then printf ' none'; else printf '\n%s' "$(printf '%s\n' "$1" | sed 's/.*/  - `&`/')"; fi; }
 last_step_line() {  # a READ: last "- " line of the step log; a wrong match (a bullet quoted inside a fenced example) is cosmetic
@@ -82,7 +87,10 @@ replace_between() {  # replace_between <log> <content> <start line> <end line> <
 }
 
 log=$(find_log)
-[ -n "$log" ] || notice_once "session-resume: no docs/sessions log carries this session id (${session_id:0:8}…), so Resume from here is not being maintained"
+if [ -z "$log" ]; then
+  amb=$(ambiguous_log) && notice_once "session-resume: ${amb#$REPO_ROOT/} has more than one Session id line in its Header, so it is ambiguous and not edited"
+  notice_once "session-resume: no docs/sessions log carries this session id (${session_id:0:8}…), so Resume from here is not being maintained"
+fi
 [ -w "$log" ] || exit 0
 log_at_start=$(log_digest "$log")  # before the marker check, so a writer racing it cannot become the baseline
 bounds=$(marker_lines "$log")
