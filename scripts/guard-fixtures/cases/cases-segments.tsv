@@ -1,0 +1,63 @@
+# lens: command-segment and control-flow structure
+# --- G0 sanity: shapes the guard is known to handle ---
+sane1	dev	-	DENY	{S} db push --linked
+sane2	dev	-	DENY	true && {S} db push --linked
+sane3	dev	-	ALLOW	{S} functions deploy send-email --project-ref {DEV}
+sane4	dev	-	ALLOW	{S} migration list
+sane5	prod	-	DENY	{S} migration list
+sane6	none	-	DENY	{S} migration list
+# --- G1 shell keyword / brace before the CLI name ---
+k1	dev	-	DENY	if true; then {S} db push --linked; fi
+k2	dev	-	DENY	for i in 1 2; do {S} db reset --linked; done
+k3	dev	-	DENY	while read f; do {S} db query --linked -f "$f"; done
+k4	dev	-	DENY	case x in x) {S} db query --linked -f drop.sql ;; esac
+k5	dev	-	DENY	{ {S} db push --linked; }
+k6	dev	-	DENY	if false; then :; else {S} functions deploy send-email; fi
+k7	dev	-	DENY	! {S} db push --linked
+k8	dev	-	DENY	until {S} db push --linked; do :; done
+k9	dev	-	DENY	if true; then {S} db query --project-ref {PROD} -f x.sql; fi
+k10	dev	-	DENY	f() { {S} db push --linked; }; f
+k11	dev	-	DENY	for i in 1; do npx {S} db push --linked; done
+k12	dev	-	DENY	[ -f x.sql ] && { {S} db push --linked; }
+k13	dev	-	DENY	true; { {S} db reset --linked; }
+k14	dev	-	DENY	if true; then {S} secrets set SERVICE_KEY=x; fi
+k15	dev	-	DENY	true && if true; then {S} db push --linked; fi
+k16	dev	-	DENY	echo "{S} db push --linked" | bash
+# --- G2 redirection / assignment before the CLI name ---
+r1	dev	-	DENY	>out.txt {S} db push --linked
+r2	dev	-	DENY	2>err.log {S} db query --linked -f x.sql
+r3	dev	-	DENY	<in.sql {S} db query --linked
+r4	dev	-	DENY	FOO=1 {S} db push --linked
+r5	dev	-	DENY	FOO=$(echo 1) {S} db push --linked
+# --- G3 cd / pushd relocation vs rule 3.5 root verification ---
+c1	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod && {S} migration list
+c2	dev	-	DENY	(cd /Users/michaelyoussef/mrc-app-prod; {S} db diff)
+c3	dev	-	DENY	pushd /Users/michaelyoussef/mrc-app-prod && {S} inspect db bloat
+c4	dev	-	DENY	{S} migration list --workdir /Users/michaelyoussef/mrc-app-prod
+c5	dev	-	DENY	cd ../mrc-app-prod && {S} db diff
+c6	dev	-	DENY	cd /nonexistent-tree && {S} migration list
+# --- G4 cross-segment contamination of rules 2 / 3 / 3.5 ---
+x1	dev	-	ALLOW	{S} functions deploy send-email --project-ref {DEV} && echo "do not run db reset here"
+x2	none	-	ALLOW	{S} secrets list --project-ref {DEV} && echo "compare with migration list output"
+x3	prod	-	ALLOW	{S} secrets list --project-ref {DEV} && echo "see migration list"
+x4	dev	-	DENY	{S} functions deploy send-email && {S} migration list
+x5	dev	-	DENY	ls -h && {S} functions deploy send-email
+x6	dev	-	DENY	git log -v && {S} secrets set SERVICE_KEY=x
+x7	dev	-	DENY	{S} secrets set SERVICE_KEY=x | tee "migration list.log"
+# --- G5 rule 4: the DEV ref may come from any segment ---
+p1	dev	-	DENY	echo --project-ref {DEV} && {S} functions deploy send-email
+p2	dev	-	DENY	{S} functions list --project-ref {DEV}; {S} secrets set SERVICE_KEY=x
+p3	dev	-	DENY	{S} functions list --project-ref {DEV}; cd /Users/michaelyoussef/mrc-app-prod && {S} functions deploy send-email
+# --- G6 Management API detection across segments ---
+a1	dev	-	ALLOW	curl -s https://example.com/x && grep api.supabase.com notes.txt
+a2	dev	-	DENY	C=curl; $C -s "https://api.supabase.com/v1/projects"
+a3	dev	-	DENY	H=api.supabase.com; curl -s "https://$H/v1/projects"
+a4	dev	-	DENY	curl -s "https://api.supa""base.com/v1/projects"
+a5	dev	-	DENY	curl -s "https://api.$(echo supabase).com/v1/projects"
+a6	dev	-	ALLOW	echo "runbook step: curl https://api.supabase.com/v1/projects" >> notes.md
+# --- G7 benign control flow must stay allowed ---
+o1	dev	-	ALLOW	for f in supabase/functions/*; do echo "$f"; done
+o2	dev	-	ALLOW	if [ -d supabase ]; then echo yes; fi
+o3	dev	-	ALLOW	git diff -- supabase/migrations | head -20
+o4	dev	-	ALLOW	ls supabase && cat supabase/config.toml
+o5	dev	-	ALLOW	grep -rn "supabase" src | head -5

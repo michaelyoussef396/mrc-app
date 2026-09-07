@@ -1,0 +1,4 @@
+y1	dev	-	DENY	{S} secrets set FOO=bar --linked && echo "then db diff"
+y2	dev	-	DENY	{S} functions deploy send-email --linked # db diff after
+y3	dev	-	DENY	{S} db dump --linked -f dump.sql && echo "compare with db diff"
+y4	dev	-	DENY	{S} secrets list --linked ; echo "inspect db later"

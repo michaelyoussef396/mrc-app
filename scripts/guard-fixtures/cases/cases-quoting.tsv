@@ -1,0 +1,64 @@
+# lens: shell quoting / escaping / word-splitting evasion of CLI_RE (line 39) and the
+# literal-substring rules that follow it.
+# A. CLI name literal broken apart -> line 39 never matches -> line 50 exits 0
+qa01	prod	prod	DENY	sup"abase" db query --linked -f x.sql
+qa02	prod	prod	DENY	"sup"abase db query --linked -f x.sql
+qa03	prod	prod	DENY	sup'abase' db query --linked -f x.sql
+qa04	prod	prod	DENY	su''pabase db query --linked -f x.sql
+qa05	prod	prod	DENY	su""pabase db query --linked -f x.sql
+qa06	prod	prod	DENY	""{S} db query --linked -f x.sql
+qa07	prod	prod	DENY	''{S} db query --linked -f x.sql
+qa08	prod	prod	DENY	$'{S}' db query --linked -f x.sql
+qa09	prod	prod	DENY	$'\x73upabase' db query --linked -f x.sql
+qa10	prod	prod	DENY	su\pabase db query --linked -f x.sql
+qa11	prod	prod	DENY	sup\abase db query --linked -f x.sql
+qa12	prod	prod	DENY	{{S},} db query --linked -f x.sql
+qa13	prod	prod	DENY	{,}{S} db query --linked -f x.sql
+qa14	prod	prod	DENY	$(which {S}) db query --linked -f x.sql
+qa15	prod	prod	DENY	`which {S}` db query --linked -f x.sql
+qa16	prod	prod	DENY	A={S}; ${A} db query --linked -f x.sql
+qa17	prod	prod	DENY	S2={S}; $S2 db query --linked -f x.sql
+qa18	prod	prod	DENY	{ {S} db query --linked -f x.sql; }
+qa19	prod	prod	DENY	npx "{S}" db query --linked -f x.sql
+qa20	prod	prod	DENY	sup"abase" db dump --project-ref {PROD} -f d.sql
+qa21	prod	prod	DENY	$'{S}' db dump --project-ref {PROD} -f d.sql
+qa22	prod	prod	DENY	if true; then {S} db query --linked -f x.sql; fi
+# B. env-assignment prefix whose value is quoted and contains a space
+qb01	prod	prod	DENY	FOO="a b" {S} db query --linked -f x.sql
+qb02	prod	prod	DENY	PGOPTIONS='-c statement_timeout=0' {S} db query --linked -f x.sql
+qb03	prod	prod	DENY	FOO="a b" npx {S} db query --linked -f x.sql
+qb04	prod	prod	DENY	FOO="a b" {S} db dump --project-ref {PROD} -f d.sql
+qb05	prod	prod	DENY	FOO=bar {S} db query --linked -f x.sql
+# C. rule 2 (line 59) evaded by quoting inside the subcommand words
+qc01	dev	dev	DENY	{S} db "push" --project-ref {DEV}
+qc02	dev	dev	DENY	{S} db pu'sh' --project-ref {DEV}
+qc03	dev	dev	DENY	{S} "db" push --project-ref {DEV}
+qc04	dev	dev	DENY	{S} db $'push' --project-ref {DEV}
+qc05	dev	dev	DENY	{S} db re""set --project-ref {DEV}
+qc06	dev	dev	DENY	{S} migration "repair" --status applied 20240101 --project-ref {DEV}
+qc07	dev	dev	DENY	X=push; {S} db $X --project-ref {DEV}
+qc08	dev	dev	DENY	{S} db push --project-ref {DEV}
+# D. allowlist phrase smuggled inside a quoted argument (rules 3 / 3.5)
+qd01	dev	dev	DENY	{S} db query --linked -f "notes on migration list stuff.sql"
+qd02	dev	dev	DENY	{S} db query --linked -f "run --help me.sql"
+qd03	dev	dev	DENY	{S} db query --linked -f x.sql --debug "shows migration list output"
+qd04	dev	dev	DENY	{S} db dump --linked -f "dump --version tag.sql"
+# E. DEV ref smuggled into a comment or a quoted argument (rule 4, line 120)
+qe01	prod	prod	DENY	{S} db dump -f d.sql # --project-ref {DEV}
+qe02	prod	prod	DENY	{S} secrets list # see --project-ref {DEV} for dev
+qe03	prod	prod	DENY	{S} db dump -f "d --project-ref {DEV}.sql"
+qe04	prod	prod	DENY	{S} functions deploy send-email # deploy to --project-ref {DEV}
+# F. over-block: legitimate explicit-DEV commands where the ref value is quoted
+qf01	dev	dev	ALLOW	{S} db dump --project-ref "{DEV}" -f d.sql
+qf02	dev	dev	ALLOW	{S} db dump --project-ref='{DEV}' -f d.sql
+qf03	dev	dev	ALLOW	{S} functions deploy send-email --project-ref"={DEV}"
+qf04	dev	dev	ALLOW	{S} secrets list --project-ref '{DEV}'
+qf05	dev	dev	ALLOW	{S} functions deploy send-email --project'-ref' {DEV}
+qf06	dev	dev	ALLOW	{S} functions deploy send-email --project-ref {DEV}
+qf07	dev	dev	ALLOW	{S} db dump --project-ref={DEV} -f d.sql
+# G. controls
+qg01	none	-	ALLOW	grep -rn "{S}" src/
+qg02	none	-	ALLOW	git commit -m "chore: gate {S} deploys behind the guard"
+qg03	none	-	ALLOW	cat {S}/config.toml
+qg04	prod	prod	DENY	( {S} db query --linked -f x.sql )
+qg05	prod	prod	DENY	{S} db query --linked -f x.sql

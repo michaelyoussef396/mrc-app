@@ -1,0 +1,11 @@
+e1	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod && {S} db push --linked
+e2	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod && {S} functions deploy x
+e3	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod && {S} db diff
+e4	dev	-	ALLOW	echo "the api at api.supabase.com is documented"
+e5	dev	-	ALLOW	echo "see https://api.supabase.com/docs"
+e6	dev	-	ALLOW	cat docs/API_AUDIT.md | grep -n api.supabase.com
+e7	dev	-	ALLOW	{S} secrets set K=v --project-ref {DEV} && grep -h key .env
+e8	dev	-	DENY	if [ -f supabase/config.toml ]; then {S} db push --linked; fi
+e9	dev	-	DENY	while read f; do {S} db query --linked -f "$f"; done < list.txt
+e10	dev	-	DENY	if true; then {S} secrets set K=v --project-ref {PROD}; fi
+e11	prod	-	DENY	{S} migration list

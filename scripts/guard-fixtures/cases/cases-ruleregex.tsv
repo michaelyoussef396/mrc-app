@@ -1,0 +1,61 @@
+# baselines
+b1	dev	-	DENY	{S} db query --linked -f apply.sql
+b2	dev	-	ALLOW	{S} migration list --project-ref {DEV}
+b3	dev	-	ALLOW	{S} db diff --linked
+b4	prod	-	DENY	{S} db diff --linked
+b5	dev	-	DENY	{S} db push --project-ref {DEV}
+b6	dev	-	DENY	{S} migration repair --status applied 20250101 --project-ref {DEV}
+b7	dev	-	ALLOW	{S} functions deploy send-email --project-ref {DEV}
+b8	dev	-	DENY	{S} functions deploy send-email
+# rule 2 boundary: token adjacency
+r2a	dev	-	DENY	{S} db --project-ref={DEV} push
+r2b	dev	-	DENY	{S} db "push" --project-ref={DEV}
+r2c	dev	-	DENY	{S} db pu"sh" --project-ref={DEV}
+r2d	dev	-	DENY	{S} db${IFS}push --project-ref={DEV}
+r2e	dev	-	DENY	{S} migration --project-ref={DEV} repair --status applied 20250101
+r2f	dev	-	DENY	{S} db --debug push --project-ref={DEV}
+r2g	dev	-	DENY	{S} db \push --project-ref={DEV}
+r2h	dev	-	DENY	{S} db reset --project-ref={DEV}
+r2i	dev	-	DENY	{S} db  push --project-ref={DEV}
+r2j	dev	-	DENY	{S} db --project-ref={DEV} reset --no-seed
+r2k	dev	-	ALLOW	{S} migration list --project-ref {DEV} && echo "policy reminder: never db push"
+# rule 3 boundary: the help/version token belongs to another command
+r3a	dev	-	DENY	{S} db dump --linked -f d.sql | grep -v NOTICE
+r3b	dev	-	DENY	echo --version && {S} functions deploy send-email
+r3c	dev	-	DENY	{S} functions deploy send-email # -v
+r3d	dev	-	DENY	sort -h sizes.txt && {S} db dump --linked -f d.sql
+r3e	dev	-	ALLOW	{S} --version
+r3f	dev	-	DENY	{S} db push --project-ref={DEV} -h
+# rule 3.5 boundary: allowlist text vs operative command; workdir/db-url spelling
+r35a	dev	-	DENY	{S} db dump --linked -f d.sql # migration list
+r35b	dev	-	DENY	echo migration list && {S} db dump --linked -f d.sql
+r35c	dev	-	DENY	SUPABASE_DB_URL=postgresql://postgres:pw@db.example.supabase.co:5432/postgres {S} db diff --schema public
+r35d	dev	-	DENY	SUPABASE_WORKDIR=/Users/michaelyoussef/mrc-app-prod {S} migration list
+r35e	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod && {S} migration list
+r35f	dev	-	DENY	{S} db diff --db-url postgresql://postgres:pw@localhost:5432/postgres
+r35g	dev	-	DENY	{S} migration list --workdir /Users/michaelyoussef/mrc-app-prod
+r35h	dev	-	DENY	{S} migration list --workdir=/Users/michaelyoussef/mrc-app-prod
+r35i	none	-	DENY	{S} migration list
+r35j	prod	-	DENY	{S} inspect db bloat --linked
+r35k	dev	-	ALLOW	{S} inspect db bloat --linked
+r35l	dev	-	DENY	{S} db dump --linked -f d.sql && {S} db diff --linked
+r35m	dev	-	DENY	{S} secrets set NOTE=x --project-ref abcdefghijabcdefghij # db diff
+# rule 4 boundary: DEV ref text that is not the operative target
+r4a	dev	-	DENY	echo "run it as --project-ref {DEV}" && {S} functions deploy send-email
+r4b	dev	-	DENY	{S} functions deploy send-email # --project-ref {DEV}
+r4c	dev	-	DENY	{S} functions deploy send-email --project-ref {DEV} && {S} functions deploy send-email --project-ref abcdefghijabcdefghij
+r4d	dev	-	DENY	{S} secrets set NOTE="--project-ref {DEV}" --project-ref abcdefghijabcdefghij
+r4e	dev	-	DENY	{S} functions deploy send-email --project-ref={DEV}abcdefghij
+r4f	dev	-	ALLOW	{S} secrets list --project-ref {DEV}
+r4g	dev	-	DENY	{S} link --project-ref abcdefghijabcdefghij
+# over-block probes: local-only work refused by rule 4 / rule 3.5
+o1	dev	-	ALLOW	{S} migration new add_photo_hash_column
+o2	dev	-	ALLOW	{S} functions new mould-report
+o3	dev	-	ALLOW	{S} start
+o4	dev	-	ALLOW	{S} status
+o5	dev	-	ALLOW	{S} gen types typescript --local > src/types.ts
+o6	none	-	ALLOW	{S} migration list --local
+o7	prod	-	ALLOW	{S} db diff --local
+o8	dev	-	ALLOW	{S} db lint --local
+o9	dev	-	ALLOW	{S} stop --no-backup
+o10	dev	-	ALLOW	{S} functions serve --env-file ./supabase/.env.local

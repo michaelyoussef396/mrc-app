@@ -1,0 +1,6 @@
+g1	dev	-	DENY	ls -h && {S} db push --linked
+g2	dev	-	DENY	ls -h && {S} db query --linked -f x.sql
+g3	prod	-	DENY	ls -h && {S} migration list
+g4	dev	-	DENY	ls -h && {S} functions deploy x
+g5	dev	-	DENY	{S} projects list --project-ref {DEV} && {S} db dump -f d.sql
+g6	dev	-	DENY	cat notes.md | grep {DEV} && {S} secrets set K=v

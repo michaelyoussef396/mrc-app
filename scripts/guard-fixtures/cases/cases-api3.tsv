@@ -1,0 +1,10 @@
+z1	dev	-	ALLOW	git commit -m "chore: stop hardcoding api.supabase.com in the helper"
+z2	dev	-	ALLOW	git commit -m "chore: stop hardcoding api.supabase.com in the curl helper"
+z3	dev	-	ALLOW	git commit -m "chore: rework the curl helper"
+z4	dev	-	DENY	python3 -c "u.urlopen('https://api.supabase.com/v1/projects/{PROD}/pause')"
+z5	dev	-	DENY	curl -X POST https://api.supabase.com/v1/projects/{PROD}/pause
+z6	dev	prod	DENY	python3 -c "u.urlopen('https://api.supabase.com/v1/projects/{PROD}/pause')"
+z7	prod	-	DENY	python3 -c "u.urlopen('https://api.supabase.com/v1/projects/{PROD}/pause')"
+z8	dev	-	DENY	socat - OPENSSL:api.supabase.com:443 < req.txt
+z9	dev	-	DENY	deno eval "await fetch('https://api.supabase.com/v1/projects/{PROD}/secrets')"
+z10	dev	-	DENY	curl -sS $(cat /tmp/mgmt-url.txt) -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"

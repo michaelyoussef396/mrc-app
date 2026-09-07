@@ -1,0 +1,62 @@
+# --- controls: the guard's happy paths on the API lens ---
+c1	dev	-	DENY	curl -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" https://api.supabase.com/v1/projects
+c2	dev	-	DENY	curl -X POST https://api.supabase.com/v1/projects/$REF/database/query -d '{"query":"select 1"}'
+c3	dev	-	DENY	curl https://api.supabase.io/v1/projects/$REF/secrets
+c4	dev	-	DENY	wget -q -O - https://api.supabase.com/v1/projects
+c5	dev	-	DENY	http POST https://api.supabase.com/v1/projects/$REF/pause
+c6	dev	-	DENY	xh POST https://api.supabase.com/v1/projects/$REF/pause
+c7	dev	-	DENY	busybox wget -O - https://api.supabase.com/v1/projects
+c8	dev	-	ALLOW	curl -sS https://example.com/health
+# --- half A: network clients not in API_RE (line 42) ---
+n1	dev	-	DENY	https --auth-type=bearer -A bearer https://api.supabase.com/v1/projects
+n2	dev	-	DENY	xhs POST https://api.supabase.com/v1/projects/$REF/pause
+n3	dev	-	DENY	curlie POST https://api.supabase.com/v1/projects/$REF/pause
+n4	dev	-	DENY	python3 -c "import urllib.request as u; print(u.urlopen('https://api.supabase.com/v1/projects').read())"
+n5	dev	-	DENY	python3 -c "import requests; print(requests.delete('https://api.supabase.com/v1/projects/'+ref).text)"
+n6	dev	-	DENY	node -e "fetch('https://api.supabase.com/v1/projects/'+process.env.REF+'/pause',{method:'POST'}).then(r=>r.text()).then(console.log)"
+n7	dev	-	DENY	deno eval "await fetch('https://api.supabase.com/v1/projects')"
+n8	dev	-	DENY	bun -e "await fetch('https://api.supabase.com/v1/projects')"
+n9	dev	-	DENY	ruby -e 'require "net/http"; puts Net::HTTP.get(URI("https://api.supabase.com/v1/projects"))'
+n10	dev	-	DENY	perl -MLWP::Simple -e 'getprint "https://api.supabase.com/v1/projects"'
+n11	dev	-	DENY	php -r 'echo file_get_contents("https://api.supabase.com/v1/projects");'
+n12	dev	-	DENY	wget2 -q -O - https://api.supabase.com/v1/projects
+n13	dev	-	DENY	aria2c -o out.json https://api.supabase.com/v1/projects
+n14	dev	-	DENY	openssl s_client -quiet -connect api.supabase.com:443 < req.txt
+n15	dev	-	DENY	nc api.supabase.com 443 < req.txt
+n16	dev	-	DENY	socat - OPENSSL:api.supabase.com:443 < req.txt
+n17	dev	-	DENY	lwp-request -m DELETE https://api.supabase.com/v1/projects/$REF
+n18	dev	-	DENY	pwsh -c "Invoke-RestMethod -Method Post https://api.supabase.com/v1/projects/$REF/pause"
+n19	dev	-	DENY	GET https://api.supabase.com/v1/projects
+# --- half B: host spellings (client half satisfied with curl) ---
+h1	dev	-	DENY	curl -H "Authorization: Bearer $T" https://API.SUPABASE.COM/v1/projects
+h2	dev	-	DENY	curl -H "Authorization: Bearer $T" https://Api.Supabase.Com/v1/projects/$REF/pause
+h3	dev	-	DENY	curl https://api.supabase.com./v1/projects
+h4	dev	-	DENY	curl "https://api%2Esupabase%2Ecom/v1/projects"
+h5	dev	-	DENY	H=api.supabase; curl -X POST "https://${H}.com/v1/projects/$REF/database/query" -d @q.sql
+h6	dev	-	DENY	TLD=com; curl "https://api.supabase.$TLD/v1/projects"
+h7	dev	-	DENY	curl -sS $(cat /tmp/mgmt-url.txt) -H "Authorization: Bearer $T"
+h8	dev	-	DENY	curl -K /tmp/mgmt.curlrc
+h9	dev	-	DENY	curl --config /tmp/mgmt.curlrc
+h10	dev	-	DENY	HOST=$(echo YXBpLnN1cGFiYXNlLmNvbQ== | base64 -d); curl "https://$HOST/v1/projects"
+h11	dev	-	DENY	curl -H "Host: api.supabase.com" https://104.18.0.1/v1/projects
+h12	dev	-	DENY	curl --resolve api.supabase.com:443:104.18.0.1 https://api.supabase.com/v1/projects
+h13	dev	-	DENY	curl -X POST "https://{PROD}.supabase.co/auth/v1/admin/users" -H "apikey: $SERVICE_KEY" -d '{"email":"x@y.z"}'
+h14	dev	-	DENY	curl -X DELETE "https://{PROD}.supabase.co/rest/v1/leads?id=eq.1" -H "apikey: $SERVICE_KEY"
+h15	dev	-	DENY	curl -X POST "https://{PROD}.supabase.co/storage/v1/object/reports/x.pdf" -H "apikey: $SERVICE_KEY"
+h16	dev	-	DENY	curl -sS "https://{PROD}.supabase.co/functions/v1/send-email" -d '{}'
+# --- rule interactions on the API path ---
+r1	dev	-	DENY	curl -v -X POST https://api.supabase.com/v1/projects/$REF/pause
+r2	dev	-	DENY	curl -X POST https://api.supabase.com/v1/projects/$REF/database/query -d @drop.sql # --project-ref {DEV}
+r3	dev	-	DENY	{S} functions list --project-ref {DEV} && curl -X POST https://api.supabase.com/v1/projects/$REF/pause
+r4	dev	-	DENY	{S} migration list && curl -X POST https://api.supabase.com/v1/projects/$REF/database/query -d @q.sql
+r5	prod	-	DENY	curl -X POST https://api.supabase.com/v1/projects/$REF/pause
+r6	none	-	DENY	curl -X POST https://api.supabase.com/v1/projects/$REF/pause
+r7	dev	-	DENY	curl -X POST https://api.supabase.com/v1/projects/{PROD}/pause
+r8	dev	-	DENY	curl -X POST https://api.supabase.com/v1/projects/{DEV}/pause
+# --- over-block probes: no control-plane effect ---
+o1	dev	-	ALLOW	curl -sS https://example.com/health # docs live at api.supabase.com
+o2	dev	-	ALLOW	echo "curl https://api.supabase.com/v1/projects" >> docs/API_AUDIT.md
+o3	dev	-	ALLOW	git commit -m "docs: record the curl calls we make to api.supabase.com"
+o4	dev	-	ALLOW	grep -rn "api.supabase.com" docs/ ; curl -I https://example.com
+o5	dev	-	ALLOW	wget -q -O - https://example.com/notes.txt | grep api.supabase.com
+o6	dev	-	ALLOW	rg "api.supabase.com" src/

@@ -1,0 +1,19 @@
+# J - rule 2 firing on prose, plus controls
+j1	dev	-	ALLOW	echo "never run: npm ci && supabase db reset" >> docs/RUNBOOK.md
+j2	dev	-	ALLOW	git commit -m "policy: nobody runs npm ci && supabase db reset --linked"
+j3	dev	-	ALLOW	echo "never run db reset here" >> docs/RUNBOOK.md
+j4	dev	-	ALLOW	cat scripts/test-supabase-guard.sh
+j5	dev	-	ALLOW	git show HEAD:supabase/config.toml
+j6	dev	-	ALLOW	du -sh supabase/functions && echo ok
+j7	dev	-	ALLOW	bash scripts/test-supabase-guard.sh
+j8	dev	-	ALLOW	gh pr create --body "$(cat /private/tmp/body.md)"
+j9	dev	-	ALLOW	{S} functions download send-email --project-ref {DEV}
+j10	dev	-	ALLOW	{S} db diff --linked
+j11	dev	-	ALLOW	npx supabase migration new add_photo_hash
+j12	dev	-	ALLOW	{S} gen types typescript --local > src/integrations/supabase/types.gen.ts
+j13	dev	-	ALLOW	echo "step: (supabase db diff) then commit" >> docs/x.md
+j14	none	-	ALLOW	echo "step: (supabase db diff) then commit" >> docs/x.md
+j15	prod	-	ALLOW	{S} start
+j16	dev	prod	ALLOW	{S} status
+j17	dev	-	ALLOW	{S} inspect db table-sizes --local
+j18	none	-	ALLOW	{S} inspect db table-sizes --local

@@ -1,0 +1,12 @@
+# q1 worst case: the decoy licenses a PROD target held in a shell variable
+q1-prod	dev	-	DENY	R={PROD}; curl -X POST https://api.supabase.com/v1/projects/$R/pause -H "x-note: --project-ref {DEV}"
+# q3 worst case: DEV first segment, PROD-in-variable second segment
+q3-prod	dev	-	DENY	{S} secrets list --project-ref {DEV}; R={PROD}; curl -X POST https://api.supabase.com/v1/projects/$R/database/query -d @q.sql
+# control: same curl with no decoy and no DEV segment
+q1-nodecoy	dev	-	DENY	R={PROD}; curl -X POST https://api.supabase.com/v1/projects/$R/pause
+# realistic over-block: grepping the repo docs then an unrelated fetch
+o4b	dev	-	ALLOW	grep -rn api.supabase.com docs/API_AUDIT.md; curl -I https://mrcsystem.com
+# realistic over-block: writing the audit doc from a heredoc
+o6	dev	-	ALLOW	cat >> docs/API_AUDIT.md <<EOF ## Management API  curl -H "Authorization: Bearer $TOKEN" https://api.supabase.com/v1/projects EOF
+# same commit message without the word curl - proves the pair, not the host, is the trigger
+z2b	dev	-	ALLOW	git commit -m "chore: stop hardcoding api.supabase.com in the fetch helper"

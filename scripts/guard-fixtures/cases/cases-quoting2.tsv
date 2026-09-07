@@ -1,0 +1,41 @@
+# round 2 - neighbourhood probes around the round-1 hits
+# B2. env-assignment prefix: where exactly does the assignment sub-pattern break?
+rb01	prod	prod	DENY	FOO='a b' {S} db query --linked -f x.sql
+rb02	prod	prod	DENY	FOO="a b" BAR=c {S} db query --linked -f x.sql
+rb03	prod	prod	DENY	SUPABASE_ACCESS_TOKEN="sbp tok" {S} db dump --project-ref {PROD} -f d.sql
+rb04	prod	prod	DENY	SUPABASE_DB_PASSWORD='p w' npx {S} db query --linked -f x.sql
+rb05	prod	prod	DENY	FOO="a=b c" {S} db query --linked -f x.sql
+rb06	prod	prod	DENY	FOO=a\ b {S} db query --linked -f x.sql
+# A2. shell grouping / prefix words
+ra01	prod	prod	DENY	{ {S} db dump --project-ref {PROD} -f d.sql; }
+ra02	prod	prod	DENY	X=1; { {S} db query --linked -f x.sql; }
+ra03	prod	prod	DENY	{ npx {S} db query --linked -f x.sql; }
+ra04	prod	prod	DENY	while false; do {S} db query --linked -f x.sql; done
+ra05	prod	prod	DENY	{S} --version; { {S} db dump --project-ref {PROD} -f d.sql; }
+# C2. rule 2 boundary: where does db[[:space:]]+(push|reset) still hold?
+rc01	dev	dev	DENY	{S} db push"" --project-ref {DEV}
+rc02	dev	dev	DENY	{S} db pus"h" --project-ref {DEV}
+rc03	dev	dev	DENY	{S} 'db' 'push' --project-ref {DEV}
+rc04	dev	dev	DENY	Y="db"; {S} $Y push --project-ref {DEV}
+rc05	dev	dev	DENY	{S} db reset --project-ref {DEV}
+rc06	dev	dev	DENY	{S} migration repair --status applied 20240101 --project-ref {DEV}
+rc07	dev	dev	DENY	{S} db re$'set' --project-ref {DEV}
+# D2. allowlist phrases smuggled into quoted args / comments
+rd01	dev	dev	DENY	{S} db query --linked -f "notes -h here.sql"
+rd02	dev	dev	DENY	{S} db query --linked -f x.sql # --help
+rd03	dev	dev	DENY	{S} db query --linked -f x.sql # like migration list but writes
+rd04	dev	dev	DENY	{S} db query --linked -f "inspect db notes.sql"
+rd05	prod	prod	DENY	{S} db query --linked -f x.sql # migration list
+rd06	dev	dev	DENY	{S} db query --linked -f x.sql --debug "run --version first"
+# E2. the full 2026-08-27 shape rebuilt from two quoting tricks
+re01	prod	prod	DENY	{S} db query --link"ed" -f x.sql # --project-ref {DEV}
+re02	prod	prod	DENY	{S} db query --link'ed' -f x.sql --debug "target --project-ref {DEV}"
+re03	prod	prod	DENY	{S} db dump -f d.sql --debug "use --project-ref {DEV} next time"
+re04	prod	prod	DENY	{S} link # --project-ref {DEV}
+# F2. more over-blocks: quoting on the read-only allowlist path
+rf01	dev	dev	ALLOW	{S} "migration" list
+rf02	dev	dev	ALLOW	{S} 'inspect' db bloat
+rf03	dev	dev	ALLOW	{S} migration list
+rf04	dev	dev	ALLOW	{S} inspect db bloat
+rf05	dev	dev	ALLOW	npx {S} db dump --project-ref "{DEV}" -f d.sql
+rf06	dev	dev	ALLOW	{S} db dump -f d.sql --project-ref "{DEV}"

@@ -1,0 +1,18 @@
+x1	dev	-	DENY	{S} db "push" --linked | grep -v NOTICE
+x2	dev	-	DENY	{S} db pu"sh" --linked | grep -v NOTICE
+x3	dev	-	DENY	{S} db${IFS}push --linked | grep -v NOTICE
+x4	dev	-	DENY	{S} db "push" --linked # -v
+x5	dev	-	DENY	echo "use --project-ref {DEV}" && {S} db "push"
+x6	dev	-	DENY	{S} db "push" --linked
+x7	dev	-	DENY	{S} db "push"
+x8	dev	-	DENY	{S} db --debug push
+x9	dev	-	DENY	{S} functions deploy send-email --project-ref {DEV} --project-ref abcdefghijabcdefghij
+x10	dev	-	DENY	{S} secrets set K=V --project-ref {DEV} --project-ref abcdefghijabcdefghij
+x11	dev	-	DENY	du -h backups && {S} db query --linked -f apply.sql
+x12	dev	-	DENY	ls -h && {S} db dump --linked -f d.sql
+x13	dev	-	DENY	tail -v log.txt && {S} db query --linked -f apply.sql
+x14	dev	-	DENY	{S} db query --linked -f apply.sql # migration list
+x15	dev	-	DENY	{S} db query --linked -f apply.sql && {S} db diff --linked
+x16	dev	-	DENY	{S} db push --linked
+x17	dev	-	DENY	{S} db query --linked -f apply.sql
+x18	dev	-	DENY	{S} db dump --linked -f d.sql

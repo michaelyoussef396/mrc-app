@@ -1,0 +1,24 @@
+# controls
+ctl-deny	dev	-	DENY	{S} db query --linked -f x.sql
+ctl-allow	dev	-	ALLOW	{S} migration list
+ctl-allow2	dev	-	ALLOW	{S} db diff --project-ref {DEV}
+# claims
+g1	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod && {S} migration list
+j1	dev	-	DENY	{S} migration list --workdir /Users/michaelyoussef/mrc-app-prod
+d10	dev	-	DENY	npx -y @{S}/mcp-server-{S}@latest --project-ref {PROD} --read-only
+e2	dev	-	DENY	nice {S} db push --project-ref {PROD}
+a1	dev	-	DENY	exec {S} db query --linked -f x.sql
+a16	dev	-	DENY	eval {S} db query --linked -f x.sql
+b1	dev	-	DENY	{ {S} db query --linked -f x.sql; }
+b2	dev	-	DENY	if true; then {S} db query --linked -f x.sql; fi
+b4	dev	-	DENY	case dev in dev) {S} db query --linked -f x.sql;; esac
+b5	dev	-	DENY	! {S} db query --linked -f x.sql
+c1	dev	-	DENY	SB={S}; $SB db query --linked -f x.sql
+c2	dev	-	DENY	$(command -v {S}) db query --linked -f x.sql
+c4	dev	-	DENY	sb() { {S} "$@"; }; sb db query --linked -f x.sql
+d1	dev	-	DENY	npm exec -- {S} db query --linked -f x.sql
+d7	dev	-	DENY	npx {S}@latest db query --linked -f x.sql
+d8	dev	-	DENY	npx -p {S} {S} db query --linked -f x.sql
+f2	dev	-	DENY	node -e "fetch('https://api.{S}.com/v1/projects/{PROD}/secrets').then(r=>r.text()).then(console.log)"
+i1	dev	-	ALLOW	({S} migration list)
+h1	dev	-	ALLOW	echo "next step: cd ~/mrc-app-1 && {S} db reset --local"

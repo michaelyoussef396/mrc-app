@@ -1,0 +1,20 @@
+x1	dev	-	ALLOW	git commit -m "docs: notes; supabase migration list is read-only"
+x2	none	-	ALLOW	git commit -m "docs: notes; supabase migration list is read-only"
+x3	prod	-	ALLOW	git commit -m "docs: notes; supabase migration list is read-only"
+x4	dev	-	ALLOW	{S} db --help
+x5	dev	-	ALLOW	{S} gen types typescript --project-ref {DEV}
+x6	dev	-	ALLOW	{S} db reset --local
+x7	dev	-	ALLOW	{S} migration list --linked
+x8	dev	-	ALLOW	{S} start --project-ref {DEV}
+x9	dev	-	ALLOW	{S} functions deploy send-email --project-ref {DEV}
+x10	dev	-	ALLOW	echo "run supabase start first"
+x11	dev	-	ALLOW	grep -rn "supabase " docs/
+x12	dev	-	ALLOW	curl -s https://example.com/api.supabase.com.txt
+x13	dev	-	ALLOW	{S} inspect db table-sizes --linked
+x14	dev	-	DENY	{S} db query --linked -f x.sql
+x15	dev	-	ALLOW	{S} link --project-ref {DEV}
+x16	dev	-	ALLOW	{S} --version
+x17	dev	-	ALLOW	{S} help
+x18	dev	-	ALLOW	{S} db diff --local
+x19	dev	-	ALLOW	{S} test db
+x20	dev	-	ALLOW	{S} db lint --local

@@ -1,0 +1,63 @@
+d1	dev	-	DENY	{S} db push --linked | grep -v NOTICE
+d2	dev	-	DENY	{S} db --debug push --linked
+d3	dev	-	DENY	{S} db --debug push --linked | grep -v NOTICE
+d4	prod	-	DENY	{S} db --debug push --linked | grep -v NOTICE
+d9	dev	prod	DENY	{S} db --debug push --linked | grep -v NOTICE
+d7	dev	-	DENY	echo "run it as --project-ref {DEV}" && {S} functions deploy send-email
+d8	dev	-	DENY	echo "run it as --project-ref" && {S} functions deploy send-email
+d5	dev	-	DENY	{S} functions deploy send-email --import-map ./cfg/db diff
+d6	dev	-	DENY	{S} functions deploy send-email --import-map ./cfg/dbdiff
+d10	dev	prod	DENY	{S} functions deploy send-email --import-map ./cfg/db diff
+c16	dev	-	DENY	env SUPABASE_DB_URL=postgresql://postgres:pw@db.example.supabase.co:5432/postgres {S} inspect db bloat
+r35c	dev	-	DENY	SUPABASE_DB_URL=postgresql://postgres:pw@db.example.supabase.co:5432/postgres {S} db diff --schema public
+c15	dev	-	DENY	SUPABASE_WORKDIR=/Users/michaelyoussef/mrc-app-prod {S} db diff --linked
+r35d	dev	-	DENY	SUPABASE_WORKDIR=/Users/michaelyoussef/mrc-app-prod {S} migration list
+r35e	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod && {S} migration list
+c14	prod	-	DENY	cd /Users/michaelyoussef/mrc-app-1 && {S} migration list
+r4d	dev	-	DENY	{S} secrets set NOTE="--project-ref {DEV}" --project-ref abcdefghijabcdefghij
+r4c	dev	-	DENY	{S} functions deploy send-email --project-ref {DEV} && {S} functions deploy send-email --project-ref abcdefghijabcdefghij
+r4b	dev	-	DENY	{S} functions deploy send-email # --project-ref {DEV}
+r3c	dev	-	DENY	{S} functions deploy send-email # -v
+r35a	dev	-	DENY	{S} db dump --linked -f d.sql # migration list
+r35m	dev	-	DENY	{S} secrets set NOTE=x --project-ref abcdefghijabcdefghij # db diff
+c13	dev	-	DENY	{S} db dump --linked -f d.sql # inspect db
+c12	dev	-	DENY	{S} db dump --linked --file backups/migration list
+r35b	dev	-	DENY	echo migration list && {S} db dump --linked -f d.sql
+r35l	dev	-	DENY	{S} db dump --linked -f d.sql && {S} db diff --linked
+r2a	dev	-	DENY	{S} db --project-ref={DEV} push
+r2j	dev	-	DENY	{S} db --project-ref={DEV} reset --no-seed
+r2e	dev	-	DENY	{S} migration --project-ref={DEV} repair --status applied 20250101
+c8	dev	-	DENY	{S} db --include-all push --project-ref={DEV}
+c9	dev	-	DENY	{S} db --dry-run push --project-ref={DEV}
+r2f	dev	-	DENY	{S} db --debug push --project-ref={DEV}
+r2b	dev	-	DENY	{S} db "push" --project-ref={DEV}
+r2c	dev	-	DENY	{S} db pu"sh" --project-ref={DEV}
+r2g	dev	-	DENY	{S} db \push --project-ref={DEV}
+c7	dev	-	DENY	{S} 'db' push --project-ref={DEV}
+r2d	dev	-	DENY	{S} db${IFS}push --project-ref={DEV}
+r3d	dev	-	DENY	sort -h sizes.txt && {S} db dump --linked -f d.sql
+r3b	dev	-	DENY	echo --version && {S} functions deploy send-email
+c3	dev	-	DENY	{S} db query --linked -f apply.sql | grep -v NOTICE
+c19	dev	-	DENY	{S} functions deploy send-email --project-ref  {DEV}xyz
+c17	dev	-	DENY	{S} functions deploy send-email --project-ref = {DEV}
+c18	dev	-	DENY	{S} functions deploy send-email --project-ref=={DEV}
+o1	dev	-	ALLOW	{S} migration new add_photo_hash_column
+o2	dev	-	ALLOW	{S} functions new mould-report
+c22	dev	-	ALLOW	{S} init
+o4	dev	-	ALLOW	{S} status
+o3	dev	-	ALLOW	{S} start
+o9	dev	-	ALLOW	{S} stop --no-backup
+c23	dev	-	ALLOW	{S} db start
+o10	dev	-	ALLOW	{S} functions serve --env-file ./supabase/.env.local
+o5	dev	-	ALLOW	{S} gen types typescript --local > src/types.ts
+o7	prod	-	ALLOW	{S} db diff --local
+o6	none	-	ALLOW	{S} migration list --local
+c20	dev	-	ALLOW	{S} db reset --local
+c26	dev	-	ALLOW	{S} functions deploy send-email --project-ref {DEV} && echo "reminder: db reset is banned"
+r2k	dev	-	ALLOW	{S} migration list --project-ref {DEV} && echo "policy reminder: never db push"
+c25	dev	-	ALLOW	{S} migration list --project-ref {DEV} > notes/db push and reset audit.txt
+s1	dev	-	DENY	{S} db query --linked -f apply.sql
+s2	dev	-	ALLOW	{S} functions deploy send-email --project-ref {DEV}
+s3	dev	-	ALLOW	{S} migration list
+s4	prod	-	DENY	{S} migration list
+s5	dev	-	ALLOW	echo hello world
