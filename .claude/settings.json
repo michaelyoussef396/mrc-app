@@ -1,17 +1,29 @@
 {
   "permissions": {
     "allow": [
-      "Command(npx)",
-      "Command(git)",
-      "Command(node)",
-      "Command(npm)",
-      "Command(bun)",
-      "ReadDirectory(*)",
-      "WriteFile(*)",
-      "ReadFile(*)",
-      "Bash"
+      "Bash",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)"
     ],
     "deny": [
+      "Bash(*ecyivrxjpsmjmexqatym*)",
+      "Bash(*supabase db push*)",
+      "Bash(*supabase db reset*)",
+      "Bash(*supabase link*)",
+      "Bash(*--linked*)",
+      "Bash(*supabase config push*)",
+      "Bash(*migration repair*)",
+      "Bash(*npm install*)",
+      "Bash(*git add -A*)",
+      "Bash(*git add -u*)",
+      "Bash(*git add --all*)",
+      "Bash(*git commit -a*)",
+      "Bash(*git push --force*)",
+      "Bash(*git push -f *)",
+      "Bash(*push origin production*)",
+      "Bash(*push production*)",
+      "Bash(*git clean*)",
       "Read(**/.env)",
       "Read(**/.env.*)",
       "Read(**/secrets/**)",
@@ -28,7 +40,9 @@
       "Edit(**/*.pem)",
       "Edit(**/*.key)"
     ],
-    "ask": []
+    "ask": [
+      "Bash(*gh pr merge*)"
+    ]
   },
 
   "hooks": {
@@ -128,7 +142,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "which osascript >/dev/null 2>&1 && osascript -e 'display notification \"Claude Code needs your attention\" with title \"Claude Code\"' || which notify-send >/dev/null 2>&1 && notify-send 'Claude Code' 'Claude Code needs your attention' || true"
+            "command": "if command -v osascript >/dev/null 2>&1; then osascript -e 'display notification \"Claude Code needs your attention\" with title \"Claude Code\"'; elif command -v notify-send >/dev/null 2>&1; then notify-send 'Claude Code' 'Claude Code needs your attention'; fi; true"
           }
         ]
       }
