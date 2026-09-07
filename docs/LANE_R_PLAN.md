@@ -105,7 +105,7 @@ text instead of commands.
 | **R2a** | Split into segments respecting quotes; apply existing rules per segment | 70 + 20 | 19 `whole-string-evaluation`, most separator-in-prose over-blocks; inverts line 87 | backbone; everything later is per-segment |
 | **R2b** | Resolve `argv[0]` (env assignments, wrappers, runners, quotes, basename); retire `CLI_RE` | 80 + 25 | 28 command-name defects, 14 of them HIGH | the largest single class |
 | **R3** | Take the target from parsed argv, not text; understand `--project-id` and local-only commands | 60 + 20 | 8 `target-text-not-operative`, 10 local/targetless over-blocks | needs R2b's parse |
-| **R4** | Refuse what cannot be resolved — `cd`, `--workdir`, variable command names, unparseable input; payload cwd over `CLAUDE_PROJECT_DIR` | 35 + 12 | `cd`-relocation HIGHs, the rule 3.5 root defects | **ends the class**: unknown spellings become DENY, not ALLOW |
+| **R4** | Refuse what cannot be resolved — `cd`, `--workdir`, variable command names, unparseable input; payload cwd over `CLAUDE_PROJECT_DIR`; **plus an internal fail-closed timer** (ruling 6) | 45 + 14 | `cd`-relocation HIGHs, the rule 3.5 root defects, the timeout fail-open | **ends the class**: unknown spellings become DENY, not ALLOW — and a guard that runs out of time denies instead of vanishing |
 | **R5** | Any network client by `argv[0]`, any Supabase host as a target | 40 + 15 | 14 API-detection defects | residual once R1 covers PROD-by-name |
 
 **Order: R1 → R2a → R2b → R3 → R4 → R5.** R1 first because it is independent and
@@ -140,6 +140,27 @@ once the parser exists; run earlier it would refuse nearly all legitimate work.
    **C12 — detection short-circuits the check it gates** ride in **R1's commit**,
    per `docs/BUG_LEDGER.md` §4.
 
+5. **The over-block is the policy, not a defect.** R1 refuses any command
+   naming the PROD ref or the PROD host — a `grep` of the docs, a commit message
+   quoting the ref, an `echo`, all of it. Corpus cases `verify-api2.tsv` g1 and
+   g2 assert ALLOW for two of those and therefore now read as **defects that are
+   not defects**; they are left exactly as the verifiers wrote them, because
+   editing a verifier's expectation to green a change is bug class C9. Do not
+   narrow the match to spare them: telling a `grep` from a request requires
+   parsing the command, which is R2b's job, not this rule's. Narrowing here is
+   C11 all over again.
+6. **Hook timeouts: fail-open, proven live 2026-09-07.** A `PreToolUse` hook that
+   overruns its configured timeout is killed and **the tool call proceeds** — the
+   hook's `exit 2` never lands. Measured in a nested session with a 20 s sleep
+   against `timeout: 5`: the hook logged its start, never its end, and the
+   command ran. Separately, both Bash guards in `.claude/settings.json` are
+   configured `timeout: 5000` in a field measured in **seconds**, i.e. ~83
+   minutes, which is almost certainly a milliseconds/seconds slip. The
+   consequence of fixing that naively is severe: shortening the timeout converts
+   a hang into a **silent allow**. So the order is fixed — R4 gives the guard its
+   own internal fail-closed timer first, and **no guard timeout is shortened
+   before that lands**. BUG-24 is amended with this, not closed by it.
+
 ## 5. Fixture corpus
 
 | path | what |
@@ -147,9 +168,11 @@ once the parser exists; run earlier it would refuse nearly all legitimate work.
 | `scripts/guard-fixtures/run-cases.sh` | the harness; feeds synthetic PreToolUse JSON, never invokes the CLI |
 | `scripts/guard-fixtures/cases/cases-*.tsv` | probe cases, six lenses |
 | `scripts/guard-fixtures/cases/verify-*.tsv` | the verifiers' independent re-runs |
-| `scripts/guard-fixtures/confirmed.json` | the 101 findings that survived verification |
+| `scripts/guard-fixtures/cases/confirmed.json` | the 101 findings that survived verification. Moved under `cases/` 2026-09-07: it is data, and the mechanical count excludes data |
 
-Cases use `{S}`, `{DEV}` and `{PROD}` placeholders. This is load-bearing, not
+Cases use `{S}`, `{DEV}`, `{PROD}` and — since round 2 — `{PROD_UC}` and
+`{PROD_MC}` placeholders, the last two derived from `{PROD}` inside the harness
+so that no casing of the ref is ever typed into a fixture. This is load-bearing, not
 cosmetic: `permissions.deny` hard-denies any Bash command carrying the literal
 PROD ref, so a fixture written with the literal would be refused by the
 permission layer and never reach the hook — passing for the wrong reason. Every

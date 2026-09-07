@@ -48,11 +48,23 @@ SCAN=$(printf '%s' "$CMD" | tr '\n' ' ')
 #    spellings to enumerate and nothing to parse; and the PROD data-plane host
 #    embeds it, so one match covers both. Fixture h13 proves that.
 #
-#    Over-blocking costs nothing: .claude/settings.json already denies any Bash
-#    command carrying the ref. This is still load-bearing because the copy at
-#    user scope gates every project on this machine, and codex-guard.sh replays
-#    commands through this script — neither has a permissions.deny behind it.
-if printf '%s' "$SCAN" | grep -qF "$PROD_REF"; then
+#    The match is case-folded because host names are case-insensitive: an
+#    uppercase spelling of the ref inside a URL resolves to the same PROD host,
+#    and the interpreter normalises it before the request goes out. Only the
+#    haystack is lowered, never the pattern. Verified live 2026-09-07 while
+#    closing this: the Bash(*<prod-ref>*) entry in .claude/settings.json is
+#    itself case-SENSITIVE, so the uppercase spelling passed the permission
+#    engine too. For that spelling this hook is the only thing that refuses it,
+#    which is why the fold lives here and not only in the deny list.
+#
+#    The resulting over-block is INTENDED, ruled by Michael 2026-09-07: any
+#    command naming the PROD ref or host is refused, a grep of the docs or a
+#    commit message that quotes the ref included. Corpus cases verify-api2.tsv
+#    g1 and g2 record that cost; they are a decision, not a defect, and must not
+#    be "fixed" by narrowing this match. Narrowing it to exclude things that
+#    look like prose is C11 again — you cannot tell a grep from a request
+#    without parsing, which is R2b's job, not this rule's.
+if printf '%s' "$SCAN" | tr '[:upper:]' '[:lower:]' | grep -qF "$PROD_REF"; then
   deny "Blocked: this command targets the PROD Supabase project ($PROD_REF, live customer data on mrcsystem.com). Agent sessions may only target DEV ($DEV_REF). If a PROD operation is genuinely required, Michael runs it himself in his own terminal, per CLAUDE.md."
 fi
 

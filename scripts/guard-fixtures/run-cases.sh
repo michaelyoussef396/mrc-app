@@ -8,7 +8,8 @@
 #     cwd_kind     : dev | prod | none      fixture worktree the payload cwd points at
 #     projdir_kind : dev | prod | none | -  ( - leaves CLAUDE_PROJECT_DIR unset)
 #     should       : ALLOW | DENY           what a CORRECT guard must answer
-#     command      : {S} for the CLI name, {DEV} / {PROD} for the project refs
+#     command      : {S} for the CLI name, {DEV} / {PROD} for the project refs,
+#                    {PROD_UC} / {PROD_MC} for upper- and mixed-case PROD
 #
 # The placeholders exist so that no cases file has to contain the literal PROD
 # ref: `permissions.deny` in .claude/settings.json hard-denies any Bash command
@@ -41,6 +42,12 @@ DEV=$(grep -m1 '^DEV=' "$REF_SOURCE" | cut -d= -f2)
 PROD=$(grep -m1 '^PROD=' "$REF_SOURCE" | cut -d= -f2)
 S=supabase
 
+# Case variants, derived from the ref above so no casing of it is ever typed into
+# a fixture. Host names are case-insensitive, so all of these reach the same
+# project and a correct guard refuses every one.
+PROD_UC=$(printf '%s' "$PROD" | tr '[:lower:]' '[:upper:]')
+PROD_MC=$(printf '%s' "$PROD" | awk '{print toupper(substr($0,1,4)) substr($0,5)}')
+
 FX=$(mktemp -d)
 trap 'rm -rf "$FX"' EXIT
 mkdir -p "$FX/dev/supabase/.temp" "$FX/prod/supabase/.temp" "$FX/none/supabase/.temp"
@@ -58,6 +65,8 @@ while IFS=$'\t' read -r id cwdk projk should cmd; do
   [ -n "${cmd:-}" ] || continue
 
   cmd=${cmd//\{S\}/$S}
+  cmd=${cmd//\{PROD_UC\}/$PROD_UC}
+  cmd=${cmd//\{PROD_MC\}/$PROD_MC}
   cmd=${cmd//\{DEV\}/$DEV}
   cmd=${cmd//\{PROD\}/$PROD}
 

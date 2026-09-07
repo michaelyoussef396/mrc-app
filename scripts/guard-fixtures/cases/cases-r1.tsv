@@ -38,6 +38,12 @@ h13	dev	-	DENY	curl -X POST "https://{PROD}.supabase.co/auth/v1/admin/users" -H 
 k21	dev	-	DENY	if true; then {S} link --project-ref {PROD}; fi
 d6	dev	-	DENY	{ {S} secrets set K=v --project-ref {PROD}; }
 
+# --- round 2: host names are case-insensitive, so these reach the same project.
+# Found by Codex on the round-1 review; the round-1 corpus contained no casing variant.
+r2a	dev	-	DENY	node -e "fetch('https://{PROD_UC}.supabase.co/rest/v1/')"
+r2b	dev	-	DENY	curl -X POST "https://{PROD_MC}.supabase.co/auth/v1/admin/users" -H "apikey: $SERVICE_KEY"
+r2c	dev	-	DENY	{S} db dump --project-ref {PROD_UC} -f d.sql
+
 # --- ALLOW controls: R1 must not cost a single legitimate command
 c1	dev	dev	ALLOW	{S} db dump --project-ref {DEV} -f d.sql
 c2	dev	dev	ALLOW	{S} functions deploy send-email --project-ref {DEV}
