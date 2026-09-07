@@ -36,13 +36,19 @@ Blocks dangerous shell commands. Detects patterns even in chained commands (`&&`
 - **Database**: `DROP TABLE/DATABASE`, `DELETE FROM` without WHERE, `TRUNCATE TABLE`
 - **System**: `chmod 777`, piping `curl`/`wget` to `bash`/`sh`, `mkfs`, `dd if=`, writes to `/dev/`
 
-### block-supabase-prod.sh
+### block-supabase-prod.sh — NOT IN THIS DIRECTORY
 **Event**: PreToolUse (Bash)
+**Lives at**: `~/.claude/hooks/block-supabase-prod.sh`, registered in `~/.claude/settings.json`
+
+Deliberately not in this directory. A copy used to be, was never registered in `.claude/settings.json`, and therefore never ran — editing it changed nothing while the machine-local copy did the actual gating. The duplicate was deleted on 2026-09-03. See `docs/POST_INCIDENT_FRAMEWORK.md` incident 2, which carries the open item to bring it back under version control properly.
+
+Its expected behaviour is pinned by `scripts/test-supabase-guard.sh` (tracked) — the reviewable contract while the hook itself is machine-local. Run it after any edit to the hook.
 
 Denies any Bash invocation of the Supabase CLI or Management API that does not explicitly and exclusively target DEV (`ctppzqnysmzynkxjlzta`). Fails closed.
 - **PROD ref**: any Supabase command naming `ecyivrxjpsmjmexqatym` is blocked outright
 - **History rewrites**: `db push`, `db reset`, `migration repair` are blocked on every target
 - **Implicit targets**: `--linked` and any command with no `--project-ref` are blocked, because both inherit a default that resolves to PROD
+- **Read-only exception**: `migration list`, `db diff` and `inspect db *` are allowed when the hook itself reads `supabase/.temp/project-ref` and confirms DEV at invoke time. `--db-url` and `--workdir` are refused there because they make the target unverifiable from inside the hook. `db query` is excluded by design — it executes arbitrary SQL and is what reached PROD on 2026-08-27
 - **Management API**: `curl`/`wget` to `api.supabase.com` is held to the same rule
 
 Companion to `block-supabase-mcp-writes.sh`, which covers the MCP tool route only and never sees a Bash command. Neither hook gates a human's own terminal, which is where CLAUDE.md says PROD Edge Function deploys are run by hand.
@@ -62,6 +68,18 @@ Auto-formats files after Claude edits them. Auto-detects formatters by checking 
 **Event**: SessionStart
 
 Injects dynamic project context at session start: current branch (or detached HEAD warning), last commit, uncommitted changes count, staged changes indicator, and stash count.
+
+Also keeps the session log. On `startup` or `clear` it creates `docs/sessions/<YYYY-MM-DD>-<branch-slug>.md` from `docs/sessions/_TEMPLATE.md` (a second session on the same branch and day gets `-2`, `-3`, …) and prints `Session log: <path> (created|existing)`. A log is recognised by its `- Session id:` line, so `resume` and `compact` reuse it and never create one. If an earlier log exists for the same branch slug, its path and its "Resume from here" section are printed so the new session continues from it.
+
+Paths resolve from the script's own location (`../../docs/sessions/_TEMPLATE.md`), so the byte-identical copy registered at user scope in `~/.claude/hooks/` and any worktree without the template are no-ops. Missing `jq` or template: no-op. The hook never fails the session. Also prints `Window: <line from window-remaining.sh>` (and the `window low:` line at ≥ 80%) into context.
+
+### session-resume.sh
+**Event**: Stop
+
+Rewrites the "Resume from here" section of the current session's log after every turn (the log is found by its `- Session id:` line; with several, the one whose `- Branch:` line names the current branch, else the newest): branch and HEAD, unpushed commits, uncommitted files, the last step-log line, every `codex resume` id in the log, and the 5-hour window. Replaces the section atomically (temp file and `mv`), and only when the content changed. Missing `jq`, sessions dir or git: exit 0, no output. No log carrying the session id: one `systemMessage` per session (marker file in `$TMPDIR`), then silent. At ≥ 80% of the window used it emits `window low: …` as a `systemMessage`. Never emits `additionalContext` — it loops (`docs/CODEX_WORKFLOW.md` §10, trap 3).
+
+### window-remaining.sh
+Helper for `session-start.sh` and `session-resume.sh`, not a hook itself. Prints `five_hour NN% used, resets HH:MM AEST (HH:MM UTC)` plus a `window low:` line at ≥ 80%, or `unknown`. Reads the Claude Code OAuth token from the macOS Keychain item `Claude Code-credentials` (a tracked script reading a credential, documented in `docs/CODEX_WORKFLOW.md` §10), calls `GET https://api.anthropic.com/api/oauth/usage`, caches the line 60 s in `$TMPDIR`. The token is never written or printed.
 
 ## Adding Your Own
 

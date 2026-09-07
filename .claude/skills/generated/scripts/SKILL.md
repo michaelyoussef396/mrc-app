@@ -1,16 +1,16 @@
 ---
 name: scripts
-description: "Skill for the Scripts area of mrc-app. 80 symbols across 11 files."
+description: "Skill for the Scripts area of mrc-app. 74 symbols across 12 files."
 ---
 
 # Scripts
 
-80 symbols | 11 files | Cohesion: 81%
+74 symbols | 12 files | Cohesion: 84%
 
 ## When to Use
 
 - Working with code in `slack-mcp-server/`
-- Understanding how getFromKeychain, saveToKeychain, getFromFile work
+- Understanding how handleHealthCheck, handleRefreshTokens, handleUsersInfo work
 - Modifying scripts-related functionality
 
 ## Key Files
@@ -18,76 +18,76 @@ description: "Skill for the Scripts area of mrc-app. 80 symbols across 11 files.
 | File | Symbols |
 |------|---------|
 | `scripts/preview-emails.ts` | buildGoogleReviewEmailHtml, fmtDateLong, fmtDateShort, fmtDateShortYear, fmtDateAU (+10) |
-| `slack-mcp-server/scripts/setup-wizard.js` | print, printBox, warn, error, info (+8) |
-| `slack-mcp-server/lib/handlers.js` | parseBool, atomicWriteSync, loadDMCache, saveDMCache, handleTokenStatus (+6) |
+| `slack-mcp-server/scripts/setup-wizard.js` | print, printBox, success, warn, error (+9) |
 | `slack-mcp-server/lib/token-store.js` | getFromKeychain, saveToKeychain, getFromFile, atomicWriteSync, saveToFile (+5) |
 | `scripts/send-preview-emails.ts` | wrapInBrandedTemplate, buildConfirmationEmailHtml, buildBookingConfirmationHtml, buildReminderHtml, buildReportApprovedHtml (+3) |
+| `slack-mcp-server/scripts/verify-web.js` | log, cleanup, startServer, testDemoPage, testDashboard (+2) |
 | `slack-mcp-server/scripts/token-cli.js` | main, showStatus, manualRefresh, question, autoExtract (+1) |
-| `slack-mcp-server/scripts/verify-web.js` | cleanup, startServer, testDemoPage, testDashboard, testApiWithKey (+1) |
-| `slack-mcp-server/lib/slack-client.js` | stats, checkTokenHealth, slackAPI, getUserCacheStats, sleep |
+| `slack-mcp-server/lib/handlers.js` | handleHealthCheck, handleRefreshTokens, handleUsersInfo, handleSendMessage |
 | `slack-mcp-server/scripts/verify-core.js` | atomicWriteSync, testAtomicWrite, testServerExit, main |
-| `slack-mcp-server/src/web-server.js` | main |
+| `slack-mcp-server/lib/slack-client.js` | checkTokenHealth, slackAPI |
+| `slack-mcp-server/src/server.js` | main, backgroundTimer |
 
 ## Entry Points
 
 Start here when exploring this area:
 
-- **`getFromKeychain`** (Function) — `slack-mcp-server/lib/token-store.js:26`
-- **`saveToKeychain`** (Function) — `slack-mcp-server/lib/token-store.js:39`
-- **`getFromFile`** (Function) — `slack-mcp-server/lib/token-store.js:57`
-- **`saveToFile`** (Function) — `slack-mcp-server/lib/token-store.js:89`
-- **`extractFromChrome`** (Function) — `slack-mcp-server/lib/token-store.js:175`
+- **`handleHealthCheck`** (Function) — `slack-mcp-server/lib/handlers.js:112`
+- **`handleRefreshTokens`** (Function) — `slack-mcp-server/lib/handlers.js:151`
+- **`handleUsersInfo`** (Function) — `slack-mcp-server/lib/handlers.js:464`
+- **`handleSendMessage`** (Function) — `slack-mcp-server/lib/handlers.js:490`
+- **`checkTokenHealth`** (Function) — `slack-mcp-server/lib/slack-client.js:94`
 
 ## Key Symbols
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
+| `handleHealthCheck` | Function | `slack-mcp-server/lib/handlers.js` | 112 |
+| `handleRefreshTokens` | Function | `slack-mcp-server/lib/handlers.js` | 151 |
+| `handleUsersInfo` | Function | `slack-mcp-server/lib/handlers.js` | 464 |
+| `handleSendMessage` | Function | `slack-mcp-server/lib/handlers.js` | 490 |
+| `checkTokenHealth` | Function | `slack-mcp-server/lib/slack-client.js` | 94 |
+| `slackAPI` | Function | `slack-mcp-server/lib/slack-client.js` | 147 |
 | `getFromKeychain` | Function | `slack-mcp-server/lib/token-store.js` | 26 |
 | `saveToKeychain` | Function | `slack-mcp-server/lib/token-store.js` | 39 |
 | `getFromFile` | Function | `slack-mcp-server/lib/token-store.js` | 57 |
 | `saveToFile` | Function | `slack-mcp-server/lib/token-store.js` | 89 |
 | `extractFromChrome` | Function | `slack-mcp-server/lib/token-store.js` | 175 |
+| `isAutoRefreshAvailable` | Function | `slack-mcp-server/lib/token-store.js` | 193 |
 | `loadTokens` | Function | `slack-mcp-server/lib/token-store.js` | 199 |
 | `saveTokens` | Function | `slack-mcp-server/lib/token-store.js` | 251 |
-| `checkTokenHealth` | Function | `slack-mcp-server/lib/slack-client.js` | 94 |
-| `slackAPI` | Function | `slack-mcp-server/lib/slack-client.js` | 147 |
-| `getUserCacheStats` | Function | `slack-mcp-server/lib/slack-client.js` | 271 |
-| `sleep` | Function | `slack-mcp-server/lib/slack-client.js` | 292 |
-| `handleTokenStatus` | Function | `slack-mcp-server/lib/handlers.js` | 75 |
-| `handleHealthCheck` | Function | `slack-mcp-server/lib/handlers.js` | 112 |
-| `handleRefreshTokens` | Function | `slack-mcp-server/lib/handlers.js` | 151 |
-| `handleListConversations` | Function | `slack-mcp-server/lib/handlers.js` | 198 |
-| `handleUsersInfo` | Function | `slack-mcp-server/lib/handlers.js` | 464 |
-| `handleSendMessage` | Function | `slack-mcp-server/lib/handlers.js` | 490 |
-| `handleListUsers` | Function | `slack-mcp-server/lib/handlers.js` | 545 |
-| `isAutoRefreshAvailable` | Function | `slack-mcp-server/lib/token-store.js` | 193 |
-| `main` | Function | `slack-mcp-server/src/web-server.js` | 283 |
+| `fetch` | Method | `slack-mcp-server/workers/mcp-worker.js` | 362 |
+| `atomicWriteSync` | Function | `slack-mcp-server/lib/token-store.js` | 74 |
+| `extractFromChromeInternal` | Function | `slack-mcp-server/lib/token-store.js` | 116 |
+| `main` | Function | `slack-mcp-server/scripts/token-cli.js` | 11 |
+| `showStatus` | Function | `slack-mcp-server/scripts/token-cli.js` | 36 |
+| `manualRefresh` | Function | `slack-mcp-server/scripts/token-cli.js` | 63 |
 
 ## Execution Flows
 
 | Flow | Type | Steps |
 |------|------|-------|
+| `Main → SlackApi` | cross_community | 6 |
 | `Main → AtomicWriteSync` | cross_community | 6 |
+| `Main → JsonRpcResponse` | cross_community | 5 |
+| `Main → JsonRpcError` | cross_community | 5 |
 | `Main → ExtractFromChromeInternal` | cross_community | 5 |
 | `Main → SaveToKeychain` | cross_community | 5 |
 | `Main → GetFromFile` | cross_community | 5 |
 | `Main → GetFromKeychain` | cross_community | 5 |
-| `HandleListConversations → ExtractFromChromeInternal` | intra_community | 5 |
-| `HandleListConversations → SaveToKeychain` | intra_community | 5 |
-| `HandleListConversations → GetFromFile` | intra_community | 5 |
-| `HandleListConversations → GetFromKeychain` | intra_community | 5 |
-| `JobCompletionForm → Print` | cross_community | 4 |
+| `HandleListConversations → ExtractFromChromeInternal` | cross_community | 5 |
+| `HandleListConversations → SaveToKeychain` | cross_community | 5 |
 
 ## Connected Areas
 
 | Area | Connections |
 |------|-------------|
-| Pages | 4 calls |
-| Tools | 1 calls |
-| Cluster_104 | 1 calls |
+| Workers | 1 calls |
+| Cluster_64 | 1 calls |
 
 ## How to Explore
 
-1. `gitnexus_context({name: "getFromKeychain"})` — see callers and callees
-2. `gitnexus_query({query: "scripts"})` — find related execution flows
+1. `context({name: "handleHealthCheck"})` — see callers and callees
+2. `query({search_query: "scripts"})` — find related execution flows
 3. Read key files listed above for implementation details
+4. `explain({target: "<file or symbol>"})` — persisted taint findings (source→sink data flows), when indexed with `--pdg`

@@ -127,24 +127,31 @@ describe('OfflineBanner', () => {
     expect(screen.getByText(/offline/i)).toBeInTheDocument()
   })
 
-  it('shows pending count when there are pending changes', () => {
-    setNavigatorOnLine(false)
-    vi.mocked(useOfflineSync).mockReturnValue({
-      syncState: 'offline',
-      pendingCount: 3,
-      syncNow: vi.fn(),
-      lastSyncError: null,
-    })
-    render(<OfflineBanner />)
-    expect(screen.getByText(/3 changes pending/i)).toBeInTheDocument()
-  })
-
-  it('states that new changes stay on this device when nothing is pending', () => {
+  it('states that nothing is saved on this device', () => {
     setNavigatorOnLine(false)
     render(<OfflineBanner />)
     expect(
-      screen.getByText(/new changes stay on this device until you're back online/i),
+      screen.getByText(/nothing is saved on this device/i),
     ).toBeInTheDocument()
+  })
+
+  it('tells the technician to keep the form open', () => {
+    setNavigatorOnLine(false)
+    render(<OfflineBanner />)
+    expect(
+      screen.getByText(/keep this form open until signal returns/i),
+    ).toBeInTheDocument()
+  })
+
+  // Regression guard. The previous copy promised on-device storage that does
+  // not exist, and it survived a review because it read as part of an
+  // honesty fix. Fail loudly if any variant of that claim comes back.
+  it('never claims the work is stored on the device', () => {
+    setNavigatorOnLine(false)
+    render(<OfflineBanner />)
+    expect(
+      screen.queryByText(/stay on this device|saved on your device|kept on this device/i),
+    ).not.toBeInTheDocument()
   })
 
   it('dismiss button has 48px touch target', () => {

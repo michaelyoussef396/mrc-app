@@ -34,6 +34,7 @@ import {
   calculateCostEstimate,
   type CostEstimateResult,
 } from '@/lib/calculations/pricing';
+import { resolveSubfloorHours } from '@/lib/calculations/subfloorHours';
 
 // ============================================================================
 // FORMATTERS
@@ -733,7 +734,10 @@ function CostEstimateSection({
     (sum, a) => a.demolition_required ? sum + ((a.demolition_time_minutes || 0) / 60) : sum,
     0,
   );
-  const calculatedSubfloorHours = (subfloor?.treatment_time_minutes || 0) / 60;
+  const calculatedSubfloorHours = resolveSubfloorHours(
+    i.subfloor_required,
+    (subfloor?.treatment_time_minutes || 0) / 60,
+  );
 
   const costResult: CostEstimateResult = calculateCostEstimate({
     nonDemoHours: calculatedNonDemoHours,

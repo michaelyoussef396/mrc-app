@@ -82,3 +82,8 @@ settings.local.json
 
 # Operational scratch: schema dumps, PROD storage-path exports, template backups
 dev-setup/
+
+# Multi-agent workflow state — worktree-local, not committed. The templates are
+# tracked at docs/ai-templates/; ownership and the bootstrap note live in
+# AGENTS.md, "Workflow".
+.ai/

@@ -11,7 +11,10 @@ const CONNECTIVITY_POLL_MS = 3000;
 export default function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [dismissed, setDismissed] = useState(false);
-  const { pendingCount, syncState } = useOfflineSync();
+  // Invoked for its "Back online" toast only. Its pendingCount/syncState count
+  // rows in the Dexie queue, which no production code writes to, so they are
+  // permanently zero and cannot drive the copy below.
+  useOfflineSync();
   const wasOfflineRef = useRef(!navigator.onLine);
 
   useEffect(() => {
@@ -46,11 +49,12 @@ export default function OfflineBanner() {
 
   if (!isOffline || dismissed) return null;
 
-  const message = syncState === 'syncing'
-    ? 'Syncing your changes...'
-    : pendingCount > 0
-      ? `You're offline. ${pendingCount} change${pendingCount > 1 ? 's' : ''} pending.`
-      : "You're offline — new changes stay on this device until you're back online.";
+  // Says what is actually true. The form holds unsaved work in memory only —
+  // there is no on-device copy (the localStorage backup has never produced a
+  // retrievable key; see docs/OFFLINE_INVESTIGATION.md), so the banner must not
+  // imply the work is stored anywhere or that it can be recovered.
+  const message =
+    "You're offline. Nothing is saved on this device. Keep this form open until signal returns — if you close it, this work is lost.";
 
   return (
     <div className="fixed top-0 left-0 right-0 z-[9999] bg-amber-500 text-white px-4 py-3 flex items-center justify-between">

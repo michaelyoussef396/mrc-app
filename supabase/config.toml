@@ -1,4 +1,13 @@
-project_id = "ecyivrxjpsmjmexqatym"
+# Local project identifier only — this namespaces local dev containers on the host.
+# It is NOT the remote target: db push, migration list and functions deploy all
+# resolve through the linked project (supabase/.temp/project-ref), which is
+# machine-local and git-ignored. Verified against CLI 2.101.0 help output and the
+# config reference on 2026-09-03.
+#
+# NOTE: remotes.<branch>.project_id is a DIFFERENT key and IS used for remote
+# targeting. There is no [remotes] block in this file; if one is ever added, the
+# reasoning above does not cover it.
+project_id = "mrc-app"
 
 # Public webhook receiver for Framer marketing-site lead form.
 # Framer posts unauthenticated requests, so JWT verification must be disabled.

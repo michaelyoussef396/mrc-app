@@ -47,6 +47,67 @@ const MAX_VERSION_INSERT_ATTEMPTS = 3;
 // immediately, so this only has to outlive a single download.
 const SIGNED_URL_TTL_SECONDS = 300;
 
+interface PhaseTimer {
+  mark: (phase: string, detail?: Record<string, unknown>) => void;
+}
+
+// Emits one line at the moment each phase ends, never an array flushed at the
+// end: Vercel SIGKILLs the invocation at maxDuration, and the phase still
+// running when the budget ran out is exactly the one that has to survive.
+// Node cannot force a synchronous flush to a pipe, so writing at the boundary
+// is the strongest guarantee available. `atMs` races the 60s ceiling, `tookMs`
+// is this phase alone. Never carries report content — the HTML holds customer
+// PII, so only byte counts are logged.
+//
+// Every failure inside a mark is swallowed. Instrumentation must not be able to
+// break the path it measures: an exception escaping a mark between
+// puppeteer.launch and the try/finally below would leak the browser, and one
+// escaping after the version row is committed would report a successful save as
+// a failed request. Losing a breadcrumb is always cheaper than either.
+function createPhaseTimer(): PhaseTimer {
+  const startedAt = readClock();
+  let previousAt = startedAt;
+  return {
+    mark(phase, detail) {
+      try {
+        const now = readClock();
+        console.log(
+          '[render-job-report-pdf]',
+          JSON.stringify({
+            phase,
+            atMs: Math.round(now - startedAt),
+            tookMs: Math.round(now - previousAt),
+            ...detail,
+          }),
+        );
+        previousAt = now;
+      } catch {
+        // Deliberately silent: reporting a logging failure would need logging.
+      }
+    },
+  };
+}
+
+// Guarded separately because the timer is constructed outside any mark's try.
+function readClock(): number {
+  try {
+    return performance.now();
+  } catch {
+    return 0;
+  }
+}
+
+// A caught puppeteer failure is only diagnostic if the *kind* survives:
+// TimeoutError, ProtocolError and TargetCloseError all reach the same catch
+// and mean entirely different things. Message text is omitted — it can carry
+// HTML fragments.
+function describeError(err: unknown): Record<string, string> {
+  return {
+    errorName: (err as { name?: string } | null)?.name ?? 'unknown',
+    errorType: (err as object | null)?.constructor?.name ?? 'unknown',
+  };
+}
+
 type RenderMode = 'hard_save';
 
 // Origins permitted to call this admin endpoint via CORS. Anything else gets
@@ -111,7 +172,19 @@ function applyCors(req: VercelRequest, res: VercelResponse): void {
   }
 }
 
-async function renderPdfFromHtml(html: string): Promise<Uint8Array> {
+async function renderPdfFromHtml(html: string, timer: PhaseTimer): Promise<Uint8Array> {
+  // Hoisted out of the launch options purely so it can be timed on its own:
+  // @sparticuz/chromium decompresses the browser binary to /tmp here, and that
+  // decompression is covered by no timeout anywhere in this file, which makes
+  // it worth measuring.
+  //
+  // This DOES change evaluation order — `chromium.args` was read before
+  // executablePath() when both sat in the object literal, and is read after it
+  // now. Codex established no runtime regression from the reorder: nothing in
+  // this repo calls setGraphicsMode or reads graphicsMode, which is the coupling
+  // that would make `args` depend on executablePath() having run.
+  const executablePath = await chromium.executablePath();
+  timer.mark('chromium_executable_resolved');
   const browser = await puppeteer.launch({
     args: chromium.args,
     defaultViewport: {
@@ -119,20 +192,24 @@ async function renderPdfFromHtml(html: string): Promise<Uint8Array> {
       height: VIEWPORT_HEIGHT,
       deviceScaleFactor: DEVICE_SCALE_FACTOR,
     },
-    executablePath: await chromium.executablePath(),
+    executablePath,
     headless: chromium.headless,
   });
+  timer.mark('browser_launched');
   try {
     const page = await browser.newPage();
     await page.emulateMediaType('print');
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 45_000 });
+    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    timer.mark('set_content_returned');
     await page.evaluateHandle('document.fonts.ready');
+    timer.mark('fonts_ready');
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
       preferCSSPageSize: true,
       margin: { top: '0', right: '0', bottom: '0', left: '0' },
     });
+    timer.mark('pdf_returned', { pdfBytes: pdf.length });
     return pdf;
   } finally {
     await browser.close().catch((closeErr) => {
@@ -145,6 +222,7 @@ async function fetchFreshHtmlViaEf(
   supabaseUrl: string,
   callerToken: string,
   jobCompletionId: string,
+  timer: PhaseTimer,
 ): Promise<{ html: string } | { error: string; status: number }> {
   const efUrl = `${supabaseUrl}/functions/v1/generate-job-report-pdf`;
   const controller = new AbortController();
@@ -159,6 +237,10 @@ async function fetchFreshHtmlViaEf(
       body: JSON.stringify({ jobCompletionId, previewOnly: true }),
       signal: controller.signal,
     });
+    // fetch() resolves on headers; response.json() below drains the body. The
+    // gap between these two marks is the 7-11 MB base64 payload crossing the
+    // wire from the Supabase region to this function's region.
+    timer.mark('ef_headers_received', { status: response.status });
     if (!response.ok) {
       const text = await response.text().catch(() => '');
       console.error('[render-job-report-pdf] previewOnly EF failed', {
@@ -169,11 +251,15 @@ async function fetchFreshHtmlViaEf(
       return { error: 'Fresh HTML fetch failed', status: 502 };
     }
     const payload = (await response.json()) as { html?: unknown };
+    timer.mark('ef_body_read', {
+      htmlChars: typeof payload.html === 'string' ? payload.html.length : 0,
+    });
     if (typeof payload.html !== 'string' || payload.html.length === 0) {
       return { error: 'EF returned empty HTML', status: 502 };
     }
     return { html: payload.html };
   } catch (err) {
+    timer.mark('ef_fetch_failed', describeError(err));
     console.error('[render-job-report-pdf] previewOnly EF threw', { jobCompletionId, err });
     return { error: 'Fresh HTML fetch failed', status: 502 };
   } finally {
@@ -268,6 +354,7 @@ interface RenderJobReportPdfResponse {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const timer = createPhaseTimer();
   applyCors(req, res);
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -277,6 +364,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Logged once per invocation. Paired with the Supabase host on the EF fetch
+  // mark, this is what confirms or kills the cross-region-transfer hypothesis
+  // without anyone opening the Vercel dashboard.
+  timer.mark('invocation_start', { region: process.env.VERCEL_REGION ?? 'unknown' });
 
   const env = readEnv();
   if ('error' in env) {
@@ -337,7 +429,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // === Source the HTML ============================================
-  const fresh = await fetchFreshHtmlViaEf(env.url, token, jobCompletionId);
+  timer.mark('ef_fetch_sent', { supabaseUrl: env.url });
+  const fresh = await fetchFreshHtmlViaEf(env.url, token, jobCompletionId, timer);
   if ('error' in fresh) {
     return res.status(fresh.status).json({ error: fresh.error });
   }
@@ -346,10 +439,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // === Render PDF =================================================
   let pdf: Uint8Array;
   try {
-    pdf = await renderPdfFromHtml(html);
+    pdf = await renderPdfFromHtml(html, timer);
   } catch (err) {
     // Server-side log carries the full error; response is generic so puppeteer
     // internal paths or HTML fragments cannot leak to the caller.
+    timer.mark('render_failed', describeError(err));
     console.error('[render-job-report-pdf] render failed', { callerId, jobCompletionId, err });
     return res.status(500).json({ error: 'PDF render failed' });
   }
@@ -365,6 +459,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('[render-job-report-pdf] hash failed', { callerId, jobCompletionId, err });
     return res.status(500).json({ error: 'Hash failed' });
   }
+  timer.mark('hash_computed');
 
   // Find next version number for path naming (the INSERT helper recomputes
   // this internally race-safely; here we just need a path label that's
@@ -379,6 +474,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       contentType: 'application/pdf',
       upsert: false,
     });
+  // Neither upload is covered by any timeout in this file, and both cross the
+  // same wire as the EF fetch. A budget exhausted here leaves a stored PDF
+  // with no version row.
+  timer.mark('pdf_uploaded', { ok: !pdfUpload.error });
   if (pdfUpload.error) {
     console.error('[render-job-report-pdf] pdf upload failed', { callerId, jobCompletionId, err: pdfUpload.error });
     return res.status(500).json({ error: 'PDF storage upload failed' });
@@ -390,6 +489,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       contentType: 'text/html',
       upsert: false,
     });
+  timer.mark('html_uploaded', { htmlChars: html.length, ok: !htmlUpload.error });
   if (htmlUpload.error) {
     console.error('[render-job-report-pdf] html upload failed', { callerId, jobCompletionId, err: htmlUpload.error });
     // Best-effort cleanup of the orphan PDF so we don't leave half-rows.
@@ -406,6 +506,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     pdf.length,
     callerId,
   );
+  timer.mark('version_inserted', { ok: !('error' in inserted) });
   if ('error' in inserted) {
     await callerClient.storage.from(REPORT_PDFS_BUCKET).remove([pdfStorageKey, htmlStorageKey]).catch(() => undefined);
     return res.status(500).json({ error: inserted.error });
@@ -423,6 +524,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     htmlStoragePath: htmlStorageKey,
     htmlHash,
   };
+  timer.mark('signed_url_minted', { hasSignedUrl: body.signedUrl !== null });
   res.setHeader('Cache-Control', 'no-store');
   return res.status(200).json(body);
 }

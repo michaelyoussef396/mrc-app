@@ -112,8 +112,9 @@ Technician routes are completely independent under `/technician/*` with their ow
 
 ### Prerequisites
 
-- Node.js >= 18
-- npm >= 9
+- Node.js 24.x — run `nvm use` in the repo root; `.nvmrc` pins the major. The
+  authoritative pin for deploys is `engines.node` in `package.json`.
+- npm >= 11 (ships with Node 24)
 - Supabase CLI (`npm install -g supabase`)
 
 ### Setup Steps

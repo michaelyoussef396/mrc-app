@@ -3,6 +3,9 @@
 Mould & Restoration Co. — mobile-first field tech app for mould inspection and remediation.
 React 18 + TypeScript + Supabase + Vite + Tailwind + shadcn/ui | PWA with offline support
 
+Shared rules for every agent in this repo (Claude Code and Codex alike) live in `AGENTS.md`; Claude Code imports it here:
+@AGENTS.md
+
 ## SUPABASE PROJECT REFS — READ BEFORE ANY REF-SCOPED COMMAND
 
 Two near-identical projects live in the MRC org. The wrong ref is a production incident.
@@ -23,8 +26,10 @@ the exact command; Michael runs it. Same discipline for migrations.
 
 - `npm run dev` — local dev server
 - `npm run build` — production build
-- `npm run typecheck` — TypeScript check
+- `npm run typecheck` — TypeScript check (currently checks zero files, see T7 in docs/TODO.md)
+- `npx tsc -p tsconfig.app.json --noEmit` — the real type check. The error count differs per worktree (99, 122 and 135 were all measured on 31 Aug 2026). Gate on no NEW error lines against a baseline taken in the same tree the same day, never on the count.
 - `npx supabase functions deploy <name> --project-ref ecyivrxjpsmjmexqatym` — deploy Edge Function
+- Git habits for multi-worktree work: docs/GIT_HABITS.md
 
 ## Architecture
 
@@ -42,13 +47,6 @@ the exact command; Michael runs it. Same discipline for migrations.
 - Auto-save every 30 seconds on forms
 - Zero data loss on navigation
 
-## Git Workflow
-
-- `main` — development (Vercel preview deploys)
-- `production` — live app (Vercel production deploys)
-- Never push directly to production — always merge from main
-- Working directory: ~/mrc-app-1
-
 ## Database
 
 - RLS on all tables
@@ -63,11 +61,11 @@ the exact command; Michael runs it. Same discipline for migrations.
 ## Current State (May 2026)
 
 - Phase 1: COMPLETE — inspection workflow end-to-end
-- Phase 2: COMPLETE — job completion workflow (2 known gaps tracked as L1 + L2 in TODO.md)
+- Phase 2: COMPLETE — job completion workflow (the L1/L2 gaps are closed: L1 resolved by pricing canon C1 and the HEPA work, L2 cancelled 2026-05-12; one L1 remnant is carried as engineering debt in docs/TODO.md)
 - Phase 3: COMPLETE — AI summary versioning (Stages 3.1-3.5 shipped 2026-05-02)
 - Phase 4: PARTIAL — photo integrity Stages 4.1/4.1.5/4.2/4.3 shipped (2026-05-05 to 2026-05-11); Stages 4.4-4.7 deferred post-launch
-- PDF Pipeline Rebuild: CODE COMPLETE (2026-05-24) — server-rendered hard-save via api/render-pdf with html_hash mismatch guard at send time + ReportVersionHistory UI. Migration applied + EF deployed in same wave. See docs/PDF_PIPELINE_PLAN.md. Post-launch cleanup tracked as PDF-CL1..7 in TODO.md.
-- Pre-launch hardening underway. See docs/TODO.md for current tasks (Launch Model + L/S/T sections)
+- PDF Pipeline Rebuild: CODE COMPLETE (2026-05-24) — server-rendered hard-save via api/render-pdf with html_hash mismatch guard at send time + ReportVersionHistory UI. Migration applied + EF deployed in same wave. See docs/PDF_PIPELINE_PLAN.md. Post-launch cleanup (PDF-CL items) carried as engineering debt in docs/TODO.md, old TODO.md lines 1011–1028.
+- Current tasks: docs/TODO.md, tracked by stable ID (P0-n, P1-n, Tn...). Detail for every item lives in docs/MRC_MASTER_BACKLOG.md.
 - See docs/PHASE_2_EXECUTION.md for build plan
 - See docs/JOB_COMPLETION_PRD.md for full spec
 
@@ -136,6 +134,50 @@ that file was auto-loaded at the time.
 - Mobile-first: 375px primary viewport. 48px touch targets. UI changes verified at 375px before merge.
 - Australian formatting: DD/MM/YYYY, AUD $X,XXX.XX, Australia/Melbourne timezone, (03) XXXX XXXX phones.
 - customer_preferred_date and customer_preferred_time NEVER cleared (PR #39 schema
+
+## Codex review
+
+The Codex plugin for Claude Code (`openai/codex-plugin-cc`) is installed. Codex is a reviewer here, never an editor. Rulings 1–10, both Codex roles and the full procedure live in `AGENTS.md` (Roles) and `docs/CODEX_WORKFLOW.md`; the mandatory Claude Code procedure is the block below. One review per unit of work, then stop — no fix loop, no second round. `/codex:rescue` and `/codex:transfer` are not used in this repo.
+
+## Claude Code specifics
+
+- **Hooks** (`.claude/settings.json`, scripts in `.claude/hooks/`): SessionStart `session-start.sh` prints the branch banner and creates or reuses `docs/sessions/<date>-<branch-slug>.md`, printing its path and, when an earlier log exists for the branch, that log's "Resume from here". PreToolUse Edit|Write: `protect-files.sh` (denies edits under `.claude/hooks/*`), `warn-large-files.sh`, `scan-secrets.sh`. PreToolUse Bash: `block-dangerous-commands.sh`, `block-supabase-prod.sh`. PreToolUse on Supabase MCP writes: `block-supabase-mcp-writes.sh`. PostToolUse Edit|Write: `format-on-save.sh`. The same scripts are also registered at user scope from `~/.claude/hooks/`, so the banner prints twice.
+- **Permission layer:** `permissions.deny` in `.claude/settings.json` is the control on auto mode — anything naming the PROD ref, `db push`, `db reset`, `link`, `--linked`, `config push`, `migration repair`, `npm install`, `git add -A/-u/--all`, `git commit -a`, force pushes, pushes to `production`, `git clean`; `gh pr merge` asks.
+- **Agents:** 18 custom agents in `.claude/agents/`. Every sub-agent logs its own step-log lines prefixed `[<agent-name>]` (session-log rule in `AGENTS.md`).
+- **Session log:** the SessionStart hook creates it; fill the header first, append a step-log line before each unit of work, write every `codex resume <threadId>` the moment it is printed. Never create a second log for a branch; append to the newest.
+- **Companion script:** `/Users/michaelyoussef/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/codex-companion.mjs`. `CLAUDE_PLUGIN_ROOT` is empty in the Bash tool; re-resolve after a plugin update (`docs/CODEX_WORKFLOW.md` §3).
+
+## CODEX REVIEW IS NOT OPTIONAL ON CODE
+
+Every session that changes application code stops for a Codex review before opening a PR. Not after. Not "if time allows."
+
+**CC runs it, then stops.** `/codex:adversarial-review` and `/codex:review` keep `disable-model-invocation: true` in their command frontmatter (verified 2026-09-06 against plugin `openai-codex/codex/1.0.6`) and are never called. The flag blocks the slash command, not the plugin's companion script, which CC invokes directly — exact string, base rule and `Target:` check in `docs/CODEX_WORKFLOW.md` §3–5. The enforcement is still a **hard stop**; it moves from before the review to after it. CC never fixes a finding, never re-reviews, never opens a PR on its own triage. Being unable to run the slash command is not permission to skip the review.
+
+The wider brief-to-merge flow these nine steps sit inside is in `AGENTS.md` (Workflow) — deliberately not restated here, so the two cannot drift.
+
+1. Finish the unit of work and commit it. The review reads `origin/main...HEAD`; uncommitted work is invisible to it.
+2. Measure: `git diff --numstat origin/main...HEAD -- . ':(exclude)docs/sessions/' | awk '{a+=$1;d+=$2} END{print a+d}'`, run from the worktree root. Over 150: split, or ask Michael for a waiver and log it. A byte-identical restore of an unchanged tracked file does not count toward that (precedent, 2026-09-05).
+3. Check the diff for customer PII. Any hit: no review; "Do not review" entry in the log instead.
+4. Run it: `node /Users/michaelyoussef/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/codex-companion.mjs adversarial-review --wait --cwd <worktree> --base origin/main -- <focus>`, with `2> <file>` so the stderr line carrying the thread id is kept. Never `--base main`, never without `--base`, never `--help` on that subcommand.
+5. Print the `Target:` line and the line count before anything else. Target not `branch diff against origin/main` (or the pre-declared parent of a stacked branch): abort, discard unread, report.
+6. Write `codex resume <threadId>` into the session log immediately — from stderr `Thread ready (<id>)` or `node <script> status --cwd <worktree>`.
+7. Present every finding verbatim. Apply nothing.
+8. **STOP** in this exact shape and wait:
+
+   ```
+   CODEX REVIEW DONE — STOPPING
+   branch: <branch>   base: origin/main   reviewable lines (excl. docs/sessions/): <N>
+   Target: <verbatim>   Verdict: <verbatim>   findings: <n>
+   Resume in Codex: codex resume <threadId>   (written to docs/sessions/<log>.md)
+   ```
+
+9. Michael triages. Log the run in `docs/codex-review-log.md`, including the `Target:` line verbatim and the thread id. Only then the PR.
+
+An investigate-first session that produces no code is exempt — but the moment its findings turn into code, this applies.
+
+If a session merges application code without a logged review, that is a process failure and gets a ledger entry.
+
+CC reads and prints the `Target:` line before anything else. `--base main` in `~/mrc-app-1` silently reviews against the stale local `main` (#653 class); a bad `--base` exits 0.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
