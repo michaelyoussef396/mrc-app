@@ -59,6 +59,10 @@ Format: `- HH:MM · tool · agent · what · files · outcome`
 - 00:13 (07 Sep) · CC · CC · PR-2 review from the worktree, `--base origin/main`, Target printed and matched, 86 lines · (none) · needs-attention, 4 findings, nothing applied, thread in "Codex threads"
 - 00:20 · CC · CC · PR #150 opened (chore/session-window-docs, not merged); PR-1 row inserted in the review log · docs/codex-review-log.md (worktree) · done
 - 00:22 · CC · CC · closing commit on PR-2: PR-2 review row + this log · docs/codex-review-log.md, docs/sessions/2026-09-06-chore-session-resume.md · pushed; worktree removed afterwards
+- 00:40 · CC · CC · triage round: fixes 1–3 on chore/session-resume (fence-aware awk passes incl. the last-step parser, exact Header-only session-id match with id validation, hashed marker + 8-char id in the notice), fixes 5–6 on chore/session-window-docs (curl -q first; cache in `$XDG_CACHE_HOME`/`~/.cache/claude-hooks` 0700, symlink at either level rejected, atomic rename); fix 4 proposed only · .claude/hooks/session-resume.sh, .claude/hooks/window-remaining.sh · pinned by fixes-test.sh (F1–F3, F5) and f6-test.sh; 17-check smoke still green
+- 00:45 · CC · CC · re-review #149 (fixes 1–3), companion script, `--base origin/main`, Target printed and matched · (none) · see "Review"
+- 10:20 · CC · CC · re-review #150 (fixes 5–6) from the recreated scratch worktree `wt2` · (none) · FAILED in 1 s, empty output, stderr `failed to load configuration: No such file or directory`; Codex itself ran fine from that directory (`codex debug prompt-input`, rc 0) and `~/.codex/config.toml` was intact — the companion's shared session runtime had been started from the first `wt2` directory, which I had removed and recreated, so its cwd was a deleted inode. Not a Codex-side failure; one run from a moved worktree (`wt3`) follows. New trap for CODEX_WORKFLOW §8: never delete and recreate a directory the companion has reviewed from while the session lives
+- 10:22 · CC · CC · `git worktree move wt2 wt3`, re-review #150 once from `wt3` · (none) · see "Review"
 
 ## C1 — Stop hook proof (scratch clone of chore/session-resume @ ac22a32, three nested `claude -p` turns, haiku, `--resume`)
 
@@ -107,6 +111,8 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 
 - codex resume 01a07644-3943-7212-8883-b7653edba1a7 — PR-1 (chore/session-resume @ ac22a32 vs origin/main e076aa6), adversarial, 2026-09-06 10:29–10:32 UTC, Target `branch diff against origin/main`, verdict needs-attention
 - codex resume 01a07711-3ea0-7102-b031-96e058b81874 — PR-2 (chore/session-window-docs @ b21b7d7 vs origin/main e076aa6), adversarial, 2026-09-06 14:13–14:17 UTC, Target `branch diff against origin/main`, verdict needs-attention
+- codex resume 01a07939-e1ac-7ab3-b51e-081f8d2da465 — #149 re-review after fixes 1–3 (chore/session-resume @ 3cd9981 vs origin/main e076aa6), adversarial, 2026-09-07 00:17–00:19 UTC, Target `branch diff against origin/main`, verdict needs-attention
+- codex resume 01a0793e-297d-7622-b71d-4f2fc02b1646 — #150 re-review after fixes 5–6 (chore/session-window-docs @ 99036bb vs origin/main e076aa6, from scratch worktree `wt3`), adversarial, 2026-09-07 00:21–00:23 UTC, Target `branch diff against origin/main`, verdict needs-attention. The first attempt from `wt2` (job `review-mtqhv82a-shqp5z`) failed in 1 s with no thread.
 - C2's two `codex exec --ephemeral` runs left no thread (see "C2")
 
 ## Review
@@ -126,6 +132,27 @@ PR-2, chore/session-window-docs `b21b7d7` vs origin/main `e076aa6` (reviewed fro
 - Verdict: needs-attention
 - Findings: 4 — (high) curl loads `.curlrc` even with `-K -`, so a configured trace or libcurl output file could persist the Authorization header; recommendation `-q` first (`window-remaining.sh:26-27`); (high) with `TMPDIR` unset the cache lives at a predictable path in shared `/tmp`, `cat` follows a symlink another local user could plant, and its content would be printed into context (`:39-40`); (medium) `docs/CODEX_WORKFLOW.md:110` forbids hand-editing "Resume from here" while the reviewed checkout has no `session-resume.sh` and no Stop registration — true of PR-2 alone, that hook is PR-1 (#149); (medium) the reviewed checkout has no session log naming `window-remaining.sh` — this log is committed after the review by design, in the closing commit. Nothing applied; untriaged, to Michael.
 - codex-review-log row: added in the closing commit of PR-2
+
+Triage round (2026-09-07). Michael's decisions on the eight: fix 1 fence-aware parsing, 2 header-only exact session-id match, 3 no id in marker name or notice, 4 concurrent-edit safety (design, proposed only), 5 `curl -q`, 6 private 0700 cache without symlink following; the two medium findings on #150 are split artefacts, recorded and not fixed.
+
+#149 re-review, chore/session-resume `3cd9981` (fixes 1–3) vs origin/main `e076aa6`:
+
+- Target: `branch diff against origin/main` (printed and matched before reading)
+- Diff lines excl. docs/sessions/: 117 (117 added, 0 deleted, 2 files)
+- Verdict: needs-attention
+- Findings: 2 — (high) the fence parsers toggle on `^```` only: a four-backtick block containing triple-backtick lines around a quoted `## Resume from here`, or a tilde or indented fence, still lets the replacement delete a bullet and a closing fence, and the same construction around `## Header` plus another session's exact id makes `header_field` select the wrong log (`session-resume.sh:81-83`); (medium) the missing-log notice still interpolates the first eight characters of the session id, and an accepted id of eight characters or fewer would be disclosed in full (`:91`). Codex found no substantive issue in the Stop registration and excluded the known concurrent-edit finding. Nothing applied; to Michael.
+- Fixes 1 and 3 are therefore contested by the reviewer at the margin (CommonMark fence variants; the 8-character prefix); fix 2 stands except through the same fence construction.
+
+#150 re-review, chore/session-window-docs `99036bb` (fixes 5–6) vs origin/main `e076aa6`, run from scratch worktree `wt3`:
+
+- Target: `branch diff against origin/main` (printed and matched before reading)
+- Diff lines excl. docs/sessions/: 98 (97 added, 1 deleted, 7 files; includes the two earlier review rows)
+- Verdict: needs-attention
+- Findings: 1 — (medium) in `write_cache`, `mkdir -p` then `chmod 700` run before the symlink check, so if `claude-hooks` is a symlink to an existing user-owned directory the chmod follows it and silently sets that unrelated directory to 0700 before the check rejects the write (`window-remaining.sh:27-28`). Codex states the curl fix is correct. Nothing applied; to Michael.
+- Fix 5 closed and confirmed; fix 6 closed with one new finding carried (ordering: check the symlink before touching the directory).
+- The first attempt failed locally (see step log 10:20): companion job failed in 1 s, `failed to load configuration: No such file or directory`, no thread. Root cause on our side (a deleted-and-recreated worktree path under a live shared runtime), so it was re-run once from a moved worktree. Recorded because ruling 1's exit rule says stop on a Codex failure; this one was not Codex's.
+
+Status of the eight original findings after this round: five closed (1, 2, 3, 5, 6), three carried (4 — design proposal pending; the two #150 medium split artefacts). Three new findings from the re-reviews, untriaged: #149 fence variants (high), #149 id prefix in the notice (medium), #150 chmod ordering (medium).
 
 ## Did
 
@@ -152,7 +179,10 @@ PR-2, chore/session-window-docs `b21b7d7` vs origin/main `e076aa6` (reviewed fro
 
 ## Open
 
-- Both PRs are held for Michael's triage of the eight review findings (four each). The two high findings on `window-remaining.sh` (curl `-q`, cache symlink under an unset `TMPDIR`) and the three high on `session-resume.sh` (concurrent-edit loss, fenced heading as boundary, substring session-id match) are one-line to one-function fixes each, but ruling 1 says they are decided, not auto-applied.
+- Triage round done (2026-09-07): fixes 1, 2, 3 on #149 (3cd9981) and 5, 6 on #150 (99036bb); fix 4 proposed only. Re-reviews: #149 needs-attention (fence variants, id prefix), #150 needs-attention (chmod before symlink check). Three new findings untriaged; nothing applied.
+- Fix 4 (concurrent-edit safety) awaits Michael's choice between a compare-before-rename and a lock; the trade-off is in the 2026-09-07 report.
+- Companion trap observed: removing and recreating a directory the companion has reviewed from leaves its shared session runtime with a deleted cwd, and the next review from that path fails in 1 s with `failed to load configuration`. Candidate for CODEX_WORKFLOW §8; not added, out of the six.
+- Two scratch clones' nested sessions and the C1/C2 fixtures remain under the scratchpad; `~/.cache/claude-hooks/window.txt` now exists on this machine (the smoke test ran the shipped helper).
 - The Stop hook does not run in this session (trap 4). After #149 merges: restart or `/hooks` review in each worktree that should have it.
 - `.claude/settings.json` in `~/mrc-app-1` is still the live, uncommitted deny-list copy (32 deny entries: main's 15 plus the 17 held for #144). #149's committed copy adds only the Stop entry; #144 will need a small merge with it.
 - `~/.codex/config.toml`: nine lines, Michael's trust entry and tui block intact; no `hooks.state` entry, so the #143 trust step is still undone.
@@ -164,11 +194,11 @@ PR-2, chore/session-window-docs `b21b7d7` vs origin/main `e076aa6` (reviewed fro
 
 Hand-written at close (the hook cannot run in the session that added it):
 
-- Updated: 2026-09-07 00:22 AEST · Tool: CC
-- Branch: chore/session-resume @ ac22a32 in ~/mrc-app-1; PR #149 open. chore/session-window-docs @ closing commit; PR #150 open. Neither merged.
+- Updated: 2026-09-07 10:30 AEST · Tool: CC
+- Branch: chore/session-resume @ 3cd9981 in ~/mrc-app-1 (fixes 1–3); PR #149 open. chore/session-window-docs @ 99036bb + closing commit (fixes 5–6, rows, this log); PR #150 open. Neither merged.
 - Unpushed commits: none
 - Uncommitted files (this log excluded): ` M .claude/settings.json` (live deny list, never commit), ` M docs/HOW_TO_USE_THE_APP.html` (pre-existing churn), `?? docs/TEST_LEAD_PURGE_*` and other pre-existing untracked files
 - Last step-log line: see above
-- Codex threads: `codex resume 01a07644-3943-7212-8883-b7653edba1a7` (#149 review), `codex resume 01a07711-3ea0-7102-b031-96e058b81874` (#150 review)
+- Codex threads: `codex resume 01a07644-3943-7212-8883-b7653edba1a7` (#149), `codex resume 01a07711-3ea0-7102-b031-96e058b81874` (#150), `codex resume 01a07939-e1ac-7ab3-b51e-081f8d2da465` (#149 re-review), `codex resume 01a0793e-297d-7622-b71d-4f2fc02b1646` (#150 re-review)
 - Window: irrelevant at close
-- Next step: Michael triages the eight findings (docs/codex-review-log.md, the two 2026-09-06 rows after PR #144's), decides merge order (#149 then #150, or together), then restarts to pick up the Stop hook. Pop the AGENTS.md stash on `feat/schedule-rail-search-deeplink` when returning there (`git stash list` shows "parked GitNexus regen 2026-09-06 (block B)").
+- Next step: Michael decides fix 4's design (compare-before-rename vs lock) and triages the three new findings (docs/codex-review-log.md, the two 2026-09-07 rows); then merge order (#149 then #150, or together), then a restart to pick up the Stop hook. Pop the AGENTS.md stash on `feat/schedule-rail-search-deeplink` when returning there (`git stash list` shows "parked GitNexus regen 2026-09-06 (block B)").
