@@ -66,6 +66,7 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 
 - codex resume 01a07bc8-2e40-7cc2-9536-78fbae6b37aa   (Unit A adversarial review, 2026-09-07, base origin/main)
 - codex resume 01a07bd5-9eed-7f93-ab88-26433a9a4a73   (Unit A2 adversarial review, 2026-09-07, base 0e23baa = pre-declared stacked parent)
+- codex resume 01a07c02-ec90-7aa1-a13d-9b9d448621de   (exception-isolation review of 53e7bc6 + e495abd, 2026-09-07, base 1046c60 = pre-declared stacked parent)
 
 ## Review
 

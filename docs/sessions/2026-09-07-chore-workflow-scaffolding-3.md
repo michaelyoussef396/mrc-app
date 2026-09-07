@@ -44,6 +44,7 @@ Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` 
 Write `codex resume <threadId>` here the moment it is printed — on stderr as `Thread ready (<id>)`, or by `node <companion> status`. The plugin SessionEnd hook deletes every job of the session, running or finished.
 
 - codex resume 01a07be7-c367-7a42-a3d3-2ea2507845f9   (Unit B adversarial review, 2026-09-07, base fb6107f = pre-declared stacked parent)
+- codex resume 01a07bfb-88a6-7e93-b676-e6ba3addd8e7   (Unit B2 adversarial review, 2026-09-07, base 84015f3)
 - (none yet)
 
 ## Review
@@ -61,6 +62,15 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 - Findings: 1 (medium) — NOT applied, carried to Michael untriaged. Verbatim in `.ai/CODEX_REVIEW.md`.
 - Plus a correction to a CC claim: the `executablePath()` hoist is not evaluation-order-identical (`chromium.args` moved from before to after). No runtime regression established; the comment and commit message are nonetheless wrong as written. Not fixed — carried.
 - codex-review-log row: added 2026-09-07, chore/workflow-scaffolding, `84015f3` vs `fb6107f`
+
+### Unit B2 review
+
+- Target: `Target: branch diff against 84015f3`  (verbatim; checked before the body was read)
+- Reviewable lines excl. `docs/sessions/`: **262 — OVER THE 150 CAP, waived by Michael BEFORE the run.** Production delta 55; the 203 is the mock harness the regression test needs. CC measured mechanically and did not subtract the test file.
+- Verdict: needs-attention
+- Findings: 1 (medium) — NOT applied, carried to Michael untriaged. Verbatim in `.ai/CODEX_REVIEW.md`.
+- Codex CONFIRMED, by independent fault injection: both original log-sink failures fixed; clock and serialisation failures contained; the tests exercise the real handler and removing the guard restores both defects; the corrected evaluation-order comment is accurate; the 122→124 tsconfig-graph explanation checks out.
+- **Codex could not run vitest (sandbox-blocked), so its verdict carries no test execution.** CC ran the suite separately: 73 files / 1237 tests, and proved the new test fails against the defect (6 of 7) before restoring byte-identically.
 
 ## Did
 
@@ -83,9 +93,12 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 <!-- resume:start -->
 <!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers -->
 
-- Updated: 2026-09-07 22:54 AEST · Tool: CC
-- Branch: chore/workflow-scaffolding @ 30e1e62 docs: close the session log
+- Updated: 2026-09-07 23:15 AEST · Tool: CC
+- Branch: chore/workflow-scaffolding @ e495abd docs: record PDF-CL12 as a read-side C4 instance
 - Unpushed commits:
+  - `e495abd docs: record PDF-CL12 as a read-side C4 instance`
+  - `53e7bc6 fix(job-report): isolate phase instrumentation from the render path`
+  - `1046c60 docs: withdraw PDF-CL12, track the 375px gap as P2-20`
   - `30e1e62 docs: close the session log`
   - `84015f3 obs(job-report): phase breadcrumbs across the render endpoint`
 - Uncommitted files (this log excluded):
@@ -95,9 +108,10 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
   - `?? muti-session-docs/`
   - `?? template-backup-66282.html`
   - `?? template-backup-66325.html`
-- Last step-log line: 23:20 · CC · CC · UNIT B build — phase breadcrumbs, region, error-kind capture; observability only, no behaviour change · api/render-job-report-pdf.ts · built; tsc app gate 122 vs 122 baseline, standalone check on the file shows the same 2 pre-existing errors as the untouched sibling api/render-pdf.ts, vitest 72 files / 1230 tests PASS
+- Last step-log line: 23:04 · CC · CC · gates · (none) · **tsc 124 vs 122 baseline — the 2 delta lines are the PRE-EXISTING `chromium.headless` + `networkidle0` errors in api/render-job-report-pdf.ts, newly VISIBLE because the test imports that file into the app tsconfig graph for the first time; neither line is touched by any Unit B diff and both exist verbatim in the untouched sibling api/render-pdf.ts.** vitest 73 files / 1237 tests PASS
 - Codex threads:
   - `codex resume 01a07be7-c367-7a42-a3d3-2ea2507845f9`
-- Window: five_hour 2% used, resets 03:29 AEST (17:29 UTC)
+  - `codex resume 01a07bfb-88a6-7e93-b676-e6ba3addd8e7`
+- Window: five_hour 3% used, resets 03:30 AEST (17:30 UTC)
 - Next step: the first open item under "Did NOT" or "Open", else continue from the last step-log line.
 <!-- resume:end -->

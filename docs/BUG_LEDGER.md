@@ -201,6 +201,23 @@ artefact still behaves wrongly, and only an over-the-wire read shows it.
 not the write call. `curl -sI` the real URL. This is the sibling of C2: C2 is
 believing a tool's success message, C11 is believing your own correct write.
 
+### C12 — A guard that does not cover its own call-site arguments
+
+**Shape.** A fallible operation is wrapped in `try/catch`, and the wrap is
+correct. The *arguments* to that operation are still evaluated by the caller,
+outside the wrap. The guard reads as total protection and is not: any throw in
+building the arguments escapes past it, at exactly the point the guard was added
+to make safe.
+
+**Instances (2, same session):** `new URL(env.url)` and `describeError(err)`,
+both passed to the guarded `timer.mark(...)` in
+`api/render-job-report-pdf.ts`. Both were introduced *by* the hardening that
+guarded the timer.
+
+**Check:** after guarding a call, read its argument list as if it were a
+separate statement, because it is one. Ask what each expression can throw. The
+guard's `try` starts at the callee, not at the call.
+
 ---
 
 ## 2. Entry template
@@ -254,6 +271,7 @@ through verbatim, not resolved.
 | **BUG-20** | The restore prompt crashes when it renders | **UNKNOWN** | Unreachable today only because BUG-19 starves it. It passes a plain object where React requires an element, and `Toaster` sits outside every error boundary | Open — P1-22 defect 2. Must land **before** BUG-19 |
 | **BUG-21** | The auth gate blocks a cold-cache offline mount | **UNKNOWN** | `userRoles` is never persisted, so the form does not render offline unless three REST GETs are still cached. Stays invisible until BUG-19 and BUG-20 are fixed | Open — P1-22 defect 3. Touches `AuthContext.tsx` — needs explicit permission |
 | **BUG-22** | Four `lead_status` values exist in the DB enum and in no TypeScript surface | C6 | One undefined lookup, **two different failure modes**: every render site is optional-chained so the status card degrades to grey and empty, while `LeadDetail.tsx:621` is unguarded and throws. So it presents as "renders fewer sections", not as an error — which is exactly why it looked like BUG-5's cause | Open — **P1** (was P0-10). **Latent: zero rows, verified 2026-09-06.** **NOT the cause of BUG-5 — disproven, see below** |
+| **BUG-24** | A logging failure on the error path replaces a JSON 500/502 with a rejected handler promise | C12 | The guard added one commit earlier is real and covers the timer completely, so the file *reads* as hardened. The residual is one level up, in `describeError(err)` evaluated at the call site — the identical mistake the same hardening had just fixed for `new URL(env.url)`, missed twice in the same file. Needs a dependency to reject an error whose `name` getter or `constructor` access throws, which puppeteer and fetch do not do, so no test and no production trace will ever surface it | **Deferred 2026-09-07** by Michael — instrumentation, not the P0; two-round review cap reached. `api/render-job-report-pdf.ts:262` and `:446`. Repro (Codex, verbatim): make `puppeteer.launch` or `fetch` reject `{ get name() { throw new Error('getter failed'); } }`, then assert the handler resolves with its normal error response — both assertions fail; removing only the failure breadcrumb restores them. Fix: guard the property reads inside `describeError`, return empty diagnostics on failure, and add a regression case for each of the two catch paths |
 | **BUG-23** | "View / Print opens the report and I just get the HTML code, not the report" | C11 | Every line of code involved is correct and says so out loud: the EF uploads with `contentType: 'text/html'` (`generate-inspection-pdf/index.ts:2324-2327`), and the button is a plain `window.open` on a real URL (`ReportPreviewHTML.tsx:564-565`, wired `:936`/`:940`). Nothing in the repo is wrong, so reading the repo cannot find it — the defect only exists over the wire. The obvious hypothesis is a `new Blob([html])` missing its `{ type }`, which is wrong here: the repo contains no HTML Blob at all. It took a four-way `curl -sI` probe on DEV to see it | **Open.** Inspection side still affected. Job side AVOIDS it as of `61c3940` (Unit A) by opening a self-typed Blob rather than the Storage URL |
 
 ---
