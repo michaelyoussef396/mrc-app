@@ -199,7 +199,7 @@ async function renderPdfFromHtml(html: string, timer: PhaseTimer): Promise<Uint8
   try {
     const page = await browser.newPage();
     await page.emulateMediaType('print');
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 45_000 });
+    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 45_000 });
     timer.mark('set_content_returned');
     await page.evaluateHandle('document.fonts.ready');
     timer.mark('fonts_ready');
