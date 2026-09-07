@@ -50,15 +50,15 @@ Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` 
 
 Write `codex resume <threadId>` here the moment it is printed — on stderr as `Thread ready (<id>)`, or by `node <companion> status`. The plugin SessionEnd hook deletes every job of the session, running or finished.
 
-- (none yet)
+- codex resume 01a07bc8-2e40-7cc2-9536-78fbae6b37aa   (Unit A adversarial review, 2026-09-07, base origin/main)
 
 ## Review
 
-- Target: <verbatim `Target:` line from the companion output — anything other than the pre-declared base = abort and report>
-- Diff lines excl. docs/sessions/: <from `git diff --numstat origin/main...HEAD -- . ':(exclude)docs/sessions/' | awk '{a+=$1;d+=$2} END{print a+d}'`>
-- Verdict: <approve | needs-attention | error>
-- Findings: <count>
-- codex-review-log row: <added: date + branch | pending: closing PR>
+- Target: `Target: branch diff against origin/main`  (verbatim; checked before the body was read)
+- Diff lines excl. docs/sessions/: 87 (81 added / 3 removed across 2 files; limit 150)
+- Verdict: needs-attention
+- Findings: 1 (medium) — NOT applied, carried to Michael untriaged. Verbatim in `.ai/CODEX_REVIEW.md`.
+- codex-review-log row: added 2026-09-07, chore/workflow-scaffolding
 
 ## Did
 
