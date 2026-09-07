@@ -65,9 +65,11 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 
 ## Resume from here
 
-<!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit; keep this the last section -->
+<!-- resume:start -->
+<!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers; never quote the marker lines elsewhere in this log -->
 
 - Rewritten by the Stop hook after the first turn. Until then, or when no Stop hook runs (Codex, a session that added the hook), fill by hand:
 - Next command: <exact command>
 - Uncommitted files: <`git status --porcelain` output, or none>
 - Untested: <what has not been run>
+<!-- resume:end -->
