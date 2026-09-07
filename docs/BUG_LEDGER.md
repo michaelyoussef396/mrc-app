@@ -167,6 +167,20 @@ introduced within that file is **UNKNOWN**.
 **Check:** grep for callers before believing a subsystem works. A read path wired
 into the UI proves nothing about the write path.
 
+### C11 — An attribute set at write time is overridden at read time
+**Shape.** The writer sets an attribute explicitly and the write succeeds. The
+serving layer replaces it on the way out, based on the content rather than on
+what was stored. Every line of code you can grep says the right thing; the
+artefact still behaves wrongly, and only an over-the-wire read shows it.
+
+**Instance (1):** BUG-23 — Storage serves HTML from a public bucket as
+`text/plain` with `x-content-type-options: nosniff`, despite the upload passing
+`contentType: 'text/html'`.
+
+**Check:** for anything served rather than executed, read the response headers,
+not the write call. `curl -sI` the real URL. This is the sibling of C2: C2 is
+believing a tool's success message, C11 is believing your own correct write.
+
 ---
 
 ## 2. Entry template
@@ -220,6 +234,7 @@ through verbatim, not resolved.
 | **BUG-20** | The restore prompt crashes when it renders | **UNKNOWN** | Unreachable today only because BUG-19 starves it. It passes a plain object where React requires an element, and `Toaster` sits outside every error boundary | Open — P1-22 defect 2. Must land **before** BUG-19 |
 | **BUG-21** | The auth gate blocks a cold-cache offline mount | **UNKNOWN** | `userRoles` is never persisted, so the form does not render offline unless three REST GETs are still cached. Stays invisible until BUG-19 and BUG-20 are fixed | Open — P1-22 defect 3. Touches `AuthContext.tsx` — needs explicit permission |
 | **BUG-22** | Four `lead_status` values exist in the DB enum and in no TypeScript surface | C6 | One undefined lookup, **two different failure modes**: every render site is optional-chained so the status card degrades to grey and empty, while `LeadDetail.tsx:621` is unguarded and throws. So it presents as "renders fewer sections", not as an error — which is exactly why it looked like BUG-5's cause | Open — **P1** (was P0-10). **Latent: zero rows, verified 2026-09-06.** **NOT the cause of BUG-5 — disproven, see below** |
+| **BUG-23** | "View / Print opens the report and I just get the HTML code, not the report" | C11 | Every line of code involved is correct and says so out loud: the EF uploads with `contentType: 'text/html'` (`generate-inspection-pdf/index.ts:2324-2327`), and the button is a plain `window.open` on a real URL (`ReportPreviewHTML.tsx:564-565`, wired `:936`/`:940`). Nothing in the repo is wrong, so reading the repo cannot find it — the defect only exists over the wire. The obvious hypothesis is a `new Blob([html])` missing its `{ type }`, which is wrong here: the repo contains no HTML Blob at all. It took a four-way `curl -sI` probe on DEV to see it | **Open.** Inspection side still affected. Job side AVOIDS it as of `61c3940` (Unit A) by opening a self-typed Blob rather than the Storage URL |
 
 ---
 

@@ -232,7 +232,42 @@ const INSPECTION_SELECT = `
   )
 `
 
-function JobReportPreview({ htmlUrl, onHtmlLoaded }: { htmlUrl: string; onHtmlLoaded?: (html: string | null) => void }) {
+/**
+ * The report HTML a preview has finished loading, tagged with what produced it.
+ * The tag is the point: HTML alone cannot be checked against the current
+ * selection, and an untagged copy is what let a stale version reach the View
+ * button (Codex review, 2026-09-07).
+ */
+export interface LoadedJobReport {
+  html: string
+  sourceUrl: string
+  jobCompletionId: string
+}
+
+/**
+ * True only when the loaded HTML belongs to the job and URL currently selected.
+ * Anything else — a version switch, a regenerate, a different job, an in-flight
+ * reload — must read as not-ready, because exporting it would hand a customer
+ * the wrong version of their report.
+ */
+export function isLoadedJobReportCurrent(
+  loaded: LoadedJobReport | null,
+  jobCompletionId: string | null | undefined,
+  sourceUrl: string | null | undefined,
+): loaded is LoadedJobReport {
+  if (!loaded || !jobCompletionId || !sourceUrl) return false
+  return loaded.jobCompletionId === jobCompletionId && loaded.sourceUrl === sourceUrl
+}
+
+export function JobReportPreview({
+  htmlUrl,
+  jobCompletionId,
+  onHtmlLoaded,
+}: {
+  htmlUrl: string
+  jobCompletionId: string
+  onHtmlLoaded?: (loaded: LoadedJobReport | null) => void
+}) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [htmlContent, setHtmlContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -241,6 +276,11 @@ function JobReportPreview({ htmlUrl, onHtmlLoaded }: { htmlUrl: string; onHtmlLo
 
   useEffect(() => {
     let cancelled = false
+
+    // Readiness is revoked the moment a load starts, not just when one fails.
+    // Between here and the new HTML arriving the parent still held the PREVIOUS
+    // report, and the View button stayed enabled over it.
+    onHtmlLoaded?.(null)
 
     async function fetchHtml() {
       try {
@@ -268,7 +308,7 @@ function JobReportPreview({ htmlUrl, onHtmlLoaded }: { htmlUrl: string; onHtmlLo
         if (cancelled) return
 
         setHtmlContent(raw)
-        onHtmlLoaded?.(raw)
+        onHtmlLoaded?.({ html: raw, sourceUrl: htmlUrl, jobCompletionId })
         setLoading(false)
       } catch (err) {
         if (!cancelled) {
@@ -282,8 +322,11 @@ function JobReportPreview({ htmlUrl, onHtmlLoaded }: { htmlUrl: string; onHtmlLo
     if (htmlUrl) fetchHtml()
     return () => {
       cancelled = true
+      // Unmounting leaves nothing on screen to export, so readiness must not
+      // outlive the preview that produced it.
+      onHtmlLoaded?.(null)
     }
-  }, [htmlUrl])
+  }, [htmlUrl, jobCompletionId, onHtmlLoaded])
 
   function handleIframeLoad() {
     const doc = iframeRef.current?.contentDocument
@@ -349,7 +392,8 @@ export default function ViewReportPDF() {
   // the toolbar's View button can open it in a new tab without a second fetch.
   // Holding it here is what keeps window.open synchronous inside the click
   // handler, which is what stops the popup blocker from eating the tab.
-  const [jobReportHtml, setJobReportHtml] = useState<string | null>(null)
+  // Tagged with its job and source URL — see isLoadedJobReportCurrent.
+  const [loadedJobReport, setLoadedJobReport] = useState<LoadedJobReport | null>(null)
   const [versions, setVersions] = useState<PDFVersion[]>([])
   // Tracks whether any inline edit has saved without a subsequent regen.
   // StalePdfBanner covers ai_summary_versions edits (VP/PA/Demo); this flag
@@ -518,6 +562,17 @@ export default function ViewReportPDF() {
     },
     enabled: reportType === 'job' && !!effectiveId,
   })
+
+  // The job report currently selected for preview — a history entry when one is
+  // pinned, otherwise the job's latest. Single source of truth for both the
+  // preview and the View button, so the two can never disagree about which
+  // version is on screen.
+  const jobHtmlUrl = jobPdfUrlOverride || jobCompletion?.pdf_url || null
+  const isJobReportViewReady = isLoadedJobReportCurrent(
+    loadedJobReport,
+    jobCompletion?.id,
+    jobHtmlUrl,
+  )
 
   // Job report version history (legacy HTML versions only).
   // Hard-save rows (new pipeline) leave pdf_url NULL by design — they live
@@ -1284,8 +1339,8 @@ export default function ViewReportPDF() {
     }
   }
 
-  const handleJobHtmlLoaded = useCallback((html: string | null) => {
-    setJobReportHtml(html)
+  const handleJobHtmlLoaded = useCallback((loaded: LoadedJobReport | null) => {
+    setLoadedJobReport(loaded)
   }, [])
 
   /**
@@ -1299,16 +1354,19 @@ export default function ViewReportPDF() {
    * have (ReportPreviewHTML.tsx:564-565). Wrapping the HTML in a Blob we type
    * ourselves sidesteps Storage's Content-Type entirely.
    *
-   * Reads jobReportHtml only — never `inspection` — so it works on jobs that
-   * have no inspection record.
+   * Reads the loaded report only — never `inspection` — so it works on jobs
+   * that have no inspection record.
    */
   function handleViewInNewTab() {
-    if (!jobReportHtml) {
+    // Re-checked here and not only on the button's disabled prop: the selection
+    // can change between paint and click, and exporting a stale version would
+    // send a customer the wrong report.
+    if (!isLoadedJobReportCurrent(loadedJobReport, jobCompletion?.id, jobHtmlUrl)) {
       toast.error('Report is still loading — try again in a moment')
       return
     }
 
-    const blobUrl = URL.createObjectURL(new Blob([jobReportHtml], { type: 'text/html' }))
+    const blobUrl = URL.createObjectURL(new Blob([loadedJobReport.html], { type: 'text/html' }))
     // No 'noopener' feature string here on purpose: it forces window.open to
     // return null, which would make the blocked-popup check below fire on every
     // successful open. Sever the back-reference on the handle instead.
@@ -2760,7 +2818,7 @@ export default function ViewReportPDF() {
               {reportType === 'job' && (
                 <Button
                   variant="outline" size="icon" onClick={handleViewInNewTab}
-                  disabled={!jobReportHtml}
+                  disabled={!isJobReportViewReady}
                   aria-label="Open report in a new tab to print or save as PDF"
                   title="Open report in a new tab — then Cmd+P to save as PDF"
                   className="h-12 w-12 min-h-[48px] min-w-[48px]"
@@ -2826,7 +2884,7 @@ export default function ViewReportPDF() {
               {reportType === 'job' && (
                 <Button
                   variant="outline" onClick={handleViewInNewTab}
-                  disabled={!jobReportHtml}
+                  disabled={!isJobReportViewReady}
                   title="Open report in a new tab — then Cmd+P to save as PDF"
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
@@ -2973,9 +3031,10 @@ export default function ViewReportPDF() {
       <div className="flex-1">
         {reportType === 'job' ? (
           <div className="flex-1 bg-gray-50 flex flex-col items-center justify-start p-6 overflow-auto">
-            {(jobPdfUrlOverride || jobCompletion?.pdf_url) ? (
+            {jobHtmlUrl ? (
               <JobReportPreview
-                htmlUrl={jobPdfUrlOverride || jobCompletion!.pdf_url!}
+                htmlUrl={jobHtmlUrl}
+                jobCompletionId={jobCompletion!.id}
                 onHtmlLoaded={handleJobHtmlLoaded}
               />
             ) : (

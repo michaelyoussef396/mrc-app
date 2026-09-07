@@ -26,6 +26,7 @@ P0: admin cannot hard-save a job report (render endpoint 504) for jobs with NO i
 
 STEP 1 (diagnosis): no application files edited.
 UNIT A (approved 2026-09-07): `src/pages/ViewReportPDF.tsx` (only application file), `docs/TODO.md` (P1-S-4 backlog row), this log.
+UNIT A2 (approved 2026-09-07, fixes the Codex finding): `src/pages/ViewReportPDF.tsx`, new `src/pages/__tests__/ViewReportPDF.jobReportView.test.tsx`, `docs/BUG_LEDGER.md` (C11 + BUG-23), this log.
 UNIT B: NOT STARTED — Michael is pulling Vercel logs + DevTools timing first.
 
 ## Step log
@@ -44,6 +45,11 @@ Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` 
 - 22:18 · CC · CC · UNIT A build — View button opening report HTML in a new tab via a typed Blob (NOT window.open on the public URL, which serves text/plain+nosniff) · src/pages/ViewReportPDF.tsx · built
 - 22:34 · CC · CC · self-caught bug before commit: `window.open(url,'_blank','noopener')` returns null by spec, so the blocked-popup branch would fire on every success and revoke the URL, killing the tab. Dropped the feature string, sever `opened.opener` instead · src/pages/ViewReportPDF.tsx · fixed
 - 22:36 · CC · CC · gates · (none) · tsc 122 vs 122 baseline, 0 NEW error lines after normalising line-number shift (+12/+50); vitest 71 files / 1222 tests PASS; 96 reviewable lines (limit 150)
+- 22:52 · CC · CC · UNIT A2 — Michael confirmed the Codex finding, fix it now. Tagged loaded HTML with job id + source URL, gate View on identity not presence, clear readiness on load-start and on unmount · src/pages/ViewReportPDF.tsx · built
+- 23:05 · CC · CC · A2 regression test, 8 tests · src/pages/__tests__/ViewReportPDF.jobReportView.test.tsx · PROVEN: reverted only the two behavioural clears (kept export + payload so the failure is behavioural, not a compile error) -> 2 failed / 6 passed; restored (cmp byte-identical) -> 8/8 pass
+- 23:10 · CC · CC · A2 gates · (none) · tsc 122 vs 122, 0 NEW normalised; vitest 72 files / 1230 tests (was 71/1222, delta = exactly the new file)
+- 23:14 · CC · CC · BUG_LEDGER: new class C11 (an attribute set at write time overridden at read time) + BUG-23 (Storage serves public-bucket HTML as text/plain despite contentType: 'text/html') · docs/BUG_LEDGER.md · done
+- 23:18 · CC · CC · OKF proposal drafted per Michael's request: normalise line numbers before diffing tsc output; count-only hides regressions, raw-line diffing blocks clean changes · .ai/FINAL_REVIEW.md · done
 - 22:38 · CC · CC · 375px browser verification BLOCKED — Bash permission denied on .env*, so which Supabase ref `npm run dev` targets could not be established; standing order says local may be PROD. NOT run rather than run against an unknown backend · (none) · escalated to Michael
 
 ## Codex threads
@@ -51,6 +57,7 @@ Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` 
 Write `codex resume <threadId>` here the moment it is printed — on stderr as `Thread ready (<id>)`, or by `node <companion> status`. The plugin SessionEnd hook deletes every job of the session, running or finished.
 
 - codex resume 01a07bc8-2e40-7cc2-9536-78fbae6b37aa   (Unit A adversarial review, 2026-09-07, base origin/main)
+- <A2 review thread id written here the moment it prints>
 
 ## Review
 
@@ -96,18 +103,22 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 <!-- resume:start -->
 <!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers -->
 
-- Updated: 2026-09-07 21:56 AEST · Tool: CC
-- Branch: chore/workflow-scaffolding @ 68c8f73 Merge pull request #154 from michaelyoussef396/chore/workflow-scaffolding
+- Updated: 2026-09-07 22:16 AEST · Tool: CC
+- Branch: chore/workflow-scaffolding @ 0e23baa docs: log the Unit A Codex review
 - Unpushed commits:
+  - `0e23baa docs: log the Unit A Codex review`
+  - `61c3940 feat(job-report): add View button to open the report in a new tab`
   - `68c8f73 Merge pull request #154 from michaelyoussef396/chore/workflow-scaffolding`
 - Uncommitted files (this log excluded):
   - ` M .claude/settings.local.json`
+  - `?? docs/sessions/2026-09-07-chore-workflow-scaffolding-3.md`
   - `?? docs/sessions/2026-09-07-chore-workflow-scaffolding.md`
   - `?? muti-session-docs/`
   - `?? template-backup-66282.html`
   - `?? template-backup-66325.html`
-- Last step-log line: 21:58 · CC · CC · STEP 1 diagnosis written · .ai/CURRENT_TASK.md · COMPLETE — stopped for Michael's approval, no code changed
-- Codex threads: none
-- Window: five_hour 57% used, resets 22:29 AEST (12:29 UTC)
+- Last step-log line: 22:38 · CC · CC · 375px browser verification BLOCKED — Bash permission denied on .env*, so which Supabase ref `npm run dev` targets could not be established; standing order says local may be PROD. NOT run rather than run against an unknown backend · (none) · escalated to Michael
+- Codex threads:
+  - `codex resume 01a07bc8-2e40-7cc2-9536-78fbae6b37aa`
+- Window: five_hour 61% used, resets 22:29 AEST (12:29 UTC)
 - Next step: the first open item under "Did NOT" or "Open", else continue from the last step-log line.
 <!-- resume:end -->
