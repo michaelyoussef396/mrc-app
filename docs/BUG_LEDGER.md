@@ -220,6 +220,35 @@ guard's `try` starts at the callee, not at the call.
 
 ---
 
+### C13 — A bound provided only incidentally by a neighbouring call
+
+**Shape.** Step B has no timeout of its own. It never needed one, because step
+A — immediately before it, on the same resource — carried a bound that
+transitively constrained B. Then A's bound is removed or narrowed for an
+unrelated and correct reason, and B is silently unbounded. Nothing in the diff
+touches B, so no review of B's line ever happens; the regression is created by
+deleting something somewhere else.
+
+**Instance (1):** `page.setContent(..., { waitUntil: 'networkidle0', timeout:
+45_000 })` was the only thing bounding the pending Google Fonts stylesheet in
+`api/render-job-report-pdf.ts`. Fixing `networkidle0` — which was
+deterministically broken — leaves the following
+`evaluateHandle('document.fonts.ready')` waiting on that same stylesheet with
+no bound this file sets. See BUG-25.
+
+**Why it is hard to see.** The dangerous line is unchanged, so it reads as
+"already working". The bound it depended on was never written down as a
+dependency, because it was never intentional.
+
+**Check:** when removing or loosening a timeout, do not ask only what that
+call was waiting for. Ask what the *next* call waits on, and whether it has a
+bound of its own. Then check the arithmetic against the platform ceiling — an
+internal guard longer than the ceiling is decorative. The general fix is one
+deadline derived at entry, not a bound per step; the per-step version
+reproduces this class every time the steps are reordered.
+
+---
+
 ## 2. Entry template
 
 Copy this. **"Why it was hard to find" is mandatory** — it is the entire point of
@@ -272,6 +301,7 @@ through verbatim, not resolved.
 | **BUG-21** | The auth gate blocks a cold-cache offline mount | **UNKNOWN** | `userRoles` is never persisted, so the form does not render offline unless three REST GETs are still cached. Stays invisible until BUG-19 and BUG-20 are fixed | Open — P1-22 defect 3. Touches `AuthContext.tsx` — needs explicit permission |
 | **BUG-22** | Four `lead_status` values exist in the DB enum and in no TypeScript surface | C6 | One undefined lookup, **two different failure modes**: every render site is optional-chained so the status card degrades to grey and empty, while `LeadDetail.tsx:621` is unguarded and throws. So it presents as "renders fewer sections", not as an error — which is exactly why it looked like BUG-5's cause | Open — **P1** (was P0-10). **Latent: zero rows, verified 2026-09-06.** **NOT the cause of BUG-5 — disproven, see below** |
 | **BUG-24** | A logging failure on the error path replaces a JSON 500/502 with a rejected handler promise | C12 | The guard added one commit earlier is real and covers the timer completely, so the file *reads* as hardened. The residual is one level up, in `describeError(err)` evaluated at the call site — the identical mistake the same hardening had just fixed for `new URL(env.url)`, missed twice in the same file. Needs a dependency to reject an error whose `name` getter or `constructor` access throws, which puppeteer and fetch do not do, so no test and no production trace will ever surface it | **Deferred 2026-09-07** by Michael — instrumentation, not the P0; two-round review cap reached. `api/render-job-report-pdf.ts:262` and `:446`. Repro (Codex, verbatim): make `puppeteer.launch` or `fetch` reject `{ get name() { throw new Error('getter failed'); } }`, then assert the handler resolves with its normal error response — both assertions fail; removing only the failure breadcrumb restores them. Fix: guard the property reads inside `describeError`, return empty diagnostics on failure, and add a regression case for each of the two catch paths |
+| **BUG-25** | With the fonts stylesheet stalled, the render still 504s — the timeout just moves off `setContent` and onto the line after it | C13 | Nothing in the diff touches the dangerous line. `fb013db` changes `waitUntil` on `:202`; the unbounded wait is `evaluateHandle('document.fonts.ready')` on `:204`, unchanged and therefore never read as part of the change. The bound it relied on was `setContent`'s 45 s, which was never written down as something `:204` depended on because nobody intended it as one. Compounding it, the fix is unambiguously correct on its own terms — `networkidle0` is excluded from `SetContentWaitForOptions` in puppeteer-core 25.8.0 and `setContent` never navigates, so the old code failed 100% of the time — which makes the diff look purely like a repair | **Deferred 2026-09-08** by Michael, with reason. Found by Codex adversarial review, thread `01a07c3a-bf63-76c3-9ff0-9346ae8d4bde`; full disposition in `.ai/REVIEW_RESOLUTIONS.md` round 5. **The deferral is deliberate and the trade is stated: always-broken → conditionally-broken is a win, and the fix was going to production within minutes.** **What actually happens if it fires — the 504 does not disappear, it relocates, and gets worse in one specific way:** `setContent` was bounded at 45 s and threw `TimeoutError` into the existing `catch`, which returned a JSON 500 and ran the `finally` that closes Chromium. `:204` is bounded by nothing this file sets — puppeteer's `protocolTimeout` defaults to 180 s against a 60 s function ceiling — so the platform SIGKILLs the invocation before either runs: no JSON body, no browser cleanup. **Codex could not verify this in a browser** (it says so: browser and Vitest execution were sandbox-blocked) and it contradicts CC's opposite prediction that `document.fonts.ready` resolves *early* on a stalled stylesheet, giving a silent `sans-serif` fallback. **Neither reading is verified — see P2-21, which records both as unresolved.** Repro (Codex, verbatim): "intercept a synthetic template's stylesheet request and leave it pending; verify the handler returns a controlled error and closes Chromium before the invocation deadline." The existing test cannot detect it — the mocked `evaluateHandle` always resolves. **Closed properly by T19**, one entry-derived deadline handing each step its remaining budget; bounding only `:204` would leave `chromium.executablePath()`, both Storage uploads and the `has_role` RPC equally unbounded, and would re-create C13 the next time the steps are reordered. **P2-21 (self-inline Inter) also closes it, from the other side**, by removing the stall scenario entirely |
 | **BUG-23** | "View / Print opens the report and I just get the HTML code, not the report" | C11 | Every line of code involved is correct and says so out loud: the EF uploads with `contentType: 'text/html'` (`generate-inspection-pdf/index.ts:2324-2327`), and the button is a plain `window.open` on a real URL (`ReportPreviewHTML.tsx:564-565`, wired `:936`/`:940`). Nothing in the repo is wrong, so reading the repo cannot find it — the defect only exists over the wire. The obvious hypothesis is a `new Blob([html])` missing its `{ type }`, which is wrong here: the repo contains no HTML Blob at all. It took a four-way `curl -sI` probe on DEV to see it | **Open.** Inspection side still affected. Job side AVOIDS it as of `61c3940` (Unit A) by opening a self-typed Blob rather than the Storage URL |
 
 ---
