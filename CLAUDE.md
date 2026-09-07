@@ -153,6 +153,8 @@ Every session that changes application code stops for a Codex review before open
 
 **CC runs it, then stops.** `/codex:adversarial-review` and `/codex:review` keep `disable-model-invocation: true` in their command frontmatter (verified 2026-09-06 against plugin `openai-codex/codex/1.0.6`) and are never called. The flag blocks the slash command, not the plugin's companion script, which CC invokes directly — exact string, base rule and `Target:` check in `docs/CODEX_WORKFLOW.md` §3–5. The enforcement is still a **hard stop**; it moves from before the review to after it. CC never fixes a finding, never re-reviews, never opens a PR on its own triage. Being unable to run the slash command is not permission to skip the review.
 
+The wider brief-to-merge flow these nine steps sit inside is in `AGENTS.md` (Workflow) — deliberately not restated here, so the two cannot drift.
+
 1. Finish the unit of work and commit it. The review reads `origin/main...HEAD`; uncommitted work is invisible to it.
 2. Measure: `git diff --numstat origin/main...HEAD -- . ':(exclude)docs/sessions/' | awk '{a+=$1;d+=$2} END{print a+d}'`, run from the worktree root. Over 150: split, or ask Michael for a waiver and log it. A byte-identical restore of an unchanged tracked file does not count toward that (precedent, 2026-09-05).
 3. Check the diff for customer PII. Any hit: no review; "Do not review" entry in the log instead.
