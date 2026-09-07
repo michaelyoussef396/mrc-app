@@ -167,6 +167,51 @@ introduced within that file is **UNKNOWN**.
 **Check:** grep for callers before believing a subsystem works. A read path wired
 into the UI proves nothing about the write path.
 
+### C11 — A denylist over unparsed text
+**Shape.** The guard decides what a command *does* by running regexes over the raw
+command string. It never parses the command, so it matches text that resembles an
+invocation rather than an invocation. Both failure directions follow from that one
+cause: a spelling the regex does not recognise is allowed, and text that is not a
+command at all is denied. They look like two separate problems and are one.
+
+**Instance (1, carrying 101 confirmed defects):** the Supabase targeting guard,
+`.claude/hooks/block-supabase-prod.sh`. A six-lens adversarial sweep with a
+refute-by-default verifier confirmed **101 defects across 19 root causes — 37 HIGH
+bypasses, 30 MEDIUM, 34 over-blocks** (`scripts/guard-fixtures/confirmed.json`,
+`docs/LANE_R_PLAN.md`). An explicit, named PROD schema push behind one wrapper word
+was ALLOWED — the precise act the hook exists to stop — while the CLI's local-only
+`start` and `status` subcommands, which reach no control plane, were DENIED.
+
+**Check.** Ask what the guard does with the same command spelled differently:
+behind a wrapper word, after `&&`, inside `if` or braces, with the binary name
+quoted, or via a package runner. If the answers differ, it is matching text.
+More patterns will not fix it — enumerating dangerous spellings is infinite, and
+each widening makes the over-blocks worse. The fix inverts it: trigger broadly,
+classify each command segment by its resolved `argv[0]`, deny what cannot be
+resolved. Related: C3 (a tool trusted by its name) and C9 — the guard's own suite
+reported `passed 24, failed 0` throughout.
+
+### C12 — Detection short-circuits the check it gates
+**Shape.** An absolute prohibition is written as one rule in a pipeline that opens
+with "is this even our business?". The scoping test runs first, answers "not our
+business" for an input the prohibition would have refused, and returns. The rule
+reads as unconditional in the source and is conditional in effect. Nothing about
+the rule itself is wrong; only its position is.
+
+**Instance (1, 5 confirmed HIGH):** the same guard. Rule 1 — "the production ref is
+never permitted from an agent session" — sat three lines BELOW
+`[ "$IS_CLI" -eq 0 ] && [ "$IS_API" -eq 0 ] && exit 0`. Thirteen confirmed cases
+named the PROD ref literally and were allowed, because one unrecognised wrapper
+word, a scoped npm package spec, or a Python or Node interpreter left both
+detectors at zero. Fixed by hoisting the check above all detection (R1).
+
+**Check.** For every rule a guard describes as "never", find the earliest `exit 0`
+or `return` above it and ask what reaches that line. A prohibition must never sit
+downstream of a classifier that is allowed to decline to classify. Position is the
+property under test, so the test has to be an input the classifier does **not**
+recognise — a rule exercised only with well-formed input cannot reveal this, which
+is why C9 and C12 travel together.
+
 ---
 
 ## 2. Entry template
@@ -220,6 +265,7 @@ through verbatim, not resolved.
 | **BUG-20** | The restore prompt crashes when it renders | **UNKNOWN** | Unreachable today only because BUG-19 starves it. It passes a plain object where React requires an element, and `Toaster` sits outside every error boundary | Open — P1-22 defect 2. Must land **before** BUG-19 |
 | **BUG-21** | The auth gate blocks a cold-cache offline mount | **UNKNOWN** | `userRoles` is never persisted, so the form does not render offline unless three REST GETs are still cached. Stays invisible until BUG-19 and BUG-20 are fixed | Open — P1-22 defect 3. Touches `AuthContext.tsx` — needs explicit permission |
 | **BUG-22** | Four `lead_status` values exist in the DB enum and in no TypeScript surface | C6 | One undefined lookup, **two different failure modes**: every render site is optional-chained so the status card degrades to grey and empty, while `LeadDetail.tsx:621` is unguarded and throws. So it presents as "renders fewer sections", not as an error — which is exactly why it looked like BUG-5's cause | Open — **P1** (was P0-10). **Latent: zero rows, verified 2026-09-06.** **NOT the cause of BUG-5 — disproven, see below** |
+| **BUG-23** | A command explicitly naming the PROD project ran from an agent session | C12 | The rule was present, correctly written, and named PROD in its own comment — read top to bottom the file gives no hint it does not execute. `scripts/test-supabase-guard.sh` reported `passed 24, failed 0` throughout, including a case literally named "command naming the PROD ref" that passed, because that case was spelled in a way detection recognised. The suite proved the rule works for the inputs that reach it and said nothing about which inputs reach it | Fixed — R1, this commit. Verified: 13 confirmed cases in `scripts/guard-fixtures/cases/cases-r1.tsv` go ALLOW to DENY, run against the script through `run-cases.sh` |
 
 ---
 
