@@ -50,6 +50,10 @@ Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` 
 - 23:10 · CC · CC · A2 gates · (none) · tsc 122 vs 122, 0 NEW normalised; vitest 72 files / 1230 tests (was 71/1222, delta = exactly the new file)
 - 23:14 · CC · CC · BUG_LEDGER: new class C11 (an attribute set at write time overridden at read time) + BUG-23 (Storage serves public-bucket HTML as text/plain despite contentType: 'text/html') · docs/BUG_LEDGER.md · done
 - 23:18 · CC · CC · OKF proposal drafted per Michael's request: normalise line numbers before diffing tsc output; count-only hides regressions, raw-line diffing blocks clean changes · .ai/FINAL_REVIEW.md · done
+- 23:40 · CC · CC · Michael pushed d6277ab..fb6107f; Vercel deploy success. Resolved the preview URL off the inspector (branch alias truncated to ...chore-workflo-3bfe99...) · (none) · done
+- 23:44 · CC · CC · ARTIFACT verification (not deploy-status): fetched /assets/ViewReportPDF-CpiVNHIv.js from the preview — Unit A aria-label/tooltip/text-html/popup-msg present, A2 'Report is still loading' present, Unit-A-only identifier `jobReportHtml` ABSENT (renamed loadedJobReport by A2). Preview is running A+A2, not a stale bundle · (none) · PASS
+- 23:48 · CC · CC · 375px UI check NOT DONE — both preview URLs sit behind Vercel SSO and the app shows its login page on this origin; an agent cannot create an authenticated session (entering credentials is out of scope). playwright-tester deliberately NOT spawned: it would hit the same two walls and return 'blocked' · (none) · escalated, steps in .ai/HANDOFF.md
+- 23:52 · CC · CC · handoff written · .ai/HANDOFF.md · session closed
 - 22:38 · CC · CC · 375px browser verification BLOCKED — Bash permission denied on .env*, so which Supabase ref `npm run dev` targets could not be established; standing order says local may be PROD. NOT run rather than run against an unknown backend · (none) · escalated to Michael
 
 ## Codex threads
@@ -93,6 +97,7 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 
 ## Open
 
+- **375px UI check is the one unfinished Done-when item** — blocked on an authenticated admin session on the preview origin, not on the code. Exact steps in `.ai/HANDOFF.md` > Resume.
 - **Blocking Unit B**: the Vercel runtime log for /api/render-job-report-pdf (2026-09-07T10:05:02Z, 2026-09-03T09:31-09:34Z) carries the actual puppeteer error at :353. Time-vs-memory cannot be settled without it.
 - **One click**: DevTools Network on a Download -> wall-clock duration + `x-vercel-error`. All 4 skeptics named this as the gate.
 - Vercel default duration/memory for mrc-system, to fix the direction of the 70f4313 change.
@@ -104,14 +109,17 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 <!-- resume:start -->
 <!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers -->
 
-- Updated: 2026-09-07 22:16 AEST · Tool: CC
-- Branch: chore/workflow-scaffolding @ 0e23baa docs: log the Unit A Codex review
+- Updated: 2026-09-07 22:32 AEST · Tool: CC
+- Branch: chore/workflow-scaffolding @ fb6107f docs: log the Unit A2 Codex review
 - Unpushed commits:
+  - `fb6107f docs: log the Unit A2 Codex review`
+  - `cfb2fa0 fix(job-report): gate the View button on report identity, not presence`
   - `0e23baa docs: log the Unit A Codex review`
   - `61c3940 feat(job-report): add View button to open the report in a new tab`
   - `68c8f73 Merge pull request #154 from michaelyoussef396/chore/workflow-scaffolding`
 - Uncommitted files (this log excluded):
   - ` M .claude/settings.local.json`
+  - ` M docs/TODO.md`
   - `?? docs/sessions/2026-09-07-chore-workflow-scaffolding-3.md`
   - `?? docs/sessions/2026-09-07-chore-workflow-scaffolding.md`
   - `?? muti-session-docs/`
@@ -120,6 +128,7 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 - Last step-log line: 22:38 · CC · CC · 375px browser verification BLOCKED — Bash permission denied on .env*, so which Supabase ref `npm run dev` targets could not be established; standing order says local may be PROD. NOT run rather than run against an unknown backend · (none) · escalated to Michael
 - Codex threads:
   - `codex resume 01a07bc8-2e40-7cc2-9536-78fbae6b37aa`
-- Window: five_hour 61% used, resets 22:29 AEST (12:29 UTC)
+  - `codex resume 01a07bd5-9eed-7f93-ab88-26433a9a4a73`
+- Window: five_hour 0% used, resets 03:30 AEST (17:30 UTC)
 - Next step: the first open item under "Did NOT" or "Open", else continue from the last step-log line.
 <!-- resume:end -->
