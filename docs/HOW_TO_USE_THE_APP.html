@@ -128,68 +128,6 @@
       color: #ffffff;
     }
 
-    /* Contents / jump list */
-    .toc {
-      background-color: #ffffff;
-      border-radius: 8px;
-      border: 1px solid #e0e3ea;
-      padding: 24px 20px;
-      margin-top: 20px;
-    }
-
-    .toc h2 {
-      font-size: 19px;
-      font-weight: 700;
-      color: #121D73;
-      margin-bottom: 14px;
-    }
-
-    .toc .toc-part {
-      font-weight: 700;
-      color: #121D73;
-      margin-top: 18px;
-      margin-bottom: 6px;
-      display: block;
-      font-size: 16px;
-    }
-
-    .toc .toc-part:first-of-type {
-      margin-top: 0;
-    }
-
-    .toc a {
-      color: #121D73;
-      text-decoration: none;
-      border-bottom: 1px solid #c5cdf0;
-    }
-
-    .toc a:hover,
-    .toc a:focus {
-      border-bottom-color: #121D73;
-    }
-
-    .toc ul {
-      list-style: none;
-      padding-left: 0;
-      margin: 0;
-    }
-
-    .toc ul li {
-      margin: 0;
-      border-bottom: 1px solid #eef0f5;
-    }
-
-    .toc ul li:last-child {
-      border-bottom: none;
-    }
-
-    .toc ul li a {
-      display: block;
-      padding: 11px 4px;
-      border-bottom: none;
-      min-height: 44px;
-    }
-
     /* Numbered step lists — visually distinct from bullets */
     ol.steps {
       list-style: none;
@@ -226,31 +164,6 @@
       font-size: 14px;
       font-weight: 700;
       line-height: 1;
-    }
-
-    /* TO CONFIRM callout — open questions, not instructions */
-    .to-confirm {
-      background-color: #fffbea;
-      border: 2px solid #f0a500;
-      border-radius: 6px;
-      padding: 14px 16px;
-      margin: 18px 0 0 0;
-      font-size: 16px;
-    }
-
-    .to-confirm .tc-label {
-      font-weight: 700;
-      color: #8a5c00;
-      display: block;
-      margin-bottom: 4px;
-      font-size: 13px;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-    }
-
-    .to-confirm p {
-      margin-bottom: 0;
-      color: #5a3d00;
     }
 
     /* Sections that must be spotted while scrolling fast */
@@ -305,23 +218,6 @@
       color: #333;
     }
 
-    .back-to-top {
-      display: inline-block;
-      margin-top: 16px;
-      font-size: 14px;
-      color: #617589;
-      text-decoration: none;
-      border-bottom: 1px solid #d5dae3;
-      min-height: 44px;
-      line-height: 44px;
-    }
-
-    .back-to-top:hover,
-    .back-to-top:focus {
-      color: #121D73;
-      border-bottom-color: #121D73;
-    }
-
     :target {
       animation: flash 1.4s ease-out;
     }
@@ -345,8 +241,7 @@
         padding: 0 12px;
       }
 
-      .section,
-      .toc {
+      .section {
         padding: 20px 16px;
       }
 
@@ -365,18 +260,180 @@
       }
     }
 
+    @page {
+      size: A4;
+      margin: 12mm 15mm 14mm 15mm;
+    }
+
+    /* Print assumes "Background graphics" is OFF — nothing may depend on a
+       background fill rendering. Dividers, callouts and step numbers are all
+       carried by foreground colour, borders and weight. */
     @media print {
       body {
-        background: #ffffff;
+        background: none;
+        font-size: 11pt;
+        line-height: 1.45;
+        padding: 0;
+      }
+
+      .container {
+        max-width: 155mm;
+        margin: 0 auto;
+        padding: 0;
+      }
+
+      /* Title block: navy on white, separated by a rule instead of a fill */
+      .page-header {
+        background: none;
+        color: #121D73;
+        max-width: 155mm;
+        margin: 0 auto 2pt auto;
+        padding: 0 0 6pt 0;
+        border-bottom: 3pt solid #121D73;
+      }
+
+      .page-header h1 {
+        font-size: 20pt;
+      }
+
+      .page-header .subtitle {
+        opacity: 1;
+        color: #333333;
+        font-size: 11pt;
+        margin-top: 3pt;
+      }
+
+      .page-header .last-reviewed {
+        opacity: 1;
+        color: #555555;
+        font-size: 9pt;
+        margin-top: 2pt;
+      }
+
+      /* Part dividers: double rule + large navy text replaces the navy band */
+      .part-band {
+        background: none;
+        color: #121D73;
+        border-radius: 0;
+        border-top: 2.5pt solid #121D73;
+        border-bottom: 1pt solid #121D73;
+        margin-top: 12pt;
+        padding: 3pt 0 2pt 0;
+      }
+
+      .part-band h2 {
+        color: #121D73;
+        font-size: 16pt;
+      }
+
+      /* Card chrome is meaningless on paper — spacing and type carry structure */
+      .section {
+        background: none;
+        border: 0;
+        border-radius: 0;
+        margin-top: 9pt;
+        padding: 0;
+      }
+
+      .section--alert {
+        border-left: 3pt solid #8a5c00;
+        padding-left: 9pt;
+      }
+
+      .section h2 {
+        font-size: 14pt;
+        margin-bottom: 3pt;
+      }
+
+      .section h3 {
+        font-size: 11pt;
+        margin: 7pt 0 3pt 0;
+      }
+
+      .section p {
+        margin-bottom: 4pt;
+      }
+
+      .section ul {
+        padding-left: 12pt;
+        margin-bottom: 4pt;
+      }
+
+      .section ul li {
+        margin-bottom: 2.5pt;
+      }
+
+      /* Step numbers: navy numeral inside a navy ring. The fill is dropped and
+         the ring is a border, which prints regardless of the background setting.
+         Block + line-height rather than flex so centring survives any engine;
+         if border-radius were ignored the number sits in a square box and is
+         still perfectly readable. */
+      ol.steps {
+        margin: 5pt 0;
+      }
+
+      ol.steps > li {
+        padding-left: 26pt;
+        min-height: 0;
+        margin-bottom: 4pt;
+      }
+
+      ol.steps > li::before {
+        background: none;
+        color: #121D73;
+        border: 1.5pt solid #121D73;
+        border-radius: 50%;
+        width: 17pt;
+        height: 17pt;
+        top: 1pt;
+        display: block;
+        text-align: center;
+        line-height: 14pt;
+        font-size: 10pt;
+      }
+
+      /* Problem cards keep the red edge; the hairline is darkened so the card
+         boundary survives greyscale printing */
+      .symptom {
+        background: none;
+        border: 0.75pt solid #999999;
+        border-left: 4pt solid #c0392b;
+        border-radius: 0;
+        margin-top: 7pt;
+        padding: 7pt 9pt;
+      }
+
+      .symptom h3 {
         font-size: 12pt;
+        margin: 0 0 3pt 0;
       }
 
-      .section, .toc, .symptom, .part-band {
+      /* Keep small units whole; never apply this to a .section, several of
+         which are taller than a page */
+      .symptom,
+      li {
         break-inside: avoid;
+        page-break-inside: avoid;
       }
 
-      .back-to-top {
-        display: none;
+      /* A heading must never be the last thing on a page */
+      .page-header h1,
+      .part-band,
+      .part-band h2,
+      .section h2,
+      .section h3,
+      .symptom h3 {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+
+      p, li {
+        orphans: 3;
+        widows: 3;
+      }
+
+      :target {
+        animation: none;
       }
     }
   </style>
@@ -391,105 +448,16 @@
 
   <div class="container">
 
-    <div class="section">
-      <p>A plain-English guide for the Mould &amp; Restoration Co. team. Written for
-      technicians on phones and the office admin on a computer. No technical
-      knowledge needed.</p>
-
-      <p>Last written: 4 August 2026. Every step in here was checked against the
-      live app on that date. This guide covers how to use the app. For rates,
-      discounts and pricing rules, see the pricing guide.</p>
-    </div>
-
-    <nav class="toc" id="whats-in-here">
-      <h2>What's in here</h2>
-
-      <span class="toc-part"><a href="#part-1">Part 1 — Start here</a></span>
-      <ul>
-        <li><a href="#what-this-app-is">What this app is</a></li>
-        <li><a href="#logging-in">Logging in</a></li>
-        <li><a href="#installing-it-on-your-phone">Installing it on your phone</a></li>
-        <li><a href="#why-the-app-sometimes-updates-itself-overnight">Why the app sometimes updates itself overnight</a></li>
-        <li><a href="#who-to-contact-for-what">Who to contact for what</a></li>
-      </ul>
-
-      <span class="toc-part"><a href="#part-2">Part 2 — For technicians</a></span>
-      <ul>
-        <li><a href="#finding-todays-jobs">Finding today's jobs</a></li>
-        <li><a href="#doing-an-inspection-section-by-section">Doing an inspection, section by section</a></li>
-        <li><a href="#taking-photos-and-adding-captions">Taking photos and adding captions</a></li>
-        <li><a href="#what-happens-if-you-lose-signal">What happens if you lose signal</a></li>
-        <li><a href="#completing-a-job-section-by-section">Completing a job, section by section</a></li>
-        <li><a href="#equipment-and-waste-on-site">Equipment and waste on site</a></li>
-        <li><a href="#asking-for-a-review-of-your-work-and-what-happens-next">Asking for a review of your work, and what happens next</a></li>
-        <li><a href="#setting-your-starting-address">Setting your starting address</a></li>
-      </ul>
-
-      <span class="toc-part"><a href="#part-3">Part 3 — For admin</a></span>
-      <ul>
-        <li><a href="#reading-the-dashboard">Reading the dashboard</a></li>
-        <li><a href="#moving-a-lead-through-the-pipeline">Moving a lead through the pipeline</a></li>
-        <li><a href="#booking-an-inspection-or-job">Booking an inspection or job</a></li>
-        <li><a href="#reviewing-the-ai-summary-and-sending-the-report">Reviewing the AI summary and sending the report</a></li>
-        <li><a href="#what-the-stale-pdf-warning-means-and-when-to-regenerate">What the stale-PDF warning means and when to regenerate</a></li>
-        <li><a href="#creating-an-invoice">Creating an invoice</a></li>
-        <li><a href="#marking-sent-and-marking-paid">Marking sent and marking paid</a></li>
-        <li><a href="#overdue-invoices-and-what-the-slack-message-means">Overdue invoices and what the Slack message means</a></li>
-        <li><a href="#sending-the-review-request-and-when-not-to">Sending the review request, and when NOT to</a></li>
-      </ul>
-
-      <span class="toc-part"><a href="#part-4">Part 4 — When something looks wrong</a></span>
-
-      <span class="toc-part"><a href="#part-5">Part 5 — Every feature, one line each</a></span>
-
-      <span class="toc-part"><a href="#part-6">Part 6 — Word list</a></span>
-    </nav>
-
     <!-- ============ PART 1 ============ -->
     <div class="part-band" id="part-1">
       <h2>Part 1 — Start here</h2>
-    </div>
-
-    <div class="section" id="what-this-app-is">
-      <h2>What this app is</h2>
-
-      <p>This app runs the whole MRC job pipeline, from a customer's first enquiry
-      through to the final paid invoice. Technicians use it on their phones to see
-      their jobs, fill in inspection forms, take photos, and record completed
-      work. The admin uses it on a computer to book inspections and jobs, review
-      reports before they go to customers, and track invoices and payments. The
-      app writes the customer-facing reports, sends the customer emails, and
-      posts updates to the team Slack automatically. Everything you type is saved
-      to the one shared system, so what a technician records on site is exactly
-      what the admin sees back at the office.</p>
-    </div>
-
-    <div class="section" id="logging-in">
-      <h2>Logging in</h2>
-
-      <ol class="steps">
-        <li>Open the app in your browser (mrcsystem.com) or tap the MRC icon on
-        your phone if it's installed.</li>
-        <li>You'll see the sign-in screen headed "MRC internal system" with the line
-        "Sign in to your workspace".</li>
-        <li>At the top, tap either "Admin" or "Technician" — pick the one that
-        matches your role.</li>
-        <li>Type your email and password in the two boxes.</li>
-        <li>Turn on "Remember me" if it's your own device.</li>
-        <li>Tap "Sign In".</li>
-      </ol>
-
-      <p>Forgot your password? Tap "Forgot Password?" under the password box, enter
-      your email, and tap "Send Reset Link". Check your inbox (and spam folder) —
-      the link expires in 1 hour. If no email arrives after a few minutes, use
-      "Resend email".</p>
     </div>
 
     <div class="section" id="installing-it-on-your-phone">
       <h2>Installing it on your phone</h2>
 
       <p>The app installs like a normal app, straight from the browser — there's
-      nothing to download from an app store.</p>
+      nothing to download from an app store. The address is mrcsystem.com.</p>
 
       <p>On iPhone:</p>
 
@@ -511,33 +479,6 @@
       full-screen, starting on the technician home page — it's built for
       technicians in the field. Admins working on a computer don't need to
       install anything; just use the browser.</p>
-    </div>
-
-    <div class="section" id="why-the-app-sometimes-updates-itself-overnight">
-      <h2>Why the app sometimes updates itself overnight</h2>
-
-      <p>New versions of the app install themselves automatically in the background.
-      There's no update button and nothing you need to do — the next time you
-      open the app after a new version ships, you're already on it. If the app
-      ever looks half-updated or odd, close it completely and open it again.</p>
-    </div>
-
-    <div class="section" id="who-to-contact-for-what">
-      <h2>Who to contact for what</h2>
-
-      <ul>
-        <li>The app is broken (won't load, error messages, something crashed): open
-        Settings in the app, then "Help &amp; Support", and use the contact options
-        on that screen. That reaches the developer directly.</li>
-        <li>A business or pricing question (a rate looks wrong, a rule is unclear,
-        "should I be charging for this?"): message Michael.</li>
-        <li>A customer complaint or a customer reply to a system email: these land in
-        the admin@mouldandrestoration.com.au inbox. Handle them there, or call
-        the business line, 1800 954 117. Never give a customer anyone's personal
-        mobile — the business line is the number on every email we send.</li>
-      </ul>
-
-      <a class="back-to-top" href="#whats-in-here">↑ Back to contents</a>
     </div>
 
     <!-- ============ PART 2 ============ -->
@@ -639,13 +580,6 @@
         bar appears at the top: "1 photo couldn't sync — review required". Tap
         "Review", then either "Add caption &amp; retry" or "Discard" for each photo.</li>
       </ul>
-
-      <div class="to-confirm">
-        <span class="tc-label">TO CONFIRM WITH GLEN AND CLAYTON:</span>
-        <p>When a photo upload fails partway
-        through a job, what do you do right now — retry on the spot, carry on and
-        retry later, or take it on your camera roll as a backup?</p>
-      </div>
     </div>
 
     <div class="section section--alert" id="what-happens-if-you-lose-signal">
@@ -679,13 +613,6 @@
       <p>One honest gap: a brand-new inspection that has never saved even once has
       no backup yet. If the device dies before that very first save, that first
       sitting is lost. So tap "Save" early on every new inspection.</p>
-
-      <div class="to-confirm">
-        <span class="tc-label">TO CONFIRM WITH GLEN AND CLAYTON:</span>
-        <p>What do you actually do today in a
-        known black spot — fill the form in anyway and wait for signal, step
-        outside to get a bar, use paper, or something else?</p>
-      </div>
     </div>
 
     <div class="section" id="completing-a-job-section-by-section">
@@ -739,13 +666,6 @@
       <p>This form auto-saves every 30 seconds too ("Saved to the server"), keeps
       the same on-device backup with the same "Unsaved work found" / "Restore"
       offer, and has the same offline behaviour: keep it open until it saves.</p>
-
-      <div class="to-confirm">
-        <span class="tc-label">TO CONFIRM WITH GLEN AND CLAYTON:</span>
-        <p>In Section 2, what does "SWMS
-        Completed" actually point to — is there a document to fill in, and where
-        does it live once it's done?</p>
-      </div>
     </div>
 
     <div class="section" id="equipment-and-waste-on-site">
@@ -772,13 +692,6 @@
       and tap "Confirm Price" (or override it) before finishing the inspection.</p>
 
       <p>For rates and pricing rules, see the pricing guide.</p>
-
-      <div class="to-confirm">
-        <span class="tc-label">TO CONFIRM WITH GLEN AND CLAYTON:</span>
-        <p>Who measures the m³ on site and how is
-        it measured, and what counts as a good enough reason to override the
-        calculated price?</p>
-      </div>
     </div>
 
     <div class="section" id="asking-for-a-review-of-your-work-and-what-happens-next">
@@ -824,8 +737,6 @@
       <p style="margin-top:14px;">You can also change your name, phone number, and profile photo here, and
       "Change Password" sends you a reset link. Your email can't be changed here
       — ask the admin.</p>
-
-      <a class="back-to-top" href="#whats-in-here">↑ Back to contents</a>
     </div>
 
     <!-- ============ PART 3 ============ -->
@@ -951,13 +862,6 @@
       conflict detected" and blocks the booking. Tap "Confirm Booking — 3
       day(s)" (or whatever it says). The customer gets a "Job Booking
       Confirmed" email. Rebooking later uses the same panel via "Reschedule".</p>
-
-      <div class="to-confirm">
-        <span class="tc-label">TO CONFIRM WITH GLEN AND CLAYTON:</span>
-        <p>When a job overruns into the next
-        booking, who moves what — does the technician call the office, does the
-        admin reschedule the later job, and who tells the affected customer?</p>
-      </div>
     </div>
 
     <div class="section" id="reviewing-the-ai-summary-and-sending-the-report">
@@ -1148,22 +1052,6 @@
         inbox, honour it by hand: note it and never send that customer another
         request. An opt-out we offered and ignored is worse than no opt-out.</li>
       </ul>
-
-      <div class="to-confirm">
-        <span class="tc-label">TO CONFIRM WITH GLEN AND CLAYTON:</span>
-        <p>Where should STOP replies be recorded
-        so nobody re-sends later — the lead's internal notes, or somewhere else
-        you'd both actually check?</p>
-      </div>
-
-      <div class="to-confirm">
-        <span class="tc-label">TO CONFIRM WITH GLEN AND CLAYTON:</span>
-        <p>Is there a rule of thumb for jobs where
-        the review request should be skipped entirely (e.g. any job with a
-        variation dispute), or is it case-by-case at the admin's judgement?</p>
-      </div>
-
-      <a class="back-to-top" href="#whats-in-here">↑ Back to contents</a>
     </div>
 
     <!-- ============ PART 4 ============ -->
@@ -1256,123 +1144,18 @@
         <li><strong>What to do:</strong> open the lead, check the email address. The activity log on
         the lead shows what was sent and when. Ask them to check spam — our
         emails come from admin@mouldandrestoration.com.au.</li>
+        <li><strong>A customer complaint or a customer reply to a system email:</strong> these land in
+        the admin@mouldandrestoration.com.au inbox. Handle them there, or call
+        the business line, 1800 954 117. Never give a customer anyone's
+        personal mobile — the business line is the number on every email we send.</li>
         <li><strong>Who to call:</strong> if the address is right and emails repeatedly don't
         arrive, Help &amp; Support.</li>
       </ul>
     </div>
 
-    <div class="section">
-      <a class="back-to-top" href="#whats-in-here">↑ Back to contents</a>
-    </div>
-
     <!-- ============ PART 5 ============ -->
     <div class="part-band" id="part-5">
-      <h2>Part 5 — Every feature, one line each</h2>
-    </div>
-
-    <div class="section">
-      <h3>Signing in and out</h3>
-      <ul>
-        <li>Sign-in screen with separate Admin and Technician entry.</li>
-        <li>Password reset by emailed link, with resend and spam-folder guidance.</li>
-        <li>"Remember me" on trusted devices; sign out from the profile menu.</li>
-        <li>Admins can additionally end all their other sessions from Profile
-        ("Log Out All Devices").</li>
-      </ul>
-
-      <h3>For customers (public)</h3>
-      <ul>
-        <li>A "Book Your Free Inspection" enquiry page that feeds new leads
-        straight into the pipeline, with a thank-you page after submitting.</li>
-      </ul>
-
-      <h3>Technician screens</h3>
-      <ul>
-        <li>Home: greeting, "Next Up" card, today's job list, and a "Revisions
-        Needed" banner when work is sent back.</li>
-        <li>My Jobs: all assigned work filtered by Today / This Week / This Month /
-        Overdue / Pending Review / All.</li>
-        <li>Job details: site prep notes, contact info, map link, internal notes,
-        and the single correct next-action button.</li>
-        <li>Inspection form: 9 sections from basics to cost estimate, with photos,
-        readings, quote options, and automatic report-content generation at
-        the end.</li>
-        <li>Job completion form: 10 sections covering the finished work, photos
-        before/after, methods, chemicals, equipment, waste, and variations.</li>
-        <li>Alerts: notifications about new jobs, schedule changes and
-        cancellations, with unread markers.</li>
-        <li>Profile: name, phone, photo, starting address (travel-time base), and
-        password change.</li>
-        <li>Settings: profile shortcut, password change, help, sign out.</li>
-        <li>Help &amp; Support: direct line to the developer for app problems.</li>
-      </ul>
-
-      <h3>Admin screens</h3>
-      <ul>
-        <li>Dashboard: needs-attention list, stat cards, today's schedule,
-        outstanding invoices, unassigned leads, team workload, quick actions.</li>
-        <li>Leads: the full pipeline with stage filters, search, sorting, card and
-        list views, and manual "New Lead" creation.</li>
-        <li>Lead details: every fact about one lead — contact, property, enquiry,
-        quote, inspection data, job completion, invoice and payment, activity
-        log — plus the stage-appropriate action button.</li>
-        <li>Schedule: week/day calendar of all bookings with a "To Schedule" queue,
-        address confirmation, technician assignment, recommended days, travel
-        checks, and double-booking protection.</li>
-        <li>Job booking: multi-day job scheduling with an automatic day-by-day
-        plan and conflict blocking.</li>
-        <li>Technicians: team list with per-technician stats, workload breakdown,
-        and upcoming bookings.</li>
-        <li>AI Summary Review: edit or regenerate the four report sections, with
-        feedback instructions to the AI and an approval gate.</li>
-        <li>Report viewer: edit mode, regenerate, versioned hard-saves, version
-        history, stale-PDF warning, and guarded email sending (mismatch and
-        duplicate checks).</li>
-        <li>Invoice screen: auto-filled figures from inspection and job actuals
-        with estimate-vs-actual choice, custom line items, GST, payment terms,
-        and mark-sent / mark-paid tracking for Xero.</li>
-        <li>Reports: lead volume, conversion rate, response time, revenue, stage
-        breakdown and lead sources by period (Today / This Week / This Month /
-        This Year).</li>
-        <li>Recent Activity: the latest 50 events across all leads and emails.</li>
-        <li>Settings, Profile, Help &amp; Support: as for technicians, plus user
-        management for admins.</li>
-        <li>A hidden developer test page for report rendering — never needed in
-        daily use.</li>
-      </ul>
-
-      <h3>Things the app does by itself</h3>
-      <ul>
-        <li>Auto-saves both big forms every 30 seconds and keeps a 24-hour
-        on-device backup for crash recovery.</li>
-        <li>Shows an offline banner and holds your changes on-device until signal
-        returns (forms only — not photos).</li>
-        <li>Requires a caption on every photo and quarantines any photo that tries
-        to sync without one.</li>
-        <li>Emails the customer at each step: enquiry acknowledgement, booking
-        confirmation, a reminder two days before inspection, the inspection
-        report, job booking confirmation, the job report, and the review
-        request.</li>
-        <li>Posts to Slack: new leads, submitted jobs, invoices marked sent,
-        payments received, and the morning overdue-invoice digest.</li>
-        <li>Prices quotes automatically: labour, equipment, waste and GST, with the
-        discount ceiling enforced.</li>
-        <li>Flags overdue invoices each morning against the penalty ladder without
-        ever contacting the customer.</li>
-        <li>Blocks double-booking a technician and estimates travel times from
-        each technician's starting address.</li>
-        <li>Detects likely duplicate leads and warns before you create another.</li>
-        <li>Keeps a full activity log per lead and a numbered version history for
-        every report.</li>
-        <li>Updates itself automatically — no app store, no update button.</li>
-      </ul>
-
-      <a class="back-to-top" href="#whats-in-here">↑ Back to contents</a>
-    </div>
-
-    <!-- ============ PART 6 ============ -->
-    <div class="part-band" id="part-6">
-      <h2>Part 6 — Word list</h2>
+      <h2>Part 5 — Word list</h2>
     </div>
 
     <div class="section">
@@ -1425,29 +1208,6 @@
         job really used; at invoice time you pick which one to bill with the
         "Use" buttons.</li>
       </ul>
-
-      <p>The pipeline stages, in one line each:</p>
-
-      <ul>
-        <li><strong>New Lead</strong> — enquiry arrived; book the inspection.</li>
-        <li><strong>Awaiting Inspection</strong> — inspection booked, not yet done.</li>
-        <li><strong>AI Summary Review</strong> — admin is checking the report wording.</li>
-        <li><strong>Approve Inspection Report</strong> — admin is checking the report PDF.</li>
-        <li><strong>Email Approval</strong> — report ready to email to the customer.</li>
-        <li><strong>Awaiting Job</strong> — customer approved; job needs booking.</li>
-        <li><strong>Job Scheduled</strong> — remediation booked with a technician.</li>
-        <li><strong>Job Completed</strong> — work done; job report to review and send.</li>
-        <li><strong>Pending Review</strong> — technician asked admin to review the job first.</li>
-        <li><strong>Job Report Sent</strong> — job report emailed; invoice next.</li>
-        <li><strong>Invoice Sent</strong> — invoice raised in Xero and logged as sent.</li>
-        <li><strong>Paid</strong> — payment received and recorded.</li>
-        <li><strong>Google Review</strong> — review request emailed; close out when done.</li>
-        <li><strong>Finished</strong> — lead fully complete.</li>
-        <li><strong>Closed</strong> — completed and closed (an older ending, same idea).</li>
-        <li><strong>Not Landed</strong> — lead lost or rejected, with the reason kept.</li>
-      </ul>
-
-      <a class="back-to-top" href="#whats-in-here">↑ Back to contents</a>
     </div>
 
   </div><!-- end .container -->
