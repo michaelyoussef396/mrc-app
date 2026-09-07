@@ -72,10 +72,11 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 
 - Unit A  — Target: `Target: branch diff against origin/main`  (verbatim; checked before the body was read)
 - Unit A2 — Target: `Target: branch diff against 0e23baa`  (verbatim; pre-declared stacked parent, CODEX_WORKFLOW §4.3)
+- Exception isolation — Target: `Target: branch diff against 1046c60`  (verbatim; pre-declared stacked parent). 287 lines, OVER the cap and NOT waived.
 - Diff lines excl. docs/sessions/: Unit A 87. Unit A2 **232 — over the 150 cap, waiver granted by Michael before the run** (87 production code / 130 new test file / 15 ledger prose).
-- Verdict: Unit A needs-attention (1 medium, fixed by A2). Unit A2 **approve**, no material findings.
+- Verdict: Unit A needs-attention (1 medium, fixed by A2). Unit A2 **approve**. Exception isolation **needs-attention**, 2 medium, nothing applied.
 - Findings: A 1 (medium) — confirmed by Michael, fixed as Unit A2. A2 0 findings; two non-finding next steps carried in `.ai/CODEX_REVIEW.md`, neither acted on.
-- codex-review-log rows: 2 added 2026-09-07, chore/workflow-scaffolding (Unit A, Unit A2)
+- codex-review-log rows: 3 added 2026-09-07, chore/workflow-scaffolding (Unit A, Unit A2, exception isolation)
 
 ## Did
 
