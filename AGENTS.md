@@ -74,6 +74,17 @@ Used only when the Claude Code window is out. Reads the latest session log for i
 - Migration policy lives in the headers of the `.sql` files. Read them before commenting on migration ordering. Do not advise on ordering from general knowledge.
 - Files marked "NOT APPLIED" in their header are not applied. Do not assume otherwise.
 
+## Workflow
+
+How a unit of work moves from brief to merge. The live state of a unit lives in `.ai/` — `CURRENT_TASK.md`, `HANDOFF.md`, `CODEX_REVIEW.md`, `REVIEW_RESOLUTIONS.md`, `FINAL_REVIEW.md`, each naming its own owner and its own writer in its header. `.ai/` is gitignored and machine-local: it never travels with a branch, so a checkout that does not have it is normal, not a fault. The session log under `docs/sessions/` remains the durable record; `.ai/` is the working state that log is written from.
+
+- **One atomic unit at a time: build → tests → Codex review → stop.** The unit is the smallest thing that can be built, tested and reviewed as a whole. The review is not optional on code, and it is **review-then-stop**: findings land in `.ai/CODEX_REVIEW.md`, every one of them gets a disposition in `.ai/REVIEW_RESOLUTIONS.md`, and no agent runs a fix loop or a second round on its own triage. Being unable to run the review is not permission to skip it.
+- **One live agent per worktree.** Two agents in one worktree share a working tree, an index and a session log, and will overwrite each other without either one noticing. A second agent gets its own worktree or waits for the first to finish.
+- **Reviewable diff ≤ ~150 lines**, counted mechanically and excluding `docs/sessions/`. The rule is under Non-negotiable rules above and the exact command is in `docs/CODEX_WORKFLOW.md` §4 — this bullet points at them rather than restating the number, so the two cannot drift apart. Above the limit: split the unit. Never widen the count's exclusions to get under it without recording the pathspec that was used.
+- **Codex reviews; it never edits.** No implementation takeover outside the Builder-Codex / Lane C capacity fallback in Roles above — and Lane C finishes the steps already written in the session log rather than refactoring what it finds there.
+- **Model routing.** Sonnet for implementation whose shape is already settled; Opus for hard debugging and architecture — anything where deciding the approach *is* the work. This is a default, not a rule: when the choice mattered, say which was used and why.
+- **Michael runs the irreversible half.** Claude Code commits, pushes and opens the PR on its assigned branch. Merges go through GitHub with a merge commit; `production`, Edge Function deploys and migrations are Michael's alone (Non-negotiable rules above).
+
 The GitNexus section below is maintained by `gitnexus analyze` and describes MCP tools only Claude Code has; Codex ignores it.
 
 <!-- gitnexus:start -->

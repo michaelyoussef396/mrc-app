@@ -82,3 +82,7 @@ settings.local.json
 
 # Operational scratch: schema dumps, PROD storage-path exports, template backups
 dev-setup/
+
+# Multi-agent workflow state — machine-local, per-worktree, not committed.
+# Templates and their ownership rules are described in AGENTS.md, "Workflow".
+.ai/
