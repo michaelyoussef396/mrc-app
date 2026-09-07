@@ -41,7 +41,7 @@ SCAN=$(printf '%s' "$CMD" | tr '\n' ' ')
 #    name: one unrecognised wrapper word left IS_CLI at 0, the early exit fired,
 #    and a command explicitly naming PROD ran (case e2 is a named PROD schema
 #    push). Thirteen confirmed cases named PROD and were allowed — see
-#    docs/LANE_R_PLAN.md and scripts/guard-fixtures/confirmed.json.
+#    docs/LANE_R_PLAN.md and scripts/guard-fixtures/cases/confirmed.json.
 #
 #    The literal match is deliberate. The ref is a 20-character random string
 #    occurring in no English word and no other identifier here, so there are no

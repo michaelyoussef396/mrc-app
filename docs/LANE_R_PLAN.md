@@ -7,7 +7,7 @@ at `b42aecf`. Supersedes the "five defects, build-now" framing in
 Evidence for every claim below is in this repo: the harness at
 `scripts/guard-fixtures/run-cases.sh`, the 965 adversarial cases under
 `scripts/guard-fixtures/cases/`, and the 101 verified findings in
-`scripts/guard-fixtures/confirmed.json`. Nothing here was taken on trust from a
+`scripts/guard-fixtures/cases/confirmed.json`. Nothing here was taken on trust from a
 reviewer — every case was run against the script, and the 15 headline cases were
 re-run by hand afterwards.
 

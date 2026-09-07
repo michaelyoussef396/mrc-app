@@ -177,7 +177,7 @@ command at all is denied. They look like two separate problems and are one.
 **Instance (1, carrying 101 confirmed defects):** the Supabase targeting guard,
 `.claude/hooks/block-supabase-prod.sh`. A six-lens adversarial sweep with a
 refute-by-default verifier confirmed **101 defects across 19 root causes — 37 HIGH
-bypasses, 30 MEDIUM, 34 over-blocks** (`scripts/guard-fixtures/confirmed.json`,
+bypasses, 30 MEDIUM, 34 over-blocks** (`scripts/guard-fixtures/cases/confirmed.json`,
 `docs/LANE_R_PLAN.md`). An explicit, named PROD schema push behind one wrapper word
 was ALLOWED — the precise act the hook exists to stop — while the CLI's local-only
 `start` and `status` subcommands, which reach no control plane, were DENIED.
