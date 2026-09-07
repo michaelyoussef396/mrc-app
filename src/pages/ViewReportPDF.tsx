@@ -4,7 +4,7 @@
 // Page 1: inline edit buttons next to each field on the PDF
 // Pages 2+: toggle edit mode for overlay buttons
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
@@ -29,6 +29,7 @@ import {
   AlertCircle,
   Send,
   Eye,
+  ExternalLink,
   EyeOff,
   Upload,
   Check,
@@ -72,6 +73,10 @@ import {
 // Hard-save failures block the send path — keep the toast up long enough
 // that a technician mid-task cannot miss it (sonner default is 4s).
 const HARD_SAVE_ERROR_TOAST_MS = 10_000
+
+// Grace period before revoking the object URL handed to the new tab. Revoking
+// on the next tick races the tab's navigation on a slow connection.
+const BLOB_URL_REVOKE_DELAY_MS = 60_000
 
 interface Inspection {
   id: string
@@ -227,7 +232,42 @@ const INSPECTION_SELECT = `
   )
 `
 
-function JobReportPreview({ htmlUrl }: { htmlUrl: string }) {
+/**
+ * The report HTML a preview has finished loading, tagged with what produced it.
+ * The tag is the point: HTML alone cannot be checked against the current
+ * selection, and an untagged copy is what let a stale version reach the View
+ * button (Codex review, 2026-09-07).
+ */
+export interface LoadedJobReport {
+  html: string
+  sourceUrl: string
+  jobCompletionId: string
+}
+
+/**
+ * True only when the loaded HTML belongs to the job and URL currently selected.
+ * Anything else — a version switch, a regenerate, a different job, an in-flight
+ * reload — must read as not-ready, because exporting it would hand a customer
+ * the wrong version of their report.
+ */
+export function isLoadedJobReportCurrent(
+  loaded: LoadedJobReport | null,
+  jobCompletionId: string | null | undefined,
+  sourceUrl: string | null | undefined,
+): loaded is LoadedJobReport {
+  if (!loaded || !jobCompletionId || !sourceUrl) return false
+  return loaded.jobCompletionId === jobCompletionId && loaded.sourceUrl === sourceUrl
+}
+
+export function JobReportPreview({
+  htmlUrl,
+  jobCompletionId,
+  onHtmlLoaded,
+}: {
+  htmlUrl: string
+  jobCompletionId: string
+  onHtmlLoaded?: (loaded: LoadedJobReport | null) => void
+}) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [htmlContent, setHtmlContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -236,6 +276,11 @@ function JobReportPreview({ htmlUrl }: { htmlUrl: string }) {
 
   useEffect(() => {
     let cancelled = false
+
+    // Readiness is revoked the moment a load starts, not just when one fails.
+    // Between here and the new HTML arriving the parent still held the PREVIOUS
+    // report, and the View button stayed enabled over it.
+    onHtmlLoaded?.(null)
 
     async function fetchHtml() {
       try {
@@ -263,10 +308,12 @@ function JobReportPreview({ htmlUrl }: { htmlUrl: string }) {
         if (cancelled) return
 
         setHtmlContent(raw)
+        onHtmlLoaded?.({ html: raw, sourceUrl: htmlUrl, jobCompletionId })
         setLoading(false)
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to load report')
+          onHtmlLoaded?.(null)
           setLoading(false)
         }
       }
@@ -275,8 +322,11 @@ function JobReportPreview({ htmlUrl }: { htmlUrl: string }) {
     if (htmlUrl) fetchHtml()
     return () => {
       cancelled = true
+      // Unmounting leaves nothing on screen to export, so readiness must not
+      // outlive the preview that produced it.
+      onHtmlLoaded?.(null)
     }
-  }, [htmlUrl])
+  }, [htmlUrl, jobCompletionId, onHtmlLoaded])
 
   function handleIframeLoad() {
     const doc = iframeRef.current?.contentDocument
@@ -338,6 +388,12 @@ export default function ViewReportPDF() {
   const [editMode, setEditMode] = useState(false)
   const [showVersions, setShowVersions] = useState(false)
   const [jobPdfUrlOverride, setJobPdfUrlOverride] = useState<string | null>(null)
+  // Escape hatch: the report HTML JobReportPreview already downloaded, lifted so
+  // the toolbar's View button can open it in a new tab without a second fetch.
+  // Holding it here is what keeps window.open synchronous inside the click
+  // handler, which is what stops the popup blocker from eating the tab.
+  // Tagged with its job and source URL — see isLoadedJobReportCurrent.
+  const [loadedJobReport, setLoadedJobReport] = useState<LoadedJobReport | null>(null)
   const [versions, setVersions] = useState<PDFVersion[]>([])
   // Tracks whether any inline edit has saved without a subsequent regen.
   // StalePdfBanner covers ai_summary_versions edits (VP/PA/Demo); this flag
@@ -506,6 +562,17 @@ export default function ViewReportPDF() {
     },
     enabled: reportType === 'job' && !!effectiveId,
   })
+
+  // The job report currently selected for preview — a history entry when one is
+  // pinned, otherwise the job's latest. Single source of truth for both the
+  // preview and the View button, so the two can never disagree about which
+  // version is on screen.
+  const jobHtmlUrl = jobPdfUrlOverride || jobCompletion?.pdf_url || null
+  const isJobReportViewReady = isLoadedJobReportCurrent(
+    loadedJobReport,
+    jobCompletion?.id,
+    jobHtmlUrl,
+  )
 
   // Job report version history (legacy HTML versions only).
   // Hard-save rows (new pipeline) leave pdf_url NULL by design — they live
@@ -1270,6 +1337,51 @@ export default function ViewReportPDF() {
       setSendingEmail(false)
       setJobMismatchVersion(null)
     }
+  }
+
+  const handleJobHtmlLoaded = useCallback((loaded: LoadedJobReport | null) => {
+    setLoadedJobReport(loaded)
+  }, [])
+
+  /**
+   * Open the already-rendered job report in a new tab so it can be printed to
+   * PDF by hand (Cmd+P -> Save as PDF) when hard-save is failing.
+   *
+   * Deliberately NOT window.open(jobCompletion.pdf_url): Storage serves HTML
+   * from a public bucket as `text/plain` with `x-content-type-options: nosniff`,
+   * so the browser is forbidden from rendering it and shows the source instead.
+   * That is the defect the inspection-side Full View / Print buttons already
+   * have (ReportPreviewHTML.tsx:564-565). Wrapping the HTML in a Blob we type
+   * ourselves sidesteps Storage's Content-Type entirely.
+   *
+   * Reads the loaded report only — never `inspection` — so it works on jobs
+   * that have no inspection record.
+   */
+  function handleViewInNewTab() {
+    // Re-checked here and not only on the button's disabled prop: the selection
+    // can change between paint and click, and exporting a stale version would
+    // send a customer the wrong report.
+    if (!isLoadedJobReportCurrent(loadedJobReport, jobCompletion?.id, jobHtmlUrl)) {
+      toast.error('Report is still loading — try again in a moment')
+      return
+    }
+
+    const blobUrl = URL.createObjectURL(new Blob([loadedJobReport.html], { type: 'text/html' }))
+    // No 'noopener' feature string here on purpose: it forces window.open to
+    // return null, which would make the blocked-popup check below fire on every
+    // successful open. Sever the back-reference on the handle instead.
+    const opened = window.open(blobUrl, '_blank')
+
+    if (!opened) {
+      URL.revokeObjectURL(blobUrl)
+      toast.error('Your browser blocked the new tab — allow pop-ups for this site and try again')
+      return
+    }
+    opened.opener = null
+
+    // The tab holds its own reference once loaded; revoking sooner races the
+    // navigation on slower connections.
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), BLOB_URL_REVOKE_DELAY_MS)
   }
 
   async function handleDownload() {
@@ -2703,6 +2815,17 @@ export default function ViewReportPDF() {
 
             {/* Mobile buttons */}
             <div className="flex sm:hidden gap-2">
+              {reportType === 'job' && (
+                <Button
+                  variant="outline" size="icon" onClick={handleViewInNewTab}
+                  disabled={!isJobReportViewReady}
+                  aria-label="Open report in a new tab to print or save as PDF"
+                  title="Open report in a new tab — then Cmd+P to save as PDF"
+                  className="h-12 w-12 min-h-[48px] min-w-[48px]"
+                >
+                  <ExternalLink className="h-5 w-5" />
+                </Button>
+              )}
               <Button variant="outline" size="icon" onClick={handleDownload}
                 className="h-12 w-12 min-h-[48px] min-w-[48px]">
                 <Download className="h-5 w-5" />
@@ -2758,6 +2881,16 @@ export default function ViewReportPDF() {
                   </span>
                 )}
               </Button>
+              {reportType === 'job' && (
+                <Button
+                  variant="outline" onClick={handleViewInNewTab}
+                  disabled={!isJobReportViewReady}
+                  title="Open report in a new tab — then Cmd+P to save as PDF"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  View
+                </Button>
+              )}
               <Button variant="outline" onClick={handleDownload}>
                 <Download className="h-4 w-4 mr-2" />
                 Download
@@ -2898,8 +3031,12 @@ export default function ViewReportPDF() {
       <div className="flex-1">
         {reportType === 'job' ? (
           <div className="flex-1 bg-gray-50 flex flex-col items-center justify-start p-6 overflow-auto">
-            {(jobPdfUrlOverride || jobCompletion?.pdf_url) ? (
-              <JobReportPreview htmlUrl={jobPdfUrlOverride || jobCompletion!.pdf_url!} />
+            {jobHtmlUrl ? (
+              <JobReportPreview
+                htmlUrl={jobHtmlUrl}
+                jobCompletionId={jobCompletion!.id}
+                onHtmlLoaded={handleJobHtmlLoaded}
+              />
             ) : (
               <div className="text-center space-y-4 py-20">
                 <FileText className="h-16 w-16 text-gray-300 mx-auto" />

@@ -57,12 +57,32 @@ implicit default target is the dangerous half.
 **Shape.** The thing that runs is loaded from somewhere other than git, so a
 repo edit is inert while appearing to succeed.
 
-**Instances (2):** BUG-3 — the inspection PDF template is read from the
+**Instances (3):** BUG-3 — the inspection PDF template is read from the
 `pdf-templates` Storage bucket, not from git (P2-17). Incident 2 — a guard hook
 committed to the repo that never ran, because the registered copy was the
-machine-local one.
+machine-local one. **PDF-CL12 (2026-09-07) — the read-side form, see below.**
 
-**Check:** before editing, establish which copy is actually read at runtime.
+**The read-side form, and it is the nastier one.** The first two instances are
+about *editing*: the edit is inert. PDF-CL12 was about *concluding*. The backlog
+row asserted that the 23505 retry in `api/render-job-report-pdf.ts:198-236` was
+dead code "because no UNIQUE constraint exists" on `job_completion_pdf_versions`.
+That table's `CREATE TABLE` was made in Studio and never entered the migrations
+folder — said outright in
+`supabase/migrations/20260531150202_job_completion_pdf_versions_pipeline_columns.sql:18-19`.
+So grepping the repo for a unique index returns nothing **whether or not one
+exists**, and absence of evidence was recorded as evidence of absence. A live
+`23505 duplicate key ... (job_completion_id, version_number)` in the EF logs on
+2026-09-07 settles it: Postgres raises 23505 only on a unique violation and names
+the columns of the index it violated. The constraint exists; the retry is working
+code; the row was withdrawn, not actioned.
+
+**Check:** before editing, establish which copy is actually read at runtime —
+and before *concluding*, establish whether the repo is even a witness to the
+question. A repo grep is evidence about the repo, never about the live database.
+This is the same rule as the pre-flight discipline in `CLAUDE.md`: schema state
+comes from `information_schema`, never from repo file presence. The tell is a
+claim of the form "X does not exist, because I could not find it in the repo"
+about anything that lives in Postgres, Storage, or a dashboard.
 
 ### C5 — A count derived from loaded state
 **Shape.** The count is computed from rows in memory, so it always agrees with
@@ -167,6 +187,37 @@ introduced within that file is **UNKNOWN**.
 **Check:** grep for callers before believing a subsystem works. A read path wired
 into the UI proves nothing about the write path.
 
+### C11 — An attribute set at write time is overridden at read time
+**Shape.** The writer sets an attribute explicitly and the write succeeds. The
+serving layer replaces it on the way out, based on the content rather than on
+what was stored. Every line of code you can grep says the right thing; the
+artefact still behaves wrongly, and only an over-the-wire read shows it.
+
+**Instance (1):** BUG-23 — Storage serves HTML from a public bucket as
+`text/plain` with `x-content-type-options: nosniff`, despite the upload passing
+`contentType: 'text/html'`.
+
+**Check:** for anything served rather than executed, read the response headers,
+not the write call. `curl -sI` the real URL. This is the sibling of C2: C2 is
+believing a tool's success message, C11 is believing your own correct write.
+
+### C12 — A guard that does not cover its own call-site arguments
+
+**Shape.** A fallible operation is wrapped in `try/catch`, and the wrap is
+correct. The *arguments* to that operation are still evaluated by the caller,
+outside the wrap. The guard reads as total protection and is not: any throw in
+building the arguments escapes past it, at exactly the point the guard was added
+to make safe.
+
+**Instances (2, same session):** `new URL(env.url)` and `describeError(err)`,
+both passed to the guarded `timer.mark(...)` in
+`api/render-job-report-pdf.ts`. Both were introduced *by* the hardening that
+guarded the timer.
+
+**Check:** after guarding a call, read its argument list as if it were a
+separate statement, because it is one. Ask what each expression can throw. The
+guard's `try` starts at the callee, not at the call.
+
 ---
 
 ## 2. Entry template
@@ -220,6 +271,8 @@ through verbatim, not resolved.
 | **BUG-20** | The restore prompt crashes when it renders | **UNKNOWN** | Unreachable today only because BUG-19 starves it. It passes a plain object where React requires an element, and `Toaster` sits outside every error boundary | Open — P1-22 defect 2. Must land **before** BUG-19 |
 | **BUG-21** | The auth gate blocks a cold-cache offline mount | **UNKNOWN** | `userRoles` is never persisted, so the form does not render offline unless three REST GETs are still cached. Stays invisible until BUG-19 and BUG-20 are fixed | Open — P1-22 defect 3. Touches `AuthContext.tsx` — needs explicit permission |
 | **BUG-22** | Four `lead_status` values exist in the DB enum and in no TypeScript surface | C6 | One undefined lookup, **two different failure modes**: every render site is optional-chained so the status card degrades to grey and empty, while `LeadDetail.tsx:621` is unguarded and throws. So it presents as "renders fewer sections", not as an error — which is exactly why it looked like BUG-5's cause | Open — **P1** (was P0-10). **Latent: zero rows, verified 2026-09-06.** **NOT the cause of BUG-5 — disproven, see below** |
+| **BUG-24** | A logging failure on the error path replaces a JSON 500/502 with a rejected handler promise | C12 | The guard added one commit earlier is real and covers the timer completely, so the file *reads* as hardened. The residual is one level up, in `describeError(err)` evaluated at the call site — the identical mistake the same hardening had just fixed for `new URL(env.url)`, missed twice in the same file. Needs a dependency to reject an error whose `name` getter or `constructor` access throws, which puppeteer and fetch do not do, so no test and no production trace will ever surface it | **Deferred 2026-09-07** by Michael — instrumentation, not the P0; two-round review cap reached. `api/render-job-report-pdf.ts:262` and `:446`. Repro (Codex, verbatim): make `puppeteer.launch` or `fetch` reject `{ get name() { throw new Error('getter failed'); } }`, then assert the handler resolves with its normal error response — both assertions fail; removing only the failure breadcrumb restores them. Fix: guard the property reads inside `describeError`, return empty diagnostics on failure, and add a regression case for each of the two catch paths |
+| **BUG-23** | "View / Print opens the report and I just get the HTML code, not the report" | C11 | Every line of code involved is correct and says so out loud: the EF uploads with `contentType: 'text/html'` (`generate-inspection-pdf/index.ts:2324-2327`), and the button is a plain `window.open` on a real URL (`ReportPreviewHTML.tsx:564-565`, wired `:936`/`:940`). Nothing in the repo is wrong, so reading the repo cannot find it — the defect only exists over the wire. The obvious hypothesis is a `new Blob([html])` missing its `{ type }`, which is wrong here: the repo contains no HTML Blob at all. It took a four-way `curl -sI` probe on DEV to see it | **Open.** Inspection side still affected. Job side AVOIDS it as of `61c3940` (Unit A) by opening a self-typed Blob rather than the Storage URL |
 
 ---
 
