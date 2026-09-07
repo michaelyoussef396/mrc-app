@@ -58,24 +58,43 @@ interface PhaseTimer {
 // is the strongest guarantee available. `atMs` races the 60s ceiling, `tookMs`
 // is this phase alone. Never carries report content — the HTML holds customer
 // PII, so only byte counts are logged.
+//
+// Every failure inside a mark is swallowed. Instrumentation must not be able to
+// break the path it measures: an exception escaping a mark between
+// puppeteer.launch and the try/finally below would leak the browser, and one
+// escaping after the version row is committed would report a successful save as
+// a failed request. Losing a breadcrumb is always cheaper than either.
 function createPhaseTimer(): PhaseTimer {
-  const startedAt = performance.now();
+  const startedAt = readClock();
   let previousAt = startedAt;
   return {
     mark(phase, detail) {
-      const now = performance.now();
-      console.log(
-        '[render-job-report-pdf]',
-        JSON.stringify({
-          phase,
-          atMs: Math.round(now - startedAt),
-          tookMs: Math.round(now - previousAt),
-          ...detail,
-        }),
-      );
-      previousAt = now;
+      try {
+        const now = readClock();
+        console.log(
+          '[render-job-report-pdf]',
+          JSON.stringify({
+            phase,
+            atMs: Math.round(now - startedAt),
+            tookMs: Math.round(now - previousAt),
+            ...detail,
+          }),
+        );
+        previousAt = now;
+      } catch {
+        // Deliberately silent: reporting a logging failure would need logging.
+      }
     },
   };
+}
+
+// Guarded separately because the timer is constructed outside any mark's try.
+function readClock(): number {
+  try {
+    return performance.now();
+  } catch {
+    return 0;
+  }
 }
 
 // A caught puppeteer failure is only diagnostic if the *kind* survives:
@@ -156,8 +175,14 @@ function applyCors(req: VercelRequest, res: VercelResponse): void {
 async function renderPdfFromHtml(html: string, timer: PhaseTimer): Promise<Uint8Array> {
   // Hoisted out of the launch options purely so it can be timed on its own:
   // @sparticuz/chromium decompresses the browser binary to /tmp here, and that
-  // decompression is covered by no timeout anywhere in this file. Awaiting it
-  // one statement earlier is order-identical to awaiting it inline.
+  // decompression is covered by no timeout anywhere in this file, which makes
+  // it worth measuring.
+  //
+  // This DOES change evaluation order — `chromium.args` was read before
+  // executablePath() when both sat in the object literal, and is read after it
+  // now. Codex established no runtime regression from the reorder: nothing in
+  // this repo calls setGraphicsMode or reads graphicsMode, which is the coupling
+  // that would make `args` depend on executablePath() having run.
   const executablePath = await chromium.executablePath();
   timer.mark('chromium_executable_resolved');
   const browser = await puppeteer.launch({
@@ -404,7 +429,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // === Source the HTML ============================================
-  timer.mark('ef_fetch_sent', { supabaseHost: new URL(env.url).host });
+  timer.mark('ef_fetch_sent', { supabaseUrl: env.url });
   const fresh = await fetchFreshHtmlViaEf(env.url, token, jobCompletionId, timer);
   if ('error' in fresh) {
     return res.status(fresh.status).json({ error: fresh.error });
