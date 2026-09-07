@@ -1,11 +1,13 @@
 #!/bin/bash
 # Stop hook: rewrites "Resume from here" in this session's log after every turn from git and
 # the log itself (derived, never narrated). Replaces only that section; anything after it is
-# kept. Missing jq/git/sessions dir, or a read-only log: exit 0 silently. No log carrying
-# this session id: one systemMessage per session (marker file), then silent. CODEX_WORKFLOW §10.
+# kept; headings inside ``` fences are content, not boundaries. Missing jq/git/sessions dir,
+# a read-only log or unbalanced fences: exit 0 silently. No log carrying this session id:
+# one systemMessage per session (marker file), then silent. CODEX_WORKFLOW §10.
 
 SESSION_ID_FIELD="- Session id: "
 BRANCH_FIELD="- Branch: "
+HEADER_HEADING="## Header"
 RESUME_HEADING="## Resume from here"
 STEP_HEADING="## Step log"
 RESUME_NOTE="<!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit -->"
@@ -18,18 +20,25 @@ WINDOW_SCRIPT="$HOOK_DIR/window-remaining.sh"
 command -v jq >/dev/null 2>&1 && [ -d "$SESSIONS_DIR" ] || exit 0
 input=$(if [ -t 0 ]; then printf ''; else cat; fi)
 session_id=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)
-[ -n "$session_id" ] || exit 0
+[[ "$session_id" =~ ^[A-Za-z0-9._-]+$ ]] || exit 0
 branch=$(git -C "$REPO_ROOT" branch --show-current 2>/dev/null)
-NO_LOG_MARKER="${TMPDIR:-/tmp}/session-resume-nolog-$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_')"
+NO_LOG_MARKER="${TMPDIR:-/tmp}/session-resume-nolog-$(printf '%s' "$session_id" | shasum -a 256 | cut -c1-16)"
 
-# The log carrying this session id; with several, the one whose header names the current
-# branch, else the most recently modified. Matching strips \r so CRLF logs work too.
+# header_field <log> <field> <value>: true when the Header section holds exactly "<field><value>"
+# on a line outside any ``` fence. \r is stripped so CRLF logs match too.
+header_field() {
+  awk -v want="$2$3" -v hh="$HEADER_HEADING" '{ sub(/\r$/, "") } /^```/ { f = !f; next } !f && /^## / { s = ($0 ~ "^" hh "[[:space:]]*$") } !f && s && $0 == want { found = 1; exit } END { exit !found }' "$1"
+}
+
+# The log whose Header carries this session id; with several, the one whose Header names the
+# current branch, else the most recently modified.
 find_log() {
   local hit newest=""
-  while IFS= read -r hit; do
-    tr -d '\r' < "$hit" | grep -q -x -F -- "${BRANCH_FIELD}${branch}" && { printf '%s' "$hit"; return 0; }
+  for hit in "$SESSIONS_DIR"/*.md; do
+    header_field "$hit" "$SESSION_ID_FIELD" "$session_id" || continue
+    header_field "$hit" "$BRANCH_FIELD" "$branch" && { printf '%s' "$hit"; return 0; }
     [ -z "$newest" ] || [ "$hit" -nt "$newest" ] && newest="$hit"
-  done < <(grep -l -F -- "${SESSION_ID_FIELD}${session_id}" "$SESSIONS_DIR"/*.md 2>/dev/null)
+  done
   printf '%s' "$newest"
 }
 
@@ -38,11 +47,11 @@ nested_or_none() {  # " none" inline, or one nested backticked bullet per line o
 }
 
 last_step_line() {  # last "- " line of the step log, ignoring lines inside ``` fences
-  awk -v h="$STEP_HEADING" '{ sub(/\r$/, "") } $0 ~ "^" h "[[:space:]]*$" { s = 1; next } s && /^## / { exit } s && /^```/ { f = !f; next } s && !f && /^- / { l = substr($0, 3) } END { print l }' "$1"
+  awk -v h="$STEP_HEADING" '{ sub(/\r$/, "") } /^```/ { f = !f; next } !f && $0 ~ "^" h "[[:space:]]*$" { s = 1; next } !f && s && /^## / { exit } s && !f && /^- / { l = substr($0, 3) } END { print l }' "$1"
 }
 
-current_section() {  # the section as it stands: heading (normalised) to the line before the next "## "
-  awk -v h="$RESUME_HEADING" '{ sub(/\r$/, "") } s && /^## / { exit } s { print } $0 ~ "^" h "[[:space:]]*$" { s = 1; print h }' "$1"
+current_section() {  # the section as it stands: heading (normalised) to the line before the next unfenced "## "
+  awk -v h="$RESUME_HEADING" '{ sub(/\r$/, "") } /^```/ { f = !f } !f && s && /^## / { exit } s { print } !f && $0 ~ "^" h "[[:space:]]*$" { s = 1; print h }' "$1"
 }
 
 render_section() {  # render_section <log> <window line>
@@ -64,14 +73,14 @@ render_section() {  # render_section <log> <window line>
 }
 
 # Lines above the heading (trailing blanks trimmed), blank, the new section, then everything
-# from the next "## " heading on. Atomic: temp file + mv, original mode kept.
+# from the next unfenced "## " heading on. Atomic: temp file + mv, original mode kept.
 replace_section() {  # replace_section <log> <section>
   local tmp mode
   tmp=$(mktemp "$SESSIONS_DIR/.resume.XXXXXX") || return 1
   mode=$(stat -f %OLp "$1" 2>/dev/null || echo 644)
-  { awk -v h="$RESUME_HEADING" '{ sub(/\r$/, "") } $0 ~ "^" h "[[:space:]]*$" { exit } { l[++n] = $0 } END { while (n > 0 && l[n] == "") n--; for (i = 1; i <= n; i++) print l[i]; print "" }' "$1"
+  { awk -v h="$RESUME_HEADING" '{ sub(/\r$/, "") } /^```/ { f = !f } !f && $0 ~ "^" h "[[:space:]]*$" { exit } { l[++n] = $0 } END { while (n > 0 && l[n] == "") n--; for (i = 1; i <= n; i++) print l[i]; print "" }' "$1"
     printf '%s\n' "$2"
-    awk -v h="$RESUME_HEADING" '{ sub(/\r$/, "") } s == 0 && $0 ~ "^" h "[[:space:]]*$" { s = 1; next } s == 1 && /^## / { s = 2; print "" } s == 2 { print }' "$1"
+    awk -v h="$RESUME_HEADING" '{ sub(/\r$/, "") } /^```/ { f = !f } s == 0 && !f && $0 ~ "^" h "[[:space:]]*$" { s = 1; next } s == 1 && !f && /^## / { s = 2; print "" } s == 2 { print }' "$1"
   } > "$tmp" && chmod "$mode" "$tmp" && mv -f "$tmp" "$1" || { rm -f "$tmp"; return 1; }
 }
 
@@ -79,10 +88,10 @@ log=$(find_log)
 if [ -z "$log" ]; then
   [ -e "$NO_LOG_MARKER" ] && exit 0
   { : > "$NO_LOG_MARKER"; } 2>/dev/null
-  jq -cn --arg id "$session_id" '{systemMessage: ("session-resume: no docs/sessions log carries session id " + $id + ", so Resume from here is not being maintained")}'
+  jq -cn --arg id "${session_id:0:8}" '{systemMessage: ("session-resume: no docs/sessions log carries this session id (" + $id + "…), so Resume from here is not being maintained")}'
   exit 0
 fi
-[ -w "$log" ] || exit 0
+[ -w "$log" ] && [ $(( $(grep -c '^```' "$log") % 2 )) -eq 0 ] || exit 0
 window_out=$( { [ -x "$WINDOW_SCRIPT" ] && "$WINDOW_SCRIPT"; } 2>/dev/null)
 new_section=$(render_section "$log" "$(printf '%s\n' "$window_out" | head -n 1)")
 if [ "$(current_section "$log" | grep -v '^- Updated: ')" != "$(printf '%s\n' "$new_section" | grep -v '^- Updated: ')" ]; then
