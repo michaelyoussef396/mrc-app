@@ -22,9 +22,10 @@ cache_readable() {  # a regular file we own, no symlink at either level
   [ -d "$CACHE_DIR" ] && [ ! -L "$CACHE_DIR" ] && [ ! -L "$CACHE" ] && [ -f "$CACHE" ] && [ -O "$CACHE" ]
 }
 cache_age() { printf '%s' $(( $(date +%s) - $(stat -f %m "$CACHE" 2>/dev/null || echo 0) )); }
-write_cache() {  # 0700 dir; atomic rename replaces a planted symlink instead of following it
+write_cache() {  # a symlinked dir is rejected before mkdir or chmod can touch its target; 0700; atomic rename
   local tmp
-  { mkdir -p "$CACHE_DIR" && chmod 700 "$CACHE_DIR" && [ ! -L "$CACHE_DIR" ] \
+  [ -L "$CACHE_DIR" ] && return 1
+  { mkdir -p "$CACHE_DIR" && [ ! -L "$CACHE_DIR" ] && [ -O "$CACHE_DIR" ] && chmod 700 "$CACHE_DIR" \
     && tmp=$(mktemp "$CACHE_DIR/.window.XXXXXX") && printf '%s\n' "$1" > "$tmp" && mv -f "$tmp" "$CACHE"; } 2>/dev/null
 }
 

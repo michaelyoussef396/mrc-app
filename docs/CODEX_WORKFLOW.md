@@ -98,6 +98,7 @@ Every sub-agent (the Agent tool, `.claude/agents/*`) appends its own step-log li
 - Codex loads at most one instruction file per directory (`AGENTS.override.md` > `AGENTS.md` > fallbacks) and never `CLAUDE.md`; `cd <dir> && codex debug prompt-input "noop"` shows what loaded without spending quota.
 - `protect-files.sh` denies Edit/Write under `.claude/hooks/*`; changes there go through Michael or an approved scratchpad-and-copy with the diff shown.
 - A Stop hook must never emit `hookSpecificOutput.additionalContext` (§10, trap 3); a hook added this session does not run this session (§10, trap 4).
+- **A worktree removed and recreated at the same path** leaves the companion's shared session runtime holding the deleted cwd; the next review from that path fails in about one second with empty output and `failed to load configuration: No such file or directory`. It is not a rate limit and not a Codex fault. Fix: review from a new path, or clear the stale runtime. One re-run from a fresh path is acceptable under ruling 1 because the failure is local, not a Codex failure (Michael, 2026-09-07; observed live on PR #150's re-review).
 
 ## 9. Handing over to Codex
 
