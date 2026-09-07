@@ -84,6 +84,6 @@ settings.local.json
 dev-setup/
 
 # Multi-agent workflow state — worktree-local, not committed. The templates are
-# not tracked either, so a new worktree starts without them; ownership and the
-# bootstrap note live in AGENTS.md, "Workflow".
+# tracked at docs/ai-templates/; ownership and the bootstrap note live in
+# AGENTS.md, "Workflow".
 .ai/
