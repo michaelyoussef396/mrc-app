@@ -51,7 +51,7 @@ Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` 
 
 Write `codex resume <threadId>` here the moment it is printed — on stderr as `Thread ready (<id>)`, or by `node <companion> status`. The plugin SessionEnd hook deletes every job of the session, running or finished.
 
-- (none yet)
+- `codex resume 01a07c3a-bf63-76c3-9ff0-9346ae8d4bde` — adversarial-review of `origin/main...HEAD`, 2026-09-08. Target line verbatim: `branch diff against origin/main`. Verdict: needs-attention, 1 medium finding (unbounded `document.fonts.ready` wait at api/render-job-report-pdf.ts:202-204).
 
 ## Review
 
@@ -80,10 +80,29 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 ## Resume from here
 
 <!-- resume:start -->
-<!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers; never quote the marker lines elsewhere in this log -->
+<!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers -->
 
-- Rewritten by the Stop hook after the first turn. Until then, or when no Stop hook runs (Codex, a session that added the hook), fill by hand:
-- Next command: <exact command>
-- Uncommitted files: <`git status --porcelain` output, or none>
-- Untested: <what has not been run>
+- Updated: 2026-09-08 00:19 AEST · Tool: CC
+- Branch: chore/workflow-scaffolding @ 86dbcbb docs: capture ten findings from the render-endpoint P0
+- Unpushed commits:
+  - `86dbcbb docs: capture ten findings from the render-endpoint P0`
+  - `fb013db fix(job-report): stop waiting for network idle in setContent`
+  - `7bd6b5a docs: log the exception-isolation Codex review`
+- Uncommitted files (this log excluded):
+  - ` M .claude/settings.local.json`
+  - ` M docs/sessions/2026-09-07-chore-workflow-scaffolding-2.md`
+  - ` M docs/sessions/2026-09-07-chore-workflow-scaffolding-3.md`
+  - `?? docs/sessions/2026-09-07-chore-workflow-scaffolding.md`
+  - `?? muti-session-docs/`
+  - `?? template-backup-66282.html`
+  - `?? template-backup-66325.html`
+- Last step-log line: 00:26 · CC · CC · IMPORTANT: `git fetch origin` moved origin/main 68c8f73..37171b7. Before the fetch the branch measured 663 reviewable lines against a stale base (PR #155 already merged); after, it is 1. Reviewing against the stale ref would have been the #653 class · (none) · review base is now correct
+- Codex threads:
+  - `codex resume 01a07c3a-bf63-76c3-9ff0-9346ae8d4bde`
+- Window: five_hour 14% used, resets 03:30 AEST (17:30 UTC)
+- Next step: the first open item under "Did NOT" or "Open", else continue from the last step-log line.
 <!-- resume:end -->
+- 00:34 · CC · CC · DIFF LIMIT — measured 175 reviewable lines against the 150 cap (`git diff --numstat origin/main...HEAD -- . ':(exclude)docs/sessions/'`). Breakdown: api/render-job-report-pdf.ts 2, docs/TODO.md 10, docs/codex-review-log.md 1, the new test file 162. Splitting by commit does not help — the review reads the whole branch diff — and extracting the shared mock harness would make it worse, since numstat counts deletions too. **Michael granted a waiver to 175**, on the basis that the production change is 2 lines and ~110 of the test file is scaffolding transcribed from the already-reviewed renderJobReportPdf.instrumentation.test.ts. To be repeated in docs/codex-review-log.md with the run entry · (none) · waiver granted and logged
+- 00:48 · CC · CC · Michael's triage: Codex medium DEFERRED with reason (networkidle0 deterministically broken and log-confirmed; Codex's scenario is an unverified source-based prediction requiring an actual stall; always-broken → conditionally-broken is a win, testing against PROD in minutes) · .ai/REVIEW_RESOLUTIONS.md (round 5), docs/BUG_LEDGER.md (new class C13 + BUG-25 referencing T19), docs/TODO.md (P2-21 corrected), docs/codex-review-log.md (run row) · recorded — applied NO code fix
+- 00:50 · CC · CC · P2-21 correction: CC's early-font-readiness claim and Codex's hang claim BOTH recorded as unresolved, neither asserted; neither was verified in a browser · docs/TODO.md · done
+- 00:52 · CC · CC · BUG-25 states explicitly that if the stall scenario occurs the 504 MOVES from setContent to the fonts.ready wait rather than disappearing — and loses the JSON body and the browser cleanup, since :204 is bounded by nothing this file sets · docs/BUG_LEDGER.md · done
