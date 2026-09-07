@@ -57,12 +57,32 @@ implicit default target is the dangerous half.
 **Shape.** The thing that runs is loaded from somewhere other than git, so a
 repo edit is inert while appearing to succeed.
 
-**Instances (2):** BUG-3 — the inspection PDF template is read from the
+**Instances (3):** BUG-3 — the inspection PDF template is read from the
 `pdf-templates` Storage bucket, not from git (P2-17). Incident 2 — a guard hook
 committed to the repo that never ran, because the registered copy was the
-machine-local one.
+machine-local one. **PDF-CL12 (2026-09-07) — the read-side form, see below.**
 
-**Check:** before editing, establish which copy is actually read at runtime.
+**The read-side form, and it is the nastier one.** The first two instances are
+about *editing*: the edit is inert. PDF-CL12 was about *concluding*. The backlog
+row asserted that the 23505 retry in `api/render-job-report-pdf.ts:198-236` was
+dead code "because no UNIQUE constraint exists" on `job_completion_pdf_versions`.
+That table's `CREATE TABLE` was made in Studio and never entered the migrations
+folder — said outright in
+`supabase/migrations/20260531150202_job_completion_pdf_versions_pipeline_columns.sql:18-19`.
+So grepping the repo for a unique index returns nothing **whether or not one
+exists**, and absence of evidence was recorded as evidence of absence. A live
+`23505 duplicate key ... (job_completion_id, version_number)` in the EF logs on
+2026-09-07 settles it: Postgres raises 23505 only on a unique violation and names
+the columns of the index it violated. The constraint exists; the retry is working
+code; the row was withdrawn, not actioned.
+
+**Check:** before editing, establish which copy is actually read at runtime —
+and before *concluding*, establish whether the repo is even a witness to the
+question. A repo grep is evidence about the repo, never about the live database.
+This is the same rule as the pre-flight discipline in `CLAUDE.md`: schema state
+comes from `information_schema`, never from repo file presence. The tell is a
+claim of the form "X does not exist, because I could not find it in the repo"
+about anything that lives in Postgres, Storage, or a dashboard.
 
 ### C5 — A count derived from loaded state
 **Shape.** The count is computed from rows in memory, so it always agrees with
