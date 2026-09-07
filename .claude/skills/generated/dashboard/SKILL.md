@@ -1,67 +1,78 @@
 ---
 name: dashboard
-description: "Skill for the Dashboard area of mrc-app. 7 symbols across 3 files."
+description: "Skill for the Dashboard area of mrc-app. 13 symbols across 3 files."
 ---
 
 # Dashboard
 
-7 symbols | 3 files | Cohesion: 67%
+13 symbols | 3 files | Cohesion: 76%
 
 ## When to Use
 
 - Working with code in `src/`
-- Understanding how formatDateTimeAU, ActivityTimeline work
+- Understanding how ActivityTimeline, getFieldLabel, formatDiffValueForDescription work
 - Modifying dashboard-related functionality
 
 ## Key Files
 
 | File | Symbols |
 |------|---------|
-| `src/components/dashboard/ActivityTimeline.tsx` | formatDiffValue, getFieldEditMetadata, formatRelativeTime, getSourceBadge, ActivityTimeline |
-| `src/lib/dateUtils.ts` | formatDateTimeAU |
-| `src/components/leads/InspectionReportHistory.tsx` | formatDateTime |
+| `src/components/dashboard/ActivityTimeline.tsx` | humaniseEnumKey, formatDiffValue, getFieldEditMetadata, getSectionMilestoneChanges, SectionMilestoneRow (+4) |
+| `src/lib/api/fieldEditLog.ts` | buildDescription, titleSummary |
+| `src/lib/utils/fieldLabels.ts` | getFieldLabel, formatDiffValueForDescription |
 
 ## Entry Points
 
 Start here when exploring this area:
 
-- **`formatDateTimeAU`** (Function) — `src/lib/dateUtils.ts:26`
-- **`ActivityTimeline`** (Function) — `src/components/dashboard/ActivityTimeline.tsx:108`
+- **`ActivityTimeline`** (Function) — `src/components/dashboard/ActivityTimeline.tsx:195`
+- **`getFieldLabel`** (Function) — `src/lib/utils/fieldLabels.ts:170`
+- **`formatDiffValueForDescription`** (Function) — `src/lib/utils/fieldLabels.ts:186`
 
 ## Key Symbols
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
-| `formatDateTimeAU` | Function | `src/lib/dateUtils.ts` | 26 |
-| `ActivityTimeline` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 108 |
-| `formatDateTime` | Function | `src/components/leads/InspectionReportHistory.tsx` | 38 |
-| `formatDiffValue` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 36 |
-| `getFieldEditMetadata` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 53 |
-| `formatRelativeTime` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 63 |
-| `getSourceBadge` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 90 |
+| `ActivityTimeline` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 195 |
+| `getFieldLabel` | Function | `src/lib/utils/fieldLabels.ts` | 170 |
+| `formatDiffValueForDescription` | Function | `src/lib/utils/fieldLabels.ts` | 186 |
+| `humaniseEnumKey` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 33 |
+| `formatDiffValue` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 59 |
+| `getFieldEditMetadata` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 78 |
+| `getSectionMilestoneChanges` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 93 |
+| `SectionMilestoneRow` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 106 |
+| `formatRelativeTime` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 140 |
+| `getSourceBadge` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 167 |
+| `getPriorityBadge` | Function | `src/components/dashboard/ActivityTimeline.tsx` | 179 |
+| `buildDescription` | Function | `src/lib/api/fieldEditLog.ts` | 257 |
+| `titleSummary` | Function | `src/lib/api/fieldEditLog.ts` | 268 |
 
 ## Execution Flows
 
 | Flow | Type | Steps |
 |------|------|-------|
-| `HandleBookInspection → FormatDateAU` | cross_community | 6 |
-| `HandleBookInspection → FormatTimeAU` | cross_community | 6 |
-| `HandleSaveNotes → FormatDateAU` | cross_community | 4 |
-| `HandleSaveNotes → FormatTimeAU` | cross_community | 4 |
-| `HandleSaveNote → FormatDateAU` | cross_community | 4 |
-| `HandleSaveNote → FormatTimeAU` | cross_community | 4 |
-| `InspectionReportHistory → FormatDateAU` | cross_community | 4 |
-| `InspectionReportHistory → FormatTimeAU` | cross_community | 4 |
+| `HandleApproveJobCompletion → GetFieldLabel` | cross_community | 5 |
+| `HandleApproveJobCompletion → FormatDiffValueForDescription` | cross_community | 5 |
+| `InspectionAIReview → GetFieldLabel` | cross_community | 5 |
+| `InspectionAIReview → FormatDiffValueForDescription` | cross_community | 5 |
+| `HandleEdit → GetFieldLabel` | cross_community | 5 |
+| `HandleEdit → FormatDiffValueForDescription` | cross_community | 5 |
+| `HandleApprove → GetFieldLabel` | cross_community | 4 |
+| `HandleApprove → FormatDiffValueForDescription` | cross_community | 4 |
+| `HandleSendBackToTechnician → GetFieldLabel` | cross_community | 4 |
+| `HandleSendBackToTechnician → FormatDiffValueForDescription` | cross_community | 4 |
 
 ## Connected Areas
 
 | Area | Connections |
 |------|-------------|
-| Leads | 1 calls |
-| Schedule | 1 calls |
+| Admin | 1 calls |
+| Pdf | 1 calls |
+| Ui | 1 calls |
 
 ## How to Explore
 
-1. `gitnexus_context({name: "formatDateTimeAU"})` — see callers and callees
-2. `gitnexus_query({query: "dashboard"})` — find related execution flows
+1. `context({name: "ActivityTimeline"})` — see callers and callees
+2. `query({search_query: "dashboard"})` — find related execution flows
 3. Read key files listed above for implementation details
+4. `explain({target: "<file or symbol>"})` — persisted taint findings (source→sink data flows), when indexed with `--pdg`

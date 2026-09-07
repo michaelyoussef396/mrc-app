@@ -1,16 +1,16 @@
 ---
 name: technician
-description: "Skill for the Technician area of mrc-app. 16 symbols across 8 files."
+description: "Skill for the Technician area of mrc-app. 14 symbols across 7 files."
 ---
 
 # Technician
 
-16 symbols | 8 files | Cohesion: 79%
+14 symbols | 7 files | Cohesion: 73%
 
 ## When to Use
 
 - Working with code in `src/`
-- Understanding how formatWeekdayDateAU, TechnicianHeader, getGreeting work
+- Understanding how TechnicianBottomNav, isActive, handleNavClick work
 - Modifying technician-related functionality
 
 ## Key Files
@@ -18,64 +18,68 @@ description: "Skill for the Technician area of mrc-app. 16 symbols across 8 file
 | File | Symbols |
 |------|---------|
 | `src/components/technician/JobsList.tsx` | JobsList, getStatusStyles, getStatusLabel, handleViewLead |
-| `src/components/technician/TechnicianHeader.tsx` | TechnicianHeader, getGreeting, formatDate |
 | `src/components/technician/TechnicianBottomNav.tsx` | TechnicianBottomNav, isActive, handleNavClick |
-| `src/hooks/useTechnicianAlerts.ts` | mapActivityType, useTechnicianAlerts |
+| `src/components/technician/TechnicianHeader.tsx` | TechnicianHeader, getGreeting, formatDate |
+| `src/hooks/useTechnicianAlerts.ts` | useTechnicianAlerts |
+| `src/lib/offline/SyncIndicator.tsx` | SyncIndicator |
 | `src/lib/dateUtils.ts` | formatWeekdayDateAU |
 | `src/pages/TechnicianJobs.tsx` | formatDateHeader |
-| `src/components/schedule/EventDetailsPanel.tsx` | EventDetailsPanel |
-| `src/pages/TechnicianAlerts.tsx` | TechnicianAlerts |
 
 ## Entry Points
 
 Start here when exploring this area:
 
-- **`formatWeekdayDateAU`** (Function) — `src/lib/dateUtils.ts:35`
-- **`TechnicianHeader`** (Function) — `src/components/technician/TechnicianHeader.tsx:12`
-- **`getGreeting`** (Function) — `src/components/technician/TechnicianHeader.tsx:20`
-- **`formatDate`** (Function) — `src/components/technician/TechnicianHeader.tsx:27`
-- **`EventDetailsPanel`** (Function) — `src/components/schedule/EventDetailsPanel.tsx:30`
+- **`TechnicianBottomNav`** (Function) — `src/components/technician/TechnicianBottomNav.tsx:23`
+- **`isActive`** (Function) — `src/components/technician/TechnicianBottomNav.tsx:42`
+- **`handleNavClick`** (Function) — `src/components/technician/TechnicianBottomNav.tsx:53`
+- **`useTechnicianAlerts`** (Function) — `src/hooks/useTechnicianAlerts.ts:123`
+- **`SyncIndicator`** (Function) — `src/lib/offline/SyncIndicator.tsx:11`
 
 ## Key Symbols
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
-| `formatWeekdayDateAU` | Function | `src/lib/dateUtils.ts` | 35 |
-| `TechnicianHeader` | Function | `src/components/technician/TechnicianHeader.tsx` | 12 |
-| `getGreeting` | Function | `src/components/technician/TechnicianHeader.tsx` | 20 |
-| `formatDate` | Function | `src/components/technician/TechnicianHeader.tsx` | 27 |
-| `EventDetailsPanel` | Function | `src/components/schedule/EventDetailsPanel.tsx` | 30 |
-| `useTechnicianAlerts` | Function | `src/hooks/useTechnicianAlerts.ts` | 123 |
-| `TechnicianAlerts` | Function | `src/pages/TechnicianAlerts.tsx` | 186 |
 | `TechnicianBottomNav` | Function | `src/components/technician/TechnicianBottomNav.tsx` | 23 |
 | `isActive` | Function | `src/components/technician/TechnicianBottomNav.tsx` | 42 |
 | `handleNavClick` | Function | `src/components/technician/TechnicianBottomNav.tsx` | 53 |
+| `useTechnicianAlerts` | Function | `src/hooks/useTechnicianAlerts.ts` | 123 |
+| `SyncIndicator` | Function | `src/lib/offline/SyncIndicator.tsx` | 11 |
+| `TechnicianHeader` | Function | `src/components/technician/TechnicianHeader.tsx` | 12 |
+| `getGreeting` | Function | `src/components/technician/TechnicianHeader.tsx` | 20 |
+| `formatDate` | Function | `src/components/technician/TechnicianHeader.tsx` | 27 |
+| `formatWeekdayDateAU` | Function | `src/lib/dateUtils.ts` | 35 |
 | `JobsList` | Function | `src/components/technician/JobsList.tsx` | 20 |
 | `getStatusStyles` | Function | `src/components/technician/JobsList.tsx` | 23 |
 | `getStatusLabel` | Function | `src/components/technician/JobsList.tsx` | 39 |
 | `handleViewLead` | Function | `src/components/technician/JobsList.tsx` | 55 |
-| `formatDateHeader` | Function | `src/pages/TechnicianJobs.tsx` | 53 |
-| `mapActivityType` | Function | `src/hooks/useTechnicianAlerts.ts` | 66 |
+| `formatDateHeader` | Function | `src/pages/TechnicianJobs.tsx` | 54 |
 
 ## Execution Flows
 
 | Flow | Type | Steps |
 |------|------|-------|
-| `TechnicianJobs → FormatDateAU` | cross_community | 4 |
+| `TechnicianBottomNav → CaptureBusinessError` | cross_community | 8 |
+| `TechnicianBottomNav → QuarantinePhoto` | cross_community | 7 |
+| `TechnicianBottomNav → IsCaptionValid` | cross_community | 7 |
+| `TechnicianBottomNav → PhotoQuarantinedError` | cross_community | 7 |
+| `TechnicianBottomNav → GetPendingDrafts` | cross_community | 6 |
+| `TechnicianBottomNav → SyncDraft` | cross_community | 6 |
+| `TechnicianBottomNav → GetPendingPhotos` | cross_community | 6 |
+| `TechnicianBottomNav → GetPendingCounts` | cross_community | 6 |
+| `TechnicianBottomNav → UseNetworkStatus` | cross_community | 4 |
 | `TechnicianHeader → FormatDateAU` | cross_community | 4 |
-| `ScheduleHeader → FormatDateAU` | cross_community | 4 |
-| `TechnicianDashboard → MapActivityType` | cross_community | 3 |
 
 ## Connected Areas
 
 | Area | Connections |
 |------|-------------|
-| Hooks | 2 calls |
+| Admin | 2 calls |
 | Leads | 1 calls |
-| Schedule | 1 calls |
+| Offline | 1 calls |
 
 ## How to Explore
 
-1. `gitnexus_context({name: "formatWeekdayDateAU"})` — see callers and callees
-2. `gitnexus_query({query: "technician"})` — find related execution flows
+1. `context({name: "TechnicianBottomNav"})` — see callers and callees
+2. `query({search_query: "technician"})` — find related execution flows
 3. Read key files listed above for implementation details
+4. `explain({target: "<file or symbol>"})` — persisted taint findings (source→sink data flows), when indexed with `--pdg`
