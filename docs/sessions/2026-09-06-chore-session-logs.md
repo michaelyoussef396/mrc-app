@@ -134,6 +134,7 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 
 ## Resume from here
 
+<!-- resume:start -->
 - **Next: Lane R** — `~/mrc-guard-fix`, branch `fix/guard-hook-bypasses`, P0-9 (a)–(e), build-now, opens alone. Its worktree is at 2c8087e and needs main (now 446be56) first. Merge and re-baseline, in this order, verifying by content:
 
   ```
@@ -151,3 +152,4 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 - **Where the deny list lives:** the identical 17 Bash deny entries are in `~/.claude/settings.json` (user scope, applies in every worktree) and, uncommitted, in `~/mrc-app-1/.claude/settings.json` (#144's content). Switching worktrees loses nothing; the repo copy is a second layer that becomes tracked only when #144 merges.
 - Uncommitted files on `~/mrc-app-1` (`feat/schedule-rail-search-deeplink`): the pre-existing GitNexus churn, `AGENTS.md` (stash popped), `.claude/settings.json` (deny list, live). Leave all three alone.
 - Untested: the Codex guard under a trusted (non-bypass) Codex session; the session-start hook's first live firing and first real `/clear`; the `@AGENTS.md` import and the C2 sub-agent check in a fresh session on a post-merge checkout; every review finding above
+<!-- resume:end -->
