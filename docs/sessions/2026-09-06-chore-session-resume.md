@@ -64,7 +64,9 @@ Format: `- HH:MM · tool · agent · what · files · outcome`
 - 10:20 · CC · CC · re-review #150 (fixes 5–6) from the recreated scratch worktree `wt2` · (none) · FAILED in 1 s, empty output, stderr `failed to load configuration: No such file or directory`; Codex itself ran fine from that directory (`codex debug prompt-input`, rc 0) and `~/.codex/config.toml` was intact — the companion's shared session runtime had been started from the first `wt2` directory, which I had removed and recreated, so its cwd was a deleted inode. Not a Codex-side failure; one run from a moved worktree (`wt3`) follows. New trap for CODEX_WORKFLOW §8: never delete and recreate a directory the companion has reviewed from while the session lives
 - 10:22 · CC · CC · `git worktree move wt2 wt3`, re-review #150 once from `wt3` · (none) · see "Review"
 - 10:50 · CC · CC · round 2 (Michael's four): fix 4 approach A (digest at hook start, re-read before `mv`, skip and retry next Stop; residual window commented in the code); CommonMark fences via one shared awk function (3+ backticks or tildes, 0–3 spaces indent, closer same char and at least as long); #150 `write_cache` rejects a symlinked dir before mkdir/chmod; 8-char id finding closed by ruling, not fixed; §8 trap for the deleted-and-recreated worktree · .claude/hooks/session-resume.sh, .claude/hooks/window-remaining.sh, docs/CODEX_WORKFLOW.md · pinned by fixes2-test.sh (R1, R1b, R2, R4a shim-mktemp caught, R4b shim-mv residual, R3); round-1 fixtures, 17-check smoke and f6 re-run
-- 10:55 · CC · CC · re-review #149 and #150 (from a fresh worktree path `wt4`), `--base origin/main`, Target printed and matched · (none) · see "Review"
+- 10:55 · CC · CC · re-review #149 and #150 (from a fresh worktree path `wt4`), `--base origin/main`, Target printed and matched · (none) · see "Review": #150 approve, #149 needs-attention (2)
+- 11:10 · CC · CC · round 3 on #149 only: closing fence accepts spaces or tabs; digest snapshot moved above `fences_balanced` with the comment distinguishing it from the read-to-rename window · .claude/hooks/session-resume.sh · fixtures R1c (tab closer, following section survives), R1d (masked case now fails validation, no write), R4c (shim awk appends an unclosed fence after the balance check, write dropped); round-1/2 fixtures and the 17-check smoke re-run green
+- 11:15 · CC · CC · re-review #149, `--base origin/main`, Target printed and matched · (none) · see "Review"
 
 ## C1 — Stop hook proof (scratch clone of chore/session-resume @ ac22a32, three nested `claude -p` turns, haiku, `--resume`)
 
@@ -117,6 +119,7 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 - codex resume 01a0793e-297d-7622-b71d-4f2fc02b1646 — #150 re-review after fixes 5–6 (chore/session-window-docs @ 99036bb vs origin/main e076aa6, from scratch worktree `wt3`), adversarial, 2026-09-07 00:21–00:23 UTC, Target `branch diff against origin/main`, verdict needs-attention. The first attempt from `wt2` (job `review-mtqhv82a-shqp5z`) failed in 1 s with no thread.
 - codex resume 01a0794f-1d37-72c0-a750-158aa8165d5f — #149 re-review after round 2 (CommonMark fences, optimistic concurrency; chore/session-resume @ d1b601d vs origin/main e076aa6), adversarial, 2026-09-07 00:40–00:43 UTC, Target `branch diff against origin/main`, verdict needs-attention
 - codex resume 01a07951-cb8c-7d00-835b-73ea4f35cf99 — #150 re-review after round 2 (chmod ordering, §8 trap; chore/session-window-docs @ dc8cfae vs origin/main e076aa6, from scratch worktree `wt4`), adversarial, 2026-09-07 00:43–00:44 UTC, Target `branch diff against origin/main`, verdict approve
+- codex resume 01a079bd-cbe7-7ea2-a791-49e3c6abde31 — #149 re-review after round 3 (tabs after a closing fence; digest before validation; chore/session-resume @ bce5593 vs origin/main e076aa6), adversarial, 2026-09-07 02:41–02:44 UTC, Target `branch diff against origin/main`, verdict needs-attention
 - C2's two `codex exec --ephemeral` runs left no thread (see "C2")
 
 ## Review
@@ -174,7 +177,17 @@ Round 2 (2026-09-07, Michael's four): fix 4 approach A; CommonMark fences; #150 
 - Diff lines excl. docs/sessions/: 102 (101 added, 1 deleted, 7 files)
 - Verdict: **approve**, no material findings. Codex: the symlink guard and ownership check fix the reported chmod failure; no regression in the §8 bullet; split-PR findings excluded as requested; live credential and network behaviour not exercised.
 
-Tally after round 2 — the eight originals: closed 6 (#149: fence boundary, substring session match, id in marker and notice by ruling, concurrent edits by approach A; #150: curl, cache), carried 2 (the two #150 split artefacts, recorded, never to be fixed on that branch). New findings from the three re-reviews: 5 raised, 3 closed (#149 fence variants; #149 id prefix by ruling; #150 chmod ordering), 2 open on #149 (tabs after a closing fence, high; digest taken after fence validation, medium), both untriaged.
+Round 3 (2026-09-07, Michael's two on #149): closing fence accepts spaces or tabs; digest snapshot moved above `fences_balanced`.
+
+#149 re-review, chore/session-resume `bce5593` (round 3) vs origin/main `e076aa6`:
+
+- Target: `branch diff against origin/main` (printed and matched before reading)
+- Diff lines excl. docs/sessions/: 149 (149 added, 0 deleted, 2 files) — one under the limit
+- Verdict: needs-attention. Codex: both requested fixes are correct; the Stop registration has no substantive defect.
+- Findings: 1 — (high) the backtick opener accepts any line starting with three or more backticks, including an inline span such as `` ```inline``` ``, which CommonMark does not treat as a fence opener because its info string contains a backtick. Fixture from the review: `## Resume from here`, `` ```inline``` ``, blank, `## Open`, `- KEEP`, blank, a four-backtick block containing a triple-backtick line. `fences_balanced` passes, and the replacement removes the whole Open section, with no concurrent writer involved (`session-resume.sh:26-29`). Recommendation: reject a backtick opener whose remainder contains a backtick; tilde openers are unaffected. Nothing applied; to Michael.
+- Closed by this round: the tab-closer finding and the digest-ordering finding.
+
+Tally after round 3 — the eight originals: closed 6 (#149: fence boundary, substring session match, id in marker and notice by ruling, concurrent edits by approach A; #150: curl, cache), carried 2 (the two #150 split artefacts, recorded, never to be fixed on that branch). New findings from the four re-reviews of #149 and two of #150: 6 raised, 5 closed (#149 fence variants; #149 id prefix by ruling; #149 tabs after a closing fence; #149 digest before validation; #150 chmod ordering), 1 open on #149 (backtick opener with a backtick in its info string, high), untriaged. #150 approved.
 
 ## Did
 
@@ -201,8 +214,8 @@ Tally after round 2 — the eight originals: closed 6 (#149: fence boundary, sub
 
 ## Open
 
-- Triage round 1 (2026-09-07): fixes 1, 2, 3 on #149 (3cd9981) and 5, 6 on #150 (99036bb). Round 2: fix 4 approach A + CommonMark fences on #149 (d1b601d), chmod ordering + §8 trap on #150 (dc8cfae). Final re-reviews: #150 approve; #149 needs-attention with two open findings (tabs after a closing fence, high; digest taken after `fences_balanced`, medium), untriaged, nothing applied.
-- #149 is at 144 reviewable lines; any further fix there must stay under 150 or split.
+- Triage round 1 (2026-09-07): fixes 1, 2, 3 on #149 (3cd9981) and 5, 6 on #150 (99036bb). Round 2: fix 4 approach A + CommonMark fences on #149 (d1b601d), chmod ordering + §8 trap on #150 (dc8cfae). Round 3: tab closers + digest ordering on #149 (bce5593). Latest re-reviews: #150 approve; #149 needs-attention with one open finding (backtick opener whose info string contains a backtick is not a fence, high), untriaged, nothing applied.
+- #149 is at 149 reviewable lines. The open finding is a one-line condition in the awk function, but it takes the branch to 150 or over: either shave a line elsewhere or accept a split.
 - The companion worktree trap is now CODEX_WORKFLOW §8 (on #150).
 - Two scratch clones' nested sessions and the C1/C2 fixtures remain under the scratchpad; `~/.cache/claude-hooks/window.txt` now exists on this machine (the smoke test ran the shipped helper).
 - The Stop hook does not run in this session (trap 4). After #149 merges: restart or `/hooks` review in each worktree that should have it.
@@ -216,11 +229,11 @@ Tally after round 2 — the eight originals: closed 6 (#149: fence boundary, sub
 
 Hand-written at close (the hook cannot run in the session that added it):
 
-- Updated: 2026-09-07 10:50 AEST · Tool: CC
-- Branch: chore/session-resume @ d1b601d in ~/mrc-app-1 (rounds 1–2); PR #149 open, last review needs-attention (2 open). chore/session-window-docs @ dc8cfae + closing commit (rows, this log); PR #150 open, last review approve. Neither merged.
+- Updated: 2026-09-07 12:50 AEST · Tool: CC
+- Branch: chore/session-resume @ bce5593 in ~/mrc-app-1 (rounds 1–3); PR #149 open, last review needs-attention (1 open). chore/session-window-docs @ dc8cfae + closing commits (rows, this log); PR #150 open, last review approve. Neither merged.
 - Unpushed commits: none
 - Uncommitted files (this log excluded): ` M .claude/settings.json` (live deny list, never commit), ` M docs/HOW_TO_USE_THE_APP.html` (pre-existing churn), `?? docs/TEST_LEAD_PURGE_*` and other pre-existing untracked files
 - Last step-log line: see above
 - Codex threads: see "Codex threads" above (six reviews)
 - Window: irrelevant at close
-- Next step: Michael triages the two open #149 findings (tabs after a closing fence; digest before fence validation), then merge order (#150 is approved; #149 then #150, or together), then a restart to pick up the Stop hook. Pop the AGENTS.md stash on `feat/schedule-rail-search-deeplink` when returning there (`git stash list` shows "parked GitNexus regen 2026-09-06 (block B)").
+- Next step: Michael triages the one open #149 finding (backtick opener with a backtick in its info string; one-line fix, but the branch is at 149 lines), then merge order (#150 is approved; #150 then #149), then a restart to pick up the Stop hook. Pop the AGENTS.md stash on `feat/schedule-rail-search-deeplink` when returning there (`git stash list` shows "parked GitNexus regen 2026-09-06 (block B)").
