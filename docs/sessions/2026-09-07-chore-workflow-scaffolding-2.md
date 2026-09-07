@@ -57,15 +57,16 @@ Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` 
 Write `codex resume <threadId>` here the moment it is printed — on stderr as `Thread ready (<id>)`, or by `node <companion> status`. The plugin SessionEnd hook deletes every job of the session, running or finished.
 
 - codex resume 01a07bc8-2e40-7cc2-9536-78fbae6b37aa   (Unit A adversarial review, 2026-09-07, base origin/main)
-- <A2 review thread id written here the moment it prints>
+- codex resume 01a07bd5-9eed-7f93-ab88-26433a9a4a73   (Unit A2 adversarial review, 2026-09-07, base 0e23baa = pre-declared stacked parent)
 
 ## Review
 
-- Target: `Target: branch diff against origin/main`  (verbatim; checked before the body was read)
-- Diff lines excl. docs/sessions/: 87 (81 added / 3 removed across 2 files; limit 150)
-- Verdict: needs-attention
-- Findings: 1 (medium) — NOT applied, carried to Michael untriaged. Verbatim in `.ai/CODEX_REVIEW.md`.
-- codex-review-log row: added 2026-09-07, chore/workflow-scaffolding
+- Unit A  — Target: `Target: branch diff against origin/main`  (verbatim; checked before the body was read)
+- Unit A2 — Target: `Target: branch diff against 0e23baa`  (verbatim; pre-declared stacked parent, CODEX_WORKFLOW §4.3)
+- Diff lines excl. docs/sessions/: Unit A 87. Unit A2 **232 — over the 150 cap, waiver granted by Michael before the run** (87 production code / 130 new test file / 15 ledger prose).
+- Verdict: Unit A needs-attention (1 medium, fixed by A2). Unit A2 **approve**, no material findings.
+- Findings: A 1 (medium) — confirmed by Michael, fixed as Unit A2. A2 0 findings; two non-finding next steps carried in `.ai/CODEX_REVIEW.md`, neither acted on.
+- codex-review-log rows: 2 added 2026-09-07, chore/workflow-scaffolding (Unit A, Unit A2)
 
 ## Did
 
