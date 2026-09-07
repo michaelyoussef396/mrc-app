@@ -1,0 +1,4 @@
+z1	dev	-	DENY	{S} secrets set FOO=bar --linked # db diff later
+z2	dev	-	DENY	{S} db query --linked -f x.sql # inspect db first
+z3	dev	prod	DENY	{S} secrets list --linked # inspect db first
+z4	prod	-	DENY	{S} secrets list --linked # inspect db first

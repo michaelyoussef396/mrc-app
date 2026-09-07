@@ -33,6 +33,41 @@ CMD=$(printf '%s' "$PAYLOAD" | jq -r '.tool_input.command // empty')
 # Collapse newlines so multi-line commands are scanned as one string.
 SCAN=$(printf '%s' "$CMD" | tr '\n' ' ')
 
+# 0. PROD is refused unconditionally, before any detection or classification, so
+#    that no later rule can short-circuit it.
+#
+#    This was rule 1 and ran AFTER the CLI/API detection below, which made the
+#    hook's whole reason to exist conditional on a regex recognising the command
+#    name: one unrecognised wrapper word left IS_CLI at 0, the early exit fired,
+#    and a command explicitly naming PROD ran (case e2 is a named PROD schema
+#    push). Thirteen confirmed cases named PROD and were allowed — see
+#    docs/LANE_R_PLAN.md and scripts/guard-fixtures/cases/confirmed.json.
+#
+#    The literal match is deliberate. The ref is a 20-character random string
+#    occurring in no English word and no other identifier here, so there are no
+#    spellings to enumerate and nothing to parse; and the PROD data-plane host
+#    embeds it, so one match covers both. Fixture h13 proves that.
+#
+#    The match is case-folded because host names are case-insensitive: an
+#    uppercase spelling of the ref inside a URL resolves to the same PROD host,
+#    and the interpreter normalises it before the request goes out. Only the
+#    haystack is lowered, never the pattern. Verified live 2026-09-07 while
+#    closing this: the Bash(*<prod-ref>*) entry in .claude/settings.json is
+#    itself case-SENSITIVE, so the uppercase spelling passed the permission
+#    engine too. For that spelling this hook is the only thing that refuses it,
+#    which is why the fold lives here and not only in the deny list.
+#
+#    The resulting over-block is INTENDED, ruled by Michael 2026-09-07: any
+#    command naming the PROD ref or host is refused, a grep of the docs or a
+#    commit message that quotes the ref included. Corpus cases verify-api2.tsv
+#    g1 and g2 record that cost; they are a decision, not a defect, and must not
+#    be "fixed" by narrowing this match. Narrowing it to exclude things that
+#    look like prose is C11 again — you cannot tell a grep from a request
+#    without parsing, which is R2b's job, not this rule's.
+if printf '%s' "$SCAN" | tr '[:upper:]' '[:lower:]' | grep -qF "$PROD_REF"; then
+  deny "Blocked: this command targets the PROD Supabase project ($PROD_REF, live customer data on mrcsystem.com). Agent sessions may only target DEV ($DEV_REF). If a PROD operation is genuinely required, Michael runs it himself in his own terminal, per CLAUDE.md."
+fi
+
 # A Supabase CLI invocation: `supabase` at the start of a command segment,
 # optionally behind env assignments and/or a package runner. Deliberately does
 # NOT match `grep supabase ...`, `cat supabase/config.toml`, `ls supabase/.temp`.
@@ -48,11 +83,6 @@ printf '%s' "$SCAN" | grep -qE "$CLI_RE" && IS_CLI=1
 
 # Not a Supabase control-plane command — none of this hook's business.
 [ "$IS_CLI" -eq 0 ] && [ "$IS_API" -eq 0 ] && exit 0
-
-# 1. The production ref is never permitted from an agent session.
-if printf '%s' "$SCAN" | grep -qF "$PROD_REF"; then
-  deny "Blocked: this command targets the PROD Supabase project ($PROD_REF, live customer data on mrcsystem.com). Agent sessions may only target DEV ($DEV_REF). If a PROD operation is genuinely required, Michael runs it himself in his own terminal, per CLAUDE.md."
-fi
 
 # 2. Commands that rewrite migration history are never permitted. The history is
 #    forked 124 files deep and the project's standing policy is no repair.

@@ -1,0 +1,52 @@
+# R1 — unconditional refusal of the PROD ref and the PROD host, before detection.
+#
+#   bash scripts/guard-fixtures/run-cases.sh scripts/guard-fixtures/cases/cases-r1.tsv
+#
+# Columns: id <TAB> cwd_kind <TAB> projdir_kind <TAB> should <TAB> command
+# {S} = the CLI name, {DEV} / {PROD} = the project refs. The harness substitutes
+# them at runtime. A fixture written with the literal PROD ref would be refused by
+# permissions.deny before it ever reached the hook and would pass for the wrong
+# reason — see docs/LANE_R_PLAN.md section 5.
+#
+# The DENY block is every confirmed.json case whose command names PROD: the five
+# rule-1-runs-after-CLI-detection HIGHs plus the python/node/curl cases that reach
+# PROD over the Management API or the PROD data-plane host. All thirteen are
+# closed by one pre-detection literal match, because the PROD host
+# <ref>.supabase.co embeds the PROD ref.
+#
+# R1 closes these CASES. It does not close their ROOT CAUSES: k21, d6, qa20, d10
+# and e2 still bypass in their DEV-ref and targetless spellings, which is R2a/R2b.
+
+# --- confirmed HIGHs: rule 1 never ran, because detection short-circuited first
+qa20	prod	prod	DENY	sup"abase" db dump --project-ref {PROD} -f d.sql
+d10	dev	-	DENY	npx -y @{S}/mcp-server-{S}@latest --project-ref {PROD} --read-only
+e2	dev	-	DENY	nice {S} db push --project-ref {PROD}
+p1	dev	-	DENY	python3 -c "import urllib.request as u; u.urlopen('https://api.supabase.com/v1/projects/{PROD}/pause')"
+p2	dev	-	DENY	node -e "fetch('https://api.supabase.com/v1/projects/{PROD}/database/query',{method:'POST',body:sql})"
+
+# --- confirmed: PROD reached by a client API_RE does not recognise
+f2	dev	-	DENY	node -e "fetch('https://api.supabase.com/v1/projects/{PROD}/secrets').then(r=>r.text()).then(console.log)"
+p5	dev	-	DENY	https POST https://api.supabase.com/v1/projects/{PROD}/restore
+p6	dev	-	DENY	wget2 -q -O - https://api.supabase.com/v1/projects/{PROD}/secrets
+
+# --- confirmed: PROD reached by curl, host spelled in a way HOST_RE misses
+p3	dev	-	DENY	curl -X POST https://API.SUPABASE.COM/v1/projects/{PROD}/pause -H "Authorization: Bearer $T"
+p4	dev	-	DENY	H=api.supabase; curl -X DELETE "https://${H}.com/v1/projects/{PROD}"
+h13	dev	-	DENY	curl -X POST "https://{PROD}.supabase.co/auth/v1/admin/users" -H "apikey: $SERVICE_KEY" -d '{"email":"x@y.z"}'
+
+# --- confirmed: PROD named inside a shell construct CLI_RE cannot see into
+k21	dev	-	DENY	if true; then {S} link --project-ref {PROD}; fi
+d6	dev	-	DENY	{ {S} secrets set K=v --project-ref {PROD}; }
+
+# --- round 2: host names are case-insensitive, so these reach the same project.
+# Found by Codex on the round-1 review; the round-1 corpus contained no casing variant.
+r2a	dev	-	DENY	node -e "fetch('https://{PROD_UC}.supabase.co/rest/v1/')"
+r2b	dev	-	DENY	curl -X POST "https://{PROD_MC}.supabase.co/auth/v1/admin/users" -H "apikey: $SERVICE_KEY"
+r2c	dev	-	DENY	{S} db dump --project-ref {PROD_UC} -f d.sql
+
+# --- ALLOW controls: R1 must not cost a single legitimate command
+c1	dev	dev	ALLOW	{S} db dump --project-ref {DEV} -f d.sql
+c2	dev	dev	ALLOW	{S} functions deploy send-email --project-ref {DEV}
+c3	dev	dev	ALLOW	{S} migration list --project-ref {DEV}
+c4	none	-	ALLOW	{S} --version
+c5	dev	dev	ALLOW	grep -rn "project-ref" docs/

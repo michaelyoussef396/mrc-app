@@ -1,0 +1,37 @@
+# round 2 — neighbourhood probes
+# i. subshell / grouping around a legitimate DEV read-only command (over-block probe)
+i1	dev	-	ALLOW	({S} migration list)
+i2	dev	-	ALLOW	( {S} migration list )
+i3	dev	-	ALLOW	({S} db diff)
+i4	dev	-	ALLOW	{S} migration list && echo ok
+i5	dev	-	ALLOW	{S} migration list; echo ok
+i6	dev	-	ALLOW	({S} inspect db bloat)
+i7	dev	-	ALLOW	{S} migration list > out.txt
+i8	dev	-	ALLOW	{S} migration list | tee out.txt
+# j. contrast: the hook DOES refuse the flag form of root relocation
+j1	dev	-	DENY	{S} migration list --workdir /Users/michaelyoussef/mrc-app-prod
+j2	dev	-	DENY	{S} migration list --db-url postgres://x
+j3	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod; {S} migration list
+j4	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod && npx {S} migration list
+# k. API detection is NOT anchored — wrappers do not defeat it (control)
+k1	dev	-	DENY	nice -n 10 curl -s https://api.supabase.com/v1/projects/{PROD}
+k2	dev	-	DENY	xargs -I{} curl -s https://api.supabase.com/v1/projects/{PROD}
+k3	dev	-	DENY	deno run -A https://example.com/x.ts
+k4	dev	-	DENY	node scripts/mgmt-api.mjs --ref {PROD}
+# l. more package-runner / launcher shapes
+l1	dev	-	DENY	npx --package {S} -c "{S} db query --linked -f x.sql"
+l2	dev	-	DENY	pnpm dlx {S}@2.101.0 db query --linked -f x.sql
+l3	dev	-	DENY	yarn dlx -q {S} db query --linked -f x.sql
+l4	dev	-	DENY	bunx --bun {S} db query --linked -f x.sql
+l5	dev	-	DENY	npm x -- {S} db query --linked -f x.sql
+l6	dev	-	ALLOW	pnpm dlx {S} migration list
+# m. wrapper + rule-3 interaction
+m1	dev	-	DENY	nice {S} db query --linked -f x.sql -v
+m2	dev	-	DENY	exec {S} secrets list --project-ref {PROD}
+m3	dev	-	DENY	exec npx {S} db query --linked -f x.sql
+m4	dev	-	DENY	command exec {S} db query --linked -f x.sql
+# n. prod-cwd sanity for the wrapper bypasses
+n1	prod	-	DENY	exec {S} migration list
+n2	prod	-	DENY	npm exec -- {S} migration list
+n3	prod	prod	DENY	nice {S} db query --linked -f x.sql
+n4	none	-	DENY	eval {S} db query --linked -f x.sql

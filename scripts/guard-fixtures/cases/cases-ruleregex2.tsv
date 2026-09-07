@@ -1,0 +1,34 @@
+# wave 2: neighbourhoods of the wave-1 hits
+# rule2 miss + rule3 early-exit, target left to --linked (the 2026-08-27 shape)
+c1	dev	-	DENY	{S} db --debug push --linked | grep -v NOTICE
+c2	prod	-	DENY	{S} db --debug push --linked | grep -v NOTICE
+c3	dev	-	DENY	{S} db query --linked -f apply.sql | grep -v NOTICE
+c4	dev	-	DENY	{S} db reset --linked # -v
+c5	dev	-	DENY	{S} migration repair --status applied 20250101 --linked | grep -v NOTICE
+c6	dev	-	DENY	{S} db --debug push --linked
+# rule2: other spellings of the same subcommand
+c7	dev	-	DENY	{S} 'db' push --project-ref={DEV}
+c8	dev	-	DENY	{S} db --project-ref={DEV} push --include-all
+c9	dev	-	DENY	{S} db --dry-run push --project-ref={DEV}
+c10	dev	-	DENY	{S} migration repair --project-ref={DEV} --status applied 20250101
+# rule3.5: allowlist token inside an argument of a different command
+c11	dev	-	DENY	{S} functions deploy send-email --import-map ./cfg/db diff
+c12	dev	-	DENY	{S} db dump --linked --file backups/migration list
+c13	dev	-	DENY	{S} secrets set NOTE=x --project-ref abcdefghijabcdefghij --debug # inspect db
+# rule3.5: env / cwd spellings of a relocated project root
+c14	prod	-	DENY	cd /Users/michaelyoussef/mrc-app-1 && {S} db diff --linked
+c15	dev	-	DENY	SUPABASE_WORKDIR=/Users/michaelyoussef/mrc-app-prod {S} db diff --linked
+c16	dev	-	DENY	env SUPABASE_DB_URL=postgresql://postgres:pw@db.example.supabase.co:5432/postgres {S} inspect db bloat
+# rule4: separator class is loose
+c17	dev	-	DENY	{S} functions deploy send-email --project-ref = {DEV}
+c18	dev	-	DENY	{S} functions deploy send-email --project-ref=={DEV}
+c19	dev	-	DENY	{S} functions deploy send-email --project-ref  {DEV}xyz
+# over-block: purely local work
+c20	dev	-	ALLOW	{S} db reset --local
+c21	dev	-	ALLOW	{S} inspect db bloat --local
+c22	dev	-	ALLOW	{S} init
+c23	dev	-	ALLOW	{S} db start
+c24	dev	-	ALLOW	{S} migration up --local
+# over-block: rule2 unanchored, matches prose next to a legitimate command
+c25	dev	-	ALLOW	{S} migration list --project-ref {DEV} > notes/db push and reset audit.txt
+c26	dev	-	ALLOW	{S} functions deploy send-email --project-ref {DEV} && echo "reminder: db reset is banned"

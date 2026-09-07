@@ -1,0 +1,48 @@
+k21	dev	-	DENY	if true; then {S} link --project-ref {PROD}; fi
+k2	dev	-	DENY	for i in 1 2; do {S} db reset --linked; done
+k19	dev	-	DENY	for f in *.sql; do {S} db query --linked -f "$f"; done
+d2	prod	-	DENY	if true; then {S} migration list --debug; fi
+k4	dev	-	DENY	case x in x) {S} db query --linked -f drop.sql ;; esac
+d6	dev	-	DENY	{ {S} secrets set K=v --project-ref {PROD}; }
+k5	dev	-	DENY	{ {S} db push --linked; }
+k10	dev	-	DENY	f() { {S} db push --linked; }; f
+k12	dev	-	DENY	[ -f x.sql ] && { {S} db push --linked; }
+k7	dev	-	DENY	! {S} db push --linked
+k17	dev	-	DENY	if true; then :; {S} db push --linked; fi
+sane1	dev	-	DENY	{S} db push --linked
+sane2	dev	-	DENY	true && {S} db push --linked
+d1	prod	-	DENY	{S} migration list --debug
+d1b	dev	-	ALLOW	{S} migration list --debug
+r1	dev	-	DENY	>out.txt {S} db push --linked
+r2	dev	-	DENY	2>err.log {S} db push --linked
+r3	dev	-	DENY	<in.sql {S} db query --linked
+r4	dev	-	DENY	FOO=1 {S} db push --linked
+r5	dev	-	DENY	FOO=$(echo 1) {S} db push --linked
+d8	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod && {S} inspect db table-sizes
+d7	dev	-	DENY	{S} inspect db table-sizes --workdir /Users/michaelyoussef/mrc-app-prod
+c7	dev	-	DENY	(cd /Users/michaelyoussef/mrc-app-prod; {S} migration list)
+c8	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod; {S} migration list
+p5	dev	-	DENY	{S} functions deploy a --project-ref {DEV} && {S} functions deploy b
+p2	dev	-	DENY	{S} functions deploy a --project-ref {DEV}; {S} secrets set K=v
+p1	dev	-	DENY	echo --project-ref {DEV} && {S} functions deploy send-email
+p6	dev	-	DENY	grep -rn -- --project-ref {DEV} docs/ && {S} secrets set SERVICE_KEY=x
+p3	dev	-	DENY	{S} functions list --project-ref {DEV}; cd /Users/michaelyoussef/mrc-app-prod && {S} functions deploy send-email
+x9	dev	-	DENY	{S} secrets set SERVICE_KEY=x && grep -h key .env
+x8	dev	-	DENY	head -v x.txt && {S} functions deploy send-email
+x5	dev	-	DENY	ls -h && {S} functions deploy send-email
+d4	dev	-	DENY	ls -h && {S} functions deploy send-email --project-ref {PROD}
+a2	dev	-	DENY	C=curl; $C -s "https://api.supabase.com/v1/projects"
+a3	dev	-	DENY	H=api.supabase.com; curl -s "https://$H/v1/projects"
+a5	dev	-	DENY	curl -s "https://api.$(echo supabase).com/v1/projects"
+a4	dev	-	DENY	curl -s "https://api.supa""base.com/v1/projects"
+a8	dev	-	ALLOW	curl -s https://example.com/health | grep -c api.supabase.io
+a1	dev	-	ALLOW	curl -s https://example.com/x && grep api.supabase.com notes.txt
+a9	dev	-	ALLOW	if grep -q wget scripts/x.sh; then echo "see api.supabase.com"; fi
+a7	dev	-	ALLOW	echo "the http api at api.supabase.com is documented in docs/API_AUDIT.md"
+d10	dev	-	ALLOW	echo "wget the file from api.example.com" >> notes.md
+a6	dev	-	DENY	curl -s "https://api.supabase.com/v1/projects"
+x1	dev	-	ALLOW	{S} functions deploy send-email --project-ref {DEV} && echo "do not run db reset here"
+x2	none	-	ALLOW	{S} secrets list --project-ref {DEV} && echo "compare with migration list output"
+d9	dev	-	ALLOW	grep -rn "migration list" docs/ | head -5
+base1	dev	-	ALLOW	{S} functions deploy send-email --project-ref {DEV}
+base2	none	-	ALLOW	{S} secrets list --project-ref {DEV}

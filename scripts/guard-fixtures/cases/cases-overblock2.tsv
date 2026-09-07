@@ -1,0 +1,37 @@
+# E - rule 3.5 link-dependence: the SAME harmless doc write flips on the linked ref
+e1	dev	-	ALLOW	printf '| supabase migration list | read-only |\n' >> docs/table.md
+e2	none	-	ALLOW	git commit -m "docs: refs stay out of the tree; supabase db diff is DEV-only"
+e3	prod	-	ALLOW	git commit -m "docs: refs stay out of the tree; supabase db diff is DEV-only"
+e4	dev	-	ALLOW	{S} functions deploy send-email --project-ref {DEV} && echo "next step: db diff against DEV"
+e5	none	-	ALLOW	{S} functions deploy send-email --project-ref {DEV} && echo "next step: db diff against DEV"
+e6	prod	-	ALLOW	{S} functions deploy send-email --project-ref {DEV} && echo "next step: db diff against DEV"
+e7	dev	-	ALLOW	{S} migration list --project-ref {DEV}
+e8	none	-	ALLOW	{S} migration list --project-ref {DEV}
+e9	dev	-	ALLOW	{S} db diff --local --workdir /private/tmp/scratchpad/proj
+e10	dev	-	ALLOW	{S} db diff --local --schema public -f add_index
+# F - more purely local CLI subcommands
+f1	dev	-	ALLOW	{S} services
+f2	dev	-	ALLOW	{S} migration up --local
+f3	dev	-	ALLOW	{S} migration squash --local
+f4	dev	-	ALLOW	{S} functions serve
+f5	dev	-	ALLOW	npx supabase functions new report-mailer
+f6	dev	-	ALLOW	npm run lint && supabase gen types typescript --local
+f7	dev	-	ALLOW	{S} db lint --local
+# G - greps and jq whose PATTERN contains the word after a separator
+g1	dev	-	ALLOW	grep -n "| supabase " docs/RUNBOOK.md
+g2	dev	-	ALLOW	jq -r '.hooks | supabase' .claude/settings.json
+g3	dev	-	ALLOW	grep -rn "&& supabase " docs/
+g4	dev	-	ALLOW	rg -n "; supabase " docs/ CLAUDE.md
+g5	dev	-	ALLOW	printf 'a) supabase status\nb) supabase stop\n' >> docs/x.md
+g6	dev	-	ALLOW	echo "Usage: npx supabase link --project-ref <ref>" >> docs/GIT_HABITS.md
+# H - management-API host neighbourhood
+h1	dev	-	ALLOW	grep -rn "api.supabase.com" docs/ | grep http
+h2	dev	-	ALLOW	rg -n "wget https://api.supabase.io" docs/
+h3	dev	-	ALLOW	git log --oneline --grep "api.supabase.com curl" -5
+h4	dev	-	ALLOW	sed -n '/api.supabase.com/,+3p' docs/API_AUDIT.md | grep -c curl
+h5	dev	-	ALLOW	gh pr create --body "no curl to api.supabase.com from an agent session"
+# I - commit / PR prose, separator variants
+i1	dev	-	ALLOW	git commit -m "feat(notes): lead notes; supabase types regenerated"
+i2	dev	-	ALLOW	git commit -m "chore: npm ci && supabase start is the local loop"
+i3	dev	-	ALLOW	gh pr comment 133 --body "verified locally: (supabase start) then npm run dev"
+i4	dev	-	ALLOW	echo "TODO: run supabase status | tee status.log" >> docs/x.md

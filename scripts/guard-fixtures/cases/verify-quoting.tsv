@@ -1,0 +1,92 @@
+# baseline controls
+b01	prod	prod	DENY	{S} db query --linked -f x.sql
+b02	dev	dev	DENY	{S} db query --linked -f x.sql
+b03	dev	dev	ALLOW	{S} migration list
+b04	dev	dev	ALLOW	{S} inspect db bloat
+b05	dev	dev	ALLOW	{S} db dump --project-ref {DEV} -f d.sql
+b06	dev	dev	ALLOW	{S} secrets list --project-ref {DEV}
+b07	dev	dev	DENY	{S} db push --project-ref {DEV}
+b08	dev	dev	DENY	{S} db push"" --project-ref {DEV}
+b09	prod	prod	DENY	( {S} db query --linked -f x.sql )
+# qa01 family: intra-word quoting of the CLI name
+qa01	prod	prod	DENY	sup"abase" db query --linked -f x.sql
+qa03	prod	prod	DENY	sup'abase' db query --linked -f x.sql
+qa04	prod	prod	DENY	su''pabase db query --linked -f x.sql
+qa05	prod	prod	DENY	su""pabase db query --linked -f x.sql
+qa10	prod	prod	DENY	su\pabase db query --linked -f x.sql
+qa11	prod	prod	DENY	sup\abase db query --linked -f x.sql
+# qa09 ANSI-C hex re-encoding
+qa09	prod	prod	DENY	$'\x73upabase' db query --linked -f x.sql
+# qa08 $'...' segment start
+qa08	prod	prod	DENY	$'{S}' db query --linked -f x.sql
+# qa20 severity: rule 1 never runs
+qa20	prod	prod	DENY	sup"abase" db dump --project-ref {PROD} -f d.sql
+qa21	prod	prod	DENY	$'{S}' db dump --project-ref {PROD} -f d.sql
+qb04	prod	prod	DENY	FOO="a b" {S} db dump --project-ref {PROD} -f d.sql
+# qb01 env-assignment prefix with a quoted value containing a space
+qb01	prod	prod	DENY	FOO="a b" {S} db query --linked -f x.sql
+rb01	prod	prod	DENY	FOO='a b' {S} db query --linked -f x.sql
+rb06	prod	prod	DENY	FOO=a\ b {S} db query --linked -f x.sql
+rb02	prod	prod	DENY	FOO="a b" BAR=z {S} db query --linked -f x.sql
+rb03	prod	prod	DENY	SUPABASE_ACCESS_TOKEN="sbp tok" {S} db query --linked -f x.sql
+rb04	prod	prod	DENY	FOO="a b" npx {S} db query --linked -f x.sql
+rbc1	prod	prod	DENY	FOO=bar {S} db query --linked -f x.sql
+# qa18 brace group as command-segment start
+qa18	prod	prod	DENY	{ {S} db query --linked -f x.sql; }
+ra01	prod	prod	DENY	{ {S} db dump --project-ref {PROD} -f d.sql; }
+ra02	prod	prod	DENY	{ FOO=bar {S} db query --linked -f x.sql; }
+ra03	prod	prod	DENY	{ npx {S} db query --linked -f x.sql; }
+# qa12 brace expansion
+qa12	prod	prod	DENY	{{S},} db query --linked -f x.sql
+qa13	prod	prod	DENY	{,}{S} db query --linked -f x.sql
+# qa14 command substitution resolving the binary
+qa14	prod	prod	DENY	$(which {S}) db query --linked -f x.sql
+qa15	prod	prod	DENY	`which {S}` db query --linked -f x.sql
+# qa17 name via a variable
+qa17	prod	prod	DENY	S2={S}; $S2 db query --linked -f x.sql
+qa16	prod	prod	DENY	A={S}; ${A} db query --linked -f x.sql
+# qc01 rule 2 broken by quoting / word splitting
+qc01	dev	dev	DENY	{S} db "push" --project-ref {DEV}
+qc02	dev	dev	DENY	{S} db pu'sh' --project-ref {DEV}
+rc02	dev	dev	DENY	{S} db pus"h" --project-ref {DEV}
+qc03	dev	dev	DENY	{S} "db" push --project-ref {DEV}
+qc04	dev	dev	DENY	{S} db $'push' --project-ref {DEV}
+qc05	dev	dev	DENY	{S} db re""set --project-ref {DEV}
+rc07	dev	dev	DENY	{S} db re$'set' --project-ref {DEV}
+qc06	dev	dev	DENY	{S} migration "repair" --status applied --project-ref {DEV}
+qc07	dev	dev	DENY	X=push; {S} db $X --project-ref {DEV}
+rc04	dev	dev	DENY	Y="db"; {S} $Y push --project-ref {DEV}
+# qd01 read-only allowlist phrase smuggled into an argument
+qd01	dev	dev	DENY	{S} db query --linked -f "notes on migration list stuff.sql"
+rd03	dev	dev	DENY	{S} db query --linked -f x.sql # like migration list but writes
+rd04	dev	dev	DENY	{S} db query --linked -f "inspect db notes.sql"
+qd03	dev	dev	DENY	{S} db query --linked --debug "migration list style" -f x.sql
+qd05	prod	prod	DENY	{S} db query --linked -f "notes on migration list stuff.sql"
+# rd01 rule 3 flag matched inside an argument or comment
+rd01	dev	dev	DENY	{S} db query --linked -f "notes -h here.sql"
+rd01p	prod	prod	DENY	{S} db query --linked -f "notes -h here.sql"
+rd02	prod	prod	DENY	{S} db query --linked -f x.sql # --help
+rd06	prod	prod	DENY	{S} db query --linked --debug "run --version first" -f x.sql
+qd04	prod	prod	DENY	{S} db dump -f "dump --version tag.sql"
+# qe01 rule 4 satisfied by non-operative text
+qe01	prod	prod	DENY	{S} db dump -f d.sql # --project-ref {DEV}
+qe02	prod	prod	DENY	{S} secrets list # --project-ref {DEV}
+qe04	prod	prod	DENY	{S} functions deploy send-email # --project-ref {DEV}
+re04	prod	prod	DENY	{S} link # --project-ref {DEV}
+qe03	prod	prod	DENY	{S} db dump -f "d --project-ref {DEV}.sql"
+re03	prod	prod	DENY	{S} db dump -f d.sql --debug "use --project-ref {DEV} next time"
+# re01 the 2026-08-27 incident command reconstructed
+re01	prod	prod	DENY	{S} db query --link"ed" -f x.sql # --project-ref {DEV}
+re02	prod	prod	DENY	{S} db query --link'ed' -f x.sql --debug "--project-ref {DEV}"
+re05	prod	prod	DENY	{S} db query --link"ed" -f x.sql
+# qf01 over-block: quoted DEV target
+qf01	dev	dev	ALLOW	{S} db dump --project-ref "{DEV}" -f d.sql
+qf02	dev	dev	ALLOW	{S} db dump --project-ref='{DEV}' -f d.sql
+qf03	dev	dev	ALLOW	{S} db dump --project-ref"={DEV}" -f d.sql
+qf04	dev	dev	ALLOW	{S} secrets list --project-ref '{DEV}'
+qf05	dev	dev	ALLOW	{S} db dump --project'-ref' {DEV} -f d.sql
+rf05	dev	dev	ALLOW	npx {S} db dump --project-ref "{DEV}" -f d.sql
+rf06	dev	dev	ALLOW	{S} db dump -f d.sql --project-ref "{DEV}"
+# rf01 over-block: quoted read-only verb
+rf01	dev	dev	ALLOW	{S} "migration" list
+rf02	dev	dev	ALLOW	{S} 'inspect' db bloat

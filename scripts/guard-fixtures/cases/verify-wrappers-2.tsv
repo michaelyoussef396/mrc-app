@@ -1,0 +1,16 @@
+# realism probes for the two OVER-BLOCK claims
+i1b	dev	-	ALLOW	OUT=$({S} migration list)
+i1c	dev	-	ALLOW	{S} migration list | tail -5
+i1d	dev	-	DENY	(cd /Users/michaelyoussef/mrc-app-prod && {S} migration list)
+i2	dev	-	ALLOW	( {S} migration list )
+h1b	dev	-	ALLOW	echo "next step: {S} db reset --local"
+h1c	dev	-	ALLOW	echo "Michael please run: cd ~/mrc-app-1 && {S} db push --project-ref {DEV}"
+h1d	dev	-	ALLOW	git commit -m "docs: record that {S} db reset is banned"
+# is the wrapper miss about the ref, or about detection
+e2b	dev	-	DENY	nice {S} migration list
+e2c	dev	-	DENY	nice {S} db query --project-ref {PROD} -f x.sql
+# does the payload cwd matter at all for a cd'd command
+g1b	prod	-	DENY	cd /Users/michaelyoussef/mrc-app-1 && {S} migration list
+g1c	none	-	DENY	cd /Users/michaelyoussef/mrc-app-prod && {S} migration list
+# scoped package without any prod ref
+d10b	dev	-	DENY	npx -y @{S}/mcp-server-{S}@latest --project-ref {DEV}

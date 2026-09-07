@@ -1,0 +1,16 @@
+# characterise what a naive "global rule 1" would cost, and probe the q-family harder
+g1	dev	-	ALLOW	grep -rn "{PROD}" docs/
+g2	dev	-	ALLOW	echo "PROD ref is {PROD}, DEV is {DEV}"
+g3	dev	-	ALLOW	cat supabase/.temp/project-ref
+# q-family: is the decoy really load-bearing, or is any curl to the API allowed?
+q0	dev	-	DENY	curl -X POST https://api.supabase.com/v1/projects/$R/pause
+q1b	dev	-	DENY	curl -X POST https://api.supabase.com/v1/projects/{DEV}/pause
+q1c	dev	-	DENY	curl -X POST https://api.supabase.com/v1/projects/$R/database/query --data-urlencode q=@x.sql -H "x: --project-ref={DEV}"
+# q3 without the decoy string at all
+q3b	dev	-	DENY	{S} secrets list; curl -X POST https://api.supabase.com/v1/projects/$R/database/query -d @q.sql
+# does the rider need to be a curl? plain second CLI segment after a DEV-targeted one
+q3c	dev	-	DENY	{S} secrets list --project-ref {DEV}; {S} functions deploy send-email --project-ref {PROD}
+# python/node reaching the DATA plane on PROD
+p1d	dev	-	DENY	node -e "fetch('https://{PROD}.supabase.co/rest/v1/leads',{method:'DELETE'})"
+# sanity: is a legit DEV curl allowed?
+s1	dev	-	ALLOW	curl -sS https://api.supabase.com/v1/projects/{DEV}/functions --project-ref {DEV}

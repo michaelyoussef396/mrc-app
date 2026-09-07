@@ -1,0 +1,15 @@
+# wave 3: confirm the headline cases and isolate each mechanism
+# c1 decomposed: which half is doing the work?
+d1	dev	-	DENY	{S} db push --linked | grep -v NOTICE
+d2	dev	-	DENY	{S} db --debug push --linked
+d3	dev	-	DENY	{S} db --debug push --linked | grep -v NOTICE
+d4	prod	-	DENY	{S} db --debug push --linked | grep -v NOTICE
+# rule3.5 in a path argument, isolated
+d5	dev	-	DENY	{S} functions deploy send-email --import-map ./cfg/db diff
+d6	dev	-	DENY	{S} functions deploy send-email --import-map ./cfg/dbdiff
+# rule4 satisfied only by an echo, isolated
+d7	dev	-	DENY	echo "run it as --project-ref {DEV}" && {S} functions deploy send-email
+d8	dev	-	DENY	echo "run it as --project-ref" && {S} functions deploy send-email
+# does CLAUDE_PROJECT_DIR change any of the above? (control)
+d9	dev	prod	DENY	{S} db --debug push --linked | grep -v NOTICE
+d10	dev	dev	DENY	{S} functions deploy send-email --import-map ./cfg/db diff

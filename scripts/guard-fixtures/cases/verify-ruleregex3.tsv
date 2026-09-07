@@ -1,0 +1,6 @@
+y1	dev	-	DENY	{S} functions deploy f --project-ref {DEV} && {S} db query -f apply.sql
+y2	dev	-	DENY	{S} functions deploy f --project-ref {DEV} && {S} db dump -f d.sql
+y3	dev	-	DENY	{S} functions deploy f --project-ref {DEV} && {S} secrets list
+y4	dev	-	DENY	{S} functions deploy f # --project-ref {DEV} -- and then db query
+y5	dev	-	DENY	{S} db query -f apply.sql # --project-ref {DEV}
+y6	dev	-	DENY	{S} db query -f apply.sql

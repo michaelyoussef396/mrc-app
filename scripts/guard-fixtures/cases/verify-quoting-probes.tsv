@@ -1,0 +1,22 @@
+# is arbitrary SQL against DEV already permitted by design?
+p01	dev	dev	ALLOW	{S} db query --project-ref {DEV} -f x.sql
+# does the rule-2 quoting evasion reach anything when the target is not named?
+p02	prod	prod	DENY	{S} db "push" --linked
+p08	dev	dev	DENY	{S} db push --linked
+# known quoted-name case, for comparison with qa08 $'supabase'
+p03	prod	prod	DENY	"{S}" db query --linked -f x.sql
+p03b	prod	prod	DENY	'{S}' db query --linked -f x.sql
+# is the comment the operative half of qe01?
+p05	prod	prod	DENY	{S} db dump -f d.sql
+p05b	prod	prod	DENY	{S} functions deploy send-email
+# does --link"ed" matter once a DEV ref is present?
+p07	prod	prod	DENY	{S} db query --link"ed" -f x.sql --project-ref {DEV}
+p07b	prod	prod	DENY	{S} db query --linked -f x.sql --project-ref {DEV}
+# rule-3.5 smuggle with an explicit PROD ref present
+p09	dev	dev	DENY	{S} db query --linked -f "migration list.sql" --project-ref {PROD}
+# plausible-shape variants of the env-assignment hole
+p10	prod	prod	DENY	SUPABASE_DB_PASSWORD="a b c" {S} db dump -f d.sql --project-ref {PROD}
+p11	prod	prod	DENY	PGOPTIONS='-c statement_timeout=0' {S} db query --linked -f x.sql
+# plausible-shape variant of the rule-4 comment hole
+p12	prod	prod	DENY	{S} db dump -f d.sql   # TODO: add --project-ref {DEV}
+p13	prod	prod	DENY	{S} functions deploy send-email # deploys to --project-ref {DEV}

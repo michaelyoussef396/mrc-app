@@ -1,0 +1,59 @@
+# A - the word "supabase" in ordinary prose, after a separator character
+a1	dev	-	ALLOW	git commit -m "chore: pin the ref; supabase link is manual now"
+a2	dev	-	ALLOW	echo "npm ci && supabase start" >> docs/RUNBOOK.md
+a3	dev	-	ALLOW	printf '| supabase status | local only |\n' >> docs/table.md
+a4	none	-	ALLOW	printf '| supabase migration list | read-only |\n' >> docs/table.md
+a5	dev	-	ALLOW	gh pr create --title docs --body "step 1: npm ci; supabase functions serve"
+a6	dev	-	ALLOW	echo "run (supabase status) first" >> docs/RUNBOOK.md
+a7	dev	-	ALLOW	echo "- [ ] supabase link --project-ref {DEV}" >> docs/TODO.md
+a8	dev	-	ALLOW	git commit -m "docs: refs stay out of the tree; supabase db diff is DEV-only"
+a9	dev	-	ALLOW	grep -E "^(supabase|npx) " docs/RUNBOOK.md
+a10	dev	-	ALLOW	grep -E '(supabase )' docs/RUNBOOK.md
+a11	dev	-	ALLOW	echo "see docs; supabase/config.toml has verify_jwt" >> docs/x.md
+# B - CLI subcommands with no control-plane effect at all
+b1	dev	-	ALLOW	{S} start
+b2	dev	-	ALLOW	{S} stop
+b3	dev	-	ALLOW	{S} status
+b4	none	-	ALLOW	{S} init
+b5	dev	-	ALLOW	{S} migration new add_lead_notes_index
+b6	dev	-	ALLOW	{S} functions new lead-notes-webhook
+b7	dev	-	ALLOW	{S} functions serve send-email --no-verify-jwt
+b8	dev	-	ALLOW	{S} gen types typescript --local
+b9	dev	-	ALLOW	{S} db lint --local --schema public
+b10	dev	-	ALLOW	{S} test db
+b11	dev	-	ALLOW	{S} completion zsh
+b12	dev	-	ALLOW	{S} help db
+b13	dev	-	ALLOW	npx supabase db reset --local
+b14	dev	-	ALLOW	npm ci && supabase start
+b15	none	-	ALLOW	{S} db diff --local -f add_index
+b16	dev	-	ALLOW	{S} db diff --db-url postgresql://postgres:postgres@127.0.0.1:54322/postgres
+b17	dev	-	ALLOW	{S} inspect db table-sizes --db-url postgresql://postgres:postgres@localhost:54322/postgres
+b18	none	-	ALLOW	{S} migration list --local
+b19	dev	-	ALLOW	{S} gen types typescript --project-id {DEV}
+b20	dev	-	ALLOW	{S} --version
+b21	dev	-	ALLOW	{S} link --project-ref {DEV}
+b22	dev	-	ALLOW	{S} secrets list --project-ref {DEV}
+b23	dev	-	DENY	{S} db dump --linked -f dump.sql
+b24	none	-	DENY	{S} db push --project-ref {DEV}
+# C - management-API host appearing in docs / greps, plus real project REST hosts
+c1	dev	-	ALLOW	grep -rn "curl https://api.supabase.com" docs/
+c2	dev	-	ALLOW	echo "Management API base is https://api.supabase.com/v1 (curl + PAT)" >> docs/API_AUDIT.md
+c3	dev	-	ALLOW	git commit -m "docs: record that api.supabase.com needs curl with a PAT"
+c4	dev	-	ALLOW	rg -n "api.supabase.com" docs/ | grep -c wget
+c5	dev	-	ALLOW	curl -sS "https://{DEV}.supabase.co/rest/v1/leads?select=id" -H "apikey: $ANON_KEY"
+c6	dev	-	ALLOW	curl -sS https://{DEV}.functions.supabase.co/send-email -d '{}'
+c7	dev	-	ALLOW	curl -I https://status.supabase.com
+c8	dev	-	ALLOW	curl -sS https://supabase.com/docs/reference/cli/supabase-db-diff
+c9	dev	-	ALLOW	cat docs/api.http
+c10	dev	-	DENY	curl -sS https://api.supabase.com/v1/projects -H "Authorization: Bearer $PAT"
+# D - plain file reads under supabase/
+d1	dev	-	ALLOW	cat supabase/config.toml
+d2	dev	-	ALLOW	ls -la supabase/functions
+d3	dev	-	ALLOW	grep -rn "verify_jwt" supabase/config.toml
+d4	dev	-	ALLOW	cat supabase/.temp/project-ref
+d5	dev	-	ALLOW	find supabase/migrations -name '*.sql' | tail -5
+d6	dev	-	ALLOW	git diff --stat -- supabase/migrations
+d7	dev	-	ALLOW	(cd supabase && ls -la)
+d8	dev	-	ALLOW	for f in supabase/functions/*; do echo $f; done
+d9	dev	-	ALLOW	npm run supabase:types
+d10	dev	-	ALLOW	sed -n '1,40p' supabase/functions/send-email/index.ts

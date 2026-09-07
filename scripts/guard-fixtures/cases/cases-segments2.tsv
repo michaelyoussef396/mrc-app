@@ -1,0 +1,25 @@
+# round 2: neighbourhood probes
+# anchor dependence: same then-block, but a ';' immediately precedes the CLI name
+k17	dev	-	DENY	if true; then :; {S} db push --linked; fi
+k18	dev	-	DENY	if [ -f x.sql ]; then {S} db query --project-ref {PROD} -f x.sql; fi
+k19	dev	-	DENY	for f in *.sql; do {S} db query --linked -f "$f"; done
+k20	dev	-	DENY	{ npx {S} db reset --linked; }
+k21	dev	-	DENY	if true; then {S} link --project-ref {PROD}; fi
+k22	dev	-	DENY	while true; do {S} functions deploy send-email; break; done
+# subshell form of the cd relocation (trailing ')' must not touch the allowlist match)
+c7	dev	-	DENY	(cd /Users/michaelyoussef/mrc-app-prod; {S} migration list --debug)
+c8	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod; {S} db diff --schema public
+c9	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod && npx {S} inspect db table-sizes
+# rule 3 disarmed by an unrelated tool's flag in another segment
+x8	dev	-	DENY	head -v x.txt && {S} functions deploy send-email
+x9	dev	-	DENY	{S} secrets set SERVICE_KEY=x && grep -h key .env
+x10	dev	-	DENY	rsync -v a b; {S} functions deploy send-email
+# rule 4 ref borrowed across segments
+p4	dev	-	DENY	{S} functions deploy send-email --project-ref {DEV} && {S} db query --linked -f x.sql
+p5	dev	-	DENY	{S} functions deploy a --project-ref {DEV} && {S} functions deploy b
+p6	dev	-	DENY	grep -rn -- --project-ref {DEV} docs/ && {S} secrets set SERVICE_KEY=x
+# API detector has no segment anchor at either end
+a7	dev	-	ALLOW	echo "the http api at api.supabase.com is documented in docs/API_AUDIT.md"
+a8	dev	-	ALLOW	curl -s https://example.com/health | grep -c api.supabase.io
+a9	dev	-	ALLOW	if grep -q wget scripts/x.sh; then echo "see api.supabase.com"; fi
+a10	dev	-	DENY	CL=curl; if true; then $CL -s "https://api.supabase.com/v1/projects"; fi

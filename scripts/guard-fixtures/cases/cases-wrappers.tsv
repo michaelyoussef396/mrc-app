@@ -1,0 +1,70 @@
+# lens: prefix commands and wrappers
+# controls
+ctl1	dev	-	DENY	{S} db query --linked -f x.sql
+ctl2	dev	-	ALLOW	{S} migration list
+ctl3	dev	-	DENY	{S} db query --project-ref {PROD} -f x.sql
+ctl4	dev	-	ALLOW	{S} gen types typescript --project-ref {DEV}
+# A. plain command prefixes (binary wrappers)
+a1	dev	-	DENY	exec {S} db query --linked -f x.sql
+a2	dev	-	DENY	nice -n 10 {S} db query --linked -f x.sql
+a3	dev	-	DENY	nohup {S} db query --linked -f x.sql &
+a4	dev	-	DENY	stdbuf -oL {S} db query --linked -f x.sql
+a5	dev	-	DENY	script -q /dev/null {S} db query --linked -f x.sql
+a6	dev	-	DENY	time {S} db query --linked -f x.sql
+a7	dev	-	DENY	sudo -u michael {S} db query --linked -f x.sql
+a8	dev	-	DENY	setsid {S} db query --linked -f x.sql
+a9	dev	-	DENY	caffeinate -i {S} db query --linked -f x.sql
+a10	dev	-	DENY	arch -arm64 {S} db query --linked -f x.sql
+a11	dev	-	DENY	watch -n 5 {S} db query --linked -f x.sql
+a12	dev	-	DENY	parallel {S} db query --linked -f ::: x.sql
+a13	dev	-	DENY	ssh mac-mini {S} db query --linked -f x.sql
+a14	dev	-	DENY	su - michael -c "{S} db query --linked -f x.sql"
+a15	dev	-	DENY	find . -name "*.sql" -exec {S} db query --linked -f {} ";"
+a16	dev	-	DENY	eval {S} db query --linked -f x.sql
+a17	dev	-	DENY	env -C /Users/michaelyoussef/mrc-app-prod {S} db query --linked -f x.sql
+# B. shell keywords / delimiters missing from the anchor class
+b1	dev	-	DENY	{ {S} db query --linked -f x.sql; }
+b2	dev	-	DENY	if true; then {S} db query --linked -f x.sql; fi
+b3	dev	-	DENY	for f in x.sql; do {S} db query --linked -f $f; done
+b4	dev	-	DENY	case dev in dev) {S} db query --linked -f x.sql;; esac
+b5	dev	-	DENY	! {S} db query --linked -f x.sql
+b6	dev	-	DENY	true && { {S} db query --linked -f x.sql; }
+b7	dev	-	DENY	x=1; { {S} db query --linked -f x.sql; }
+b8	dev	-	DENY	while read -r f; do {S} db query --linked -f $f; done < list.txt
+# C. name indirection
+c1	dev	-	DENY	SB={S}; $SB db query --linked -f x.sql
+c2	dev	-	DENY	$(command -v {S}) db query --linked -f x.sql
+c3	dev	-	DENY	$(echo {S}) db query --linked -f x.sql
+c4	dev	-	DENY	sb() { {S} "$@"; }; sb db query --linked -f x.sql
+c5	dev	-	DENY	alias sb={S}; sb db query --linked -f x.sql
+c6	dev	-	DENY	`command -v {S}` db query --linked -f x.sql
+# D. package runners outside the allowlist
+d1	dev	-	DENY	npm exec -- {S} db query --linked -f x.sql
+d2	dev	-	DENY	npm exec {S} db query --linked -f x.sql
+d3	dev	-	DENY	pnpm exec {S} db query --linked -f x.sql
+d4	dev	-	DENY	yarn exec {S} db query --linked -f x.sql
+d5	dev	-	DENY	yarn {S} db query --linked -f x.sql
+d6	dev	-	DENY	bun x {S} db query --linked -f x.sql
+d7	dev	-	DENY	npx {S}@latest db query --linked -f x.sql
+d8	dev	-	DENY	npx -p {S} {S} db query --linked -f x.sql
+d9	dev	-	DENY	deno run -A npm:{S} db query --linked -f x.sql
+d10	dev	-	DENY	npx -y @{S}/mcp-server-{S}@latest --project-ref {PROD} --read-only
+# E. same wrappers carrying the PROD ref or a forbidden subcommand
+e1	dev	-	DENY	exec {S} db query --project-ref {PROD} -f x.sql
+e2	dev	-	DENY	nice {S} db push --project-ref {PROD}
+e3	dev	-	DENY	npm exec -- {S} secrets list --project-ref {PROD}
+e4	dev	-	DENY	time {S} db reset --linked
+e5	dev	-	DENY	sudo {S} link --project-ref {PROD}
+# F. non-allowlisted HTTP clients reaching the management API
+f1	dev	-	DENY	curl -s https://api.supabase.com/v1/projects/{PROD}/secrets
+f2	dev	-	DENY	node -e "fetch('https://api.supabase.com/v1/projects/{PROD}/secrets').then(r=>r.text()).then(console.log)"
+f3	dev	-	DENY	python3 -c 'import urllib.request; print(urllib.request.urlopen("https://api.supabase.com/v1/projects").read())'
+# G. cd / subshell relocation of the project root (rule 3.5 verifies the wrong root)
+g1	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod && {S} migration list
+g2	dev	-	DENY	(cd /Users/michaelyoussef/mrc-app-prod && {S} db diff)
+g3	dev	-	DENY	pushd /Users/michaelyoussef/mrc-app-prod; {S} inspect db bloat
+# H. over-block probes: prose / pipelines that never invoke the CLI
+h1	dev	-	ALLOW	echo "next step: cd ~/mrc-app-1 && {S} db reset --local"
+h2	dev	-	ALLOW	{S} migration list --project-ref {DEV} | grep -v "db reset"
+h3	dev	-	ALLOW	git log --oneline | grep {S}
+h4	dev	-	ALLOW	nice -n 10 npm run build

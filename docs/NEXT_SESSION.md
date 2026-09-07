@@ -80,7 +80,7 @@ The gap is the honest cost of the standing order forbidding PROD queries. Inheri
 
 ## 6. What to open first
 
-**R, alone, first.** It is the only lane that is fully specified and build-now — all five defects are located with line numbers, the fix is two files, the diff lands well under 150. It is also the control every other lane's safety rests on: while it is unfixed, a guard that is *trusted* will permit an explicit PROD deploy. That is the one open item that can cause damage rather than merely waste time, and it is a short session.
+**R, alone, first.** **Superseded 2026-09-07 — read `docs/LANE_R_PLAN.md` before opening it: an adversarial sweep found 101 confirmed defects across 19 root causes, not five, so R is a six-PR re-architecture (R1–R5) rather than a short build-now session.** It is still the control every other lane's safety rests on: while it is unfixed, a guard that is *trusted* will permit an explicit PROD deploy. That is the one open item that can cause damage rather than merely waste time.
 
 **Then PDF and L** — file-disjoint, genuinely parallel. PDF-a (the `tsconfig` hole, ~20 lines) is shippable on its own within an hour and worth landing separately from PDF-b's investigation. L goes after it: it terminates in an Edge Function deploy only Michael can run, so starting it early only means it waits longer.
 

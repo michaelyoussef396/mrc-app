@@ -1,0 +1,42 @@
+# --- controls: establish the hook's baseline behaviour ---
+c4	dev	-	DENY	wget -q -O - https://api.supabase.com/v1/projects/{PROD}/secrets
+c5	dev	-	DENY	http POST https://api.supabase.com/v1/projects/{PROD}/restore
+c6	dev	-	DENY	curl -X POST https://api.supabase.com/v1/projects/{PROD}/pause -H "Authorization: Bearer $T"
+z1	dev	-	ALLOW	echo "api.supabase.com"
+z3	dev	-	ALLOW	curl -sS https://example.com/health
+# --- claimed defects ---
+p1	dev	-	DENY	python3 -c "import urllib.request as u; u.urlopen('https://api.supabase.com/v1/projects/{PROD}/pause')"
+p1b	prod	-	DENY	python3 -c "import urllib.request as u; u.urlopen('https://api.supabase.com/v1/projects/{PROD}/pause')"
+p1c	dev	prod	DENY	python3 -c "import urllib.request as u; u.urlopen('https://api.supabase.com/v1/projects/{PROD}/pause')"
+p2	dev	-	DENY	node -e "fetch('https://api.supabase.com/v1/projects/{PROD}/database/query',{method:'POST',body:sql})"
+p2b	dev	-	DENY	deno eval "await fetch('https://api.supabase.com/v1/projects/{PROD}/database/query',{method:'POST'})"
+p2c	dev	-	DENY	bun -e "fetch('https://api.supabase.com/v1/projects/{PROD}/database/query',{method:'POST'})"
+p5	dev	-	DENY	https POST https://api.supabase.com/v1/projects/{PROD}/restore
+p5b	dev	-	DENY	xhs POST https://api.supabase.com/v1/projects/{PROD}/restore
+p6	dev	-	DENY	wget2 -q -O - https://api.supabase.com/v1/projects/{PROD}/secrets
+p6b	dev	-	DENY	curlie POST https://api.supabase.com/v1/projects/{PROD}/pause
+p6c	dev	-	DENY	httpie POST https://api.supabase.com/v1/projects/{PROD}/pause
+p3h1	dev	-	DENY	curl -X POST https://API.SUPABASE.COM/v1/projects/{PROD}/pause -H "Authorization: Bearer $T"
+h2	dev	-	DENY	curl -X POST https://Api.Supabase.Com/v1/projects/{PROD}/pause
+h3	dev	-	DENY	curl -X POST https://api.supabase.com./v1/projects/{PROD}/pause
+h11	dev	-	DENY	curl -X POST https://1.2.3.4/v1/projects/{PROD}/pause -H "Host: api.supabase.com"
+h12	dev	-	DENY	curl --resolve api.supabase.com:443:1.2.3.4 https://api.supabase.com/v1/projects/{PROD}
+p4h5	dev	-	DENY	H=api.supabase; curl -X DELETE "https://${H}.com/v1/projects/{PROD}"
+h6	dev	-	DENY	TLD=com; curl "https://api.supabase.$TLD/v1/projects/{PROD}/pause"
+h8	dev	-	DENY	curl -K /tmp/mgmt.curlrc
+h9	dev	-	DENY	curl --config /tmp/mgmt.curlrc
+h7	dev	-	DENY	curl -sS $(cat /tmp/mgmt-url.txt) -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+h13	dev	-	DENY	curl -X POST "https://{PROD}.supabase.co/auth/v1/admin/users" -H "apikey: $SERVICE_KEY" -d '{"email":"x@y.z"}'
+h14	dev	-	DENY	curl -X DELETE "https://{PROD}.supabase.co/rest/v1/leads?id=eq.1" -H "apikey: $SERVICE_KEY"
+h15	dev	-	DENY	curl -X PUT "https://{PROD}.supabase.co/storage/v1/object/reports/a.pdf" -H "apikey: $SERVICE_KEY"
+h16	dev	-	DENY	curl -X POST "https://{PROD}.supabase.co/functions/v1/send-email" -H "apikey: $SERVICE_KEY"
+q1	dev	-	DENY	curl -X POST https://api.supabase.com/v1/projects/$R/pause -H "x-note: --project-ref {DEV}"
+q2	dev	-	DENY	echo "using --project-ref {DEV}"; curl -X POST https://api.supabase.com/v1/projects/$R/pause
+r2	dev	-	DENY	curl -X POST https://api.supabase.com/v1/projects/$R/pause # --project-ref {DEV}
+q3	dev	-	DENY	{S} secrets list --project-ref {DEV}; curl -X POST https://api.supabase.com/v1/projects/$R/database/query -d @q.sql
+r3	dev	-	DENY	{S} functions list --project-ref {DEV} && curl -X POST https://api.supabase.com/v1/projects/$R/pause
+z2	dev	-	ALLOW	git commit -m "chore: stop hardcoding api.supabase.com in the curl helper"
+o2	dev	-	ALLOW	echo "curl https://api.supabase.com/v1/projects" >> docs/API_AUDIT.md
+o5	dev	-	ALLOW	wget -q -O - https://example.com/notes.txt | grep api.supabase.com
+o1	dev	-	ALLOW	curl -sS https://example.com/health # docs live at api.supabase.com
+o4	dev	-	ALLOW	grep -rn "api.supabase.com" docs/ ; curl -I https://example.com

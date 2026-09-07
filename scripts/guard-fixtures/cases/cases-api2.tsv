@@ -1,0 +1,20 @@
+p1	dev	-	DENY	python3 -c "import urllib.request as u; u.urlopen('https://api.supabase.com/v1/projects/{PROD}/pause')"
+p2	dev	-	DENY	node -e "fetch('https://api.supabase.com/v1/projects/{PROD}/database/query',{method:'POST',body:sql})"
+p3	dev	-	DENY	curl -X POST https://API.SUPABASE.COM/v1/projects/{PROD}/pause -H "Authorization: Bearer $T"
+p4	dev	-	DENY	H=api.supabase; curl -X DELETE "https://${H}.com/v1/projects/{PROD}"
+p5	dev	-	DENY	https POST https://api.supabase.com/v1/projects/{PROD}/restore
+p6	dev	-	DENY	wget2 -q -O - https://api.supabase.com/v1/projects/{PROD}/secrets
+p7	dev	-	DENY	curl -K /tmp/mgmt.curlrc # targets {PROD}
+p8	dev	-	DENY	curl -X POST https://api.supabase.com/v1/projects/{PROD}/pause
+p9	dev	-	DENY	python3 -c "import requests; requests.post('https://api.supabase.com/v1/projects/'+r+'/database/query', json={'query':'delete from leads'})"
+q1	dev	-	DENY	curl -X POST https://api.supabase.com/v1/projects/$R/pause -H "x-note: --project-ref {DEV}"
+q2	dev	-	DENY	echo "using --project-ref {DEV}" && curl -X DELETE https://api.supabase.com/v1/projects/$R
+q3	dev	-	DENY	{S} secrets list --project-ref {DEV}; curl -X POST https://api.supabase.com/v1/projects/$R/database/query -d @q.sql
+m1	dev	-	DENY	curl2 https://api.supabase.com/v1/projects
+m2	dev	-	DENY	wgets https://api.supabase.com/v1/projects
+m3	dev	-	DENY	httpie https://api.supabase.com/v1/projects
+m4	dev	-	DENY	/usr/bin/python3 -c "import urllib.request as u; u.urlopen('https://api.supabase.com/v1/projects')"
+b1	dev	-	ALLOW	git commit -m "chore: stop hardcoding api.supabase.com in the curl helper"
+b2	dev	-	ALLOW	cat scripts/mgmt.sh | grep -n api.supabase.com
+b3	dev	-	ALLOW	curl -sS -o out.html https://vercel.com ; echo done
+b4	dev	-	ALLOW	http --version

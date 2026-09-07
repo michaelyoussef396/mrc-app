@@ -1,0 +1,17 @@
+# round 3: discriminators — prove the keyword cases are a DETECTION failure (line 39/50),
+# not a rule outcome, and bound the rule-3 finding.
+# d1 vs d2: identical read-only command, prod-linked tree. If detection worked, both DENY.
+d1	prod	-	DENY	{S} migration list --debug
+d2	prod	-	DENY	if true; then {S} migration list --debug; fi
+d3	prod	-	DENY	for i in 1; do {S} migration list --debug; done
+# d4 vs d5: rule 1 still fires when detection succeeds, even with a rule-3 flag present
+d4	dev	-	DENY	ls -h && {S} functions deploy x --project-ref {PROD}
+d5	dev	-	DENY	ls -h && {S} functions deploy x
+# d6: brace group defeats rule 1 outright
+d6	dev	-	DENY	{ {S} secrets set K=v --project-ref {PROD}; }
+# d7/d8: cd relocation vs the --workdir rule it is supposed to mirror
+d7	dev	-	DENY	{S} inspect db table-sizes --workdir /Users/michaelyoussef/mrc-app-prod
+d8	dev	-	DENY	cd /Users/michaelyoussef/mrc-app-prod && {S} inspect db table-sizes
+# d9: benign — a real doc-writing command with no control-plane effect
+d9	dev	-	ALLOW	grep -rn "migration list" docs/ | head -5
+d10	dev	-	ALLOW	echo "wget the file from api.example.com" >> notes.md
