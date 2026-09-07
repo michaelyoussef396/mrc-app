@@ -71,7 +71,9 @@ Format: `- HH:MM · tool · agent · what · files · outcome`
 - 12:55 · CC · CC · final review of #149, `--base origin/main`, Target printed and matched · (none) · see "Review": needs-attention, two findings on the migration path
 - 13:20 · CC · CC · round 5 by decision (Codex's option): automatic migration and the fence parser deleted from session-resume.sh; a log without exactly one marker pair in order is refused with the one-time notice; reads are plain (selection by the exact Session id line in the first Header section; last step-log line, cosmetic if a fenced bullet matches) · .claude/hooks/session-resume.sh · consolidated suite S1–S23 + W1 green, f6 cache tests green; 135 lines before, 102 after
 - 13:25 · CC · CC · legacy logs counted across all 14 worktrees: 3, all in ~/mrc-app-1 (2026-09-06-chore-session-logs.md on main; this log; 2026-09-07-chore-session-resume.md, a placeholder the SessionStart hook created at 12:50 for session e83b760f…); marker pair inserted by hand in each, two lines added, nothing else touched · docs/sessions/*.md · the tracked one committed on #149 with the hook; this log goes with #150's closing commit; the 12:50 placeholder stays untracked
-- 13:30 · CC · CC · single review of #149, `--base origin/main`, foreground, Target printed and matched · (none) · see "Review"
+- 13:30 · CC · CC · single review of #149, `--base origin/main`, foreground, Target printed and matched · (none) · see "Review": needs-attention, one medium (ambiguous Session id line in the first Header)
+- 13:50 · CC · CC · round 6, the closing fix: `header_field` scans the whole first Header section first, requires exactly one `- Session id:` line, compares afterwards; an ambiguous log is never selected and its own session gets the one-time notice naming it; parsing stays plain · .claude/hooks/session-resume.sh · suite S1–S25 green incl. the reviewer's two-log regression (S24: B written, A byte-identical; S25: A refused with the notice); hook 110 lines
+- 13:55 · CC · CC · closing review of #149, `--base origin/main`, Target printed and matched · (none) · see "Review"; #149 closes here by decision, no further rounds
 
 ## C1 — Stop hook proof (scratch clone of chore/session-resume @ ac22a32, three nested `claude -p` turns, haiku, `--resume`)
 
@@ -127,6 +129,7 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 - codex resume 01a079bd-cbe7-7ea2-a791-49e3c6abde31 — #149 re-review after round 3 (tabs after a closing fence; digest before validation; chore/session-resume @ bce5593 vs origin/main e076aa6), adversarial, 2026-09-07 02:41–02:44 UTC, Target `branch diff against origin/main`, verdict needs-attention
 - codex resume 01a079cb-db9d-7c20-a444-97d2b673631f — #149 final review after the marker redesign (chore/session-resume @ 230fad7 vs origin/main e076aa6), adversarial, 2026-09-07 02:56–02:59 UTC, Target `branch diff against origin/main`, verdict needs-attention; last round by decision
 - codex resume 01a079d6-c9de-74a0-ad9e-88d14ece6357 — #149 review after dropping migration and the parser (chore/session-resume @ 28b7a3a vs origin/main e076aa6), adversarial, 2026-09-07 03:08–03:11 UTC, Target `branch diff against origin/main`, verdict needs-attention
+- codex resume 01a079fd-7f4a-7291-94e3-70ec60c2d7d4 — #149 closing review after the ambiguity fix (chore/session-resume @ 3060718 vs origin/main e076aa6), adversarial, 2026-09-07 03:50–03:53 UTC, Target `branch diff against origin/main`, verdict needs-attention; #149 closed by decision after this
 - C2's two `codex exec --ephemeral` runs left no thread (see "C2")
 
 ## Review
@@ -214,7 +217,17 @@ Round 5 (2026-09-07, Codex's option by decision): automatic migration and the fe
 - Findings: 1 — (medium) with the parser gone, `header_field` accepts any exact `- Session id:` line inside the first Header section, including one quoted in a fenced example placed there before the next `## `. Two same-branch logs, A alphabetically first with B's id quoted that way, both with valid markers: a Stop for B selects A and rewrites A's resume content while B stays stale; the digest cannot catch it because A did not change concurrently. 230fad7 (fence-aware) rejected this fixture (`session-resume.sh:34-41`). Recommendation: keep parsing plain but require exactly one Session id field in the first Header, compare only after scanning the section, refuse ambiguous headers; add the two-log fixture. Nothing applied; to Michael.
 - Closed by this round: both round-4 migration findings (no migration path exists).
 
-Tally after round 5 — the eight originals: closed 6 (#149: fence boundary, substring session match, id in marker and notice by ruling, concurrent edits by approach A; #150: curl, cache), carried 2 (the two #150 split artefacts, recorded, never to be fixed on that branch). New findings from the six re-reviews of #149 and two of #150: 9 raised, 8 closed (#149 fence variants; #149 id prefix by ruling; #149 tabs after a closing fence; #149 digest before validation; #149 inline-span opener on the destructive path, closed by the marker redesign; #149 the two migration-path findings, closed by deleting migration; #150 chmod ordering), 1 open on #149 (ambiguous Session id field in the first Header, medium), untriaged. #150 approved.
+Round 6 (2026-09-07, the closing fix by decision): `header_field` scans the whole first Header section, requires exactly one Session id line, compares afterwards; ambiguous logs are never selected and their session gets the notice.
+
+#149 closing review, chore/session-resume `3060718` (round 6) vs origin/main `e076aa6`:
+
+- Target: `branch diff against origin/main` (printed and matched before reading)
+- Diff lines excl. docs/sessions/: 121 (121 added, 0 deleted, 2 files) — settings.json unchanged since 5ccf2ee
+- Verdict: needs-attention. Codex: marker validation and the committed Stop registration passed the checks performed.
+- Findings: 2 — (medium) ownership is validated before the digest is captured, so a writer that changes the selected log's Session id, or adds a duplicate, between selection and the snapshot becomes the accepted baseline and the log can still be rewritten; separate from the documented digest-to-rename race; recommendation: recheck the first Header (exactly one matching Session id) immediately after taking the digest, keep the final comparison (`session-resume.sh:89-95`); (medium) `header_field` answers "ambiguous" for any Header with more than one Session id line regardless of the requested id, so with two ambiguous logs A/A and B/B a Stop for B names A's log in the notice, and the one-time marker then hides B's own unmaintained log; recommendation: notice only a log that both has multiple fields and matches this session's id, keep every ambiguous log ineligible, add the A/A versus B/B fixture (`:48-49`). Nothing applied; to Michael. #149 closes here.
+- Closed by this round: the round-5 wrong-log selection finding (the reviewer's two-log fixture is now S24/S25 and passes).
+
+Tally after round 6 — the eight originals: closed 6 (#149: fence boundary, substring session match, id in marker and notice by ruling, concurrent edits by approach A; #150: curl, cache), carried 2 (the two #150 split artefacts, recorded, never to be fixed on that branch). New findings from the seven re-reviews of #149 and two of #150: 11 raised, 9 closed (#149 fence variants; #149 id prefix by ruling; #149 tabs after a closing fence; #149 digest before validation; #149 inline-span opener on the destructive path, closed by the marker redesign; #149 the two migration-path findings, closed by deleting migration; #149 ambiguous Session id selection; #150 chmod ordering), 2 open on #149 from the closing review (ownership recheck after the digest; ambiguity notice naming another session's log, both medium), untriaged, #149 closed to further rounds by decision. #150 approved.
 
 ## Did
 
@@ -241,8 +254,8 @@ Tally after round 5 — the eight originals: closed 6 (#149: fence boundary, sub
 
 ## Open
 
-- Triage round 1 (2026-09-07): fixes 1, 2, 3 on #149 (3cd9981) and 5, 6 on #150 (99036bb). Round 2: fix 4 approach A + CommonMark fences on #149 (d1b601d), chmod ordering + §8 trap on #150 (dc8cfae). Round 3: tab closers + digest ordering on #149 (bce5593). Round 4: marker redesign on #149 (230fad7), template markers on #150 (a08aa8c). Round 5: migration and parser deleted on #149 (28b7a3a), legacy logs markered by hand. Latest reviews: #150 approve; #149 needs-attention with one open finding (ambiguous Session id field in the first Header, medium: a fenced quote of another session's id line inside the Header section selects the wrong log), untriaged, nothing applied.
-- #149 is at 113 reviewable lines (hook 102).
+- Triage round 1 (2026-09-07): fixes 1, 2, 3 on #149 (3cd9981) and 5, 6 on #150 (99036bb). Round 2: fix 4 approach A + CommonMark fences on #149 (d1b601d), chmod ordering + §8 trap on #150 (dc8cfae). Round 3: tab closers + digest ordering on #149 (bce5593). Round 4: marker redesign on #149 (230fad7), template markers on #150 (a08aa8c). Round 5: migration and parser deleted on #149 (28b7a3a), legacy logs markered by hand. Round 6: ambiguous-Header refusal on #149 (3060718). Closing reviews: #150 approve; #149 needs-attention with two open medium findings (ownership recheck after the digest; ambiguity notice naming another session's log), untriaged, nothing applied, #149 closed to further rounds by decision.
+- #149 is at 121 reviewable lines (hook 110). Both open findings are a few lines each: re-run `header_field` on the selected log right after `log_digest`, and make `ambiguous_log` require a matching id among the duplicates.
 - The 12:50 placeholder log `2026-09-07-chore-session-resume.md` (session e83b760f…) is untracked and carries the marker pair; it is that session's to fill or delete.
 - The companion worktree trap is now CODEX_WORKFLOW §8 (on #150).
 - Two scratch clones' nested sessions and the C1/C2 fixtures remain under the scratchpad; `~/.cache/claude-hooks/window.txt` now exists on this machine (the smoke test ran the shipped helper).
@@ -258,12 +271,12 @@ Tally after round 5 — the eight originals: closed 6 (#149: fence boundary, sub
 
 Hand-written at close (the hook cannot run in the session that added it):
 
-- Updated: 2026-09-07 13:35 AEST · Tool: CC
-- Branch: chore/session-resume @ 28b7a3a in ~/mrc-app-1 (rounds 1–5); PR #149 open, last review needs-attention (1 open, medium). chore/session-window-docs @ a08aa8c + closing commit (row, this log); PR #150 open, last review approve. Neither merged.
+- Updated: 2026-09-07 14:00 AEST · Tool: CC
+- Branch: chore/session-resume @ 3060718 in ~/mrc-app-1 (rounds 1–6, closed); PR #149 open, closing review needs-attention (2 open, medium). chore/session-window-docs @ a08aa8c + closing commits (rows, this log); PR #150 open, last review approve. Neither merged.
 - Unpushed commits: none
 - Uncommitted files (this log excluded): ` M .claude/settings.json` (live deny list, never commit), ` M docs/HOW_TO_USE_THE_APP.html` (pre-existing churn), `?? docs/TEST_LEAD_PURGE_*` and other pre-existing untracked files
 - Last step-log line: see above
 - Codex threads: see "Codex threads" above (six reviews)
 - Window: irrelevant at close
-- Next step: Michael triages the one open #149 finding (ambiguous Session id in the first Header; the recommended fix is "exactly one Session id line in the first Header section, else refuse", a few lines in header_field), then merge order (#150 is approved; #150 then #149), then a restart to pick up the Stop hook. Pop the AGENTS.md stash on `feat/schedule-rail-search-deeplink` when returning there (`git stash list` shows "parked GitNexus regen 2026-09-06 (block B)").
+- Next step: Michael triages the two open #149 findings from the closing review (ownership recheck after the digest; ambiguity notice scope), then merge order (#150 is approved; #150 then #149), then a restart to pick up the Stop hook. No further review rounds on #149. Pop the AGENTS.md stash on `feat/schedule-rail-search-deeplink` when returning there (`git stash list` shows "parked GitNexus regen 2026-09-06 (block B)").
 <!-- resume:end -->
