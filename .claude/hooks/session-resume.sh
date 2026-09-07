@@ -19,15 +19,16 @@ SESSIONS_DIR="$REPO_ROOT/docs/sessions"
 WINDOW_SCRIPT="$HOOK_DIR/window-remaining.sh"
 
 # CommonMark fence tracking shared by every awk pass: an opening fence is 3+ backticks or 3+
-# tildes after 0-3 spaces; it closes only on the same character, at least as long, alone on
-# its line. Runs first for every record (after stripping \r); f is 1 while inside a fence.
+# tildes after 0-3 spaces; it closes only on the same character, at least as long, followed by
+# nothing but spaces or tabs. Runs first for every record (after stripping \r); f is 1 while
+# inside a fence.
 AWK_FENCE='function fence(line,   s, ch, n, i) {
   s = line; for (i = 0; i < 3 && substr(s, 1, 1) == " "; i++) s = substr(s, 2)
   if (s ~ /^```/) { ch = "`"; match(s, /^`+/); n = RLENGTH }
   else if (s ~ /^~~~/) { ch = "~"; match(s, /^~+/); n = RLENGTH }
   else return 0
   if (!f) { f = 1; fch = ch; flen = n; return 1 }
-  if (ch == fch && n >= flen && substr(s, n + 1) ~ /^ *$/) { f = 0; return 1 }
+  if (ch == fch && n >= flen && substr(s, n + 1) ~ /^[ \t]*$/) { f = 0; return 1 }
   return 0
 }
 { sub(/\r$/, ""); fence($0) }
@@ -117,8 +118,12 @@ if [ -z "$log" ]; then
   jq -cn --arg id "${session_id:0:8}" '{systemMessage: ("session-resume: no docs/sessions log carries this session id (" + $id + "…), so Resume from here is not being maintained")}'
   exit 0
 fi
-[ -w "$log" ] && fences_balanced "$log" || exit 0
+[ -w "$log" ] || exit 0
+# The digest is taken before fence validation, so a writer that inserts an unclosed fence
+# between the two cannot become the accepted baseline: the pre-rename comparison would see
+# the change and drop the write. Distinct from the re-read-to-rename window in replace_section.
 log_at_start=$(log_digest "$log")
+fences_balanced "$log" || exit 0
 window_out=$( { [ -x "$WINDOW_SCRIPT" ] && "$WINDOW_SCRIPT"; } 2>/dev/null)
 new_section=$(render_section "$log" "$(printf '%s\n' "$window_out" | head -n 1)")
 if [ "$(current_section "$log" | grep -v '^- Updated: ')" != "$(printf '%s\n' "$new_section" | grep -v '^- Updated: ')" ]; then
