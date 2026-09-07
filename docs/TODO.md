@@ -1,6 +1,6 @@
 # MRC TODO — working tracker
 
-Last updated: 2026-09-06
+Last updated: 2026-09-07
 
 - Detail for every item: `docs/MRC_MASTER_BACKLOG.md` (the 3 September 2026 backlog, archived verbatim). This file holds IDs and tracking state only.
 - Pricing rules and the resolved/unresolved conflicts: `docs/PRICING_CANON.md`.
@@ -235,6 +235,7 @@ Separately, and relevant to J's charter: **P0-A is very likely not an Edge Funct
 | P1-S-1 | Sentry prod `ignoreErrors` rule for "Failed to fetch" swallows real failures. Narrow it. | [ ] | | | |
 | P1-S-2 | Sentry dev project has had zero events since 26 Aug. Check DSN and env wiring. | [ ] | | | |
 | P1-S-3 | Sentry replays at 80% of the free quota; period ends 17 Sep. Lower the sample rate. | [ ] | | | |
+| P1-S-4 | **Render-endpoint failures never reach Sentry.** The `!response.ok` branch in `src/lib/api/jobReportPipeline.ts:96-109` throws without calling `captureBusinessError`; only the transport `catch` (`:56-63`) reports. `src/lib/api/reportPipeline.ts:125-135` has the same shape. Result: **8 production failures over 30 days (4x 504, 4x 500) were invisible as Sentry issues** — they existed only as console logs scraped by `consoleLoggingIntegration`. Found while diagnosing the 2026-09-07 P0. Its own unit; do not fold into the render fix. Note `api/` and `supabase/functions/` have NO Sentry SDK at all, so server-side errors live only in Vercel/Supabase platform logs. | [ ] | | | |
 | MRC-APP-1D | "Photo upload failed" on `/technician/inspection`, iPhone Safari, first 2 Sep. Adjacent to the #111/#112 photo work. | [ ] | | | |
 | MRC-APP-1B | "Failed to upload lead note attachment" on `/leads`, first 27 Aug. Suspect commit `20eac74`. | [ ] | | | |
 | MRC-APP-1A | "Hard-save endpoint unreachable: POST /api/render-pdf" on `/admin/leads`. | [ ] | | | |
