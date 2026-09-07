@@ -54,6 +54,8 @@ Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` 
 - 23:44 · CC · CC · ARTIFACT verification (not deploy-status): fetched /assets/ViewReportPDF-CpiVNHIv.js from the preview — Unit A aria-label/tooltip/text-html/popup-msg present, A2 'Report is still loading' present, Unit-A-only identifier `jobReportHtml` ABSENT (renamed loadedJobReport by A2). Preview is running A+A2, not a stale bundle · (none) · PASS
 - 23:48 · CC · CC · 375px UI check NOT DONE — both preview URLs sit behind Vercel SSO and the app shows its login page on this origin; an agent cannot create an authenticated session (entering credentials is out of scope). playwright-tester deliberately NOT spawned: it would hit the same two walls and return 'blocked' · (none) · escalated, steps in .ai/HANDOFF.md
 - 23:52 · CC · CC · handoff written · .ai/HANDOFF.md · session closed
+- 23:58 · CC · CC · housekeeping 1/2: WITHDREW PDF-CL12 — verified independently that the table's CREATE TABLE was made in Studio and is absent from migrations (20260531150202_...sql:18-19), so the 'no UNIQUE constraint' claim was inferred from repo absence, the method CLAUDE.md's pre-flight rule forbids. Michael's live 23505 on (job_completion_id, version_number) proves the constraint exists and the retry is live code · docs/TODO.md · done
+- 23:59 · CC · CC · housekeeping 2/2: carried the 375px gap forward as P2-20 with the exact checks and the service-worker-reset caveat; Michael verifies manually after merge · docs/TODO.md · done
 - 22:38 · CC · CC · 375px browser verification BLOCKED — Bash permission denied on .env*, so which Supabase ref `npm run dev` targets could not be established; standing order says local may be PROD. NOT run rather than run against an unknown backend · (none) · escalated to Michael
 
 ## Codex threads
@@ -109,18 +111,15 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 <!-- resume:start -->
 <!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers -->
 
-- Updated: 2026-09-07 22:32 AEST · Tool: CC
-- Branch: chore/workflow-scaffolding @ fb6107f docs: log the Unit A2 Codex review
+- Updated: 2026-09-07 22:55 AEST · Tool: CC
+- Branch: chore/workflow-scaffolding @ 30e1e62 docs: close the session log
 - Unpushed commits:
-  - `fb6107f docs: log the Unit A2 Codex review`
-  - `cfb2fa0 fix(job-report): gate the View button on report identity, not presence`
-  - `0e23baa docs: log the Unit A Codex review`
-  - `61c3940 feat(job-report): add View button to open the report in a new tab`
-  - `68c8f73 Merge pull request #154 from michaelyoussef396/chore/workflow-scaffolding`
+  - `30e1e62 docs: close the session log`
+  - `84015f3 obs(job-report): phase breadcrumbs across the render endpoint`
 - Uncommitted files (this log excluded):
   - ` M .claude/settings.local.json`
-  - ` M docs/TODO.md`
-  - `?? docs/sessions/2026-09-07-chore-workflow-scaffolding-3.md`
+  - ` M docs/codex-review-log.md`
+  - ` M docs/sessions/2026-09-07-chore-workflow-scaffolding-3.md`
   - `?? docs/sessions/2026-09-07-chore-workflow-scaffolding.md`
   - `?? muti-session-docs/`
   - `?? template-backup-66282.html`
@@ -129,6 +128,6 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 - Codex threads:
   - `codex resume 01a07bc8-2e40-7cc2-9536-78fbae6b37aa`
   - `codex resume 01a07bd5-9eed-7f93-ab88-26433a9a4a73`
-- Window: five_hour 0% used, resets 03:30 AEST (17:30 UTC)
+- Window: five_hour 2% used, resets 03:29 AEST (17:29 UTC)
 - Next step: the first open item under "Did NOT" or "Open", else continue from the last step-log line.
 <!-- resume:end -->
