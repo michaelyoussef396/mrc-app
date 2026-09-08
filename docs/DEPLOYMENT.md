@@ -19,9 +19,10 @@
 ### Deploy Flow
 1. Push changes to `main`
 2. Check the Vercel preview URL
-3. Create a PR: `main` → `production`
-4. Merge the PR
-5. Vercel auto-deploys to the live URL
+3. **Clear the [production gate](#production-gate). The PR does not open until it is met.**
+4. Create a PR: `main` → `production`
+5. Merge the PR
+6. Vercel auto-deploys to the live URL
 
 ### Manual Setup Required (Vercel Dashboard)
 1. **Set production branch:** Project Settings → Git → Production Branch → `production`
@@ -30,7 +31,44 @@
 
 ---
 
+## Production gate
+
+No `main` → `production` PR opens until **both** of the following have happened. Neither is
+optional, and neither can be delegated to an agent.
+
+**1. A terminal Codex CLI review has run over the full branch diff.**
+
+Not the plugin review. The plugin runs per unit of work and sees roughly 150 lines at a
+time, so it cannot see an interaction between two units reviewed a day apart. This gate
+wants one review over everything that is about to become live, as a single diff against
+`origin/main`.
+
+Print the reviewer's `Target:` line and the diff line count **before** triaging a single
+finding. A bad `--base` exits 0 and silently reviews the wrong range, so a review that
+looks clean may never have read the code in front of you (#653). If the `Target:` line is
+not the branch diff against `origin/main`, the review did not happen — discard it unread
+and run it again.
+
+**2. Michael has personally read `FINAL_REVIEW.md`.**
+
+Read it himself, in full, before the PR opens.
+
+> **Claude Code writing `FINAL_REVIEW.md` does not satisfy the gate.**
+>
+> The file existing is not the gate. The file being accurate is not the gate. An agent
+> summarising the review, pronouncing it clean and moving on is not the gate. The gate is
+> a human reading it. This is spelled out because it is the exact step that was skipped on
+> **7 September 2026**, and that is how a broken PDF render endpoint reached production.
+
+A review that has run but has not been read is an unmet gate. A review Michael has read and
+triaged is a met one — the findings do not all have to be fixed, they have to be seen and
+dispositioned.
+
+---
+
 ## Table of Contents
+
+**[Production gate](#production-gate)** — clear it before any `main` → `production` PR.
 
 1. [Prerequisites](#prerequisites)
 2. [Environment Variables](#environment-variables)
