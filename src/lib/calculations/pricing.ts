@@ -233,9 +233,28 @@ export function deriveEquipmentDays(totalLabourHours: number): number {
   return Math.max(1, Math.ceil(totalLabourHours / 8));
 }
 
+// Overflow sentinel, NOT a business cap: beyond it qty × rate × days stops being money.
+// The 4-day residential hire cap in docs/PRICING_CANON.md §8 is deliberately NOT implemented
+// here — that number is Glen's or Clayton's to settle (P2-24).
+const MAX_QUOTABLE_EQUIPMENT_DAYS = 3650;
+
+/**
+ * A usable explicit hire period. NaN, negative, zero, Infinity and Number.MAX_VALUE-class
+ * magnitudes all fall back to the labour-derived days — the same behaviour absent/0 has
+ * always had — rather than poisoning the estimate with Infinity or NaN.
+ */
+function isUsableEquipmentDays(days: number | undefined): days is number {
+  return (
+    days !== undefined &&
+    Number.isFinite(days) &&
+    days > 0 &&
+    days <= MAX_QUOTABLE_EQUIPMENT_DAYS
+  );
+}
+
 /**
  * Calculate equipment costs based on quantities and days.
- * Days = the explicit shared hire period when given, otherwise deriveEquipmentDays().
+ * Days = the explicit shared hire period when usable, otherwise deriveEquipmentDays().
  */
 export function calculateEquipmentCost(
   equipment: EquipmentInput,
@@ -244,10 +263,9 @@ export function calculateEquipmentCost(
   // TODO(michael): cap the shared days here once the owners settle the number — the app
   // currently enforces NO cap while every report prints "Capped at 5 days" as fixed text,
   // and the 28 Aug 2026 meeting notes say 4 days residential (docs/TODO.md, equipment cap).
-  const days =
-    equipment.equipmentDays && equipment.equipmentDays > 0
-      ? equipment.equipmentDays
-      : deriveEquipmentDays(totalLabourHours);
+  const days = isUsableEquipmentDays(equipment.equipmentDays)
+    ? equipment.equipmentDays
+    : deriveEquipmentDays(totalLabourHours);
 
   const dehumidifierCost = equipment.dehumidifierQty * EQUIPMENT_RATES.dehumidifier * days;
   const airMoverCost = equipment.airMoverQty * EQUIPMENT_RATES.airMover * days;
