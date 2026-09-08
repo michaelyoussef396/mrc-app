@@ -30,19 +30,24 @@ P2-23 — print the equipment hire period on all four equipment lines of the ins
 - 23:21 · CC · CC · gitnexus impact on generateReportHtml, direction upstream · (none) · LOW risk, 1 direct caller (the Deno.serve handler in the same file), 0 processes, 0 modules
 - 23:22 · CC · CC · printed the hire period on all four lines · supabase/functions/generate-inspection-pdf/index.ts · GREEN — 10/10; equipmentRateDrift.test.ts still 10/10
 - 23:23 · CC · CC · full gates · (none) · vitest 78 files / 1306 tests, 1 failure (T24 only); tsc 100 error lines, zero NEW normalised lines vs baseline
-- 23:25 · CC · CC · blocked on the Codex review — the brief forbids commits, CODEX_WORKFLOW §4.1 requires one · (none) · stopped, asked Michael
+- 23:25 · CC · CC · blocked on the Codex review — the brief forbids commits, CODEX_WORKFLOW §4.1 requires one · (none) · stopped, asked Michael; Michael committed ff2d24a
+- 23:40 · CC · CC · mutation proof that the test reads the shipped EF source · supabase/functions/generate-inspection-pdf/index.ts (mutated then restored byte-identical) · suffix changed to `(N d)`, unedited test file went 4 RED; restored, git status clean
+- 23:45 · CC · CC · Codex adversarial review round 1, --base origin/main · (none) · Target correct, approve, 0 findings; focus text truncated by CC's unquoted semicolons (exit 127)
+- 23:50 · CC · CC · Codex adversarial review round 2, focus properly quoted · (none) · Target correct, approve, 0 findings
+- 23:55 · CC · CC · logged both rounds · docs/codex-review-log.md, this log · two rows added; STOPPING per ruling 1
 
 ## Codex threads
 
-- (none yet — review not run)
+- codex resume 01a08139-bd09-7443-ab34-bd819662650b   (round 1, 2026-09-08)
+- codex resume 01a0813a-c71a-71d3-8f79-30aa2181aa4c   (round 2, 2026-09-08)
 
 ## Review
 
-- Target: NOT RUN — blocked, see Open
-- Diff lines excl. docs/sessions/: 136 (20 tracked + 116 in the untracked new test file)
-- Verdict: n/a
-- Findings: n/a
-- codex-review-log row: pending
+- Target: `branch diff against origin/main` (both rounds, verbatim, printed before any finding was read)
+- Diff lines excl. docs/sessions/: 136 (130 added, 6 deleted, 2 files)
+- Verdict: approve (round 1), approve (round 2)
+- Findings: 0 and 0
+- codex-review-log row: added 2026-09-08, two rows, mrc-quote-days / fix/quote-equipment-days-pdf
 
 ## Did
 
@@ -65,7 +70,8 @@ P2-23 — print the equipment hire period on all four equipment lines of the ins
 
 ## Open
 
-- **The Codex review cannot run as briefed.** CODEX_WORKFLOW.md §4.1 requires the work committed — branch mode reviews merge-base..HEAD and untracked files are invisible, so an uncommitted tree gives the zero-line range the brief itself calls a FAIL. The brief forbids commits. Needs Michael either to commit (or authorise CC to), or to accept `--scope working-tree`, which changes the `Target:` line away from `branch diff against origin/main` and therefore trips the §5 abort.
+- **RESOLVED** — Michael committed `ff2d24a`; both review rounds ran against `branch diff against origin/main`.
+- **The test reads the EF source as text; it does not import it.** Proven to track the shipped source (red→green with no test edit, plus a mutation that turned it red). What it does NOT cover: repo-to-deployed freshness, and whole-function validity. Closing the executable-path gap needs the price-line builder extracted to `supabase/functions/generate-inspection-pdf/equipmentPricing.ts` — no Deno APIs, no esm.sh — imported relatively by `index.ts` and directly by the vitest test. Recommended as its own unit covering both EFs that hand-copy rates, retiring the text-scraping in `equipmentRateDrift.test.ts` at the same time. Until then this is a documented limitation, and Codex stated the same limit independently in round 2.
 - The Edge Function is NOT deployed. It ships only when Michael deploys and verifies by downloading the deployed source and comparing content.
 
 ## Resume from here
