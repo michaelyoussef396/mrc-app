@@ -73,6 +73,24 @@ line against the base the review was supposed to use:
 A `Target:` line that does not match the base for the review you are running means the
 review did not happen. Discard it unread and run it again against the right base.
 
+**A conflict resolution is reviewable content in its own right.**
+
+If a branch takes a merge commit after its last review, the resolution gets its own review
+before the PR merges. A review of the pre-merge head does not cover it — that review ran
+against a commit the resolution did not exist in.
+
+This holds even when every line of the resolution came verbatim from one side or the other.
+Taking row A from one parent and row B from the other produces a file state that existed on
+neither, and it is that state which ships. "No line was invented" is not the same claim as
+"this was reviewed", and only the second one closes the gate.
+
+So, after any merge commit on the branch: re-run the review against the merged head, or
+record the miss in `docs/codex-review-log.md` with the reason it was accepted. A miss that
+is written down is a known gap; a miss that is not is an unreviewed change nobody can find
+later. **Precedent: `a715771`, 2026-09-08** — merged in PR #158 with the `docs/TODO.md`
+resolution unreviewed, accepted after the fact because it was docs-only, logged as a MISS
+row. The same shape with code in it does not get the same disposition.
+
 **2. Michael has personally read `FINAL_REVIEW.md`.**
 
 Read it himself, in full, before the PR opens.
