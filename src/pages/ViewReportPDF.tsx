@@ -233,6 +233,15 @@ const INSPECTION_SELECT = `
 `
 
 /**
+ * A history version selected for preview, tagged with the job completion it was
+ * selected from. The tag is what stops the selection outliving that completion.
+ */
+interface PinnedJobVersion {
+  url: string
+  jobCompletionId: string
+}
+
+/**
  * The report HTML a preview has finished loading, tagged with what produced it.
  * The tag is the point: HTML alone cannot be checked against the current
  * selection, and an untagged copy is what let a stale version reach the View
@@ -387,7 +396,7 @@ export default function ViewReportPDF() {
   const [approving, setApproving] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [showVersions, setShowVersions] = useState(false)
-  const [jobPdfUrlOverride, setJobPdfUrlOverride] = useState<string | null>(null)
+  const [pinnedJobVersion, setPinnedJobVersion] = useState<PinnedJobVersion | null>(null)
   // Escape hatch: the report HTML JobReportPreview already downloaded, lifted so
   // the toolbar's View button can open it in a new tab without a second fetch.
   // Holding it here is what keeps window.open synchronous inside the click
@@ -567,7 +576,21 @@ export default function ViewReportPDF() {
   // pinned, otherwise the job's latest. Single source of truth for both the
   // preview and the View button, so the two can never disagree about which
   // version is on screen.
-  const jobHtmlUrl = jobPdfUrlOverride || jobCompletion?.pdf_url || null
+  // A pin is only valid for the completion it was taken from. The mounted page
+  // can switch completions underneath it (a refetch resolving to a different
+  // job), and a surviving pin then re-tagged that old URL's HTML with the NEW
+  // completion's id — passing both identity checks and letting one job's report
+  // be exported under another job's heading (Codex review, 2026-09-08).
+  //
+  // A *missing* completion is not a mismatch. It is transient (first load, a
+  // failed refetch), and discarding the pin there would throw away the admin's
+  // selection for no safety gain: without a completion the preview is not built
+  // at all and isLoadedJobReportCurrent already reads as not-ready.
+  const pinnedUrlForCurrentJob =
+    pinnedJobVersion && (!jobCompletion || pinnedJobVersion.jobCompletionId === jobCompletion.id)
+      ? pinnedJobVersion.url
+      : null
+  const jobHtmlUrl = pinnedUrlForCurrentJob || jobCompletion?.pdf_url || null
   const isJobReportViewReady = isLoadedJobReportCurrent(
     loadedJobReport,
     jobCompletion?.id,
@@ -852,7 +875,7 @@ export default function ViewReportPDF() {
       toast.success(`${jobEditField.label} updated`)
       setJobEditOpen(false)
       setJobEditField(null)
-      setJobPdfUrlOverride(null)
+      setPinnedJobVersion(null)
     } catch (err) {
       toast.error('Failed to update field')
       console.error(err)
@@ -2496,7 +2519,7 @@ export default function ViewReportPDF() {
   }
 
   // Job report: show generate prompt if no PDF yet
-  if (reportType === 'job' && !jobPdfUrlOverride && !jobCompletion?.pdf_url) {
+  if (reportType === 'job' && !jobHtmlUrl) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
         <div className="text-center max-w-md">
@@ -2956,12 +2979,11 @@ export default function ViewReportPDF() {
             <h3 className="text-sm font-semibold mb-2">Version History (Job Report)</h3>
             <div className="flex gap-2 overflow-x-auto pb-2">
               {displayVersions.map((v) => {
-                const currentPdfUrl = jobPdfUrlOverride || jobCompletion?.pdf_url
-                const isActive = currentPdfUrl === v.pdf_url
+                const isActive = jobHtmlUrl === v.pdf_url
                 return (
                 <button
                   key={v.id}
-                  onClick={() => setJobPdfUrlOverride(v.pdf_url)}
+                  onClick={() => jobCompletion && setPinnedJobVersion({ url: v.pdf_url, jobCompletionId: jobCompletion.id })}
                   className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm border min-h-[48px] ${
                     isActive
                       ? 'bg-orange-100 border-orange-500'
@@ -3031,10 +3053,10 @@ export default function ViewReportPDF() {
       <div className="flex-1">
         {reportType === 'job' ? (
           <div className="flex-1 bg-gray-50 flex flex-col items-center justify-start p-6 overflow-auto">
-            {jobHtmlUrl ? (
+            {jobHtmlUrl && jobCompletion ? (
               <JobReportPreview
                 htmlUrl={jobHtmlUrl}
-                jobCompletionId={jobCompletion!.id}
+                jobCompletionId={jobCompletion.id}
                 onHtmlLoaded={handleJobHtmlLoaded}
               />
             ) : (
