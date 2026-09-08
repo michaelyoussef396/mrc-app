@@ -27,6 +27,8 @@ Close two Codex-reported defects in the job-report view: a null dereference that
 - `src/pages/ViewReportPDF.tsx`
 - `src/pages/__tests__/ViewReportPDF.jobReportView.test.tsx`
 - `docs/sessions/2026-09-08-fix-viewreport-history-guards.md` (this log)
+- `docs/TODO.md` (P1-24, the deferred finding — post-review)
+- `docs/codex-review-log.md` (round-1 row + disposition — post-review)
 
 ## Step log
 
@@ -43,24 +45,29 @@ Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` 
 - 15:47 · CC · CC · tsc diffed against same-tree baseline: 100 vs 100, zero new error lines (2 pre-existing errors shifted 23 lines) · (none) · pass
 - 15:48 · CC · CC · full suite before/after in this tree: same 5 unloadable files both times, 1165 -> 1168 passed (+3 = the new tests) · (none) · no drop
 - 15:50 · CC · CC · measured reviewable diff: 253 lines, OVER the 150 limit. PII scan clean. STOPPED for Michael: the limit needs a waiver or a split (his call, never an agent's), and the review reads origin/main...HEAD so the work must be committed first — and this brief reserves all git to Michael · (none) · blocked, awaiting decision
+- 15:52 · CC · CC · Michael granted a WAIVER on the 150-line limit: review the 253 lines as one unit, the overage being the test harness that must land with the fix it proves. Michael commits; CC then reviews · (none) · waiver granted, logged
 
 ## Codex threads
 
 Write `codex resume <threadId>` here the moment it is printed — on stderr as `Thread ready (<id>)`, or by `node <companion> status`. The plugin SessionEnd hook deletes every job of the session, running or finished.
 
-- (none yet)
+- `codex resume 01a07f94-1f81-77c2-b09b-a697228130ee`  (round 1, 2026-09-08, adversarial-review, base origin/main)
 
 ## Review
 
-- Target: <verbatim `Target:` line from the companion output — anything other than the pre-declared base = abort and report>
-- Diff lines excl. docs/sessions/: <from `git diff --numstat origin/main...HEAD -- . ':(exclude)docs/sessions/' | awk '{a+=$1;d+=$2} END{print a+d}'`>
-- Verdict: <approve | needs-attention | error>
-- Findings: <count>
-- codex-review-log row: <added: date + branch | pending: closing PR>
+- Target: `Target: branch diff against origin/main` — printed and checked before any finding was read. Matches the required base.
+- Diff lines excl. docs/sessions/: 253 (239 added, 14 deleted) — 40 fix / 213 tests. OVER the 150 cap; **waiver granted by Michael before the run**, reason recorded: the tests are the evidence for the fixes, so separating them makes both rounds meaningless.
+- Verdict: needs-attention
+- Findings: 1 (high, and marked UNVERIFIED by Codex itself) — `ViewReportPDF.tsx:1333-1336`, the pending-email mismatch dialog can send completion A's report under completion B's identity. **Outside this diff**: the touched hunks are 235, 399, 579, 878, 2522, 2982, 2986, 3056, 3059, and Codex's own text calls it "this pre-existing email path". Not applied — review-then-stop.
+- Rounds used: 1 of 2. No round 2 run: the finding is outside the diff and needs Michael's triage, not a second pass over the same code.
+- **Disposition (Michael, 2026-09-08): ACCEPTED-DEFERRED.** Filed as `docs/TODO.md` **P1-24** with the reproduction, the UNVERIFIED marker, the acceptance criterion and cross-references to this branch and to thread `01a07f94-...`. Not fixed here.
+- codex-review-log row: added, 2026-09-08 / fix/viewreport-history-guards (last row of the table)
 
 ## Did
 
 - Wrote 3 failing tests for the two 2026-09-08 Codex defects, demonstrated them failing, then fixed both.
+- Ran the round-1 Codex review (Target checked before any finding), took its one finding to Michael untriaged, and recorded his ACCEPTED-DEFERRED disposition in `docs/codex-review-log.md` plus the new `docs/TODO.md` P1-24 row.
+- Recorded as a fact, not a finding: Codex did not read `AGENTS.md` on this run, breaking the pattern of the previous three logged code reviews.
 - Defect 1 (null deref): the preview is no longer constructed without a loaded job completion.
 - Defect 2 (wrong-job certification): the pinned history version now carries the completion it was pinned from, and a pin belonging to a different completion is discarded.
 - Verified: 11/11 in the touched file, zero new tsc error lines, no drop in the full suite.
@@ -77,8 +84,10 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 
 ## Open
 
-- **Michael's call, blocking the review:** 253 reviewable lines vs the 150 limit -> waiver or split.
-- **Michael's call, blocking the review:** the work must be committed before Codex can see it.
+- RESOLVED: 253 reviewable lines vs the 150 limit -> **waiver granted by Michael, 2026-09-08**, reviewed as one unit.
+- **Michael to triage the one finding** (pending-email path, `ViewReportPDF.tsx:1333-1336`). It is a pre-existing path outside this diff and the same defect class as the two just fixed — state pinned to one completion outliving it. Needs a failing test before anyone acts, per the standing rule.
+- CLOSED: Codex's second next-step. Michael directed the tightening, so the export test now asserts `expect(exported).toEqual([JOB_B_HTML])` — exactly one blob, containing B's HTML. Re-verified against the unfixed source: still 3 failed / 8 passed. Reviewable count 253 -> 256; Michael judged that too small to re-review, declared in the review-log row rather than absorbed.
+- Codex did not run the tests (its own statement). CC ran them: 3 failed before the fix, 11 passed after, same test file both times.
 - Note for the reviewer: the brief's phrase "Baseline keeps the preview" is satisfied in the sense that the pinned selection survives a transient null completion; the preview *element* is still withheld while no completion is loaded, because that is exactly the null dereference being fixed.
 
 ## Resume from here

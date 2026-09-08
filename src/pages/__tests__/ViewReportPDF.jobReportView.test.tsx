@@ -309,7 +309,7 @@ describe('ViewReportPDF job report — pinned history version', () => {
     await waitFor(() => expect(viewButton()).toBeDisabled())
   })
 
-  it('should never export the pinned job\'s HTML after the page switches to a different job', async () => {
+  it('should export only the current job\'s HTML after the page switches to a different job', async () => {
     // Codex 2026-09-08, defect 2: the override outlived the completion it was
     // pinned from. The preview re-downloaded job A's URL and tagged that HTML
     // with job B's id, so both identity comparisons passed and job A's report
@@ -327,7 +327,10 @@ describe('ViewReportPDF job report — pinned history version', () => {
     await waitFor(() => expect(viewButton()).toBeEnabled())
     await user.click(viewButton())
 
+    // Asserting the exact export, not merely the absence of job A's HTML: the
+    // weaker form is also satisfied when nothing is exported at all, which would
+    // hide the fix silently disabling View instead of re-selecting job B.
     const exported = await Promise.all(openedBlobs.map(readBlob))
-    expect(exported).not.toContain(JOB_A_V1_HTML)
+    expect(exported).toEqual([JOB_B_HTML])
   })
 })
