@@ -28,13 +28,27 @@ Reviewable lines excl. `docs/sessions/`: 62.
 
 Sites deliberately NOT touched, per Michael 2026-09-08: `src/hooks/useAdminDashboardStats.ts:106` (Completed This Week tile, `leads.updated_at` basis - filed as L832, stays filed) and `src/components/schedule/ScheduleHeader.tsx:163` (renders a labelled date range, no date predicate). Both are contrast cases in TODO row P1-23, not defect sites.
 
-## Blocked
+## Codex review
 
-- 375px Vercel preview verification at a pinned commit URL - requires a push.
-- Codex review `--base origin/main` - reads `origin/main...HEAD`, so requires a commit.
+- `codex resume 01a08136-0dec-77d0-8492-cd96eefacf58`
+- Target: branch diff against origin/main
+- Verdict: needs-attention. 1 finding [medium], one round. Nothing applied.
+
+## Triage (Michael, 2026-09-08)
+
+- Ship the clamp. Codex's [medium] finding **accepted-deferred**, filed as **P2-30** in `docs/TODO.md`.
+- Reasoning: root cause is the `activeIndex = 0` fallback at `useTechnicianJobs.ts:188-195`, which predates this change; the series still shows in Overdue so nothing is hidden from the technician; fixing the collapse anchor moves the card date and the `Day N of M` label at every call site - separate unit, separate blast radius.
+
+## Node hazard - promoted to a standing rule
+
+`nvm use 24` does not stick in this harness. Added to `AGENTS.md` Non-negotiable rules: verify with `node --version` AFTER the switch and print it in the setup report; a baseline on anything but v24.20.0 is void; a baseline on Node <= 23 reads cleaner than reality because T24 passes there.
+
+## Not done
+
+- **375px preview verification: NOT PERFORMED.** No preview URL for `f962a57`, no technician credentials for the DEV preview, and no seeded DEV row for a past-dated in-week job for that technician. Michael to do it by hand.
 
 ## Resume from here
 
-- Next command: awaiting Michael's decision on commit/push for preview + Codex review.
-- Uncommitted files: `src/hooks/useTechnicianJobs.ts`, `src/hooks/__tests__/useTechnicianJobs.test.ts`, this log.
-- Untested: 375px preview behaviour of the This Week badge count.
+- Next command: Michael commits `docs/TODO.md`, `docs/codex-review-log.md`, `AGENTS.md`, this log.
+- Uncommitted files: `docs/TODO.md`, `docs/codex-review-log.md`, `AGENTS.md`, `docs/sessions/2026-09-08-fix-this-week-overdue-overlap.md`.
+- Untested: 375px rendering of the This Week badge count.
