@@ -12,7 +12,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import { captureBusinessError } from '@/lib/sentry'
 import { checkBookingConflict } from '@/lib/bookingService'
-import { formatCurrency, EQUIPMENT_RATES } from '@/lib/calculations/pricing'
+import { formatCurrency, EQUIPMENT_RATES, deriveEquipmentDays } from '@/lib/calculations/pricing'
 import { sendEmail, buildJobBookingConfirmationHtml } from '@/lib/api/notifications'
 import { logFieldEdits, logNoteAdded, type FieldChange } from '@/lib/api/fieldEditLog'
 import { appendInternalNote } from '@/lib/utils/internalNotes'
@@ -51,6 +51,8 @@ interface InspectionSummary {
   dehumidifierQty: number
   airMoverQty: number
   rcdQty: number
+  /** The hire period the quote charged for — never the booking schedule's length. */
+  equipmentDays: number
   optionSelected: number | null
   totalIncGst: number | null
   treatmentMethods: string[]
@@ -230,7 +232,7 @@ export function BookJobSheet({
           supabase
             .from('inspections')
             .select(
-              'id, no_demolition_hours, demolition_hours, subfloor_hours, commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty, option_selected, total_inc_gst, treatment_methods'
+              'id, no_demolition_hours, demolition_hours, subfloor_hours, commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty, equipment_days, option_selected, total_inc_gst, treatment_methods'
             )
             .eq('lead_id', leadId)
             .order('created_at', { ascending: false })
@@ -277,6 +279,13 @@ export function BookJobSheet({
             dehumidifierQty: inspectionResult.data.commercial_dehumidifier_qty ?? 0,
             airMoverQty: inspectionResult.data.air_movers_qty ?? 0,
             rcdQty: inspectionResult.data.rcd_box_qty ?? 0,
+            // equipment_days stores the quote's EFFECTIVE hire period, but rows never saved
+            // since 2026-07-28 still carry the column default of 1, so the labour-derived
+            // days stay the floor — the same reconciliation the estimate loaders apply.
+            equipmentDays: Math.max(
+              inspectionResult.data.equipment_days ?? 0,
+              deriveEquipmentDays(total),
+            ),
             optionSelected: inspectionResult.data.option_selected ?? null,
             totalIncGst: inspectionResult.data.total_inc_gst
               ? Number(inspectionResult.data.total_inc_gst)
@@ -321,7 +330,6 @@ export function BookJobSheet({
   )
 
   const daysNeeded = schedule.length
-  const equipmentDays = Math.max(1, daysNeeded)
   const conflictingDays = useMemo(() => schedule.filter((d) => d.hasConflict), [schedule])
   const hasAnyConflict = conflictingDays.length > 0
 
@@ -678,7 +686,8 @@ export function BookJobSheet({
 
                   <div className="pt-2 border-t border-gray-200 space-y-1">
                     <div className="text-xs text-[#86868b] font-medium">
-                      Equipment (× {equipmentDays} {equipmentDays === 1 ? 'day' : 'days'})
+                      Equipment (× {inspection.equipmentDays}{' '}
+                      {inspection.equipmentDays === 1 ? 'day' : 'days'})
                     </div>
                     <div className="text-xs text-[#1d1d1f] space-y-0.5">
                       <div className="flex justify-between">
