@@ -93,17 +93,14 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 <!-- resume:start -->
 <!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers -->
 
-- Updated: 2026-09-07 23:15 AEST · Tool: CC
-- Branch: chore/workflow-scaffolding @ e495abd docs: record PDF-CL12 as a read-side C4 instance
+- Updated: 2026-09-07 23:37 AEST · Tool: CC
+- Branch: chore/workflow-scaffolding @ 7bd6b5a docs: log the exception-isolation Codex review
 - Unpushed commits:
-  - `e495abd docs: record PDF-CL12 as a read-side C4 instance`
-  - `53e7bc6 fix(job-report): isolate phase instrumentation from the render path`
-  - `1046c60 docs: withdraw PDF-CL12, track the 375px gap as P2-20`
-  - `30e1e62 docs: close the session log`
-  - `84015f3 obs(job-report): phase breadcrumbs across the render endpoint`
+  - `7bd6b5a docs: log the exception-isolation Codex review`
 - Uncommitted files (this log excluded):
   - ` M .claude/settings.local.json`
-  - ` M docs/codex-review-log.md`
+  - ` M docs/TODO.md`
+  - ` M docs/sessions/2026-09-07-chore-workflow-scaffolding-2.md`
   - `?? docs/sessions/2026-09-07-chore-workflow-scaffolding.md`
   - `?? muti-session-docs/`
   - `?? template-backup-66282.html`
@@ -112,6 +109,6 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 - Codex threads:
   - `codex resume 01a07be7-c367-7a42-a3d3-2ea2507845f9`
   - `codex resume 01a07bfb-88a6-7e93-b676-e6ba3addd8e7`
-- Window: five_hour 3% used, resets 03:30 AEST (17:30 UTC)
+- Window: five_hour 4% used, resets 03:29 AEST (17:29 UTC)
 - Next step: the first open item under "Did NOT" or "Open", else continue from the last step-log line.
 <!-- resume:end -->
