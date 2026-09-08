@@ -28,6 +28,7 @@
 - docs/DEPLOYMENT.md
 - docs/sessions/2026-09-08-chore-workflow-scaffolding-2.md (this log)
 - docs/codex-review-log.md
+- docs/TODO.md (S0b row only; the P1-23/P2-23/P2-24 edits in this file predate this session)
 
 ## Step log
 
@@ -37,19 +38,21 @@ Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` 
 - HH:MM · CC · CC · filled header · (none) · <fill>
 - 11:11 · CC · CC · S0 docs-only: added the "For the reviewer" section to AGENTS.md and wrote the production gate into the deploy checklist · AGENTS.md, docs/DEPLOYMENT.md · done, uncommitted at time of writing; 90 reviewable lines excl. docs/sessions/
 - 11:2x · CC · CC · triaged: finding ACCEPTED. Fixed the gate base (origin/production for the production review, origin/main for per-unit), made an empty range an explicit fail, corrected the AGENTS.md wording, logged the review row · docs/DEPLOYMENT.md, AGENTS.md, docs/codex-review-log.md · done, uncommitted
+- 11:4x · CC · CC · round 2 triaged: finding ACCEPTED-DEFERRED, no round 3. Wrote the round-2 review row and filed the deferred fix as S0b · docs/codex-review-log.md, docs/TODO.md · done, uncommitted. Unit closed, no further review
 
 ## Codex threads
 
 Write `codex resume <threadId>` here the moment it is printed — on stderr as `Thread ready (<id>)`, or by `node <companion> status`. The plugin SessionEnd hook deletes every job of the session, running or finished.
 
 - codex resume 01a07e93-4083-7a42-870f-519f2e0abfb1  (S0 docs review, 2026-09-08 11:1x, verdict needs-attention, 1 finding)
+- codex resume 01a07ea7-482d-7081-bd15-9d8175d66825  (S0 docs review round 2 of 2, cdcadeb, verdict needs-attention, 1 new finding [medium], NOT fixed — Michael triages)
 
 ## Review
 
 - Target: branch diff against origin/main
 - Diff lines excl. docs/sessions/: 90
 - Verdict: needs-attention
-- Findings: 1 (high — production gate names origin/main as the base; on a synced main that range is empty)
+- Findings: round 1 — 1 (high, production gate named origin/main as the base; ACCEPTED, fixed in cdcadeb). Round 2 of 2 on cdcadeb, 117 reviewable, Target: branch diff against origin/main, verdict needs-attention — 1 new (medium, gate validates ref names and a nonzero count but not that the reviewed SHAs are the ones being released; stale refs pass). NOT fixed. Round 3 ruled out in advance by Michael. Round-2 disposition: ACCEPTED-DEFERRED, reason recorded in the log row — the fix needs a round 3 the two-round cap forbids; cdcadeb is correct but incomplete (fixes which refs, not which commits); filing beats stacking. Carried as S0b in docs/TODO.md, due before the end-of-sprint terminal CLI pass. Both rows written to docs/codex-review-log.md. Unit CLOSED.
 - codex-review-log row: added 2026-09-08, chore/workflow-scaffolding c57507f. Finding ACCEPTED and fixed; re-review pending on the amended diff.
 
 ## Did
@@ -73,14 +76,13 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 <!-- resume:start -->
 <!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers -->
 
-- Updated: 2026-09-08 11:22 AEST · Tool: CC
-- Branch: chore/workflow-scaffolding @ c57507f docs: reviewer brief in AGENTS.md, production gate in DEPLOYMENT.md
+- Updated: 2026-09-08 11:47 AEST · Tool: CC
+- Branch: chore/workflow-scaffolding @ cdcadeb docs: base the production gate on origin/production, not origin/main
 - Unpushed commits:
+  - `cdcadeb docs: base the production gate on origin/production, not origin/main`
   - `c57507f docs: reviewer brief in AGENTS.md, production gate in DEPLOYMENT.md`
 - Uncommitted files (this log excluded):
   - ` M .claude/settings.local.json`
-  - ` M AGENTS.md`
-  - ` M docs/DEPLOYMENT.md`
   - ` M docs/TODO.md`
   - ` M docs/codex-review-log.md`
   - ` M docs/sessions/2026-09-07-chore-workflow-scaffolding-2.md`
@@ -91,9 +93,10 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
   - `?? muti-session-docs/`
   - `?? template-backup-66282.html`
   - `?? template-backup-66325.html`
-- Last step-log line: 11:2x · CC · CC · triaged: finding ACCEPTED. Fixed the gate base (origin/production for the production review, origin/main for per-unit), made an empty range an explicit fail, corrected the AGENTS.md wording, logged the review row · docs/DEPLOYMENT.md, AGENTS.md, docs/codex-review-log.md · done, uncommitted
+- Last step-log line: 11:4x · CC · CC · round 2 triaged: finding ACCEPTED-DEFERRED, no round 3. Wrote the round-2 review row and filed the deferred fix as S0b · docs/codex-review-log.md, docs/TODO.md · done, uncommitted. Unit closed, no further review
 - Codex threads:
   - `codex resume 01a07e93-4083-7a42-870f-519f2e0abfb1`
-- Window: five_hour 14% used, resets 12:10 AEST (02:10 UTC)
+  - `codex resume 01a07ea7-482d-7081-bd15-9d8175d66825`
+- Window: five_hour 15% used, resets 12:10 AEST (02:10 UTC)
 - Next step: the first open item under "Did NOT" or "Open", else continue from the last step-log line.
 <!-- resume:end -->
