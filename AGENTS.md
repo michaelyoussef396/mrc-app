@@ -42,10 +42,12 @@ log are still authored content and still in scope — see Reviewer-Codex under R
 
 ### You are not the production gate
 
-A `main` → `production` PR has its own gate: a terminal Codex CLI review over the whole
-branch diff, plus Michael reading `FINAL_REVIEW.md` himself. Your per-unit reviews do not
-satisfy it. The gate is written out in `docs/DEPLOYMENT.md` → "Production gate"; it is not
-restated here, so there is no second copy to drift.
+A `main` → `production` PR has its own gate: a terminal Codex CLI review over the release
+candidate, plus Michael reading `FINAL_REVIEW.md` himself. That review uses a different
+base from yours — by then the work is already on `main` — so your per-unit reviews do not
+satisfy it and cannot be substituted for it. The gate and both bases are written out in
+`docs/DEPLOYMENT.md` → "Production gate"; they are not restated here, so there is no
+second copy to drift.
 
 ## Non-negotiable rules
 
@@ -56,7 +58,7 @@ restated here, so there is no second copy to drift.
 - **`git -C <worktree>`** for anything cross-worktree. An absolute path into another worktree exits 128 and does nothing.
 - **Explicit paths only.** `git status` before `git add`; never `git add -A`, `-u`, `--all`; never `git commit -a`.
 - **Merge via GitHub with a merge commit.** Never squash, never rebase, never push to `production`. Michael runs production.
-- **Production gate:** no `main` → `production` PR opens until a terminal Codex CLI review has run over the full branch diff **and** Michael has read `FINAL_REVIEW.md` himself. Claude Code writing that file does not satisfy the gate. Canonical text, and why: `docs/DEPLOYMENT.md` → "Production gate".
+- **Production gate:** no `main` → `production` PR opens until a terminal Codex CLI review has run over the release candidate **and** Michael has read `FINAL_REVIEW.md` himself. That review is based on `origin/production`, not `origin/main` — at that point the work is already on `main`, so an `origin/main` base reads an empty diff. Claude Code writing `FINAL_REVIEW.md` does not satisfy the gate. Canonical text, both bases, and why: `docs/DEPLOYMENT.md` → "Production gate".
 - **Supabase:** the PROD project ref is never used from an agent session; every Supabase CLI command names `--project-ref ctppzqnysmzynkxjlzta` (DEV); `--linked`, `db push`, `db reset`, `migration repair`, `link` and `config push` are never run. Edge Function deploys and migrations are human-applied: the agent prepares the command, Michael runs it.
 - **Diff limit:** 150 reviewable lines per PR, counted mechanically (`docs/CODEX_WORKFLOW.md` §4), excluding `docs/sessions/`. Above it: split.
 - **No customer PII** in anything sent to Codex. Check the diff first.

@@ -36,18 +36,42 @@
 No `main` → `production` PR opens until **both** of the following have happened. Neither is
 optional, and neither can be delegated to an agent.
 
-**1. A terminal Codex CLI review has run over the full branch diff.**
+**1. A terminal Codex CLI review has run over the release candidate.**
 
 Not the plugin review. The plugin runs per unit of work and sees roughly 150 lines at a
 time, so it cannot see an interaction between two units reviewed a day apart. This gate
-wants one review over everything that is about to become live, as a single diff against
-`origin/main`.
+wants one review over everything that is about to become live.
+
+**The base is `origin/production`, not `origin/main`:**
+
+```bash
+git diff origin/production...origin/main
+```
+
+By the time this gate runs, step 1 of the Deploy Flow has already put the work on `main`.
+An `origin/main` base therefore compares `main` against itself and reads an **empty diff**
+— the review returns clean in seconds and the gate passes on nothing. `origin/production`
+is the only base that spans what is live and what is about to be. The two reviews in this
+repo have different correct bases for that reason:
+
+| Review | Work sits on | Correct base |
+|---|---|---|
+| Per-unit plugin review (`CLAUDE.md` steps 1–9) | a feature branch, not yet merged | `origin/main` |
+| Production gate (this section) | `main`, already merged | `origin/production` |
 
 Print the reviewer's `Target:` line and the diff line count **before** triaging a single
 finding. A bad `--base` exits 0 and silently reviews the wrong range, so a review that
-looks clean may never have read the code in front of you (#653). If the `Target:` line is
-not the branch diff against `origin/main`, the review did not happen — discard it unread
-and run it again.
+looks clean may never have read the code in front of you (#653). Validate the `Target:`
+line against the base the review was supposed to use:
+
+- **Per-unit review** — `Target:` must be the branch diff against `origin/main`.
+- **Production gate** — `Target:` must be `origin/production...origin/main`.
+- **Either review** — a `Target:` line reporting an empty range, or a diff line count of
+  zero, is an automatic **fail**. It is never a pass. An empty range means the review read
+  nothing, whatever verdict it printed.
+
+A `Target:` line that does not match the base for the review you are running means the
+review did not happen. Discard it unread and run it again against the right base.
 
 **2. Michael has personally read `FINAL_REVIEW.md`.**
 
