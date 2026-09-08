@@ -276,6 +276,16 @@ constraint, on the condition that the cap is stated in the pricing section of th
 where the tech can see it. Verify the text is present and visible at 375px; if it is,
 no change required.
 
+**Correction, 2026-09-08 — the number in the finding above is retired.** The residential
+equipment hire cap is **5 days**, not 4. Glen confirmed it in Slack on 2026-09-08; the 4
+was a documentation error, not a code one, and the hardcoded `'5 days'` the inspection
+report prints has been correct all along. The finding is left as written because it
+records what was found on 2 Aug 2026 — but **do not action its verification step against
+"4 days"**: the text to look for at 375px is 5. Full history in section 6, C4 of
+`docs/PRICING_CANON.md`, and P2-24 in `docs/TODO.md`. Unchanged by this correction: no
+cap is enforced anywhere in code (L1226), so "displayed guideline rather than a
+code-enforced constraint" — the substance of the finding — still holds.
+
 **RCD Box.** Charging correctly at $5 per unit per day. Absent from the MRC Pricing
 Reference table — update the reference document to include it rather than changing the
 code.

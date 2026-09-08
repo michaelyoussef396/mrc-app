@@ -532,7 +532,7 @@ Applies to Surface, Demolition, Subfloor. **Never shown to the client as a separ
 |---|---|
 | Dehumidifier hire | **$119/day/unit + GST** ✅ confirmed C1 |
 | Air mover (blower) hire | **$46/day/unit + GST** ✅ confirmed C1 |
-| Equipment cap — residential | 4 days maximum (commercial negotiated separately) |
+| Equipment cap — residential | **5 days maximum** (commercial negotiated separately) ✅ corrected 2026-09-08 — Glen, Slack. Was 4; that was wrong. See C4 in `docs/PRICING_CANON.md` and P2-24. Not enforced in code. |
 | Paid inspection | $385 + GST — credited against the quote if mould confirmed and client proceeds; **non-refundable for long-distance travel** |
 | Weekend inspection callout | $500 |
 | Travel beyond 50 km | $1.50/km — **its own line item** |
@@ -2054,7 +2054,7 @@ Interpolated table in use meantime:
 | Weekend inspection callout | **$500** |
 | Dehumidifier hire | **$119 per unit per day + GST** ✅ resolved — Glen, Slack 31 Aug |
 | Air mover (blower) hire | **$46 per unit per day + GST** ✅ resolved — Glen, Slack 31 Aug |
-| Equipment hire cap — residential | 4 days maximum (commercial negotiated separately) |
+| Equipment hire cap — residential | **5 days maximum** (commercial negotiated separately) ✅ corrected 2026-09-08 — Glen, Slack. Was 4; that was wrong. See C4 in `docs/PRICING_CANON.md` and P2-24. Not enforced in code. |
 | Travel fee — beyond 50 km | $1.50 per km, quoted as its own line item |
 
 ### B.4 Commercial rates
@@ -2422,7 +2422,7 @@ quietly dropped.
 | **Subfloor** | The crawl space under the floor. Highest rate — confined space, harder access. Appears in **both** options. |
 | **Construction Site** | Its own rate table. Takes **no** commercial surcharge on top. |
 | **Section 9** | The Cost Estimate section — the last of the 9 inspection form sections. Where hours become money. |
-| **Equipment Days** | How many days dehumidifiers and air movers stay on site. Multiplies the per-unit-per-day rate. Capped at 4 days residential. |
+| **Equipment Days** | How many days dehumidifiers and air movers stay on site. Multiplies the per-unit-per-day rate. Capped at **5 days** residential. **Corrected 2026-09-08:** this entry said 4 from 2026-09-05 (`b33e19e`) and that was wrong — Glen confirmed 5 in Slack on 2026-09-08. Recorded rather than overwritten; full history in C4 of `docs/PRICING_CANON.md` and P2-24 in `docs/TODO.md`. The cap is **not enforced in code** anywhere (L1226) — 5 is what we print and what we have agreed, not what the engine applies. |
 | **Air mover / blower** | Same thing. Drying fan. |
 | **Dehumidifier / dehu** | Drying unit, per-unit-per-day hire. |
 | **Paid inspection** | $385 + GST when there's no visible mould or it's due diligence. Credited against the quote if they proceed — except long-distance travel, where it's non-refundable. |

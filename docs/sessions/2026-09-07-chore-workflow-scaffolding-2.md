@@ -115,26 +115,22 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 <!-- resume:start -->
 <!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers -->
 
-- Updated: 2026-09-07 23:02 AEST · Tool: CC
-- Branch: chore/workflow-scaffolding @ 1046c60 docs: withdraw PDF-CL12, track the 375px gap as P2-20
+- Updated: 2026-09-07 23:25 AEST · Tool: CC
+- Branch: chore/workflow-scaffolding @ 7bd6b5a docs: log the exception-isolation Codex review
 - Unpushed commits:
-  - `1046c60 docs: withdraw PDF-CL12, track the 375px gap as P2-20`
-  - `30e1e62 docs: close the session log`
-  - `84015f3 obs(job-report): phase breadcrumbs across the render endpoint`
+  - `7bd6b5a docs: log the exception-isolation Codex review`
 - Uncommitted files (this log excluded):
   - ` M .claude/settings.local.json`
-  - ` M api/render-job-report-pdf.ts`
-  - ` M docs/codex-review-log.md`
   - ` M docs/sessions/2026-09-07-chore-workflow-scaffolding-3.md`
   - `?? docs/sessions/2026-09-07-chore-workflow-scaffolding.md`
   - `?? muti-session-docs/`
-  - `?? src/lib/__tests__/renderJobReportPdf.instrumentation.test.ts`
   - `?? template-backup-66282.html`
   - `?? template-backup-66325.html`
 - Last step-log line: 22:38 · CC · CC · 375px browser verification BLOCKED — Bash permission denied on .env*, so which Supabase ref `npm run dev` targets could not be established; standing order says local may be PROD. NOT run rather than run against an unknown backend · (none) · escalated to Michael
 - Codex threads:
   - `codex resume 01a07bc8-2e40-7cc2-9536-78fbae6b37aa`
   - `codex resume 01a07bd5-9eed-7f93-ab88-26433a9a4a73`
-- Window: five_hour 2% used, resets 03:30 AEST (17:30 UTC)
+  - `codex resume 01a07c02-ec90-7aa1-a13d-9b9d448621de`
+- Window: five_hour 3% used, resets 03:30 AEST (17:30 UTC)
 - Next step: the first open item under "Did NOT" or "Open", else continue from the last step-log line.
 <!-- resume:end -->

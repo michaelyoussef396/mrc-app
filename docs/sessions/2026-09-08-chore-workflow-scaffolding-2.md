@@ -76,20 +76,18 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 <!-- resume:start -->
 <!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers -->
 
-- Updated: 2026-09-08 11:47 AEST · Tool: CC
-- Branch: chore/workflow-scaffolding @ cdcadeb docs: base the production gate on origin/production, not origin/main
-- Unpushed commits:
-  - `cdcadeb docs: base the production gate on origin/production, not origin/main`
-  - `c57507f docs: reviewer brief in AGENTS.md, production gate in DEPLOYMENT.md`
+- Updated: 2026-09-08 15:32 AEST · Tool: CC
+- Branch: chore/workflow-scaffolding @ a715771 Merge remote-tracking branch 'origin/main' into chore/workflow-scaffolding
+- Unpushed commits: none
 - Uncommitted files (this log excluded):
   - ` M .claude/settings.local.json`
-  - ` M docs/TODO.md`
+  - ` M docs/DEPLOYMENT.md`
   - ` M docs/codex-review-log.md`
   - ` M docs/sessions/2026-09-07-chore-workflow-scaffolding-2.md`
   - ` M docs/sessions/2026-09-07-chore-workflow-scaffolding-3.md`
   - ` M docs/sessions/2026-09-07-chore-workflow-scaffolding-4.md`
   - `?? docs/sessions/2026-09-07-chore-workflow-scaffolding.md`
-  - `?? docs/sessions/2026-09-08-chore-workflow-scaffolding.md`
+  - `?? docs/sessions/2026-09-08-chore-workflow-scaffolding-3.md`
   - `?? muti-session-docs/`
   - `?? template-backup-66282.html`
   - `?? template-backup-66325.html`
@@ -97,6 +95,6 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 - Codex threads:
   - `codex resume 01a07e93-4083-7a42-870f-519f2e0abfb1`
   - `codex resume 01a07ea7-482d-7081-bd15-9d8175d66825`
-- Window: five_hour 15% used, resets 12:10 AEST (02:10 UTC)
+- Window: five_hour 3% used, resets 20:19 AEST (10:19 UTC)
 - Next step: the first open item under "Did NOT" or "Open", else continue from the last step-log line.
 <!-- resume:end -->
