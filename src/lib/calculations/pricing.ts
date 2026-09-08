@@ -233,15 +233,21 @@ export function deriveEquipmentDays(totalLabourHours: number): number {
   return Math.max(1, Math.ceil(totalLabourHours / 8));
 }
 
-// Overflow sentinel, NOT a business cap: beyond it qty × rate × days stops being money.
-// The 4-day residential hire cap in docs/PRICING_CANON.md §8 is deliberately NOT implemented
-// here — that number is Glen's or Clayton's to settle (P2-24).
+// RETRACTION, 2026-09-08. This was introduced and commented as an "overflow sentinel".
+// That was wrong: 3650 × $119 is $434,469, which float64 represents exactly, so the bound
+// is a DURATION POLICY, not an arithmetic one — and it is an unsettled policy nobody agreed.
+// It also REGRESSES explicit days above 3650, which the pre-fix engine preserved, into a
+// silent 1-day fallback. Do not build on this constant or cite it as an overflow guard.
+// Replacement shape, and the HEPA half of the same defect, are recorded in P2-26.
+// Unrelated and still open: the 4-day residential cap in docs/PRICING_CANON.md §8 is not
+// implemented anywhere and is Glen's or Clayton's to settle (P2-24).
 const MAX_QUOTABLE_EQUIPMENT_DAYS = 3650;
 
 /**
- * A usable explicit hire period. NaN, negative, zero, Infinity and Number.MAX_VALUE-class
- * magnitudes all fall back to the labour-derived days — the same behaviour absent/0 has
- * always had — rather than poisoning the estimate with Infinity or NaN.
+ * A usable explicit hire period. NaN, negative, zero and Infinity fall back to the
+ * labour-derived days — the same behaviour absent/0 has always had — rather than poisoning
+ * the estimate. Values above MAX_QUOTABLE_EQUIPMENT_DAYS also fall back, which is the
+ * unsettled part: see the retraction above and P2-26.
  */
 function isUsableEquipmentDays(days: number | undefined): days is number {
   return (

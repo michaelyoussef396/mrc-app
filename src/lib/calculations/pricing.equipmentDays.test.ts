@@ -11,6 +11,9 @@ import { calculateCostEstimate, deriveEquipmentDays, EQUIPMENT_RATES, round2 } f
 // captured by running calculateCostEstimate from pricing.ts at commit 63dca6b —
 // the last commit before equipmentDays existed — over the shapes below, via
 // vite-node. Re-capture the same way if a deliberate pricing change lands.
+//
+// SCOPE: this is SELECTED-FIELD parity over the six fields in toQuoteSnapshot, not complete
+// output parity. A change confined to a field outside that set would pass these tests.
 // ---------------------------------------------------------------------------
 
 const BASE = {
