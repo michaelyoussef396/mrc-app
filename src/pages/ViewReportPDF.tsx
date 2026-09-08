@@ -182,7 +182,7 @@ const AREA_SELECT_COLUMNS =
 // Every inspection column the cost editor's auto-estimate reads. Refetched WITH the areas,
 // never on its own — see pricingInputsStale.
 const PRICING_INPUT_COLUMNS =
-  'commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty, equipment_days, hepa_air_scrubber_qty, hepa_air_scrubber_days, waste_disposal_confirmed_cost, option_selected' as const
+  'commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty, equipment_days, hepa_air_scrubber_qty, hepa_air_scrubber_days, waste_disposal_confirmed_cost, option_selected, subfloor_required' as const
 
 const INSPECTION_SELECT = `
   id,
@@ -2279,6 +2279,24 @@ export default function ViewReportPDF() {
 
     if (areasResult.error || !areasResult.data || pricingResult.error || !pricingResult.data) {
       return null
+    }
+
+    // Subfloor treatment time feeds the same derived hours the stored equipment days are
+    // reconciled against, so it belongs to this snapshot too — refreshing the areas and the
+    // inspection row while leaving it behind is the same defect one input over. A subfloor
+    // that is now off, or whose row has gone, must CLEAR the retained state rather than
+    // leave stale hours standing.
+    const pricing = pricingResult.data as { subfloor_required?: boolean | null }
+    if (pricing.subfloor_required === false) {
+      setSubfloorData(null)
+    } else {
+      const { data: freshSubfloor, error: subfloorError } = await supabase
+        .from('subfloor_data')
+        .select('id, observations, comments, landscape, treatment_time_minutes')
+        .eq('inspection_id', inspectionId)
+        .maybeSingle()
+      if (subfloorError) return null
+      setSubfloorData(freshSubfloor ?? null)
     }
 
     const areas = areasResult.data as AreaRecord[]

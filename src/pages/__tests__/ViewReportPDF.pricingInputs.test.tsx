@@ -73,10 +73,21 @@ function area(id: string, jobTimeMinutes: number) {
   }
 }
 
-function inspectionRow(equipmentDays: number) {
+function subfloorRow(treatmentTimeMinutes: number) {
+  return {
+    id: 'subfloor-1',
+    observations: '',
+    comments: '',
+    landscape: '',
+    treatment_time_minutes: treatmentTimeMinutes,
+  }
+}
+
+function inspectionRow(equipmentDays: number, subfloorRequired = false) {
   return {
     id: INSPECTION_ID,
     job_number: 'JOB-1',
+    subfloor_required: subfloorRequired,
     // Without a rendered report the page short-circuits to "No Report Generated" and the
     // cost editor never mounts.
     pdf_url: 'https://reports.test/inspection-report.html',
@@ -88,7 +99,6 @@ function inspectionRow(equipmentDays: number) {
     hepa_air_scrubber_days: null,
     waste_disposal_confirmed_cost: 0,
     option_selected: 2,
-    subfloor_required: false,
     labour_cost_ex_gst: 0,
     equipment_cost_ex_gst: 0,
   }
@@ -141,6 +151,45 @@ describe('ViewReportPDF — equipment days must refresh with the areas', () => {
     // now current in the database — the only question is whether the page reads both.
     tableResults.inspections = { data: inspectionRow(1), error: null }
     tableResults.inspection_areas = { data: [area('a1', 240)], error: null }
+
+    await user.click(await screen.findByRole('button', { name: /Edit Areas|Add Areas/ }))
+    await user.click(await screen.findByRole('button', { name: /Add Area/i }))
+    await user.type(await screen.findByPlaceholderText(/Area name/i), 'Bedroom 2')
+    await user.click(screen.getByRole('button', { name: /Create Area/i }))
+
+    await waitFor(() => expect(latestAutoEquipment()).toBe(DEHUMIDIFIER_RATE))
+  })
+})
+
+describe('ViewReportPDF — subfloor treatment time must refresh with the areas', () => {
+  // Subfloor treatment time feeds the same derived hours the stored equipment days are
+  // reconciled against, so refreshing the areas and the inspection row while leaving the
+  // subfloor snapshot behind reproduces the defect one input over.
+  beforeEach(() => {
+    costDataSeen.length = 0
+    for (const key of Object.keys(tableResults)) delete tableResults[key]
+    // 4h of areas + 12h of subfloor treatment = 16h, deriving 2 days. Stored 2 is what the
+    // hours derive, so it is auto: 1 x $119 x 2 = $238.
+    tableResults.inspections = { data: inspectionRow(2, true), error: null }
+    tableResults.inspection_areas = { data: [area('a1', 240)], error: null }
+    tableResults.subfloor_data = { data: subfloorRow(720), error: null }
+  })
+
+  it('should quote two days while the subfloor treatment still counts', async () => {
+    renderInspectionReport()
+    await waitFor(() => expect(latestAutoEquipment()).not.toBeNull())
+    expect(latestAutoEquipment()).toBe(DEHUMIDIFIER_RATE * 2)
+  })
+
+  it('should requote one day after the subfloor treatment is cleared', async () => {
+    const user = userEvent.setup()
+    renderInspectionReport()
+    await waitFor(() => expect(latestAutoEquipment()).toBe(DEHUMIDIFIER_RATE * 2))
+
+    // Subfloor treatment is cleared and equipment_days follows it down. The areas are
+    // untouched, so ONLY the subfloor snapshot and the inspection row have moved.
+    tableResults.inspections = { data: inspectionRow(1, true), error: null }
+    tableResults.subfloor_data = { data: subfloorRow(0), error: null }
 
     await user.click(await screen.findByRole('button', { name: /Edit Areas|Add Areas/ }))
     await user.click(await screen.findByRole('button', { name: /Add Area/i }))
