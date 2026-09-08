@@ -131,6 +131,7 @@ interface Inspection {
   rcd_box_qty?: number | null
   hepa_air_scrubber_qty?: number | null
   hepa_air_scrubber_days?: number | null
+  equipment_days?: number | null
   lead?: {
     id: string
     full_name: string
@@ -178,6 +179,11 @@ interface EditableField {
 const AREA_SELECT_COLUMNS =
   'id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes, infrared_enabled, include_in_report, job_time_minutes, demolition_time_minutes, demolition_required' as const
 
+// Every inspection column the cost editor's auto-estimate reads. Refetched WITH the areas,
+// never on its own — see pricingInputsStale.
+const PRICING_INPUT_COLUMNS =
+  'commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty, equipment_days, hepa_air_scrubber_qty, hepa_air_scrubber_days, waste_disposal_confirmed_cost, option_selected, subfloor_required' as const
+
 const INSPECTION_SELECT = `
   id,
   job_number,
@@ -220,6 +226,7 @@ const INSPECTION_SELECT = `
   rcd_box_qty,
   hepa_air_scrubber_qty,
   hepa_air_scrubber_days,
+  equipment_days,
   lead:leads(
     id,
     full_name,
@@ -492,6 +499,12 @@ export default function ViewReportPDF() {
 
   // Areas Inspected data + edit sheet
   const [areasData, setAreasData] = useState<AreaRecord[]>([])
+  // The cost editor reconciles the STORED equipment days against hours derived from
+  // areasData. Refresh one without the other and a stale auto day count reconciles as an
+  // EXPLICIT hire period, so the editor saves an inflated quote — $238 where $119 is right.
+  // Both move together via refreshAreasAndPricingInputs; while they are apart costData is
+  // withheld, which is what shuts the editor.
+  const [pricingInputsStale, setPricingInputsStale] = useState(false)
   const [areaEditOpen, setAreaEditOpen] = useState(false)
   const [editingAreaId, setEditingAreaId] = useState<string | null>(null)
   const [areaForm, setAreaForm] = useState<Record<string, unknown>>({})
@@ -1685,6 +1698,7 @@ export default function ViewReportPDF() {
           dehumidifierQty: inspection.commercial_dehumidifier_qty ?? 0,
           airMoverQty: inspection.air_movers_qty ?? 0,
           rcdQty: inspection.rcd_box_qty ?? 0,
+          equipmentDays: inspection.equipment_days ?? undefined,
           hepaAirScrubberQty: inspection.hepa_air_scrubber_qty ?? 0,
           hepaAirScrubberDays: inspection.hepa_air_scrubber_days ?? undefined,
         },
@@ -1694,7 +1708,10 @@ export default function ViewReportPDF() {
     : null
 
   // Cost data for cleaning estimate editing
-  const costData: CostData | null = inspection && autoEstimate ? {
+  // Withheld while the areas and the pricing inputs disagree: ReportPreviewHTML gates the
+  // whole cost editor on costData, so null is what shuts it. Refreshing the areas alone
+  // would otherwise let a stale auto day count reconcile as an explicit hire and overbill.
+  const costData: CostData | null = inspection && autoEstimate && !pricingInputsStale ? {
     labour_cost_ex_gst: inspection.labour_cost_ex_gst ?? 0,
     equipment_cost_ex_gst: inspection.equipment_cost_ex_gst ?? 0,
     subtotal_ex_gst: inspection.subtotal_ex_gst ?? 0,
@@ -2107,13 +2124,9 @@ export default function ViewReportPDF() {
       setAreaEditOpen(false)
       setEditingAreaId(null)
 
-      // Refresh areas data
-      const { data: areas } = await supabase
-        .from('inspection_areas')
-        .select(AREA_SELECT_COLUMNS)
-        .eq('inspection_id', inspection.id)
-        .order('area_order', { ascending: true })
-      setAreasData((areas || []) as AreaRecord[])
+      // Areas and pricing inputs refresh together — an area time edit changes the derived
+      // hours the stored equipment days are reconciled against.
+      if (!await refreshAreasAndPricingInputs(inspection.id)) warnPricingInputsUnrefreshed()
 
       handleGeneratePDF()
     } catch (error) {
@@ -2229,6 +2242,70 @@ export default function ViewReportPDF() {
     }
   }
 
+  /**
+   * A failed refresh leaves pricingInputsStale set, which withholds costData and shuts the
+   * cost editor. Correct, but it must not happen silently — say why and name the way out,
+   * or the editor just disappears. A reload clears it: the flag starts false and the mount
+   * path loads areas and the inspection together.
+   */
+  function warnPricingInputsUnrefreshed() {
+    toast.warning(
+      'Cost editing is paused — the job\'s pricing figures could not be refreshed. Reload to re-enable it.',
+      { duration: HARD_SAVE_ERROR_TOAST_MS },
+    )
+  }
+
+  /**
+   * Refetch the areas AND the inspection's pricing inputs together, because the cost
+   * editor's auto-estimate reconciles one against the other. Returns the fresh areas, or
+   * null if either fetch failed — callers leave their existing state alone on null, since
+   * emptying areasData would show the job at zero labour off a transient blip.
+   * While a refresh is in flight or has failed, pricingInputsStale withholds costData.
+   */
+  async function refreshAreasAndPricingInputs(inspectionId: string): Promise<AreaRecord[] | null> {
+    setPricingInputsStale(true)
+    const [areasResult, pricingResult] = await Promise.all([
+      supabase
+        .from('inspection_areas')
+        .select(AREA_SELECT_COLUMNS)
+        .eq('inspection_id', inspectionId)
+        .order('area_order', { ascending: true }),
+      supabase
+        .from('inspections')
+        .select(PRICING_INPUT_COLUMNS)
+        .eq('id', inspectionId)
+        .maybeSingle(),
+    ])
+
+    if (areasResult.error || !areasResult.data || pricingResult.error || !pricingResult.data) {
+      return null
+    }
+
+    // Subfloor treatment time feeds the same derived hours the stored equipment days are
+    // reconciled against, so it belongs to this snapshot too — refreshing the areas and the
+    // inspection row while leaving it behind is the same defect one input over. A subfloor
+    // that is now off, or whose row has gone, must CLEAR the retained state rather than
+    // leave stale hours standing.
+    const pricing = pricingResult.data as { subfloor_required?: boolean | null }
+    if (pricing.subfloor_required === false) {
+      setSubfloorData(null)
+    } else {
+      const { data: freshSubfloor, error: subfloorError } = await supabase
+        .from('subfloor_data')
+        .select('id, observations, comments, landscape, treatment_time_minutes')
+        .eq('inspection_id', inspectionId)
+        .maybeSingle()
+      if (subfloorError) return null
+      setSubfloorData(freshSubfloor ?? null)
+    }
+
+    const areas = areasResult.data as AreaRecord[]
+    setAreasData(areas)
+    setInspection(prev => (prev ? { ...prev, ...pricingResult.data } as typeof prev : prev))
+    setPricingInputsStale(false)
+    return areas
+  }
+
   async function handleAddArea() {
     if (!newAreaName.trim() || !inspection?.id) return
     setSavingNewArea(true)
@@ -2256,13 +2333,8 @@ export default function ViewReportPDF() {
 
       if (error) throw error
 
-      // Refresh areas list
-      const { data: areas } = await supabase
-        .from('inspection_areas')
-        .select(AREA_SELECT_COLUMNS)
-        .eq('inspection_id', inspection.id)
-        .order('area_order', { ascending: true })
-      setAreasData((areas || []) as AreaRecord[])
+      // Areas and pricing inputs refresh together — see refreshAreasAndPricingInputs.
+      if (!await refreshAreasAndPricingInputs(inspection.id)) warnPricingInputsUnrefreshed()
 
       // Auto-open the new area for editing
       setNewAreaName('')
@@ -2309,25 +2381,20 @@ export default function ViewReportPDF() {
       // Past this point the write has COMMITTED. Nothing below may tell the user
       // the change failed — that false claim is what drove six duplicate saves on
       // 27 Aug (see handleDownload).
-      const { data: areas, error: refetchError } = await supabase
-        .from('inspection_areas')
-        .select(AREA_SELECT_COLUMNS)
-        .eq('inspection_id', inspection.id)
-        .order('area_order', { ascending: true })
+      const areas = await refreshAreasAndPricingInputs(inspection.id)
 
-      if (refetchError || !areas) {
+      if (!areas) {
         // Leave areasData alone. Overwriting it with null empties the list that
         // autoEstimate derives labour hours from, which would show the job at
-        // zero labour off the back of a transient network blip.
-        console.error('Area refetch after visibility toggle failed:', refetchError)
+        // zero labour off the back of a transient network blip. pricingInputsStale
+        // stays set, so the cost editor is shut until a successful refresh.
+        console.error('Area refetch after visibility toggle failed')
         toast.warning(
           `"${area.area_name}" was ${nextIncluded ? 'restored' : 'hidden'}, but the list could not be refreshed — reload to see the current state.`,
           { duration: HARD_SAVE_ERROR_TOAST_MS },
         )
         return
       }
-
-      setAreasData(areas as AreaRecord[])
 
       const noneLeft = !nextIncluded
         && (areas as AreaRecord[]).every(a => a.include_in_report === false)
