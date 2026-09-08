@@ -19,9 +19,10 @@
 ### Deploy Flow
 1. Push changes to `main`
 2. Check the Vercel preview URL
-3. Create a PR: `main` → `production`
-4. Merge the PR
-5. Vercel auto-deploys to the live URL
+3. **Clear the [production gate](#production-gate). The PR does not open until it is met.**
+4. Create a PR: `main` → `production`
+5. Merge the PR
+6. Vercel auto-deploys to the live URL
 
 ### Manual Setup Required (Vercel Dashboard)
 1. **Set production branch:** Project Settings → Git → Production Branch → `production`
@@ -30,7 +31,86 @@
 
 ---
 
+## Production gate
+
+No `main` → `production` PR opens until **both** of the following have happened. Neither is
+optional, and neither can be delegated to an agent.
+
+**1. A terminal Codex CLI review has run over the release candidate.**
+
+Not the plugin review. The plugin runs per unit of work and sees roughly 150 lines at a
+time, so it cannot see an interaction between two units reviewed a day apart. This gate
+wants one review over everything that is about to become live.
+
+**The base is `origin/production`, not `origin/main`:**
+
+```bash
+git diff origin/production...origin/main
+```
+
+By the time this gate runs, step 1 of the Deploy Flow has already put the work on `main`.
+An `origin/main` base therefore compares `main` against itself and reads an **empty diff**
+— the review returns clean in seconds and the gate passes on nothing. `origin/production`
+is the only base that spans what is live and what is about to be. The two reviews in this
+repo have different correct bases for that reason:
+
+| Review | Work sits on | Correct base |
+|---|---|---|
+| Per-unit plugin review (`CLAUDE.md` steps 1–9) | a feature branch, not yet merged | `origin/main` |
+| Production gate (this section) | `main`, already merged | `origin/production` |
+
+Print the reviewer's `Target:` line and the diff line count **before** triaging a single
+finding. A bad `--base` exits 0 and silently reviews the wrong range, so a review that
+looks clean may never have read the code in front of you (#653). Validate the `Target:`
+line against the base the review was supposed to use:
+
+- **Per-unit review** — `Target:` must be the branch diff against `origin/main`.
+- **Production gate** — `Target:` must be `origin/production...origin/main`.
+- **Either review** — a `Target:` line reporting an empty range, or a diff line count of
+  zero, is an automatic **fail**. It is never a pass. An empty range means the review read
+  nothing, whatever verdict it printed.
+
+A `Target:` line that does not match the base for the review you are running means the
+review did not happen. Discard it unread and run it again against the right base.
+
+**A conflict resolution is reviewable content in its own right.**
+
+If a branch takes a merge commit after its last review, the resolution gets its own review
+before the PR merges. A review of the pre-merge head does not cover it — that review ran
+against a commit the resolution did not exist in.
+
+This holds even when every line of the resolution came verbatim from one side or the other.
+Taking row A from one parent and row B from the other produces a file state that existed on
+neither, and it is that state which ships. "No line was invented" is not the same claim as
+"this was reviewed", and only the second one closes the gate.
+
+So, after any merge commit on the branch: re-run the review against the merged head, or
+record the miss in `docs/codex-review-log.md` with the reason it was accepted. A miss that
+is written down is a known gap; a miss that is not is an unreviewed change nobody can find
+later. **Precedent: `a715771`, 2026-09-08** — merged in PR #158 with the `docs/TODO.md`
+resolution unreviewed, accepted after the fact because it was docs-only, logged as a MISS
+row. The same shape with code in it does not get the same disposition.
+
+**2. Michael has personally read `FINAL_REVIEW.md`.**
+
+Read it himself, in full, before the PR opens.
+
+> **Claude Code writing `FINAL_REVIEW.md` does not satisfy the gate.**
+>
+> The file existing is not the gate. The file being accurate is not the gate. An agent
+> summarising the review, pronouncing it clean and moving on is not the gate. The gate is
+> a human reading it. This is spelled out because it is the exact step that was skipped on
+> **7 September 2026**, and that is how a broken PDF render endpoint reached production.
+
+A review that has run but has not been read is an unmet gate. A review Michael has read and
+triaged is a met one — the findings do not all have to be fixed, they have to be seen and
+dispositioned.
+
+---
+
 ## Table of Contents
+
+**[Production gate](#production-gate)** — clear it before any `main` → `production` PR.
 
 1. [Prerequisites](#prerequisites)
 2. [Environment Variables](#environment-variables)

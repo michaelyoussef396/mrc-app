@@ -82,9 +82,10 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 <!-- resume:start -->
 <!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers -->
 
-- Updated: 2026-09-08 00:19 AEST · Tool: CC
-- Branch: chore/workflow-scaffolding @ 86dbcbb docs: capture ten findings from the render-endpoint P0
+- Updated: 2026-09-08 00:23 AEST · Tool: CC
+- Branch: chore/workflow-scaffolding @ 95a6063 docs: log the deferred setContent finding, correct P2-21
 - Unpushed commits:
+  - `95a6063 docs: log the deferred setContent finding, correct P2-21`
   - `86dbcbb docs: capture ten findings from the render-endpoint P0`
   - `fb013db fix(job-report): stop waiting for network idle in setContent`
   - `7bd6b5a docs: log the exception-isolation Codex review`

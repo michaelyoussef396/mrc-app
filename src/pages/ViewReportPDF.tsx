@@ -131,6 +131,7 @@ interface Inspection {
   rcd_box_qty?: number | null
   hepa_air_scrubber_qty?: number | null
   hepa_air_scrubber_days?: number | null
+  equipment_days?: number | null
   lead?: {
     id: string
     full_name: string
@@ -178,6 +179,11 @@ interface EditableField {
 const AREA_SELECT_COLUMNS =
   'id, area_name, temperature, humidity, dew_point, external_moisture, internal_moisture, mould_visible_locations, comments, extra_notes, infrared_enabled, include_in_report, job_time_minutes, demolition_time_minutes, demolition_required' as const
 
+// Every inspection column the cost editor's auto-estimate reads. Refetched WITH the areas,
+// never on its own — see pricingInputsStale.
+const PRICING_INPUT_COLUMNS =
+  'commercial_dehumidifier_qty, air_movers_qty, rcd_box_qty, equipment_days, hepa_air_scrubber_qty, hepa_air_scrubber_days, waste_disposal_confirmed_cost, option_selected, subfloor_required' as const
+
 const INSPECTION_SELECT = `
   id,
   job_number,
@@ -220,6 +226,7 @@ const INSPECTION_SELECT = `
   rcd_box_qty,
   hepa_air_scrubber_qty,
   hepa_air_scrubber_days,
+  equipment_days,
   lead:leads(
     id,
     full_name,
@@ -231,6 +238,15 @@ const INSPECTION_SELECT = `
     property_address_postcode
   )
 `
+
+/**
+ * A history version selected for preview, tagged with the job completion it was
+ * selected from. The tag is what stops the selection outliving that completion.
+ */
+interface PinnedJobVersion {
+  url: string
+  jobCompletionId: string
+}
 
 /**
  * The report HTML a preview has finished loading, tagged with what produced it.
@@ -387,7 +403,7 @@ export default function ViewReportPDF() {
   const [approving, setApproving] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [showVersions, setShowVersions] = useState(false)
-  const [jobPdfUrlOverride, setJobPdfUrlOverride] = useState<string | null>(null)
+  const [pinnedJobVersion, setPinnedJobVersion] = useState<PinnedJobVersion | null>(null)
   // Escape hatch: the report HTML JobReportPreview already downloaded, lifted so
   // the toolbar's View button can open it in a new tab without a second fetch.
   // Holding it here is what keeps window.open synchronous inside the click
@@ -483,6 +499,12 @@ export default function ViewReportPDF() {
 
   // Areas Inspected data + edit sheet
   const [areasData, setAreasData] = useState<AreaRecord[]>([])
+  // The cost editor reconciles the STORED equipment days against hours derived from
+  // areasData. Refresh one without the other and a stale auto day count reconciles as an
+  // EXPLICIT hire period, so the editor saves an inflated quote — $238 where $119 is right.
+  // Both move together via refreshAreasAndPricingInputs; while they are apart costData is
+  // withheld, which is what shuts the editor.
+  const [pricingInputsStale, setPricingInputsStale] = useState(false)
   const [areaEditOpen, setAreaEditOpen] = useState(false)
   const [editingAreaId, setEditingAreaId] = useState<string | null>(null)
   const [areaForm, setAreaForm] = useState<Record<string, unknown>>({})
@@ -567,7 +589,21 @@ export default function ViewReportPDF() {
   // pinned, otherwise the job's latest. Single source of truth for both the
   // preview and the View button, so the two can never disagree about which
   // version is on screen.
-  const jobHtmlUrl = jobPdfUrlOverride || jobCompletion?.pdf_url || null
+  // A pin is only valid for the completion it was taken from. The mounted page
+  // can switch completions underneath it (a refetch resolving to a different
+  // job), and a surviving pin then re-tagged that old URL's HTML with the NEW
+  // completion's id — passing both identity checks and letting one job's report
+  // be exported under another job's heading (Codex review, 2026-09-08).
+  //
+  // A *missing* completion is not a mismatch. It is transient (first load, a
+  // failed refetch), and discarding the pin there would throw away the admin's
+  // selection for no safety gain: without a completion the preview is not built
+  // at all and isLoadedJobReportCurrent already reads as not-ready.
+  const pinnedUrlForCurrentJob =
+    pinnedJobVersion && (!jobCompletion || pinnedJobVersion.jobCompletionId === jobCompletion.id)
+      ? pinnedJobVersion.url
+      : null
+  const jobHtmlUrl = pinnedUrlForCurrentJob || jobCompletion?.pdf_url || null
   const isJobReportViewReady = isLoadedJobReportCurrent(
     loadedJobReport,
     jobCompletion?.id,
@@ -852,7 +888,7 @@ export default function ViewReportPDF() {
       toast.success(`${jobEditField.label} updated`)
       setJobEditOpen(false)
       setJobEditField(null)
-      setJobPdfUrlOverride(null)
+      setPinnedJobVersion(null)
     } catch (err) {
       toast.error('Failed to update field')
       console.error(err)
@@ -1662,6 +1698,7 @@ export default function ViewReportPDF() {
           dehumidifierQty: inspection.commercial_dehumidifier_qty ?? 0,
           airMoverQty: inspection.air_movers_qty ?? 0,
           rcdQty: inspection.rcd_box_qty ?? 0,
+          equipmentDays: inspection.equipment_days ?? undefined,
           hepaAirScrubberQty: inspection.hepa_air_scrubber_qty ?? 0,
           hepaAirScrubberDays: inspection.hepa_air_scrubber_days ?? undefined,
         },
@@ -1671,7 +1708,10 @@ export default function ViewReportPDF() {
     : null
 
   // Cost data for cleaning estimate editing
-  const costData: CostData | null = inspection && autoEstimate ? {
+  // Withheld while the areas and the pricing inputs disagree: ReportPreviewHTML gates the
+  // whole cost editor on costData, so null is what shuts it. Refreshing the areas alone
+  // would otherwise let a stale auto day count reconcile as an explicit hire and overbill.
+  const costData: CostData | null = inspection && autoEstimate && !pricingInputsStale ? {
     labour_cost_ex_gst: inspection.labour_cost_ex_gst ?? 0,
     equipment_cost_ex_gst: inspection.equipment_cost_ex_gst ?? 0,
     subtotal_ex_gst: inspection.subtotal_ex_gst ?? 0,
@@ -2084,13 +2124,9 @@ export default function ViewReportPDF() {
       setAreaEditOpen(false)
       setEditingAreaId(null)
 
-      // Refresh areas data
-      const { data: areas } = await supabase
-        .from('inspection_areas')
-        .select(AREA_SELECT_COLUMNS)
-        .eq('inspection_id', inspection.id)
-        .order('area_order', { ascending: true })
-      setAreasData((areas || []) as AreaRecord[])
+      // Areas and pricing inputs refresh together — an area time edit changes the derived
+      // hours the stored equipment days are reconciled against.
+      if (!await refreshAreasAndPricingInputs(inspection.id)) warnPricingInputsUnrefreshed()
 
       handleGeneratePDF()
     } catch (error) {
@@ -2206,6 +2242,70 @@ export default function ViewReportPDF() {
     }
   }
 
+  /**
+   * A failed refresh leaves pricingInputsStale set, which withholds costData and shuts the
+   * cost editor. Correct, but it must not happen silently — say why and name the way out,
+   * or the editor just disappears. A reload clears it: the flag starts false and the mount
+   * path loads areas and the inspection together.
+   */
+  function warnPricingInputsUnrefreshed() {
+    toast.warning(
+      'Cost editing is paused — the job\'s pricing figures could not be refreshed. Reload to re-enable it.',
+      { duration: HARD_SAVE_ERROR_TOAST_MS },
+    )
+  }
+
+  /**
+   * Refetch the areas AND the inspection's pricing inputs together, because the cost
+   * editor's auto-estimate reconciles one against the other. Returns the fresh areas, or
+   * null if either fetch failed — callers leave their existing state alone on null, since
+   * emptying areasData would show the job at zero labour off a transient blip.
+   * While a refresh is in flight or has failed, pricingInputsStale withholds costData.
+   */
+  async function refreshAreasAndPricingInputs(inspectionId: string): Promise<AreaRecord[] | null> {
+    setPricingInputsStale(true)
+    const [areasResult, pricingResult] = await Promise.all([
+      supabase
+        .from('inspection_areas')
+        .select(AREA_SELECT_COLUMNS)
+        .eq('inspection_id', inspectionId)
+        .order('area_order', { ascending: true }),
+      supabase
+        .from('inspections')
+        .select(PRICING_INPUT_COLUMNS)
+        .eq('id', inspectionId)
+        .maybeSingle(),
+    ])
+
+    if (areasResult.error || !areasResult.data || pricingResult.error || !pricingResult.data) {
+      return null
+    }
+
+    // Subfloor treatment time feeds the same derived hours the stored equipment days are
+    // reconciled against, so it belongs to this snapshot too — refreshing the areas and the
+    // inspection row while leaving it behind is the same defect one input over. A subfloor
+    // that is now off, or whose row has gone, must CLEAR the retained state rather than
+    // leave stale hours standing.
+    const pricing = pricingResult.data as { subfloor_required?: boolean | null }
+    if (pricing.subfloor_required === false) {
+      setSubfloorData(null)
+    } else {
+      const { data: freshSubfloor, error: subfloorError } = await supabase
+        .from('subfloor_data')
+        .select('id, observations, comments, landscape, treatment_time_minutes')
+        .eq('inspection_id', inspectionId)
+        .maybeSingle()
+      if (subfloorError) return null
+      setSubfloorData(freshSubfloor ?? null)
+    }
+
+    const areas = areasResult.data as AreaRecord[]
+    setAreasData(areas)
+    setInspection(prev => (prev ? { ...prev, ...pricingResult.data } as typeof prev : prev))
+    setPricingInputsStale(false)
+    return areas
+  }
+
   async function handleAddArea() {
     if (!newAreaName.trim() || !inspection?.id) return
     setSavingNewArea(true)
@@ -2233,13 +2333,8 @@ export default function ViewReportPDF() {
 
       if (error) throw error
 
-      // Refresh areas list
-      const { data: areas } = await supabase
-        .from('inspection_areas')
-        .select(AREA_SELECT_COLUMNS)
-        .eq('inspection_id', inspection.id)
-        .order('area_order', { ascending: true })
-      setAreasData((areas || []) as AreaRecord[])
+      // Areas and pricing inputs refresh together — see refreshAreasAndPricingInputs.
+      if (!await refreshAreasAndPricingInputs(inspection.id)) warnPricingInputsUnrefreshed()
 
       // Auto-open the new area for editing
       setNewAreaName('')
@@ -2286,25 +2381,20 @@ export default function ViewReportPDF() {
       // Past this point the write has COMMITTED. Nothing below may tell the user
       // the change failed — that false claim is what drove six duplicate saves on
       // 27 Aug (see handleDownload).
-      const { data: areas, error: refetchError } = await supabase
-        .from('inspection_areas')
-        .select(AREA_SELECT_COLUMNS)
-        .eq('inspection_id', inspection.id)
-        .order('area_order', { ascending: true })
+      const areas = await refreshAreasAndPricingInputs(inspection.id)
 
-      if (refetchError || !areas) {
+      if (!areas) {
         // Leave areasData alone. Overwriting it with null empties the list that
         // autoEstimate derives labour hours from, which would show the job at
-        // zero labour off the back of a transient network blip.
-        console.error('Area refetch after visibility toggle failed:', refetchError)
+        // zero labour off the back of a transient network blip. pricingInputsStale
+        // stays set, so the cost editor is shut until a successful refresh.
+        console.error('Area refetch after visibility toggle failed')
         toast.warning(
           `"${area.area_name}" was ${nextIncluded ? 'restored' : 'hidden'}, but the list could not be refreshed — reload to see the current state.`,
           { duration: HARD_SAVE_ERROR_TOAST_MS },
         )
         return
       }
-
-      setAreasData(areas as AreaRecord[])
 
       const noneLeft = !nextIncluded
         && (areas as AreaRecord[]).every(a => a.include_in_report === false)
@@ -2496,7 +2586,7 @@ export default function ViewReportPDF() {
   }
 
   // Job report: show generate prompt if no PDF yet
-  if (reportType === 'job' && !jobPdfUrlOverride && !jobCompletion?.pdf_url) {
+  if (reportType === 'job' && !jobHtmlUrl) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
         <div className="text-center max-w-md">
@@ -2956,12 +3046,11 @@ export default function ViewReportPDF() {
             <h3 className="text-sm font-semibold mb-2">Version History (Job Report)</h3>
             <div className="flex gap-2 overflow-x-auto pb-2">
               {displayVersions.map((v) => {
-                const currentPdfUrl = jobPdfUrlOverride || jobCompletion?.pdf_url
-                const isActive = currentPdfUrl === v.pdf_url
+                const isActive = jobHtmlUrl === v.pdf_url
                 return (
                 <button
                   key={v.id}
-                  onClick={() => setJobPdfUrlOverride(v.pdf_url)}
+                  onClick={() => jobCompletion && setPinnedJobVersion({ url: v.pdf_url, jobCompletionId: jobCompletion.id })}
                   className={`flex-shrink-0 px-3 py-2 rounded-lg text-sm border min-h-[48px] ${
                     isActive
                       ? 'bg-orange-100 border-orange-500'
@@ -3031,10 +3120,10 @@ export default function ViewReportPDF() {
       <div className="flex-1">
         {reportType === 'job' ? (
           <div className="flex-1 bg-gray-50 flex flex-col items-center justify-start p-6 overflow-auto">
-            {jobHtmlUrl ? (
+            {jobHtmlUrl && jobCompletion ? (
               <JobReportPreview
                 htmlUrl={jobHtmlUrl}
-                jobCompletionId={jobCompletion!.id}
+                jobCompletionId={jobCompletion.id}
                 onHtmlLoaded={handleJobHtmlLoaded}
               />
             ) : (

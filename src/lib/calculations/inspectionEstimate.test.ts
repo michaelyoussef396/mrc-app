@@ -177,6 +177,59 @@ describe('computeInspectionEstimate — equipment', () => {
 
     expect(estimate.full.equipment.hepaAirScrubber.cost).toBe(600);
   });
+
+  it('should bill drying equipment over the explicit shared days', () => {
+    // (2×119 + 4×46) × 4 = 1,688 on a job that derives a single labour day
+    const estimate = computeInspectionEstimate({
+      areas: [area(150)],
+      equipment: { ...NO_EQUIPMENT, dehumidifierQty: 2, airMoverQty: 4, equipmentDays: 4 },
+      optionSelected: 1,
+    });
+
+    expect(estimate.full.equipmentCost).toBe(1688);
+  });
+
+  it('should apply the explicit shared days to the Option 1 sub-quote too', () => {
+    const estimate = computeInspectionEstimate({
+      areas: [area(150, 120, true)],
+      equipment: { ...NO_EQUIPMENT, dehumidifierQty: 1, equipmentDays: 3 },
+      optionSelected: 3,
+    });
+
+    expect(estimate.option1.equipmentCost).toBe(357);
+  });
+
+  it('should treat a legacy equipment_days of 1 on a multi-day job as auto', () => {
+    // 16h derives 2 days; the column default 1 must not shorten the hire: 2 × 119 × 2
+    const estimate = computeInspectionEstimate({
+      areas: [area(960)],
+      equipment: { ...NO_EQUIPMENT, dehumidifierQty: 2, equipmentDays: 1 },
+      optionSelected: 1,
+    });
+
+    expect(estimate.full.equipmentCost).toBe(476);
+  });
+
+  it('should let the Option 1 sub-quote derive its own days when the stored days are the full quote\'s auto days', () => {
+    // Full 10h → 2 days stored; Option 1 is 4h of surface → 1 day, as the form saves it
+    const estimate = computeInspectionEstimate({
+      areas: [area(240, 360, true)],
+      equipment: { ...NO_EQUIPMENT, dehumidifierQty: 1, equipmentDays: 2 },
+      optionSelected: 3,
+    });
+
+    expect(estimate.option1.equipmentCost).toBe(119);
+  });
+
+  it('should keep the full quote on its stored auto days', () => {
+    const estimate = computeInspectionEstimate({
+      areas: [area(240, 360, true)],
+      equipment: { ...NO_EQUIPMENT, dehumidifierQty: 1, equipmentDays: 2 },
+      optionSelected: 3,
+    });
+
+    expect(estimate.full.equipmentCost).toBe(238);
+  });
 });
 
 describe('computeInspectionEstimate — multi-area and multi-day', () => {

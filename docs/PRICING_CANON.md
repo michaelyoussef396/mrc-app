@@ -1,6 +1,6 @@
 # MRC Pricing Canon — effective 31 August 2026
 
-Last updated: 2026-09-05. Source: the 31 Aug 2026 pricing list, Glen's Slack corrections of 31 Aug, and the handoff document of 2 Sep, as reconciled in `docs/MRC_MASTER_BACKLOG.md` (Canonical Pricing, Conflicts Resolved, Appendix B, Appendix C).
+Last updated: 2026-09-05. Source: the 31 Aug 2026 pricing list, Glen's Slack corrections of 31 Aug, and the handoff document of 2 Sep, as reconciled in `docs/MRC_MASTER_BACKLOG.md` (Canonical Pricing, Conflicts Resolved, Appendix B, Appendix C). Last correction: **2026-09-08** — the residential equipment hire cap is **5 days**, not the 4 this file carried from 2026-09-05 until then. See C4 in section 6.
 
 This file is the single source of truth for rates and pricing rules. The code does not yet implement it: `src/lib/calculations/pricing.ts` still carries the pre-canon model, and the rebuild is P1 in `docs/TODO.md`. Where `docs/COST_CALCULATION_SYSTEM.md` or any older document disagrees with this file, this file wins. Rates change only when Glen or Clayton say so, and this file is updated before the code is.
 
@@ -46,7 +46,7 @@ Each rule is binding. None is engine-optional.
    - Paid inspection (no visible mould, due diligence): $385 + GST. Credited against the remediation quote if mould is confirmed and the client proceeds. Non-refundable for long-distance travel.
    - Weekend inspection callout: $500.
    - Travel beyond 50 km: $1.50 per km, its own line item.
-8. **Equipment is never discounted.** Dehumidifier $119 per unit per day + GST. Air mover (blower) $46 per unit per day + GST. Residential equipment hire cap: 4 days maximum. Commercial equipment hire is negotiated separately.
+8. **Equipment is never discounted.** Dehumidifier $119 per unit per day + GST. Air mover (blower) $46 per unit per day + GST. Residential equipment hire cap: **5 days maximum** — corrected from 4 on 2026-09-08, see C4 in section 6. Commercial equipment hire is negotiated separately.
 9. **Subfloor in both options.** Option 1 = surface + subfloor. Option 2 = demolition + subfloor. The current hardcoded `subfloorHours: 0` in Option 1 is a defect against this rule.
 10. **Quote format.** `$X,XXX.XX + GST`, everywhere, keeping the odd cents. They look generated, not made up.
 
@@ -71,7 +71,7 @@ Current agency stable, for tagging: River Edge (biggest), Peter Lee, Elite, C+M,
 
 ## 6. Resolutions — do not reopen
 
-Glen answered all three conflicts by sending the handoff document on 2 Sep. The Slack DM history settles the two that looked contradictory. These are closed.
+Glen answered all three conflicts by sending the handoff document on 2 Sep. The Slack DM history settles the two that looked contradictory. These are closed. C4 was added later, on 2026-09-08; it is not one of those three and did not come from the handoff document.
 
 ### C1 — Equipment day rates: $119 dehumidifier / $46 air mover. RESOLVED.
 
@@ -101,6 +101,38 @@ Michael gave Glen both numbers side by side: total at highest, about $1,275; per
 
 Reconcile during the P2-8 investigation. Low stakes either way. This file does not pick a side.
 
+### C4 — Residential equipment hire cap: 5 days, not 4. CORRECTED 2026-09-08.
+
+Rule 8 of section 3 read **4 days maximum** from 2026-09-05, when this file was written
+(`b33e19e`), until 2026-09-08. That figure was wrong. Glen confirmed **5 days** in Slack on
+2026-09-08. Unlike C1 above there is no timestamp table here: the confirmation reached this
+file through Michael and the message itself is not transcribed, so nothing is quoted that
+was not seen.
+
+**The correction runs the opposite way to this file's usual direction, and that is the part
+worth keeping.** The header makes the canon win wherever documents disagree, and P2-24 was
+logged on exactly that basis: `supabase/functions/generate-inspection-pdf/index.ts:1917`
+prints a hardcoded `'5 days'` into `{{equipment_max_days}}`, the canon said 4, so the report
+was assumed to be the thing that was wrong. It was not. That line has been printing the
+correct number on every customer-facing quote since it was written, and this file held the
+error. Being the source of truth makes this document the first thing to check, not the thing
+that is right by construction.
+
+The 4 was never independently sourced twice. It entered `docs/PRICING_CANON.md` and the
+`docs/MRC_MASTER_BACKLOG.md` glossary in the same commit, `b33e19e` on 2026-09-05, tracing
+back to the 28 Aug 2026 meeting notes. Both are corrected as of 2026-09-08. The old figure is
+recorded rather than quietly overwritten, so anyone who read 4 and acted on it can find out
+what happened to it — the same discipline as the `MAX_QUOTABLE_EQUIPMENT_DAYS` retraction in
+`src/lib/calculations/pricing.ts`.
+
+**Unchanged by this correction: no cap is enforced anywhere.** Verified 2026-09-08 against
+`origin/main` at `db21282` — nothing in `src/` or `supabase/functions/` bounds the equipment
+day count at 4, at 5, or at any business figure. The only ceiling in the engine is
+`MAX_QUOTABLE_EQUIPMENT_DAYS = 3650`, which carries its own retraction and is not this cap;
+the only database constraint is `CHECK (equipment_days >= 1)`, a floor. 5 days is what we
+print and what we have agreed. It is not what the engine applies. That gap is L1226, and
+P2-24 carries it.
+
 ## 7. What this canon retires
 
 - The `dayRates` arrays and every multi-day step-down.
@@ -108,6 +140,7 @@ Reconcile during the P2-8 investigation. Low stakes either way. This file does n
 - Per-area pricing of mixed jobs (the Session C either/or logic).
 - `subfloorHours: 0` hardcoded into Option 1.
 - The $120 / $44 equipment figures in the handoff document.
+- The 4-day residential equipment hire cap. The number is 5 (C4).
 - The "ladder resets at #7" reading of the loyalty discount.
 
 Whether the code still does any of these is the drift audit, a follow-on session that reports and does not change code. Nothing in `pricing.ts` changes before the P1 sessions, and no P1 session starts before Clayton's demolition table lands.

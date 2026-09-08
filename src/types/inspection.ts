@@ -123,6 +123,7 @@ export interface InspectionFormData {
   rcdBoxQty: number;
   hepaAirScrubberQty: number;
   hepaAirScrubberDays: number;             // 0 = auto (shared equipment days)
+  equipmentDays: number;                   // shared hire period for all drying equipment; 0 = auto (labour days)
 
   // Section 8: Job Summary
   recommendDehumidifier: boolean;

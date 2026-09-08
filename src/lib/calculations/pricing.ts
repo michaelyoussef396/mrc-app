@@ -204,6 +204,10 @@ export interface EquipmentInput {
   dehumidifierQty: number;
   airMoverQty: number;
   rcdQty: number;
+  // Explicit shared hire period. Multiplies every drying item (and HEPA when it has no
+  // days of its own). Optional: absent/0 = derive from labour hours, which leaves every
+  // existing quote byte-identical.
+  equipmentDays?: number;
   // HEPA Air Scrubber (formerly "AFD"). Optional: absent/0 qty leaves all outputs
   // identical to the pre-HEPA engine. Days may differ from the shared equipment
   // days (scrubbers often run on their own hire period); 0/absent = shared days.
@@ -222,14 +226,52 @@ export interface EquipmentResult {
 }
 
 /**
- * Calculate equipment costs based on quantities and days
- * Equipment days = ceil(totalLabourHours / 8)
+ * Labour-derived equipment days: one hire day per started 8-hour labour day, minimum one.
+ * The single source of the formula — every "Auto (N)" display must agree with the engine.
+ */
+export function deriveEquipmentDays(totalLabourHours: number): number {
+  return Math.max(1, Math.ceil(totalLabourHours / 8));
+}
+
+// RETRACTION, 2026-09-08. This was introduced and commented as an "overflow sentinel".
+// That was wrong: 3650 × $119 is $434,469, which float64 represents exactly, so the bound
+// is a DURATION POLICY, not an arithmetic one — and it is an unsettled policy nobody agreed.
+// It also REGRESSES explicit days above 3650, which the pre-fix engine preserved, into a
+// silent 1-day fallback. Do not build on this constant or cite it as an overflow guard.
+// Replacement shape, and the HEPA half of the same defect, are recorded in P2-26.
+// Unrelated and still open: the 4-day residential cap in docs/PRICING_CANON.md §8 is not
+// implemented anywhere and is Glen's or Clayton's to settle (P2-24).
+const MAX_QUOTABLE_EQUIPMENT_DAYS = 3650;
+
+/**
+ * A usable explicit hire period. NaN, negative, zero and Infinity fall back to the
+ * labour-derived days — the same behaviour absent/0 has always had — rather than poisoning
+ * the estimate. Values above MAX_QUOTABLE_EQUIPMENT_DAYS also fall back, which is the
+ * unsettled part: see the retraction above and P2-26.
+ */
+function isUsableEquipmentDays(days: number | undefined): days is number {
+  return (
+    days !== undefined &&
+    Number.isFinite(days) &&
+    days > 0 &&
+    days <= MAX_QUOTABLE_EQUIPMENT_DAYS
+  );
+}
+
+/**
+ * Calculate equipment costs based on quantities and days.
+ * Days = the explicit shared hire period when usable, otherwise deriveEquipmentDays().
  */
 export function calculateEquipmentCost(
   equipment: EquipmentInput,
   totalLabourHours: number
 ): EquipmentResult {
-  const days = Math.max(1, Math.ceil(totalLabourHours / 8));
+  // TODO(michael): cap the shared days here once the owners settle the number — the app
+  // currently enforces NO cap while every report prints "Capped at 5 days" as fixed text,
+  // and the 28 Aug 2026 meeting notes say 4 days residential (docs/TODO.md, equipment cap).
+  const days = isUsableEquipmentDays(equipment.equipmentDays)
+    ? equipment.equipmentDays
+    : deriveEquipmentDays(totalLabourHours);
 
   const dehumidifierCost = equipment.dehumidifierQty * EQUIPMENT_RATES.dehumidifier * days;
   const airMoverCost = equipment.airMoverQty * EQUIPMENT_RATES.airMover * days;
@@ -321,6 +363,7 @@ export interface CostEstimateInput {
   dehumidifierQty?: number;
   airMoverQty?: number;
   rcdQty?: number;
+  equipmentDays?: number; // 0/absent = derive from labour hours
   hepaAirScrubberQty?: number;
   hepaAirScrubberDays?: number; // 0/absent = shared equipment days
 
@@ -389,6 +432,7 @@ export function calculateCostEstimate(input: CostEstimateInput): CostEstimateRes
         dehumidifierQty: input.dehumidifierQty || 0,
         airMoverQty: input.airMoverQty || 0,
         rcdQty: input.rcdQty || 0,
+        equipmentDays: input.equipmentDays,
         hepaAirScrubberQty: input.hepaAirScrubberQty || 0,
         hepaAirScrubberDays: input.hepaAirScrubberDays
       },
@@ -435,6 +479,7 @@ export function calculateCostEstimate(input: CostEstimateInput): CostEstimateRes
       dehumidifierQty: input.dehumidifierQty || 0,
       airMoverQty: input.airMoverQty || 0,
       rcdQty: input.rcdQty || 0,
+      equipmentDays: input.equipmentDays,
       hepaAirScrubberQty: input.hepaAirScrubberQty || 0,
       hepaAirScrubberDays: input.hepaAirScrubberDays
     },

@@ -13,12 +13,14 @@ import {
   EQUIPMENT_RATES,
   formatCurrency,
   formatPercent,
+  deriveEquipmentDays,
 } from '@/lib/calculations/pricing';
 import { resolveSubfloorHours } from '@/lib/calculations/subfloorHours';
 import {
   parseOverrideInput,
   reconcileLoadedOverride,
   resolveOverridableValue,
+  reconcileLoadedEquipmentDays,
 } from '@/lib/calculations/estimate-override';
 import {
   uploadInspectionPhoto,
@@ -1971,14 +1973,29 @@ const getEffectiveHepaQty = (formData: InspectionFormData) =>
 const getEffectiveSubfloorHours = (formData: InspectionFormData) =>
   resolveSubfloorHours(formData.subfloorRequired, formData.subfloorTreatmentTime);
 
-// Shared equipment days, derived exactly the way Section 9 / the pricing engine do.
-// Used for the HEPA "Auto (N)" display and the AI payload's resolved HEPA days.
-const getSharedEquipmentDays = (formData: InspectionFormData) => {
+// Labour work days, derived exactly the way the pricing engine derives equipment days.
+const getLabourWorkDays = (formData: InspectionFormData) => {
   const nonDemoHours = formData.areas.reduce((sum, area) => sum + (area.timeWithoutDemo || 0), 0);
   const demoHours = formData.areas.reduce((sum, area) => area.demolitionRequired ? sum + (area.demolitionTime || 0) : sum, 0);
   const subfloorHours = getEffectiveSubfloorHours(formData);
-  return Math.max(1, Math.ceil((nonDemoHours + demoHours + subfloorHours) / 8));
+  return deriveEquipmentDays(nonDemoHours + demoHours + subfloorHours);
 };
+
+// Explicit shared hire period. Counts only while Drying Equipment is quoted (the stepper
+// lives in that card) and only when it extends past the labour days: equipment_days
+// persists the EFFECTIVE value, so reconcileLoadedEquipmentDays can only recover a period
+// that exceeds what the hours derive — applying the same floor here keeps the session and
+// a reload pricing identical. `|| 0` guards a restored pre-equipmentDays localStorage backup.
+const getExplicitEquipmentDays = (formData: InspectionFormData) => {
+  if (!formData.selectedTreatmentMethods?.includes('Drying Equipment')) return 0;
+  const explicit = formData.equipmentDays || 0;
+  return explicit > getLabourWorkDays(formData) ? explicit : 0;
+};
+
+// Effective shared equipment days — the same resolution the pricing engine applies. Used
+// for the HEPA "Auto (N)" display and the AI payload (project duration + resolved HEPA days).
+const getSharedEquipmentDays = (formData: InspectionFormData) =>
+  getExplicitEquipmentDays(formData) || getLabourWorkDays(formData);
 
 function Section7WorkProcedure({ formData, onChange }: SectionProps) {
   const selected = formData.selectedTreatmentMethods;
@@ -2011,6 +2028,8 @@ function Section7WorkProcedure({ formData, onChange }: SectionProps) {
   const hepaAirScrubberEnabled = selected.includes('HEPA Air Scrubber Installation');
 
   const sharedEquipmentDays = getSharedEquipmentDays(formData);
+  const labourWorkDays = getLabourWorkDays(formData);
+  const explicitEquipmentDays = getExplicitEquipmentDays(formData);
 
   return (
     <section className="space-y-5">
@@ -2169,6 +2188,34 @@ function Section7WorkProcedure({ formData, onChange }: SectionProps) {
                 </div>
               )}
             </div>
+
+            {/* Days — steps the EFFECTIVE hire period. Auto = the labour days; stepping below
+                them snaps back to Auto because a shorter period cannot be persisted (see
+                getExplicitEquipmentDays). Multiplies every item above. */}
+            <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+              <span className="text-[#1d1d1f]">Days</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const next = sharedEquipmentDays - 1;
+                    onChange('equipmentDays', next > labourWorkDays ? next : 0);
+                  }}
+                  className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-[#007AFF] font-bold"
+                >
+                  -
+                </button>
+                <span className="min-w-[2rem] text-center font-medium whitespace-nowrap">
+                  {explicitEquipmentDays > 0 ? explicitEquipmentDays : `Auto (${labourWorkDays})`}
+                </span>
+                <button
+                  onClick={() => onChange('equipmentDays', sharedEquipmentDays + 1)}
+                  className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-[#007AFF] font-bold"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-[#86868b]">Multiplies every item above. Auto follows the job&apos;s labour days — extend it when the equipment stays on after the crew leaves.</p>
           </div>
         </div>
       )}
@@ -2320,6 +2367,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
     dehumidifierQty,
     airMoverQty,
     rcdQty,
+    equipmentDays: getExplicitEquipmentDays(formData) || undefined,
     hepaAirScrubberQty: getEffectiveHepaQty(formData),
     hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
   });
@@ -2333,6 +2381,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
         dehumidifierQty,
         airMoverQty,
         rcdQty,
+        equipmentDays: getExplicitEquipmentDays(formData) || undefined,
         hepaAirScrubberQty: getEffectiveHepaQty(formData),
         hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
       })
@@ -2523,7 +2572,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
         <h3 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
           <Wind className="h-5 w-5 text-[#007AFF]" />
-          Equipment Breakdown ({costResult.totalDays} day{costResult.totalDays !== 1 ? 's' : ''})
+          Equipment Breakdown ({costResult.equipment.days} day{costResult.equipment.days !== 1 ? 's' : ''})
         </h3>
         <div className="space-y-2 text-sm">
           {dehumidifierQty > 0 && (
@@ -2531,7 +2580,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
               <div>
                 <span className="text-[#1d1d1f]">Dehumidifier</span>
                 <span className="text-[#86868b] ml-2">
-                  ({dehumidifierQty} × ${EQUIPMENT_RATES.dehumidifier} × {costResult.totalDays} days)
+                  ({dehumidifierQty} × ${EQUIPMENT_RATES.dehumidifier} × {costResult.equipment.days} days)
                 </span>
               </div>
               <span className="font-medium text-[#1d1d1f]">{formatCurrency(costResult.equipment.dehumidifier.cost)}</span>
@@ -2542,7 +2591,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
               <div>
                 <span className="text-[#1d1d1f]">Air Movers</span>
                 <span className="text-[#86868b] ml-2">
-                  ({airMoverQty} × ${EQUIPMENT_RATES.airMover} × {costResult.totalDays} days)
+                  ({airMoverQty} × ${EQUIPMENT_RATES.airMover} × {costResult.equipment.days} days)
                 </span>
               </div>
               <span className="font-medium text-[#1d1d1f]">{formatCurrency(costResult.equipment.airMover.cost)}</span>
@@ -2564,7 +2613,7 @@ function Section9CostEstimate({ formData, onChange }: SectionProps) {
               <div>
                 <span className="text-[#1d1d1f]">RCD Box</span>
                 <span className="text-[#86868b] ml-2">
-                  ({rcdQty} × ${EQUIPMENT_RATES.rcd} × {costResult.totalDays} days)
+                  ({rcdQty} × ${EQUIPMENT_RATES.rcd} × {costResult.equipment.days} days)
                 </span>
               </div>
               <span className="font-medium text-[#1d1d1f]">{formatCurrency(costResult.equipment.rcd.cost)}</span>
@@ -2892,6 +2941,8 @@ function buildAIPayload(formData: InspectionFormData, lead?: LeadData | null) {
     additionalInfoForTech: formData.additionalInfoForTech,
     additionalEquipmentComments: formData.additionalEquipmentComments,
     parkingOptions: formData.parkingOptions,
+    // Project duration: the labour days, or the longer explicit equipment hire — the model
+    // is told drying runs within this figure, so it must not be shorter than the hire.
     totalWorkDays: getSharedEquipmentDays(formData),
     laborCost: formData.laborCost,
     equipmentCost: formData.equipmentCost,
@@ -2991,6 +3042,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
     rcdBoxQty: 0,
     hepaAirScrubberQty: 0,
     hepaAirScrubberDays: 0,
+    equipmentDays: 0,
     recommendDehumidifier: false,
     dehumidifierSize: '',
     causeOfMould: '',
@@ -3267,14 +3319,26 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           // values from the same saved inputs (hours/quantities are saved
           // atomically with them) and treat only differing values as overrides.
           const loadedOverrideFlag = ins.manual_labour_override || false;
-          const loadAutoInput = {
+          const loadHours = {
             nonDemoHours: ins.no_demolition_hours ? Number(ins.no_demolition_hours) : 0,
             demolitionHours: ins.demolition_hours ? Number(ins.demolition_hours) : 0,
             subfloorHours: ins.subfloor_hours ? Number(ins.subfloor_hours) : 0,
+          };
+          // equipment_days stores the full quote's EFFECTIVE days (and legacy rows carry the
+          // column default 1), so a loaded value is an explicit hire period only when it
+          // exceeds what the saved hours derive. Only an explicit period feeds the Option 1
+          // reconcile below — on auto, Option 1 derives its own days, as the save did.
+          const loadedEquipmentDays = reconcileLoadedEquipmentDays(
+            ins.equipment_days,
+            deriveEquipmentDays(loadHours.nonDemoHours + loadHours.demolitionHours + loadHours.subfloorHours)
+          );
+          const loadAutoInput = {
+            ...loadHours,
             dehumidifierQty: ins.commercial_dehumidifier_qty || 0,
             airMoverQty: ins.air_movers_qty || 0,
             rcdQty: ins.rcd_box_qty || 0,
             hepaAirScrubberQty: ins.hepa_air_scrubber_qty || 0,
+            equipmentDays: loadedEquipmentDays || undefined,
             hepaAirScrubberDays: ins.hepa_air_scrubber_days || undefined,
           };
           const loadAuto = calculateCostEstimate(loadAutoInput);
@@ -3362,6 +3426,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
             rcdBoxQty: ins.rcd_box_qty || 0,
             hepaAirScrubberQty: ins.hepa_air_scrubber_qty || 0,
             hepaAirScrubberDays: ins.hepa_air_scrubber_days || 0,
+            equipmentDays: loadedEquipmentDays,
             recommendDehumidifier: ins.recommended_dehumidifier != null,
             dehumidifierSize: ins.recommended_dehumidifier || '',
             causeOfMould: ins.cause_of_mould || '',
@@ -3956,6 +4021,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
         dehumidifierQty: getEffectiveDryingQty(formData, 'commercialDehumidifierQty'),
         airMoverQty: getEffectiveDryingQty(formData, 'airMoversQty'),
         rcdQty: getEffectiveDryingQty(formData, 'rcdBoxQty'),
+        equipmentDays: getExplicitEquipmentDays(formData) || undefined,
         hepaAirScrubberQty: getEffectiveHepaQty(formData),
         hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
         wasteDisposalCost: saveWaste,
@@ -3994,6 +4060,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
           dehumidifierQty: getEffectiveDryingQty(formData, 'commercialDehumidifierQty'),
           airMoverQty: getEffectiveDryingQty(formData, 'airMoversQty'),
           rcdQty: getEffectiveDryingQty(formData, 'rcdBoxQty'),
+          equipmentDays: getExplicitEquipmentDays(formData) || undefined,
           hepaAirScrubberQty: getEffectiveHepaQty(formData),
           hepaAirScrubberDays: formData.hepaAirScrubberDays || undefined,
         });
