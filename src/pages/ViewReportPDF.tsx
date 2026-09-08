@@ -131,6 +131,7 @@ interface Inspection {
   rcd_box_qty?: number | null
   hepa_air_scrubber_qty?: number | null
   hepa_air_scrubber_days?: number | null
+  equipment_days?: number | null
   lead?: {
     id: string
     full_name: string
@@ -220,6 +221,7 @@ const INSPECTION_SELECT = `
   rcd_box_qty,
   hepa_air_scrubber_qty,
   hepa_air_scrubber_days,
+  equipment_days,
   lead:leads(
     id,
     full_name,
@@ -1685,6 +1687,7 @@ export default function ViewReportPDF() {
           dehumidifierQty: inspection.commercial_dehumidifier_qty ?? 0,
           airMoverQty: inspection.air_movers_qty ?? 0,
           rcdQty: inspection.rcd_box_qty ?? 0,
+          equipmentDays: inspection.equipment_days ?? undefined,
           hepaAirScrubberQty: inspection.hepa_air_scrubber_qty ?? 0,
           hepaAirScrubberDays: inspection.hepa_air_scrubber_days ?? undefined,
         },

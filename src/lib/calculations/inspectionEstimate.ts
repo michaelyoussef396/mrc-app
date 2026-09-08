@@ -12,8 +12,10 @@
  * the same rules, kept deliberately identical to handleSave (the canonical save path).
  */
 
+import { reconcileLoadedEquipmentDays } from './estimate-override';
 import {
   calculateCostEstimate,
+  deriveEquipmentDays,
   type CostEstimateResult,
 } from './pricing';
 
@@ -33,7 +35,13 @@ export interface EstimateEquipmentInput {
   airMoverQty: number;
   rcdQty: number;
   hepaAirScrubberQty: number;
-  /** 0 / absent = share the labour-derived equipment days. */
+  /**
+   * inspections.equipment_days as stored — the full quote's EFFECTIVE days. It counts as
+   * an explicit hire period only when it exceeds the labour-derived days
+   * (reconcileLoadedEquipmentDays); null / absent / anything at or below = auto.
+   */
+  equipmentDays?: number | null;
+  /** 0 / absent = share the (explicit or labour-derived) equipment days. */
   hepaAirScrubberDays?: number;
 }
 
@@ -95,6 +103,15 @@ export function computeInspectionEstimate(
   const hours = deriveInspectionHours(input.areas, input.subfloorTreatmentMinutes);
   const { equipment } = input;
 
+  // The stored days are the full quote's effective value, so only a period beyond the
+  // labour-derived days is explicit — and only then does it reach the Option 1 sub-quote,
+  // which otherwise derives its own days from surface hours exactly as the form's save does.
+  const explicitEquipmentDays =
+    reconcileLoadedEquipmentDays(
+      equipment.equipmentDays,
+      deriveEquipmentDays(hours.nonDemo + hours.demolition + hours.subfloor)
+    ) || undefined;
+
   // Waste is a single job-level cost billed once whichever option proceeds, so in Both
   // mode it is excluded from the per-option totals and invoiced separately.
   const wasteDisposalCost =
@@ -107,6 +124,7 @@ export function computeInspectionEstimate(
     dehumidifierQty: equipment.dehumidifierQty,
     airMoverQty: equipment.airMoverQty,
     rcdQty: equipment.rcdQty,
+    equipmentDays: explicitEquipmentDays,
     hepaAirScrubberQty: equipment.hepaAirScrubberQty,
     hepaAirScrubberDays: equipment.hepaAirScrubberDays,
     wasteDisposalCost,
@@ -120,6 +138,7 @@ export function computeInspectionEstimate(
     dehumidifierQty: equipment.dehumidifierQty,
     airMoverQty: equipment.airMoverQty,
     rcdQty: equipment.rcdQty,
+    equipmentDays: explicitEquipmentDays,
     hepaAirScrubberQty: equipment.hepaAirScrubberQty,
     hepaAirScrubberDays: equipment.hepaAirScrubberDays,
   });
