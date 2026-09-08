@@ -135,6 +135,7 @@ interface Inspection {
   commercial_dehumidifier_qty: number
   air_movers_qty: number
   rcd_box_qty: number
+  equipment_days: number | null
   hepa_air_scrubber_qty: number | null
   hepa_air_scrubber_days: number | null
   waste_disposal_m3: number | null
@@ -1723,13 +1724,20 @@ function generateReportHtml(
   // Equipment pricing — literals must match EQUIPMENT_RATES in src/lib/calculations/pricing.ts
   // (dehumidifier 119, airMover 46, hepaAirScrubber 100, rcd 5); no shared constant across
   // the Deno boundary, so keep them in sync by hand.
-  const dehumidifierPrice = inspection.commercial_dehumidifier_qty > 0 ? `$119/day × ${inspection.commercial_dehumidifier_qty}` : '$119/day'
-  const airMoverPrice = inspection.air_movers_qty > 0 ? `$46/day × ${inspection.air_movers_qty}` : '$46/day'
-  const rcdBoxPrice = inspection.rcd_box_qty > 0 ? `$5/day × ${inspection.rcd_box_qty}` : '$5/day'
+  //
+  // Every line carries its hire period, because this document is the quote and the customer
+  // has to be able to reach the equipment total from it. The period is whatever the quote
+  // holds: a null or zero one prints nothing rather than borrowing a day count from
+  // elsewhere, so the quote never states a hire length nobody entered. That is why HEPA
+  // reads only its own days and takes none of the equipment_days fallback jobCompletions.ts
+  // applies at job-completion snapshot time.
+  const hirePeriod = (days: number | null | undefined) => (days && days > 0 ? ` (${days} days)` : '')
+  const sharedPeriod = hirePeriod(inspection.equipment_days)
+  const dehumidifierPrice = inspection.commercial_dehumidifier_qty > 0 ? `$119/day × ${inspection.commercial_dehumidifier_qty}${sharedPeriod}` : '$119/day'
+  const airMoverPrice = inspection.air_movers_qty > 0 ? `$46/day × ${inspection.air_movers_qty}${sharedPeriod}` : '$46/day'
+  const rcdBoxPrice = inspection.rcd_box_qty > 0 ? `$5/day × ${inspection.rcd_box_qty}${sharedPeriod}` : '$5/day'
   const hepaQty = inspection.hepa_air_scrubber_qty ?? 0
-  const hepaPrice = hepaQty > 0
-    ? `$100/day × ${hepaQty}${inspection.hepa_air_scrubber_days ? ` (${inspection.hepa_air_scrubber_days} days)` : ''}`
-    : '$100/day'
+  const hepaPrice = hepaQty > 0 ? `$100/day × ${hepaQty}${hirePeriod(inspection.hepa_air_scrubber_days)}` : '$100/day'
 
   // Start replacing placeholders in template
   let html = templateHtml
