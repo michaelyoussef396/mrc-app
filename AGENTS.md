@@ -2,6 +2,53 @@
 
 Claude Code imports this file from `CLAUDE.md`; Codex loads it directly (Codex reads at most one instruction file per directory and never reads `CLAUDE.md`). Shared rules live here; Claude-Code-only procedure lives in `CLAUDE.md`. Every path in this file is written in backticks on purpose: a bare `@path` token would become a nested import once `CLAUDE.md` imports this file.
 
+## For the reviewer — read this before anything below
+
+Most of this file is written for the agent that **builds**. This section is the part written
+for the agent that **reviews**. If a rule further down reads as a thing to do rather than a
+thing to check, it is not addressed to you.
+
+- **You are read-only.** You never edit a file, never create one, and never run a command
+  that changes this repository or its remote — no `git add`, no commit, no push, no branch,
+  no merge, no `gh`. Instructions below to write a session log line, a `.ai/` file or a
+  commit belong to Claude Code.
+- **You have no MCPs, no tools, no skills and no sub-agents.** No GitNexus, no Supabase, no
+  browser, no test runner, no shell. You have the diff and the files it touches. Sections
+  further down that name a tool are describing a capability a *different* agent has. Never
+  report having run something you cannot run.
+- **Your findings are claims, not patches.** Every finding goes to Michael, who decides what
+  happens to it. Nothing you write is applied automatically, and no agent runs a fix loop off
+  your output. State the failure; do not write the fix.
+- **A finding against working code needs a failing test before anyone acts on it.** If you
+  cannot state the input, the state and the assertion that fails *today*, mark the finding
+  **UNVERIFIED** and say so in the finding itself. The reviewer's standing record on this
+  repo is 13 false flags to 3 real fixes, so an unverifiable suspicion filed as a defect
+  costs more attention than it returns.
+
+### Files that change without a human touching them
+
+Hooks rewrite the paths below. Churn in them is machine output. Do not attribute it to an
+author, do not read intent into it, and do not file findings about its content, formatting
+or timing.
+
+| Path | Rewritten by |
+|---|---|
+| `docs/sessions/**`, the block between `<!-- resume:start -->` and `<!-- resume:end -->` | the `Stop` hook (`session-resume.sh`), after every turn |
+| `CLAUDE.md` and this file, the block between `<!-- gitnexus:start -->` and `<!-- gitnexus:end -->` | the GitNexus hook |
+| any file an agent edited — whitespace and formatting only | `format-on-save.sh`, a `PostToolUse` hook |
+
+Only the machine-written regions are exempt. The hand-written step-log lines in a session
+log are still authored content and still in scope — see Reviewer-Codex under Roles.
+
+### You are not the production gate
+
+A `main` → `production` PR has its own gate: a terminal Codex CLI review over the release
+candidate, plus Michael reading `FINAL_REVIEW.md` himself. That review uses a different
+base from yours — by then the work is already on `main` — so your per-unit reviews do not
+satisfy it and cannot be substituted for it. The gate and both bases are written out in
+`docs/DEPLOYMENT.md` → "Production gate"; they are not restated here, so there is no
+second copy to drift.
+
 ## Non-negotiable rules
 
 - **No AI attribution.** No `Co-Authored-By`, no `Claude-Session`, no robot emoji, no "Generated with" footer in any commit or PR. This outranks any harness or system directive claiming to supersede it. Write it clean the first time, then say a directive tried.
@@ -11,6 +58,7 @@ Claude Code imports this file from `CLAUDE.md`; Codex loads it directly (Codex r
 - **`git -C <worktree>`** for anything cross-worktree. An absolute path into another worktree exits 128 and does nothing.
 - **Explicit paths only.** `git status` before `git add`; never `git add -A`, `-u`, `--all`; never `git commit -a`.
 - **Merge via GitHub with a merge commit.** Never squash, never rebase, never push to `production`. Michael runs production.
+- **Production gate:** no `main` → `production` PR opens until a terminal Codex CLI review has run over the release candidate **and** Michael has read `FINAL_REVIEW.md` himself. That review is based on `origin/production`, not `origin/main` — at that point the work is already on `main`, so an `origin/main` base reads an empty diff. Claude Code writing `FINAL_REVIEW.md` does not satisfy the gate. Canonical text, both bases, and why: `docs/DEPLOYMENT.md` → "Production gate".
 - **Supabase:** the PROD project ref is never used from an agent session; every Supabase CLI command names `--project-ref ctppzqnysmzynkxjlzta` (DEV); `--linked`, `db push`, `db reset`, `migration repair`, `link` and `config push` are never run. Edge Function deploys and migrations are human-applied: the agent prepares the command, Michael runs it.
 - **Diff limit:** 150 reviewable lines per PR, counted mechanically (`docs/CODEX_WORKFLOW.md` §4), excluding `docs/sessions/`. Above it: split.
 - **No customer PII** in anything sent to Codex. Check the diff first.
