@@ -41,20 +41,22 @@ Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` 
 - 21:20 · CC · CC · fix: select equipment_days, heading reads saved hire period · `BookJobSheet.tsx` · test passes; 2/2 green
 - 21:24 · CC · CC · gates · (none) · tsc 100 -> 100, ZERO new normalised lines; vitest 77 files / 1296 tests, same single T24 failure
 - 21:28 · CC · CC · triage rows · `docs/TODO.md` · P1-6 fix record + WENT LIVE line; P2-28 third mechanism (torn read) recorded as NOT closed by the generation token
+- 21:52 · CC · CC · Codex adversarial review, --base origin/main, round 1 of 1 · (none) · Target `branch diff against origin/main`, 140 lines, needs-attention, 1 medium; applied nothing
+- 21:58 · CC · CC · filed finding as P2-26(c) + log row disposition · `docs/TODO.md`, `docs/codex-review-log.md` · mechanism accepted, recommendation rejected as replicating a retracted defect
 
 ## Codex threads
 
 Write `codex resume <threadId>` here the moment it is printed — on stderr as `Thread ready (<id>)`, or by `node <companion> status`. The plugin SessionEnd hook deletes every job of the session, running or finished.
 
-- (none yet — plugin review not run: `origin/main...HEAD` is empty, see Review)
+- `codex resume 01a080bf-5239-7123-b9da-b125a1a406a4` — adversarial review of b41800b vs origin/main db21282, round 1 of 1
 
 ## Review
 
-- Target: NOT RUN — HEAD == origin/main == db21282 and the unit is uncommitted, so `origin/main...HEAD` is an empty range. Running it would review nothing and exit 0 (the `3af5241` / #653 class). Blocked on Michael committing.
+- Target: `branch diff against origin/main` — printed and checked before the body was read. (Earlier in the session the range WAS empty at HEAD == origin/main == db21282; Michael committed `b41800b` first, which is why the review is real rather than a #653-class empty pass.)
 - Diff lines excl. docs/sessions/: 140 (TODO.md 2+2, BookJobSheet.tsx 13+4, new test 119+0) — under the 150 cap, no waiver needed
-- Verdict: pending
-- Findings: pending
-- codex-review-log row: pending the review
+- Verdict: needs-attention
+- Findings: 1 (medium) — presented verbatim, not acted on; **ACCEPTED-DEFERRED by Michael, filed as P2-26(c)**
+- codex-review-log row: added 2026-09-08, mrc-booksheet-days / fix/booksheet-equipment-days
 
 ## Did
 
@@ -66,7 +68,7 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 ## Did NOT
 
 - Did not commit, push or merge — Michael runs all git operations.
-- Did not run the plugin Codex review: the range is empty until the unit is committed.
+- Did not act on the Codex finding: report-and-stop, one round, no fix loop.
 - Did not touch `pricing.ts` or any other frozen surface.
 - Did not write the gate-row observation: the gate row lives in `~/mrc-app-1` on `docs/merge-commit-review-gate`, another worktree and branch, outside this unit's scope. Text handed to Michael instead.
 
@@ -76,7 +78,7 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 
 ## Open
 
-- Codex review, once the unit is committed.
+- P2-26 now carries (c): `BookJobSheet`'s heading is a second surface it must fix, and **reachability of 3651 is UNKNOWN** — settle that first, it sets the row's priority.
 - P1-6 stays open: T16(b) (`mrc-cost-estimate` carrying the tracked guard hook) is still assigned to it.
 
 ## Resume from here
@@ -84,15 +86,16 @@ Write `codex resume <threadId>` here the moment it is printed — on stderr as `
 <!-- resume:start -->
 <!-- hook-maintained by .claude/hooks/session-resume.sh after every turn; do not hand-edit between the markers -->
 
-- Updated: 2026-09-08 21:17 AEST · Tool: CC
-- Branch: fix/booksheet-equipment-days @ db21282 Merge pull request #161 from michaelyoussef396/fix/equipment-days-form
-- Unpushed commits: none
+- Updated: 2026-09-08 21:27 AEST · Tool: CC
+- Branch: fix/booksheet-equipment-days @ b41800b fix(booking): read the quoted equipment hire period on the job sheet
+- Unpushed commits:
+  - `b41800b fix(booking): read the quoted equipment hire period on the job sheet`
 - Uncommitted files (this log excluded):
   - ` M docs/TODO.md`
-  - ` M src/components/leads/BookJobSheet.tsx`
-  - `?? src/components/leads/__tests__/BookJobSheet.equipmentDays.test.tsx`
-- Last step-log line: 21:28 · CC · CC · triage rows · `docs/TODO.md` · P1-6 fix record + WENT LIVE line; P2-28 third mechanism (torn read) recorded as NOT closed by the generation token
-- Codex threads: none
-- Window: five_hour 3% used, resets 01:39 AEST (15:39 UTC)
+  - ` M docs/codex-review-log.md`
+- Last step-log line: 21:58 · CC · CC · filed finding as P2-26(c) + log row disposition · `docs/TODO.md`, `docs/codex-review-log.md` · mechanism accepted, recommendation rejected as replicating a retracted defect
+- Codex threads:
+  - `codex resume 01a080bf-5239-7123-b9da-b125a1a406a4`
+- Window: five_hour 3% used, resets 01:40 AEST (15:40 UTC)
 - Next step: the first open item under "Did NOT" or "Open", else continue from the last step-log line.
 <!-- resume:end -->
