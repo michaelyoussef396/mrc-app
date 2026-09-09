@@ -9,6 +9,14 @@ function supabaseRestTracePattern(): RegExp | null {
   return new RegExp(`^${escaped}/rest`);
 }
 
+// Connectivity and retryable-auth failures are NOT filtered: they are the
+// signal behind stale-data reports, not noise. Only genuine browser noise
+// belongs here.
+export const SENTRY_IGNORE_ERRORS = [
+  "top.GLOBALS",
+  "ResizeObserver loop",
+];
+
 export function initSentry() {
   if (!import.meta.env.VITE_SENTRY_DSN) return;
 
@@ -52,14 +60,7 @@ export function initSentry() {
       }),
     ],
 
-    ignoreErrors: [
-      "top.GLOBALS",
-      "ResizeObserver loop",
-      "Failed to fetch",
-      "NetworkError",
-      "Load failed",
-      "AuthRetryableFetchError",
-    ],
+    ignoreErrors: SENTRY_IGNORE_ERRORS,
 
     denyUrls: [
       /extensions\//i,
