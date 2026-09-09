@@ -41,21 +41,56 @@ Format: `- HH:MM · tool · agent · what · files · outcome` — tool is `CC` 
 - 23:30 · CC · CC · wrote the migration + V0/V1/V2 verification queries · supabase/migrations/20260908233000_inspections_per_item_equipment_days.sql, docs/sessions/2026-09-08-feat-per-item-equipment-days.md · ok, not applied
 - 23:51 · CC · [attack x6] · adversarial review of the draft: 33 findings, 4 blocker / 11 major / 18 minor; central claim survived all six lenses; accepted fixes applied, 6 deferred to Open · supabase/migrations/20260908233000_inspections_per_item_equipment_days.sql · ok, still not applied
 - 2026-09-09 16:51 · CC · CC · Michael's triage: cap waiver 2 granted+recorded; removed the SET DEFAULT 'per_item' statement and rewrote its HAZARD note; filed P2-32; appended the supersession note to the fix/equipment-days-form log · supabase/migrations/20260908233000_inspections_per_item_equipment_days.sql, docs/TODO.md, docs/sessions/2026-09-08-fix-equipment-days-form.md, docs/sessions/2026-09-08-feat-per-item-equipment-days.md · ok, still not applied
+- 2026-09-09 17:04 · CC · CC · Codex round 1: Target `branch diff against origin/main`, 171 reviewable lines, verdict approve, 0 findings; caught+fixed a stale origin/main before the run; logged the row · docs/codex-review-log.md, docs/sessions/2026-09-08-feat-per-item-equipment-days.md · ok, nothing applied
+- 2026-09-09 17:43 · CC · CC · recorded Michael's dispositions on both Codex next steps (ANALYZE accepted with reasoning, file unchanged; disposable-DB test covered by the DEV-first plan) and the #653 stale-base catch · docs/codex-review-log.md, docs/sessions/2026-09-08-feat-per-item-equipment-days.md · ok, no code change, not committed
 
 ## Codex threads
 
 Write `codex resume <threadId>` here the moment it is printed — on stderr as `Thread ready (<id>)`, or by `node <companion> status`. The plugin SessionEnd hook deletes every job of the session, running or finished.
 
-- (none yet)
+- `codex resume 01a084f7-bdf1-7ad0-8882-e400af0c17d9` — round 1, adversarial-review, `--base origin/main`, 2026-09-09. Turn `01a084f7-becf-7440-b451-08b6e5ffb419`.
 
 ## Review
 
-- Target: <pending — Codex review runs after Michael applies and stage 2 regenerates types>
-- Diff lines excl. docs/sessions/: **170 + 1** — the migration file (170) plus one appended row in
+- Target: `branch diff against origin/main` — verbatim, printed and checked before any finding was read.
+- Diff lines excl. docs/sessions/: **171** — the migration file (170) plus one appended row in
   `docs/TODO.md`. Over the 150 cap, under the waiver below.
-- Verdict: <pending>
-- Findings: <pending>
-- codex-review-log row: <pending>
+- Verdict: `approve` — "No material findings."
+- Findings: **0**. Two next steps returned. Both triaged by Michael on 2026-09-09 and **closed** —
+  neither is outstanding, and neither changed the file:
+  1. **Post-COMMIT `ANALYZE` outside the transaction timeouts — ACCEPTED, file unchanged.** Codex is
+     factually correct that `SET LOCAL` dies at `COMMIT`, so `ANALYZE public.inspections;` runs with
+     no `lock_timeout` / `statement_timeout`. Accepted anyway on two grounds. **Lock:** `ANALYZE`
+     takes **SHARE UPDATE EXCLUSIVE** — it conflicts with other `ANALYZE`/`VACUUM` and with DDL, but
+     **not** with `SELECT`/`INSERT`/`UPDATE`/`DELETE`, so it never blocks application traffic. (Not
+     ACCESS SHARE; the conclusion is the same either way, the lock name is not.) **Size:** 44 rows /
+     432 kB on PROD, so it finishes in milliseconds. **And the remedy is worse than the defect:** a
+     bare `SET statement_timeout` outside the transaction is session-scoped, so it would leak past
+     this migration into whatever the Studio connection runs next — a durable, invisible change to
+     an unrelated session, traded for bounding a millisecond-scale statement. Accepted with
+     reasoning, not deferred.
+  2. **Disposable-database test before applying — ALREADY COVERED BY PLAN, not outstanding.** DEV
+     `ctppzqnysmzynkxjlzta` (2 rows) *is* the disposable database, and it takes the apply first with
+     V0 before and V1 after, before PROD is touched. That covers Codex's list exactly: mixed
+     NULL/non-NULL periods, unchanged timestamps, unchanged audit rows, rerun rejection via the
+     section 2 guard, and rollback.
+- Rounds: 1 of 2. Stopped at 1 — a second round on a zero-finding approve would re-litigate, not add.
+- **Base staleness — #653 observed live, and the fetch-before-review step is what caught it.** Local
+  `origin/main` was stale at `4119215` against a true remote head of `1551635`. A stale base widens
+  the diff and returns a verdict **indistinguishable from a correct one**: no error, no warning, a
+  confident `approve`. It was caught only because the base was checked against `git ls-remote` and
+  refreshed with a narrow `git fetch origin +refs/heads/main:refs/remotes/origin/main` **before** the
+  run, rather than assumed. Treat that fetch as part of the invocation, not a nicety. Here it
+  happened to cost nothing — after the fetch the merge base was still `7dfda73` and the count still
+  171 — but that was luck, not structure. Same failure family as the zsh focus-string split: both
+  produce a truncated or widened review that looks exactly like a complete one.
+- Focus-truncation check: focus single-quoted; the verdict addresses clauses after the first
+  semicolon (rerun guard, RLS, rollback), so the whole string reached Codex.
+- **The approve is a claim about the reviewer, not about the software.** Codex's own words, kept
+  verbatim and adjacent: "Section 3b detects incorrect copies, including NULL mismatches; it does not
+  prove trigger silence" and "Database behavior remains untested." Nothing in this migration has
+  executed anywhere. The trigger-free claim is settled only by V0/V1 on DEV after apply.
+- codex-review-log row: added 2026-09-09.
 - Cap waiver 1: PRE-GRANTED by Michael before the run, for the regenerated `src/integrations/supabase/types.ts` in stage 2 only. Every later unit holds the ~150 line cap.
 - **Cap waiver 2: GRANTED by Michael before the run**, for
   `20260908233000_inspections_per_item_equipment_days.sql`. Split at the time of granting:
