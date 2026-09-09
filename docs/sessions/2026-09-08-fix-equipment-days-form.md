@@ -189,3 +189,27 @@ matched its pre-declared base. Full rows in `docs/codex-review-log.md`.
 - Uncommitted files: docs/sessions/2026-09-08-fix-equipment-days-form.md (this file, until its own commit)
 - Untested: the running application. tsc 100 / 0 new, suite 76 files 1294 tests 1293 pass — but no preview deployment exists, so the 375px layout and the stepper end-to-end (set a period, save, reload, confirm the quote) have never executed outside jsdom
 <!-- resume:end -->
+
+## Correction appended 2026-09-09 — the shape ruling on line 24 was superseded
+
+**Line 24 of this log is historical and has been left exactly as written.** It reads:
+
+> Plan approved by Michael 2026-09-08. Shape ruled: one shared hire period, not per-item Days.
+
+That ruling was **superseded later on 2026-09-08** by Michael's decision to take the inspection
+per-item: four independent hire periods on `inspections`, matching the four independent actuals
+already on `job_completions`, so that dehumidifier, air mover and RCD stop being billed against a
+quoted figure that was never specific to them. The decision was stated as locked and not to be
+re-opened.
+
+The superseding work is on branch **`feat/per-item-equipment-days`** (worktree
+`~/mrc-per-item`), whose stage 1 wrote
+`supabase/migrations/20260908233000_inspections_per_item_equipment_days.sql` — adding
+`commercial_dehumidifier_days`, `air_movers_days`, `rcd_box_days` and `equipment_days_source` to
+`inspections` while keeping `equipment_days`. Its log is
+`docs/sessions/2026-09-08-feat-per-item-equipment-days.md`.
+
+Nothing in the work this log records is retracted: the shared-period stepper it shipped is what the
+per-item columns are backfilled **from**, and `equipment_days` is deliberately retained by that
+migration. Only the *shape ruling* on line 24 is out of date, and this note exists so a later reader
+finds the two logs consistent rather than contradictory.
