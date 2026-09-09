@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { collapseMultiDayJobs, type TechnicianJob } from '@/hooks/useTechnicianJobs';
+import { collapseMultiDayJobs, inThisWeek, type TechnicianJob } from '@/hooks/useTechnicianJobs';
 
 function makeJob(overrides: Partial<TechnicianJob> = {}): TechnicianJob {
   return {
@@ -160,5 +160,43 @@ describe('collapseMultiDayJobs', () => {
     const otherSeries = makeSeries(2, '2026-06-10', { leadId: 'lead-A', inspectionId: 'insp-B', eventType: 'job' });
     const result = collapseMultiDayJobs([...jobSeries, ...otherSeries], '2026-06-02');
     expect(result).toHaveLength(2);
+  });
+});
+
+// Melbourne week of Mon 2026-06-08 - Sun 2026-06-14, viewed on Wed 2026-06-10.
+const TODAY = '2026-06-10';
+const WEEK_START = '2026-06-08';
+const WEEK_END = '2026-06-14';
+const STALE_JOB_DATE = '2026-06-09';
+
+describe('inThisWeek', () => {
+  it('should exclude a job dated earlier this week so overdue is its only tab', () => {
+    expect(inThisWeek(STALE_JOB_DATE, WEEK_START, WEEK_END, TODAY)).toBe(false);
+  });
+
+  it('should include a job dated today', () => {
+    expect(inThisWeek(TODAY, WEEK_START, WEEK_END, TODAY)).toBe(true);
+  });
+
+  it('should include a job dated later this week', () => {
+    expect(inThisWeek(WEEK_END, WEEK_START, WEEK_END, TODAY)).toBe(true);
+  });
+
+  it('should exclude a job dated after the week ends', () => {
+    expect(inThisWeek('2026-06-15', WEEK_START, WEEK_END, TODAY)).toBe(false);
+  });
+
+  it('should exclude a job dated before the week starts', () => {
+    expect(inThisWeek('2026-06-07', WEEK_START, WEEK_END, TODAY)).toBe(false);
+  });
+
+  it('should leave the stale job out of the this-week count', () => {
+    const dates = [STALE_JOB_DATE, TODAY, WEEK_END];
+    const thisWeek = dates.filter((d) => inThisWeek(d, WEEK_START, WEEK_END, TODAY));
+    expect(thisWeek).toEqual([TODAY, WEEK_END]);
+  });
+
+  it('should place the stale job in overdue, matching the overdue predicate', () => {
+    expect(STALE_JOB_DATE < TODAY).toBe(true);
   });
 });

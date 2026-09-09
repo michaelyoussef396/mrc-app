@@ -211,6 +211,24 @@ export function collapseMultiDayJobs(
   return combined;
 }
 
+/**
+ * This Week bound: today - end-of-week. The `>= today` clamp keeps overdue
+ * (past-dated) jobs out of This Week so Overdue stays the single home for
+ * stale work - non-overlapping tabs, matching inThisMonth.
+ *
+ * All operands are Melbourne YYYY-MM-DD strings compared lexicographically.
+ *
+ * Pure function - exported for unit testing.
+ */
+export function inThisWeek(
+  jobDate: string,
+  weekStart: string,
+  weekEnd: string,
+  today: string,
+): boolean {
+  return jobDate >= weekStart && jobDate <= weekEnd && jobDate >= today;
+}
+
 // ============================================================================
 // HOOK
 // ============================================================================
@@ -421,7 +439,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
       case 'today':
         return job.date === today;
       case 'this_week':
-        return job.date >= weekStart && job.date <= weekEnd;
+        return inThisWeek(job.date, weekStart, weekEnd, today);
       case 'this_month':
         return inThisMonth(job.date);
       case 'overdue':
@@ -437,7 +455,7 @@ export function useTechnicianJobs(activeTab: TabFilter): UseTechnicianJobsResult
 
   const counts = {
     today: allJobs.filter((j) => j.date === today).length,
-    thisWeek: allJobs.filter((j) => j.date >= weekStart && j.date <= weekEnd).length,
+    thisWeek: allJobs.filter((j) => inThisWeek(j.date, weekStart, weekEnd, today)).length,
     thisMonth: allJobs.filter((j) => inThisMonth(j.date)).length,
     overdue: allJobs.filter((j) => j.date < today).length,
     pendingReview: allJobs.filter((j) => j.leadStatus === 'pending_review').length,
