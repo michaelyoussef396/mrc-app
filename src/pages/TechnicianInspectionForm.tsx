@@ -3999,9 +3999,16 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
   // Read by the Complete flow so it never reports "Inspection Complete" on
   // top of a save that only exists on this device.
   const lastSaveFailedOfflineRef = useRef(false);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const handleSave = async (options?: { silent?: boolean }): Promise<string | null> => {
     if (!leadId || !user) return null;
+    // Reserve invocation order before awaiting; each call retains its own formData.
+    // The queue includes every child write and releases even when a save fails.
+    const previousSave = saveQueueRef.current;
+    let releaseSave!: () => void;
+    saveQueueRef.current = new Promise<void>((resolve) => { releaseSave = resolve; });
+    await previousSave;
     setIsSaving(true);
 
     try {
@@ -4568,6 +4575,7 @@ export default function TechnicianInspectionForm({ adminMode = false }: Technici
       return currentInspectionId;
     } finally {
       setIsSaving(false);
+      releaseSave();
     }
   };
 
