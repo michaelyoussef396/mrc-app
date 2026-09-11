@@ -12,7 +12,7 @@
 
 ## Intent
 
-P2-39 Unit 1: distinguish missing attribution from known website/system origins in full and compact timelines. Unit 2: read-only writer inventory for a later unit, after the inspection-form lane merges.
+P2-39 Unit 1: distinguish missing attribution from known website/system origins in full and compact timelines. Unit 2: read-only writer inventory for a later unit. The initial inspection-form merge dependency is reconsidered in Michael's accepted correction below.
 
 ## Touching
 
@@ -36,6 +36,7 @@ P2-39 Unit 1: distinguish missing attribution from known website/system origins 
 - 09:29 · codex · [codex] · record concurrent read-only delegation already started during setup · src and supabase/functions writer sites (read only) · writer_recon will return report; parent logs on its behalf because Unit 2 forbids agent writes.
 - [writer_recon] 09:29 · codex · writer_recon · trace six activity types and website/system evidence at dedd0a3 · src and supabase/functions (read only) · investigation in progress, no files written.
 - 09:29 · codex · [codex] · Unit 1 test-first · ActivityTimeline.test.tsx · next: demonstrate missing actor labels before changing either source file.
+- 09:43 · codex · [codex] · Michael accepted implementation commit `4d2594c`; document his explicit correction to the brief, concrete actor retrieval, cheapest first writer and revised overlap dependency · this session log only · documentation follow-up; no writer implementation or additional tests requested.
 
 ## What I did
 
@@ -69,7 +70,7 @@ None yet. No Supabase, Vercel, push, merge, deploy or PR command executed.
 
 ## Scoped OUT and why
 
-- All writer changes wait for the other lane to merge, as explicitly requested.
+- Writer implementation remains outside this completed session. The original instruction to wait for the other lane's merge is reconsidered by Michael's accepted correction below; it is not an established dependency of the eight identified insert sites.
 - `src/pages/TechnicianInspectionForm.tsx` is read-only and belongs to another session.
 - No migrations or database investigation: PROD findings supplied by Michael, not re-queried.
 - No TODO or codex-review-log edits, per author brief.
@@ -95,7 +96,7 @@ Eight direct insert sites across the six requested types; all are browser action
 
 Auth evidence: `src/App.tsx:144–153` protects LeadsManagement, `:108–115` protects AdminSchedule; `src/components/ProtectedRoute.tsx:5,18–22` checks user and `src/components/RoleProtectedRoute.tsx:22,38–39,77–85` checks session/role. Recoverable means the session API is available, not that the current insert validates a fresh user ID.
 
-The user-supplied Technician location is a base-specific difference: `src/pages/TechnicianInspectionForm.tsx:4751–4757` calls `logFieldEdits`, which resolves auth at `src/lib/api/fieldEditLog.ts:77–78` and writes `field_edit` with user ID at `:90–96`. The page has user at `:2968`. Read only, no change, and the writer half still waits for that lane to merge.
+The user-supplied Technician location is a base-specific difference: `src/pages/TechnicianInspectionForm.tsx:4751–4757` calls `logFieldEdits`, which resolves auth at `src/lib/api/fieldEditLog.ts:77–78` and writes `field_edit` with user ID at `:90–96`. The page has user at `:2968`. Read only, no change. The original merge-wait instruction is reconsidered in the accepted correction below.
 
 Correctly anonymous automation outside these six: `supabase/functions/check-overdue-invoices/index.ts:390–395,429–436` writes `invoice_overdue`/`invoice_milestone`. There is no human acting user. A configured system UUID exists at `:203`, not a human identity. Those are the only current app/Edge writers of those activity types.
 
@@ -104,9 +105,21 @@ Website origin evidence: `supabase/functions/receive-framer-lead/index.ts:824` w
 - [writer_recon] 09:32 · codex · writer_recon · read-only Unit 2 completed at dedd0a3 · writer/caller/auth and Edge paths listed above, plus `src/lib/api/jobCompletions.ts` and `src/lib/api/invoices.ts` · eight direct inserts located; no files written, tests run, database tools used, or writer changes made; parent transcribed this report.
 - 09:32 · codex · [codex] · record writer_recon return · this session log · writer work remains deferred until other lane merges.
 
+## Accepted correction to the written brief — Michael, 2026-09-12
+
+**The recon overturns the brief's claim that some of the six activity types are correctly anonymous cron/Edge actions. That claim is FALSE for all six: there are eight insert sites, all browser actions, all fixable. The writer unit changes from "fix what you can, some are legitimately null" to "all eight are fixable".** The genuinely anonymous writers are `invoice_overdue` and `invoice_milestone`, which are not among the six. This is Michael's accepted correction to the written instruction, recorded explicitly for Sunday's reviewer, not merely an untriaged finding.
+
+Concrete meaning of **session recoverable** for the six sites described that way: use the existing browser Supabase client to call `await supabase.auth.getUser()` in the acting handler, obtain `data.user.id`, and pass that ID as `activities.user_id`. The six are the four LeadsManagement handlers (`updateLeadStatus`, `handleApproveJobReport`, `confirmArchive`, `handleNotProceeding`), `EventDetailsPanel.handleCancelBooking`, and `useJobCompletionForm.handleSubmit`. Resolve the actor at the start of that action, before its business writes; handle an auth error or missing user through the action's existing failure flow rather than treating it as legitimate anonymity. This is retrieval guidance for the future writer unit, not code implemented or a claim that every future runtime session will still be authenticated.
+
+For `bookingService.bookInspection`, the caller already has `user` from `useAuth()` at `LeadBookingCard.tsx:102`: pass that acting `user.id` from `performBooking` (`:543–557`) into the service and its activity insert. Do not substitute the assigned `technicianId`, `authorName`, lead creator or draft creator for the acting user's ID.
+
+**Start with `ViewReportPDF.tsx:910`. It is the cheapest of the eight and the natural first writer fix:** `handleApprove` already fetches user at `:904` and uses `user?.id` in the adjacent approval write at `:908`. Reuse that locally fetched actor for the activity insert; no additional auth lookup or caller-parameter plumbing is needed. Missing-user handling still belongs to the authenticated action, not a System fallback.
+
+**Revised overlap/dependency:** `TechnicianInspectionForm.tsx:4751` calls the already-attributed `field_edit` helper; it is not one of these eight missing-actor insert sites at `dedd0a3`. The file-overlap concern that originally scoped this lane may therefore not apply at all, and the writer unit may not need to wait for the other lane to merge. Recheck current ownership and paths when that unit starts; the recon does not establish a necessary merge dependency. This does not authorize this finished session to touch the inspection form or begin writer changes.
+
 ## Resume from here
 
-Unit 1 implemented and all required checks completed; Unit 2 read-only report above complete. Next substantive action: Claude reviews the local branch against `dedd0a3` on return. If HEAD still equals the baseline and these four paths remain staged, the pending final command is `git commit -m 'fix: distinguish timeline actors from missing attribution'`; otherwise that commit completed. Writer changes remain deferred until the other lane merges.
+Implementation commit `4d2594c` is complete and accepted by Michael: 22 source / 80 test lines, failures shown first, all 41 tests passing, ten mutations caught. Unit 2 recon and the accepted correction above are complete. This follow-up changes only the log and ends the session. Claude reviews the local branch against `dedd0a3` on return. A future writer unit addresses all eight sites, naturally starting at ViewReportPDF, and rechecks ownership without assuming the old inspection-form merge dependency.
 
 ## Baseline normalized TypeScript error set
 
