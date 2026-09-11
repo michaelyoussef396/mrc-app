@@ -173,6 +173,31 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
+    async function suppressionResponse(reason: string): Promise<Response> {
+      try {
+        const { error } = await supabase.from('email_logs').insert({
+          recipient_email: to,
+          subject,
+          template_name: templateName || 'custom',
+          status: 'suppressed',
+          provider: 'resend',
+          provider_message_id: null,
+          error_message: reason,
+          lead_id: leadId || null,
+          inspection_id: inspectionId || null,
+          sent_by: userId || null,
+          sent_at: new Date().toISOString(),
+        })
+        if (error) throw error
+      } catch (error) {
+        console.error('[send-email] Failed to record suppression', error?.code || 'unknown', error)
+      }
+      return new Response(
+        JSON.stringify({ error: reason }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Rate limiting: max 1 email to same recipient per 5 minutes
     // Skipped when admin explicitly confirms a resend via DuplicateSendDialog
     if (!bypassRecipientRateLimit) {
@@ -186,10 +211,7 @@ Deno.serve(async (req) => {
         .limit(1)
 
       if (recentToRecipient && recentToRecipient.length > 0) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit: wait 5 minutes before resending to same recipient' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        return suppressionResponse('Rate limit: wait 5 minutes before resending to same recipient')
       }
     }
 
@@ -202,10 +224,7 @@ Deno.serve(async (req) => {
       .gt('sent_at', oneHourAgo)
 
     if ((hourlyCount || 0) >= 100) {
-      return new Response(
-        JSON.stringify({ error: 'Rate limit exceeded: 100 emails per hour' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return suppressionResponse('Rate limit exceeded: 100 emails per hour')
     }
 
     // Send email via Resend with retry
