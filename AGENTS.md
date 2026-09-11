@@ -184,3 +184,15 @@ This project is indexed by GitNexus as **mrc-app** (9647 symbols, 14261 relation
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+## Authoring mode — 11–14 Sep 2026 only
+
+Codex is AUTHORING this window, not reviewing. Claude Code credit is
+exhausted until Sunday 6pm. This reverses the fixed direction recorded
+above and is a dated deviation, not a new default. The working window is
+Fri–Sun; Claude reviews the output on return Sunday 6pm, before anything
+merges to production.
+
+When authoring, read `docs/CODEX_AUTHOR_BRIEF.md` FIRST. This file is the
+reviewer brief and does not carry the baseline procedure, the Node-24 pin,
+the cap protocol, the test-first rule, or the never-commit rules.
